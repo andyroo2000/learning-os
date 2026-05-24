@@ -34,6 +34,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate --ansi
+
       - name: Install Node dependencies
         run: npm ci
 

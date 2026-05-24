@@ -38,6 +38,8 @@ npm run build
 
 ## Architecture Direction
 
+See [docs/architecture.md](docs/architecture.md) for the current platform architecture notes.
+
 - Keep controllers focused on HTTP concerns.
 - Put business operations in actions or services.
 - Keep persistence in models and migrations.

@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DeckTest extends TestCase
@@ -28,6 +29,9 @@ class DeckTest extends TestCase
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
+
+        $this->assertIsString($deck->id);
+        $this->assertTrue(Str::isUlid($deck->id));
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,

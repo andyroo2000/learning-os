@@ -24,6 +24,12 @@ Policies handle authorization. Avoid embedding product-specific access rules in 
 
 Resources or transformers define API response shape. Responses should be deterministic and friendly to mobile clients.
 
+## Identifiers
+
+Use ULID primary keys for sync-facing domain models. Mobile clients may generate ULIDs while offline, and APIs should treat those identifiers as opaque strings.
+
+Keep resource identifiers separate from idempotency identifiers. A deck ID identifies a deck; a future `client_event_id` identifies a client write attempt that may be retried.
+
 ## Domain Boundaries
 
 Shared domains should hold behavior that can reasonably serve multiple products:

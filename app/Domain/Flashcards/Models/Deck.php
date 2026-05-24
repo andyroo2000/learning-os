@@ -4,6 +4,7 @@ namespace App\Domain\Flashcards\Models;
 
 use Database\Factories\DeckFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 class Deck extends Model
 {
     /** @use HasFactory<DeckFactory> */
-    use HasFactory;
+    use HasFactory, HasUlids;
 
     protected static function newFactory(): DeckFactory
     {

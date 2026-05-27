@@ -3,6 +3,7 @@
 namespace App\Domain\Reviews\Models;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Enums\CardReviewRating;
 use Database\Factories\CardReviewEventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -35,6 +36,7 @@ class CardReviewEvent extends Model
     protected function casts(): array
     {
         return [
+            'rating' => CardReviewRating::class,
             'reviewed_at' => 'datetime',
         ];
     }

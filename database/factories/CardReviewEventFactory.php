@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -22,7 +23,7 @@ class CardReviewEventFactory extends Factory
     {
         return [
             'card_id' => Card::factory(),
-            'rating' => fake()->randomElement(['again', 'hard', 'good', 'easy']),
+            'rating' => fake()->randomElement(CardReviewRating::cases()),
             'reviewed_at' => now(),
         ];
     }

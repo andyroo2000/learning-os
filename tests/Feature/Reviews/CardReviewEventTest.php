@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -38,6 +39,7 @@ class CardReviewEventTest extends TestCase
 
         $this->assertIsString($event->id);
         $this->assertTrue(Str::isUlid($event->id));
+        $this->assertSame(CardReviewRating::Good, $event->rating);
 
         $this->assertDatabaseHas('card_review_events', [
             'id' => $event->id,

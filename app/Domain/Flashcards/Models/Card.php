@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Domain\Flashcards\Models;
+
+use Database\Factories\CardFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Fillable(['deck_id', 'front_text', 'back_text'])]
+class Card extends Model
+{
+    /** @use HasFactory<CardFactory> */
+    use HasFactory, HasUlids;
+
+    protected static function newFactory(): CardFactory
+    {
+        return CardFactory::new();
+    }
+
+    /**
+     * @return BelongsTo<Deck, $this>
+     */
+    public function deck(): BelongsTo
+    {
+        return $this->belongsTo(Deck::class);
+    }
+}

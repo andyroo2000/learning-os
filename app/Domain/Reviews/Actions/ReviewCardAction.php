@@ -35,10 +35,36 @@ class ReviewCardAction
             throw new InvalidArgumentException('Review event ID must be a valid ULID.');
         }
 
+        $hasSyncMetadata = $data->clientEventId !== null
+            || $data->deviceId !== null
+            || $data->clientCreatedAt !== null;
+
+        $hasCompleteSyncMetadata = $data->clientEventId !== null
+            && $data->deviceId !== null
+            && $data->clientCreatedAt !== null;
+
+        if ($hasSyncMetadata && ! $hasCompleteSyncMetadata) {
+            throw new InvalidArgumentException('Client event ID, device ID, and client created at must be provided together.');
+        }
+
+        if ($hasCompleteSyncMetadata) {
+            $existingReviewEvent = CardReviewEvent::query()
+                ->where('client_event_id', $data->clientEventId)
+                ->where('device_id', $data->deviceId)
+                ->first();
+
+            if ($existingReviewEvent !== null) {
+                return $existingReviewEvent;
+            }
+        }
+
         $reviewEvent = new CardReviewEvent([
             'card_id' => $data->cardId,
             'rating' => $rating,
             'reviewed_at' => $data->reviewedAt,
+            'client_event_id' => $data->clientEventId,
+            'device_id' => $data->deviceId,
+            'client_created_at' => $data->clientCreatedAt,
         ]);
 
         if ($data->id !== null) {

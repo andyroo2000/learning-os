@@ -24,25 +24,4 @@ class StoreCardRequest extends FormRequest
             'back_text' => ['required', 'string'],
         ];
     }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'id' => $this->normalizeOptionalString($this->input('id')),
-            'deck_id' => is_string($this->input('deck_id')) ? trim($this->input('deck_id')) : $this->input('deck_id'),
-            'front_text' => is_string($this->input('front_text')) ? trim($this->input('front_text')) : $this->input('front_text'),
-            'back_text' => is_string($this->input('back_text')) ? trim($this->input('back_text')) : $this->input('back_text'),
-        ]);
-    }
-
-    private function normalizeOptionalString(mixed $value): mixed
-    {
-        if (! is_string($value)) {
-            return $value;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

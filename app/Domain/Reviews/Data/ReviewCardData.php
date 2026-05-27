@@ -12,6 +12,9 @@ final readonly class ReviewCardData
         public string $rating,
         public Carbon $reviewedAt,
         public ?string $id = null,
+        public ?string $clientEventId = null,
+        public ?string $deviceId = null,
+        public ?Carbon $clientCreatedAt = null,
     ) {}
 
     public static function fromInput(
@@ -19,12 +22,18 @@ final readonly class ReviewCardData
         string $rating,
         DateTimeInterface|string $reviewedAt,
         ?string $id = null,
+        ?string $clientEventId = null,
+        ?string $deviceId = null,
+        DateTimeInterface|string|null $clientCreatedAt = null,
     ): self {
         return new self(
             cardId: trim($cardId),
             rating: trim($rating),
             reviewedAt: Carbon::parse($reviewedAt),
             id: $id === null ? null : trim($id),
+            clientEventId: blank($clientEventId) ? null : trim($clientEventId),
+            deviceId: blank($deviceId) ? null : trim($deviceId),
+            clientCreatedAt: blank($clientCreatedAt) ? null : Carbon::parse($clientCreatedAt),
         );
     }
 }

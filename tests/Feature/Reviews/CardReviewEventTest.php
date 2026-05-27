@@ -21,6 +21,9 @@ class CardReviewEventTest extends TestCase
             'card_id',
             'rating',
             'reviewed_at',
+            'client_event_id',
+            'device_id',
+            'client_created_at',
             'created_at',
             'updated_at',
         ]));
@@ -46,6 +49,9 @@ class CardReviewEventTest extends TestCase
             'card_id' => $card->id,
             'rating' => 'good',
             'reviewed_at' => $reviewedAt->toDateTimeString(),
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
         ]);
     }
 

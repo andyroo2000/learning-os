@@ -20,6 +20,9 @@ class StoreCardReviewEventController extends Controller
             rating: $data['rating'],
             reviewedAt: $data['reviewed_at'],
             id: $data['id'] ?? null,
+            clientEventId: $data['client_event_id'] ?? null,
+            deviceId: $data['device_id'] ?? null,
+            clientCreatedAt: $data['client_created_at'] ?? null,
         ));
 
         return CardReviewEventResource::make($reviewEvent)

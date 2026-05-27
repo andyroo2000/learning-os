@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Resources\Flashcards;
+namespace App\Http\Resources\Media;
 
-use App\Http\Resources\Media\MediaAssetResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class CardResource extends JsonResource
+class MediaAssetResource extends JsonResource
 {
     /**
      * @return array<string, mixed>
@@ -15,10 +14,12 @@ class CardResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'deck_id' => $this->deck_id,
-            'front_text' => $this->front_text,
-            'back_text' => $this->back_text,
-            'media_assets' => MediaAssetResource::collection($this->whenLoaded('mediaAssets')),
+            'disk' => $this->disk,
+            'path' => $this->path,
+            'mime_type' => $this->mime_type,
+            'size_bytes' => $this->size_bytes,
+            'checksum_sha256' => $this->checksum_sha256,
+            'original_filename' => $this->original_filename,
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];

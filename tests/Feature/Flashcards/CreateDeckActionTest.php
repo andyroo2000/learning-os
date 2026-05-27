@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\CreateDeckAction;
+use App\Domain\Flashcards\Data\CreateDeckData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -15,7 +16,9 @@ class CreateDeckActionTest extends TestCase
     public function test_it_creates_a_deck_with_a_name(): void
     {
         $deck = app(CreateDeckAction::class)->handle(
-            name: 'Italian Basics',
+            CreateDeckData::fromInput(
+                name: 'Italian Basics',
+            ),
         );
 
         $this->assertTrue(Str::isUlid($deck->id));
@@ -30,8 +33,10 @@ class CreateDeckActionTest extends TestCase
     public function test_it_creates_a_deck_with_a_description(): void
     {
         $deck = app(CreateDeckAction::class)->handle(
-            name: 'Italian Basics',
-            description: 'Foundational Italian review cards.',
+            CreateDeckData::fromInput(
+                name: 'Italian Basics',
+                description: 'Foundational Italian review cards.',
+            ),
         );
 
         $this->assertDatabaseHas('decks', [
@@ -46,8 +51,10 @@ class CreateDeckActionTest extends TestCase
         $id = strtolower((string) Str::ulid());
 
         $deck = app(CreateDeckAction::class)->handle(
-            name: 'Italian Basics',
-            id: $id,
+            CreateDeckData::fromInput(
+                name: 'Italian Basics',
+                id: $id,
+            ),
         );
 
         $this->assertSame($id, $deck->id);
@@ -61,8 +68,10 @@ class CreateDeckActionTest extends TestCase
     public function test_it_trims_text_inputs(): void
     {
         $deck = app(CreateDeckAction::class)->handle(
-            name: '  Italian Basics  ',
-            description: '  Foundational Italian review cards.  ',
+            CreateDeckData::fromInput(
+                name: '  Italian Basics  ',
+                description: '  Foundational Italian review cards.  ',
+            ),
         );
 
         $this->assertSame('Italian Basics', $deck->name);
@@ -72,8 +81,10 @@ class CreateDeckActionTest extends TestCase
     public function test_it_stores_blank_description_as_null(): void
     {
         $deck = app(CreateDeckAction::class)->handle(
-            name: 'Italian Basics',
-            description: '   ',
+            CreateDeckData::fromInput(
+                name: 'Italian Basics',
+                description: '   ',
+            ),
         );
 
         $this->assertNull($deck->description);
@@ -84,7 +95,9 @@ class CreateDeckActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Deck name is required.');
 
-        app(CreateDeckAction::class)->handle(name: '   ');
+        app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(name: '   '),
+        );
     }
 
     public function test_it_rejects_invalid_provided_ulid(): void
@@ -93,8 +106,10 @@ class CreateDeckActionTest extends TestCase
         $this->expectExceptionMessage('Deck ID must be a valid ULID.');
 
         app(CreateDeckAction::class)->handle(
-            name: 'Italian Basics',
-            id: 'not-a-ulid',
+            CreateDeckData::fromInput(
+                name: 'Italian Basics',
+                id: 'not-a-ulid',
+            ),
         );
     }
 }

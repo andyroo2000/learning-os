@@ -2,32 +2,30 @@
 
 namespace App\Domain\Flashcards\Actions;
 
+use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class CreateDeckAction
 {
-    public function handle(string $name, ?string $description = null, ?string $id = null): Deck
+    public function handle(CreateDeckData $data): Deck
     {
-        $name = trim($name);
-        $description = $description === null ? null : trim($description);
-
-        if ($name === '') {
+        if ($data->name === '') {
             throw new InvalidArgumentException('Deck name is required.');
         }
 
-        if ($id !== null && ! Str::isUlid($id)) {
+        if ($data->id !== null && ! Str::isUlid($data->id)) {
             throw new InvalidArgumentException('Deck ID must be a valid ULID.');
         }
 
         $deck = new Deck([
-            'name' => $name,
-            'description' => $description === '' ? null : $description,
+            'name' => $data->name,
+            'description' => $data->description === '' ? null : $data->description,
         ]);
 
-        if ($id !== null) {
-            $deck->id = $id;
+        if ($data->id !== null) {
+            $deck->id = $data->id;
         }
 
         $deck->save();

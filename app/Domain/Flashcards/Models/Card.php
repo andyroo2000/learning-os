@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Models;
 
+use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['deck_id', 'front_text', 'back_text'])]
@@ -36,5 +38,14 @@ class Card extends Model
     public function reviewEvents(): HasMany
     {
         return $this->hasMany(CardReviewEvent::class);
+    }
+
+    /**
+     * @return BelongsToMany<MediaAsset, $this>
+     */
+    public function mediaAssets(): BelongsToMany
+    {
+        return $this->belongsToMany(MediaAsset::class, 'card_media')
+            ->withTimestamps();
     }
 }

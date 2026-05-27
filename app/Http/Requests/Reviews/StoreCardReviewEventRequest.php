@@ -23,27 +23,9 @@ class StoreCardReviewEventRequest extends FormRequest
             'card_id' => ['required', 'ulid', Rule::exists('cards', 'id')],
             'rating' => ['required', Rule::enum(CardReviewRating::class)],
             'reviewed_at' => ['required', 'date'],
+            'client_event_id' => ['nullable', 'string', 'required_with:device_id,client_created_at'],
+            'device_id' => ['nullable', 'string', 'required_with:client_event_id,client_created_at'],
+            'client_created_at' => ['nullable', 'date', 'required_with:client_event_id,device_id'],
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'id' => $this->normalizeOptionalString($this->input('id')),
-            'card_id' => is_string($this->input('card_id')) ? trim($this->input('card_id')) : $this->input('card_id'),
-            'rating' => is_string($this->input('rating')) ? trim($this->input('rating')) : $this->input('rating'),
-            'reviewed_at' => is_string($this->input('reviewed_at')) ? trim($this->input('reviewed_at')) : $this->input('reviewed_at'),
-        ]);
-    }
-
-    private function normalizeOptionalString(mixed $value): mixed
-    {
-        if (! is_string($value)) {
-            return $value;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

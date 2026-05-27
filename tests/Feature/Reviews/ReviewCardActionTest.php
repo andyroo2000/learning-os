@@ -62,6 +62,69 @@ class ReviewCardActionTest extends TestCase
         ]);
     }
 
+    public function test_it_stores_client_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+        $clientCreatedAt = Carbon::parse('2026-05-27 09:14:00');
+
+        $reviewEvent = app(ReviewCardAction::class)->handle(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27 09:15:00',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: $clientCreatedAt,
+            ),
+        );
+
+        $this->assertSame('event-123', $reviewEvent->client_event_id);
+        $this->assertSame('device-abc', $reviewEvent->device_id);
+        $this->assertTrue($clientCreatedAt->equalTo($reviewEvent->client_created_at));
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $reviewEvent->id,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+    }
+
+    public function test_it_is_idempotent_for_the_same_client_event_and_device(): void
+    {
+        $card = Card::factory()->create();
+
+        $firstReviewEvent = app(ReviewCardAction::class)->handle(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27 09:15:00',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27 09:14:00',
+            ),
+        );
+
+        $secondReviewEvent = app(ReviewCardAction::class)->handle(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'easy',
+                reviewedAt: '2026-05-27 09:20:00',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27 09:19:00',
+            ),
+        );
+
+        $this->assertTrue($firstReviewEvent->is($secondReviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $firstReviewEvent->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27 09:15:00',
+        ]);
+    }
+
     public function test_it_trims_text_inputs(): void
     {
         $card = Card::factory()->create();
@@ -151,6 +214,23 @@ class ReviewCardActionTest extends TestCase
                 cardId: $card->id,
                 rating: 'medium',
                 reviewedAt: '2026-05-27 09:15:00',
+            ),
+        );
+    }
+
+    public function test_it_rejects_partial_client_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
+
+        app(ReviewCardAction::class)->handle(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27 09:15:00',
+                clientEventId: 'event-123',
             ),
         );
     }

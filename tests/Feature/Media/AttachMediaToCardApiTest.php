@@ -119,7 +119,7 @@ class AttachMediaToCardApiTest extends TestCase
                     connectionName: 'sqlite',
                     sql: 'insert into card_media',
                     bindings: [],
-                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation'),
+                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation', 23000),
                 );
             }
         });

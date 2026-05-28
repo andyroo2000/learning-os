@@ -14,6 +14,7 @@ class MediaAssetResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // Omit unavailable URLs so clients do not cache a null access value.
             'url' => $this->when($this->public_url !== null, fn () => $this->public_url),
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,

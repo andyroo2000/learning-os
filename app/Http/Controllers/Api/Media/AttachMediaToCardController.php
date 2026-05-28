@@ -27,7 +27,10 @@ class AttachMediaToCardController extends Controller
                 mediaAsset: $mediaAsset,
             ));
         } catch (QueryException $exception) {
-            if (! $mediaAsset->newQuery()->whereKey($mediaAsset->getKey())->exists()) {
+            if (
+                str_starts_with((string) $exception->getCode(), '23')
+                && ! $mediaAsset->newQuery()->whereKey($mediaAsset->getKey())->exists()
+            ) {
                 throw ValidationException::withMessages([
                     'media_asset_id' => 'The selected media asset id is invalid.',
                 ]);

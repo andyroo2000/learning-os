@@ -44,4 +44,23 @@ class AttachMediaToCardActionTest extends TestCase
 
         $this->assertDatabaseCount('card_media', 1);
     }
+
+    public function test_it_loads_media_assets_in_id_order(): void
+    {
+        $card = Card::factory()->create();
+        $firstMediaAsset = MediaAsset::factory()->create();
+        $secondMediaAsset = MediaAsset::factory()->create();
+
+        $card->mediaAssets()->attach($secondMediaAsset->id);
+
+        $updatedCard = app(AttachMediaToCardAction::class)->handle(
+            AttachMediaToCardData::fromModels($card, $firstMediaAsset),
+        );
+        $expectedMediaAssetIds = collect([$firstMediaAsset->id, $secondMediaAsset->id])
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame($expectedMediaAssetIds, $updatedCard->mediaAssets->pluck('id')->all());
+    }
 }

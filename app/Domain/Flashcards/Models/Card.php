@@ -46,6 +46,7 @@ class Card extends Model
     public function mediaAssets(): BelongsToMany
     {
         return $this->belongsToMany(MediaAsset::class, 'card_media')
+            ->orderBy('media_assets.id')
             ->withTimestamps();
     }
 }

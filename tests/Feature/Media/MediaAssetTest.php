@@ -18,6 +18,7 @@ class MediaAssetTest extends TestCase
             'id',
             'disk',
             'path',
+            'public_url',
             'mime_type',
             'size_bytes',
             'checksum_sha256',
@@ -32,6 +33,7 @@ class MediaAssetTest extends TestCase
         $asset = MediaAsset::factory()->create([
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
+            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),
@@ -45,6 +47,7 @@ class MediaAssetTest extends TestCase
             'id' => $asset->id,
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
+            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),

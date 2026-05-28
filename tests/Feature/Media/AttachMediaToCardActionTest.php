@@ -5,10 +5,10 @@ namespace Tests\Feature\Media;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Exceptions\CannotAttachMediaToCard;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class AttachMediaToCardActionTest extends TestCase
@@ -70,7 +70,7 @@ class AttachMediaToCardActionTest extends TestCase
 
     public function test_it_rejects_invalid_card_ulid(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(CannotAttachMediaToCard::class);
         $this->expectExceptionMessage('Card ID must be a valid ULID.');
 
         app(AttachMediaToCardAction::class)->handle(
@@ -83,7 +83,7 @@ class AttachMediaToCardActionTest extends TestCase
 
     public function test_it_rejects_invalid_media_asset_ulid(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(CannotAttachMediaToCard::class);
         $this->expectExceptionMessage('Media asset ID must be a valid ULID.');
 
         app(AttachMediaToCardAction::class)->handle(
@@ -98,7 +98,7 @@ class AttachMediaToCardActionTest extends TestCase
     {
         $mediaAsset = MediaAsset::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(CannotAttachMediaToCard::class);
         $this->expectExceptionMessage('Card does not exist.');
 
         app(AttachMediaToCardAction::class)->handle(
@@ -113,7 +113,7 @@ class AttachMediaToCardActionTest extends TestCase
     {
         $card = Card::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(CannotAttachMediaToCard::class);
         $this->expectExceptionMessage('Media asset does not exist.');
 
         app(AttachMediaToCardAction::class)->handle(

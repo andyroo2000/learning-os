@@ -25,6 +25,7 @@ class MediaAssetFactory extends Factory
         return [
             'disk' => 'media',
             'path' => 'uploads/'.$filename,
+            'public_url' => null,
             'mime_type' => fake()->randomElement([
                 'audio/mpeg',
                 'image/jpeg',

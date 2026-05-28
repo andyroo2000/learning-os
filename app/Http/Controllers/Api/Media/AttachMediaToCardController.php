@@ -2,37 +2,36 @@
 
 namespace App\Http\Controllers\Api\Media;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Exceptions\CannotAttachMediaToCard;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\AttachMediaToCardRequest;
 use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
 class AttachMediaToCardController extends Controller
 {
     public function __invoke(
         AttachMediaToCardRequest $request,
         AttachMediaToCardAction $attachMediaToCard,
-        string $card,
+        Card $card,
     ): JsonResponse {
         $data = $request->validated();
 
         try {
             $updatedCard = $attachMediaToCard->handle(AttachMediaToCardData::fromInput(
-                cardId: $card,
+                cardId: $card->id,
                 mediaAssetId: $data['media_asset_id'],
             ));
-        } catch (InvalidArgumentException $exception) {
+        } catch (CannotAttachMediaToCard $exception) {
             throw ValidationException::withMessages([
-                'card_id' => [$exception->getMessage()],
+                $exception->field() => [$exception->getMessage()],
             ]);
         }
 
-        return CardResource::make($updatedCard)
-            ->response()
-            ->setStatusCode(200);
+        return CardResource::make($updatedCard)->response();
     }
 }

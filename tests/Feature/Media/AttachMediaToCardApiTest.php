@@ -67,6 +67,40 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 1);
     }
 
+    public function test_it_preserves_existing_attachments_when_adding_another_media_asset(): void
+    {
+        $card = Card::factory()->create();
+        $firstMediaAsset = MediaAsset::factory()->create();
+        $secondMediaAsset = MediaAsset::factory()->create([
+            'public_url' => 'https://cdn.example.test/uploads/second.jpg',
+        ]);
+
+        $card->mediaAssets()->attach($firstMediaAsset->id);
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $secondMediaAsset->id,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data.media_assets')
+            ->assertJsonFragment(['id' => $firstMediaAsset->id])
+            ->assertJsonFragment([
+                'id' => $secondMediaAsset->id,
+                'url' => 'https://cdn.example.test/uploads/second.jpg',
+            ]);
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $firstMediaAsset->id,
+        ]);
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $secondMediaAsset->id,
+        ]);
+        $this->assertDatabaseCount('card_media', 2);
+    }
+
     public function test_it_rejects_invalid_input(): void
     {
         $card = Card::factory()->create();

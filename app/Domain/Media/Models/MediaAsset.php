@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use InvalidArgumentException;
 
 #[Fillable(['disk', 'path', 'public_url', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
@@ -40,15 +41,14 @@ class MediaAsset extends Model
                     return null;
                 }
 
-                // Internal writers should validate public URLs before assignment.
                 if (filter_var($value, FILTER_VALIDATE_URL) === false) {
-                    return null;
+                    throw new InvalidArgumentException('public_url must be a valid URL.');
                 }
 
                 $scheme = parse_url($value, PHP_URL_SCHEME);
 
                 if (! in_array($scheme, ['http', 'https'], true)) {
-                    return null;
+                    throw new InvalidArgumentException('public_url must use the http or https scheme.');
                 }
 
                 return $value;

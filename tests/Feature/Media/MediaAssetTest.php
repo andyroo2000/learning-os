@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class MediaAssetTest extends TestCase
@@ -56,17 +57,12 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
-    public function test_invalid_public_url_is_stored_as_null(): void
+    public function test_invalid_public_url_is_rejected(): void
     {
-        $asset = MediaAsset::factory()->create([
+        $this->expectException(InvalidArgumentException::class);
+
+        MediaAsset::factory()->create([
             'public_url' => 'not-a-url',
-        ]);
-
-        $this->assertNull($asset->public_url);
-
-        $this->assertDatabaseHas('media_assets', [
-            'id' => $asset->id,
-            'public_url' => null,
         ]);
     }
 
@@ -95,17 +91,12 @@ class MediaAssetTest extends TestCase
         $this->assertNull($asset->fresh()->public_url);
     }
 
-    public function test_non_http_public_url_is_stored_as_null(): void
+    public function test_non_http_public_url_is_rejected(): void
     {
-        $asset = MediaAsset::factory()->create([
+        $this->expectException(InvalidArgumentException::class);
+
+        MediaAsset::factory()->create([
             'public_url' => 'ftp://cdn.example.test/uploads/example.jpg',
-        ]);
-
-        $this->assertNull($asset->public_url);
-
-        $this->assertDatabaseHas('media_assets', [
-            'id' => $asset->id,
-            'public_url' => null,
         ]);
     }
 }

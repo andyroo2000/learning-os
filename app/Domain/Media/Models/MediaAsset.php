@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use InvalidArgumentException;
 
 #[Fillable(['disk', 'path', 'public_url', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
@@ -28,8 +27,9 @@ class MediaAsset extends Model
      */
     protected function publicUrl(): Attribute
     {
-        return Attribute::set(
-            function (?string $value): ?string {
+        return Attribute::make(
+            get: fn (?string $value): ?string => $value === '' ? null : $value,
+            set: function (?string $value): ?string {
                 if ($value === null) {
                     return null;
                 }
@@ -42,13 +42,13 @@ class MediaAsset extends Model
 
                 // Internal writers should validate public URLs before assignment.
                 if (filter_var($value, FILTER_VALIDATE_URL) === false) {
-                    throw new InvalidArgumentException('Public URL must be a valid URL.');
+                    return null;
                 }
 
                 $scheme = parse_url($value, PHP_URL_SCHEME);
 
                 if (! in_array($scheme, ['http', 'https'], true)) {
-                    throw new InvalidArgumentException('Public URL must use http or https.');
+                    return null;
                 }
 
                 return $value;

@@ -4,9 +4,9 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class MediaAssetTest extends TestCase
@@ -56,13 +56,17 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
-    public function test_public_url_must_be_a_valid_url_when_present(): void
+    public function test_invalid_public_url_is_stored_as_null(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Public URL must be a valid URL.');
-
-        MediaAsset::factory()->create([
+        $asset = MediaAsset::factory()->create([
             'public_url' => 'not-a-url',
+        ]);
+
+        $this->assertNull($asset->public_url);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $asset->id,
+            'public_url' => null,
         ]);
     }
 
@@ -80,13 +84,28 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
-    public function test_public_url_must_use_http_or_https(): void
+    public function test_raw_empty_public_url_reads_as_null(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Public URL must use http or https.');
+        $asset = MediaAsset::factory()->create();
 
-        MediaAsset::factory()->create([
+        DB::table('media_assets')
+            ->where('id', $asset->id)
+            ->update(['public_url' => '']);
+
+        $this->assertNull($asset->fresh()->public_url);
+    }
+
+    public function test_non_http_public_url_is_stored_as_null(): void
+    {
+        $asset = MediaAsset::factory()->create([
             'public_url' => 'ftp://cdn.example.test/uploads/example.jpg',
+        ]);
+
+        $this->assertNull($asset->public_url);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $asset->id,
+            'public_url' => null,
         ]);
     }
 }

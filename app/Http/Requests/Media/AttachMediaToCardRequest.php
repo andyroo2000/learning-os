@@ -15,6 +15,7 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function authorize(): bool
     {
+        // FormRequest authorization runs before validation; use resolveMediaAsset() here later.
         // TODO: Replace with an ownership policy when API auth lands across flashcards/media.
         return true;
     }

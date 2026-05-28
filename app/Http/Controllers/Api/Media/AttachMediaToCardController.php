@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\AttachMediaToCardRequest;
 use App\Http\Resources\Flashcards\CardResource;
+use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +38,7 @@ class AttachMediaToCardController extends Controller
 
     private function recoverFromConstraintViolation(QueryException $exception, Card $card, MediaAsset $mediaAsset): Card
     {
-        if (! $this->isIntegrityConstraintViolation($exception)) {
+        if (! IntegrityConstraintViolation::matches($exception)) {
             throw $exception;
         }
 
@@ -58,10 +59,5 @@ class AttachMediaToCardController extends Controller
         }
 
         throw $exception;
-    }
-
-    private function isIntegrityConstraintViolation(QueryException $exception): bool
-    {
-        return str_starts_with((string) ($exception->getPrevious()?->getCode() ?? $exception->getCode()), '23');
     }
 }

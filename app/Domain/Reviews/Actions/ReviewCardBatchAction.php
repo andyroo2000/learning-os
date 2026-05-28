@@ -7,14 +7,19 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Values\ClientEventKey;
+use App\Support\Database\IntegrityConstraintViolation;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 class ReviewCardBatchAction
 {
+    private const INSERT_SAVEPOINT = 'review_card_batch_insert';
+
     /**
      * @param  iterable<ReviewCardData>  $items
      * @return Collection<int, CardReviewEvent>
@@ -42,14 +47,33 @@ class ReviewCardBatchAction
                 ->values();
 
             if ($rows->isNotEmpty()) {
-                CardReviewEvent::query()->insert($rows->all());
+                DB::statement('SAVEPOINT '.self::INSERT_SAVEPOINT);
+
+                try {
+                    CardReviewEvent::query()->insert($rows->all());
+                    DB::statement('RELEASE SAVEPOINT '.self::INSERT_SAVEPOINT);
+                } catch (QueryException $exception) {
+                    DB::statement('ROLLBACK TO SAVEPOINT '.self::INSERT_SAVEPOINT);
+                    DB::statement('RELEASE SAVEPOINT '.self::INSERT_SAVEPOINT);
+
+                    if (! IntegrityConstraintViolation::matches($exception)) {
+                        throw $exception;
+                    }
+
+                    $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
+
+                    if ($rows->contains(fn (array $item): bool => ! $reviewEventsBySyncKey->has($item['sync_key']))) {
+                        // A partial match is not a clean retry; surface the original database error.
+                        throw $exception;
+                    }
+
+                    return $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
+                }
             }
 
             $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
 
-            return $preparedItems
-                ->map(fn (array $item): CardReviewEvent => $reviewEventsBySyncKey->get($item['sync_key']))
-                ->values();
+            return $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
         });
     }
 
@@ -166,5 +190,19 @@ class ReviewCardBatchAction
     private function syncKey(string $deviceId, string $clientEventId): string
     {
         return ClientEventKey::fromParts($deviceId, $clientEventId)->toLookupKey();
+    }
+
+    /**
+     * @param  Collection<int, array{sync_key: string}>  $preparedItems
+     * @param  Collection<string, CardReviewEvent>  $reviewEventsBySyncKey
+     * @return Collection<int, CardReviewEvent>
+     */
+    private function reviewEventsForPreparedItems(Collection $preparedItems, Collection $reviewEventsBySyncKey): Collection
+    {
+        return $preparedItems
+            // prepare() guarantees sync_key; this guard catches failed insert/recovery assumptions.
+            ->map(fn (array $item): CardReviewEvent => $reviewEventsBySyncKey->get($item['sync_key'])
+                ?? throw new RuntimeException('Review event missing after insert or conflict recovery.'))
+            ->values();
     }
 }

@@ -14,7 +14,8 @@ class ListCardMediaAssetsApiTest extends TestCase
 
     public function test_it_lists_media_assets_attached_to_a_card(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()
             ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
             ->create([
@@ -46,7 +47,8 @@ class ListCardMediaAssetsApiTest extends TestCase
 
     public function test_it_returns_an_empty_manifest_for_a_card_without_media(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
 
         $response = $this->getJson("/api/cards/{$card->id}/media-assets");
 
@@ -57,7 +59,8 @@ class ListCardMediaAssetsApiTest extends TestCase
 
     public function test_it_lists_only_media_attached_to_the_requested_card(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
         $otherCard = Card::factory()->create();
         $mediaAsset = MediaAsset::factory()->create();
         $otherMediaAsset = MediaAsset::factory()->create();
@@ -76,7 +79,8 @@ class ListCardMediaAssetsApiTest extends TestCase
 
     public function test_it_returns_media_assets_in_id_order(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
         $earlierMediaAsset = MediaAsset::factory()->create();
         $laterMediaAsset = MediaAsset::factory()->create();
 
@@ -95,8 +99,29 @@ class ListCardMediaAssetsApiTest extends TestCase
 
     public function test_it_rejects_missing_card(): void
     {
+        $this->signIn();
+
         $response = $this->getJson('/api/cards/'.strtolower((string) Str::ulid()).'/media-assets');
 
         $response->assertNotFound();
+    }
+
+    public function test_it_rejects_another_users_card(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $response = $this->getJson("/api/cards/{$otherCard->id}/media-assets");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_requires_authentication(): void
+    {
+        $card = Card::factory()->create();
+
+        $response = $this->getJson("/api/cards/{$card->id}/media-assets");
+
+        $response->assertUnauthorized();
     }
 }

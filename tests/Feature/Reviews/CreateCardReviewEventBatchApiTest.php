@@ -15,8 +15,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_creates_card_review_events_in_a_batch(): void
     {
-        $firstCard = Card::factory()->create();
-        $secondCard = Card::factory()->create();
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
 
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
@@ -86,7 +87,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_is_idempotent_for_retried_client_events(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
 
         $payload = [
             'events' => [
@@ -127,7 +129,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_is_idempotent_for_duplicate_client_events_in_the_same_batch(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
 
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
@@ -161,7 +164,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_uses_bulk_lookup_queries_for_many_events(): void
     {
-        $cards = Card::factory()->count(10)->create();
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $cards = Card::factory()->count(10)->for($deck)->create();
 
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -191,13 +196,15 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select'),
         );
 
-        $this->assertLessThanOrEqual(3, $selectQueries->count());
+        // Auth, ownership, card lookup, and idempotency stay bounded for large batches.
+        $this->assertLessThanOrEqual(4, $selectQueries->count());
         $this->assertDatabaseCount('card_review_events', 10);
     }
 
     public function test_it_requires_sync_metadata_for_each_event(): void
     {
-        $card = Card::factory()->create();
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
 
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
@@ -222,6 +229,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_rejects_invalid_batch_input(): void
     {
+        $this->signIn();
+
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
                 [
@@ -253,6 +262,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
     public function test_it_rejects_missing_cards(): void
     {
+        $this->signIn();
+
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
                 [
@@ -268,13 +279,75 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
         $response
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['events']);
+            ->assertJsonValidationErrors(['events.0.card_id']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_another_users_cards(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $otherCard->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['events.0.card_id']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_only_the_unowned_card_in_a_mixed_batch(): void
+    {
+        $user = $this->signIn();
+        $ownedCard = $this->cardFor($user);
+        $otherCard = Card::factory()->create();
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $ownedCard->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+                [
+                    'card_id' => $otherCard->id,
+                    'rating' => CardReviewRating::Easy->value,
+                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'client_event_id' => 'event-456',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:19:00Z',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['events.1.card_id'])
+            ->assertJsonMissingValidationErrors(['events.0.card_id']);
 
         $this->assertDatabaseCount('card_review_events', 0);
     }
 
     public function test_it_rejects_an_empty_batch(): void
     {
+        $this->signIn();
+
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [],
         ]);
@@ -282,6 +355,28 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['events']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_requires_authentication(): void
+    {
+        $card = Card::factory()->create();
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+            ],
+        ]);
+
+        $response->assertUnauthorized();
 
         $this->assertDatabaseCount('card_review_events', 0);
     }

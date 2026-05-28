@@ -8,10 +8,12 @@ use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use Illuminate\Support\Facades\Route;
 
-// TODO(#21): Move these API routes behind auth middleware before public exposure.
-Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
-Route::post('/card-review-events', StoreCardReviewEventController::class);
-Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
-Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
-Route::post('/cards', StoreCardController::class);
-Route::post('/decks', StoreDeckController::class);
+// Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
+    Route::post('/card-review-events', StoreCardReviewEventController::class);
+    Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
+    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
+    Route::post('/cards', StoreCardController::class);
+    Route::post('/decks', StoreDeckController::class);
+});

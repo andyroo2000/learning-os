@@ -22,6 +22,8 @@ class AttachMediaToCardController extends Controller
         Card $card,
         AttachMediaToCardAction $attachMediaToCard,
     ): JsonResponse {
+        $this->authorize('update', $card);
+
         $mediaAsset = $request->mediaAsset();
 
         try {

@@ -16,6 +16,7 @@ class DeckTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumns('decks', [
             'id',
+            'user_id',
             'name',
             'description',
             'created_at',
@@ -35,9 +36,17 @@ class DeckTest extends TestCase
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
+            'user_id' => $deck->user_id,
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
+    }
+
+    public function test_deck_belongs_to_a_user(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $this->assertSame($deck->user_id, $deck->user->id);
     }
 
     public function test_description_is_optional(): void

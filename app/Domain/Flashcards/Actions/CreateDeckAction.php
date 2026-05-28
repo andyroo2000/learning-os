@@ -20,6 +20,7 @@ class CreateDeckAction
         }
 
         $deck = new Deck([
+            'user_id' => $data->userId,
             'name' => $data->name,
             'description' => $data->description === '' ? null : $data->description,
         ]);

@@ -197,6 +197,33 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_reraises_non_integrity_database_errors(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                throw new QueryException(
+                    connectionName: 'sqlite',
+                    sql: 'insert into card_media',
+                    bindings: [],
+                    previous: new Exception('SQLSTATE[42000]: Syntax error or access violation', 42000),
+                );
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertInternalServerError();
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
     public function test_it_rejects_invalid_input(): void
     {
         $card = Card::factory()->create();

@@ -53,7 +53,11 @@ class AttachMediaToCardController extends Controller
             return $card->load('mediaAssets');
         }
 
-        throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+        if (! Card::query()->whereKey($card->getKey())->exists()) {
+            throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+        }
+
+        throw $exception;
     }
 
     private function isIntegrityConstraintViolation(QueryException $exception): bool

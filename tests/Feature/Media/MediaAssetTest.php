@@ -65,4 +65,14 @@ class MediaAssetTest extends TestCase
             'public_url' => 'not-a-url',
         ]);
     }
+
+    public function test_public_url_must_use_http_or_https(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Public URL must use http or https.');
+
+        MediaAsset::factory()->create([
+            'public_url' => 'ftp://cdn.example.test/uploads/example.jpg',
+        ]);
+    }
 }

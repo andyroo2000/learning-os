@@ -44,6 +44,12 @@ class MediaAsset extends Model
                     throw new InvalidArgumentException('Public URL must be a valid URL.');
                 }
 
+                $scheme = parse_url($value, PHP_URL_SCHEME);
+
+                if (! in_array($scheme, ['http', 'https'], true)) {
+                    throw new InvalidArgumentException('Public URL must use http or https.');
+                }
+
                 return $value;
             },
         );

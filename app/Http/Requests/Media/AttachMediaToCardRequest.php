@@ -33,7 +33,7 @@ class AttachMediaToCardRequest extends FormRequest
     {
         $mediaAsset = $this->resolveMediaAsset();
 
-        return $mediaAsset ?? throw new LogicException('Media asset has not been resolved by request validation.');
+        return $mediaAsset ?? throw new LogicException('Media asset could not be resolved; call after validation has passed.');
     }
 
     public function withValidator(Validator $validator): void

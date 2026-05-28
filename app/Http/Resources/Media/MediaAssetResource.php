@@ -14,7 +14,7 @@ class MediaAssetResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'url' => $this->when($this->public_url !== null, $this->public_url),
+            'url' => $this->when($this->public_url !== null, fn () => $this->public_url),
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
             'checksum_sha256' => $this->checksum_sha256,

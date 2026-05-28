@@ -53,7 +53,7 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertDatabaseCount('card_media', 1);
     }
 
-    public function test_it_trims_inputs(): void
+    public function test_it_resolves_models_from_raw_ids(): void
     {
         $card = Card::factory()->create();
         $mediaAsset = MediaAsset::factory()->create();

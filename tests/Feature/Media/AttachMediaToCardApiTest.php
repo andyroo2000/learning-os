@@ -15,15 +15,16 @@ class AttachMediaToCardApiTest extends TestCase
     public function test_it_attaches_media_to_a_card(): void
     {
         $card = Card::factory()->create();
-        $mediaAsset = MediaAsset::factory()->create([
-            'disk' => 'media',
-            'path' => 'uploads/example.jpg',
-            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
-            'mime_type' => 'image/jpeg',
-            'size_bytes' => 123_456,
-            'checksum_sha256' => str_repeat('a', 64),
-            'original_filename' => 'example.jpg',
-        ]);
+        $mediaAsset = MediaAsset::factory()
+            ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
+            ->create([
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 123_456,
+                'checksum_sha256' => str_repeat('a', 64),
+                'original_filename' => 'example.jpg',
+            ]);
 
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
             'media_asset_id' => $mediaAsset->id,
@@ -71,9 +72,9 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $card = Card::factory()->create();
         $firstMediaAsset = MediaAsset::factory()->create();
-        $secondMediaAsset = MediaAsset::factory()->create([
-            'public_url' => 'https://cdn.example.test/uploads/second.jpg',
-        ]);
+        $secondMediaAsset = MediaAsset::factory()
+            ->withPublicUrl('https://cdn.example.test/uploads/second.jpg')
+            ->create();
 
         $card->mediaAssets()->attach($firstMediaAsset->id);
 

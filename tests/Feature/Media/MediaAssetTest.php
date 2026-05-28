@@ -32,15 +32,16 @@ class MediaAssetTest extends TestCase
 
     public function test_media_asset_can_be_created(): void
     {
-        $asset = MediaAsset::factory()->create([
-            'disk' => 'media',
-            'path' => 'uploads/example.jpg',
-            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
-            'mime_type' => 'image/jpeg',
-            'size_bytes' => 123_456,
-            'checksum_sha256' => str_repeat('a', 64),
-            'original_filename' => 'example.jpg',
-        ]);
+        $asset = MediaAsset::factory()
+            ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
+            ->create([
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 123_456,
+                'checksum_sha256' => str_repeat('a', 64),
+                'original_filename' => 'example.jpg',
+            ]);
 
         $this->assertIsString($asset->id);
         $this->assertTrue(Str::isUlid($asset->id));
@@ -59,18 +60,18 @@ class MediaAssetTest extends TestCase
 
     public function test_invalid_public_url_is_rejected(): void
     {
+        $asset = MediaAsset::factory()->make();
+
         $this->expectException(InvalidArgumentException::class);
 
-        MediaAsset::factory()->create([
-            'public_url' => 'not-a-url',
-        ]);
+        $asset->public_url = 'not-a-url';
     }
 
     public function test_empty_public_url_is_stored_as_null(): void
     {
-        $asset = MediaAsset::factory()->create([
-            'public_url' => '   ',
-        ]);
+        $asset = MediaAsset::factory()->make();
+        $asset->public_url = '   ';
+        $asset->save();
 
         $this->assertNull($asset->public_url);
 
@@ -100,6 +101,15 @@ class MediaAssetTest extends TestCase
         $this->assertSame('https://cdn.example.test/uploads/example.jpg', $asset->fresh()->public_url);
     }
 
+    public function test_public_url_longer_than_column_limit_is_rejected(): void
+    {
+        $asset = MediaAsset::factory()->make();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $asset->public_url = 'https://cdn.example.test/'.str_repeat('a', 2049);
+    }
+
     public function test_original_filename_is_normalized_to_a_basename(): void
     {
         $asset = MediaAsset::factory()->create([
@@ -127,10 +137,10 @@ class MediaAssetTest extends TestCase
 
     public function test_non_http_public_url_is_rejected(): void
     {
+        $asset = MediaAsset::factory()->make();
+
         $this->expectException(InvalidArgumentException::class);
 
-        MediaAsset::factory()->create([
-            'public_url' => 'ftp://cdn.example.test/uploads/example.jpg',
-        ]);
+        $asset->public_url = 'ftp://cdn.example.test/uploads/example.jpg';
     }
 }

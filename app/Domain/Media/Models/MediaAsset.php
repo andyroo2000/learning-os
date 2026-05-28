@@ -46,6 +46,10 @@ class MediaAsset extends Model
                     throw new InvalidArgumentException('public_url must be a valid URL.');
                 }
 
+                if (strlen($value) > 2048) {
+                    throw new InvalidArgumentException('public_url must not exceed 2048 characters.');
+                }
+
                 $scheme = parse_url($value, PHP_URL_SCHEME);
 
                 if (! in_array($scheme, ['http', 'https'], true)) {

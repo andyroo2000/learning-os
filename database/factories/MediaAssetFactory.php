@@ -38,4 +38,11 @@ class MediaAssetFactory extends Factory
             'original_filename' => $filename,
         ];
     }
+
+    public function withPublicUrl(string $publicUrl): static
+    {
+        return $this->afterMaking(function (MediaAsset $mediaAsset) use ($publicUrl): void {
+            $mediaAsset->public_url = $publicUrl;
+        });
+    }
 }

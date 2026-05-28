@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Flashcards\ListDecksController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
 use App\Http\Controllers\Api\Flashcards\StoreDeckController;
 use App\Http\Controllers\Api\Media\AttachMediaToCardController;
@@ -15,5 +16,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
     Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
     Route::post('/cards', StoreCardController::class);
+    Route::get('/decks', ListDecksController::class);
     Route::post('/decks', StoreDeckController::class);
 });

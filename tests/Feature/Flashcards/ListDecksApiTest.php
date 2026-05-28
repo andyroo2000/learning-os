@@ -1,0 +1,143 @@
+<?php
+
+namespace Tests\Feature\Flashcards;
+
+use App\Domain\Flashcards\Models\Deck;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ListDecksApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_lists_decks_for_the_authenticated_user(): void
+    {
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $firstDeck = Deck::factory()->for($user)->create([
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+        $secondDeck = Deck::factory()->for($user)->create([
+            'name' => 'Travel Phrases',
+            'description' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherDeck = Deck::factory()->for($otherUser)->create([
+            'name' => 'Hidden Spanish Deck',
+        ]);
+
+        $response = $this->getJson('/api/decks');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $secondDeck->id)
+            ->assertJsonPath('data.1.id', $firstDeck->id)
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'description',
+                        'created_at',
+                        'updated_at',
+                    ],
+                ],
+                'links',
+                'meta',
+            ])
+            ->assertJsonFragment([
+                'id' => $firstDeck->id,
+                'name' => 'Italian Basics',
+                'description' => 'Foundational Italian review cards.',
+                'created_at' => $firstDeck->created_at?->toJSON(),
+                'updated_at' => $firstDeck->updated_at?->toJSON(),
+            ])
+            ->assertJsonFragment([
+                'id' => $secondDeck->id,
+                'name' => 'Travel Phrases',
+                'description' => null,
+                'created_at' => $secondDeck->created_at?->toJSON(),
+                'updated_at' => $secondDeck->updated_at?->toJSON(),
+            ])
+            ->assertJsonMissing([
+                'id' => $otherDeck->id,
+            ]);
+    }
+
+    public function test_it_returns_an_empty_list_when_the_user_has_no_decks(): void
+    {
+        $this->signIn();
+        $this->deckFor(User::factory()->create());
+
+        $response = $this->getJson('/api/decks');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJson([
+                'data' => [],
+            ]);
+    }
+
+    public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
+    {
+        $user = $this->signIn();
+        $sharedTimestamp = now()->subDays(2);
+
+        foreach (range(1, 49) as $index) {
+            Deck::factory()->for($user)->create([
+                'name' => "Newer Deck {$index}",
+                'created_at' => now()->subMinutes($index),
+                'updated_at' => now()->subMinutes($index),
+            ]);
+        }
+
+        $lowTieDeck = Deck::factory()->for($user)->create([
+            'name' => 'Boundary Low',
+            'created_at' => $sharedTimestamp,
+            'updated_at' => $sharedTimestamp,
+        ]);
+        $highTieDeck = Deck::factory()->for($user)->create([
+            'name' => 'Boundary High',
+            'created_at' => $sharedTimestamp,
+            'updated_at' => $sharedTimestamp,
+        ]);
+
+        $firstPage = $this->getJson('/api/decks');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(50, 'data')
+            ->assertJsonPath('data.0.name', 'Newer Deck 1')
+            ->assertJsonPath('data.49.id', $highTieDeck->id)
+            ->assertJsonPath('meta.per_page', 50);
+
+        $nextCursor = $firstPage->json('meta.next_cursor');
+
+        $this->assertNotNull($nextCursor);
+
+        $secondPage = $this->getJson("/api/decks?cursor={$nextCursor}");
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $lowTieDeck->id)
+            ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_requires_authentication(): void
+    {
+        Deck::factory()->create();
+
+        $response = $this->getJson('/api/decks');
+
+        $response->assertUnauthorized();
+    }
+}

@@ -32,6 +32,7 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function mediaAsset(): MediaAsset
     {
+        // Validation owns lookup; future sync/auth work can add stronger race handling if needed.
         $mediaAsset = $this->resolveMediaAsset();
 
         return $mediaAsset ?? throw new LogicException('mediaAsset() called before validation completed or outside a validated request context.');
@@ -63,9 +64,7 @@ class AttachMediaToCardRequest extends FormRequest
 
         $mediaAssetId = $this->input('media_asset_id');
 
-        if (! is_string($mediaAssetId)) {
-            return null;
-        }
+        assert(is_string($mediaAssetId));
 
         return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
     }

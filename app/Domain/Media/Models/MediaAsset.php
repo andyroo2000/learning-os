@@ -41,6 +41,7 @@ class MediaAsset extends Model
                     return null;
                 }
 
+                // This is a model invariant guard; public write paths should still validate first.
                 if (filter_var($value, FILTER_VALIDATE_URL) === false) {
                     throw new InvalidArgumentException('public_url must be a valid URL.');
                 }
@@ -54,6 +55,28 @@ class MediaAsset extends Model
                 return $value;
             },
         );
+    }
+
+    /**
+     * @return Attribute<?string, ?string>
+     */
+    protected function originalFilename(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): ?string => self::normalizeOriginalFilename($value),
+            set: fn (?string $value): ?string => self::normalizeOriginalFilename($value),
+        );
+    }
+
+    private static function normalizeOriginalFilename(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $filename = basename(str_replace('\\', '/', trim($value)));
+
+        return in_array($filename, ['', '.', '..'], true) ? null : $filename;
     }
 
     /**

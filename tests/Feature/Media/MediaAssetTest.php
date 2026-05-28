@@ -80,6 +80,20 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
+    public function test_original_filename_is_normalized_to_a_basename(): void
+    {
+        $asset = MediaAsset::factory()->create([
+            'original_filename' => 'C:\\Users\\andrew\\Downloads/example.jpg',
+        ]);
+
+        $this->assertSame('example.jpg', $asset->original_filename);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $asset->id,
+            'original_filename' => 'example.jpg',
+        ]);
+    }
+
     public function test_raw_empty_public_url_reads_as_null(): void
     {
         $asset = MediaAsset::factory()->create();

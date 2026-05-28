@@ -22,8 +22,8 @@ class AttachMediaToCardController extends Controller
         $data = $request->validated();
 
         try {
-            $updatedCard = $attachMediaToCard->handle(AttachMediaToCardData::fromInput(
-                cardId: $card->id,
+            $updatedCard = $attachMediaToCard->handle(AttachMediaToCardData::fromCard(
+                card: $card,
                 mediaAssetId: $data['media_asset_id'],
             ));
         } catch (CannotAttachMediaToCard $exception) {

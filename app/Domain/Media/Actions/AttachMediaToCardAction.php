@@ -20,7 +20,7 @@ class AttachMediaToCardAction
             throw CannotAttachMediaToCard::invalidMediaAssetId();
         }
 
-        $card = Card::query()->find($data->cardId);
+        $card = $data->card ?? Card::query()->find($data->cardId);
 
         if ($card === null) {
             throw CannotAttachMediaToCard::missingCard();

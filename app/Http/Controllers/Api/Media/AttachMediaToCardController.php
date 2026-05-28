@@ -36,7 +36,14 @@ class AttachMediaToCardController extends Controller
                 ]);
             }
 
-            throw $exception;
+            if (
+                str_starts_with((string) $exception->getCode(), '23')
+                && $card->mediaAssets()->whereKey($mediaAsset->getKey())->exists()
+            ) {
+                $updatedCard = $card->load('mediaAssets');
+            } else {
+                throw $exception;
+            }
         }
 
         return CardResource::make($updatedCard)->response();

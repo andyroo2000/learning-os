@@ -135,6 +135,39 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_treats_concurrent_duplicate_attach_as_idempotent_success(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                throw new QueryException(
+                    connectionName: 'sqlite',
+                    sql: 'insert into card_media',
+                    bindings: [],
+                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                );
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id)
+            ->assertJsonCount(1, 'data.media_assets')
+            ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
+
+        $this->assertDatabaseCount('card_media', 1);
+    }
+
     public function test_it_rejects_invalid_input(): void
     {
         $card = Card::factory()->create();

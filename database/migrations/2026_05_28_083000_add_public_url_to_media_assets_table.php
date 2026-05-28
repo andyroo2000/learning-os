@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('media_assets', function (Blueprint $table) {
-            $table->string('public_url')->nullable()->after('path');
+            $table->string('public_url', 2048)->nullable()->after('path');
         });
     }
 

@@ -2,10 +2,17 @@
 
 namespace App\Http\Requests\Media;
 
+use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 
 class AttachMediaToCardRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     /**
      * @return array<string, list<mixed>>
      */
@@ -14,5 +21,18 @@ class AttachMediaToCardRequest extends FormRequest
         return [
             'media_asset_id' => ['required', 'ulid'],
         ];
+    }
+
+    public function mediaAsset(): MediaAsset
+    {
+        $mediaAsset = MediaAsset::query()->find($this->validated('media_asset_id'));
+
+        if ($mediaAsset === null) {
+            throw ValidationException::withMessages([
+                'media_asset_id' => ['The selected media asset id is invalid.'],
+            ]);
+        }
+
+        return $mediaAsset;
     }
 }

@@ -84,6 +84,22 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
     }
 
+    public function test_it_can_use_preloaded_models(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $updatedCard = app(AttachMediaToCardAction::class)->handle(
+            AttachMediaToCardData::fromModels(
+                card: $card,
+                mediaAsset: $mediaAsset,
+            ),
+        );
+
+        $this->assertTrue($updatedCard->is($card));
+        $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
+    }
+
     public function test_it_rejects_invalid_card_ulid(): void
     {
         $this->expectException(CannotAttachMediaToCard::class);

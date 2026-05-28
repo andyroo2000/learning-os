@@ -34,13 +34,13 @@ class AttachMediaToCardApiTest extends TestCase
             ->assertJsonPath('data.id', $card->id)
             ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id)
             ->assertJsonPath('data.media_assets.0.url', 'https://cdn.example.test/uploads/example.jpg')
-            ->assertJsonPath('data.media_assets.0.url_expires_at', null)
             ->assertJsonPath('data.media_assets.0.mime_type', 'image/jpeg')
             ->assertJsonPath('data.media_assets.0.size_bytes', 123_456)
             ->assertJsonPath('data.media_assets.0.checksum_sha256', str_repeat('a', 64))
             ->assertJsonPath('data.media_assets.0.original_filename', 'example.jpg')
             ->assertJsonMissingPath('data.media_assets.0.disk')
-            ->assertJsonMissingPath('data.media_assets.0.path');
+            ->assertJsonMissingPath('data.media_assets.0.path')
+            ->assertJsonMissingPath('data.media_assets.0.url_expires_at');
 
         $this->assertDatabaseHas('card_media', [
             'card_id' => $card->id,

@@ -15,7 +15,7 @@ class CannotAttachMediaToCard extends DomainException
 
     public static function invalidCardId(): self
     {
-        return new self('Card ID must be a valid ULID.', 'card_id');
+        return new self('Card ID must be a valid ULID.', 'card');
     }
 
     public static function invalidMediaAssetId(): self
@@ -25,7 +25,7 @@ class CannotAttachMediaToCard extends DomainException
 
     public static function missingCard(): self
     {
-        return new self('Card does not exist.', 'card_id');
+        return new self('Card does not exist.', 'card');
     }
 
     public static function missingMediaAsset(): self

@@ -26,11 +26,13 @@ class AttachMediaToCardAction
             throw CannotAttachMediaToCard::missingCard();
         }
 
-        if (! MediaAsset::query()->whereKey($data->mediaAssetId)->exists()) {
+        $mediaAsset = $data->mediaAsset ?? MediaAsset::query()->find($data->mediaAssetId);
+
+        if ($mediaAsset === null) {
             throw CannotAttachMediaToCard::missingMediaAsset();
         }
 
-        $card->mediaAssets()->syncWithoutDetaching([$data->mediaAssetId]);
+        $card->mediaAssets()->syncWithoutDetaching([$mediaAsset->id]);
 
         return $card->load('mediaAssets');
     }

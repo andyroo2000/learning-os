@@ -1,0 +1,84 @@
+<?php
+
+namespace Tests\Feature\Flashcards;
+
+use App\Domain\Flashcards\Actions\UpdateCardAction;
+use App\Domain\Flashcards\Data\UpdateCardData;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
+use Tests\TestCase;
+
+class UpdateCardActionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_updates_card_text(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $updatedCard = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'arrivederci',
+                backText: 'goodbye',
+            ),
+        );
+
+        $this->assertSame($card->id, $updatedCard->id);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'deck_id' => $card->deck_id,
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+    }
+
+    public function test_it_trims_text_inputs(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $updatedCard = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: '  arrivederci  ',
+                backText: '  goodbye  ',
+            ),
+        );
+
+        $this->assertSame('arrivederci', $updatedCard->front_text);
+        $this->assertSame('goodbye', $updatedCard->back_text);
+    }
+
+    public function test_it_rejects_blank_front_text(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card front text is required.');
+
+        app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: '   ',
+                backText: 'goodbye',
+            ),
+        );
+    }
+
+    public function test_it_rejects_blank_back_text(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card back text is required.');
+
+        app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'arrivederci',
+                backText: '   ',
+            ),
+        );
+    }
+}

@@ -28,9 +28,8 @@ class MediaAsset extends Model
      */
     protected function publicUrl(): Attribute
     {
-        return Attribute::make(
-            get: fn (?string $value): ?string => $value,
-            set: function (?string $value): ?string {
+        return Attribute::set(
+            function (?string $value): ?string {
                 if ($value === null) {
                     return null;
                 }

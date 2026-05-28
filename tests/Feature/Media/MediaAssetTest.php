@@ -66,6 +66,20 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
+    public function test_empty_public_url_is_stored_as_null(): void
+    {
+        $asset = MediaAsset::factory()->create([
+            'public_url' => '   ',
+        ]);
+
+        $this->assertNull($asset->public_url);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $asset->id,
+            'public_url' => null,
+        ]);
+    }
+
     public function test_public_url_must_use_http_or_https(): void
     {
         $this->expectException(InvalidArgumentException::class);

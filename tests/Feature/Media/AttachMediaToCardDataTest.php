@@ -9,6 +9,20 @@ use Tests\TestCase;
 
 class AttachMediaToCardDataTest extends TestCase
 {
+    public function test_it_trims_raw_ids(): void
+    {
+        $cardId = strtolower((string) Str::ulid());
+        $mediaAssetId = strtolower((string) Str::ulid());
+
+        $data = AttachMediaToCardData::fromInput(
+            cardId: "  {$cardId}  ",
+            mediaAssetId: "  {$mediaAssetId}  ",
+        );
+
+        $this->assertSame($cardId, $data->cardId);
+        $this->assertSame($mediaAssetId, $data->mediaAssetId);
+    }
+
     public function test_it_rejects_invalid_card_ulid(): void
     {
         $this->expectException(CannotAttachMediaToCard::class);

@@ -11,6 +11,7 @@ class AttachMediaToCardAction
 {
     public function handle(AttachMediaToCardData $data): Card
     {
+        // Fallback queries support direct callers that construct data from raw IDs.
         $card = $data->card ?? Card::query()->find($data->cardId);
 
         if ($card === null) {

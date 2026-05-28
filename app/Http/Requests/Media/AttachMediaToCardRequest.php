@@ -4,7 +4,8 @@ namespace App\Http\Requests\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
+use LogicException;
 
 class AttachMediaToCardRequest extends FormRequest
 {
@@ -32,15 +33,26 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset;
         }
 
-        // Resolve once at the request boundary so the action can receive loaded models.
-        $mediaAsset = MediaAsset::query()->find($this->validated('media_asset_id'));
+        throw new LogicException('Media asset has not been resolved by request validation.');
+    }
 
-        if ($mediaAsset === null) {
-            throw ValidationException::withMessages([
-                'media_asset_id' => ['The selected media asset id is invalid.'],
-            ]);
-        }
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->has('media_asset_id')) {
+                return;
+            }
 
-        return $this->resolvedMediaAsset = $mediaAsset;
+            // Resolve once during validation so the action receives loaded models.
+            $mediaAsset = MediaAsset::query()->find($this->input('media_asset_id'));
+
+            if ($mediaAsset === null) {
+                $validator->errors()->add('media_asset_id', 'The selected media asset id is invalid.');
+
+                return;
+            }
+
+            $this->resolvedMediaAsset = $mediaAsset;
+        });
     }
 }

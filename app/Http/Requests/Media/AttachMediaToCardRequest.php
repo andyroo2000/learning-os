@@ -66,8 +66,6 @@ class AttachMediaToCardRequest extends FormRequest
             return null;
         }
 
-        $mediaAssetId = trim($mediaAssetId);
-
         return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
     }
 }

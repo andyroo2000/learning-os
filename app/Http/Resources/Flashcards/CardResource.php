@@ -18,7 +18,6 @@ class CardResource extends JsonResource
             'deck_id' => $this->deck_id,
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
-            // Only endpoints that deliberately load mediaAssets expose this key.
             'media_assets' => MediaAssetResource::collection($this->whenLoaded('mediaAssets')),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),

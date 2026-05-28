@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use InvalidArgumentException;
 
+// public_url is intentionally assigned explicitly after validation.
 #[Fillable(['disk', 'path', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
 {
@@ -67,7 +68,10 @@ class MediaAsset extends Model
     protected function originalFilename(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value): ?string => self::normalizeOriginalFilename($value),
+            get: function (?string $value): ?string {
+                // Keep raw imported rows safe to serialize until a backfill exists.
+                return self::normalizeOriginalFilename($value);
+            },
             set: fn (?string $value): ?string => self::normalizeOriginalFilename($value),
         );
     }

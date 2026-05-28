@@ -81,15 +81,16 @@ class AttachMediaToCardApiTest extends TestCase
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
             'media_asset_id' => $secondMediaAsset->id,
         ]);
+        $expectedMediaAssetIds = collect([$firstMediaAsset->id, $secondMediaAsset->id])
+            ->sort()
+            ->values();
 
         $response
             ->assertOk()
             ->assertJsonCount(2, 'data.media_assets')
-            ->assertJsonFragment(['id' => $firstMediaAsset->id])
-            ->assertJsonFragment([
-                'id' => $secondMediaAsset->id,
-                'url' => 'https://cdn.example.test/uploads/second.jpg',
-            ]);
+            ->assertJsonPath('data.media_assets.0.id', $expectedMediaAssetIds[0])
+            ->assertJsonPath('data.media_assets.1.id', $expectedMediaAssetIds[1])
+            ->assertJsonFragment(['url' => 'https://cdn.example.test/uploads/second.jpg']);
 
         $this->assertDatabaseHas('card_media', [
             'card_id' => $card->id,

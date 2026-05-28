@@ -11,6 +11,8 @@ class AttachMediaToCardAction
     {
         $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
 
-        return $data->card->load('mediaAssets');
+        return $data->card->load([
+            'mediaAssets' => fn ($query) => $query->orderBy('media_assets.id'),
+        ]);
     }
 }

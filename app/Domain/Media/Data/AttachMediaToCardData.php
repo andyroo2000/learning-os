@@ -3,7 +3,9 @@
 namespace App\Domain\Media\Data;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Exceptions\CannotAttachMediaToCard;
 use App\Domain\Media\Models\MediaAsset;
+use Illuminate\Support\Str;
 
 final readonly class AttachMediaToCardData
 {
@@ -18,20 +20,20 @@ final readonly class AttachMediaToCardData
         string $cardId,
         string $mediaAssetId,
     ): self {
-        return new self(
-            cardId: trim($cardId),
-            mediaAssetId: trim($mediaAssetId),
-        );
-    }
+        $cardId = trim($cardId);
+        $mediaAssetId = trim($mediaAssetId);
 
-    public static function fromCard(
-        Card $card,
-        string $mediaAssetId,
-    ): self {
+        if (! Str::isUlid($cardId)) {
+            throw CannotAttachMediaToCard::invalidCardId();
+        }
+
+        if (! Str::isUlid($mediaAssetId)) {
+            throw CannotAttachMediaToCard::invalidMediaAssetId();
+        }
+
         return new self(
-            cardId: $card->id,
-            mediaAssetId: trim($mediaAssetId),
-            card: $card,
+            cardId: $cardId,
+            mediaAssetId: $mediaAssetId,
         );
     }
 

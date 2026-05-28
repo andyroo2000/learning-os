@@ -68,22 +68,6 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
     }
 
-    public function test_it_can_use_a_preloaded_card(): void
-    {
-        $card = Card::factory()->create();
-        $mediaAsset = MediaAsset::factory()->create();
-
-        $updatedCard = app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromCard(
-                card: $card,
-                mediaAssetId: $mediaAsset->id,
-            ),
-        );
-
-        $this->assertTrue($updatedCard->is($card));
-        $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
-    }
-
     public function test_it_can_use_preloaded_models(): void
     {
         $card = Card::factory()->create();

@@ -8,8 +8,11 @@ use Illuminate\Validation\ValidationException;
 
 class AttachMediaToCardRequest extends FormRequest
 {
+    private ?MediaAsset $resolvedMediaAsset = null;
+
     public function authorize(): bool
     {
+        // TODO: Replace with an ownership policy when API auth lands across flashcards/media.
         return true;
     }
 
@@ -25,6 +28,10 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function mediaAsset(): MediaAsset
     {
+        if ($this->resolvedMediaAsset !== null) {
+            return $this->resolvedMediaAsset;
+        }
+
         $mediaAsset = MediaAsset::query()->find($this->validated('media_asset_id'));
 
         if ($mediaAsset === null) {
@@ -33,6 +40,6 @@ class AttachMediaToCardRequest extends FormRequest
             ]);
         }
 
-        return $mediaAsset;
+        return $this->resolvedMediaAsset = $mediaAsset;
     }
 }

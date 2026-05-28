@@ -61,7 +61,8 @@ class AttachMediaToCardApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonCount(1, 'data.media_assets');
+            ->assertJsonCount(1, 'data.media_assets')
+            ->assertJsonMissingPath('data.media_assets.0.url');
 
         $this->assertDatabaseCount('card_media', 1);
     }

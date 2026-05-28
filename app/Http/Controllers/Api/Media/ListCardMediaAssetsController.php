@@ -11,6 +11,8 @@ class ListCardMediaAssetsController extends Controller
 {
     public function __invoke(Card $card): JsonResponse
     {
+        $this->authorize('view', $card);
+
         // This full offline manifest pins its own order even if relationship defaults change.
         $mediaAssets = $card->mediaAssets()
             ->reorder('media_assets.id')

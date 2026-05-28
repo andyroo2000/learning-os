@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,7 @@ class StoreCardRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // TODO(#21): Replace this with an ownership policy when API auth lands.
+        // Ownership is validated on deck_id so clients get a field-specific 422.
         return true;
     }
 
@@ -18,9 +19,15 @@ class StoreCardRequest extends FormRequest
      */
     public function rules(): array
     {
+        $userId = $this->user()->id;
+
         return [
             'id' => ['nullable', 'ulid'],
-            'deck_id' => ['required', 'ulid', Rule::exists('decks', 'id')],
+            'deck_id' => [
+                'required',
+                'ulid',
+                Rule::exists(Deck::class, 'id')->where('user_id', $userId),
+            ],
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],
         ];

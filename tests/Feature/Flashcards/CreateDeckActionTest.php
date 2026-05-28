@@ -4,6 +4,7 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\CreateDeckAction;
 use App\Domain\Flashcards\Data\CreateDeckData;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -15,8 +16,11 @@ class CreateDeckActionTest extends TestCase
 
     public function test_it_creates_a_deck_with_a_name(): void
     {
+        $user = User::factory()->create();
+
         $deck = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: 'Italian Basics',
             ),
         );
@@ -25,6 +29,7 @@ class CreateDeckActionTest extends TestCase
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
+            'user_id' => $user->id,
             'name' => 'Italian Basics',
             'description' => null,
         ]);
@@ -32,8 +37,11 @@ class CreateDeckActionTest extends TestCase
 
     public function test_it_creates_a_deck_with_a_description(): void
     {
+        $user = User::factory()->create();
+
         $deck = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: 'Italian Basics',
                 description: 'Foundational Italian review cards.',
             ),
@@ -41,6 +49,7 @@ class CreateDeckActionTest extends TestCase
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
+            'user_id' => $user->id,
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
@@ -48,10 +57,12 @@ class CreateDeckActionTest extends TestCase
 
     public function test_it_uses_a_provided_ulid(): void
     {
+        $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
 
         $deck = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: 'Italian Basics',
                 id: $id,
             ),
@@ -61,14 +72,18 @@ class CreateDeckActionTest extends TestCase
 
         $this->assertDatabaseHas('decks', [
             'id' => $id,
+            'user_id' => $user->id,
             'name' => 'Italian Basics',
         ]);
     }
 
     public function test_it_trims_text_inputs(): void
     {
+        $user = User::factory()->create();
+
         $deck = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: '  Italian Basics  ',
                 description: '  Foundational Italian review cards.  ',
             ),
@@ -80,8 +95,11 @@ class CreateDeckActionTest extends TestCase
 
     public function test_it_stores_blank_description_as_null(): void
     {
+        $user = User::factory()->create();
+
         $deck = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: 'Italian Basics',
                 description: '   ',
             ),
@@ -92,21 +110,26 @@ class CreateDeckActionTest extends TestCase
 
     public function test_it_rejects_blank_name(): void
     {
+        $user = User::factory()->create();
+
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Deck name is required.');
 
         app(CreateDeckAction::class)->handle(
-            CreateDeckData::fromInput(name: '   '),
+            CreateDeckData::fromInput(userId: $user->id, name: '   '),
         );
     }
 
     public function test_it_rejects_invalid_provided_ulid(): void
     {
+        $user = User::factory()->create();
+
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Deck ID must be a valid ULID.');
 
         app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
+                userId: $user->id,
                 name: 'Italian Basics',
                 id: 'not-a-ulid',
             ),

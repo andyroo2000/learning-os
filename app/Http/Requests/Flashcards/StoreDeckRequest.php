@@ -8,7 +8,6 @@ class StoreDeckRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // TODO(#21): Replace this with an ownership policy when API auth lands.
         return true;
     }
 

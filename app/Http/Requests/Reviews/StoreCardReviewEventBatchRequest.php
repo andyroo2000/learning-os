@@ -2,15 +2,17 @@
 
 namespace App\Http\Requests\Reviews;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class StoreCardReviewEventBatchRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // TODO(#21): Replace this with an ownership policy when API auth lands.
+        // Ownership is validated per card_id so sync clients can map failures to events.
         return true;
     }
 
@@ -29,5 +31,31 @@ class StoreCardReviewEventBatchRequest extends FormRequest
             'events.*.device_id' => ['required', 'string'],
             'events.*.client_created_at' => ['required', 'date'],
         ];
+    }
+
+    protected function passedValidation(): void
+    {
+        // Batch sync needs per-item ownership errors and rejects atomically on any mismatch.
+        $events = collect($this->validated('events'));
+        $cardIds = $events->pluck('card_id')->unique()->values();
+
+        $visibleCardIds = Card::query()
+            ->whereKey($cardIds)
+            ->whereHas('deck', fn ($query) => $query->where('user_id', $this->user()->id))
+            ->pluck('id')
+            ->all();
+
+        $visibleCardIds = array_flip($visibleCardIds);
+        $errors = [];
+
+        foreach ($events as $index => $event) {
+            if (! isset($visibleCardIds[$event['card_id']])) {
+                $errors["events.{$index}.card_id"] = ['The selected card id is invalid.'];
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 }

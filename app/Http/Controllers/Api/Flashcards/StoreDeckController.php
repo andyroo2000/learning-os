@@ -16,6 +16,7 @@ class StoreDeckController extends Controller
         $data = $request->validated();
 
         $deck = $createDeck->handle(CreateDeckData::fromInput(
+            userId: $request->user()->id,
             name: $data['name'],
             description: $data['description'] ?? null,
             id: $data['id'] ?? null,

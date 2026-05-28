@@ -4,11 +4,14 @@ namespace App\Http\Requests\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 use LogicException;
 
 class AttachMediaToCardRequest extends FormRequest
 {
+    private bool $mediaAssetResolutionAttempted = false;
+
     private ?MediaAsset $resolvedMediaAsset = null;
 
     public function authorize(): bool
@@ -29,11 +32,9 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function mediaAsset(): MediaAsset
     {
-        if ($this->resolvedMediaAsset !== null) {
-            return $this->resolvedMediaAsset;
-        }
+        $mediaAsset = $this->resolveMediaAsset();
 
-        throw new LogicException('Media asset has not been resolved by request validation.');
+        return $mediaAsset ?? throw new LogicException('Media asset has not been resolved by request validation.');
     }
 
     public function withValidator(Validator $validator): void
@@ -44,15 +45,34 @@ class AttachMediaToCardRequest extends FormRequest
             }
 
             // Resolve once during validation so the action receives loaded models.
-            $mediaAsset = MediaAsset::query()->find($this->input('media_asset_id'));
+            $mediaAsset = $this->resolveMediaAsset();
 
             if ($mediaAsset === null) {
                 $validator->errors()->add('media_asset_id', 'The selected media asset id is invalid.');
-
-                return;
             }
-
-            $this->resolvedMediaAsset = $mediaAsset;
         });
+    }
+
+    private function resolveMediaAsset(): ?MediaAsset
+    {
+        if ($this->mediaAssetResolutionAttempted) {
+            return $this->resolvedMediaAsset;
+        }
+
+        $this->mediaAssetResolutionAttempted = true;
+
+        $mediaAssetId = $this->input('media_asset_id');
+
+        if (! is_string($mediaAssetId)) {
+            return null;
+        }
+
+        $mediaAssetId = trim($mediaAssetId);
+
+        if (! Str::isUlid($mediaAssetId)) {
+            return null;
+        }
+
+        return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
     }
 }

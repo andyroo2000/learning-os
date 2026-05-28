@@ -4,7 +4,7 @@ namespace App\Domain\Media\Exceptions;
 
 use DomainException;
 
-class CannotAttachMediaToCard extends DomainException
+final class CannotAttachMediaToCard extends DomainException
 {
     public static function invalidCardId(): self
     {

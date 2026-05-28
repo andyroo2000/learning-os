@@ -32,6 +32,7 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset;
         }
 
+        // Resolve once at the request boundary so the action can receive loaded models.
         $mediaAsset = MediaAsset::query()->find($this->validated('media_asset_id'));
 
         if ($mediaAsset === null) {

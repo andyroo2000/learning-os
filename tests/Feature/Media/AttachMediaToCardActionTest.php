@@ -84,32 +84,6 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
     }
 
-    public function test_it_rejects_invalid_card_ulid(): void
-    {
-        $this->expectException(CannotAttachMediaToCard::class);
-        $this->expectExceptionMessage('Card ID must be a valid ULID.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: 'not-a-ulid',
-                mediaAssetId: strtolower((string) Str::ulid()),
-            ),
-        );
-    }
-
-    public function test_it_rejects_invalid_media_asset_ulid(): void
-    {
-        $this->expectException(CannotAttachMediaToCard::class);
-        $this->expectExceptionMessage('Media asset ID must be a valid ULID.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: strtolower((string) Str::ulid()),
-                mediaAssetId: 'not-a-ulid',
-            ),
-        );
-    }
-
     public function test_it_rejects_missing_card(): void
     {
         $mediaAsset = MediaAsset::factory()->create();

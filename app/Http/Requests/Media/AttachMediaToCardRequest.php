@@ -15,7 +15,6 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function authorize(): bool
     {
-        // FormRequest authorization runs before validation; use resolveMediaAsset() here later.
         // TODO: Replace with an ownership policy that checks the card/media pair when API auth lands.
         return true;
     }

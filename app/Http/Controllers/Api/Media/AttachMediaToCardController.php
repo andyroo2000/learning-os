@@ -41,6 +41,7 @@ class AttachMediaToCardController extends Controller
 
             if ($card->mediaAssets()->whereKey($mediaAsset->getKey())->exists()) {
                 // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
+                // This assumes card_media has only the current unique pair constraint.
                 $updatedCard = $card->load('mediaAssets');
             } else {
                 throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
@@ -52,6 +53,6 @@ class AttachMediaToCardController extends Controller
 
     private function isIntegrityConstraintViolation(QueryException $exception): bool
     {
-        return str_starts_with((string) ($exception->getPrevious()?->getCode() ?: $exception->getCode()), '23');
+        return str_starts_with((string) ($exception->getPrevious()?->getCode() ?? $exception->getCode()), '23');
     }
 }

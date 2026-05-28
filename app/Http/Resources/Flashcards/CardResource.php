@@ -18,6 +18,7 @@ class CardResource extends JsonResource
             'deck_id' => $this->deck_id,
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
+            // Cross-domain resource by design while cards own the response envelope.
             'media_assets' => $this->whenLoaded('mediaAssets', fn () => MediaAssetResource::collection($this->mediaAssets)),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),

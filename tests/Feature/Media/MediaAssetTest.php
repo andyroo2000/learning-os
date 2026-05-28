@@ -137,6 +137,28 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
+    public function test_original_filename_dot_segments_are_stored_as_null(): void
+    {
+        $dotAsset = MediaAsset::factory()->create([
+            'original_filename' => '.',
+        ]);
+        $dotDotAsset = MediaAsset::factory()->create([
+            'original_filename' => '..',
+        ]);
+
+        $this->assertNull($dotAsset->original_filename);
+        $this->assertNull($dotDotAsset->original_filename);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $dotAsset->id,
+            'original_filename' => null,
+        ]);
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $dotDotAsset->id,
+            'original_filename' => null,
+        ]);
+    }
+
     public function test_raw_original_filename_reads_as_normalized(): void
     {
         $asset = MediaAsset::factory()->create();

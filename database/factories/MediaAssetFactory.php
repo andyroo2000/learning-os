@@ -25,6 +25,7 @@ class MediaAssetFactory extends Factory
         return [
             'disk' => 'media',
             'path' => 'uploads/'.$filename,
+            // Not fillable; factories bypass mass assignment. Assign explicitly in app code.
             'public_url' => null,
             'mime_type' => fake()->randomElement([
                 'audio/mpeg',

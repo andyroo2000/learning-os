@@ -65,6 +65,7 @@ class AttachMediaToCardRequest extends FormRequest
         $mediaAssetId = $this->input('media_asset_id');
 
         if (! is_string($mediaAssetId)) {
+            // Protect future authorize() usage, which can run before validation.
             return $this->resolvedMediaAsset = null;
         }
 

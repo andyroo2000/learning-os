@@ -107,18 +107,19 @@ class MediaAssetTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
 
-        $asset->public_url = 'https://cdn.example.test/'.str_repeat('a', 2049);
+        $asset->public_url = 'https://cdn.example.test/'.str_repeat('a', MediaAsset::MAX_PUBLIC_URL_LENGTH);
     }
 
     public function test_public_url_at_column_limit_is_accepted(): void
     {
         $asset = MediaAsset::factory()->make();
-        $url = 'https://cdn.example.test/'.str_repeat('a', 2023);
+        $prefix = 'https://cdn.example.test/';
+        $url = $prefix.str_repeat('a', MediaAsset::MAX_PUBLIC_URL_LENGTH - mb_strlen($prefix));
 
         $asset->public_url = $url;
         $asset->save();
 
-        $this->assertSame(2048, mb_strlen($url));
+        $this->assertSame(MediaAsset::MAX_PUBLIC_URL_LENGTH, mb_strlen($url));
         $this->assertSame($url, $asset->fresh()->public_url);
     }
 

@@ -23,6 +23,8 @@ class MediaAsset extends Model
     /** @use HasFactory<MediaAssetFactory> */
     use HasFactory, HasUlids;
 
+    public const MAX_PUBLIC_URL_LENGTH = 2048;
+
     protected static function newFactory(): MediaAssetFactory
     {
         return MediaAssetFactory::new();
@@ -51,8 +53,8 @@ class MediaAsset extends Model
                     throw new InvalidArgumentException('public_url must be a valid URL.');
                 }
 
-                if (mb_strlen($value) > 2048) {
-                    throw new InvalidArgumentException('public_url must not exceed 2048 characters.');
+                if (mb_strlen($value) > self::MAX_PUBLIC_URL_LENGTH) {
+                    throw new InvalidArgumentException('public_url must not exceed '.self::MAX_PUBLIC_URL_LENGTH.' characters.');
                 }
 
                 $scheme = parse_url($value, PHP_URL_SCHEME);

@@ -26,14 +26,13 @@ class CreateCardApiTest extends TestCase
             ->assertJsonPath('data.deck_id', $deck->id)
             ->assertJsonPath('data.front_text', 'ciao')
             ->assertJsonPath('data.back_text', 'hello')
-            ->assertJsonPath('data.media_assets', [])
+            ->assertJsonMissingPath('data.media_assets')
             ->assertJsonStructure([
                 'data' => [
                     'id',
                     'deck_id',
                     'front_text',
                     'back_text',
-                    'media_assets',
                     'created_at',
                     'updated_at',
                 ],

@@ -4,28 +4,13 @@ namespace App\Domain\Media\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Data\AttachMediaToCardData;
-use App\Domain\Media\Exceptions\CannotAttachMediaToCard;
-use App\Domain\Media\Models\MediaAsset;
 
 class AttachMediaToCardAction
 {
     public function handle(AttachMediaToCardData $data): Card
     {
-        // Fallback queries support direct callers that construct data from raw IDs.
-        $card = $data->card ?? Card::query()->find($data->cardId);
+        $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
 
-        if ($card === null) {
-            throw CannotAttachMediaToCard::missingCard();
-        }
-
-        $mediaAsset = $data->mediaAsset ?? MediaAsset::query()->find($data->mediaAssetId);
-
-        if ($mediaAsset === null) {
-            throw CannotAttachMediaToCard::missingMediaAsset();
-        }
-
-        $card->mediaAssets()->syncWithoutDetaching([$mediaAsset->id]);
-
-        return $card->load('mediaAssets');
+        return $data->card->load('mediaAssets');
     }
 }

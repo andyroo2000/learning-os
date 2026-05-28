@@ -2,20 +2,23 @@
 
 namespace App\Domain\Media\Data;
 
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Models\MediaAsset;
+
 final readonly class AttachMediaToCardData
 {
     private function __construct(
-        public string $cardId,
-        public string $mediaAssetId,
+        public Card $card,
+        public MediaAsset $mediaAsset,
     ) {}
 
-    public static function fromInput(
-        string $cardId,
-        string $mediaAssetId,
+    public static function fromModels(
+        Card $card,
+        MediaAsset $mediaAsset,
     ): self {
         return new self(
-            cardId: trim($cardId),
-            mediaAssetId: trim($mediaAssetId),
+            card: $card,
+            mediaAsset: $mediaAsset,
         );
     }
 }

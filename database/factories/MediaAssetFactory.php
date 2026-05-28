@@ -25,6 +25,8 @@ class MediaAssetFactory extends Factory
         return [
             'disk' => 'media',
             'path' => 'uploads/'.$filename,
+            // Not fillable; factories bypass mass assignment. Assign explicitly in app code.
+            'public_url' => null,
             'mime_type' => fake()->randomElement([
                 'audio/mpeg',
                 'image/jpeg',
@@ -36,5 +38,10 @@ class MediaAssetFactory extends Factory
             'checksum_sha256' => hash('sha256', $filename),
             'original_filename' => $filename,
         ];
+    }
+
+    public function withPublicUrl(string $publicUrl): static
+    {
+        return $this->state(fn (): array => ['public_url' => $publicUrl]);
     }
 }

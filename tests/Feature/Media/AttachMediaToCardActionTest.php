@@ -7,8 +7,6 @@ use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class AttachMediaToCardActionTest extends TestCase
@@ -21,10 +19,7 @@ class AttachMediaToCardActionTest extends TestCase
         $mediaAsset = MediaAsset::factory()->create();
 
         $updatedCard = app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: $card->id,
-                mediaAssetId: $mediaAsset->id,
-            ),
+            AttachMediaToCardData::fromModels($card, $mediaAsset),
         );
 
         $this->assertTrue($updatedCard->is($card));
@@ -44,83 +39,28 @@ class AttachMediaToCardActionTest extends TestCase
         $card->mediaAssets()->attach($mediaAsset->id);
 
         app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: $card->id,
-                mediaAssetId: $mediaAsset->id,
-            ),
+            AttachMediaToCardData::fromModels($card, $mediaAsset),
         );
 
         $this->assertDatabaseCount('card_media', 1);
     }
 
-    public function test_it_trims_inputs(): void
+    public function test_it_loads_media_assets_in_id_order(): void
     {
         $card = Card::factory()->create();
-        $mediaAsset = MediaAsset::factory()->create();
+        $firstMediaAsset = MediaAsset::factory()->create();
+        $secondMediaAsset = MediaAsset::factory()->create();
+
+        $card->mediaAssets()->attach($secondMediaAsset->id);
 
         $updatedCard = app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: "  {$card->id}  ",
-                mediaAssetId: "  {$mediaAsset->id}  ",
-            ),
+            AttachMediaToCardData::fromModels($card, $firstMediaAsset),
         );
+        $expectedMediaAssetIds = collect([$firstMediaAsset->id, $secondMediaAsset->id])
+            ->sort()
+            ->values()
+            ->all();
 
-        $this->assertTrue($updatedCard->mediaAssets->contains($mediaAsset));
-    }
-
-    public function test_it_rejects_invalid_card_ulid(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card ID must be a valid ULID.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: 'not-a-ulid',
-                mediaAssetId: strtolower((string) Str::ulid()),
-            ),
-        );
-    }
-
-    public function test_it_rejects_invalid_media_asset_ulid(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Media asset ID must be a valid ULID.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: strtolower((string) Str::ulid()),
-                mediaAssetId: 'not-a-ulid',
-            ),
-        );
-    }
-
-    public function test_it_rejects_missing_card(): void
-    {
-        $mediaAsset = MediaAsset::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card does not exist.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: strtolower((string) Str::ulid()),
-                mediaAssetId: $mediaAsset->id,
-            ),
-        );
-    }
-
-    public function test_it_rejects_missing_media_asset(): void
-    {
-        $card = Card::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Media asset does not exist.');
-
-        app(AttachMediaToCardAction::class)->handle(
-            AttachMediaToCardData::fromInput(
-                cardId: $card->id,
-                mediaAssetId: strtolower((string) Str::ulid()),
-            ),
-        );
+        $this->assertSame($expectedMediaAssetIds, $updatedCard->mediaAssets->pluck('id')->all());
     }
 }

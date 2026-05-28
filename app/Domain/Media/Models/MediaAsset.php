@@ -40,6 +40,7 @@ class MediaAsset extends Model
                     return null;
                 }
 
+                // Internal writers should validate public URLs before assignment.
                 if (filter_var($value, FILTER_VALIDATE_URL) === false) {
                     throw new InvalidArgumentException('Public URL must be a valid URL.');
                 }

@@ -3,9 +3,9 @@
 namespace App\Domain\Media\Data;
 
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Media\Exceptions\CannotAttachMediaToCard;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 final readonly class AttachMediaToCardData
 {
@@ -24,11 +24,11 @@ final readonly class AttachMediaToCardData
         $mediaAssetId = trim($mediaAssetId);
 
         if (! Str::isUlid($cardId)) {
-            throw CannotAttachMediaToCard::invalidCardId();
+            throw new InvalidArgumentException('Card ID must be a valid ULID.');
         }
 
         if (! Str::isUlid($mediaAssetId)) {
-            throw CannotAttachMediaToCard::invalidMediaAssetId();
+            throw new InvalidArgumentException('Media asset ID must be a valid ULID.');
         }
 
         return new self(

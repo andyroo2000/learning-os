@@ -116,6 +116,21 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_rejects_array_media_asset_input(): void
+    {
+        $card = Card::factory()->create();
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => ['not-a-ulid'],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['media_asset_id']);
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
     public function test_it_rejects_missing_media_asset_input(): void
     {
         $card = Card::factory()->create();

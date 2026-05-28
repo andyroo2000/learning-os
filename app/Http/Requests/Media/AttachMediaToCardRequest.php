@@ -64,7 +64,9 @@ class AttachMediaToCardRequest extends FormRequest
 
         $mediaAssetId = $this->input('media_asset_id');
 
-        assert(is_string($mediaAssetId));
+        if (! is_string($mediaAssetId)) {
+            return $this->resolvedMediaAsset = null;
+        }
 
         return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
     }

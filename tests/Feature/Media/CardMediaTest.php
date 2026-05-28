@@ -23,6 +23,15 @@ class CardMediaTest extends TestCase
         ]));
     }
 
+    public function test_card_media_table_has_one_unique_card_media_pair_index(): void
+    {
+        $matchingIndexes = collect(Schema::getIndexes('card_media'))
+            ->filter(fn (array $index): bool => ($index['unique'] ?? false) === true)
+            ->filter(fn (array $index): bool => ($index['columns'] ?? []) === ['card_id', 'media_asset_id']);
+
+        $this->assertCount(1, $matchingIndexes);
+    }
+
     public function test_media_asset_can_be_attached_to_a_card(): void
     {
         $card = Card::factory()->create();

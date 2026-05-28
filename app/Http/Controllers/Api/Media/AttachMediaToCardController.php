@@ -29,26 +29,31 @@ class AttachMediaToCardController extends Controller
                 mediaAsset: $mediaAsset,
             ));
         } catch (QueryException $exception) {
-            if (! $this->isIntegrityConstraintViolation($exception)) {
-                throw $exception;
-            }
-
-            if (! MediaAsset::query()->whereKey($mediaAsset->getKey())->exists()) {
-                throw ValidationException::withMessages([
-                    'media_asset_id' => 'The selected media asset id is invalid.',
-                ]);
-            }
-
-            if ($card->mediaAssets()->whereKey($mediaAsset->getKey())->exists()) {
-                // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
-                // This assumes card_media has only the current unique pair constraint.
-                $updatedCard = $card->load('mediaAssets');
-            } else {
-                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
-            }
+            $updatedCard = $this->recoverFromConstraintViolation($exception, $card, $mediaAsset);
         }
 
         return CardResource::make($updatedCard)->response();
+    }
+
+    private function recoverFromConstraintViolation(QueryException $exception, Card $card, MediaAsset $mediaAsset): Card
+    {
+        if (! $this->isIntegrityConstraintViolation($exception)) {
+            throw $exception;
+        }
+
+        if (! MediaAsset::query()->whereKey($mediaAsset->getKey())->exists()) {
+            throw ValidationException::withMessages([
+                'media_asset_id' => 'The selected media asset id is invalid.',
+            ]);
+        }
+
+        if ($card->mediaAssets()->whereKey($mediaAsset->getKey())->exists()) {
+            // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
+            // This assumes card_media has only the current unique pair constraint.
+            return $card->load('mediaAssets');
+        }
+
+        throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
     }
 
     private function isIntegrityConstraintViolation(QueryException $exception): bool

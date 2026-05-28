@@ -15,7 +15,7 @@ class AttachMediaToCardActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_attaches_media_to_a_card(): void
+    public function test_it_attaches_media_to_a_card_from_raw_ids(): void
     {
         $card = Card::factory()->create();
         $mediaAsset = MediaAsset::factory()->create();

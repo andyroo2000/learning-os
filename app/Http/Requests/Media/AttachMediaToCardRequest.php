@@ -4,7 +4,6 @@ namespace App\Http\Requests\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 use LogicException;
 
@@ -68,10 +67,6 @@ class AttachMediaToCardRequest extends FormRequest
         }
 
         $mediaAssetId = trim($mediaAssetId);
-
-        if (! Str::isUlid($mediaAssetId)) {
-            return null;
-        }
 
         return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
     }

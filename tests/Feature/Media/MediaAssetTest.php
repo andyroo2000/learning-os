@@ -6,6 +6,7 @@ use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class MediaAssetTest extends TestCase
@@ -52,6 +53,16 @@ class MediaAssetTest extends TestCase
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
+        ]);
+    }
+
+    public function test_public_url_must_be_a_valid_url_when_present(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Public URL must be a valid URL.');
+
+        MediaAsset::factory()->create([
+            'public_url' => 'not-a-url',
         ]);
     }
 }

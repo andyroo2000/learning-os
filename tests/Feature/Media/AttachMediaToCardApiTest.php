@@ -67,7 +67,7 @@ class AttachMediaToCardApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data.media_assets')
-            ->assertJsonMissingPath('data.media_assets.0.url');
+            ->assertJsonPath('data.media_assets.0.url', null);
 
         $this->assertDatabaseCount('card_media', 1);
     }
@@ -166,6 +166,35 @@ class AttachMediaToCardApiTest extends TestCase
             ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
 
         $this->assertDatabaseCount('card_media', 1);
+    }
+
+    public function test_it_returns_not_found_when_card_is_deleted_after_route_binding(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                $data->card->delete();
+
+                throw new QueryException(
+                    connectionName: 'sqlite',
+                    sql: 'insert into card_media',
+                    bindings: [],
+                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                );
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('card_media', 0);
     }
 
     public function test_it_rejects_invalid_input(): void

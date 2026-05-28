@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\AttachMediaToCardRequest;
 use App\Http\Resources\Flashcards\CardResource;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -28,7 +29,7 @@ class AttachMediaToCardController extends Controller
                 mediaAsset: $mediaAsset,
             ));
         } catch (QueryException $exception) {
-            if (! str_starts_with((string) $exception->getCode(), '23')) {
+            if (! $this->isIntegrityConstraintViolation($exception)) {
                 throw $exception;
             }
 
@@ -42,11 +43,15 @@ class AttachMediaToCardController extends Controller
                 // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
                 $updatedCard = $card->load('mediaAssets');
             } else {
-                // TODO: Map card-deleted races once auth/ownership policies define API semantics.
-                throw $exception;
+                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
             }
         }
 
         return CardResource::make($updatedCard)->response();
+    }
+
+    private function isIntegrityConstraintViolation(QueryException $exception): bool
+    {
+        return str_starts_with((string) ($exception->getPrevious()?->getCode() ?: $exception->getCode()), '23');
     }
 }

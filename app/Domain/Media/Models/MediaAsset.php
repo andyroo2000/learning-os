@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use InvalidArgumentException;
 
-// public_url is intentionally assigned explicitly after validation.
+/**
+ * public_url is intentionally excluded from fillable; assign it explicitly after validation.
+ */
 #[Fillable(['disk', 'path', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
 {

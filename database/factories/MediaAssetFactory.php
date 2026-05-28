@@ -41,8 +41,6 @@ class MediaAssetFactory extends Factory
 
     public function withPublicUrl(string $publicUrl): static
     {
-        return $this->afterMaking(function (MediaAsset $mediaAsset) use ($publicUrl): void {
-            $mediaAsset->public_url = $publicUrl;
-        });
+        return $this->state(fn (): array => ['public_url' => $publicUrl]);
     }
 }

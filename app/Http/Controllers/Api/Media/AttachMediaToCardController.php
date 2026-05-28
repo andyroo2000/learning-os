@@ -14,8 +14,8 @@ class AttachMediaToCardController extends Controller
 {
     public function __invoke(
         AttachMediaToCardRequest $request,
-        AttachMediaToCardAction $attachMediaToCard,
         Card $card,
+        AttachMediaToCardAction $attachMediaToCard,
     ): JsonResponse {
         $updatedCard = $attachMediaToCard->handle(AttachMediaToCardData::fromModels(
             card: $card,

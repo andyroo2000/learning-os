@@ -110,6 +110,18 @@ class MediaAssetTest extends TestCase
         $asset->public_url = 'https://cdn.example.test/'.str_repeat('a', 2049);
     }
 
+    public function test_public_url_at_column_limit_is_accepted(): void
+    {
+        $asset = MediaAsset::factory()->make();
+        $url = 'https://cdn.example.test/'.str_repeat('a', 2023);
+
+        $asset->public_url = $url;
+        $asset->save();
+
+        $this->assertSame(2048, mb_strlen($url));
+        $this->assertSame($url, $asset->fresh()->public_url);
+    }
+
     public function test_original_filename_is_normalized_to_a_basename(): void
     {
         $asset = MediaAsset::factory()->create([

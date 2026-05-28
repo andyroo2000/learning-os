@@ -14,6 +14,8 @@ use InvalidArgumentException;
 
 /**
  * public_url is intentionally excluded from fillable; assign it explicitly after validation.
+ *
+ * @throws InvalidArgumentException when public_url violates model invariants.
  */
 #[Fillable(['disk', 'path', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
@@ -49,7 +51,7 @@ class MediaAsset extends Model
                     throw new InvalidArgumentException('public_url must be a valid URL.');
                 }
 
-                if (strlen($value) > 2048) {
+                if (mb_strlen($value) > 2048) {
                     throw new InvalidArgumentException('public_url must not exceed 2048 characters.');
                 }
 

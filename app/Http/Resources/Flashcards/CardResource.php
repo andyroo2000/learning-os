@@ -18,6 +18,7 @@ class CardResource extends JsonResource
             'deck_id' => $this->deck_id,
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
+            // Keep the card schema stable; endpoints that need media must eager-load it.
             'media_assets' => $this->relationLoaded('mediaAssets')
                 ? MediaAssetResource::collection($this->mediaAssets)
                 : [],

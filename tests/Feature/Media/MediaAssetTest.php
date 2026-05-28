@@ -80,6 +80,26 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
+    public function test_public_url_must_be_assigned_explicitly(): void
+    {
+        $asset = MediaAsset::query()->create([
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+            'checksum_sha256' => str_repeat('a', 64),
+            'original_filename' => 'example.jpg',
+        ]);
+
+        $this->assertNull($asset->public_url);
+
+        $asset->public_url = 'https://cdn.example.test/uploads/example.jpg';
+        $asset->save();
+
+        $this->assertSame('https://cdn.example.test/uploads/example.jpg', $asset->fresh()->public_url);
+    }
+
     public function test_original_filename_is_normalized_to_a_basename(): void
     {
         $asset = MediaAsset::factory()->create([

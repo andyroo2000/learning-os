@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use InvalidArgumentException;
 
-#[Fillable(['disk', 'path', 'public_url', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
+#[Fillable(['disk', 'path', 'mime_type', 'size_bytes', 'checksum_sha256', 'original_filename'])]
 class MediaAsset extends Model
 {
     /** @use HasFactory<MediaAssetFactory> */

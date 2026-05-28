@@ -45,7 +45,7 @@ class AttachMediaToCardRequest extends FormRequest
                 return;
             }
 
-            // Resolve once during validation so the action receives loaded models.
+            // Use one lookup for existence validation and for the loaded action input.
             $mediaAsset = $this->resolveMediaAsset();
 
             if ($mediaAsset === null) {

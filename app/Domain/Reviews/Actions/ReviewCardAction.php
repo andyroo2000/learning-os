@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Support\Database\IntegrityConstraintViolation;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -48,10 +50,7 @@ class ReviewCardAction
         }
 
         if ($hasCompleteSyncMetadata) {
-            $existingReviewEvent = CardReviewEvent::query()
-                ->where('client_event_id', $data->clientEventId)
-                ->where('device_id', $data->deviceId)
-                ->first();
+            $existingReviewEvent = $this->findExistingReviewEvent($data);
 
             if ($existingReviewEvent !== null) {
                 return $existingReviewEvent;
@@ -71,8 +70,30 @@ class ReviewCardAction
             $reviewEvent->id = $data->id;
         }
 
-        $reviewEvent->save();
+        try {
+            $reviewEvent->save();
+        } catch (QueryException $exception) {
+            if (! $hasCompleteSyncMetadata || ! IntegrityConstraintViolation::matches($exception)) {
+                throw $exception;
+            }
+
+            $existingReviewEvent = $this->findExistingReviewEvent($data);
+
+            if ($existingReviewEvent === null) {
+                throw $exception;
+            }
+
+            return $existingReviewEvent;
+        }
 
         return $reviewEvent;
+    }
+
+    private function findExistingReviewEvent(ReviewCardData $data): ?CardReviewEvent
+    {
+        return CardReviewEvent::query()
+            ->where('client_event_id', $data->clientEventId)
+            ->where('device_id', $data->deviceId)
+            ->first();
     }
 }

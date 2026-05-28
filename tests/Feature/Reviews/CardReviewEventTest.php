@@ -5,6 +5,7 @@ namespace Tests\Feature\Reviews;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -73,6 +74,25 @@ class CardReviewEventTest extends TestCase
 
         $this->assertDatabaseMissing('card_review_events', [
             'id' => $event->id,
+        ]);
+    }
+
+    public function test_client_event_and_device_pair_must_be_unique(): void
+    {
+        $card = Card::factory()->create();
+
+        CardReviewEvent::factory()->create([
+            'card_id' => $card->id,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        CardReviewEvent::factory()->create([
+            'card_id' => $card->id,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
         ]);
     }
 }

@@ -21,6 +21,7 @@ class DeleteMediaAssetAction
         }
 
         // Load the model before deleting so future Eloquent events can coordinate storage cleanup.
+        // Register storage cleanup on a MediaAsset deleted observer once physical uploads exist.
         // MediaAsset is hard-deleted, so card_media cleanup can rely on ON DELETE CASCADE.
         $mediaAsset->delete();
     }

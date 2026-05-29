@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class);
     Route::put('/cards/{card}', UpdateCardController::class);
     Route::post('/cards', StoreCardController::class);
+    // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
     Route::get('/decks/{deck}/cards', ListDeckCardsController::class);

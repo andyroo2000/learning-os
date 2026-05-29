@@ -10,6 +10,7 @@ class DeleteMediaAssetRequest extends FormRequest
     {
         // Ownership is enforced by the delete action's scoped query so repeat deletes,
         // missing assets, and cross-user IDs all return the same idempotent 204 outcome.
+        // Wire a MediaAssetPolicy here later if delete semantics stop being outcome-based.
         return true;
     }
 

@@ -31,7 +31,7 @@ final class StoreMediaAssetController extends Controller
                 id: $data['id'] ?? null,
             ));
         } catch (MediaAssetConflictException $exception) {
-            if ($exception->conflictingUserId() !== $request->user()->id) {
+            if ($exception->shouldBeHiddenFrom($request->user()->id)) {
                 abort(404);
             }
 

@@ -119,6 +119,35 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_it_normalizes_checksum_before_matching_idempotent_retries(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+        $checksum = str_repeat('aB', 32);
+        $payload = [
+            'id' => $id,
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+            'checksum_sha256' => $checksum,
+            'original_filename' => null,
+        ];
+
+        MediaAsset::factory()
+            ->for($user)
+            ->create($payload);
+
+        $response = $this->postJson('/api/media-assets', $payload);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.checksum_sha256', strtolower($checksum));
+
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_rejects_client_provided_ulid_conflicts(): void
     {
         $user = $this->signIn();

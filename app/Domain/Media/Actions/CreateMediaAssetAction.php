@@ -135,6 +135,10 @@ class CreateMediaAssetAction
                 }
             }
 
+            if (! $this->isUniqueConstraintViolation($exception)) {
+                throw $exception;
+            }
+
             $existingMediaAsset = MediaAsset::query()
                 ->where('disk', $data->disk)
                 ->where('path', $data->path)
@@ -144,15 +148,15 @@ class CreateMediaAssetAction
                 throw MediaAssetConflictException::storagePathExists($existingMediaAsset);
             }
 
-            // If the conflicting row disappeared before this lookup, preserve the original
-            // database failure so callers see the true unresolved write result.
+            // If the conflicting row disappeared before this lookup, keep the client-facing
+            // retry signal as a conflict while logging the unresolved database detail.
             Log::warning('Media asset integrity violation could not be mapped to an existing asset.', [
                 'disk' => $data->disk,
                 'path' => $data->path,
                 'id' => $data->id,
             ]);
 
-            throw $exception;
+            throw MediaAssetConflictException::unresolvedStorageConflict();
         }
 
         return $mediaAsset;
@@ -161,6 +165,18 @@ class CreateMediaAssetAction
     private function isSha256Checksum(string $value): bool
     {
         return strlen($value) === 64 && ctype_xdigit($value);
+    }
+
+    private function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? '');
+        $driverCode = (string) ($exception->errorInfo[1] ?? '');
+        $message = strtolower($exception->getMessage());
+
+        return $sqlState === '23505'
+            || $driverCode === '1062'
+            || str_contains($message, 'unique constraint')
+            || str_contains($message, 'duplicate');
     }
 
     private function matchingExistingMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): MediaAsset

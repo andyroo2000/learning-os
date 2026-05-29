@@ -7,9 +7,13 @@ use RuntimeException;
 
 final class MediaAssetConflictException extends RuntimeException
 {
+    /**
+     * Owner context lets the HTTP layer hide cross-user conflicts without
+     * forcing domain callers to know about response status codes.
+     */
     private function __construct(
         string $message,
-        private readonly int $conflictingUserId,
+        private readonly ?int $conflictingUserId,
     ) {
         parent::__construct($message);
     }
@@ -30,8 +34,17 @@ final class MediaAssetConflictException extends RuntimeException
         );
     }
 
-    public function conflictingUserId(): int
+    public static function unresolvedStorageConflict(): self
     {
-        return $this->conflictingUserId;
+        return new self(
+            message: 'Media asset already exists.',
+            conflictingUserId: null,
+        );
+    }
+
+    public function shouldBeHiddenFrom(int $userId): bool
+    {
+        return $this->conflictingUserId !== null
+            && $this->conflictingUserId !== $userId;
     }
 }

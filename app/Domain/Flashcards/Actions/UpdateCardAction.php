@@ -18,11 +18,10 @@ class UpdateCardAction
             throw new InvalidArgumentException('Card back text is required.');
         }
 
-        $card->fill([
-            'front_text' => $data->frontText,
-            'back_text' => $data->backText,
-        ]);
+        $card->front_text = $data->frontText;
+        $card->back_text = $data->backText;
 
+        // Eloquent skips the UPDATE query when no attributes are dirty.
         $card->saveOrFail();
 
         return $card;

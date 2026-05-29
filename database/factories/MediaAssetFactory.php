@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,6 +24,7 @@ class MediaAssetFactory extends Factory
         $filename = fake()->uuid().'.'.$extension;
 
         return [
+            'user_id' => User::factory(),
             'disk' => 'media',
             'path' => 'uploads/'.$filename,
             // Not fillable; factories bypass mass assignment. Assign explicitly in app code.

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Media;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -18,6 +19,7 @@ class MediaAssetTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumns('media_assets', [
             'id',
+            'user_id',
             'disk',
             'path',
             'public_url',
@@ -32,7 +34,9 @@ class MediaAssetTest extends TestCase
 
     public function test_media_asset_can_be_created(): void
     {
+        $user = User::factory()->create();
         $asset = MediaAsset::factory()
+            ->for($user)
             ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
             ->create([
                 'disk' => 'media',
@@ -48,6 +52,7 @@ class MediaAssetTest extends TestCase
 
         $this->assertDatabaseHas('media_assets', [
             'id' => $asset->id,
+            'user_id' => $user->id,
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
             'public_url' => 'https://cdn.example.test/uploads/example.jpg',
@@ -56,6 +61,14 @@ class MediaAssetTest extends TestCase
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
         ]);
+    }
+
+    public function test_media_asset_belongs_to_a_user(): void
+    {
+        $user = User::factory()->create();
+        $asset = MediaAsset::factory()->for($user)->create();
+
+        $this->assertTrue($asset->user->is($user));
     }
 
     public function test_invalid_public_url_is_rejected(): void
@@ -83,7 +96,10 @@ class MediaAssetTest extends TestCase
 
     public function test_public_url_must_be_assigned_explicitly(): void
     {
+        $user = User::factory()->create();
+
         $asset = MediaAsset::query()->create([
+            'user_id' => $user->id,
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
             'public_url' => 'https://cdn.example.test/uploads/example.jpg',

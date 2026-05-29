@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Media;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
 use LogicException;
 
@@ -15,6 +17,12 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function authorize(): bool
     {
+        /** @var Card $card */
+        $card = $this->route('card');
+
+        // Throw via Gate so CardPolicy's 404 denial is preserved; returning false here would become a 403.
+        Gate::authorize('update', $card);
+
         return true;
     }
 
@@ -67,6 +75,16 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset = null;
         }
 
-        return $this->resolvedMediaAsset = MediaAsset::query()->find($mediaAssetId);
+        $userId = $this->user()?->id;
+
+        if ($userId === null) {
+            // Unreachable behind auth:sanctum, but keeps this helper safe outside normal routing.
+            return $this->resolvedMediaAsset = null;
+        }
+
+        return $this->resolvedMediaAsset = MediaAsset::query()
+            ->whereKey($mediaAssetId)
+            ->where('user_id', $userId)
+            ->first();
     }
 }

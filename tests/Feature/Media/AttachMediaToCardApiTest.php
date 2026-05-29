@@ -21,6 +21,7 @@ class AttachMediaToCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()
+            ->for($user)
             ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
             ->create([
                 'disk' => 'media',
@@ -58,7 +59,7 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
@@ -78,8 +79,9 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $firstMediaAsset = MediaAsset::factory()->create();
+        $firstMediaAsset = MediaAsset::factory()->for($user)->create();
         $secondMediaAsset = MediaAsset::factory()
+            ->for($user)
             ->withPublicUrl('https://cdn.example.test/uploads/second.jpg')
             ->create();
 
@@ -111,7 +113,7 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
         {
@@ -143,7 +145,7 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
@@ -177,7 +179,7 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
         {
@@ -207,7 +209,7 @@ class AttachMediaToCardApiTest extends TestCase
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
         {
@@ -293,10 +295,27 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_rejects_another_users_media_asset(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['media_asset_id']);
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
     public function test_it_rejects_missing_card(): void
     {
-        $this->signIn();
-        $mediaAsset = MediaAsset::factory()->create();
+        $user = $this->signIn();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $response = $this->postJson('/api/cards/'.strtolower((string) Str::ulid()).'/media-assets', [
             'media_asset_id' => $mediaAsset->id,
@@ -310,12 +329,26 @@ class AttachMediaToCardApiTest extends TestCase
 
     public function test_it_rejects_another_users_card(): void
     {
-        $this->signIn();
+        $user = $this->signIn();
         $otherCard = Card::factory()->create();
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $response = $this->postJson("/api/cards/{$otherCard->id}/media-assets", [
             'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
+    public function test_it_hides_another_users_card_before_media_asset_validation(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $response = $this->postJson("/api/cards/{$otherCard->id}/media-assets", [
+            'media_asset_id' => 'not-a-ulid',
         ]);
 
         $response->assertNotFound();

@@ -22,8 +22,6 @@ class AttachMediaToCardController extends Controller
         Card $card,
         AttachMediaToCardAction $attachMediaToCard,
     ): JsonResponse {
-        $this->authorize('update', $card);
-
         $mediaAsset = $request->mediaAsset();
 
         try {
@@ -32,19 +30,26 @@ class AttachMediaToCardController extends Controller
                 mediaAsset: $mediaAsset,
             ));
         } catch (QueryException $exception) {
-            $updatedCard = $this->recoverFromConstraintViolation($exception, $card, $mediaAsset);
+            $updatedCard = $this->recoverFromConstraintViolation(
+                exception: $exception,
+                card: $card,
+                mediaAsset: $mediaAsset,
+            );
         }
 
         return CardResource::make($updatedCard)->response();
     }
 
-    private function recoverFromConstraintViolation(QueryException $exception, Card $card, MediaAsset $mediaAsset): Card
-    {
+    private function recoverFromConstraintViolation(
+        QueryException $exception,
+        Card $card,
+        MediaAsset $mediaAsset,
+    ): Card {
         if (! IntegrityConstraintViolation::matches($exception)) {
             throw $exception;
         }
 
-        if (! MediaAsset::query()->whereKey($mediaAsset->getKey())->exists()) {
+        if (! MediaAsset::query()->whereKey($mediaAsset->getKey())->where('user_id', $mediaAsset->user_id)->exists()) {
             throw ValidationException::withMessages([
                 'media_asset_id' => 'The selected media asset id is invalid.',
             ]);

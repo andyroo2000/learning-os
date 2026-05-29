@@ -3,6 +3,8 @@
 namespace App\Domain\Media\Models;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Values\OriginalFilename;
+use App\Domain\Media\Values\PublicUrl;
 use App\Models\User;
 use Database\Factories\MediaAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,6 +27,14 @@ class MediaAsset extends Model
     /** @use HasFactory<MediaAssetFactory> */
     use HasFactory, HasUlids;
 
+    public const MAX_DISK_LENGTH = 255;
+
+    public const MAX_PATH_LENGTH = 255;
+
+    public const MAX_MIME_TYPE_LENGTH = 255;
+
+    public const MAX_ORIGINAL_FILENAME_LENGTH = 255;
+
     public const MAX_PUBLIC_URL_LENGTH = 2048;
 
     protected static function newFactory(): MediaAssetFactory
@@ -38,6 +48,18 @@ class MediaAsset extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'user_id' => 'integer',
+            // App-level inputs are PHP ints; product upload caps belong at the upload boundary.
+            'size_bytes' => 'integer',
+        ];
     }
 
     /**
@@ -59,19 +81,7 @@ class MediaAsset extends Model
                 }
 
                 // This is a model invariant guard; public write paths should still validate first.
-                if (filter_var($value, FILTER_VALIDATE_URL) === false) {
-                    throw new InvalidArgumentException('public_url must be a valid URL.');
-                }
-
-                if (mb_strlen($value) > self::MAX_PUBLIC_URL_LENGTH) {
-                    throw new InvalidArgumentException('public_url must not exceed '.self::MAX_PUBLIC_URL_LENGTH.' characters.');
-                }
-
-                $scheme = parse_url($value, PHP_URL_SCHEME);
-
-                if (! in_array($scheme, ['http', 'https'], true)) {
-                    throw new InvalidArgumentException('public_url must use the http or https scheme.');
-                }
+                PublicUrl::assertValid($value, self::MAX_PUBLIC_URL_LENGTH);
 
                 return $value;
             },
@@ -86,21 +96,29 @@ class MediaAsset extends Model
         return Attribute::make(
             get: function (?string $value): ?string {
                 // Keep raw imported rows safe to serialize until a backfill exists.
-                return self::normalizeOriginalFilename($value);
+                return OriginalFilename::normalize($value);
             },
-            set: fn (?string $value): ?string => self::normalizeOriginalFilename($value),
+            set: fn (?string $value): ?string => OriginalFilename::normalize($value),
         );
     }
 
-    private static function normalizeOriginalFilename(?string $value): ?string
+    /**
+     * @return Attribute<?string, ?string>
+     */
+    protected function checksumSha256(): Attribute
     {
-        if ($value === null) {
-            return null;
-        }
+        return Attribute::make(
+            get: function (?string $value): ?string {
+                $value = $value === null ? null : trim($value);
 
-        $filename = basename(str_replace('\\', '/', trim($value)));
+                return $value === null || $value === '' ? null : strtolower($value);
+            },
+            set: function (?string $value): ?string {
+                $value = $value === null ? null : trim($value);
 
-        return in_array($filename, ['', '.', '..'], true) ? null : $filename;
+                return $value === null || $value === '' ? null : strtolower($value);
+            },
+        );
     }
 
     /**

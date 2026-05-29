@@ -186,6 +186,31 @@ class MediaAssetTest extends TestCase
         $this->assertSame('example.jpg', $asset->fresh()->original_filename);
     }
 
+    public function test_checksum_is_normalized_to_lowercase(): void
+    {
+        $asset = MediaAsset::factory()->create([
+            'checksum_sha256' => str_repeat('A', 64),
+        ]);
+
+        $this->assertSame(str_repeat('a', 64), $asset->checksum_sha256);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $asset->id,
+            'checksum_sha256' => str_repeat('a', 64),
+        ]);
+    }
+
+    public function test_raw_checksum_reads_as_lowercase(): void
+    {
+        $asset = MediaAsset::factory()->create();
+
+        DB::table('media_assets')
+            ->where('id', $asset->id)
+            ->update(['checksum_sha256' => str_repeat('A', 64)]);
+
+        $this->assertSame(str_repeat('a', 64), $asset->fresh()->checksum_sha256);
+    }
+
     public function test_raw_empty_public_url_reads_as_null(): void
     {
         $asset = MediaAsset::factory()->create();
@@ -197,6 +222,17 @@ class MediaAssetTest extends TestCase
         $this->assertNull($asset->fresh()->public_url);
     }
 
+    public function test_raw_private_public_url_reads_without_revalidating_legacy_data(): void
+    {
+        $asset = MediaAsset::factory()->create();
+
+        DB::table('media_assets')
+            ->where('id', $asset->id)
+            ->update(['public_url' => 'https://127.0.0.1/uploads/example.jpg']);
+
+        $this->assertSame('https://127.0.0.1/uploads/example.jpg', $asset->fresh()->public_url);
+    }
+
     public function test_non_http_public_url_is_rejected(): void
     {
         $asset = MediaAsset::factory()->make();
@@ -204,5 +240,15 @@ class MediaAssetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         $asset->public_url = 'ftp://cdn.example.test/uploads/example.jpg';
+    }
+
+    public function test_private_public_url_host_is_rejected(): void
+    {
+        $asset = MediaAsset::factory()->make();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
+
+        $asset->public_url = 'https://127.0.0.1/uploads/example.jpg';
     }
 }

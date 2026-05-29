@@ -3,22 +3,14 @@
 namespace App\Http\Requests\Media;
 
 use App\Domain\Media\Models\MediaAsset;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Http\FormRequest;
-use LogicException;
 
 class DeleteMediaAssetRequest extends FormRequest
 {
-    private bool $mediaAssetResolutionAttempted = false;
-
-    private ?MediaAsset $resolvedMediaAsset = null;
-
     public function authorize(): bool
     {
-        if ($this->resolveMediaAsset() === null) {
-            throw (new ModelNotFoundException)->setModel(MediaAsset::class, [$this->route('mediaAsset')]);
-        }
-
         return true;
     }
 
@@ -27,31 +19,25 @@ class DeleteMediaAssetRequest extends FormRequest
         return [];
     }
 
-    public function mediaAsset(): MediaAsset
+    public function userId(): int
     {
-        $mediaAsset = $this->resolveMediaAsset();
+        $user = $this->user();
 
-        return $mediaAsset ?? throw new LogicException('mediaAsset() called before authorization completed or outside a validated request context.');
+        if ($user === null) {
+            throw new AuthenticationException;
+        }
+
+        return $user->id;
     }
 
-    private function resolveMediaAsset(): ?MediaAsset
+    public function mediaAssetId(): string
     {
-        if ($this->mediaAssetResolutionAttempted) {
-            return $this->resolvedMediaAsset;
-        }
-
-        $this->mediaAssetResolutionAttempted = true;
-
         $mediaAssetId = $this->route('mediaAsset');
 
-        // Intentionally resolve the raw route segment here so media assets are scoped to the current user.
-        if ($mediaAssetId === null) {
-            return $this->resolvedMediaAsset = null;
+        if (! is_string($mediaAssetId) || $mediaAssetId === '') {
+            throw (new ModelNotFoundException)->setModel(MediaAsset::class, [$mediaAssetId]);
         }
 
-        return $this->resolvedMediaAsset = MediaAsset::query()
-            ->whereKey($mediaAssetId)
-            ->where('user_id', $this->user()->id)
-            ->first();
+        return $mediaAssetId;
     }
 }

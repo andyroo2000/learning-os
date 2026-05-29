@@ -35,23 +35,23 @@ class DeleteMediaAssetApiTest extends TestCase
         ]);
     }
 
-    public function test_it_rejects_missing_media_asset(): void
+    public function test_it_is_idempotent_when_media_asset_is_missing(): void
     {
         $this->signIn();
 
         $response = $this->deleteJson('/api/media-assets/'.strtolower((string) Str::ulid()));
 
-        $response->assertNotFound();
+        $response->assertNoContent();
     }
 
-    public function test_it_rejects_another_users_media_asset(): void
+    public function test_it_does_not_delete_another_users_media_asset(): void
     {
         $this->signIn();
         $mediaAsset = MediaAsset::factory()->create();
 
         $response = $this->deleteJson("/api/media-assets/{$mediaAsset->id}");
 
-        $response->assertNotFound();
+        $response->assertNoContent();
 
         $this->assertDatabaseHas('media_assets', [
             'id' => $mediaAsset->id,

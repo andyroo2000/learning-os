@@ -15,7 +15,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
-class StoreMediaAssetController extends Controller
+final class StoreMediaAssetController extends Controller
 {
     public function __invoke(StoreMediaAssetRequest $request, CreateMediaAssetAction $createMediaAsset): JsonResponse
     {
@@ -51,7 +51,7 @@ class StoreMediaAssetController extends Controller
             ], 409);
         } catch (MediaAssetValidationException $exception) {
             throw ValidationException::withMessages([
-                'media_asset' => $exception->getMessage(),
+                $exception->field() => $exception->getMessage(),
             ]);
         }
 

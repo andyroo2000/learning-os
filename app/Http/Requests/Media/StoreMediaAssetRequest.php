@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 
-class StoreMediaAssetRequest extends FormRequest
+final class StoreMediaAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -24,11 +24,11 @@ class StoreMediaAssetRequest extends FormRequest
     {
         return [
             'id' => ['nullable', 'ulid'],
-            'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(['media'])],
+            'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(MediaAsset::ALLOWED_DISKS)],
             'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
             'size_bytes' => ['required', 'integer', 'min:1'],
-            'public_url' => ['nullable', 'string', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
+            'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
             'checksum_sha256' => ['nullable', 'string', 'size:64', 'regex:/\\A[0-9a-fA-F]+\\z/'],
             'original_filename' => ['nullable', 'string', 'max:'.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH],
         ];

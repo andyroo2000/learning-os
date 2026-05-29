@@ -12,6 +12,7 @@ use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use LogicException;
 
 class CreateMediaAssetAction
 {
@@ -22,64 +23,64 @@ class CreateMediaAssetAction
     public function handle(CreateMediaAssetData $data): MediaAsset
     {
         if ($data->userId < 1) {
-            throw new MediaAssetValidationException('Media asset user ID must be a positive integer.');
+            throw new LogicException('Media asset user ID must be a positive integer.');
         }
 
         if ($data->disk === '') {
-            throw new MediaAssetValidationException('Media asset disk is required.');
+            throw new MediaAssetValidationException('disk', 'Media asset disk is required.');
         }
 
         if (mb_strlen($data->disk) > MediaAsset::MAX_DISK_LENGTH) {
-            throw new MediaAssetValidationException('Media asset disk must not exceed '.MediaAsset::MAX_DISK_LENGTH.' characters.');
+            throw new MediaAssetValidationException('disk', 'Media asset disk must not exceed '.MediaAsset::MAX_DISK_LENGTH.' characters.');
         }
 
         if ($data->path === '') {
-            throw new MediaAssetValidationException('Media asset path is required.');
+            throw new MediaAssetValidationException('path', 'Media asset path is required.');
         }
 
         if (mb_strlen($data->path) > MediaAsset::MAX_PATH_LENGTH) {
-            throw new MediaAssetValidationException('Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
+            throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
         }
 
         if ($data->mimeType === '') {
-            throw new MediaAssetValidationException('Media asset MIME type is required.');
+            throw new MediaAssetValidationException('mime_type', 'Media asset MIME type is required.');
         }
 
         if (mb_strlen($data->mimeType) > MediaAsset::MAX_MIME_TYPE_LENGTH) {
-            throw new MediaAssetValidationException('Media asset MIME type must not exceed '.MediaAsset::MAX_MIME_TYPE_LENGTH.' characters.');
+            throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must not exceed '.MediaAsset::MAX_MIME_TYPE_LENGTH.' characters.');
         }
 
         // Expects CreateMediaAssetData's normalized lowercase form; keep accepted MIME
         // types conservative until upload adapters need wider token support.
         if (! MimeType::hasValidShape($data->mimeType)) {
-            throw new MediaAssetValidationException('Media asset MIME type must include a type and subtype.');
+            throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must include a type and subtype.');
         }
 
         if ($data->sizeBytes < 1) {
-            throw new MediaAssetValidationException('Media asset size must be at least 1 byte.');
+            throw new MediaAssetValidationException('size_bytes', 'Media asset size must be at least 1 byte.');
         }
 
         // No product cap here: size_bytes is unsignedBigInteger; upload caps belong at the upload boundary.
         if ($data->checksumSha256 !== null && ! $this->isSha256Checksum($data->checksumSha256)) {
-            throw new MediaAssetValidationException('Media asset checksum must be a 64-character SHA-256 hex digest.');
+            throw new MediaAssetValidationException('checksum_sha256', 'Media asset checksum must be a 64-character SHA-256 hex digest.');
         }
 
         if ($data->publicUrl !== null) {
             try {
                 PublicUrl::assertValid($data->publicUrl, MediaAsset::MAX_PUBLIC_URL_LENGTH);
             } catch (InvalidArgumentException $exception) {
-                throw new MediaAssetValidationException($exception->getMessage(), previous: $exception);
+                throw new MediaAssetValidationException('public_url', $exception->getMessage(), $exception);
             }
         }
 
         // Validate the already-normalized basename against the stored column limit.
         if ($data->originalFilename !== null && mb_strlen($data->originalFilename) > MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH) {
-            throw new MediaAssetValidationException('Media asset original filename must not exceed '.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH.' characters.');
+            throw new MediaAssetValidationException('original_filename', 'Media asset original filename must not exceed '.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH.' characters.');
         }
 
         if ($data->id !== null) {
             if (! Str::isUlid($data->id)) {
-                throw new MediaAssetValidationException('Media asset ID must be a valid ULID.');
+                throw new MediaAssetValidationException('id', 'Media asset ID must be a valid ULID.');
             }
 
             $existingMediaAsset = MediaAsset::query()->find($data->id);

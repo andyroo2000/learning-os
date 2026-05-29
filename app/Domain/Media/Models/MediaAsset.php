@@ -37,6 +37,12 @@ class MediaAsset extends Model
 
     public const MAX_PUBLIC_URL_LENGTH = 2048;
 
+    public const DISK_MEDIA = 'media';
+
+    public const ALLOWED_DISKS = [
+        self::DISK_MEDIA,
+    ];
+
     protected static function newFactory(): MediaAssetFactory
     {
         return MediaAssetFactory::new();

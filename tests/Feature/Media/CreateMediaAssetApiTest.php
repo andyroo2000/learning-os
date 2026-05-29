@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Media;
 
+use App\Domain\Media\Actions\CreateMediaAssetAction;
+use App\Domain\Media\Data\CreateMediaAssetData;
+use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -276,6 +279,35 @@ class CreateMediaAssetApiTest extends TestCase
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
             'mime_type' => 'image',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['mime_type']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_maps_action_validation_errors_to_field_validation_errors(): void
+    {
+        $this->signIn();
+
+        $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
+        {
+            public function handle(CreateMediaAssetData $data): MediaAsset
+            {
+                throw new MediaAssetValidationException(
+                    field: 'mime_type',
+                    message: 'Media asset MIME type must include a type and subtype.',
+                );
+            }
+        });
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
         ]);
 

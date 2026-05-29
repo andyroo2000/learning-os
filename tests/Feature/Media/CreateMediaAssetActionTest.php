@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use LogicException;
 use Tests\TestCase;
 
 class CreateMediaAssetActionTest extends TestCase
@@ -410,7 +411,7 @@ class CreateMediaAssetActionTest extends TestCase
 
     public function test_it_rejects_invalid_user_id(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Media asset user ID must be a positive integer.');
 
         app(CreateMediaAssetAction::class)->handle(

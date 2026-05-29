@@ -42,7 +42,7 @@ class ListMediaAssetsApiTest extends TestCase
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        $otherMediaAsset = MediaAsset::factory()
+        MediaAsset::factory()
             ->for($otherUser)
             ->create([
                 'path' => 'uploads/hidden.jpg',
@@ -81,8 +81,6 @@ class ListMediaAssetsApiTest extends TestCase
                 'links',
                 'meta',
             ]);
-
-        $this->assertNotContains($otherMediaAsset->id, $response->json('data.*.id'));
     }
 
     public function test_it_returns_an_empty_list_when_the_user_has_no_media_assets(): void

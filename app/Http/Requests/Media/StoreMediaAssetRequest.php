@@ -45,7 +45,7 @@ final class StoreMediaAssetRequest extends FormRequest
                 'not_regex:'.MediaAsset::PATH_TRAVERSAL_PATTERN,
             ],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
-            'size_bytes' => ['required', 'integer', 'min:1', 'max:'.MediaAsset::MAX_STORABLE_SIZE_BYTES],
+            'size_bytes' => ['required', 'integer', 'min:1', 'max:'.MediaAsset::MAX_JSON_SAFE_SIZE_BYTES],
             'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
             'checksum_sha256' => ['nullable', 'string', 'size:64', 'regex:/\\A[0-9a-fA-F]+\\z/'],
             'original_filename' => ['nullable', 'string', 'max:'.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH],

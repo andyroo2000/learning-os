@@ -65,6 +65,22 @@ class CreateMediaAssetApiTest extends TestCase
         ]);
     }
 
+    public function test_it_serializes_the_maximum_size_without_precision_loss(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/max-size.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => MediaAsset::MAX_JSON_SAFE_SIZE_BYTES,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.size_bytes', MediaAsset::MAX_JSON_SAFE_SIZE_BYTES);
+    }
+
     public function test_it_accepts_a_client_provided_ulid(): void
     {
         $user = $this->signIn();

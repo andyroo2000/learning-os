@@ -719,11 +719,29 @@ class CreateMediaAssetActionTest extends TestCase
                 disk: 'media',
                 path: 'uploads/example.jpg',
                 mimeType: 'image/jpeg',
-                sizeBytes: MediaAsset::MAX_STORABLE_SIZE_BYTES,
+                sizeBytes: MediaAsset::MAX_JSON_SAFE_SIZE_BYTES,
             ),
         );
 
-        $this->assertSame(MediaAsset::MAX_STORABLE_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
+        $this->assertSame(MediaAsset::MAX_JSON_SAFE_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
+    }
+
+    public function test_it_rejects_size_larger_than_json_safe_limit(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset size must not exceed '.MediaAsset::MAX_JSON_SAFE_SIZE_BYTES.' bytes.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: MediaAsset::MAX_JSON_SAFE_SIZE_BYTES + 1,
+            ),
+        );
     }
 
     public function test_it_rejects_invalid_checksum(): void

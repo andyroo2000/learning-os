@@ -37,7 +37,10 @@ class MediaAsset extends Model
 
     public const MAX_PUBLIC_URL_LENGTH = 2048;
 
-    public const MAX_STORABLE_SIZE_BYTES = PHP_INT_MAX;
+    /**
+     * Largest integer JavaScript clients can parse from JSON without precision loss.
+     */
+    public const MAX_JSON_SAFE_SIZE_BYTES = 9_007_199_254_740_991;
 
     public const DISK_MEDIA = 'media';
 

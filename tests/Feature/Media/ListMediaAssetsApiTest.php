@@ -126,6 +126,17 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonPath('meta.per_page', 50);
     }
 
+    public function test_it_rejects_invalid_page_size(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/media-assets?per_page=abc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();

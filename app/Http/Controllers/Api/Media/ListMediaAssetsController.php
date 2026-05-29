@@ -15,7 +15,12 @@ class ListMediaAssetsController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $perPage = $request->integer('per_page', ListMediaAssetsAction::DEFAULT_PAGE_SIZE);
+        $validated = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $perPage = isset($validated['per_page'])
+            ? (int) $validated['per_page']
+            : ListMediaAssetsAction::MAX_PAGE_SIZE;
 
         return MediaAssetResource::collection($listMediaAssets->handle($user->id, $perPage));
     }

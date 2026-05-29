@@ -7,14 +7,12 @@ use Illuminate\Contracts\Pagination\CursorPaginator;
 
 class ListMediaAssetsAction
 {
-    public const DEFAULT_PAGE_SIZE = 50;
-
     public const MAX_PAGE_SIZE = 50;
 
     /**
      * @return CursorPaginator<MediaAsset>
      */
-    public function handle(int $userId, int $perPage = self::DEFAULT_PAGE_SIZE): CursorPaginator
+    public function handle(int $userId, int $perPage = self::MAX_PAGE_SIZE): CursorPaginator
     {
         $perPage = min(max($perPage, 1), self::MAX_PAGE_SIZE);
 

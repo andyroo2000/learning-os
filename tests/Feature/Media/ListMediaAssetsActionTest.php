@@ -12,6 +12,17 @@ class ListMediaAssetsActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_lists_only_media_assets_for_the_user(): void
+    {
+        $user = User::factory()->create();
+        $ownedMediaAsset = MediaAsset::factory()->for($user)->create();
+        MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle($user->id);
+
+        $this->assertSame([$ownedMediaAsset->id], collect($mediaAssets->items())->pluck('id')->all());
+    }
+
     public function test_it_allows_a_smaller_page_size(): void
     {
         $user = User::factory()->create();

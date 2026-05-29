@@ -11,7 +11,7 @@ class AttachMediaToCardAction
     {
         $changes = $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
 
-        if ($changes['attached'] !== [] || $changes['updated'] !== []) {
+        if ($changes['attached'] !== []) {
             $data->card->touch();
         }
 

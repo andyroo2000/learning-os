@@ -69,15 +69,33 @@ class ListDeckMediaAssetsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_excludes_cross_user_media_attached_to_a_card_in_the_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $card->mediaAssets()->attach($crossUserMediaAsset->id);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_it_lists_media_assets_in_id_order(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
         $card = Card::factory()->for($deck)->create();
-        $earlierMediaAsset = MediaAsset::factory()->for($user)->create();
-        $laterMediaAsset = MediaAsset::factory()->for($user)->create();
-
-        $this->assertLessThan($laterMediaAsset->id, $earlierMediaAsset->id);
+        $earlierMediaAsset = MediaAsset::factory()->for($user)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
+        ]);
+        $laterMediaAsset = MediaAsset::factory()->for($user)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pb',
+        ]);
 
         $card->mediaAssets()->attach($laterMediaAsset->id);
         $card->mediaAssets()->attach($earlierMediaAsset->id);

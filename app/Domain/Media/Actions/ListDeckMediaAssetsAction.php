@@ -13,6 +13,7 @@ class ListDeckMediaAssetsAction
      */
     public function handle(Deck $deck): Collection
     {
+        // Unbounded by design: clients use this as a full offline preload manifest.
         return MediaAsset::query()
             ->select('media_assets.*')
             ->join('card_media', 'card_media.media_asset_id', '=', 'media_assets.id')

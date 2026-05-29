@@ -9,6 +9,10 @@ class DeleteMediaAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        if ($this->user() === null) {
+            throw new AuthenticationException;
+        }
+
         // Ownership is enforced by the delete action's scoped query so repeat deletes,
         // missing assets, and cross-user IDs all return the same idempotent 204 outcome.
         return true;
@@ -32,8 +36,11 @@ class DeleteMediaAssetRequest extends FormRequest
 
     public function mediaAssetId(): string
     {
-        /** @var string $mediaAssetId */
         $mediaAssetId = $this->route('mediaAsset');
+
+        if (! is_string($mediaAssetId) || $mediaAssetId === '') {
+            abort(404);
+        }
 
         return $mediaAssetId;
     }

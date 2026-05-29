@@ -376,6 +376,24 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
+    public function test_it_allows_double_dots_inside_path_segments(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/my..photo.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('media_assets', [
+            'path' => 'uploads/my..photo.jpg',
+        ]);
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->postJson('/api/media-assets', [

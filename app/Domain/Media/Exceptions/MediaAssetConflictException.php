@@ -9,7 +9,7 @@ final class MediaAssetConflictException extends RuntimeException
 {
     private function __construct(
         string $message,
-        private readonly ?int $conflictingUserId,
+        private readonly int $conflictingUserId,
     ) {
         parent::__construct($message);
     }
@@ -30,7 +30,7 @@ final class MediaAssetConflictException extends RuntimeException
         );
     }
 
-    public function conflictingUserId(): ?int
+    public function conflictingUserId(): int
     {
         return $this->conflictingUserId;
     }

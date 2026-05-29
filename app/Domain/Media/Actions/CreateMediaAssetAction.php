@@ -46,7 +46,7 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
         }
 
-        if (str_contains($data->path, '..')) {
+        if (preg_match('~(^|[\\\\/])\\.\\.([\\\\/]|$)~', $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must not contain traversal sequences.');
         }
 
@@ -141,6 +141,8 @@ class CreateMediaAssetAction
                 throw MediaAssetConflictException::storagePathExists($existingMediaAsset);
             }
 
+            // If the conflicting row disappeared before this lookup, preserve the original
+            // database failure so callers see the true unresolved write result.
             throw $exception;
         }
 

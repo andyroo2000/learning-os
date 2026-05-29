@@ -35,7 +35,7 @@ final class StoreMediaAssetRequest extends FormRequest
         return [
             'id' => ['nullable', 'ulid'],
             'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(MediaAsset::ALLOWED_DISKS)],
-            'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH, 'not_regex:/\\.\\./'],
+            'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH, 'not_regex:~(^|[\\\\/])\\.\\.([\\\\/]|$)~'],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
             'size_bytes' => ['required', 'integer', 'min:1'],
             'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
@@ -85,8 +85,8 @@ final class StoreMediaAssetRequest extends FormRequest
 
         try {
             PublicUrl::assertValid($publicUrl, MediaAsset::MAX_PUBLIC_URL_LENGTH);
-        } catch (InvalidArgumentException $exception) {
-            $validator->errors()->add('public_url', $exception->getMessage());
+        } catch (InvalidArgumentException) {
+            $validator->errors()->add('public_url', 'The public url must be a valid public HTTP(S) URL.');
         }
     }
 

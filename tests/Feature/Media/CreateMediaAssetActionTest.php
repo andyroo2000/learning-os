@@ -513,6 +513,23 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_allows_double_dots_inside_path_segments(): void
+    {
+        $user = User::factory()->create();
+
+        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/my..photo.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+
+        $this->assertSame('uploads/my..photo.jpg', $mediaAsset->path);
+    }
+
     public function test_it_rejects_blank_mime_type(): void
     {
         $user = User::factory()->create();

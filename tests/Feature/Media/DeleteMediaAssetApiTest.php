@@ -44,6 +44,15 @@ class DeleteMediaAssetApiTest extends TestCase
         $response->assertNoContent();
     }
 
+    public function test_it_is_idempotent_when_media_asset_id_is_malformed(): void
+    {
+        $this->signIn();
+
+        $response = $this->deleteJson('/api/media-assets/not-a-valid-id');
+
+        $response->assertNoContent();
+    }
+
     public function test_it_does_not_delete_another_users_media_asset(): void
     {
         $this->signIn();

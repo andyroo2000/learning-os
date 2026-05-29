@@ -11,7 +11,7 @@ final class MimeType
         return strtolower(trim(explode(';', trim($value), 2)[0]));
     }
 
-    public static function hasValidShape(string $value): bool
+    public static function hasValidNormalizedShape(string $value): bool
     {
         return preg_match('/^[a-z0-9][a-z0-9!#$&\-^_]*\/[a-z0-9][a-z0-9!#$&\-^_.+]*$/', $value) === 1;
     }

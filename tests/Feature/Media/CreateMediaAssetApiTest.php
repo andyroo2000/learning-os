@@ -169,6 +169,34 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_it_hides_idempotent_retries_for_other_users_assets(): void
+    {
+        $mediaAsset = MediaAsset::factory()
+            ->create([
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'public_url' => null,
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 123_456,
+                'checksum_sha256' => null,
+                'original_filename' => null,
+            ]);
+
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'id' => $mediaAsset->id,
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_rejects_storage_path_conflicts(): void
     {
         $user = $this->signIn();
@@ -241,6 +269,24 @@ class CreateMediaAssetApiTest extends TestCase
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
         ]);
+    }
+
+    public function test_it_trims_original_filename_before_validation(): void
+    {
+        $this->signIn();
+        $filename = str_repeat('a', MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH);
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+            'original_filename' => "  {$filename}  ",
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.original_filename', $filename);
     }
 
     public function test_it_rejects_invalid_input(): void

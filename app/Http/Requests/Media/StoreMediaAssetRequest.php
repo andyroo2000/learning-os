@@ -24,6 +24,7 @@ final class StoreMediaAssetRequest extends FormRequest
             'path' => $this->trimStringInput('path'),
             'mime_type' => $this->trimStringInput('mime_type'),
             'public_url' => $this->trimStringInput('public_url'),
+            'original_filename' => $this->trimStringInput('original_filename'),
         ]);
     }
 
@@ -66,7 +67,7 @@ final class StoreMediaAssetRequest extends FormRequest
 
         $mimeType = MimeType::normalize($mimeType);
 
-        if (! MimeType::hasValidShape($mimeType)) {
+        if (! MimeType::hasValidNormalizedShape($mimeType)) {
             $validator->errors()->add('mime_type', 'The mime type must include a type and subtype.');
         }
     }

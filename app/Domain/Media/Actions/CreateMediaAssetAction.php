@@ -19,6 +19,8 @@ class CreateMediaAssetAction
     /**
      * PostgreSQL callers should not wrap this action in a transaction without
      * revisiting retry recovery; constraint violations abort the transaction.
+     *
+     * @throws MediaAssetConflictException when a client ULID or disk/path pair conflicts.
      */
     public function handle(CreateMediaAssetData $data): MediaAsset
     {
@@ -60,7 +62,7 @@ class CreateMediaAssetAction
 
         // Keep action-level guards in sync with HTTP validation so non-HTTP callers
         // cannot bypass media invariants. The DTO provides normalized lowercase form.
-        if (! MimeType::hasValidShape($data->mimeType)) {
+        if (! MimeType::hasValidNormalizedShape($data->mimeType)) {
             throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must include a type and subtype.');
         }
 

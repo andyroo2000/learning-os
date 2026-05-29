@@ -10,6 +10,7 @@ use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
@@ -145,6 +146,12 @@ class CreateMediaAssetAction
 
             // If the conflicting row disappeared before this lookup, preserve the original
             // database failure so callers see the true unresolved write result.
+            Log::warning('Media asset integrity violation could not be mapped to an existing asset.', [
+                'disk' => $data->disk,
+                'path' => $data->path,
+                'id' => $data->id,
+            ]);
+
             throw $exception;
         }
 
@@ -158,6 +165,8 @@ class CreateMediaAssetAction
 
     private function matchingExistingMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): MediaAsset
     {
+        // Ownership is part of retry identity; matching metadata from a different user
+        // is still a conflict so the API can hide the other user's asset.
         // Idempotency compares normalized immutable metadata. Original filename uses the
         // same value object in the DTO and model accessor; raw imports should be normalized
         // before relying on client-generated ID retries for these rows.

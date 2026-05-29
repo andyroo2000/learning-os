@@ -74,6 +74,7 @@ final class StoreMediaAssetRequest extends FormRequest
 
     private function validatePublicUrl(Validator $validator): void
     {
+        // The base URL rule handles syntax; PublicUrl narrows accepted schemes and hosts.
         if ($validator->errors()->has('public_url')) {
             return;
         }
@@ -87,7 +88,7 @@ final class StoreMediaAssetRequest extends FormRequest
         try {
             PublicUrl::assertValid($publicUrl, MediaAsset::MAX_PUBLIC_URL_LENGTH);
         } catch (InvalidArgumentException) {
-            $validator->errors()->add('public_url', 'The public url must be a valid public HTTP(S) URL.');
+            $validator->errors()->add('public_url', 'The public URL must be a valid public HTTP(S) URL.');
         }
     }
 

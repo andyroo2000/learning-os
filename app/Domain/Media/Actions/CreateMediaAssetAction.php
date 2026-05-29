@@ -139,7 +139,7 @@ class CreateMediaAssetAction
                 }
             }
 
-            if (! $this->isUniqueConstraintViolation($exception)) {
+            if (! IntegrityConstraintViolation::matchesUniqueKey($exception)) {
                 throw $exception;
             }
 
@@ -169,19 +169,6 @@ class CreateMediaAssetAction
     private function isSha256Checksum(string $value): bool
     {
         return strlen($value) === 64 && ctype_xdigit($value);
-    }
-
-    private function isUniqueConstraintViolation(QueryException $exception): bool
-    {
-        $sqlState = (string) ($exception->errorInfo[0] ?? '');
-        $driverCode = (string) ($exception->errorInfo[1] ?? '');
-        $message = strtolower($exception->getMessage());
-
-        return $sqlState === '23505'
-            || $driverCode === '1062'
-            || ($exception->getConnectionName() === 'sqlite'
-                && $driverCode === '19'
-                && str_contains($message, 'unique constraint failed'));
     }
 
     private function matchingExistingMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): MediaAsset

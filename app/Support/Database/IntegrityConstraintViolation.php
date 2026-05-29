@@ -27,4 +27,17 @@ class IntegrityConstraintViolation
         // Fallback for driver wrappers that expose SQLSTATE on the exception code only.
         return str_starts_with($previousCode, '23') || str_starts_with($currentCode, '23');
     }
+
+    public static function matchesUniqueKey(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? '');
+        $driverCode = (string) ($exception->errorInfo[1] ?? '');
+        $message = strtolower($exception->getMessage());
+
+        return $sqlState === '23505'
+            || $driverCode === '1062'
+            || ($exception->getConnectionName() === 'sqlite'
+                && $driverCode === '19'
+                && str_contains($message, 'unique constraint failed'));
+    }
 }

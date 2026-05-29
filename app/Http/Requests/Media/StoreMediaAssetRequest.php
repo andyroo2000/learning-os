@@ -45,7 +45,7 @@ final class StoreMediaAssetRequest extends FormRequest
                 'not_regex:~(^|[\\\\/])\\.\\.([\\\\/]|$)~',
             ],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
-            'size_bytes' => ['required', 'integer', 'min:1'],
+            'size_bytes' => ['required', 'integer', 'min:1', 'max:'.PHP_INT_MAX],
             'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
             'checksum_sha256' => ['nullable', 'string', 'size:64', 'regex:/\\A[0-9a-fA-F]+\\z/'],
             'original_filename' => ['nullable', 'string', 'max:'.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH],
@@ -75,7 +75,7 @@ final class StoreMediaAssetRequest extends FormRequest
         $mimeType = MimeType::normalize($mimeType);
 
         if (! MimeType::hasValidNormalizedShape($mimeType)) {
-            $validator->errors()->add('mime_type', 'The mime type must include a type and subtype.');
+            $validator->errors()->add('mime_type', 'Media asset MIME type must include a type and subtype.');
         }
     }
 

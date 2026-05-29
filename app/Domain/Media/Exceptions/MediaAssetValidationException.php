@@ -2,10 +2,10 @@
 
 namespace App\Domain\Media\Exceptions;
 
-use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
-final class MediaAssetValidationException extends InvalidArgumentException
+final class MediaAssetValidationException extends RuntimeException
 {
     public function __construct(
         private readonly string $field,

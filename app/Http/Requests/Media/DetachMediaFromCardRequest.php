@@ -17,8 +17,11 @@ class DetachMediaFromCardRequest extends FormRequest
 
     public function authorize(): bool
     {
-        /** @var Card $card */
         $card = $this->route('card');
+
+        if (! $card instanceof Card) {
+            throw (new ModelNotFoundException)->setModel(Card::class, [$this->route('card')]);
+        }
 
         // Throw via Gate so CardPolicy's 404 denial is preserved; returning false here would become a 403.
         Gate::authorize('update', $card);
@@ -28,6 +31,14 @@ class DetachMediaFromCardRequest extends FormRequest
         }
 
         return true;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function rules(): array
+    {
+        return [];
     }
 
     public function mediaAsset(): MediaAsset
@@ -47,6 +58,7 @@ class DetachMediaFromCardRequest extends FormRequest
 
         $mediaAssetId = $this->route('mediaAsset');
 
+        // Intentionally resolve the raw route segment here so media assets are scoped to the current user.
         if (! is_string($mediaAssetId)) {
             return $this->resolvedMediaAsset = null;
         }

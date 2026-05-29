@@ -11,11 +11,17 @@ class DeleteMediaAssetAction
     {
         // Scoping by user makes missing, already-deleted, and cross-user assets the same
         // no-op outcome for offline retry safety and to avoid asset enumeration.
-        // MediaAsset is hard-deleted, so card_media cleanup can rely on ON DELETE CASCADE.
-        // Physical storage cleanup belongs with the future upload/storage service.
-        MediaAsset::query()
+        $mediaAsset = MediaAsset::query()
             ->whereKey($data->mediaAssetId)
             ->where('user_id', $data->userId)
-            ->delete();
+            ->first();
+
+        if ($mediaAsset === null) {
+            return;
+        }
+
+        // Load the model before deleting so future Eloquent events can coordinate storage cleanup.
+        // MediaAsset is hard-deleted, so card_media cleanup can rely on ON DELETE CASCADE.
+        $mediaAsset->delete();
     }
 }

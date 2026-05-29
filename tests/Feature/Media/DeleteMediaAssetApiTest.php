@@ -11,7 +11,7 @@ class DeleteMediaAssetApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_deletes_a_media_asset(): void
+    public function test_it_deletes_a_media_asset_and_its_card_attachments(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);

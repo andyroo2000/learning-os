@@ -57,7 +57,7 @@ class DeleteMediaAssetActionTest extends TestCase
 
         app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
             userId: $user->id,
-            mediaAssetId: strtolower((string) Str::ulid()),
+            mediaAssetId: (string) Str::ulid(),
         ));
 
         $this->assertDatabaseCount('media_assets', 0);

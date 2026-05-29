@@ -60,6 +60,8 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonPath('data.0.size_bytes', 234_567)
             ->assertJsonPath('data.0.checksum_sha256', str_repeat('b', 64))
             ->assertJsonPath('data.0.original_filename', 'second.jpg')
+            ->assertJsonPath('data.0.created_at', $secondMediaAsset->created_at?->toJSON())
+            ->assertJsonPath('data.0.updated_at', $secondMediaAsset->updated_at?->toJSON())
             ->assertJsonMissingPath('data.0.disk')
             ->assertJsonMissingPath('data.0.path')
             ->assertJsonMissingPath('data.0.url_expires_at')
@@ -110,23 +112,23 @@ class ListMediaAssetsApiTest extends TestCase
             ]);
         }
 
-        $lowTieMediaAsset = MediaAsset::factory()->for($user)->create([
+        $firstInsertedTieMediaAsset = MediaAsset::factory()->for($user)->create([
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
-        $highTieMediaAsset = MediaAsset::factory()->for($user)->create([
+        $secondInsertedTieMediaAsset = MediaAsset::factory()->for($user)->create([
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
 
-        $this->assertLessThan($highTieMediaAsset->id, $lowTieMediaAsset->id);
+        $this->assertLessThan($secondInsertedTieMediaAsset->id, $firstInsertedTieMediaAsset->id);
 
         $firstPage = $this->getJson('/api/media-assets');
 
         $firstPage
             ->assertOk()
             ->assertJsonCount(50, 'data')
-            ->assertJsonPath('data.49.id', $highTieMediaAsset->id)
+            ->assertJsonPath('data.49.id', $secondInsertedTieMediaAsset->id)
             ->assertJsonPath('meta.per_page', 50);
 
         $nextCursor = $firstPage->json('meta.next_cursor');
@@ -138,7 +140,7 @@ class ListMediaAssetsApiTest extends TestCase
         $secondPage
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lowTieMediaAsset->id)
+            ->assertJsonPath('data.0.id', $firstInsertedTieMediaAsset->id)
             ->assertJsonPath('meta.next_cursor', null);
     }
 

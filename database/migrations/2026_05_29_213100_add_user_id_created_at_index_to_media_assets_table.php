@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('media_assets', function (Blueprint $table) {
+            // The owner FK migration does not define a standalone application index for listing.
             $table->index(['user_id', 'created_at', 'id'], 'media_assets_user_created_id_index');
         });
     }

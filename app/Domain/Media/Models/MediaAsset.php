@@ -37,7 +37,7 @@ class MediaAsset extends Model
 
     public const MAX_PUBLIC_URL_LENGTH = 2048;
 
-    public const MAX_SIZE_BYTES = 9_223_372_036_854_775_807;
+    public const MAX_SIZE_BYTES = PHP_INT_MAX;
 
     public const DISK_MEDIA = 'media';
 

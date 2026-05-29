@@ -144,8 +144,6 @@ class ListMediaAssetsApiTest extends TestCase
 
     public function test_it_requires_authentication(): void
     {
-        MediaAsset::factory()->create();
-
         $response = $this->getJson('/api/media-assets');
 
         $response->assertUnauthorized();

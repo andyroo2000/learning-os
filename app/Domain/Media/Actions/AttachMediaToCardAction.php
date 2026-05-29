@@ -9,7 +9,11 @@ class AttachMediaToCardAction
 {
     public function handle(AttachMediaToCardData $data): Card
     {
-        $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
+        $changes = $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
+
+        if ($changes['attached'] !== [] || $changes['updated'] !== []) {
+            $data->card->touch();
+        }
 
         return $data->card->load('mediaAssets');
     }

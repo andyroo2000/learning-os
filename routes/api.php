@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Flashcards\StoreDeckController;
 use App\Http\Controllers\Api\Flashcards\UpdateCardController;
 use App\Http\Controllers\Api\Flashcards\UpdateDeckController;
 use App\Http\Controllers\Api\Media\AttachMediaToCardController;
+use App\Http\Controllers\Api\Media\DetachMediaFromCardController;
 use App\Http\Controllers\Api\Media\ListCardMediaAssetsController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
 use App\Http\Controllers\Api\Reviews\ListCardReviewEventsController;
@@ -21,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class);
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
     Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
+    Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class);
     Route::put('/cards/{card}', UpdateCardController::class);
     Route::post('/cards', StoreCardController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);

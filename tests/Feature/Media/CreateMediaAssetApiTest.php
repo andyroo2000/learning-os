@@ -143,6 +143,29 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_it_hides_client_provided_ulid_conflicts_for_other_users(): void
+    {
+        $this->signIn();
+        $mediaAsset = MediaAsset::factory()->create([
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response = $this->postJson('/api/media-assets', [
+            'id' => $mediaAsset->id,
+            'disk' => 'media',
+            'path' => 'uploads/different.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_rejects_storage_path_conflicts(): void
     {
         $user = $this->signIn();
@@ -259,6 +282,24 @@ class CreateMediaAssetApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['mime_type']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_rejects_unknown_disks(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'private',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['disk']);
 
         $this->assertDatabaseCount('media_assets', 0);
     }

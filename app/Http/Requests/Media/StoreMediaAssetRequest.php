@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Media;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 
@@ -22,7 +24,7 @@ class StoreMediaAssetRequest extends FormRequest
     {
         return [
             'id' => ['nullable', 'ulid'],
-            'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH],
+            'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(['media'])],
             'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
             'size_bytes' => ['required', 'integer', 'min:1'],
@@ -52,9 +54,9 @@ class StoreMediaAssetRequest extends FormRequest
             return;
         }
 
-        $mimeType = strtolower(trim(explode(';', trim($mimeType), 2)[0]));
+        $mimeType = MimeType::normalize($mimeType);
 
-        if (! preg_match('/^[a-z0-9][a-z0-9!#$&\-^_]*\/[a-z0-9][a-z0-9!#$&\-^_.+]*$/', $mimeType)) {
+        if (! MimeType::hasValidShape($mimeType)) {
             $validator->errors()->add('mime_type', 'The mime type must include a type and subtype.');
         }
     }
@@ -68,12 +70,6 @@ class StoreMediaAssetRequest extends FormRequest
         $publicUrl = $this->input('public_url');
 
         if ($publicUrl === null) {
-            return;
-        }
-
-        if (! is_string($publicUrl)) {
-            $validator->errors()->add('public_url', 'The public url must be a string.');
-
             return;
         }
 

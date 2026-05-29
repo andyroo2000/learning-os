@@ -2,6 +2,7 @@
 
 namespace App\Domain\Media\Data;
 
+use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\OriginalFilename;
 
 final readonly class CreateMediaAssetData
@@ -55,7 +56,7 @@ final readonly class CreateMediaAssetData
 
     private static function normalizeMimeType(string $value): string
     {
-        return strtolower(trim(explode(';', trim($value), 2)[0]));
+        return MimeType::normalize($value);
     }
 
     private static function normalizeChecksum(?string $value): ?string

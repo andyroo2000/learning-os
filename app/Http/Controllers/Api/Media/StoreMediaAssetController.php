@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Media;
 use App\Domain\Media\Actions\CreateMediaAssetAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
+use App\Domain\Media\Exceptions\MediaAssetValidationException;
+use App\Domain\Media\Models\MediaAsset;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\StoreMediaAssetRequest;
 use App\Http\Resources\Media\MediaAssetResource;
@@ -12,7 +14,6 @@ use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
 class StoreMediaAssetController extends Controller
 {
@@ -26,13 +27,17 @@ class StoreMediaAssetController extends Controller
                 disk: $data['disk'],
                 path: $data['path'],
                 mimeType: $data['mime_type'],
-                sizeBytes: (int) $data['size_bytes'],
+                sizeBytes: $data['size_bytes'],
                 publicUrl: $data['public_url'] ?? null,
                 checksumSha256: $data['checksum_sha256'] ?? null,
                 originalFilename: $data['original_filename'] ?? null,
                 id: $data['id'] ?? null,
             ));
         } catch (MediaAssetConflictException $exception) {
+            if (! $this->conflictsWithCurrentUsersAsset($data, $request->user()->id)) {
+                abort(404);
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 409);
@@ -44,7 +49,7 @@ class StoreMediaAssetController extends Controller
             return response()->json([
                 'message' => 'Media asset storage path already exists.',
             ], 409);
-        } catch (InvalidArgumentException $exception) {
+        } catch (MediaAssetValidationException $exception) {
             throw ValidationException::withMessages([
                 'media_asset' => $exception->getMessage(),
             ]);
@@ -53,5 +58,19 @@ class StoreMediaAssetController extends Controller
         return MediaAssetResource::make($mediaAsset)
             ->response()
             ->setStatusCode($mediaAsset->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function conflictsWithCurrentUsersAsset(array $data, int $userId): bool
+    {
+        $id = $data['id'] ?? null;
+
+        return is_string($id)
+            && MediaAsset::query()
+                ->whereKey(strtolower($id))
+                ->where('user_id', $userId)
+                ->exists();
     }
 }

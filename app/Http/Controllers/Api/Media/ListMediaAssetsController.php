@@ -15,7 +15,8 @@ class ListMediaAssetsController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+        $perPage = $request->integer('per_page', ListMediaAssetsAction::DEFAULT_PAGE_SIZE);
 
-        return MediaAssetResource::collection($listMediaAssets->handle($user->id));
+        return MediaAssetResource::collection($listMediaAssets->handle($user->id, $perPage));
     }
 }

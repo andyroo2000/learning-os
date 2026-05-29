@@ -98,6 +98,34 @@ class ListMediaAssetsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_accepts_a_smaller_page_size(): void
+    {
+        $user = $this->signIn();
+
+        MediaAsset::factory()->count(3)->for($user)->create();
+
+        $response = $this->getJson('/api/media-assets?per_page=2');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.per_page', 2);
+    }
+
+    public function test_it_caps_page_size(): void
+    {
+        $user = $this->signIn();
+
+        MediaAsset::factory()->count(51)->for($user)->create();
+
+        $response = $this->getJson('/api/media-assets?per_page=200');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(50, 'data')
+            ->assertJsonPath('meta.per_page', 50);
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();

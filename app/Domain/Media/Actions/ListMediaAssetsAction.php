@@ -7,9 +7,9 @@ use Illuminate\Contracts\Pagination\CursorPaginator;
 
 class ListMediaAssetsAction
 {
-    private const DEFAULT_PAGE_SIZE = 50;
+    public const DEFAULT_PAGE_SIZE = 50;
 
-    private const MAX_PAGE_SIZE = 50;
+    public const MAX_PAGE_SIZE = 50;
 
     /**
      * @return CursorPaginator<MediaAsset>

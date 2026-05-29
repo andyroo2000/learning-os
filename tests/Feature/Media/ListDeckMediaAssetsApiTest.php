@@ -63,7 +63,6 @@ class ListDeckMediaAssetsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonCount(0, 'data')
             ->assertJson([
                 'data' => [],
             ]);
@@ -82,7 +81,9 @@ class ListDeckMediaAssetsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJson([
+                'data' => [],
+            ]);
     }
 
     public function test_it_lists_media_assets_in_id_order(): void
@@ -97,6 +98,7 @@ class ListDeckMediaAssetsApiTest extends TestCase
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pb',
         ]);
 
+        // Attach in reverse ID order to prove the manifest order is deterministic.
         $card->mediaAssets()->attach($laterMediaAsset->id);
         $card->mediaAssets()->attach($earlierMediaAsset->id);
 

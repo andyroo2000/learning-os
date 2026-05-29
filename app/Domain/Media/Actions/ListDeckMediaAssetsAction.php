@@ -13,8 +13,18 @@ class ListDeckMediaAssetsAction
      */
     public function handle(Deck $deck): Collection
     {
-        // Unbounded by design: clients use this as a full offline preload manifest.
+        // Unbounded by design: clients use this complete manifest to preload deck media offline.
         return MediaAsset::query()
+            ->select([
+                'id',
+                'public_url',
+                'mime_type',
+                'size_bytes',
+                'checksum_sha256',
+                'original_filename',
+                'created_at',
+                'updated_at',
+            ])
             ->where('user_id', $deck->user_id)
             ->whereHas('cards', fn ($query) => $query->where('deck_id', $deck->id))
             ->orderBy('id')

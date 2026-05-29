@@ -1,0 +1,120 @@
+<?php
+
+namespace Tests\Feature\Media;
+
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Models\MediaAsset;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+class ListDeckMediaAssetsApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_lists_unique_media_assets_attached_to_cards_in_a_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create();
+        $secondCard = Card::factory()->for($deck)->create();
+        $mediaAsset = MediaAsset::factory()
+            ->for($user)
+            ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
+            ->create([
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 123_456,
+                'checksum_sha256' => str_repeat('a', 64),
+                'original_filename' => 'example.jpg',
+            ]);
+        $otherDeckMediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $firstCard->mediaAssets()->attach($mediaAsset->id);
+        $secondCard->mediaAssets()->attach($mediaAsset->id);
+        $this->cardFor($user)->mediaAssets()->attach($otherDeckMediaAsset->id);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $mediaAsset->id)
+            ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/example.jpg')
+            ->assertJsonPath('data.0.mime_type', 'image/jpeg')
+            ->assertJsonPath('data.0.size_bytes', 123_456)
+            ->assertJsonPath('data.0.checksum_sha256', str_repeat('a', 64))
+            ->assertJsonPath('data.0.original_filename', 'example.jpg')
+            ->assertJsonMissingPath('data.0.disk')
+            ->assertJsonMissingPath('data.0.path')
+            ->assertJsonMissingPath('data.0.url_expires_at')
+            ->assertJsonMissingPath('links')
+            ->assertJsonMissingPath('meta');
+    }
+
+    public function test_it_returns_an_empty_manifest_for_a_deck_without_media(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJson([
+                'data' => [],
+            ]);
+    }
+
+    public function test_it_lists_media_assets_in_id_order(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $earlierMediaAsset = MediaAsset::factory()->for($user)->create();
+        $laterMediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $this->assertLessThan($laterMediaAsset->id, $earlierMediaAsset->id);
+
+        $card->mediaAssets()->attach($laterMediaAsset->id);
+        $card->mediaAssets()->attach($earlierMediaAsset->id);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $earlierMediaAsset->id)
+            ->assertJsonPath('data.1.id', $laterMediaAsset->id);
+    }
+
+    public function test_it_hides_another_users_deck(): void
+    {
+        $this->signIn();
+        $otherDeck = $this->deckFor(User::factory()->create());
+
+        $response = $this->getJson("/api/decks/{$otherDeck->id}/media-assets");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_missing_deck(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks/'.strtolower((string) Str::ulid()).'/media-assets');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_requires_authentication(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response->assertUnauthorized();
+    }
+}

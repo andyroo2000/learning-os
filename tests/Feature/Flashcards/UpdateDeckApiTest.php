@@ -107,7 +107,7 @@ class UpdateDeckApiTest extends TestCase
     public function test_it_is_idempotent_when_metadata_is_unchanged(): void
     {
         $user = $this->signIn();
-        $timestamp = now()->subDay();
+        $timestamp = now()->subDay()->startOfSecond();
         $deck = Deck::factory()->for($user)->create([
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
@@ -120,18 +120,16 @@ class UpdateDeckApiTest extends TestCase
             'description' => 'Foundational Italian review cards.',
         ]);
 
-        $response
-            ->assertOk();
-
         $deck->refresh();
 
-        $this->assertSame(
-            DeckResource::make($deck)->resolve()['updated_at'],
-            $response->json('data.updated_at'),
-        );
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', DeckResource::make($deck)->resolve()['updated_at']);
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
             'updated_at' => $timestamp,
         ]);
     }
@@ -139,7 +137,7 @@ class UpdateDeckApiTest extends TestCase
     public function test_it_is_idempotent_when_trimmed_metadata_matches_existing_values(): void
     {
         $user = $this->signIn();
-        $timestamp = now()->subDay();
+        $timestamp = now()->subDay()->startOfSecond();
         $deck = Deck::factory()->for($user)->create([
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
@@ -152,21 +150,48 @@ class UpdateDeckApiTest extends TestCase
             'description' => '  Foundational Italian review cards.  ',
         ]);
 
-        $response
-            ->assertOk();
-
         $deck->refresh();
 
-        $this->assertSame(
-            DeckResource::make($deck)->resolve()['updated_at'],
-            $response->json('data.updated_at'),
-        );
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', DeckResource::make($deck)->resolve()['updated_at']);
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
             'updated_at' => $timestamp,
+        ]);
+    }
+
+    public function test_it_updates_timestamp_when_metadata_changes(): void
+    {
+        $user = $this->signIn();
+        $timestamp = now()->subDay()->startOfSecond();
+        $deck = Deck::factory()->for($user)->create([
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $response = $this->putJson("/api/decks/{$deck->id}", [
+            'name' => 'Italian Travel',
+            'description' => 'Phrases for airport and train station practice.',
+        ]);
+
+        $deck->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', DeckResource::make($deck)->resolve()['updated_at']);
+
+        $this->assertTrue($deck->updated_at->isAfter($timestamp));
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $deck->id,
+            'name' => 'Italian Travel',
+            'description' => 'Phrases for airport and train station practice.',
         ]);
     }
 

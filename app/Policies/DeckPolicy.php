@@ -10,8 +10,20 @@ class DeckPolicy
 {
     public function view(User $user, Deck $deck): Response
     {
-        return $deck->user_id === $user->id
+        return $this->owns($user, $deck)
             ? Response::allow()
             : Response::denyAsNotFound();
+    }
+
+    public function update(User $user, Deck $deck): Response
+    {
+        return $this->owns($user, $deck)
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+
+    private function owns(User $user, Deck $deck): bool
+    {
+        return $deck->user_id === $user->id;
     }
 }

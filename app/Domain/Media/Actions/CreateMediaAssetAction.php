@@ -75,8 +75,8 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('size_bytes', 'Media asset size must be at least 1 byte.');
         }
 
-        if ($data->sizeBytes > MediaAsset::MAX_SIZE_BYTES) {
-            throw new MediaAssetValidationException('size_bytes', 'Media asset size must not exceed '.MediaAsset::MAX_SIZE_BYTES.' bytes.');
+        if ($data->sizeBytes > MediaAsset::MAX_STORABLE_SIZE_BYTES) {
+            throw new MediaAssetValidationException('size_bytes', 'Media asset size must not exceed '.MediaAsset::MAX_STORABLE_SIZE_BYTES.' bytes.');
         }
 
         // No product upload cap here; upload caps belong at the upload boundary.

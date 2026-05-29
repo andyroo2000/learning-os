@@ -719,11 +719,11 @@ class CreateMediaAssetActionTest extends TestCase
                 disk: 'media',
                 path: 'uploads/example.jpg',
                 mimeType: 'image/jpeg',
-                sizeBytes: MediaAsset::MAX_SIZE_BYTES,
+                sizeBytes: MediaAsset::MAX_STORABLE_SIZE_BYTES,
             ),
         );
 
-        $this->assertSame(MediaAsset::MAX_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
+        $this->assertSame(MediaAsset::MAX_STORABLE_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
     }
 
     public function test_it_rejects_invalid_checksum(): void

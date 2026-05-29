@@ -134,6 +134,8 @@ class CreateMediaAssetApiTest extends TestCase
             'original_filename' => null,
         ];
 
+        // The model mutator lowercases persisted checksums, so idempotency compares
+        // against the same normalized form the API stores for client-created assets.
         MediaAsset::factory()
             ->for($user)
             ->create($payload);

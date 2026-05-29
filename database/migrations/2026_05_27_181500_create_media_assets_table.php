@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('disk');
             $table->string('path');
             $table->string('mime_type');
-            $table->bigInteger('size_bytes');
+            $table->unsignedBigInteger('size_bytes');
             $table->string('checksum_sha256', 64)->nullable();
             $table->string('original_filename')->nullable();
             $table->timestamps();

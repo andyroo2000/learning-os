@@ -349,6 +349,24 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
+    public function test_it_rejects_size_larger_than_column_limit(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => '9223372036854775808',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['size_bytes']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
     public function test_it_rejects_private_public_urls(): void
     {
         $this->signIn();

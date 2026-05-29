@@ -36,8 +36,8 @@ class IntegrityConstraintViolation
 
         return $sqlState === '23505'
             || $driverCode === '1062'
-            // SQLite exposes all constraint subtypes as code 19; PDO's stable message
-            // prefix is the narrowest available signal for unique-key violations here.
+            // SQLite exposes all constraint subtypes as code 19. The message prefix is
+            // a best-effort SQLite-only discriminator for unique-key failures in tests.
             || ($exception->getConnectionName() === 'sqlite'
                 && $driverCode === '19'
                 && str_contains($message, 'unique constraint failed'));

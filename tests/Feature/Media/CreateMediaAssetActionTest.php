@@ -709,6 +709,23 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_accepts_maximum_size(): void
+    {
+        $user = User::factory()->create();
+
+        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: MediaAsset::MAX_SIZE_BYTES,
+            ),
+        );
+
+        $this->assertSame(MediaAsset::MAX_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
+    }
+
     public function test_it_rejects_invalid_checksum(): void
     {
         $user = User::factory()->create();

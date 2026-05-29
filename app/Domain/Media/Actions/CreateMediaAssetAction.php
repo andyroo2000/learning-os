@@ -75,7 +75,11 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('size_bytes', 'Media asset size must be at least 1 byte.');
         }
 
-        // No product cap here: size_bytes is unsignedBigInteger; upload caps belong at the upload boundary.
+        if ($data->sizeBytes > MediaAsset::MAX_SIZE_BYTES) {
+            throw new MediaAssetValidationException('size_bytes', 'Media asset size must not exceed '.MediaAsset::MAX_SIZE_BYTES.' bytes.');
+        }
+
+        // No product upload cap here; upload caps belong at the upload boundary.
         if ($data->checksumSha256 !== null && ! $this->isSha256Checksum($data->checksumSha256)) {
             throw new MediaAssetValidationException('checksum_sha256', 'Media asset checksum must be a 64-character SHA-256 hex digest.');
         }

@@ -75,6 +75,7 @@ class DetachMediaFromCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->create();
 
+        // This cannot happen through the attach API, but protects against stale or imported rows.
         $card->mediaAssets()->attach($mediaAsset->id);
 
         $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}");

@@ -17,7 +17,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
         ]);
@@ -50,7 +50,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => '  Italian Travel  ',
             'description' => '   ',
         ]);
@@ -66,7 +66,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
             'description' => '',
         ]);
@@ -89,7 +89,7 @@ class UpdateDeckApiTest extends TestCase
             'description' => 'Foundational Italian review cards.',
         ]);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Basics',
             'description' => null,
         ]);
@@ -115,7 +115,7 @@ class UpdateDeckApiTest extends TestCase
             'updated_at' => $timestamp,
         ]);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
@@ -147,7 +147,7 @@ class UpdateDeckApiTest extends TestCase
             'updated_at' => $timestamp,
         ]);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => '  Italian Basics  ',
             'description' => '  Foundational Italian review cards.  ',
         ]);
@@ -175,7 +175,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => '   ',
             'description' => null,
         ]);
@@ -196,7 +196,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
             'description' => ['not a string'],
         ]);
@@ -217,7 +217,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 123,
             'description' => null,
         ]);
@@ -238,7 +238,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
             'description' => str_repeat('a', 10_001),
         ]);
@@ -259,7 +259,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => str_repeat('a', 256),
             'description' => null,
         ]);
@@ -280,7 +280,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", []);
+        $response = $this->putJson("/api/decks/{$deck->id}", []);
 
         $response
             ->assertUnprocessable()
@@ -298,7 +298,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
         ]);
 
@@ -318,7 +318,7 @@ class UpdateDeckApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'description' => null,
         ]);
 
@@ -338,7 +338,7 @@ class UpdateDeckApiTest extends TestCase
         $this->signIn();
         $otherDeck = Deck::factory()->create();
 
-        $response = $this->patchJson("/api/decks/{$otherDeck->id}", [
+        $response = $this->putJson("/api/decks/{$otherDeck->id}", [
             'name' => 'Italian Travel',
             'description' => null,
         ]);
@@ -357,7 +357,7 @@ class UpdateDeckApiTest extends TestCase
         $this->signIn();
         $otherDeck = Deck::factory()->create();
 
-        $response = $this->patchJson("/api/decks/{$otherDeck->id}", [
+        $response = $this->putJson("/api/decks/{$otherDeck->id}", [
             'name' => '   ',
         ]);
 
@@ -371,7 +371,7 @@ class UpdateDeckApiTest extends TestCase
         $this->signIn();
         $missingDeckId = strtolower((string) Str::ulid());
 
-        $response = $this->patchJson("/api/decks/{$missingDeckId}", [
+        $response = $this->putJson("/api/decks/{$missingDeckId}", [
             'name' => 'Italian Travel',
             'description' => null,
         ]);
@@ -383,12 +383,31 @@ class UpdateDeckApiTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
-        $response = $this->patchJson("/api/decks/{$deck->id}", [
+        $response = $this->putJson("/api/decks/{$deck->id}", [
             'name' => 'Italian Travel',
             'description' => null,
         ]);
 
         $response->assertUnauthorized();
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $deck->id,
+            'name' => $deck->name,
+            'description' => $deck->description,
+        ]);
+    }
+
+    public function test_it_does_not_accept_patch_updates(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->patchJson("/api/decks/{$deck->id}", [
+            'name' => 'Italian Travel',
+            'description' => null,
+        ]);
+
+        $response->assertStatus(405);
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,

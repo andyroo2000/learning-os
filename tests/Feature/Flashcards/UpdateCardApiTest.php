@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -61,6 +62,98 @@ class UpdateCardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.front_text', 'arrivederci')
             ->assertJsonPath('data.back_text', 'goodbye');
+    }
+
+    public function test_it_is_idempotent_when_text_is_unchanged(): void
+    {
+        $user = $this->signIn();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $card->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', CardResource::make($card)->resolve()['updated_at']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'updated_at' => $timestamp,
+        ]);
+    }
+
+    public function test_it_is_idempotent_when_trimmed_text_matches_existing_values(): void
+    {
+        $user = $this->signIn();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '  ciao  ',
+            'back_text' => '  hello  ',
+        ]);
+
+        $card->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', CardResource::make($card)->resolve()['updated_at']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'updated_at' => $timestamp,
+        ]);
+    }
+
+    public function test_it_updates_timestamp_when_text_changes(): void
+    {
+        $user = $this->signIn();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+
+        $card->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', CardResource::make($card)->resolve()['updated_at']);
+
+        $this->assertTrue($card->updated_at->isAfter($timestamp));
+        $this->assertNotSame($timestamp->toJSON(), $response->json('data.updated_at'));
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
     }
 
     public function test_it_rejects_invalid_input(): void

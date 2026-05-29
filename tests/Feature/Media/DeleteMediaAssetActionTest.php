@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Media;
 
-use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
@@ -33,7 +32,7 @@ class DeleteMediaAssetActionTest extends TestCase
     public function test_it_removes_card_attachments_when_deleting_a_media_asset(): void
     {
         $user = User::factory()->create();
-        $card = Card::factory()->create();
+        $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);

@@ -9,17 +9,11 @@ class DeleteMediaAssetAction
 {
     public function handle(DeleteMediaAssetData $data): void
     {
-        $mediaAsset = MediaAsset::query()
+        // card_media cleanup relies on the database ON DELETE CASCADE constraint.
+        // Physical storage cleanup belongs with the future upload/storage service.
+        MediaAsset::query()
             ->whereKey($data->mediaAssetId)
             ->where('user_id', $data->userId)
-            ->first();
-
-        if ($mediaAsset === null) {
-            return;
-        }
-
-        // This slice deletes metadata and card relationships; storage object cleanup belongs
-        // with the future upload/storage service once physical media writes exist.
-        $mediaAsset->delete();
+            ->delete();
     }
 }

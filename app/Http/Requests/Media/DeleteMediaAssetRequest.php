@@ -2,15 +2,15 @@
 
 namespace App\Http\Requests\Media;
 
-use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DeleteMediaAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        // Ownership is enforced by the delete action's scoped query so repeat deletes,
+        // missing assets, and cross-user IDs all return the same idempotent 204 outcome.
         return true;
     }
 
@@ -32,11 +32,8 @@ class DeleteMediaAssetRequest extends FormRequest
 
     public function mediaAssetId(): string
     {
+        /** @var string $mediaAssetId */
         $mediaAssetId = $this->route('mediaAsset');
-
-        if (! is_string($mediaAssetId) || $mediaAssetId === '') {
-            throw (new ModelNotFoundException)->setModel(MediaAsset::class, [$mediaAssetId]);
-        }
 
         return $mediaAssetId;
     }

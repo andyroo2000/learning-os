@@ -43,6 +43,10 @@ class MediaAsset extends Model
         self::DISK_MEDIA,
     ];
 
+    public const PATH_ABSOLUTE_PATTERN = '~^(?:[\\\\/]|[a-zA-Z]:[\\\\/])~';
+
+    public const PATH_TRAVERSAL_PATTERN = '~(^|[\\\\/])\\.\\.([\\\\/]|$)~';
+
     protected static function newFactory(): MediaAssetFactory
     {
         return MediaAssetFactory::new();

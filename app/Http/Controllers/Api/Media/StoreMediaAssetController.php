@@ -32,7 +32,7 @@ final class StoreMediaAssetController extends Controller
             ));
         } catch (MediaAssetConflictException $exception) {
             if ($exception->shouldBeHiddenFrom($request->user()->id)) {
-                abort(404);
+                return response()->json(['message' => 'Not Found'], 404);
             }
 
             return response()->json([

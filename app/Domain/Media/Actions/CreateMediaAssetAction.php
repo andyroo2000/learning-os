@@ -49,11 +49,11 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
         }
 
-        if (preg_match('~^(?:[\\\\/]|[a-zA-Z]:[\\\\/])~', $data->path) === 1) {
+        if (preg_match(MediaAsset::PATH_ABSOLUTE_PATTERN, $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must be relative.');
         }
 
-        if (preg_match('~(^|[\\\\/])\\.\\.([\\\\/]|$)~', $data->path) === 1) {
+        if (preg_match(MediaAsset::PATH_TRAVERSAL_PATTERN, $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must not contain traversal sequences.');
         }
 

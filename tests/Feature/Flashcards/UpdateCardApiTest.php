@@ -16,7 +16,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->patchJson("/api/cards/{$card->id}", [
+        $response = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);
@@ -52,7 +52,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->patchJson("/api/cards/{$card->id}", [
+        $response = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => '  arrivederci  ',
             'back_text' => '  goodbye  ',
         ]);
@@ -68,7 +68,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->patchJson("/api/cards/{$card->id}", [
+        $response = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => '   ',
             'back_text' => '   ',
         ]);
@@ -89,7 +89,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->patchJson("/api/cards/{$card->id}", [
+        $response = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => ['arrivederci'],
             'back_text' => ['goodbye'],
         ]);
@@ -110,7 +110,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->patchJson("/api/cards/{$card->id}", []);
+        $response = $this->putJson("/api/cards/{$card->id}", []);
 
         $response
             ->assertUnprocessable()
@@ -128,7 +128,7 @@ class UpdateCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $missingFrontText = $this->patchJson("/api/cards/{$card->id}", [
+        $missingFrontText = $this->putJson("/api/cards/{$card->id}", [
             'back_text' => 'goodbye',
         ]);
 
@@ -136,7 +136,7 @@ class UpdateCardApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['front_text']);
 
-        $missingBackText = $this->patchJson("/api/cards/{$card->id}", [
+        $missingBackText = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => 'arrivederci',
         ]);
 
@@ -156,7 +156,7 @@ class UpdateCardApiTest extends TestCase
         $this->signIn();
         $otherCard = Card::factory()->create();
 
-        $response = $this->patchJson("/api/cards/{$otherCard->id}", [
+        $response = $this->putJson("/api/cards/{$otherCard->id}", [
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);
@@ -175,7 +175,7 @@ class UpdateCardApiTest extends TestCase
         $this->signIn();
         $otherCard = Card::factory()->create();
 
-        $response = $this->patchJson("/api/cards/{$otherCard->id}", [
+        $response = $this->putJson("/api/cards/{$otherCard->id}", [
             'front_text' => '   ',
             'back_text' => '   ',
         ]);
@@ -190,7 +190,7 @@ class UpdateCardApiTest extends TestCase
         $this->signIn();
         $missingCardId = strtolower((string) Str::ulid());
 
-        $response = $this->patchJson("/api/cards/{$missingCardId}", [
+        $response = $this->putJson("/api/cards/{$missingCardId}", [
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);
@@ -202,12 +202,31 @@ class UpdateCardApiTest extends TestCase
     {
         $card = Card::factory()->create();
 
-        $response = $this->patchJson("/api/cards/{$card->id}", [
+        $response = $this->putJson("/api/cards/{$card->id}", [
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);
 
         $response->assertUnauthorized();
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+        ]);
+    }
+
+    public function test_it_does_not_accept_patch_updates(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->patchJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+
+        $response->assertStatus(405);
 
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,

@@ -20,10 +20,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class);
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
     Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
-    Route::patch('/cards/{card}', UpdateCardController::class);
+    Route::put('/cards/{card}', UpdateCardController::class);
     Route::post('/cards', StoreCardController::class);
     Route::get('/decks/{deck}/cards', ListDeckCardsController::class);
-    Route::patch('/decks/{deck}', UpdateDeckController::class);
+    Route::put('/decks/{deck}', UpdateDeckController::class);
     Route::get('/decks', ListDecksController::class);
     Route::post('/decks', StoreDeckController::class);
 });

@@ -26,7 +26,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class);
     Route::put('/cards/{card}', UpdateCardController::class);
     Route::post('/cards', StoreCardController::class);
-    Route::delete('/media-assets/{mediaAsset}', DeleteMediaAssetController::class);
+    Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
     Route::get('/decks/{deck}/cards', ListDeckCardsController::class);
     Route::put('/decks/{deck}', UpdateDeckController::class);

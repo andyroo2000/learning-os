@@ -25,6 +25,6 @@ class DeleteMediaAssetRequest extends FormRequest
 
     public function mediaAssetId(): string
     {
-        return (string) $this->route('mediaAsset');
+        return (string) $this->route('mediaAssetId');
     }
 }

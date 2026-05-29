@@ -118,21 +118,30 @@ class CreateMediaAssetAction
         try {
             $mediaAsset->save();
         } catch (QueryException $exception) {
-            if ($data->id === null || ! IntegrityConstraintViolation::matches($exception)) {
+            if (! IntegrityConstraintViolation::matches($exception)) {
                 throw $exception;
             }
 
-            // Covers a retry race where another request inserts this client-generated ULID
-            // between the pre-check above and this save attempt.
-            $existingMediaAsset = MediaAsset::query()->find($data->id);
+            if ($data->id !== null) {
+                // Covers a retry race where another request inserts this client-generated ULID
+                // between the pre-check above and this save attempt.
+                $existingMediaAsset = MediaAsset::query()->find($data->id);
 
-            if ($existingMediaAsset === null) {
-                // The integrity violation came from a different constraint, such as disk/path,
-                // rather than an idempotent retry for this client-generated ID.
-                throw $exception;
+                if ($existingMediaAsset !== null) {
+                    return $this->matchingExistingMediaAsset($existingMediaAsset, $data);
+                }
             }
 
-            return $this->matchingExistingMediaAsset($existingMediaAsset, $data);
+            $existingMediaAsset = MediaAsset::query()
+                ->where('disk', $data->disk)
+                ->where('path', $data->path)
+                ->first();
+
+            if ($existingMediaAsset !== null) {
+                throw MediaAssetConflictException::storagePathExists($existingMediaAsset);
+            }
+
+            throw $exception;
         }
 
         return $mediaAsset;
@@ -160,7 +169,7 @@ class CreateMediaAssetAction
             || $mediaAsset->checksum_sha256 !== $data->checksumSha256
             || $mediaAsset->original_filename !== $data->originalFilename
         ) {
-            throw new MediaAssetConflictException('Media asset ID already exists with different metadata.');
+            throw MediaAssetConflictException::idMismatch($mediaAsset);
         }
 
         return $mediaAsset;

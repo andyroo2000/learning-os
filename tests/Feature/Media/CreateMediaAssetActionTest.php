@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\CreateMediaAssetAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
+use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -413,7 +414,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset disk is not supported.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -498,7 +499,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset path must not contain traversal sequences.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -1038,7 +1039,7 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
-    public function test_it_leaves_duplicate_disk_path_conflicts_to_the_database_without_a_provided_ulid(): void
+    public function test_it_rejects_duplicate_disk_path_conflicts_without_a_provided_ulid(): void
     {
         $user = User::factory()->create();
 
@@ -1052,7 +1053,8 @@ class CreateMediaAssetActionTest extends TestCase
             ),
         );
 
-        $this->expectException(QueryException::class);
+        $this->expectException(MediaAssetConflictException::class);
+        $this->expectExceptionMessage('Media asset already exists.');
 
         app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
@@ -1065,7 +1067,7 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
-    public function test_it_leaves_duplicate_disk_path_conflicts_to_the_database_with_a_provided_ulid(): void
+    public function test_it_rejects_duplicate_disk_path_conflicts_with_a_provided_ulid(): void
     {
         $user = User::factory()->create();
 
@@ -1079,7 +1081,8 @@ class CreateMediaAssetActionTest extends TestCase
             ),
         );
 
-        $this->expectException(QueryException::class);
+        $this->expectException(MediaAssetConflictException::class);
+        $this->expectExceptionMessage('Media asset already exists.');
 
         app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(

@@ -193,6 +193,28 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_it_hides_storage_path_conflicts_for_other_users(): void
+    {
+        MediaAsset::factory()
+            ->create([
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+            ]);
+
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_normalizes_inputs(): void
     {
         $this->signIn();

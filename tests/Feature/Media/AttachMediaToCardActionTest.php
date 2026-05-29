@@ -58,6 +58,19 @@ class AttachMediaToCardActionTest extends TestCase
         ]);
     }
 
+    public function test_sync_without_detaching_reports_no_updated_changes_without_pivot_attributes(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $changes = $card->mediaAssets()->syncWithoutDetaching([$mediaAsset->id]);
+
+        $this->assertSame([], $changes['attached']);
+        $this->assertSame([], $changes['updated']);
+    }
+
     public function test_it_loads_media_assets_in_id_order(): void
     {
         $card = Card::factory()->create();

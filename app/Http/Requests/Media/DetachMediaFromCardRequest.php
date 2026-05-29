@@ -53,7 +53,7 @@ class DetachMediaFromCardRequest extends FormRequest
         $mediaAssetId = $this->route('mediaAsset');
 
         // Intentionally resolve the raw route segment here so media assets are scoped to the current user.
-        if (! is_string($mediaAssetId)) {
+        if ($mediaAssetId === null) {
             return $this->resolvedMediaAsset = null;
         }
 

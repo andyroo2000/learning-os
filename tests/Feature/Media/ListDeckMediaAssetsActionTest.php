@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Media;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\ListDeckMediaAssetsAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
@@ -16,18 +17,18 @@ class ListDeckMediaAssetsActionTest extends TestCase
     {
         $user = User::factory()->create();
         $deck = $this->deckFor($user);
-        $firstCard = $this->cardFor($user);
-        $firstCard->deck()->associate($deck)->save();
-        $secondCard = $this->cardFor($user);
-        $secondCard->deck()->associate($deck)->save();
+        $firstCard = Card::factory()->for($deck)->create();
+        $secondCard = Card::factory()->for($deck)->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
         $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+        $otherDeck = $this->deckFor($user);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
         $otherDeckMediaAsset = MediaAsset::factory()->for($user)->create();
 
         $firstCard->mediaAssets()->attach($mediaAsset->id);
         $secondCard->mediaAssets()->attach($mediaAsset->id);
         $firstCard->mediaAssets()->attach($crossUserMediaAsset->id);
-        $this->cardFor($user)->mediaAssets()->attach($otherDeckMediaAsset->id);
+        $otherDeckCard->mediaAssets()->attach($otherDeckMediaAsset->id);
 
         $mediaAssets = app(ListDeckMediaAssetsAction::class)->handle($deck);
 

@@ -15,13 +15,9 @@ class ListDeckMediaAssetsAction
     {
         // Unbounded by design: clients use this as a full offline preload manifest.
         return MediaAsset::query()
-            ->select('media_assets.*')
-            ->join('card_media', 'card_media.media_asset_id', '=', 'media_assets.id')
-            ->join('cards', 'cards.id', '=', 'card_media.card_id')
-            ->where('cards.deck_id', $deck->id)
-            ->where('media_assets.user_id', $deck->user_id)
-            ->distinct()
-            ->orderBy('media_assets.id')
+            ->where('user_id', $deck->user_id)
+            ->whereHas('cards', fn ($query) => $query->where('deck_id', $deck->id))
+            ->orderBy('id')
             ->get();
     }
 }

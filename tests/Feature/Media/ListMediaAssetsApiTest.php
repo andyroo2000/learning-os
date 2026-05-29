@@ -112,18 +112,15 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonPath('meta.per_page', 2);
     }
 
-    public function test_it_caps_page_size(): void
+    public function test_it_rejects_page_size_above_the_maximum(): void
     {
-        $user = $this->signIn();
-
-        MediaAsset::factory()->count(51)->for($user)->create();
+        $this->signIn();
 
         $response = $this->getJson('/api/media-assets?per_page=200');
 
         $response
-            ->assertOk()
-            ->assertJsonCount(50, 'data')
-            ->assertJsonPath('meta.per_page', 50);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
     }
 
     public function test_it_rejects_invalid_page_size(): void

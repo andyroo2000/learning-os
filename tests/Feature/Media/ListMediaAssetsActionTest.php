@@ -37,4 +37,19 @@ class ListMediaAssetsActionTest extends TestCase
         $this->assertSame(2, $mediaAssets->perPage());
         $this->assertCount(2, $mediaAssets->items());
     }
+
+    public function test_it_caps_page_size(): void
+    {
+        $user = User::factory()->create();
+
+        MediaAsset::factory()->count(51)->for($user)->create();
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle(
+            userId: $user->id,
+            perPage: 200,
+        );
+
+        $this->assertSame(ListMediaAssetsAction::MAX_PAGE_SIZE, $mediaAssets->perPage());
+        $this->assertCount(ListMediaAssetsAction::MAX_PAGE_SIZE, $mediaAssets->items());
+    }
 }

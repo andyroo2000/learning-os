@@ -78,10 +78,9 @@ class ListMediaAssetsApiTest extends TestCase
                 ],
                 'links',
                 'meta',
-            ])
-            ->assertJsonMissing([
-                'id' => $otherMediaAsset->id,
             ]);
+
+        $this->assertNotContains($otherMediaAsset->id, $response->json('data.*.id'));
     }
 
     public function test_it_returns_an_empty_list_when_the_user_has_no_media_assets(): void
@@ -119,6 +118,8 @@ class ListMediaAssetsApiTest extends TestCase
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
+
+        $this->assertLessThan($highTieMediaAsset->id, $lowTieMediaAsset->id);
 
         $firstPage = $this->getJson('/api/media-assets');
 

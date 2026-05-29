@@ -49,6 +49,10 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
         }
 
+        if (preg_match('~^(?:[\\\\/]|[a-zA-Z]:[\\\\/])~', $data->path) === 1) {
+            throw new MediaAssetValidationException('path', 'Media asset path must be relative.');
+        }
+
         if (preg_match('~(^|[\\\\/])\\.\\.([\\\\/]|$)~', $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must not contain traversal sequences.');
         }
@@ -175,8 +179,9 @@ class CreateMediaAssetAction
 
         return $sqlState === '23505'
             || $driverCode === '1062'
-            || str_contains($message, 'unique constraint')
-            || str_contains($message, 'duplicate');
+            || ($exception->getConnectionName() === 'sqlite'
+                && $driverCode === '19'
+                && str_contains($message, 'unique constraint failed'));
     }
 
     private function matchingExistingMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): MediaAsset

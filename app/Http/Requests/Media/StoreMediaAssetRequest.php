@@ -14,6 +14,7 @@ final class StoreMediaAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        // The route requires auth:sanctum; add policy checks here when media ownership grows.
         return true;
     }
 
@@ -36,7 +37,13 @@ final class StoreMediaAssetRequest extends FormRequest
         return [
             'id' => ['nullable', 'ulid'],
             'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(MediaAsset::ALLOWED_DISKS)],
-            'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH, 'not_regex:~(^|[\\\\/])\\.\\.([\\\\/]|$)~'],
+            'path' => [
+                'required',
+                'string',
+                'max:'.MediaAsset::MAX_PATH_LENGTH,
+                'not_regex:~^(?:[\\\\/]|[a-zA-Z]:[\\\\/])~',
+                'not_regex:~(^|[\\\\/])\\.\\.([\\\\/]|$)~',
+            ],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
             'size_bytes' => ['required', 'integer', 'min:1'],
             'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],

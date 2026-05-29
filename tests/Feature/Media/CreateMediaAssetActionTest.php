@@ -513,6 +513,24 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_absolute_paths(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset path must be relative.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: '/uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
     public function test_it_allows_double_dots_inside_path_segments(): void
     {
         $user = User::factory()->create();

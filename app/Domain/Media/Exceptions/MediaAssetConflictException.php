@@ -36,6 +36,8 @@ final class MediaAssetConflictException extends RuntimeException
 
     public static function unresolvedStorageConflict(): self
     {
+        // No owner is available in the deleted-row race; return a retryable conflict
+        // without hiding it behind a tenant-specific 404.
         return new self(
             message: 'Media asset already exists.',
             conflictingUserId: null,

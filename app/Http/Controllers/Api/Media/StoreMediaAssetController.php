@@ -47,7 +47,7 @@ final class StoreMediaAssetController extends Controller
             }
 
             return response()->json([
-                'message' => 'Media asset storage path already exists.',
+                'message' => 'Media asset already exists.',
             ], 409);
         } catch (MediaAssetValidationException $exception) {
             throw ValidationException::withMessages([

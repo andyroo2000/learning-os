@@ -409,6 +409,24 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_unsupported_disk(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Media asset disk is not supported.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'private',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
     public function test_it_rejects_invalid_user_id(): void
     {
         $this->expectException(LogicException::class);
@@ -470,6 +488,24 @@ class CreateMediaAssetActionTest extends TestCase
                 userId: $user->id,
                 disk: 'media',
                 path: str_repeat('a', MediaAsset::MAX_PATH_LENGTH + 1),
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
+    public function test_it_rejects_path_traversal_sequences(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Media asset path must not contain traversal sequences.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/../example.jpg',
                 mimeType: 'image/jpeg',
                 sizeBytes: 123_456,
             ),

@@ -17,6 +17,16 @@ final class StoreMediaAssetRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'disk' => $this->trimStringInput('disk'),
+            'path' => $this->trimStringInput('path'),
+            'mime_type' => $this->trimStringInput('mime_type'),
+            'public_url' => $this->trimStringInput('public_url'),
+        ]);
+    }
+
     /**
      * @return array<string, list<mixed>>
      */
@@ -25,7 +35,7 @@ final class StoreMediaAssetRequest extends FormRequest
         return [
             'id' => ['nullable', 'ulid'],
             'disk' => ['required', 'string', 'max:'.MediaAsset::MAX_DISK_LENGTH, Rule::in(MediaAsset::ALLOWED_DISKS)],
-            'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH],
+            'path' => ['required', 'string', 'max:'.MediaAsset::MAX_PATH_LENGTH, 'not_regex:/\\.\\./'],
             'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
             'size_bytes' => ['required', 'integer', 'min:1'],
             'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
@@ -78,5 +88,12 @@ final class StoreMediaAssetRequest extends FormRequest
         } catch (InvalidArgumentException $exception) {
             $validator->errors()->add('public_url', $exception->getMessage());
         }
+    }
+
+    private function trimStringInput(string $key): mixed
+    {
+        $value = $this->input($key);
+
+        return is_string($value) ? trim($value) : $value;
     }
 }

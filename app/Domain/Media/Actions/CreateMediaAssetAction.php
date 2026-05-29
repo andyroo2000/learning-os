@@ -34,12 +34,20 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('disk', 'Media asset disk must not exceed '.MediaAsset::MAX_DISK_LENGTH.' characters.');
         }
 
+        if (! in_array($data->disk, MediaAsset::ALLOWED_DISKS, true)) {
+            throw new MediaAssetValidationException('disk', 'Media asset disk is not supported.');
+        }
+
         if ($data->path === '') {
             throw new MediaAssetValidationException('path', 'Media asset path is required.');
         }
 
         if (mb_strlen($data->path) > MediaAsset::MAX_PATH_LENGTH) {
             throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
+        }
+
+        if (str_contains($data->path, '..')) {
+            throw new MediaAssetValidationException('path', 'Media asset path must not contain traversal sequences.');
         }
 
         if ($data->mimeType === '') {
@@ -50,8 +58,8 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must not exceed '.MediaAsset::MAX_MIME_TYPE_LENGTH.' characters.');
         }
 
-        // Expects CreateMediaAssetData's normalized lowercase form; keep accepted MIME
-        // types conservative until upload adapters need wider token support.
+        // Keep action-level guards in sync with HTTP validation so non-HTTP callers
+        // cannot bypass media invariants. The DTO provides normalized lowercase form.
         if (! MimeType::hasValidShape($data->mimeType)) {
             throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must include a type and subtype.');
         }

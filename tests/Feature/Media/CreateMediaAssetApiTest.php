@@ -188,7 +188,7 @@ class CreateMediaAssetApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Media asset storage path already exists.');
+            ->assertJsonPath('message', 'Media asset already exists.');
 
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -332,6 +332,24 @@ class CreateMediaAssetApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['disk']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_rejects_path_traversal_sequences(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/../example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['path']);
 
         $this->assertDatabaseCount('media_assets', 0);
     }

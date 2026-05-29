@@ -15,7 +15,11 @@ class AttachMediaToCardActionTest extends TestCase
 
     public function test_it_attaches_media_to_a_card(): void
     {
-        $card = Card::factory()->create();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->create([
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
         $mediaAsset = MediaAsset::factory()->create();
 
         $updatedCard = app(AttachMediaToCardAction::class)->handle(
@@ -29,11 +33,16 @@ class AttachMediaToCardActionTest extends TestCase
             'card_id' => $card->id,
             'media_asset_id' => $mediaAsset->id,
         ]);
+        $this->assertTrue($card->fresh()->updated_at->isAfter($timestamp));
     }
 
     public function test_it_is_idempotent_for_existing_attachments(): void
     {
-        $card = Card::factory()->create();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->create([
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
         $mediaAsset = MediaAsset::factory()->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
@@ -43,6 +52,10 @@ class AttachMediaToCardActionTest extends TestCase
         );
 
         $this->assertDatabaseCount('card_media', 1);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'updated_at' => $timestamp,
+        ]);
     }
 
     public function test_it_loads_media_assets_in_id_order(): void

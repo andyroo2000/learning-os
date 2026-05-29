@@ -15,7 +15,11 @@ class DetachMediaFromCardActionTest extends TestCase
 
     public function test_it_detaches_media_from_a_card(): void
     {
-        $card = Card::factory()->create();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->create([
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
         $mediaAsset = MediaAsset::factory()->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
@@ -31,11 +35,16 @@ class DetachMediaFromCardActionTest extends TestCase
             'card_id' => $card->id,
             'media_asset_id' => $mediaAsset->id,
         ]);
+        $this->assertTrue($card->fresh()->updated_at->isAfter($timestamp));
     }
 
     public function test_it_is_idempotent_when_attachment_is_already_missing(): void
     {
-        $card = Card::factory()->create();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->create([
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
         $mediaAsset = MediaAsset::factory()->create();
 
         $updatedCard = app(DetachMediaFromCardAction::class)->handle(
@@ -45,5 +54,9 @@ class DetachMediaFromCardActionTest extends TestCase
         $this->assertTrue($updatedCard->is($card));
         $this->assertCount(0, $updatedCard->mediaAssets);
         $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'updated_at' => $timestamp,
+        ]);
     }
 }

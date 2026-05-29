@@ -9,7 +9,11 @@ class DetachMediaFromCardAction
 {
     public function handle(DetachMediaFromCardData $data): Card
     {
-        $data->card->mediaAssets()->detach($data->mediaAsset->id);
+        $detachedCount = $data->card->mediaAssets()->detach($data->mediaAsset->id);
+
+        if ($detachedCount > 0) {
+            $data->card->touch();
+        }
 
         return $data->card->load('mediaAssets');
     }

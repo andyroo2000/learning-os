@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Media\AttachMediaToCardController;
 use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
 use App\Http\Controllers\Api\Media\DetachMediaFromCardController;
 use App\Http\Controllers\Api\Media\ListCardMediaAssetsController;
+use App\Http\Controllers\Api\Media\ListMediaAssetsController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
 use App\Http\Controllers\Api\Reviews\ListCardReviewEventsController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
@@ -26,9 +27,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class);
     Route::put('/cards/{card}', UpdateCardController::class);
     Route::post('/cards', StoreCardController::class);
+    Route::get('/media-assets', ListMediaAssetsController::class);
+    Route::post('/media-assets', StoreMediaAssetController::class);
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
-    Route::post('/media-assets', StoreMediaAssetController::class);
     Route::get('/decks/{deck}/cards', ListDeckCardsController::class);
     Route::put('/decks/{deck}', UpdateDeckController::class);
     Route::get('/decks', ListDecksController::class);

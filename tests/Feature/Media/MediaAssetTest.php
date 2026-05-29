@@ -32,6 +32,14 @@ class MediaAssetTest extends TestCase
         ]));
     }
 
+    public function test_media_assets_table_has_user_created_id_index(): void
+    {
+        $matchingIndexes = collect(Schema::getIndexes('media_assets'))
+            ->filter(fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'created_at', 'id']);
+
+        $this->assertNotEmpty($matchingIndexes);
+    }
+
     public function test_media_asset_can_be_created(): void
     {
         $user = User::factory()->create();

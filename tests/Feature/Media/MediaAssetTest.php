@@ -71,6 +71,15 @@ class MediaAssetTest extends TestCase
         $this->assertTrue($asset->user->is($user));
     }
 
+    public function test_allowed_media_disks_are_configured_filesystem_disks(): void
+    {
+        $configuredDisks = array_keys(config('filesystems.disks'));
+
+        foreach (MediaAsset::ALLOWED_DISKS as $disk) {
+            $this->assertContains($disk, $configuredDisks);
+        }
+    }
+
     public function test_invalid_public_url_is_rejected(): void
     {
         $asset = MediaAsset::factory()->make();

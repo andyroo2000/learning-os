@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\CreateMediaAssetAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
+use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -12,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
+use LogicException;
 use Tests\TestCase;
 
 class CreateMediaAssetActionTest extends TestCase
@@ -376,7 +377,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset disk is required.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -394,7 +395,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset disk must not exceed '.MediaAsset::MAX_DISK_LENGTH.' characters.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -408,9 +409,27 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_unsupported_disk(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset disk is not supported.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'private',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
     public function test_it_rejects_invalid_user_id(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Media asset user ID must be a positive integer.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -443,7 +462,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset path is required.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -461,7 +480,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -475,11 +494,82 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_path_traversal_sequences(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset path must not contain traversal sequences.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/../example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
+    public function test_it_rejects_absolute_paths(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset path must be relative.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: '/uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
+    public function test_it_rejects_windows_absolute_paths(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset path must be relative.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'C:\\uploads\\example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+    }
+
+    public function test_it_allows_double_dots_inside_path_segments(): void
+    {
+        $user = User::factory()->create();
+
+        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/my..photo.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+            ),
+        );
+
+        $this->assertSame('uploads/my..photo.jpg', $mediaAsset->path);
+    }
+
     public function test_it_rejects_blank_mime_type(): void
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type is required.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -497,7 +587,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type must not exceed '.MediaAsset::MAX_MIME_TYPE_LENGTH.' characters.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -515,7 +605,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type must include a type and subtype.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -533,7 +623,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type must include a type and subtype.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -551,7 +641,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type must include a type and subtype.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -569,7 +659,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset MIME type must include a type and subtype.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -587,7 +677,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset size must be at least 1 byte.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -605,7 +695,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset size must be at least 1 byte.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -619,11 +709,46 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
+    public function test_it_accepts_maximum_size(): void
+    {
+        $user = User::factory()->create();
+
+        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: MediaAsset::MAX_JSON_SAFE_SIZE_BYTES,
+            ),
+        );
+
+        $this->assertSame(MediaAsset::MAX_JSON_SAFE_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
+    }
+
+    public function test_it_rejects_size_larger_than_json_safe_limit(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(MediaAssetValidationException::class);
+        $this->expectExceptionMessage('Media asset size must not exceed '.MediaAsset::MAX_JSON_SAFE_SIZE_BYTES.' bytes.');
+
+        app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: MediaAsset::MAX_JSON_SAFE_SIZE_BYTES + 1,
+            ),
+        );
+    }
+
     public function test_it_rejects_invalid_checksum(): void
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset checksum must be a 64-character SHA-256 hex digest.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -642,7 +767,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset checksum must be a 64-character SHA-256 hex digest.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -661,7 +786,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset checksum must be a 64-character SHA-256 hex digest.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -680,7 +805,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset original filename must not exceed '.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH.' characters.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -699,7 +824,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must be a valid URL.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -718,7 +843,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must use the http or https scheme.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -737,7 +862,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -756,7 +881,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -775,7 +900,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -794,7 +919,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -813,7 +938,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -832,7 +957,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -851,7 +976,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -870,7 +995,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -889,7 +1014,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -908,7 +1033,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -927,7 +1052,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -946,7 +1071,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -965,7 +1090,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not use a private or reserved host.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -986,7 +1111,7 @@ class CreateMediaAssetActionTest extends TestCase
         $prefix = 'https://cdn.example.test/';
         $url = $prefix.str_repeat('a', MediaAsset::MAX_PUBLIC_URL_LENGTH - mb_strlen($prefix) + 1);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset public URL must not exceed '.MediaAsset::MAX_PUBLIC_URL_LENGTH.' characters.');
 
         app(CreateMediaAssetAction::class)->handle(
@@ -1001,7 +1126,7 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
-    public function test_it_leaves_duplicate_disk_path_conflicts_to_the_database_without_a_provided_ulid(): void
+    public function test_it_rejects_duplicate_disk_path_conflicts_without_a_provided_ulid(): void
     {
         $user = User::factory()->create();
 
@@ -1015,7 +1140,8 @@ class CreateMediaAssetActionTest extends TestCase
             ),
         );
 
-        $this->expectException(QueryException::class);
+        $this->expectException(MediaAssetConflictException::class);
+        $this->expectExceptionMessage('Media asset already exists.');
 
         app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
@@ -1028,7 +1154,7 @@ class CreateMediaAssetActionTest extends TestCase
         );
     }
 
-    public function test_it_leaves_duplicate_disk_path_conflicts_to_the_database_with_a_provided_ulid(): void
+    public function test_it_rejects_duplicate_disk_path_conflicts_with_a_provided_ulid(): void
     {
         $user = User::factory()->create();
 
@@ -1042,7 +1168,8 @@ class CreateMediaAssetActionTest extends TestCase
             ),
         );
 
-        $this->expectException(QueryException::class);
+        $this->expectException(MediaAssetConflictException::class);
+        $this->expectExceptionMessage('Media asset already exists.');
 
         app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
@@ -1060,7 +1187,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(MediaAssetValidationException::class);
         $this->expectExceptionMessage('Media asset ID must be a valid ULID.');
 
         app(CreateMediaAssetAction::class)->handle(

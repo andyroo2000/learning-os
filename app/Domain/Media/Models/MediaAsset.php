@@ -37,6 +37,21 @@ class MediaAsset extends Model
 
     public const MAX_PUBLIC_URL_LENGTH = 2048;
 
+    /**
+     * Largest integer JavaScript clients can parse from JSON without precision loss.
+     */
+    public const MAX_JSON_SAFE_SIZE_BYTES = 9_007_199_254_740_991;
+
+    public const DISK_MEDIA = 'media';
+
+    public const ALLOWED_DISKS = [
+        self::DISK_MEDIA,
+    ];
+
+    public const PATH_ABSOLUTE_PATTERN = '~^(?:[\\\\/]|[a-zA-Z]:[\\\\/])~';
+
+    public const PATH_TRAVERSAL_PATTERN = '~(^|[\\\\/])\\.\\.([\\\\/]|$)~';
+
     protected static function newFactory(): MediaAssetFactory
     {
         return MediaAssetFactory::new();

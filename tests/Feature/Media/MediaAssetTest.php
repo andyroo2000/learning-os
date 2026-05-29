@@ -63,6 +63,14 @@ class MediaAssetTest extends TestCase
         ]);
     }
 
+    public function test_media_asset_uses_string_non_incrementing_primary_keys(): void
+    {
+        $asset = MediaAsset::factory()->make();
+
+        $this->assertSame('string', $asset->getKeyType());
+        $this->assertFalse($asset->getIncrementing());
+    }
+
     public function test_media_asset_belongs_to_a_user(): void
     {
         $user = User::factory()->create();

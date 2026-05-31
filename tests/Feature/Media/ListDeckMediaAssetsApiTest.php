@@ -120,6 +120,18 @@ class ListDeckMediaAssetsApiTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_it_returns_not_found_for_a_soft_deleted_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $deck->delete();
+
+        $response = $this->getJson("/api/decks/{$deck->id}/media-assets");
+
+        $response->assertNotFound();
+    }
+
     public function test_it_returns_not_found_for_a_missing_deck(): void
     {
         $this->signIn();

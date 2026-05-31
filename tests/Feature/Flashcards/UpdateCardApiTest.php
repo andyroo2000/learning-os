@@ -320,6 +320,45 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonMissingValidationErrors(['front_text', 'back_text']);
     }
 
+    public function test_it_returns_not_found_for_a_card_in_a_soft_deleted_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+
+        $deck->delete();
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+    }
+
+    public function test_it_returns_not_found_for_a_soft_deleted_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $card->delete();
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+    }
+
     public function test_it_returns_not_found_for_a_missing_card(): void
     {
         $this->signIn();

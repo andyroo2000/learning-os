@@ -26,7 +26,9 @@ class StoreCardRequest extends FormRequest
             'deck_id' => [
                 'required',
                 'ulid',
-                Rule::exists(Deck::class, 'id')->where('user_id', $userId),
+                Rule::exists(Deck::class, 'id')
+                    ->where('user_id', $userId)
+                    ->whereNull('deleted_at'),
             ],
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],

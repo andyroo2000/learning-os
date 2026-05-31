@@ -28,11 +28,16 @@ class StoreCardReviewEventRequest extends FormRequest
             'card_id' => [
                 'required',
                 'ulid',
-                // Single events can use Rule::exists; batches validate separately for per-index errors.
-                Rule::exists(Card::class, 'id')->whereIn(
-                    'deck_id',
-                    Deck::query()->select('id')->where('user_id', $userId),
-                ),
+                // Rule::exists bypasses SoftDeletes scopes, so the card guard is explicit.
+                // Deck::query remains Eloquent-scoped, so deleted decks are excluded there.
+                Rule::exists(Card::class, 'id')
+                    ->whereNull('deleted_at')
+                    ->whereIn(
+                        'deck_id',
+                        Deck::query()
+                            ->select('id')
+                            ->where('user_id', $userId),
+                    ),
             ],
             'rating' => ['required', Rule::enum(CardReviewRating::class)],
             'reviewed_at' => ['required', 'date'],

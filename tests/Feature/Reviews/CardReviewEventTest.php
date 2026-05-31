@@ -65,12 +65,24 @@ class CardReviewEventTest extends TestCase
         $this->assertTrue($card->reviewEvents->contains($event));
     }
 
-    public function test_review_events_are_deleted_when_their_card_is_deleted(): void
+    public function test_review_events_are_kept_when_their_card_is_soft_deleted(): void
     {
         $card = Card::factory()->create();
         $event = CardReviewEvent::factory()->create(['card_id' => $card->id]);
 
         $card->delete();
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $event->id,
+        ]);
+    }
+
+    public function test_review_events_are_deleted_when_their_card_is_force_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $event = CardReviewEvent::factory()->create(['card_id' => $card->id]);
+
+        $card->forceDelete();
 
         $this->assertDatabaseMissing('card_review_events', [
             'id' => $event->id,

@@ -60,7 +60,7 @@ class CardMediaTest extends TestCase
         $card->mediaAssets()->attach($mediaAsset->id);
     }
 
-    public function test_card_media_attachment_is_deleted_when_card_is_deleted(): void
+    public function test_card_media_attachment_is_kept_when_card_is_soft_deleted(): void
     {
         $card = Card::factory()->create();
         $mediaAsset = MediaAsset::factory()->create();
@@ -68,6 +68,25 @@ class CardMediaTest extends TestCase
         $card->mediaAssets()->attach($mediaAsset->id);
 
         $card->delete();
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $mediaAsset->id,
+        ]);
+    }
+
+    public function test_card_media_attachment_is_deleted_when_card_is_force_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $card->forceDelete();
 
         $this->assertDatabaseMissing('card_media', [
             'card_id' => $card->id,

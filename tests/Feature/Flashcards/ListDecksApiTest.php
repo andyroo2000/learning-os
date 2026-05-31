@@ -87,6 +87,25 @@ class ListDecksApiTest extends TestCase
             ]);
     }
 
+    public function test_it_excludes_soft_deleted_decks(): void
+    {
+        $user = $this->signIn();
+        $visibleDeck = Deck::factory()->for($user)->create();
+        $deletedDeck = Deck::factory()->for($user)->create();
+
+        $deletedDeck->delete();
+
+        $response = $this->getJson('/api/decks');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visibleDeck->id)
+            ->assertJsonMissing([
+                'id' => $deletedDeck->id,
+            ]);
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();

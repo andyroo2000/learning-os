@@ -21,6 +21,7 @@ class DeckTest extends TestCase
             'description',
             'created_at',
             'updated_at',
+            'deleted_at',
         ]));
     }
 
@@ -58,6 +59,17 @@ class DeckTest extends TestCase
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
             'description' => null,
+        ]);
+    }
+
+    public function test_deck_can_be_soft_deleted(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $deck->delete();
+
+        $this->assertSoftDeleted('decks', [
+            'id' => $deck->id,
         ]);
     }
 }

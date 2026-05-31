@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\ListDeckCardsAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,12 +17,12 @@ class ListDeckCardsActionTest extends TestCase
     {
         $deck = $this->deckFor(User::factory()->create());
 
-        Card::factory()->count(ListDeckCardsAction::MAX_PAGE_SIZE + 1)->for($deck)->create();
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
 
-        $cards = app(ListDeckCardsAction::class)->handle($deck, ListDeckCardsAction::MAX_PAGE_SIZE + 1);
+        $cards = app(ListDeckCardsAction::class)->handle($deck, CursorPagination::MAX_PAGE_SIZE + 1);
 
-        $this->assertSame(ListDeckCardsAction::MAX_PAGE_SIZE, $cards->perPage());
-        $this->assertCount(ListDeckCardsAction::MAX_PAGE_SIZE, $cards->items());
+        $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $cards->perPage());
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $cards->items());
     }
 
     public function test_it_uses_at_least_one_item_per_page(): void

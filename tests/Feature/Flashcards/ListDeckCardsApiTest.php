@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Flashcards;
 
-use App\Domain\Flashcards\Actions\ListDeckCardsAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -166,14 +166,14 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        Card::factory()->count(ListDeckCardsAction::MAX_PAGE_SIZE + 1)->for($deck)->create();
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
 
         $response = $this->getJson("/api/decks/{$deck->id}/cards");
 
         $response
             ->assertOk()
-            ->assertJsonCount(ListDeckCardsAction::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', ListDeckCardsAction::MAX_PAGE_SIZE);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -196,14 +196,14 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        Card::factory()->count(ListDeckCardsAction::MAX_PAGE_SIZE + 1)->for($deck)->create();
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".ListDeckCardsAction::MAX_PAGE_SIZE);
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".CursorPagination::MAX_PAGE_SIZE);
 
         $response
             ->assertOk()
-            ->assertJsonCount(ListDeckCardsAction::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', ListDeckCardsAction::MAX_PAGE_SIZE);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
@@ -211,7 +211,7 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".(ListDeckCardsAction::MAX_PAGE_SIZE + 1));
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".(CursorPagination::MAX_PAGE_SIZE + 1));
 
         $response
             ->assertUnprocessable()

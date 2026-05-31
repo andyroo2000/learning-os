@@ -3,19 +3,18 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Models\Deck;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 
 class ListDecksAction
 {
-    public const MAX_PAGE_SIZE = 50;
-
     /**
      * @return CursorPaginator<Deck>
      */
-    public function handle(int $userId, int $perPage = self::MAX_PAGE_SIZE): CursorPaginator
+    public function handle(int $userId, int $perPage = CursorPagination::MAX_PAGE_SIZE): CursorPaginator
     {
         // Defensive for non-HTTP callers; controllers still validate the public API contract.
-        $perPage = min(max($perPage, 1), self::MAX_PAGE_SIZE);
+        $perPage = CursorPagination::clampPageSize($perPage);
 
         return Deck::query()
             ->where('user_id', $userId)

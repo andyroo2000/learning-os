@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
 
 abstract class CursorPaginatedRequest extends FormRequest
@@ -31,5 +32,11 @@ abstract class CursorPaginatedRequest extends FormRequest
         return $this->maxPerPage();
     }
 
-    abstract protected function maxPerPage(): int;
+    /**
+     * Override to use a resource-specific page size cap.
+     */
+    protected function maxPerPage(): int
+    {
+        return CursorPagination::MAX_PAGE_SIZE;
+    }
 }

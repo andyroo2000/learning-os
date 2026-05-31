@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Flashcards;
 
-use App\Domain\Flashcards\Actions\ListDecksAction;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -151,14 +151,14 @@ class ListDecksApiTest extends TestCase
     {
         $user = $this->signIn();
 
-        Deck::factory()->count(ListDecksAction::MAX_PAGE_SIZE + 1)->for($user)->create();
+        Deck::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
 
         $response = $this->getJson('/api/decks');
 
         $response
             ->assertOk()
-            ->assertJsonCount(ListDecksAction::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', ListDecksAction::MAX_PAGE_SIZE);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -179,21 +179,21 @@ class ListDecksApiTest extends TestCase
     {
         $user = $this->signIn();
 
-        Deck::factory()->count(ListDecksAction::MAX_PAGE_SIZE + 1)->for($user)->create();
+        Deck::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
 
-        $response = $this->getJson('/api/decks?per_page='.ListDecksAction::MAX_PAGE_SIZE);
+        $response = $this->getJson('/api/decks?per_page='.CursorPagination::MAX_PAGE_SIZE);
 
         $response
             ->assertOk()
-            ->assertJsonCount(ListDecksAction::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', ListDecksAction::MAX_PAGE_SIZE);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks?per_page='.(ListDecksAction::MAX_PAGE_SIZE + 1));
+        $response = $this->getJson('/api/decks?per_page='.(CursorPagination::MAX_PAGE_SIZE + 1));
 
         $response
             ->assertUnprocessable()

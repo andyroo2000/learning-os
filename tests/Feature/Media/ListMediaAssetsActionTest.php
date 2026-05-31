@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\ListMediaAssetsAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -49,7 +50,7 @@ class ListMediaAssetsActionTest extends TestCase
             perPage: 200,
         );
 
-        $this->assertSame(ListMediaAssetsAction::MAX_PAGE_SIZE, $mediaAssets->perPage());
-        $this->assertCount(ListMediaAssetsAction::MAX_PAGE_SIZE, $mediaAssets->items());
+        $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $mediaAssets->perPage());
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $mediaAssets->items());
     }
 }

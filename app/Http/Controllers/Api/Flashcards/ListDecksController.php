@@ -15,7 +15,11 @@ class ListDecksController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+        $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:'.ListDecksAction::MAX_PAGE_SIZE],
+        ]);
+        $perPage = $request->integer('per_page', ListDecksAction::MAX_PAGE_SIZE);
 
-        return DeckResource::collection($listDecks->handle($user->id));
+        return DeckResource::collection($listDecks->handle($user->id, $perPage));
     }
 }

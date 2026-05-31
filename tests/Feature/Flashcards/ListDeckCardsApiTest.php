@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Actions\ListDeckCardsAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,6 +144,102 @@ class ListDeckCardsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lowTieCard->id)
             ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_accepts_a_custom_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(3)->for($deck)->create();
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=2");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.per_page', 2);
+    }
+
+    public function test_it_uses_the_default_page_size_when_omitted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(ListDeckCardsAction::MAX_PAGE_SIZE + 1)->for($deck)->create();
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(ListDeckCardsAction::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', ListDeckCardsAction::MAX_PAGE_SIZE);
+    }
+
+    public function test_it_accepts_the_minimum_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(3)->for($deck)->create();
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=1");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.per_page', 1);
+    }
+
+    public function test_it_accepts_the_maximum_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(ListDeckCardsAction::MAX_PAGE_SIZE + 1)->for($deck)->create();
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".ListDeckCardsAction::MAX_PAGE_SIZE);
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(ListDeckCardsAction::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', ListDeckCardsAction::MAX_PAGE_SIZE);
+    }
+
+    public function test_it_rejects_a_page_size_above_the_maximum(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".(ListDeckCardsAction::MAX_PAGE_SIZE + 1));
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    }
+
+    public function test_it_rejects_a_page_size_below_the_minimum(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=0");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    }
+
+    public function test_it_rejects_a_non_numeric_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=abc");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
     }
 
     public function test_it_hides_another_users_deck(): void

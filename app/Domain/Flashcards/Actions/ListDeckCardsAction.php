@@ -8,17 +8,20 @@ use Illuminate\Contracts\Pagination\CursorPaginator;
 
 class ListDeckCardsAction
 {
-    private const PAGE_SIZE = 50;
+    public const MAX_PAGE_SIZE = 50;
 
     /**
      * @return CursorPaginator<Card>
      */
-    public function handle(Deck $deck): CursorPaginator
+    public function handle(Deck $deck, int $perPage = self::MAX_PAGE_SIZE): CursorPaginator
     {
+        // Defensive for non-HTTP callers; controllers still validate the public API contract.
+        $perPage = min(max($perPage, 1), self::MAX_PAGE_SIZE);
+
         return $deck->cards()
             ->orderByDesc('created_at')
             // id desc is stable for cursor pagination; same-millisecond ULID order is arbitrary.
             ->orderByDesc('id')
-            ->cursorPaginate(self::PAGE_SIZE);
+            ->cursorPaginate($perPage);
     }
 }

@@ -64,7 +64,17 @@ class DetachMediaFromCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->deleteJson('/api/cards/'.$card->id.'/media-assets/'.strtolower((string) Str::ulid()));
+        $response = $this->deleteJson('/api/cards/'.$card->id.'/media-assets/'.((string) Str::ulid()));
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_rejects_malformed_media_asset_id(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/not-a-ulid");
 
         $response->assertNotFound();
     }
@@ -93,7 +103,17 @@ class DetachMediaFromCardApiTest extends TestCase
         $user = $this->signIn();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $response = $this->deleteJson('/api/cards/'.strtolower((string) Str::ulid())."/media-assets/{$mediaAsset->id}");
+        $response = $this->deleteJson('/api/cards/'.((string) Str::ulid())."/media-assets/{$mediaAsset->id}");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_rejects_malformed_card_id(): void
+    {
+        $user = $this->signIn();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $response = $this->deleteJson("/api/cards/not-a-ulid/media-assets/{$mediaAsset->id}");
 
         $response->assertNotFound();
     }

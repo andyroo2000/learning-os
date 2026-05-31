@@ -1,0 +1,178 @@
+<?php
+
+namespace Tests\Feature\Flashcards;
+
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Models\CardReviewEvent;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+class DeleteCardApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_deletes_an_owned_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $response = $this->deleteJson("/api/cards/{$card->id}");
+
+        $response->assertNoContent();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $reviewEvent->id,
+            'card_id' => $card->id,
+        ]);
+    }
+
+    public function test_it_hides_another_users_card(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $response = $this->deleteJson("/api/cards/{$otherCard->id}");
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $otherCard->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_it_is_idempotent_for_a_card_cascade_deleted_with_its_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+
+        $deck->delete();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+
+        $response = $this->deleteJson("/api/cards/{$card->id}");
+
+        $response->assertNoContent();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+    }
+
+    public function test_it_returns_not_found_for_a_card_hard_deleted_with_its_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $cardId = $card->id;
+
+        $deck->forceDelete();
+
+        $this->assertDatabaseMissing('cards', [
+            'id' => $cardId,
+        ]);
+
+        $response = $this->deleteJson("/api/cards/{$cardId}");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_is_idempotent_for_an_already_soft_deleted_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $card->delete();
+
+        $response = $this->deleteJson("/api/cards/{$card->id}");
+
+        $response->assertNoContent();
+    }
+
+    public function test_it_hides_another_users_soft_deleted_card(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $otherCard->delete();
+
+        $response = $this->deleteJson("/api/cards/{$otherCard->id}");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_hides_another_users_card_cascade_deleted_with_its_deck(): void
+    {
+        $this->signIn();
+        $otherCard = Card::factory()->create();
+
+        $otherCard->deck->delete();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $otherCard->id,
+        ]);
+
+        $response = $this->deleteJson("/api/cards/{$otherCard->id}");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_missing_card(): void
+    {
+        $this->signIn();
+
+        $response = $this->deleteJson('/api/cards/'.((string) Str::ulid()));
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_malformed_card_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->deleteJson('/api/cards/not-a-ulid');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_requires_authentication(): void
+    {
+        $card = Card::factory()->create();
+
+        $response = $this->deleteJson("/api/cards/{$card->id}");
+
+        $response->assertUnauthorized();
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_it_requires_authentication_for_a_soft_deleted_card(): void
+    {
+        $card = Card::factory()->create();
+
+        $card->delete();
+
+        $response = $this->deleteJson("/api/cards/{$card->id}");
+
+        $response->assertUnauthorized();
+    }
+}

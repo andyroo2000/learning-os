@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
@@ -22,11 +23,14 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::post('/card-review-events', StoreCardReviewEventController::class);
-    Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class);
-    Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class);
-    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class);
-    Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class);
-    Route::put('/cards/{card}', UpdateCardController::class);
+    Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
+    Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
+    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)->whereUlid('card');
+    Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class)
+        ->whereUlid('card')
+        ->whereUlid('mediaAsset');
+    Route::put('/cards/{card}', UpdateCardController::class)->whereUlid('card');
+    Route::delete('/cards/{card}', DeleteCardController::class)->whereUlid('card');
     Route::post('/cards', StoreCardController::class);
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);

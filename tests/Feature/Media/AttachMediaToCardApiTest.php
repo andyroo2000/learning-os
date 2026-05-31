@@ -317,12 +317,26 @@ class AttachMediaToCardApiTest extends TestCase
         $user = $this->signIn();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $response = $this->postJson('/api/cards/'.strtolower((string) Str::ulid()).'/media-assets', [
+        $response = $this->postJson('/api/cards/'.((string) Str::ulid()).'/media-assets', [
             'media_asset_id' => $mediaAsset->id,
         ]);
 
         $response
             ->assertNotFound();
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
+    public function test_it_rejects_malformed_card_id(): void
+    {
+        $user = $this->signIn();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $response = $this->postJson('/api/cards/not-a-ulid/media-assets', [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
 
         $this->assertDatabaseCount('card_media', 0);
     }

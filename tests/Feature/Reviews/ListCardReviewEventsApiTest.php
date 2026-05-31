@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
@@ -282,6 +283,39 @@ class ListCardReviewEventsApiTest extends TestCase
         $response = $this->getJson("/api/cards/{$otherCard->id}/review-events");
 
         $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_card_in_a_soft_deleted_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+
+        $deck->delete();
+
+        $response = $this->getJson("/api/cards/{$card->id}/review-events");
+
+        $response->assertNotFound();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
+    }
+
+    public function test_it_returns_not_found_for_a_soft_deleted_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $card->delete();
+
+        $response = $this->getJson("/api/cards/{$card->id}/review-events");
+
+        $response->assertNotFound();
+
+        $this->assertSoftDeleted('cards', [
+            'id' => $card->id,
+        ]);
     }
 
     public function test_it_returns_not_found_for_a_missing_card(): void

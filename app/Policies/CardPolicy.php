@@ -26,6 +26,8 @@ class CardPolicy
             return $card->deck !== null && $card->deck->user_id === $user->id;
         }
 
+        // Route model binding is the primary soft-delete guard. This scoped lookup is a
+        // safety net if a trashed-deck card ever reaches policy checks through another path.
         $ownerId = $card->deck()->value('user_id');
 
         return $ownerId !== null && $ownerId === $user->id;

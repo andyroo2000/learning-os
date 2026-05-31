@@ -143,6 +143,26 @@ class CreateCardApiTest extends TestCase
         $this->assertDatabaseCount('cards', 0);
     }
 
+    public function test_it_rejects_a_soft_deleted_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $deck->delete();
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
     public function test_it_requires_authentication(): void
     {
         $deck = Deck::factory()->create();

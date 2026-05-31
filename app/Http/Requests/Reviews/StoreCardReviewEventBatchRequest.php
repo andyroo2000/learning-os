@@ -39,6 +39,7 @@ class StoreCardReviewEventBatchRequest extends FormRequest
         $events = collect($this->validated('events'));
         $cardIds = $events->pluck('card_id')->unique()->values();
 
+        // Eloquent applies Card and Deck SoftDeletes scopes here.
         $visibleCardIds = Card::query()
             ->whereKey($cardIds)
             ->whereHas('deck', fn ($query) => $query->where('user_id', $this->user()->id))

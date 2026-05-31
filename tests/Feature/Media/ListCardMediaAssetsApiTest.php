@@ -116,6 +116,31 @@ class ListCardMediaAssetsApiTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_it_returns_not_found_for_a_soft_deleted_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $card->delete();
+
+        $response = $this->getJson("/api/cards/{$card->id}/media-assets");
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_card_in_a_soft_deleted_deck(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->create(['deck_id' => $deck->id]);
+
+        $deck->delete();
+
+        $response = $this->getJson("/api/cards/{$card->id}/media-assets");
+
+        $response->assertNotFound();
+    }
+
     public function test_it_requires_authentication(): void
     {
         $card = Card::factory()->create();

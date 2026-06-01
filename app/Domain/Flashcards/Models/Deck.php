@@ -43,9 +43,8 @@ class Deck extends Model
         // deleted independently or as part of its deck.
     }
 
-    // Soft-delete cascade is multi-row, so wrap parent delete and child updates together.
+    // Keep model-level deletes atomic while the cascade still lives in this model observer.
     // In the force-delete path the observer returns early and the FK handles child rows atomically.
-    // TODO(flashcards): move this transaction boundary into DeleteDeckAction when deck deletion has an API.
     public function delete(): ?bool
     {
         if ($this->isForceDeleting()) {
@@ -53,6 +52,7 @@ class Deck extends Model
         }
 
         if ($this->trashed()) {
+            // Keep retrying DELETE idempotent: SoftDeletes would otherwise refresh deleted_at.
             return true;
         }
 

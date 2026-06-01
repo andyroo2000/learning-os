@@ -22,6 +22,13 @@ class DeckPolicy
             : Response::denyAsNotFound();
     }
 
+    public function delete(User $user, Deck $deck): Response
+    {
+        return $this->owns($user, $deck)
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+
     private function owns(User $user, Deck $deck): bool
     {
         return $deck->user_id === $user->id;

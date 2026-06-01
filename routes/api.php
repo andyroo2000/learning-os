@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
+use App\Http\Controllers\Api\Flashcards\ShowCardController;
 use App\Http\Controllers\Api\Flashcards\ShowDeckController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
 use App\Http\Controllers\Api\Flashcards\StoreDeckController;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::post('/card-review-events', StoreCardReviewEventController::class);
+    Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
     Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)->whereUlid('card');

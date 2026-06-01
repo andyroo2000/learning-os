@@ -12,6 +12,27 @@ class CardPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_allows_a_user_to_view_their_own_card(): void
+    {
+        $user = User::factory()->create();
+        $card = $this->cardFor($user);
+
+        $response = Gate::forUser($user)->inspect('view', $card);
+
+        $this->assertTrue($response->allowed());
+    }
+
+    public function test_it_hides_another_users_card_when_viewing(): void
+    {
+        $user = User::factory()->create();
+        $card = Card::factory()->create();
+
+        $response = Gate::forUser($user)->inspect('view', $card);
+
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
+
     public function test_it_allows_a_user_to_update_their_own_card(): void
     {
         $user = User::factory()->create();

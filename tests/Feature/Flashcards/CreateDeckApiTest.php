@@ -135,9 +135,11 @@ class CreateDeckApiTest extends TestCase
             'name' => 'Spanish Basics',
         ]);
 
+        // Assert literal strings so response-contract changes fail loudly.
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Deck ID already exists with different metadata.');
+            ->assertJsonPath('message', 'Deck ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'deck_id_conflict');
 
         $this->assertDatabaseCount('decks', 1);
     }
@@ -160,7 +162,8 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.');
+            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.')
+            ->assertJsonPath('reason', 'deck_deleted');
 
         $this->assertSoftDeleted('decks', [
             'id' => $id,
@@ -186,7 +189,8 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.');
+            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.')
+            ->assertJsonPath('reason', 'deck_deleted');
     }
 
     public function test_it_hides_idempotent_retries_for_other_users_decks(): void
@@ -208,7 +212,8 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertNotFound()
-            ->assertJsonPath('message', 'Not Found');
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
 
         $this->assertDatabaseHas('decks', [
             'id' => $id,
@@ -251,7 +256,8 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertNotFound()
-            ->assertJsonPath('message', 'Not Found');
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
 
         $this->assertTrue($inserted);
         $this->assertDatabaseHas('decks', [
@@ -280,7 +286,8 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertNotFound()
-            ->assertJsonPath('message', 'Not Found');
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
 
         $this->assertSoftDeleted('decks', [
             'id' => $id,

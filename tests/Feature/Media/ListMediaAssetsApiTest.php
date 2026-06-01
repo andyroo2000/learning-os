@@ -4,6 +4,7 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -148,31 +149,31 @@ class ListMediaAssetsApiTest extends TestCase
         $user = $this->signIn();
         $sharedTimestamp = now()->subDays(2);
 
-        foreach (range(1, 49) as $index) {
+        foreach (range(1, CursorPagination::MAX_PAGE_SIZE - 1) as $index) {
             MediaAsset::factory()->for($user)->create([
                 'created_at' => now()->subMinutes($index),
                 'updated_at' => now()->subMinutes($index),
             ]);
         }
 
-        $firstInsertedTieMediaAsset = MediaAsset::factory()->for($user)->create([
+        $lowTieMediaAsset = MediaAsset::factory()->for($user)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pj',
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
-        $secondInsertedTieMediaAsset = MediaAsset::factory()->for($user)->create([
+        $highTieMediaAsset = MediaAsset::factory()->for($user)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pk',
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
-
-        $this->assertLessThan($secondInsertedTieMediaAsset->id, $firstInsertedTieMediaAsset->id);
 
         $firstPage = $this->getJson('/api/media-assets');
 
         $firstPage
             ->assertOk()
-            ->assertJsonCount(50, 'data')
-            ->assertJsonPath('data.49.id', $secondInsertedTieMediaAsset->id)
-            ->assertJsonPath('meta.per_page', 50);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('data.'.(CursorPagination::MAX_PAGE_SIZE - 1).'.id', $highTieMediaAsset->id)
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
 
         $nextCursor = $firstPage->json('meta.next_cursor');
 
@@ -183,7 +184,7 @@ class ListMediaAssetsApiTest extends TestCase
         $secondPage
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $firstInsertedTieMediaAsset->id)
+            ->assertJsonPath('data.0.id', $lowTieMediaAsset->id)
             ->assertJsonPath('meta.next_cursor', null);
     }
 

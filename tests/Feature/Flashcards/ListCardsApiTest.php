@@ -166,7 +166,7 @@ class ListCardsApiTest extends TestCase
         $deck = $this->deckFor($user);
         $sharedTimestamp = now()->subDays(2);
 
-        foreach (range(1, 49) as $index) {
+        foreach (range(1, CursorPagination::MAX_PAGE_SIZE - 1) as $index) {
             Card::factory()->for($deck)->create([
                 'front_text' => "Newer Card {$index}",
                 'created_at' => now()->subMinutes($index),
@@ -174,16 +174,16 @@ class ListCardsApiTest extends TestCase
             ]);
         }
 
-        $firstInsertedTieCard = Card::factory()->for($deck)->create([
+        $lowTieCard = Card::factory()->for($deck)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pg',
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
-        $secondInsertedTieCard = Card::factory()->for($deck)->create([
+        $highTieCard = Card::factory()->for($deck)->create([
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2ph',
             'created_at' => $sharedTimestamp,
             'updated_at' => $sharedTimestamp,
         ]);
-
-        $this->assertLessThan($secondInsertedTieCard->id, $firstInsertedTieCard->id);
 
         $firstPage = $this->getJson('/api/cards');
 
@@ -191,7 +191,7 @@ class ListCardsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
             ->assertJsonPath('data.0.front_text', 'Newer Card 1')
-            ->assertJsonPath('data.49.id', $secondInsertedTieCard->id)
+            ->assertJsonPath('data.'.(CursorPagination::MAX_PAGE_SIZE - 1).'.id', $highTieCard->id)
             ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
 
         $nextCursor = $firstPage->json('meta.next_cursor');
@@ -203,7 +203,7 @@ class ListCardsApiTest extends TestCase
         $secondPage
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $firstInsertedTieCard->id)
+            ->assertJsonPath('data.0.id', $lowTieCard->id)
             ->assertJsonPath('meta.next_cursor', null);
     }
 

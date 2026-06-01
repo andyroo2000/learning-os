@@ -135,7 +135,7 @@ class ListDeckCardsApiTest extends TestCase
         $deck = $this->deckFor($user);
         $sharedTimestamp = now()->subDays(2);
 
-        foreach (range(1, 49) as $index) {
+        foreach (range(1, CursorPagination::MAX_PAGE_SIZE - 1) as $index) {
             Card::factory()->for($deck)->create([
                 'front_text' => "Newer Card {$index}",
                 'created_at' => now()->subMinutes($index),
@@ -160,10 +160,10 @@ class ListDeckCardsApiTest extends TestCase
 
         $firstPage
             ->assertOk()
-            ->assertJsonCount(50, 'data')
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
             ->assertJsonPath('data.0.front_text', 'Newer Card 1')
-            ->assertJsonPath('data.49.id', $highTieCard->id)
-            ->assertJsonPath('meta.per_page', 50);
+            ->assertJsonPath('data.'.(CursorPagination::MAX_PAGE_SIZE - 1).'.id', $highTieCard->id)
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
 
         $nextCursor = $firstPage->json('meta.next_cursor');
 

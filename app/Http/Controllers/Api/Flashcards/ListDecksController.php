@@ -16,6 +16,8 @@ class ListDecksController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return DeckResource::collection($listDecks->handle($user->id, $request->perPage()));
+        return DeckResource::collection(
+            $listDecks->handle($user->id, $request->perPage())->withQueryString()
+        );
     }
 }

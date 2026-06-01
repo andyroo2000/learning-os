@@ -15,6 +15,8 @@ class ListDeckCardsController extends Controller
     {
         $this->authorize('view', $deck);
 
-        return CardResource::collection($listDeckCards->handle($deck, $request->perPage()));
+        return CardResource::collection(
+            $listDeckCards->handle($deck, $request->perPage())->withQueryString()
+        );
     }
 }

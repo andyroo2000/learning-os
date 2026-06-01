@@ -170,7 +170,12 @@ class ListCardReviewEventsApiTest extends TestCase
 
         $this->assertNotNull($nextCursor);
 
-        $secondPage = $this->getJson("/api/cards/{$card->id}/review-events?per_page=2&cursor=".rawurlencode($nextCursor));
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
+
+        $secondPage = $this->getJson($nextUrl);
 
         $secondPage
             ->assertOk()

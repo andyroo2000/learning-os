@@ -220,6 +220,15 @@ class ListCardsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.per_page', 2);
+
+        $nextUrl = $response->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
+
+        $this->getJson($nextUrl)
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 2);
     }
 
     public function test_it_accepts_the_minimum_page_size(): void

@@ -101,7 +101,16 @@ class ListCardMediaAssetsApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards/'.strtolower((string) Str::ulid()).'/media-assets');
+        $response = $this->getJson('/api/cards/'.((string) Str::ulid()).'/media-assets');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_rejects_malformed_card_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/cards/not-a-ulid/media-assets');
 
         $response->assertNotFound();
     }

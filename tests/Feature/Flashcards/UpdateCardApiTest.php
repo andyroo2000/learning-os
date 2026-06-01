@@ -362,9 +362,21 @@ class UpdateCardApiTest extends TestCase
     public function test_it_returns_not_found_for_a_missing_card(): void
     {
         $this->signIn();
-        $missingCardId = strtolower((string) Str::ulid());
+        $missingCardId = (string) Str::ulid();
 
         $response = $this->putJson("/api/cards/{$missingCardId}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_malformed_card_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->putJson('/api/cards/not-a-ulid', [
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);

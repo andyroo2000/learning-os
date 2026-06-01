@@ -321,16 +321,25 @@ class ListCardReviewEventsApiTest extends TestCase
     public function test_it_returns_not_found_for_a_missing_card(): void
     {
         $this->signIn();
-        $missingCardId = strtolower((string) Str::ulid());
+        $missingCardId = (string) Str::ulid();
 
         $response = $this->getJson("/api/cards/{$missingCardId}/review-events");
 
         $response->assertNotFound();
     }
 
+    public function test_it_returns_not_found_for_a_malformed_card_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/cards/not-a-ulid/review-events');
+
+        $response->assertNotFound();
+    }
+
     public function test_it_requires_authentication(): void
     {
-        $missingCardId = strtolower((string) Str::ulid());
+        $missingCardId = (string) Str::ulid();
 
         $response = $this->getJson("/api/cards/{$missingCardId}/review-events");
 

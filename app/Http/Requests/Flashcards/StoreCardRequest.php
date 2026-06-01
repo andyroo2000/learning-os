@@ -2,15 +2,32 @@
 
 namespace App\Http\Requests\Flashcards;
 
-use App\Domain\Flashcards\Models\Deck;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreCardRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        // This intentionally mirrors CreateCardData normalization before validation,
+        // while the DTO protects programmatic callers that bypass HTTP.
+        $normalized = [];
+
+        foreach (['id', 'deck_id'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
+    }
+
     public function authorize(): bool
     {
-        // Ownership is validated on deck_id so clients get a field-specific 422.
         return true;
     }
 
@@ -19,17 +36,11 @@ class StoreCardRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->user()->id;
-
         return [
             'id' => ['nullable', 'ulid'],
-            'deck_id' => [
-                'required',
-                'ulid',
-                Rule::exists(Deck::class, 'id')
-                    ->where('user_id', $userId)
-                    ->whereNull('deleted_at'),
-            ],
+            // Ownership/existence stays in CreateCardAction so idempotent replays can
+            // resolve existing card IDs even after a deck has been soft-deleted.
+            'deck_id' => ['required', 'ulid'],
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],
         ];

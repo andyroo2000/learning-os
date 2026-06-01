@@ -4,26 +4,58 @@ namespace App\Http\Controllers\Api\Flashcards;
 
 use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
+use App\Domain\Flashcards\Exceptions\CardConflictException;
+use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\StoreCardRequest;
 use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class StoreCardController extends Controller
 {
     public function __invoke(StoreCardRequest $request, CreateCardAction $createCard): JsonResponse
     {
         $data = $request->validated();
+        $userId = (int) $request->user()->id;
 
-        $card = $createCard->handle(CreateCardData::fromInput(
-            deckId: $data['deck_id'],
-            frontText: $data['front_text'],
-            backText: $data['back_text'],
-            id: $data['id'] ?? null,
-        ));
+        try {
+            $card = $createCard->handle(CreateCardData::fromInput(
+                userId: $userId,
+                deckId: $data['deck_id'],
+                frontText: $data['front_text'],
+                backText: $data['back_text'],
+                id: $data['id'] ?? null,
+            ));
+        } catch (CardConflictException $exception) {
+            // These conflict exception messages are deliberately user-facing.
+            // Hide cross-user IDs before returning same-user deletion details.
+            if (! $exception->isOwnedBy($userId)) {
+                // Keep this generic so guessed card IDs do not leak cross-user existence.
+                return response()->json([
+                    'message' => 'Not Found',
+                ], 404);
+            }
+
+            if ($exception->isDeleted()) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                ], 410);
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 409);
+        } catch (CardValidationException $exception) {
+            throw ValidationException::withMessages([
+                $exception->field() => [$exception->getMessage()],
+            ]);
+        }
 
         return CardResource::make($card)
             ->response()
-            ->setStatusCode(201);
+            // Eloquent only sets this flag on a successful insert; pre-check and
+            // race-recovery replays are fetched models, so they correctly return 200.
+            ->setStatusCode($card->wasRecentlyCreated ? 201 : 200);
     }
 }

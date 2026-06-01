@@ -2,6 +2,8 @@
 
 namespace App\Domain\Flashcards\Data;
 
+use App\Support\Identifiers\CanonicalUlid;
+
 final readonly class CreateDeckData
 {
     private function __construct(
@@ -21,7 +23,7 @@ final readonly class CreateDeckData
             userId: $userId,
             name: trim($name),
             description: $description === null ? null : trim($description),
-            id: $id === null ? null : strtolower(trim($id)),
+            id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }
 }

@@ -23,11 +23,91 @@ class IntegrityConstraintViolationTest extends TestCase
         $this->assertFalse(IntegrityConstraintViolation::matchesUniqueKey($exception));
     }
 
+    public function test_it_identifies_sqlite_primary_key_violations(): void
+    {
+        $exception = $this->sqliteQueryException('UNIQUE constraint failed: cards.id');
+
+        $this->assertTrue(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
+    public function test_it_does_not_treat_other_sqlite_unique_constraints_as_primary_key_violations(): void
+    {
+        $exception = $this->sqliteQueryException('UNIQUE constraint failed: cards.deck_id, cards.front_text');
+
+        $this->assertFalse(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
+    public function test_it_identifies_postgres_primary_key_violations(): void
+    {
+        $exception = $this->queryException(
+            connectionName: 'pgsql',
+            sqlState: '23505',
+            driverCode: '7',
+            message: 'duplicate key value violates unique constraint "cards_pkey"',
+        );
+
+        $this->assertTrue(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
+    public function test_it_identifies_mysql_primary_key_violations(): void
+    {
+        $exception = $this->queryException(
+            connectionName: 'mysql',
+            sqlState: '23000',
+            driverCode: '1062',
+            message: "Duplicate entry '01abc' for key 'cards.PRIMARY'",
+            sql: 'insert into `cards` (...) values (...)',
+        );
+
+        $this->assertTrue(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
+    public function test_it_identifies_older_mysql_primary_key_violations(): void
+    {
+        $exception = $this->queryException(
+            connectionName: 'mysql',
+            sqlState: '23000',
+            driverCode: '1062',
+            message: "Duplicate entry '01abc' for key 'PRIMARY'",
+            sql: 'insert into `cards` (...) values (...)',
+        );
+
+        $this->assertTrue(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
+    public function test_it_does_not_match_older_mysql_primary_key_violations_for_other_tables(): void
+    {
+        $exception = $this->queryException(
+            connectionName: 'mysql',
+            sqlState: '23000',
+            driverCode: '1062',
+            message: "Duplicate entry '01abc' for key 'PRIMARY'",
+            sql: 'insert into `decks` (...) values (...)',
+        );
+
+        $this->assertFalse(IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards'));
+    }
+
     private function sqliteQueryException(string $message): QueryException
     {
-        $previous = new PDOException($message, 19);
-        $previous->errorInfo = ['23000', '19', $message];
+        return $this->queryException(
+            connectionName: 'sqlite',
+            sqlState: '23000',
+            driverCode: '19',
+            message: $message,
+        );
+    }
 
-        return new QueryException('sqlite', 'insert into "media_assets" (...) values (...)', [], $previous);
+    private function queryException(
+        string $connectionName,
+        string $sqlState,
+        string $driverCode,
+        string $message,
+        string $sql = 'insert into "media_assets" (...) values (...)',
+    ): QueryException {
+        $previous = new PDOException($message, 19);
+        $previous->errorInfo = [$sqlState, $driverCode, $message];
+
+        return new QueryException($connectionName, $sql, [], $previous);
     }
 }

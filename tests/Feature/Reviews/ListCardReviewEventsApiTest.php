@@ -109,7 +109,7 @@ class ListCardReviewEventsApiTest extends TestCase
         $card = $this->cardFor($user);
         $sharedReviewedAt = now()->subDays(2);
 
-        foreach (range(1, 49) as $index) {
+        foreach (range(1, CursorPagination::MAX_PAGE_SIZE - 1) as $index) {
             CardReviewEvent::factory()->for($card)->create([
                 'rating' => CardReviewRating::Good,
                 'reviewed_at' => now()->subMinutes($index),
@@ -131,9 +131,9 @@ class ListCardReviewEventsApiTest extends TestCase
 
         $firstPage
             ->assertOk()
-            ->assertJsonCount(50, 'data')
-            ->assertJsonPath('data.49.id', $highTieEvent->id)
-            ->assertJsonPath('meta.per_page', 50);
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('data.'.(CursorPagination::MAX_PAGE_SIZE - 1).'.id', $highTieEvent->id)
+            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
 
         $nextCursor = $firstPage->json('meta.next_cursor');
 

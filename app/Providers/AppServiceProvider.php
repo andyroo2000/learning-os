@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Policies\CardPolicy;
+use App\Policies\CardReviewEventPolicy;
 use App\Policies\DeckPolicy;
 use App\Policies\MediaAssetPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Keep policy wiring explicit while the API ownership model is still being shaped.
         Gate::policy(Card::class, CardPolicy::class);
+        Gate::policy(CardReviewEvent::class, CardReviewEventPolicy::class);
         Gate::policy(Deck::class, DeckPolicy::class);
         Gate::policy(MediaAsset::class, MediaAssetPolicy::class);
     }

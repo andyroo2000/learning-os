@@ -211,7 +211,7 @@ class ListReviewEventsApiTest extends TestCase
         $nextUrl = $response->json('links.next');
 
         $this->assertNotNull($nextUrl);
-        $this->assertStringContainsString('per_page=2', $nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
 
         $this->getJson($nextUrl)
             ->assertOk()

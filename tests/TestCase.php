@@ -21,6 +21,17 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
+    protected function assertUrlQueryParameter(string $url, string $key, string $expected): void
+    {
+        $queryString = parse_url($url, PHP_URL_QUERY);
+
+        $this->assertIsString($queryString, "URL has no query string: {$url}");
+
+        parse_str($queryString, $query);
+
+        $this->assertSame($expected, $query[$key] ?? null, "URL query parameter [{$key}] did not match: {$url}");
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      */

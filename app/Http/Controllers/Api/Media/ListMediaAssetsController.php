@@ -16,6 +16,8 @@ class ListMediaAssetsController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return MediaAssetResource::collection($listMediaAssets->handle($user->id, $request->perPage()));
+        return MediaAssetResource::collection(
+            $listMediaAssets->handle($user->id, $request->perPage())->withQueryString()
+        );
     }
 }

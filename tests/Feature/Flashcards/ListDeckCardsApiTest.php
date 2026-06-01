@@ -288,16 +288,25 @@ class ListDeckCardsApiTest extends TestCase
     public function test_it_returns_not_found_for_a_missing_deck(): void
     {
         $this->signIn();
-        $missingDeckId = strtolower((string) Str::ulid());
+        $missingDeckId = (string) Str::ulid();
 
         $response = $this->getJson("/api/decks/{$missingDeckId}/cards");
 
         $response->assertNotFound();
     }
 
+    public function test_it_returns_not_found_for_a_malformed_deck_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks/not-a-ulid/cards');
+
+        $response->assertNotFound();
+    }
+
     public function test_it_requires_authentication(): void
     {
-        $missingDeckId = strtolower((string) Str::ulid());
+        $missingDeckId = (string) Str::ulid();
 
         $response = $this->getJson("/api/decks/{$missingDeckId}/cards");
 

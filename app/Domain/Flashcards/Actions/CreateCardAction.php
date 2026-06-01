@@ -136,11 +136,15 @@ class CreateCardAction
         // hidden as 404. If this fails, the cards.deck_id FK invariant has already broken.
         $conflictingUserId = $this->ownerIdFor($card);
 
-        if ($card->trashed() || $this->deckIsTrashed($card)) {
+        if ($card->trashed()) {
             // Tombstones must win before metadata checks. Deleted IDs remain reserved,
             // so owners get a deletion signal and other users still get a hidden 404.
             // Cross-user tombstones still carry the deleted flag; HTTP checks ownership first.
-            throw CardConflictException::deleted($conflictingUserId);
+            throw CardConflictException::cardDeleted($conflictingUserId);
+        }
+
+        if ($this->deckIsTrashed($card)) {
+            throw CardConflictException::deckDeleted($conflictingUserId);
         }
 
         // This action stores trimmed text; trim stored values too so legacy/direct rows

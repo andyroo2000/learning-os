@@ -148,7 +148,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Card ID already exists with different metadata.');
+            ->assertJsonPath('message', 'Card ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_id_conflict');
 
         $this->assertDatabaseCount('cards', 1);
     }
@@ -175,7 +176,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Card ID already exists with different metadata.');
+            ->assertJsonPath('message', 'Card ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_id_conflict');
 
         $this->assertDatabaseHas('cards', [
             'id' => $id,
@@ -209,7 +211,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Card ID belongs to a deleted card.');
+            ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
+            ->assertJsonPath('reason', 'card_deleted');
 
         $this->assertSoftDeleted('cards', [
             'id' => $id,
@@ -239,7 +242,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Card ID belongs to a deleted card.');
+            ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
+            ->assertJsonPath('reason', 'card_deleted');
     }
 
     public function test_it_returns_gone_for_same_user_cross_deck_soft_deleted_cards(): void
@@ -265,7 +269,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Card ID belongs to a deleted card.');
+            ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
+            ->assertJsonPath('reason', 'card_deleted');
 
         $this->assertSoftDeleted('cards', [
             'id' => $id,
@@ -296,7 +301,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Card ID belongs to a deleted card.');
+            ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
+            ->assertJsonPath('reason', 'card_deleted');
 
         $this->assertSoftDeleted('cards', [
             'id' => $id,
@@ -316,6 +322,7 @@ class CreateCardApiTest extends TestCase
             'back_text' => 'hello',
         ]);
 
+        // Bypass the model cascade so the card row stays active while the deck is tombstoned.
         DB::table('decks')
             ->where('id', $deck->id)
             ->update([
@@ -332,13 +339,80 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertGone()
-            ->assertJsonPath('message', 'Card ID belongs to a deleted card.');
+            ->assertJsonPath('message', 'Card ID belongs to a deleted deck.')
+            ->assertJsonPath('reason', 'deck_deleted');
 
         $this->assertDatabaseHas('cards', [
             'id' => $id,
             'deck_id' => $deck->id,
             'deleted_at' => null,
         ]);
+    }
+
+    public function test_it_hides_cross_user_deck_deleted_tombstones(): void
+    {
+        $this->signIn();
+        $otherDeck = Deck::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        Card::factory()->for($otherDeck)->create([
+            'id' => $id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        // Bypass the model cascade so the card row stays active while the deck is tombstoned.
+        DB::table('decks')
+            ->where('id', $otherDeck->id)
+            ->update([
+                'deleted_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $response = $this->postJson('/api/cards', [
+            'id' => $id,
+            'deck_id' => $otherDeck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
+    }
+
+    public function test_it_hides_cross_user_card_deleted_tombstones_when_the_deck_is_also_deleted(): void
+    {
+        $this->signIn();
+        $otherDeck = Deck::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $card = Card::factory()->for($otherDeck)->create([
+            'id' => $id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->delete();
+
+        DB::table('decks')
+            ->where('id', $otherDeck->id)
+            ->update([
+                'deleted_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $response = $this->postJson('/api/cards', [
+            'id' => $id,
+            'deck_id' => $otherDeck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
     }
 
     public function test_it_hides_idempotent_retries_for_other_users_cards(): void
@@ -363,7 +437,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertNotFound()
-            ->assertJsonPath('message', 'Not Found');
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
 
         $this->assertDatabaseHas('cards', [
             'id' => $id,
@@ -398,7 +473,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertNotFound()
-            ->assertJsonPath('message', 'Not Found');
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
 
         $this->assertSoftDeleted('cards', [
             'id' => $id,
@@ -495,7 +571,8 @@ class CreateCardApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Card ID already exists with different metadata.');
+            ->assertJsonPath('message', 'Card ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_id_conflict');
 
         $this->assertTrue($inserted);
         $this->assertDatabaseHas('cards', [

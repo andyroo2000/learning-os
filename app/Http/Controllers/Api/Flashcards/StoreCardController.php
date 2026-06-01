@@ -40,11 +40,13 @@ class StoreCardController extends Controller
             if ($exception->isDeleted()) {
                 return response()->json([
                     'message' => $exception->getMessage(),
+                    'reason' => $exception->reason(),
                 ], 410);
             }
 
             return response()->json([
                 'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
             ], 409);
         } catch (CardValidationException $exception) {
             throw ValidationException::withMessages([

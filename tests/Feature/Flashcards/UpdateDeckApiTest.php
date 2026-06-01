@@ -394,12 +394,21 @@ class UpdateDeckApiTest extends TestCase
     public function test_it_returns_not_found_for_a_missing_deck(): void
     {
         $this->signIn();
-        $missingDeckId = strtolower((string) Str::ulid());
+        $missingDeckId = (string) Str::ulid();
 
         $response = $this->putJson("/api/decks/{$missingDeckId}", [
             'name' => 'Italian Travel',
             'description' => null,
         ]);
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_malformed_deck_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->putJson('/api/decks/not-a-ulid', []);
 
         $response->assertNotFound();
     }

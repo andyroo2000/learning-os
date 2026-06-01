@@ -136,7 +136,16 @@ class ListDeckMediaAssetsApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks/'.strtolower((string) Str::ulid()).'/media-assets');
+        $response = $this->getJson('/api/decks/'.((string) Str::ulid()).'/media-assets');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_for_a_malformed_deck_id(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks/not-a-ulid/media-assets');
 
         $response->assertNotFound();
     }

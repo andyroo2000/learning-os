@@ -19,11 +19,14 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
-    protected function deckFor(User $user): Deck
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function deckFor(User $user, array $attributes = []): Deck
     {
         return Deck::factory()
             ->for($user)
-            ->create();
+            ->create($attributes);
     }
 
     protected function cardFor(User $user): Card

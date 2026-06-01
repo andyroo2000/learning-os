@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
+use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
@@ -42,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::get('/media-assets', ListDeckMediaAssetsController::class);
             Route::get('/cards', ListDeckCardsController::class);
             Route::put('/', UpdateDeckController::class);
+            Route::delete('/', DeleteDeckController::class);
         });
     Route::get('/decks', ListDecksController::class);
     Route::post('/decks', StoreDeckController::class);

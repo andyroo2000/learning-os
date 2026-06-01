@@ -44,6 +44,28 @@ class DeckPolicyTest extends TestCase
         $this->assertTrue($response->allowed());
     }
 
+    public function test_it_allows_a_user_to_delete_their_own_deck(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        $response = Gate::forUser($user)->inspect('delete', $deck);
+
+        $this->assertTrue($response->allowed());
+    }
+
+    public function test_it_allows_a_user_to_delete_their_already_soft_deleted_deck(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        $deck->delete();
+
+        $response = Gate::forUser($user)->inspect('delete', $deck);
+
+        $this->assertTrue($response->allowed());
+    }
+
     public function test_it_hides_another_users_deck_when_updating(): void
     {
         $user = User::factory()->create();
@@ -51,6 +73,32 @@ class DeckPolicyTest extends TestCase
         $deck = Deck::factory()->for($otherUser)->create();
 
         $response = Gate::forUser($user)->inspect('update', $deck);
+
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
+
+    public function test_it_hides_another_users_deck_when_deleting(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $deck = Deck::factory()->for($otherUser)->create();
+
+        $response = Gate::forUser($user)->inspect('delete', $deck);
+
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
+
+    public function test_it_hides_another_users_soft_deleted_deck_when_deleting(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $deck = Deck::factory()->for($otherUser)->create();
+
+        $deck->delete();
+
+        $response = Gate::forUser($user)->inspect('delete', $deck);
 
         $this->assertTrue($response->denied());
         $this->assertSame(404, $response->status());

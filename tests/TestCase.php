@@ -5,6 +5,7 @@ namespace Tests;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Sanctum\Sanctum;
@@ -47,6 +48,16 @@ abstract class TestCase extends BaseTestCase
     {
         return MediaAsset::factory()
             ->for($user)
+            ->create($attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function cardReviewEventFor(User $user, array $attributes = []): CardReviewEvent
+    {
+        return CardReviewEvent::factory()
+            ->for($this->cardFor($user))
             ->create($attributes);
     }
 }

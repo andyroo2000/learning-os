@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\Media\ListMediaAssetsController;
 use App\Http\Controllers\Api\Media\ShowMediaAssetController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
 use App\Http\Controllers\Api\Reviews\ListCardReviewEventsController;
+use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Route;
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
+    Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
     Route::post('/card-review-events', StoreCardReviewEventController::class);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');

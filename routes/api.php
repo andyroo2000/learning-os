@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
+use App\Http\Controllers\Api\Flashcards\ListCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
 use App\Http\Controllers\Api\Flashcards\ShowCardController;
@@ -36,9 +37,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class)
         ->whereUlid('card')
         ->whereUlid('mediaAsset');
+    Route::get('/cards', ListCardsController::class);
+    Route::post('/cards', StoreCardController::class);
     Route::put('/cards/{card}', UpdateCardController::class)->whereUlid('card');
     Route::delete('/cards/{card}', DeleteCardController::class)->whereUlid('card');
-    Route::post('/cards', StoreCardController::class);
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
     Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);

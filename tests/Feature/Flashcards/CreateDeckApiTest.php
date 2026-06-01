@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -47,7 +50,108 @@ class CreateDeckApiTest extends TestCase
     public function test_it_accepts_a_client_provided_ulid(): void
     {
         $user = $this->signIn();
+        $id = (string) Str::ulid();
+
+        $response = $this->postJson('/api/decks', [
+            'id' => strtoupper($id),
+            'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', strtolower($id));
+
+        $this->assertDatabaseHas('decks', [
+            'id' => strtolower($id),
+            'user_id' => $user->id,
+            'name' => 'Italian Basics',
+        ]);
+    }
+
+    public function test_it_returns_existing_deck_for_idempotent_retries(): void
+    {
+        $user = $this->signIn();
         $id = strtolower((string) Str::ulid());
+
+        Deck::factory()->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+        ]);
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.name', 'Italian Basics')
+            ->assertJsonPath('data.description', 'Foundational Italian review cards.');
+
+        $this->assertDatabaseCount('decks', 1);
+    }
+
+    public function test_it_normalizes_description_before_matching_idempotent_retries(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        Deck::factory()->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => '   ',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.description', null);
+
+        $this->assertDatabaseCount('decks', 1);
+    }
+
+    public function test_it_rejects_client_provided_ulid_conflicts(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        Deck::factory()->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Spanish Basics',
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Deck ID already exists with different metadata.');
+
+        $this->assertDatabaseCount('decks', 1);
+    }
+
+    public function test_it_returns_gone_for_client_provided_ulid_conflicts_with_owned_soft_deleted_decks(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        $deck = Deck::factory()->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+        ]);
+        $deck->delete();
 
         $response = $this->postJson('/api/decks', [
             'id' => $id,
@@ -55,13 +159,132 @@ class CreateDeckApiTest extends TestCase
         ]);
 
         $response
-            ->assertCreated()
-            ->assertJsonPath('data.id', $id);
+            ->assertGone()
+            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.');
+
+        $this->assertSoftDeleted('decks', [
+            'id' => $id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_it_returns_gone_for_owned_soft_deleted_decks_with_different_metadata(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        $deck = Deck::factory()->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+        ]);
+        $deck->delete();
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Spanish Basics',
+        ]);
+
+        $response
+            ->assertGone()
+            ->assertJsonPath('message', 'Deck ID belongs to a deleted deck.');
+    }
+
+    public function test_it_hides_idempotent_retries_for_other_users_decks(): void
+    {
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        Deck::factory()->for($otherUser)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
 
         $this->assertDatabaseHas('decks', [
             'id' => $id,
+            'user_id' => $otherUser->id,
+        ]);
+        $this->assertDatabaseMissing('decks', [
+            'id' => $id,
             'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_it_hides_cross_user_conflicts_when_concurrent_create_wins_the_race(): void
+    {
+        $this->signIn();
+        $otherUser = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $inserted = false;
+
+        DB::listen(function (QueryExecuted $query) use (&$inserted, $id, $otherUser): void {
+            if ($inserted || ! in_array($id, $query->bindings, true)) {
+                return;
+            }
+
+            $inserted = true;
+
+            DB::table('decks')->insert([
+                'id' => $id,
+                'user_id' => $otherUser->id,
+                'name' => 'Italian Basics',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
             'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
+
+        $this->assertTrue($inserted);
+        $this->assertDatabaseHas('decks', [
+            'id' => $id,
+            'user_id' => $otherUser->id,
+        ]);
+    }
+
+    public function test_it_hides_idempotent_retries_for_other_users_soft_deleted_decks(): void
+    {
+        $this->signIn();
+        $otherUser = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $deck = Deck::factory()->for($otherUser)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+        $deck->delete();
+
+        $response = $this->postJson('/api/decks', [
+            'id' => $id,
+            'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
+
+        $this->assertSoftDeleted('decks', [
+            'id' => $id,
+            'user_id' => $otherUser->id,
         ]);
     }
 

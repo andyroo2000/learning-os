@@ -21,7 +21,7 @@ final readonly class CreateDeckData
             userId: $userId,
             name: trim($name),
             description: $description === null ? null : trim($description),
-            id: $id === null ? null : trim($id),
+            id: $id === null ? null : strtolower(trim($id)),
         );
     }
 }

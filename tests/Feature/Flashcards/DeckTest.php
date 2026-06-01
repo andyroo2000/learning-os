@@ -47,6 +47,7 @@ class DeckTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
+        $this->assertIsInt($deck->user_id);
         $this->assertSame($deck->user_id, $deck->user->id);
     }
 

@@ -8,9 +8,9 @@ final readonly class CursorPageSize
         private int $value,
     ) {}
 
-    public static function fromMaxPageSize(): self
+    public static function fromDefaultPageSize(): self
     {
-        return new self(CursorPagination::MAX_PAGE_SIZE);
+        return new self(CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
     public static function fromPerPage(int $perPage): self

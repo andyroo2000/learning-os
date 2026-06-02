@@ -14,7 +14,7 @@ class ListDeckCardsAction
      */
     public function handle(Deck $deck, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return $deck->cards()
             ->orderByDesc('created_at')

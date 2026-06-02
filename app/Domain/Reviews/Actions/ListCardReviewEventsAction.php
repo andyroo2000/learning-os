@@ -14,7 +14,7 @@ class ListCardReviewEventsAction
      */
     public function handle(Card $card, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return $card->reviewEvents()
             ->orderByDesc('reviewed_at')

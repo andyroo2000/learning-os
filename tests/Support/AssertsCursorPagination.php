@@ -37,18 +37,18 @@ trait AssertsCursorPagination
 
         $response
             ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+            ->assertJsonCount(CursorPagination::DEFAULT_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
     protected function assertCursorEndpointAcceptsMinimumPageSize(string $uri): void
     {
-        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => 1]));
+        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => CursorPagination::MIN_PAGE_SIZE]));
 
         $response
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.per_page', 1);
+            ->assertJsonCount(CursorPagination::MIN_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.per_page', CursorPagination::MIN_PAGE_SIZE);
     }
 
     protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri): void

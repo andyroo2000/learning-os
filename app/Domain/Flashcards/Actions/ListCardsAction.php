@@ -13,7 +13,7 @@ class ListCardsAction
      */
     public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return Card::query()
             ->whereHas('deck', fn ($query) => $query->where('user_id', $userId))

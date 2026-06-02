@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use InvalidArgumentException;
 
 class ReviewCardAction
 {
-    public function handle(ReviewCardData $data): CardReviewEvent
+    public function handle(ReviewCardData $data): ReviewCardResult
     {
         if (! Str::isUlid($data->cardId)) {
             throw new InvalidArgumentException('Card ID must be a valid ULID.');
@@ -53,7 +54,7 @@ class ReviewCardAction
             $existingReviewEvent = $this->findExistingReviewEvent($data);
 
             if ($existingReviewEvent !== null) {
-                return $existingReviewEvent;
+                return ReviewCardResult::existing($existingReviewEvent);
             }
         }
 
@@ -83,10 +84,10 @@ class ReviewCardAction
                 throw $exception;
             }
 
-            return $existingReviewEvent;
+            return ReviewCardResult::existing($existingReviewEvent);
         }
 
-        return $reviewEvent;
+        return ReviewCardResult::created($reviewEvent);
     }
 
     private function findExistingReviewEvent(ReviewCardData $data): ?CardReviewEvent

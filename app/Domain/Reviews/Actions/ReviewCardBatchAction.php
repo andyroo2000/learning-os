@@ -34,9 +34,9 @@ class ReviewCardBatchAction
             throw new InvalidArgumentException('At least one review event is required.');
         }
 
-        $this->ensureCardsExist($preparedItems);
-
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
+            $this->ensureCardsExist($preparedItems);
+
             $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
             $now = now();
 

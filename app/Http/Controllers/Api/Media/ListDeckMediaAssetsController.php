@@ -10,11 +10,11 @@ use Illuminate\Http\JsonResponse;
 
 class ListDeckMediaAssetsController extends Controller
 {
-    public function __invoke(Deck $deck, ListDeckMediaAssetsAction $listDeckMediaAssets): JsonResponse
+    public function __invoke(Deck $deck, ListDeckMediaAssetsAction $listDeckMediaAssetsAction): JsonResponse
     {
         $this->authorize('view', $deck);
 
-        return MediaAssetResource::collection($listDeckMediaAssets->handle($deck))
+        return MediaAssetResource::collection($listDeckMediaAssetsAction->handle($deck))
             ->response();
     }
 }

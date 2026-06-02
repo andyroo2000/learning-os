@@ -206,6 +206,26 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/card-review-events');
     }
 
+    public function test_it_uses_the_default_page_size_when_omitted(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
+
+        $this->assertCursorEndpointUsesDefaultPageSize('/api/card-review-events');
+    }
+
+    public function test_it_accepts_the_minimum_page_size(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        CardReviewEvent::factory()->count(3)->for($card)->create();
+
+        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/card-review-events');
+    }
+
     public function test_it_accepts_the_maximum_page_size(): void
     {
         $user = $this->signIn();

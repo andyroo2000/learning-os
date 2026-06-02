@@ -12,12 +12,14 @@ use App\Support\Pagination\CursorPagination;
 trait AssertsCursorPagination
 {
     /**
-     * Caller must create data so the second page contains $expectedSecondPageCount records.
+     * Caller must create at least 2 + $expectedSecondPageCount records for the endpoint.
      *
      * @param  int  $expectedSecondPageCount  Expected record count after following a per_page=2 cursor.
      */
     protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, int $expectedSecondPageCount = 1): void
     {
+        $this->assertAuthenticated();
+
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => 2]));
 
         $response
@@ -45,6 +47,8 @@ trait AssertsCursorPagination
      */
     protected function assertCursorEndpointUsesDefaultPageSize(string $uri, ?int $endpointMaxPageSize = null): void
     {
+        $this->assertAuthenticated();
+
         $expectedPageSize = min(CursorPagination::DEFAULT_PAGE_SIZE, $endpointMaxPageSize ?? CursorPagination::MAX_PAGE_SIZE);
 
         $response = $this->getJson($uri);
@@ -60,6 +64,8 @@ trait AssertsCursorPagination
      */
     protected function assertCursorEndpointAcceptsMinimumPageSize(string $uri): void
     {
+        $this->assertAuthenticated();
+
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => CursorPagination::MIN_PAGE_SIZE]));
 
         $response
@@ -74,6 +80,8 @@ trait AssertsCursorPagination
      */
     protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri, int $endpointMaxPageSize = CursorPagination::MAX_PAGE_SIZE): void
     {
+        $this->assertAuthenticated();
+
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => $endpointMaxPageSize]));
 
         $response
@@ -84,6 +92,8 @@ trait AssertsCursorPagination
 
     protected function assertCursorEndpointRejectsPageSize(string $uri, int|string $perPage): void
     {
+        $this->assertAuthenticated();
+
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => $perPage]));
 
         $response

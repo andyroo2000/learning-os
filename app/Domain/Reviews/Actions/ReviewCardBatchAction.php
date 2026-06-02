@@ -128,7 +128,7 @@ class ReviewCardBatchAction
             'client_event_id' => $data->clientEventId,
             'device_id' => $data->deviceId,
             'client_created_at' => $data->clientCreatedAt,
-            'sync_key' => $this->syncKey($data->deviceId, $data->clientEventId),
+            'sync_key' => ClientEventKey::lookupKey($data->deviceId, $data->clientEventId),
         ];
     }
 
@@ -161,7 +161,7 @@ class ReviewCardBatchAction
             ->whereIn('device_id', $preparedItems->pluck('device_id')->unique())
             ->whereIn('client_event_id', $preparedItems->pluck('client_event_id')->unique())
             ->get()
-            ->keyBy(fn (CardReviewEvent $reviewEvent): string => $this->syncKey(
+            ->keyBy(fn (CardReviewEvent $reviewEvent): string => ClientEventKey::lookupKey(
                 $reviewEvent->device_id,
                 $reviewEvent->client_event_id,
             ));
@@ -192,11 +192,6 @@ class ReviewCardBatchAction
             'created_at' => $now,
             'updated_at' => $now,
         ];
-    }
-
-    private function syncKey(string $deviceId, string $clientEventId): string
-    {
-        return ClientEventKey::fromParts($deviceId, $clientEventId)->toLookupKey();
     }
 
     /**

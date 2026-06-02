@@ -20,7 +20,15 @@ final readonly class ClientEventKey
     }
 
     /**
-     * @throws JsonException
+     * @throws JsonException when IDs contain invalid UTF-8.
+     */
+    public static function lookupKey(string $deviceId, string $clientEventId): string
+    {
+        return self::fromParts($deviceId, $clientEventId)->toLookupKey();
+    }
+
+    /**
+     * @throws JsonException when IDs contain invalid UTF-8.
      */
     public function toLookupKey(): string
     {

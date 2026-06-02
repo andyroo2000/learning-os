@@ -7,28 +7,26 @@ use PHPUnit\Framework\TestCase;
 
 class ClientEventKeyTest extends TestCase
 {
-    public function test_it_creates_a_stable_lookup_key_from_device_and_client_event_ids(): void
+    public function test_it_builds_a_stable_lookup_key_from_parts(): void
     {
-        $key = ClientEventKey::fromParts(
-            deviceId: 'device-abc',
-            clientEventId: 'event-123',
+        $this->assertSame(
+            '["device-abc","event-123"]',
+            ClientEventKey::lookupKey('device-abc', 'event-123'),
         );
+    }
+
+    public function test_value_object_representation_is_stable(): void
+    {
+        $key = ClientEventKey::fromParts('device-abc', 'event-123');
 
         $this->assertSame('["device-abc","event-123"]', $key->toLookupKey());
     }
 
     public function test_it_keeps_device_and_client_event_boundaries_distinct(): void
     {
-        $firstKey = ClientEventKey::fromParts(
-            deviceId: 'ab',
-            clientEventId: 'c',
+        $this->assertNotSame(
+            ClientEventKey::lookupKey('ab', 'c'),
+            ClientEventKey::lookupKey('a', 'bc'),
         );
-
-        $secondKey = ClientEventKey::fromParts(
-            deviceId: 'a',
-            clientEventId: 'bc',
-        );
-
-        $this->assertNotSame($firstKey->toLookupKey(), $secondKey->toLookupKey());
     }
 }

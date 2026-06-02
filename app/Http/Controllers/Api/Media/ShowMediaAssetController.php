@@ -2,20 +2,15 @@
 
 namespace App\Http\Controllers\Api\Media;
 
-use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Actions\ShowMediaAssetAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Media\MediaAssetResource;
-use Illuminate\Support\Str;
 
 class ShowMediaAssetController extends Controller
 {
-    public function __invoke(string $mediaAsset): MediaAssetResource
+    public function __invoke(string $mediaAsset, ShowMediaAssetAction $showMediaAsset): MediaAssetResource
     {
-        if (! Str::isUlid($mediaAsset)) {
-            abort(404);
-        }
-
-        $mediaAssetModel = MediaAsset::findOrFail($mediaAsset);
+        $mediaAssetModel = $showMediaAsset->handle($mediaAsset);
 
         $this->authorize('view', $mediaAssetModel);
 

@@ -20,7 +20,7 @@ class StoreCardController extends Controller
         $userId = (int) $request->user()->id;
 
         try {
-            $card = $createCard->handle(CreateCardData::fromInput(
+            $result = $createCard->handle(CreateCardData::fromInput(
                 userId: $userId,
                 deckId: $data['deck_id'],
                 frontText: $data['front_text'],
@@ -54,10 +54,8 @@ class StoreCardController extends Controller
             ]);
         }
 
-        return CardResource::make($card)
+        return CardResource::make($result->card)
             ->response()
-            // Eloquent only sets this flag on a successful insert; pre-check and
-            // race-recovery replays are fetched models, so they correctly return 200.
-            ->setStatusCode($card->wasRecentlyCreated ? 201 : 200);
+            ->setStatusCode($result->wasCreated ? 201 : 200);
     }
 }

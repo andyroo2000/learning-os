@@ -83,20 +83,24 @@ class CreateCardApiTest extends TestCase
         $deck = $this->deckFor($user);
         $id = strtolower((string) Str::ulid());
 
-        Card::factory()->for($deck)->create([
-            'id' => $id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-        ]);
-
-        $response = $this->postJson('/api/cards', [
+        $payload = [
             'id' => strtoupper($id),
             'deck_id' => $deck->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
-        ]);
+        ];
 
-        $response
+        $firstResponse = $this->postJson('/api/cards', $payload);
+        $secondResponse = $this->postJson('/api/cards', $payload);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.deck_id', $deck->id)
+            ->assertJsonPath('data.front_text', 'ciao')
+            ->assertJsonPath('data.back_text', 'hello');
+
+        $secondResponse
             ->assertOk()
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.deck_id', $deck->id)

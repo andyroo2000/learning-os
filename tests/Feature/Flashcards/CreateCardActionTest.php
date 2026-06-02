@@ -26,7 +26,7 @@ class CreateCardActionTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: $deck->id,
@@ -35,6 +35,9 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
+        $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($card->id));
 
         $this->assertDatabaseHas('cards', [
@@ -50,7 +53,7 @@ class CreateCardActionTest extends TestCase
         $deck = Deck::factory()->create();
         $id = (string) Str::ulid();
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: $deck->id,
@@ -60,6 +63,9 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
+        $this->assertTrue($result->wasCreated);
         $this->assertSame(strtolower($id), $card->id);
 
         $this->assertDatabaseHas('cards', [
@@ -72,7 +78,7 @@ class CreateCardActionTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: "  {$deck->id}  ",
@@ -81,6 +87,9 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
+        $this->assertTrue($result->wasCreated);
         $this->assertSame($deck->id, $card->deck_id);
         $this->assertSame('ciao', $card->front_text);
         $this->assertSame('hello', $card->back_text);
@@ -90,7 +99,7 @@ class CreateCardActionTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: strtoupper($deck->id),
@@ -99,6 +108,9 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
+        $this->assertTrue($result->wasCreated);
         $this->assertSame($deck->id, $card->deck_id);
     }
 
@@ -113,7 +125,7 @@ class CreateCardActionTest extends TestCase
             'back_text' => 'hello',
         ]);
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: $deck->id,
@@ -123,8 +135,10 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
         $this->assertTrue($existingCard->is($card));
-        $this->assertFalse($card->wasRecentlyCreated);
+        $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
     }
 
@@ -139,7 +153,7 @@ class CreateCardActionTest extends TestCase
             'back_text' => '  hello  ',
         ]);
 
-        $card = app(CreateCardAction::class)->handle(
+        $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: $deck->id,
@@ -149,7 +163,10 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
         $this->assertTrue($existingCard->is($card));
+        $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
     }
 
@@ -178,7 +195,7 @@ class CreateCardActionTest extends TestCase
             },
         );
 
-        $card = $createCard->handle(
+        $result = $createCard->handle(
             CreateCardData::fromInput(
                 userId: $deck->user_id,
                 deckId: $deck->id,
@@ -188,9 +205,11 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
+        $card = $result->card;
+
         $this->assertTrue($inserted);
         $this->assertSame($id, $card->id);
-        $this->assertFalse($card->wasRecentlyCreated);
+        $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
     }
 
@@ -224,7 +243,7 @@ class CreateCardActionTest extends TestCase
         );
 
         try {
-            $card = $createCard->handle(
+            $createCard->handle(
                 CreateCardData::fromInput(
                     userId: $deck->user_id,
                     deckId: $deck->id,

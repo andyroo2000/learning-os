@@ -68,19 +68,18 @@ class ReviewCardBatchAction
                     }
 
                     // The unique constraint failed a single atomic insert; all items already exist.
-                    return new ReviewCardBatchResult(
+                    return ReviewCardBatchResult::withoutCreatedEvents(
                         $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey),
-                        false,
                     );
                 }
             }
 
             $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
+            $reviewEvents = $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
 
-            return new ReviewCardBatchResult(
-                $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey),
-                $rows->isNotEmpty(),
-            );
+            return $rows->isNotEmpty()
+                ? ReviewCardBatchResult::withCreatedEvents($reviewEvents)
+                : ReviewCardBatchResult::withoutCreatedEvents($reviewEvents);
         });
     }
 

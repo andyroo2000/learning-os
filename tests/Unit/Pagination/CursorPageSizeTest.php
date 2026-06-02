@@ -8,11 +8,11 @@ use PHPUnit\Framework\TestCase;
 
 class CursorPageSizeTest extends TestCase
 {
-    public function test_default_uses_the_max_page_size(): void
+    public function test_default_uses_the_default_page_size(): void
     {
         $this->assertSame(
-            CursorPagination::MAX_PAGE_SIZE,
-            CursorPageSize::fromMaxPageSize()->value(),
+            CursorPagination::DEFAULT_PAGE_SIZE,
+            CursorPageSize::fromDefaultPageSize()->value(),
         );
     }
 
@@ -31,11 +31,14 @@ class CursorPageSizeTest extends TestCase
 
     public function test_it_preserves_the_minimum_page_size(): void
     {
-        $this->assertSame(1, CursorPageSize::fromPerPage(1)->value());
+        $this->assertSame(
+            CursorPagination::MIN_PAGE_SIZE,
+            CursorPageSize::fromPerPage(CursorPagination::MIN_PAGE_SIZE)->value(),
+        );
     }
 
     public function test_it_uses_at_least_one_item_per_page(): void
     {
-        $this->assertSame(1, CursorPageSize::fromPerPage(0)->value());
+        $this->assertSame(CursorPagination::MIN_PAGE_SIZE, CursorPageSize::fromPerPage(0)->value());
     }
 }

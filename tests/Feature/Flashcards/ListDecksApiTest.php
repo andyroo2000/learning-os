@@ -6,10 +6,12 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListDecksApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_decks_for_the_authenticated_user(): void
@@ -160,35 +162,16 @@ class ListDecksApiTest extends TestCase
 
         Deck::factory()->count(3)->for($user)->create();
 
-        $response = $this->getJson('/api/decks?per_page=2');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-
-        $nextUrl = $response->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
-
-        $this->getJson($nextUrl)
-            ->assertOk()
-            ->assertJsonPath('meta.per_page', 2);
+        $this->assertCursorEndpointAcceptsCustomPageSize('/api/decks');
     }
 
     public function test_it_uses_the_default_page_size_when_omitted(): void
     {
         $user = $this->signIn();
 
-        Deck::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+        Deck::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($user)->create();
 
-        $response = $this->getJson('/api/decks');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointUsesDefaultPageSize('/api/decks');
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -197,12 +180,7 @@ class ListDecksApiTest extends TestCase
 
         Deck::factory()->count(3)->for($user)->create();
 
-        $response = $this->getJson('/api/decks?per_page=1');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.per_page', 1);
+        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/decks');
     }
 
     public function test_it_accepts_the_maximum_page_size(): void
@@ -211,45 +189,35 @@ class ListDecksApiTest extends TestCase
 
         Deck::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
 
-        $response = $this->getJson('/api/decks?per_page='.CursorPagination::MAX_PAGE_SIZE);
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointAcceptsMaximumPageSize('/api/decks');
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks?per_page='.(CursorPagination::MAX_PAGE_SIZE + 1));
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/decks', CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_a_page_size_below_the_minimum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks?per_page=0');
+        $this->assertCursorEndpointRejectsPageSize('/api/decks', 0);
+    }
 
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+    public function test_it_rejects_a_negative_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsPageSize('/api/decks', -1);
     }
 
     public function test_it_rejects_a_non_numeric_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks?per_page=abc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/decks', 'abc');
     }
 
     public function test_it_requires_authentication(): void

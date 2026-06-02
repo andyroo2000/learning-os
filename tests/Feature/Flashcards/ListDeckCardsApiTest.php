@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListDeckCardsApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_cards_for_an_owned_deck(): void
@@ -185,21 +187,7 @@ class ListDeckCardsApiTest extends TestCase
 
         Card::factory()->count(3)->for($deck)->create();
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=2");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-
-        $nextUrl = $response->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
-
-        $this->getJson($nextUrl)
-            ->assertOk()
-            ->assertJsonPath('meta.per_page', 2);
+        $this->assertCursorEndpointAcceptsCustomPageSize("/api/decks/{$deck->id}/cards");
     }
 
     public function test_it_uses_the_default_page_size_when_omitted(): void
@@ -207,14 +195,9 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
+        Card::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($deck)->create();
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointUsesDefaultPageSize("/api/decks/{$deck->id}/cards");
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -224,12 +207,7 @@ class ListDeckCardsApiTest extends TestCase
 
         Card::factory()->count(3)->for($deck)->create();
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=1");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.per_page', 1);
+        $this->assertCursorEndpointAcceptsMinimumPageSize("/api/decks/{$deck->id}/cards");
     }
 
     public function test_it_accepts_the_maximum_page_size(): void
@@ -239,12 +217,7 @@ class ListDeckCardsApiTest extends TestCase
 
         Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".CursorPagination::MAX_PAGE_SIZE);
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointAcceptsMaximumPageSize("/api/decks/{$deck->id}/cards");
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
@@ -252,11 +225,7 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=".(CursorPagination::MAX_PAGE_SIZE + 1));
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize("/api/decks/{$deck->id}/cards", CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_a_page_size_below_the_minimum(): void
@@ -264,11 +233,15 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=0");
+        $this->assertCursorEndpointRejectsPageSize("/api/decks/{$deck->id}/cards", 0);
+    }
 
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+    public function test_it_rejects_a_negative_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $this->assertCursorEndpointRejectsPageSize("/api/decks/{$deck->id}/cards", -1);
     }
 
     public function test_it_rejects_a_non_numeric_page_size(): void
@@ -276,11 +249,7 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->getJson("/api/decks/{$deck->id}/cards?per_page=abc");
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize("/api/decks/{$deck->id}/cards", 'abc');
     }
 
     public function test_it_hides_another_users_deck(): void

@@ -19,7 +19,7 @@ abstract class CursorPaginatedRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:'.$this->maxPerPage()],
+            'per_page' => ['sometimes', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.$this->maxPerPage()],
         ];
     }
 
@@ -38,7 +38,8 @@ abstract class CursorPaginatedRequest extends FormRequest
 
     protected function defaultPerPage(): int
     {
-        return $this->maxPerPage();
+        // Endpoint-specific caps may be lower than the global default.
+        return min(CursorPagination::DEFAULT_PAGE_SIZE, $this->maxPerPage());
     }
 
     /**

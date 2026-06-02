@@ -9,10 +9,12 @@ use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListReviewEventsApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_review_events_for_the_authenticated_user_across_cards(): void
@@ -201,21 +203,27 @@ class ListReviewEventsApiTest extends TestCase
 
         CardReviewEvent::factory()->count(3)->for($card)->create();
 
-        $response = $this->getJson('/api/card-review-events?per_page=2');
+        $this->assertCursorEndpointAcceptsCustomPageSize('/api/card-review-events');
+    }
 
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
+    public function test_it_uses_the_default_page_size_when_omitted(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
 
-        $nextUrl = $response->json('links.next');
+        CardReviewEvent::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($card)->create();
 
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
+        $this->assertCursorEndpointUsesDefaultPageSize('/api/card-review-events');
+    }
 
-        $this->getJson($nextUrl)
-            ->assertOk()
-            ->assertJsonPath('meta.per_page', 2);
+    public function test_it_accepts_the_minimum_page_size(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        CardReviewEvent::factory()->count(3)->for($card)->create();
+
+        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/card-review-events');
     }
 
     public function test_it_accepts_the_maximum_page_size(): void
@@ -225,56 +233,35 @@ class ListReviewEventsApiTest extends TestCase
 
         CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
 
-        $response = $this->getJson('/api/card-review-events?per_page='.CursorPagination::MAX_PAGE_SIZE);
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointAcceptsMaximumPageSize('/api/card-review-events');
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/card-review-events?per_page='.(CursorPagination::MAX_PAGE_SIZE + 1));
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_a_page_size_below_the_minimum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/card-review-events?per_page=0');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', 0);
     }
 
     public function test_it_rejects_a_negative_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/card-review-events?per_page=-1');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', -1);
     }
 
     public function test_it_rejects_a_non_numeric_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/card-review-events?per_page=abc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', 'abc');
     }
 
     public function test_it_requires_authentication(): void

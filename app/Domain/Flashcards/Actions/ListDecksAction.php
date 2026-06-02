@@ -13,7 +13,7 @@ class ListDecksAction
      */
     public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return Deck::query()
             ->where('user_id', $userId)

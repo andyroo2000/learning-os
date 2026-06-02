@@ -13,7 +13,7 @@ class ListMediaAssetsAction
      */
     public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return MediaAsset::query()
             ->where('user_id', $userId)

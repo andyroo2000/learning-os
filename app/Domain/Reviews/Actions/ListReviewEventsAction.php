@@ -13,7 +13,7 @@ class ListReviewEventsAction
      */
     public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        $pageSize ??= CursorPageSize::fromMaxPageSize();
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         return CardReviewEvent::query()
             ->select('card_review_events.*')

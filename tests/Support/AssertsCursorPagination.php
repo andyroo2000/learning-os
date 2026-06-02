@@ -12,7 +12,7 @@ use App\Support\Pagination\CursorPagination;
 trait AssertsCursorPagination
 {
     /**
-     * Caller must create at least 2 + $expectedSecondPageCount records before calling.
+     * Caller must create data so the second page contains $expectedSecondPageCount records.
      */
     protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, int $expectedSecondPageCount = 1): void
     {
@@ -39,11 +39,11 @@ trait AssertsCursorPagination
 
     /**
      * Requires more than DEFAULT_PAGE_SIZE records for the endpoint to verify truncation.
-     * Pass $maxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
+     * Pass $endpointMaxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
      */
-    protected function assertCursorEndpointUsesDefaultPageSize(string $uri, ?int $maxPageSize = null): void
+    protected function assertCursorEndpointUsesDefaultPageSize(string $uri, ?int $endpointMaxPageSize = null): void
     {
-        $expectedPageSize = min(CursorPagination::DEFAULT_PAGE_SIZE, $maxPageSize ?? CursorPagination::MAX_PAGE_SIZE);
+        $expectedPageSize = min(CursorPagination::DEFAULT_PAGE_SIZE, $endpointMaxPageSize ?? CursorPagination::MAX_PAGE_SIZE);
 
         $response = $this->getJson($uri);
 
@@ -68,16 +68,16 @@ trait AssertsCursorPagination
 
     /**
      * Requires at least MAX_PAGE_SIZE records for the endpoint.
-     * Pass $maxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
+     * Pass $endpointMaxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
      */
-    protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri, int $maxPageSize = CursorPagination::MAX_PAGE_SIZE): void
+    protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri, int $endpointMaxPageSize = CursorPagination::MAX_PAGE_SIZE): void
     {
-        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => $maxPageSize]));
+        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => $endpointMaxPageSize]));
 
         $response
             ->assertOk()
-            ->assertJsonCount($maxPageSize, 'data')
-            ->assertJsonPath('meta.per_page', $maxPageSize);
+            ->assertJsonCount($endpointMaxPageSize, 'data')
+            ->assertJsonPath('meta.per_page', $endpointMaxPageSize);
     }
 
     protected function assertCursorEndpointRejectsPageSize(string $uri, int|string $perPage): void

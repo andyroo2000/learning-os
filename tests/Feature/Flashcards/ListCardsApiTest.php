@@ -219,6 +219,16 @@ class ListCardsApiTest extends TestCase
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/cards');
     }
 
+    public function test_it_uses_the_default_page_size_when_omitted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
+
+        $this->assertCursorEndpointUsesDefaultPageSize('/api/cards');
+    }
+
     public function test_it_accepts_the_minimum_page_size(): void
     {
         $user = $this->signIn();
@@ -227,6 +237,16 @@ class ListCardsApiTest extends TestCase
         Card::factory()->count(3)->for($deck)->create();
 
         $this->assertCursorEndpointAcceptsMinimumPageSize('/api/cards');
+    }
+
+    public function test_it_accepts_the_maximum_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
+
+        $this->assertCursorEndpointAcceptsMaximumPageSize('/api/cards');
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void

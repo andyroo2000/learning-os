@@ -13,6 +13,8 @@ trait AssertsCursorPagination
 {
     /**
      * Caller must create data so the second page contains $expectedSecondPageCount records.
+     *
+     * @param  int  $expectedSecondPageCount  Expected record count after following a per_page=2 cursor.
      */
     protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, int $expectedSecondPageCount = 1): void
     {

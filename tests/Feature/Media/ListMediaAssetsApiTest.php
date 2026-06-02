@@ -101,13 +101,40 @@ class ListMediaAssetsApiTest extends TestCase
             ]);
     }
 
-    public function test_it_accepts_a_smaller_page_size(): void
+    public function test_it_accepts_a_custom_page_size(): void
     {
         $user = $this->signIn();
 
         MediaAsset::factory()->count(3)->for($user)->create();
 
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/media-assets');
+    }
+
+    public function test_it_uses_the_default_page_size_when_omitted(): void
+    {
+        $user = $this->signIn();
+
+        MediaAsset::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+
+        $this->assertCursorEndpointUsesDefaultPageSize('/api/media-assets');
+    }
+
+    public function test_it_accepts_the_minimum_page_size(): void
+    {
+        $user = $this->signIn();
+
+        MediaAsset::factory()->count(3)->for($user)->create();
+
+        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/media-assets');
+    }
+
+    public function test_it_accepts_the_maximum_page_size(): void
+    {
+        $user = $this->signIn();
+
+        MediaAsset::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+
+        $this->assertCursorEndpointAcceptsMaximumPageSize('/api/media-assets');
     }
 
     public function test_it_rejects_page_size_above_the_maximum(): void

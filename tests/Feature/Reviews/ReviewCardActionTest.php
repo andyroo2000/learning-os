@@ -31,7 +31,7 @@ class ReviewCardActionTest extends TestCase
         );
         $reviewEvent = $result->reviewEvent;
 
-        $this->assertTrue($result->created);
+        $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($reviewEvent->id));
         $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
 
@@ -58,7 +58,7 @@ class ReviewCardActionTest extends TestCase
         );
         $reviewEvent = $result->reviewEvent;
 
-        $this->assertTrue($result->created);
+        $this->assertTrue($result->wasCreated);
         $this->assertSame($id, $reviewEvent->id);
 
         $this->assertDatabaseHas('card_review_events', [
@@ -84,7 +84,7 @@ class ReviewCardActionTest extends TestCase
         );
         $reviewEvent = $result->reviewEvent;
 
-        $this->assertTrue($result->created);
+        $this->assertTrue($result->wasCreated);
         $this->assertSame('event-123', $reviewEvent->client_event_id);
         $this->assertSame('device-abc', $reviewEvent->device_id);
         $this->assertTrue($clientCreatedAt->equalTo($reviewEvent->client_created_at));
@@ -125,8 +125,8 @@ class ReviewCardActionTest extends TestCase
         $firstReviewEvent = $firstResult->reviewEvent;
         $secondReviewEvent = $secondResult->reviewEvent;
 
-        $this->assertTrue($firstResult->created);
-        $this->assertFalse($secondResult->created);
+        $this->assertTrue($firstResult->wasCreated);
+        $this->assertFalse($secondResult->wasCreated);
         $this->assertTrue($firstReviewEvent->is($secondReviewEvent));
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseHas('card_review_events', [
@@ -148,8 +148,8 @@ class ReviewCardActionTest extends TestCase
         $firstResult = $this->reviewCard($data);
         $secondResult = $this->reviewCard($data);
 
-        $this->assertTrue($firstResult->created);
-        $this->assertTrue($secondResult->created);
+        $this->assertTrue($firstResult->wasCreated);
+        $this->assertTrue($secondResult->wasCreated);
         $this->assertFalse($firstResult->reviewEvent->is($secondResult->reviewEvent));
         $this->assertDatabaseCount('card_review_events', 2);
     }
@@ -180,8 +180,8 @@ class ReviewCardActionTest extends TestCase
         $firstReviewEvent = $firstResult->reviewEvent->refresh();
         $secondReviewEvent = $secondResult->reviewEvent;
 
-        $this->assertTrue($firstResult->created);
-        $this->assertTrue($secondResult->created);
+        $this->assertTrue($firstResult->wasCreated);
+        $this->assertTrue($secondResult->wasCreated);
         $this->assertFalse($firstReviewEvent->is($secondReviewEvent));
         $this->assertNull($firstReviewEvent->client_event_id);
         $this->assertNull($firstReviewEvent->device_id);
@@ -205,7 +205,7 @@ class ReviewCardActionTest extends TestCase
         );
         $reviewEvent = $result->reviewEvent;
 
-        $this->assertTrue($result->created);
+        $this->assertTrue($result->wasCreated);
         $this->assertSame($card->id, $reviewEvent->card_id);
         $this->assertSame(CardReviewRating::Hard, $reviewEvent->rating);
     }
@@ -224,7 +224,7 @@ class ReviewCardActionTest extends TestCase
             );
             $reviewEvent = $result->reviewEvent;
 
-            $this->assertTrue($result->created);
+            $this->assertTrue($result->wasCreated);
             $this->assertSame($rating, $reviewEvent->rating);
         }
     }

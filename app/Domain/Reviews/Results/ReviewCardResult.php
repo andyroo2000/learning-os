@@ -8,7 +8,7 @@ final readonly class ReviewCardResult
 {
     private function __construct(
         public CardReviewEvent $reviewEvent,
-        public bool $created,
+        public bool $wasCreated,
     ) {}
 
     public static function created(CardReviewEvent $reviewEvent): self

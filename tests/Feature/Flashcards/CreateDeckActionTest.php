@@ -22,13 +22,15 @@ class CreateDeckActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($deck->id));
 
         $this->assertDatabaseHas('decks', [
@@ -43,14 +45,16 @@ class CreateDeckActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
                 description: 'Foundational Italian review cards.',
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
             'user_id' => $user->id,
@@ -64,14 +68,16 @@ class CreateDeckActionTest extends TestCase
         $user = User::factory()->create();
         $id = (string) Str::ulid();
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
                 id: strtoupper($id),
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame(strtolower($id), $deck->id);
 
         $this->assertDatabaseHas('decks', [
@@ -85,14 +91,16 @@ class CreateDeckActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: '  Italian Basics  ',
                 description: '  Foundational Italian review cards.  ',
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame('Italian Basics', $deck->name);
         $this->assertSame('Foundational Italian review cards.', $deck->description);
     }
@@ -101,14 +109,16 @@ class CreateDeckActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
                 description: '   ',
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertNull($deck->description);
     }
 
@@ -151,7 +161,7 @@ class CreateDeckActionTest extends TestCase
             'description' => null,
         ]);
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
@@ -159,9 +169,10 @@ class CreateDeckActionTest extends TestCase
                 id: strtoupper($id),
             ),
         );
+        $deck = $result->deck;
 
+        $this->assertFalse($result->wasCreated);
         $this->assertTrue($existingDeck->is($deck));
-        $this->assertFalse($deck->wasRecentlyCreated);
         $this->assertDatabaseCount('decks', 1);
     }
 
@@ -188,7 +199,7 @@ class CreateDeckActionTest extends TestCase
             ]);
         });
 
-        $deck = app(CreateDeckAction::class)->handle(
+        $result = app(CreateDeckAction::class)->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
@@ -196,10 +207,11 @@ class CreateDeckActionTest extends TestCase
                 id: $id,
             ),
         );
+        $deck = $result->deck;
 
         $this->assertTrue($inserted);
+        $this->assertFalse($result->wasCreated);
         $this->assertSame($id, $deck->id);
-        $this->assertFalse($deck->wasRecentlyCreated);
         $this->assertDatabaseCount('decks', 1);
     }
 

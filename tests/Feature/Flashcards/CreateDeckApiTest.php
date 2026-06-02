@@ -70,22 +70,23 @@ class CreateDeckApiTest extends TestCase
 
     public function test_it_returns_existing_deck_for_idempotent_retries(): void
     {
-        $user = $this->signIn();
+        $this->signIn();
         $id = strtolower((string) Str::ulid());
-
-        Deck::factory()->for($user)->create([
+        $payload = [
             'id' => $id,
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
-        ]);
+        ];
 
-        $response = $this->postJson('/api/decks', [
-            'id' => $id,
-            'name' => 'Italian Basics',
-            'description' => 'Foundational Italian review cards.',
-        ]);
+        $firstResponse = $this->postJson('/api/decks', $payload);
+        $secondResponse = $this->postJson('/api/decks', $payload);
 
-        $response
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.name', 'Italian Basics')
+            ->assertJsonPath('data.description', 'Foundational Italian review cards.');
+        $secondResponse
             ->assertOk()
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.name', 'Italian Basics')

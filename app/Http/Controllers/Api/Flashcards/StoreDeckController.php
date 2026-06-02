@@ -18,7 +18,7 @@ class StoreDeckController extends Controller
         $userId = $request->user()->id;
 
         try {
-            $deck = $createDeck->handle(CreateDeckData::fromInput(
+            $result = $createDeck->handle(CreateDeckData::fromInput(
                 userId: $userId,
                 name: $data['name'],
                 description: $data['description'] ?? null,
@@ -44,10 +44,8 @@ class StoreDeckController extends Controller
             ], 409);
         }
 
-        // Existing models returned for idempotent retries keep wasRecentlyCreated=false,
-        // which lets HTTP distinguish replayed creates from fresh inserts.
-        return DeckResource::make($deck)
+        return DeckResource::make($result->deck)
             ->response()
-            ->setStatusCode($deck->wasRecentlyCreated ? 201 : 200);
+            ->setStatusCode($result->wasCreated ? 201 : 200);
     }
 }

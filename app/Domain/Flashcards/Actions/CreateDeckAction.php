@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Results\CreateDeckResult;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
@@ -12,7 +13,7 @@ use InvalidArgumentException;
 
 class CreateDeckAction
 {
-    public function handle(CreateDeckData $data): Deck
+    public function handle(CreateDeckData $data): CreateDeckResult
     {
         if ($data->name === '') {
             throw new InvalidArgumentException('Deck name is required.');
@@ -28,7 +29,7 @@ class CreateDeckAction
             $existingDeck = Deck::withTrashed()->find($data->id);
 
             if ($existingDeck !== null) {
-                return $this->matchingExistingDeck($existingDeck, $data, $description);
+                return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
             }
         }
 
@@ -57,10 +58,10 @@ class CreateDeckAction
                 throw $exception;
             }
 
-            return $this->matchingExistingDeck($existingDeck, $data, $description);
+            return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
         }
 
-        return $deck;
+        return CreateDeckResult::created($deck);
     }
 
     private static function normalizedDescription(?string $description): ?string

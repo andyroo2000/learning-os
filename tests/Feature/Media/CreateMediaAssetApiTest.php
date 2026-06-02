@@ -4,6 +4,7 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Media\Actions\CreateMediaAssetAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
+use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -188,7 +189,9 @@ class CreateMediaAssetApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Media asset ID already exists with different metadata.');
+            // Assert literal strings so response-contract changes fail loudly.
+            ->assertJsonPath('message', 'Media asset ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'media_asset_id_conflict');
 
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -211,7 +214,9 @@ class CreateMediaAssetApiTest extends TestCase
             'size_bytes' => 123_456,
         ]);
 
-        $response->assertNotFound();
+        $response
+            ->assertNotFound()
+            ->assertJsonMissingPath('reason');
 
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -239,7 +244,9 @@ class CreateMediaAssetApiTest extends TestCase
             'size_bytes' => 123_456,
         ]);
 
-        $response->assertNotFound();
+        $response
+            ->assertNotFound()
+            ->assertJsonMissingPath('reason');
 
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -263,9 +270,37 @@ class CreateMediaAssetApiTest extends TestCase
 
         $response
             ->assertConflict()
-            ->assertJsonPath('message', 'Media asset already exists.');
+            ->assertJsonPath('message', 'Media asset already exists.')
+            ->assertJsonPath('reason', 'media_asset_storage_conflict');
 
         $this->assertDatabaseCount('media_assets', 1);
+    }
+
+    public function test_it_returns_a_conflict_reason_for_unresolved_storage_conflicts(): void
+    {
+        $this->signIn();
+
+        $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
+        {
+            public function handle(CreateMediaAssetData $data): MediaAsset
+            {
+                throw MediaAssetConflictException::unresolvedStorageConflict();
+            }
+        });
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Media asset already exists.')
+            ->assertJsonPath('reason', 'media_asset_storage_conflict');
+
+        $this->assertDatabaseCount('media_assets', 0);
     }
 
     public function test_it_hides_storage_path_conflicts_for_other_users(): void
@@ -285,7 +320,9 @@ class CreateMediaAssetApiTest extends TestCase
             'size_bytes' => 123_456,
         ]);
 
-        $response->assertNotFound();
+        $response
+            ->assertNotFound()
+            ->assertJsonMissingPath('reason');
 
         $this->assertDatabaseCount('media_assets', 1);
     }

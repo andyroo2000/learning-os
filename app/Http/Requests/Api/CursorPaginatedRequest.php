@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -22,7 +23,15 @@ abstract class CursorPaginatedRequest extends FormRequest
         ];
     }
 
-    public function perPage(): int
+    public function pageSize(): CursorPageSize
+    {
+        return CursorPageSize::fromPerPage($this->perPage());
+    }
+
+    /**
+     * Raw request input that is normalized by CursorPageSize::fromPerPage().
+     */
+    protected function perPage(): int
     {
         return $this->integer('per_page', $this->defaultPerPage());
     }

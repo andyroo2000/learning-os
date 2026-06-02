@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ListReviewEventsAction;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
+use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,23 @@ class ListReviewEventsActionTest extends TestCase
 
         CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
 
-        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, CursorPagination::MAX_PAGE_SIZE + 1);
+        $reviewEvents = app(ListReviewEventsAction::class)->handle(
+            $user->id,
+            CursorPageSize::fromPerPage(CursorPagination::MAX_PAGE_SIZE + 1),
+        );
+
+        $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $reviewEvents->perPage());
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $reviewEvents->items());
+    }
+
+    public function test_it_uses_the_max_page_size_by_default(): void
+    {
+        $user = User::factory()->create();
+        $card = $this->cardFor($user);
+
+        CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id);
 
         $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $reviewEvents->perPage());
         $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $reviewEvents->items());
@@ -35,7 +52,10 @@ class ListReviewEventsActionTest extends TestCase
 
         CardReviewEvent::factory()->count(2)->for($card)->create();
 
-        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, 0);
+        $reviewEvents = app(ListReviewEventsAction::class)->handle(
+            $user->id,
+            CursorPageSize::fromPerPage(0),
+        );
 
         $this->assertSame(1, $reviewEvents->perPage());
         $this->assertCount(1, $reviewEvents->items());

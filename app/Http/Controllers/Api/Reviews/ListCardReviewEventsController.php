@@ -16,7 +16,7 @@ class ListCardReviewEventsController extends Controller
         $this->authorize('view', $card);
 
         return CardReviewEventResource::collection(
-            $listCardReviewEvents->handle($card, $request->perPage())->withQueryString()
+            $listCardReviewEvents->handle($card, $request->pageSize())->withQueryString()
         );
     }
 }

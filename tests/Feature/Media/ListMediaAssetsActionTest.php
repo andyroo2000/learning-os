@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\ListMediaAssetsAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
+use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -32,22 +33,34 @@ class ListMediaAssetsActionTest extends TestCase
 
         $mediaAssets = app(ListMediaAssetsAction::class)->handle(
             userId: $user->id,
-            perPage: 2,
+            pageSize: CursorPageSize::fromPerPage(2),
         );
 
         $this->assertSame(2, $mediaAssets->perPage());
         $this->assertCount(2, $mediaAssets->items());
     }
 
+    public function test_it_uses_the_max_page_size_by_default(): void
+    {
+        $user = User::factory()->create();
+
+        MediaAsset::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle($user->id);
+
+        $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $mediaAssets->perPage());
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $mediaAssets->items());
+    }
+
     public function test_it_caps_page_size(): void
     {
         $user = User::factory()->create();
 
-        MediaAsset::factory()->count(51)->for($user)->create();
+        MediaAsset::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
 
         $mediaAssets = app(ListMediaAssetsAction::class)->handle(
             userId: $user->id,
-            perPage: 200,
+            pageSize: CursorPageSize::fromPerPage(200),
         );
 
         $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $mediaAssets->perPage());

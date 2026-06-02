@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\ListCardsAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
+use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +21,23 @@ class ListCardsActionTest extends TestCase
 
         Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
 
-        $cards = app(ListCardsAction::class)->handle($user->id, CursorPagination::MAX_PAGE_SIZE + 1);
+        $cards = app(ListCardsAction::class)->handle(
+            $user->id,
+            CursorPageSize::fromPerPage(CursorPagination::MAX_PAGE_SIZE + 1),
+        );
+
+        $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $cards->perPage());
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $cards->items());
+    }
+
+    public function test_it_uses_the_max_page_size_by_default(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
+
+        $cards = app(ListCardsAction::class)->handle($user->id);
 
         $this->assertSame(CursorPagination::MAX_PAGE_SIZE, $cards->perPage());
         $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $cards->items());
@@ -33,7 +50,10 @@ class ListCardsActionTest extends TestCase
 
         Card::factory()->count(2)->for($deck)->create();
 
-        $cards = app(ListCardsAction::class)->handle($user->id, 0);
+        $cards = app(ListCardsAction::class)->handle(
+            $user->id,
+            CursorPageSize::fromPerPage(0),
+        );
 
         $this->assertSame(1, $cards->perPage());
         $this->assertCount(1, $cards->items());

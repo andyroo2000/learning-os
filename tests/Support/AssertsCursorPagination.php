@@ -6,6 +6,9 @@ use App\Support\Pagination\CursorPagination;
 
 trait AssertsCursorPagination
 {
+    /**
+     * Requires at least three records for the endpoint so the first page has a next cursor.
+     */
     protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, ?int $expectedSecondPageCount = null): void
     {
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => 2]));
@@ -17,6 +20,7 @@ trait AssertsCursorPagination
 
         $nextUrl = $response->json('links.next');
 
+        $this->assertNotNull($response->json('meta.next_cursor'));
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
 

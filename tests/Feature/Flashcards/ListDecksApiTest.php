@@ -206,6 +206,13 @@ class ListDecksApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/decks', 0);
     }
 
+    public function test_it_rejects_a_negative_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsPageSize('/api/decks', -1);
+    }
+
     public function test_it_rejects_a_non_numeric_page_size(): void
     {
         $this->signIn();

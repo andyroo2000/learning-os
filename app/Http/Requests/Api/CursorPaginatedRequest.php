@@ -38,6 +38,7 @@ abstract class CursorPaginatedRequest extends FormRequest
 
     protected function defaultPerPage(): int
     {
+        // Endpoint-specific caps may be lower than the global default.
         return min(CursorPagination::DEFAULT_PAGE_SIZE, $this->maxPerPage());
     }
 

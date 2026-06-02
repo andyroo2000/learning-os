@@ -3,7 +3,7 @@
 namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Reviews\Models\CardReviewEvent;
-use App\Support\Pagination\CursorPagination;
+use App\Support\Pagination\CursorPageSize;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 
 class ListReviewEventsAction
@@ -11,10 +11,9 @@ class ListReviewEventsAction
     /**
      * @return CursorPaginator<CardReviewEvent>
      */
-    public function handle(int $userId, int $perPage = CursorPagination::MAX_PAGE_SIZE): CursorPaginator
+    public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
     {
-        // Defensive for non-HTTP callers; controllers still validate the public API contract.
-        $perPage = CursorPagination::clampPageSize($perPage);
+        $pageSize ??= CursorPageSize::fromMaxPageSize();
 
         return CardReviewEvent::query()
             ->select('card_review_events.*')
@@ -27,6 +26,6 @@ class ListReviewEventsAction
             ->orderByDesc('card_review_events.reviewed_at')
             // id desc is stable for cursor pagination; same-millisecond ULID order is arbitrary.
             ->orderByDesc('card_review_events.id')
-            ->cursorPaginate($perPage);
+            ->cursorPaginate($pageSize->value());
     }
 }

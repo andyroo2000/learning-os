@@ -17,7 +17,7 @@ class ListCardsController extends Controller
         $user = $request->user();
 
         return CardResource::collection(
-            $listCards->handle($user->id, $request->perPage())->withQueryString()
+            $listCards->handle($user->id, $request->pageSize())->withQueryString()
         );
     }
 }

@@ -33,7 +33,7 @@ trait AssertsCursorPagination
     }
 
     /**
-     * Requires at least DEFAULT_PAGE_SIZE records for the endpoint.
+     * Requires more than DEFAULT_PAGE_SIZE records for the endpoint to verify truncation.
      */
     protected function assertCursorEndpointUsesDefaultPageSize(string $uri): void
     {

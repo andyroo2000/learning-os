@@ -9,10 +9,12 @@ use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListCardReviewEventsApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_review_events_for_an_owned_card(): void
@@ -159,43 +161,10 @@ class ListCardReviewEventsApiTest extends TestCase
             ]);
         }
 
-        $firstPage = $this->getJson("/api/cards/{$card->id}/review-events?per_page=2");
-
-        $firstPage
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-
-        $nextCursor = $firstPage->json('meta.next_cursor');
-
-        $this->assertNotNull($nextCursor);
-
-        $nextUrl = $firstPage->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
-
-        $secondPage = $this->getJson($nextUrl);
-
-        $secondPage
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-    }
-
-    public function test_it_accepts_a_custom_page_size(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-
-        CardReviewEvent::factory()->count(3)->for($card)->create();
-
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=2");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
+        $this->assertCursorEndpointAcceptsCustomPageSize(
+            "/api/cards/{$card->id}/review-events",
+            expectedSecondPageCount: 2,
+        );
     }
 
     public function test_it_uses_the_default_page_size_when_omitted(): void
@@ -205,12 +174,7 @@ class ListCardReviewEventsApiTest extends TestCase
 
         CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointUsesDefaultPageSize("/api/cards/{$card->id}/review-events");
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -220,12 +184,7 @@ class ListCardReviewEventsApiTest extends TestCase
 
         CardReviewEvent::factory()->count(3)->for($card)->create();
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=1");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.per_page', 1);
+        $this->assertCursorEndpointAcceptsMinimumPageSize("/api/cards/{$card->id}/review-events");
     }
 
     public function test_it_accepts_the_maximum_page_size(): void
@@ -235,12 +194,7 @@ class ListCardReviewEventsApiTest extends TestCase
 
         CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=".CursorPagination::MAX_PAGE_SIZE);
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+        $this->assertCursorEndpointAcceptsMaximumPageSize("/api/cards/{$card->id}/review-events");
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
@@ -248,11 +202,7 @@ class ListCardReviewEventsApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=".(CursorPagination::MAX_PAGE_SIZE + 1));
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize("/api/cards/{$card->id}/review-events", CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_a_page_size_below_the_minimum(): void
@@ -260,11 +210,7 @@ class ListCardReviewEventsApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=0");
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize("/api/cards/{$card->id}/review-events", 0);
     }
 
     public function test_it_rejects_a_non_numeric_page_size(): void
@@ -272,11 +218,7 @@ class ListCardReviewEventsApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $response = $this->getJson("/api/cards/{$card->id}/review-events?per_page=abc");
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize("/api/cards/{$card->id}/review-events", 'abc');
     }
 
     public function test_it_hides_another_users_card(): void

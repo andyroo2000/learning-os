@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListCardsApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_cards_for_the_authenticated_user_across_decks(): void
@@ -214,21 +216,7 @@ class ListCardsApiTest extends TestCase
 
         Card::factory()->count(3)->for($deck)->create();
 
-        $response = $this->getJson('/api/cards?per_page=2');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-
-        $nextUrl = $response->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
-
-        $this->getJson($nextUrl)
-            ->assertOk()
-            ->assertJsonPath('meta.per_page', 2);
+        $this->assertCursorEndpointAcceptsCustomPageSize('/api/cards');
     }
 
     public function test_it_accepts_the_minimum_page_size(): void
@@ -238,56 +226,35 @@ class ListCardsApiTest extends TestCase
 
         Card::factory()->count(3)->for($deck)->create();
 
-        $response = $this->getJson('/api/cards?per_page=1');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.per_page', 1);
+        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/cards');
     }
 
     public function test_it_rejects_a_page_size_above_the_maximum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards?per_page='.(CursorPagination::MAX_PAGE_SIZE + 1));
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/cards', CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_a_page_size_below_the_minimum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards?per_page=0');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/cards', 0);
     }
 
     public function test_it_rejects_a_negative_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards?per_page=-1');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/cards', -1);
     }
 
     public function test_it_rejects_a_non_numeric_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards?per_page=abc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/cards', 'abc');
     }
 
     public function test_it_requires_authentication(): void

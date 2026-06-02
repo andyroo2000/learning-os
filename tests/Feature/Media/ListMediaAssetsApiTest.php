@@ -6,10 +6,12 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
 
 class ListMediaAssetsApiTest extends TestCase
 {
+    use AssertsCursorPagination;
     use RefreshDatabase;
 
     public function test_it_lists_media_assets_for_the_authenticated_user(): void
@@ -105,43 +107,21 @@ class ListMediaAssetsApiTest extends TestCase
 
         MediaAsset::factory()->count(3)->for($user)->create();
 
-        $response = $this->getJson('/api/media-assets?per_page=2');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.per_page', 2);
-
-        $nextUrl = $response->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
-
-        $this->getJson($nextUrl)
-            ->assertOk()
-            ->assertJsonPath('meta.per_page', 2);
+        $this->assertCursorEndpointAcceptsCustomPageSize('/api/media-assets');
     }
 
     public function test_it_rejects_page_size_above_the_maximum(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/media-assets?per_page=200');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/media-assets', CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
     public function test_it_rejects_invalid_page_size(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/media-assets?per_page=abc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('per_page');
+        $this->assertCursorEndpointRejectsPageSize('/api/media-assets', 'abc');
     }
 
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void

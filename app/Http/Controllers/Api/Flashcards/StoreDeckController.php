@@ -30,14 +30,17 @@ class StoreDeckController extends Controller
                 return response()->json(['message' => 'Not Found'], 404);
             }
 
+            // From here down, the conflict is owned by the requesting user and can expose a reason.
             if ($exception->shouldBeGoneFor($userId)) {
                 return response()->json([
                     'message' => $exception->getMessage(),
+                    'reason' => $exception->reason(),
                 ], 410);
             }
 
             return response()->json([
                 'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
             ], 409);
         }
 

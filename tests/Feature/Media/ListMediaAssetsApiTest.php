@@ -144,6 +144,20 @@ class ListMediaAssetsApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/media-assets', CursorPagination::MAX_PAGE_SIZE + 1);
     }
 
+    public function test_it_rejects_a_page_size_below_the_minimum(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsPageSize('/api/media-assets', 0);
+    }
+
+    public function test_it_rejects_a_negative_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsPageSize('/api/media-assets', -1);
+    }
+
     public function test_it_rejects_invalid_page_size(): void
     {
         $this->signIn();

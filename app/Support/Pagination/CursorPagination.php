@@ -8,7 +8,7 @@ final class CursorPagination
 
     public const MAX_PAGE_SIZE = 50;
 
-    // Clients currently receive the largest allowed page unless an endpoint lowers its cap.
+    // Equals the global max; endpoint request classes may lower their effective default.
     public const DEFAULT_PAGE_SIZE = self::MAX_PAGE_SIZE;
 
     private function __construct() {}

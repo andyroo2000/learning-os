@@ -7,9 +7,9 @@ use App\Support\Pagination\CursorPagination;
 trait AssertsCursorPagination
 {
     /**
-     * Requires at least three records for the endpoint so the first page has a next cursor.
+     * Requires at least two records plus the expected second-page count for the endpoint.
      */
-    protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, ?int $expectedSecondPageCount = null): void
+    protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, int $expectedSecondPageCount = 1): void
     {
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => 2]));
 
@@ -28,13 +28,13 @@ trait AssertsCursorPagination
 
         $secondPage
             ->assertOk()
+            ->assertJsonCount($expectedSecondPageCount, 'data')
             ->assertJsonPath('meta.per_page', 2);
-
-        if ($expectedSecondPageCount !== null) {
-            $secondPage->assertJsonCount($expectedSecondPageCount, 'data');
-        }
     }
 
+    /**
+     * Requires at least DEFAULT_PAGE_SIZE records for the endpoint.
+     */
     protected function assertCursorEndpointUsesDefaultPageSize(string $uri): void
     {
         $response = $this->getJson($uri);
@@ -45,6 +45,9 @@ trait AssertsCursorPagination
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
+    /**
+     * Requires at least MIN_PAGE_SIZE records for the endpoint.
+     */
     protected function assertCursorEndpointAcceptsMinimumPageSize(string $uri): void
     {
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => CursorPagination::MIN_PAGE_SIZE]));
@@ -55,6 +58,9 @@ trait AssertsCursorPagination
             ->assertJsonPath('meta.per_page', CursorPagination::MIN_PAGE_SIZE);
     }
 
+    /**
+     * Requires at least MAX_PAGE_SIZE records for the endpoint.
+     */
     protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri): void
     {
         $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => CursorPagination::MAX_PAGE_SIZE]));

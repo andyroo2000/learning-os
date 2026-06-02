@@ -18,8 +18,10 @@ class DeleteDeckActionTest extends TestCase
         $deck = Deck::factory()->create();
         $card = Card::factory()->for($deck)->create();
 
-        app(DeleteDeckAction::class)->handle($deck);
+        $result = app(DeleteDeckAction::class)->handle($deck);
 
+        $this->assertTrue($result->wasDeleted);
+        $this->assertSame($deck, $result->deck);
         $this->assertSoftDeleted('decks', [
             'id' => $deck->id,
         ]);
@@ -32,8 +34,10 @@ class DeleteDeckActionTest extends TestCase
     {
         $deck = Deck::factory()->create();
 
-        app(DeleteDeckAction::class)->handle($deck);
+        $result = app(DeleteDeckAction::class)->handle($deck);
 
+        $this->assertTrue($result->wasDeleted);
+        $this->assertSame($deck, $result->deck);
         $this->assertSoftDeleted('decks', [
             'id' => $deck->id,
         ]);
@@ -53,8 +57,10 @@ class DeleteDeckActionTest extends TestCase
 
             Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:01'));
 
-            app(DeleteDeckAction::class)->handle($deck);
+            $result = app(DeleteDeckAction::class)->handle($deck);
 
+            $this->assertFalse($result->wasDeleted);
+            $this->assertSame($deck, $result->deck);
             $this->assertDatabaseHas('decks', [
                 'id' => $deck->id,
                 'deleted_at' => $originalDeckDeletedAt?->toDateTimeString(),
@@ -82,8 +88,10 @@ class DeleteDeckActionTest extends TestCase
 
             Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:01'));
 
-            app(DeleteDeckAction::class)->handle($deck);
+            $result = app(DeleteDeckAction::class)->handle($deck);
 
+            $this->assertTrue($result->wasDeleted);
+            $this->assertSame($deck, $result->deck);
             $this->assertSoftDeleted('cards', [
                 'id' => $activeCard->id,
             ]);

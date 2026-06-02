@@ -16,8 +16,10 @@ class DeleteCardActionTest extends TestCase
     {
         $card = $this->cardFor($this->signIn());
 
-        app(DeleteCardAction::class)->handle($card);
+        $result = app(DeleteCardAction::class)->handle($card);
 
+        $this->assertTrue($result->wasDeleted);
+        $this->assertSame($card, $result->card);
         $this->assertSoftDeleted('cards', [
             'id' => $card->id,
         ]);
@@ -29,8 +31,10 @@ class DeleteCardActionTest extends TestCase
 
         $card->delete();
 
-        app(DeleteCardAction::class)->handle($card);
+        $result = app(DeleteCardAction::class)->handle($card);
 
+        $this->assertFalse($result->wasDeleted);
+        $this->assertSame($card, $result->card);
         $this->assertSoftDeleted('cards', [
             'id' => $card->id,
         ]);
@@ -44,8 +48,10 @@ class DeleteCardActionTest extends TestCase
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
-        app(DeleteCardAction::class)->handle($card);
+        $result = app(DeleteCardAction::class)->handle($card);
 
+        $this->assertTrue($result->wasDeleted);
+        $this->assertSame($card, $result->card);
         $this->assertDatabaseHas('card_media', [
             'card_id' => $card->id,
             'media_asset_id' => $mediaAsset->id,

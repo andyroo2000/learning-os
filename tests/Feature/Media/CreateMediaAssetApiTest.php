@@ -7,6 +7,7 @@ use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Results\CreateMediaAssetResult;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -109,29 +110,43 @@ class CreateMediaAssetApiTest extends TestCase
 
     public function test_it_returns_existing_media_asset_for_idempotent_retries(): void
     {
-        $user = $this->signIn();
+        $this->signIn();
         $id = strtolower((string) Str::ulid());
+        $publicUrl = 'https://cdn.example.test/uploads/example.jpg';
         $payload = [
             'id' => $id,
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
-            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
+            'public_url' => $publicUrl,
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
         ];
 
-        MediaAsset::factory()
-            ->for($user)
-            ->withPublicUrl('https://cdn.example.test/uploads/example.jpg')
-            ->create($payload);
+        $firstResponse = $this->postJson('/api/media-assets', $payload);
+        $secondResponse = $this->postJson('/api/media-assets', $payload);
 
-        $response = $this->postJson('/api/media-assets', $payload);
-
-        $response
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.url', $publicUrl)
+            ->assertJsonPath('data.mime_type', 'image/jpeg')
+            ->assertJsonPath('data.size_bytes', 123_456)
+            ->assertJsonPath('data.checksum_sha256', str_repeat('a', 64))
+            ->assertJsonPath('data.original_filename', 'example.jpg')
+            ->assertJsonMissingPath('data.disk')
+            ->assertJsonMissingPath('data.path');
+        $secondResponse
             ->assertOk()
-            ->assertJsonPath('data.id', $id);
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.url', $publicUrl)
+            ->assertJsonPath('data.mime_type', 'image/jpeg')
+            ->assertJsonPath('data.size_bytes', 123_456)
+            ->assertJsonPath('data.checksum_sha256', str_repeat('a', 64))
+            ->assertJsonPath('data.original_filename', 'example.jpg')
+            ->assertJsonMissingPath('data.disk')
+            ->assertJsonMissingPath('data.path');
 
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -282,7 +297,7 @@ class CreateMediaAssetApiTest extends TestCase
 
         $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
         {
-            public function handle(CreateMediaAssetData $data): MediaAsset
+            public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {
                 throw MediaAssetConflictException::unresolvedStorageConflict();
             }
@@ -465,7 +480,7 @@ class CreateMediaAssetApiTest extends TestCase
 
         $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
         {
-            public function handle(CreateMediaAssetData $data): MediaAsset
+            public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {
                 throw new MediaAssetValidationException(
                     field: 'mime_type',

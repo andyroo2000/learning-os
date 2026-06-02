@@ -8,6 +8,7 @@ final class CursorPagination
 
     public const MAX_PAGE_SIZE = 50;
 
+    // Default sent to clients; max enforced by validation.
     public const DEFAULT_PAGE_SIZE = self::MAX_PAGE_SIZE;
 
     private function __construct() {}

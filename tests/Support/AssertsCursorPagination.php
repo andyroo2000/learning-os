@@ -39,6 +39,7 @@ trait AssertsCursorPagination
 
     /**
      * Requires more than DEFAULT_PAGE_SIZE records for the endpoint to verify truncation.
+     * Assumes the endpoint's max equals CursorPagination::MAX_PAGE_SIZE.
      */
     protected function assertCursorEndpointUsesDefaultPageSize(string $uri): void
     {
@@ -65,6 +66,7 @@ trait AssertsCursorPagination
 
     /**
      * Requires at least MAX_PAGE_SIZE records for the endpoint.
+     * Assumes the endpoint's max equals CursorPagination::MAX_PAGE_SIZE.
      */
     protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri): void
     {

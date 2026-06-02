@@ -40,9 +40,11 @@ class ReviewCardBatchActionTest extends TestCase
         $firstResult = app(ReviewCardBatchAction::class)->handle($items);
         $secondResult = app(ReviewCardBatchAction::class)->handle($items);
 
-        $this->assertSame($firstResult->pluck('id')->all(), $secondResult->pluck('id')->all());
-        $this->assertSame(CardReviewRating::Good, $secondResult[0]->rating);
-        $this->assertSame(CardReviewRating::Easy, $secondResult[1]->rating);
+        $this->assertTrue($firstResult->hasCreatedEvents);
+        $this->assertFalse($secondResult->hasCreatedEvents);
+        $this->assertSame($firstResult->reviewEvents->pluck('id')->all(), $secondResult->reviewEvents->pluck('id')->all());
+        $this->assertSame(CardReviewRating::Good, $secondResult->reviewEvents[0]->rating);
+        $this->assertSame(CardReviewRating::Easy, $secondResult->reviewEvents[1]->rating);
         $this->assertDatabaseCount('card_review_events', 2);
     }
 }

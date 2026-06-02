@@ -16,7 +16,7 @@ class StoreCardReviewEventBatchController extends Controller
     public function __invoke(StoreCardReviewEventBatchRequest $request, ReviewCardBatchAction $reviewCards): JsonResponse
     {
         try {
-            $reviewEvents = $reviewCards->handle(
+            $result = $reviewCards->handle(
                 collect($request->validated('events'))
                     ->map(fn (array $event) => ReviewCardData::fromInput(
                         cardId: $event['card_id'],
@@ -34,8 +34,8 @@ class StoreCardReviewEventBatchController extends Controller
             ]);
         }
 
-        return CardReviewEventResource::collection($reviewEvents)
+        return CardReviewEventResource::collection($result->reviewEvents)
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode($result->hasCreatedEvents ? 201 : 200);
     }
 }

@@ -119,12 +119,65 @@ class CreateCardReviewEventBatchApiTest extends TestCase
 
         $firstResponse->assertCreated();
         $secondResponse
-            ->assertCreated()
+            ->assertOk()
             ->assertJsonPath('data.0.id', $firstResponse->json('data.0.id'))
             ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.0.reviewed_at', '2026-05-27T09:15:00.000000Z');
 
         $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_returns_created_when_a_retried_batch_also_creates_events(): void
+    {
+        $user = $this->signIn();
+        $existingCard = $this->cardFor($user);
+        $newCard = $this->cardFor($user);
+
+        $firstResponse = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $existingCard->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+            ],
+        ]);
+
+        $secondResponse = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $existingCard->id,
+                    'rating' => CardReviewRating::Easy->value,
+                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:19:00Z',
+                ],
+                [
+                    'card_id' => $newCard->id,
+                    'rating' => CardReviewRating::Hard->value,
+                    'reviewed_at' => '2026-05-27T09:25:00Z',
+                    'client_event_id' => 'event-456',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:24:00Z',
+                ],
+            ],
+        ]);
+
+        $firstResponse->assertCreated();
+        $secondResponse->assertCreated();
+
+        $eventsByClientEventId = collect($secondResponse->json('data'))->keyBy('client_event_id');
+
+        $this->assertSame($firstResponse->json('data.0.id'), $eventsByClientEventId['event-123']['id']);
+        $this->assertSame(CardReviewRating::Good->value, $eventsByClientEventId['event-123']['rating']);
+        $this->assertSame($newCard->id, $eventsByClientEventId['event-456']['card_id']);
+        $this->assertSame(CardReviewRating::Hard->value, $eventsByClientEventId['event-456']['rating']);
+
+        $this->assertDatabaseCount('card_review_events', 2);
     }
 
     public function test_it_is_idempotent_for_duplicate_client_events_in_the_same_batch(): void

@@ -19,7 +19,7 @@ final class StoreMediaAssetController extends Controller
         $data = $request->validated();
 
         try {
-            $mediaAsset = $createMediaAsset->handle(CreateMediaAssetData::fromInput(
+            $result = $createMediaAsset->handle(CreateMediaAssetData::fromInput(
                 userId: $request->user()->id,
                 disk: $data['disk'],
                 path: $data['path'],
@@ -46,8 +46,8 @@ final class StoreMediaAssetController extends Controller
             ]);
         }
 
-        return MediaAssetResource::make($mediaAsset)
+        return MediaAssetResource::make($result->mediaAsset)
             ->response()
-            ->setStatusCode($mediaAsset->wasRecentlyCreated ? 201 : 200);
+            ->setStatusCode($result->wasCreated ? 201 : 200);
     }
 }

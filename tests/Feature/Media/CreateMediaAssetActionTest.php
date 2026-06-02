@@ -24,7 +24,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -36,7 +36,9 @@ class CreateMediaAssetActionTest extends TestCase
                 originalFilename: 'example.jpg',
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($mediaAsset->id));
         $this->assertSame(strtolower($mediaAsset->id), $mediaAsset->id);
 
@@ -58,7 +60,7 @@ class CreateMediaAssetActionTest extends TestCase
         $user = User::factory()->create();
         $id = (string) Str::ulid();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -68,7 +70,9 @@ class CreateMediaAssetActionTest extends TestCase
                 id: $id,
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame(strtolower($id), $mediaAsset->id);
 
         $this->assertDatabaseHas('media_assets', [
@@ -93,10 +97,12 @@ class CreateMediaAssetActionTest extends TestCase
             id: $id,
         );
 
-        $firstMediaAsset = app(CreateMediaAssetAction::class)->handle($data);
-        $secondMediaAsset = app(CreateMediaAssetAction::class)->handle($data);
+        $firstResult = app(CreateMediaAssetAction::class)->handle($data);
+        $secondResult = app(CreateMediaAssetAction::class)->handle($data);
 
-        $this->assertTrue($secondMediaAsset->is($firstMediaAsset));
+        $this->assertTrue($firstResult->wasCreated);
+        $this->assertFalse($secondResult->wasCreated);
+        $this->assertTrue($secondResult->mediaAsset->is($firstResult->mediaAsset));
         $this->assertDatabaseCount('media_assets', 1);
     }
 
@@ -224,7 +230,7 @@ class CreateMediaAssetActionTest extends TestCase
         });
 
         try {
-            $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+            $result = app(CreateMediaAssetAction::class)->handle(
                 CreateMediaAssetData::fromInput(
                     userId: $user->id,
                     disk: 'media',
@@ -240,7 +246,9 @@ class CreateMediaAssetActionTest extends TestCase
         } finally {
             Event::forget('eloquent.creating: '.MediaAsset::class);
         }
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertFalse($result->wasCreated);
         $this->assertSame($id, $mediaAsset->id);
         $this->assertDatabaseCount('media_assets', 1);
     }
@@ -294,7 +302,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: '  media  ',
@@ -306,7 +314,9 @@ class CreateMediaAssetActionTest extends TestCase
                 originalFilename: '  C:\\Users\\andrew\\Downloads/example.jpg  ',
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame('media', $mediaAsset->disk);
         $this->assertSame('uploads/example.jpg', $mediaAsset->path);
         $this->assertNull($mediaAsset->public_url);
@@ -319,7 +329,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -329,7 +339,9 @@ class CreateMediaAssetActionTest extends TestCase
                 originalFilename: '..',
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertNull($mediaAsset->original_filename);
 
         $this->assertDatabaseHas('media_assets', [
@@ -342,7 +354,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -352,7 +364,9 @@ class CreateMediaAssetActionTest extends TestCase
                 checksumSha256: str_repeat('A', 64),
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame(str_repeat('a', 64), $mediaAsset->checksum_sha256);
     }
 
@@ -360,7 +374,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -369,7 +383,9 @@ class CreateMediaAssetActionTest extends TestCase
                 sizeBytes: 123_456,
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame('text/html', $mediaAsset->mime_type);
     }
 
@@ -552,7 +568,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -561,7 +577,9 @@ class CreateMediaAssetActionTest extends TestCase
                 sizeBytes: 123_456,
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame('uploads/my..photo.jpg', $mediaAsset->path);
     }
 
@@ -713,7 +731,7 @@ class CreateMediaAssetActionTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $mediaAsset = app(CreateMediaAssetAction::class)->handle(
+        $result = app(CreateMediaAssetAction::class)->handle(
             CreateMediaAssetData::fromInput(
                 userId: $user->id,
                 disk: 'media',
@@ -722,7 +740,9 @@ class CreateMediaAssetActionTest extends TestCase
                 sizeBytes: MediaAsset::MAX_JSON_SAFE_SIZE_BYTES,
             ),
         );
+        $mediaAsset = $result->mediaAsset;
 
+        $this->assertTrue($result->wasCreated);
         $this->assertSame(MediaAsset::MAX_JSON_SAFE_SIZE_BYTES, $mediaAsset->fresh()->size_bytes);
     }
 

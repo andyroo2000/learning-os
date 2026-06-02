@@ -6,6 +6,7 @@ use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Results\CreateMediaAssetResult;
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
 use App\Support\Database\IntegrityConstraintViolation;
@@ -23,7 +24,7 @@ class CreateMediaAssetAction
      *
      * @throws MediaAssetConflictException when a client ULID or disk/path pair conflicts.
      */
-    public function handle(CreateMediaAssetData $data): MediaAsset
+    public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
     {
         if ($data->userId < 1) {
             throw new LogicException('Media asset user ID must be a positive integer.');
@@ -105,7 +106,7 @@ class CreateMediaAssetAction
             $existingMediaAsset = MediaAsset::query()->find($data->id);
 
             if ($existingMediaAsset !== null) {
-                return $this->matchingExistingMediaAsset($existingMediaAsset, $data);
+                return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
             }
         }
 
@@ -139,7 +140,7 @@ class CreateMediaAssetAction
                 $existingMediaAsset = MediaAsset::query()->find($data->id);
 
                 if ($existingMediaAsset !== null) {
-                    return $this->matchingExistingMediaAsset($existingMediaAsset, $data);
+                    return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
                 }
             }
 
@@ -167,7 +168,7 @@ class CreateMediaAssetAction
             throw MediaAssetConflictException::unresolvedStorageConflict();
         }
 
-        return $mediaAsset;
+        return CreateMediaAssetResult::created($mediaAsset);
     }
 
     private function isSha256Checksum(string $value): bool

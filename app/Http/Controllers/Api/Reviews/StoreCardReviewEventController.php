@@ -15,7 +15,7 @@ class StoreCardReviewEventController extends Controller
     {
         $data = $request->validated();
 
-        $reviewEvent = $reviewCard->handle(ReviewCardData::fromInput(
+        $result = $reviewCard->handle(ReviewCardData::fromInput(
             cardId: $data['card_id'],
             rating: $data['rating'],
             reviewedAt: $data['reviewed_at'],
@@ -25,8 +25,8 @@ class StoreCardReviewEventController extends Controller
             clientCreatedAt: $data['client_created_at'] ?? null,
         ));
 
-        return CardReviewEventResource::make($reviewEvent)
+        return CardReviewEventResource::make($result->reviewEvent)
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode($result->created ? 201 : 200);
     }
 }

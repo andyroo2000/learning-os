@@ -105,7 +105,7 @@ class CreateCardReviewEventApiTest extends TestCase
 
         $firstResponse->assertCreated();
         $secondResponse
-            ->assertCreated()
+            ->assertOk()
             ->assertJsonPath('data.id', $firstResponse->json('data.id'))
             ->assertJsonPath('data.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z');

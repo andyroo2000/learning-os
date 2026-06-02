@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Results\ReviewCardResult;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -21,14 +22,16 @@ class ReviewCardActionTest extends TestCase
         $card = Card::factory()->create();
         $reviewedAt = Carbon::parse('2026-05-27 09:15:00');
 
-        $reviewEvent = app(ReviewCardAction::class)->handle(
+        $result = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
                 reviewedAt: $reviewedAt,
             ),
         );
+        $reviewEvent = $result->reviewEvent;
 
+        $this->assertTrue($result->created);
         $this->assertTrue(Str::isUlid($reviewEvent->id));
         $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
 
@@ -45,7 +48,7 @@ class ReviewCardActionTest extends TestCase
         $card = Card::factory()->create();
         $id = strtolower((string) Str::ulid());
 
-        $reviewEvent = app(ReviewCardAction::class)->handle(
+        $result = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'easy',
@@ -53,7 +56,9 @@ class ReviewCardActionTest extends TestCase
                 id: $id,
             ),
         );
+        $reviewEvent = $result->reviewEvent;
 
+        $this->assertTrue($result->created);
         $this->assertSame($id, $reviewEvent->id);
 
         $this->assertDatabaseHas('card_review_events', [
@@ -67,7 +72,7 @@ class ReviewCardActionTest extends TestCase
         $card = Card::factory()->create();
         $clientCreatedAt = Carbon::parse('2026-05-27 09:14:00');
 
-        $reviewEvent = app(ReviewCardAction::class)->handle(
+        $result = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
@@ -77,7 +82,9 @@ class ReviewCardActionTest extends TestCase
                 clientCreatedAt: $clientCreatedAt,
             ),
         );
+        $reviewEvent = $result->reviewEvent;
 
+        $this->assertTrue($result->created);
         $this->assertSame('event-123', $reviewEvent->client_event_id);
         $this->assertSame('device-abc', $reviewEvent->device_id);
         $this->assertTrue($clientCreatedAt->equalTo($reviewEvent->client_created_at));
@@ -94,7 +101,7 @@ class ReviewCardActionTest extends TestCase
     {
         $card = Card::factory()->create();
 
-        $firstReviewEvent = app(ReviewCardAction::class)->handle(
+        $firstResult = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
@@ -105,7 +112,7 @@ class ReviewCardActionTest extends TestCase
             ),
         );
 
-        $secondReviewEvent = app(ReviewCardAction::class)->handle(
+        $secondResult = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'easy',
@@ -115,7 +122,11 @@ class ReviewCardActionTest extends TestCase
                 clientCreatedAt: '2026-05-27 09:19:00',
             ),
         );
+        $firstReviewEvent = $firstResult->reviewEvent;
+        $secondReviewEvent = $secondResult->reviewEvent;
 
+        $this->assertTrue($firstResult->created);
+        $this->assertFalse($secondResult->created);
         $this->assertTrue($firstReviewEvent->is($secondReviewEvent));
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseHas('card_review_events', [
@@ -129,14 +140,16 @@ class ReviewCardActionTest extends TestCase
     {
         $card = Card::factory()->create();
 
-        $reviewEvent = app(ReviewCardAction::class)->handle(
+        $result = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: "  {$card->id}  ",
                 rating: '  hard  ',
                 reviewedAt: '2026-05-27 09:15:00',
             ),
         );
+        $reviewEvent = $result->reviewEvent;
 
+        $this->assertTrue($result->created);
         $this->assertSame($card->id, $reviewEvent->card_id);
         $this->assertSame(CardReviewRating::Hard, $reviewEvent->rating);
     }
@@ -146,14 +159,16 @@ class ReviewCardActionTest extends TestCase
         $card = Card::factory()->create();
 
         foreach (CardReviewRating::cases() as $rating) {
-            $reviewEvent = app(ReviewCardAction::class)->handle(
+            $result = $this->reviewCard(
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: $rating->value,
                     reviewedAt: '2026-05-27 09:15:00',
                 ),
             );
+            $reviewEvent = $result->reviewEvent;
 
+            $this->assertTrue($result->created);
             $this->assertSame($rating, $reviewEvent->rating);
         }
     }
@@ -163,7 +178,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Card ID must be a valid ULID.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: 'not-a-ulid',
                 rating: 'good',
@@ -177,7 +192,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Card does not exist.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: strtolower((string) Str::ulid()),
                 rating: 'good',
@@ -193,7 +208,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Review rating is required.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: '   ',
@@ -209,7 +224,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Review rating must be one of: again, hard, good, easy.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'medium',
@@ -225,7 +240,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
@@ -242,7 +257,7 @@ class ReviewCardActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Review event ID must be a valid ULID.');
 
-        app(ReviewCardAction::class)->handle(
+        $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
@@ -250,5 +265,10 @@ class ReviewCardActionTest extends TestCase
                 id: 'not-a-ulid',
             ),
         );
+    }
+
+    private function reviewCard(ReviewCardData $data): ReviewCardResult
+    {
+        return app(ReviewCardAction::class)->handle($data);
     }
 }

@@ -154,6 +154,44 @@ class ReviewCardActionTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 2);
     }
 
+    public function test_it_creates_a_distinct_event_when_a_retry_adds_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+
+        $firstResult = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27T09:15:00Z',
+            ),
+        );
+
+        $secondResult = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
+            ),
+        );
+
+        $firstReviewEvent = $firstResult->reviewEvent->refresh();
+        $secondReviewEvent = $secondResult->reviewEvent;
+
+        $this->assertTrue($firstResult->created);
+        $this->assertTrue($secondResult->created);
+        $this->assertFalse($firstReviewEvent->is($secondReviewEvent));
+        $this->assertNull($firstReviewEvent->client_event_id);
+        $this->assertNull($firstReviewEvent->device_id);
+        $this->assertNull($firstReviewEvent->client_created_at);
+        $this->assertSame('event-123', $secondReviewEvent->client_event_id);
+        $this->assertSame('device-abc', $secondReviewEvent->device_id);
+        $this->assertSame('2026-05-27 09:14:00', $secondReviewEvent->client_created_at->toDateTimeString());
+        $this->assertDatabaseCount('card_review_events', 2);
+    }
+
     public function test_it_trims_text_inputs(): void
     {
         $card = Card::factory()->create();

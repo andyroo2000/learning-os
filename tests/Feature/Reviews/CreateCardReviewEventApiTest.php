@@ -133,7 +133,41 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.rating', CardReviewRating::Good->value);
 
-        $this->assertNotEquals($firstResponse->json('data.id'), $secondResponse->json('data.id'));
+        $this->assertNotSame($firstResponse->json('data.id'), $secondResponse->json('data.id'));
+        $this->assertDatabaseCount('card_review_events', 2);
+    }
+
+    public function test_it_creates_a_distinct_event_when_a_retry_adds_sync_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $basePayload = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $basePayload);
+        $secondResponse = $this->postJson('/api/card-review-events', [
+            ...$basePayload,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ]);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.client_event_id', null)
+            ->assertJsonPath('data.device_id', null)
+            ->assertJsonPath('data.client_created_at', null);
+        $secondResponse
+            ->assertCreated()
+            ->assertJsonPath('data.client_event_id', 'event-123')
+            ->assertJsonPath('data.device_id', 'device-abc')
+            // CardReviewEventResource serializes datetimes with microsecond precision.
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.000000Z');
+
+        $this->assertNotSame($firstResponse->json('data.id'), $secondResponse->json('data.id'));
         $this->assertDatabaseCount('card_review_events', 2);
     }
 

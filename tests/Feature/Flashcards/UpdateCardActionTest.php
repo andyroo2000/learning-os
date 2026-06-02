@@ -16,14 +16,16 @@ class UpdateCardActionTest extends TestCase
     {
         $card = $this->cardFor($this->signIn());
 
-        $updatedCard = app(UpdateCardAction::class)->handle(
+        $result = app(UpdateCardAction::class)->handle(
             $card,
             UpdateCardData::fromInput(
                 frontText: 'arrivederci',
                 backText: 'goodbye',
             ),
         );
+        $updatedCard = $result->card;
 
+        $this->assertTrue($result->wasUpdated);
         $this->assertSame($card->id, $updatedCard->id);
 
         $this->assertDatabaseHas('cards', [
@@ -36,18 +38,42 @@ class UpdateCardActionTest extends TestCase
 
     public function test_it_trims_text_inputs(): void
     {
-        $card = $this->cardFor($this->signIn());
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
 
-        $updatedCard = app(UpdateCardAction::class)->handle(
+        $result = app(UpdateCardAction::class)->handle(
             $card,
             UpdateCardData::fromInput(
                 frontText: '  arrivederci  ',
                 backText: '  goodbye  ',
             ),
         );
+        $updatedCard = $result->card;
 
+        $this->assertTrue($result->wasUpdated);
         $this->assertSame('arrivederci', $updatedCard->front_text);
         $this->assertSame('goodbye', $updatedCard->back_text);
+    }
+
+    public function test_it_marks_unchanged_when_normalized_text_matches_the_existing_card(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: '  ciao  ',
+                backText: '  hello  ',
+            ),
+        );
+
+        $this->assertFalse($result->wasUpdated);
+        $this->assertSame($card->id, $result->card->id);
     }
 
     public function test_it_rejects_blank_front_text(): void

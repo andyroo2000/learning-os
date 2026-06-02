@@ -16,12 +16,12 @@ class UpdateCardController extends Controller
     {
         $data = $request->validated();
 
-        $card = $updateCard->handle($card, UpdateCardData::fromInput(
+        $result = $updateCard->handle($card, UpdateCardData::fromInput(
             frontText: $data['front_text'],
             backText: $data['back_text'],
         ));
 
-        return CardResource::make($card)
+        return CardResource::make($result->card)
             ->response();
     }
 }

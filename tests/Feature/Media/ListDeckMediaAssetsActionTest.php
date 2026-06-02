@@ -7,11 +7,12 @@ use App\Domain\Media\Actions\ListDeckMediaAssetsAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsMediaAssetManifests;
 use Tests\TestCase;
 
 class ListDeckMediaAssetsActionTest extends TestCase
 {
-    use RefreshDatabase;
+    use AssertsMediaAssetManifests, RefreshDatabase;
 
     public function test_it_lists_unique_user_owned_media_attached_to_cards_in_a_deck(): void
     {
@@ -58,18 +59,6 @@ class ListDeckMediaAssetsActionTest extends TestCase
         $this->assertSame('example.jpg', $firstMediaAsset->original_filename);
         $this->assertNotNull($firstMediaAsset->created_at);
         $this->assertNotNull($firstMediaAsset->updated_at);
-        $this->assertEqualsCanonicalizing(
-            [
-                'id',
-                'public_url',
-                'mime_type',
-                'size_bytes',
-                'checksum_sha256',
-                'original_filename',
-                'created_at',
-                'updated_at',
-            ],
-            array_keys($firstMediaAsset->getAttributes()),
-        );
+        $this->assertMediaAssetManifestAttributes($firstMediaAsset);
     }
 }

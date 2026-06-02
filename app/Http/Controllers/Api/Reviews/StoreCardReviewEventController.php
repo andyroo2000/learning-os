@@ -27,6 +27,6 @@ class StoreCardReviewEventController extends Controller
 
         return CardReviewEventResource::make($reviewEvent)
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode($reviewEvent->wasRecentlyCreated ? 201 : 200);
     }
 }

@@ -7,11 +7,12 @@ use App\Domain\Media\Actions\ListCardMediaAssetsAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsMediaAssetManifests;
 use Tests\TestCase;
 
 class ListCardMediaAssetsActionTest extends TestCase
 {
-    use RefreshDatabase;
+    use AssertsMediaAssetManifests, RefreshDatabase;
 
     public function test_it_lists_media_attached_to_a_card_in_id_order(): void
     {
@@ -56,19 +57,7 @@ class ListCardMediaAssetsActionTest extends TestCase
         $this->assertSame('example.jpg', $firstMediaAsset->original_filename);
         $this->assertNotNull($firstMediaAsset->created_at);
         $this->assertNotNull($firstMediaAsset->updated_at);
-        $this->assertEqualsCanonicalizing(
-            [
-                'id',
-                'public_url',
-                'mime_type',
-                'size_bytes',
-                'checksum_sha256',
-                'original_filename',
-                'created_at',
-                'updated_at',
-            ],
-            array_keys($firstMediaAsset->getAttributes()),
-        );
+        $this->assertMediaAssetManifestAttributes($firstMediaAsset);
     }
 
     public function test_it_returns_an_empty_manifest_for_a_card_without_media(): void

@@ -7,11 +7,12 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsMediaAssetManifests;
 use Tests\TestCase;
 
 class ListDeckMediaAssetsApiTest extends TestCase
 {
-    use RefreshDatabase;
+    use AssertsMediaAssetManifests, RefreshDatabase;
 
     public function test_it_lists_unique_media_assets_attached_to_cards_in_a_deck(): void
     {
@@ -53,19 +54,7 @@ class ListDeckMediaAssetsApiTest extends TestCase
             ->assertJsonMissingPath('links')
             ->assertJsonMissingPath('meta');
 
-        $this->assertEqualsCanonicalizing(
-            [
-                'id',
-                'url',
-                'mime_type',
-                'size_bytes',
-                'checksum_sha256',
-                'original_filename',
-                'created_at',
-                'updated_at',
-            ],
-            array_keys($response->json('data.0')),
-        );
+        $this->assertMediaAssetResourceKeys($response->json('data.0'));
     }
 
     public function test_it_returns_an_empty_manifest_for_a_deck_without_media(): void

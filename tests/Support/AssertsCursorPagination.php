@@ -39,16 +39,18 @@ trait AssertsCursorPagination
 
     /**
      * Requires more than DEFAULT_PAGE_SIZE records for the endpoint to verify truncation.
-     * Assumes the endpoint's max equals CursorPagination::MAX_PAGE_SIZE.
+     * Pass $maxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
      */
-    protected function assertCursorEndpointUsesDefaultPageSize(string $uri): void
+    protected function assertCursorEndpointUsesDefaultPageSize(string $uri, ?int $maxPageSize = null): void
     {
+        $expectedPageSize = min(CursorPagination::DEFAULT_PAGE_SIZE, $maxPageSize ?? CursorPagination::MAX_PAGE_SIZE);
+
         $response = $this->getJson($uri);
 
         $response
             ->assertOk()
-            ->assertJsonCount(CursorPagination::DEFAULT_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
+            ->assertJsonCount($expectedPageSize, 'data')
+            ->assertJsonPath('meta.per_page', $expectedPageSize);
     }
 
     /**
@@ -66,16 +68,16 @@ trait AssertsCursorPagination
 
     /**
      * Requires at least MAX_PAGE_SIZE records for the endpoint.
-     * Assumes the endpoint's max equals CursorPagination::MAX_PAGE_SIZE.
+     * Pass $maxPageSize for endpoints with a cap below CursorPagination::MAX_PAGE_SIZE.
      */
-    protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri): void
+    protected function assertCursorEndpointAcceptsMaximumPageSize(string $uri, int $maxPageSize = CursorPagination::MAX_PAGE_SIZE): void
     {
-        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => CursorPagination::MAX_PAGE_SIZE]));
+        $response = $this->getJson($this->cursorPaginationUrl($uri, ['per_page' => $maxPageSize]));
 
         $response
             ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
+            ->assertJsonCount($maxPageSize, 'data')
+            ->assertJsonPath('meta.per_page', $maxPageSize);
     }
 
     protected function assertCursorEndpointRejectsPageSize(string $uri, int|string $perPage): void

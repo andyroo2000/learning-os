@@ -136,6 +136,24 @@ class ReviewCardActionTest extends TestCase
         ]);
     }
 
+    public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+        $data = ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00Z',
+        );
+
+        $firstResult = $this->reviewCard($data);
+        $secondResult = $this->reviewCard($data);
+
+        $this->assertTrue($firstResult->created);
+        $this->assertTrue($secondResult->created);
+        $this->assertFalse($firstResult->reviewEvent->is($secondResult->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 2);
+    }
+
     public function test_it_trims_text_inputs(): void
     {
         $card = Card::factory()->create();

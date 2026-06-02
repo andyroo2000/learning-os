@@ -113,6 +113,30 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $payload = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $payload);
+        $secondResponse = $this->postJson('/api/card-review-events', $payload);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.rating', CardReviewRating::Good->value);
+        $secondResponse
+            ->assertCreated()
+            ->assertJsonPath('data.rating', CardReviewRating::Good->value);
+
+        $this->assertNotEquals($firstResponse->json('data.id'), $secondResponse->json('data.id'));
+        $this->assertDatabaseCount('card_review_events', 2);
+    }
+
     public function test_it_accepts_a_client_provided_ulid(): void
     {
         $user = $this->signIn();

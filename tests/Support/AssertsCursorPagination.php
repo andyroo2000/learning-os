@@ -4,10 +4,15 @@ namespace Tests\Support;
 
 use App\Support\Pagination\CursorPagination;
 
+/**
+ * Helpers for authenticated cursor-paginated API requests.
+ *
+ * Callers must sign in before using these assertions.
+ */
 trait AssertsCursorPagination
 {
     /**
-     * Requires at least two records plus the expected second-page count for the endpoint.
+     * Caller must create at least 2 + $expectedSecondPageCount records before calling.
      */
     protected function assertCursorEndpointAcceptsCustomPageSize(string $uri, int $expectedSecondPageCount = 1): void
     {

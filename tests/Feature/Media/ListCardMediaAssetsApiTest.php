@@ -43,6 +43,20 @@ class ListCardMediaAssetsApiTest extends TestCase
             ->assertJsonMissingPath('data.0.disk')
             ->assertJsonMissingPath('data.0.path')
             ->assertJsonMissingPath('data.0.url_expires_at');
+
+        $this->assertSame(
+            [
+                'id',
+                'url',
+                'mime_type',
+                'size_bytes',
+                'checksum_sha256',
+                'original_filename',
+                'created_at',
+                'updated_at',
+            ],
+            array_keys($response->json('data.0')),
+        );
     }
 
     public function test_it_returns_an_empty_manifest_for_a_card_without_media(): void

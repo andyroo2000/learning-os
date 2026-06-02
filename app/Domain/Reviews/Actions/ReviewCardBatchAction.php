@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Results\ReviewCardBatchResult;
 use App\Domain\Sync\Values\ClientEventKey;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
@@ -22,9 +23,8 @@ class ReviewCardBatchAction
 
     /**
      * @param  iterable<ReviewCardData>  $items
-     * @return Collection<int, CardReviewEvent>
      */
-    public function handle(iterable $items): Collection
+    public function handle(iterable $items): ReviewCardBatchResult
     {
         $preparedItems = collect($items)
             ->values()
@@ -36,7 +36,7 @@ class ReviewCardBatchAction
 
         $this->ensureCardsExist($preparedItems);
 
-        return DB::transaction(function () use ($preparedItems): Collection {
+        return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
             $now = now();
 
@@ -67,13 +67,20 @@ class ReviewCardBatchAction
                         throw $exception;
                     }
 
-                    return $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
+                    // The unique constraint failed a single atomic insert; all items already exist.
+                    return new ReviewCardBatchResult(
+                        $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey),
+                        false,
+                    );
                 }
             }
 
             $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
 
-            return $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
+            return new ReviewCardBatchResult(
+                $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey),
+                $rows->isNotEmpty(),
+            );
         });
     }
 

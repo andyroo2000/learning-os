@@ -4,17 +4,20 @@ namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\UpdateDeckData;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Results\UpdateDeckResult;
 
 class UpdateDeckAction
 {
-    public function handle(Deck $deck, UpdateDeckData $data): Deck
+    public function handle(Deck $deck, UpdateDeckData $data): UpdateDeckResult
     {
         $deck->name = $data->name;
         $deck->description = $data->description;
+        $wasUpdated = $deck->isDirty(['name', 'description']);
 
-        // Eloquent skips the UPDATE query when no attributes are dirty.
         $deck->saveOrFail();
 
-        return $deck;
+        return $wasUpdated
+            ? UpdateDeckResult::updated($deck)
+            : UpdateDeckResult::unchanged($deck);
     }
 }

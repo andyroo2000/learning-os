@@ -35,8 +35,10 @@ final class StoreMediaAssetController extends Controller
                 return response()->json(['message' => 'Not Found'], 404);
             }
 
+            // Conflict is visible to the requesting user; safe to include a reason.
             return response()->json([
                 'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
             ], 409);
         } catch (MediaAssetValidationException $exception) {
             throw ValidationException::withMessages([

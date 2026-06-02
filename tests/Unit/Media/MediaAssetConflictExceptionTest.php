@@ -12,5 +12,6 @@ class MediaAssetConflictExceptionTest extends TestCase
         $exception = MediaAssetConflictException::unresolvedStorageConflict();
 
         $this->assertFalse($exception->shouldBeHiddenFrom(123));
+        $this->assertSame('media_asset_storage_conflict', $exception->reason());
     }
 }

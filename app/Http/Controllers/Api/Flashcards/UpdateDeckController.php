@@ -14,12 +14,12 @@ class UpdateDeckController extends Controller
 {
     public function __invoke(UpdateDeckRequest $request, Deck $deck, UpdateDeckAction $updateDeck): JsonResponse
     {
-        $deck = $updateDeck->handle($deck, UpdateDeckData::fromInput(
+        $result = $updateDeck->handle($deck, UpdateDeckData::fromInput(
             name: $request->validated('name'),
             description: $request->validated('description'),
         ));
 
-        return DeckResource::make($deck)
+        return DeckResource::make($result->deck)
             ->response();
     }
 }

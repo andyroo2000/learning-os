@@ -16,14 +16,16 @@ class UpdateDeckActionTest extends TestCase
     {
         $deck = $this->deckFor($this->signIn());
 
-        $updatedDeck = app(UpdateDeckAction::class)->handle(
+        $result = app(UpdateDeckAction::class)->handle(
             $deck,
             UpdateDeckData::fromInput(
                 name: 'Italian Travel',
                 description: 'Phrases for airport and train station practice.',
             ),
         );
+        $updatedDeck = $result->deck;
 
+        $this->assertTrue($result->wasUpdated);
         $this->assertSame($deck->id, $updatedDeck->id);
 
         $this->assertDatabaseHas('decks', [
@@ -36,16 +38,21 @@ class UpdateDeckActionTest extends TestCase
 
     public function test_it_trims_text_inputs(): void
     {
-        $deck = $this->deckFor($this->signIn());
+        $deck = $this->deckFor($this->signIn(), [
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+        ]);
 
-        $updatedDeck = app(UpdateDeckAction::class)->handle(
+        $result = app(UpdateDeckAction::class)->handle(
             $deck,
             UpdateDeckData::fromInput(
                 name: '  Italian Travel  ',
                 description: '  Phrases for airport and train station practice.  ',
             ),
         );
+        $updatedDeck = $result->deck;
 
+        $this->assertTrue($result->wasUpdated);
         $this->assertSame('Italian Travel', $updatedDeck->name);
         $this->assertSame('Phrases for airport and train station practice.', $updatedDeck->description);
     }
@@ -54,15 +61,36 @@ class UpdateDeckActionTest extends TestCase
     {
         $deck = $this->deckFor($this->signIn());
 
-        $updatedDeck = app(UpdateDeckAction::class)->handle(
+        $result = app(UpdateDeckAction::class)->handle(
             $deck,
             UpdateDeckData::fromInput(
                 name: 'Italian Travel',
                 description: '   ',
             ),
         );
+        $updatedDeck = $result->deck;
 
+        $this->assertTrue($result->wasUpdated);
         $this->assertNull($updatedDeck->description);
+    }
+
+    public function test_it_marks_unchanged_when_normalized_metadata_matches_the_existing_deck(): void
+    {
+        $deck = $this->deckFor($this->signIn(), [
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+        ]);
+
+        $result = app(UpdateDeckAction::class)->handle(
+            $deck,
+            UpdateDeckData::fromInput(
+                name: '  Italian Basics  ',
+                description: '  Foundational Italian review cards.  ',
+            ),
+        );
+
+        $this->assertFalse($result->wasUpdated);
+        $this->assertSame($deck->id, $result->deck->id);
     }
 
     public function test_it_rejects_blank_name(): void

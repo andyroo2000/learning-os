@@ -10,8 +10,24 @@ final readonly class ReviewCardBatchResult
     /**
      * @param  Collection<int, CardReviewEvent>  $reviewEvents
      */
-    public function __construct(
+    private function __construct(
         public Collection $reviewEvents,
         public bool $hasCreatedEvents,
     ) {}
+
+    /**
+     * @param  Collection<int, CardReviewEvent>  $reviewEvents
+     */
+    public static function withCreatedEvents(Collection $reviewEvents): self
+    {
+        return new self($reviewEvents, true);
+    }
+
+    /**
+     * @param  Collection<int, CardReviewEvent>  $reviewEvents
+     */
+    public static function withoutCreatedEvents(Collection $reviewEvents): self
+    {
+        return new self($reviewEvents, false);
+    }
 }

@@ -7,14 +7,13 @@ use RuntimeException;
 
 final class DeckConflictException extends RuntimeException
 {
-    // Public deck create API response contract; tests assert the literal strings.
-    public const CONFLICT_MESSAGE = 'Deck ID already exists with different metadata.';
+    private const CONFLICT_MESSAGE = 'Deck ID already exists with different metadata.';
 
-    public const DELETED_MESSAGE = 'Deck ID belongs to a deleted deck.';
+    private const DELETED_MESSAGE = 'Deck ID belongs to a deleted deck.';
 
-    public const CONFLICT_REASON = 'deck_id_conflict';
+    private const CONFLICT_REASON = 'deck_id_conflict';
 
-    public const DELETED_REASON = 'deck_deleted';
+    private const DELETED_REASON = 'deck_deleted';
 
     private function __construct(
         string $message,

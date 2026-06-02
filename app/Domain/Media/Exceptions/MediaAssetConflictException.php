@@ -11,9 +11,9 @@ final class MediaAssetConflictException extends RuntimeException
 
     private const STORAGE_PATH_EXISTS_MESSAGE = 'Media asset already exists.';
 
-    public const ID_MISMATCH_REASON = 'media_asset_id_conflict';
+    private const ID_MISMATCH_REASON = 'media_asset_id_conflict';
 
-    public const STORAGE_PATH_EXISTS_REASON = 'media_asset_storage_conflict';
+    private const STORAGE_PATH_EXISTS_REASON = 'media_asset_storage_conflict';
 
     /**
      * Owner context lets the HTTP layer hide cross-user conflicts without

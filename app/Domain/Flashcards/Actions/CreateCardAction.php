@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Results\CreateCardResult;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
 use Closure;
@@ -27,7 +28,7 @@ class CreateCardAction
         }
     }
 
-    public function handle(CreateCardData $data): Card
+    public function handle(CreateCardData $data): CreateCardResult
     {
         if (! Str::isUlid($data->deckId)) {
             throw CardValidationException::invalidDeckId();
@@ -61,7 +62,7 @@ class CreateCardAction
 
                 // When deck IDs match, resolveExistingCard enforces ownership via ownerIdFor
                 // before comparing metadata or returning card data.
-                return $this->resolveExistingCard($existingCard, $data);
+                return CreateCardResult::existing($this->resolveExistingCard($existingCard, $data));
             }
 
             if ($this->afterClientIdPrecheckMiss !== null) {
@@ -108,10 +109,10 @@ class CreateCardAction
 
             // Race recovery delegates ownership hiding to resolveExistingCard; the HTTP
             // layer converts cross-user conflicts to 404 even when deck validation was skipped.
-            return $this->resolveExistingCard($existingCard, $data);
+            return CreateCardResult::existing($this->resolveExistingCard($existingCard, $data));
         }
 
-        return $card;
+        return CreateCardResult::created($card);
     }
 
     private function findExistingCard(string $id): ?Card

@@ -12,7 +12,8 @@ use App\Support\Pagination\CursorPagination;
 trait AssertsCursorPagination
 {
     /**
-     * Caller must create at least 2 + $expectedSecondPageCount records for the endpoint.
+     * Caller must create at least 2 + $expectedSecondPageCount records for an endpoint
+     * that accepts per_page=2.
      *
      * @param  int  $expectedSecondPageCount  Expected record count after following a per_page=2 cursor.
      */

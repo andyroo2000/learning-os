@@ -114,7 +114,7 @@ class ListMediaAssetsApiTest extends TestCase
     {
         $user = $this->signIn();
 
-        MediaAsset::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+        MediaAsset::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($user)->create();
 
         $this->assertCursorEndpointUsesDefaultPageSize('/api/media-assets');
     }

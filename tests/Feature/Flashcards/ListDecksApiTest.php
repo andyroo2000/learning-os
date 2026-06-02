@@ -169,7 +169,7 @@ class ListDecksApiTest extends TestCase
     {
         $user = $this->signIn();
 
-        Deck::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($user)->create();
+        Deck::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($user)->create();
 
         $this->assertCursorEndpointUsesDefaultPageSize('/api/decks');
     }

@@ -195,7 +195,7 @@ class ListDeckCardsApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        Card::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($deck)->create();
+        Card::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($deck)->create();
 
         $this->assertCursorEndpointUsesDefaultPageSize("/api/decks/{$deck->id}/cards");
     }

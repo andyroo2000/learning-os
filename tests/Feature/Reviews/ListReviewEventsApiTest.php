@@ -211,7 +211,7 @@ class ListReviewEventsApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
+        CardReviewEvent::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($card)->create();
 
         $this->assertCursorEndpointUsesDefaultPageSize('/api/card-review-events');
     }

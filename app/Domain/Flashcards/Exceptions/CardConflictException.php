@@ -6,18 +6,17 @@ use RuntimeException;
 
 final class CardConflictException extends RuntimeException
 {
-    // These messages are returned by the card create API and are part of its response contract.
-    public const CONFLICT_MESSAGE = 'Card ID already exists with different metadata.';
+    private const CONFLICT_MESSAGE = 'Card ID already exists with different metadata.';
 
-    public const CARD_DELETED_MESSAGE = 'Card ID belongs to a deleted card.';
+    private const CARD_DELETED_MESSAGE = 'Card ID belongs to a deleted card.';
 
-    public const DECK_DELETED_MESSAGE = 'Card ID belongs to a deleted deck.';
+    private const DECK_DELETED_MESSAGE = 'Card ID belongs to a deleted deck.';
 
-    public const CONFLICT_REASON = 'card_id_conflict';
+    private const CONFLICT_REASON = 'card_id_conflict';
 
-    public const CARD_DELETED_REASON = 'card_deleted';
+    private const CARD_DELETED_REASON = 'card_deleted';
 
-    public const DECK_DELETED_REASON = 'deck_deleted';
+    private const DECK_DELETED_REASON = 'deck_deleted';
 
     private function __construct(
         string $message,

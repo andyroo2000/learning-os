@@ -4,11 +4,12 @@ namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Results\UpdateCardResult;
 use InvalidArgumentException;
 
 class UpdateCardAction
 {
-    public function handle(Card $card, UpdateCardData $data): Card
+    public function handle(Card $card, UpdateCardData $data): UpdateCardResult
     {
         if ($data->frontText === '') {
             throw new InvalidArgumentException('Card front text is required.');
@@ -20,10 +21,12 @@ class UpdateCardAction
 
         $card->front_text = $data->frontText;
         $card->back_text = $data->backText;
+        $wasUpdated = $card->isDirty(['front_text', 'back_text']);
 
-        // Eloquent skips the UPDATE query when no attributes are dirty.
         $card->saveOrFail();
 
-        return $card;
+        return $wasUpdated
+            ? UpdateCardResult::updated($card)
+            : UpdateCardResult::unchanged($card);
     }
 }

@@ -43,6 +43,10 @@ class Card extends Model
             return (int) $this->deck->user_id;
         }
 
+        if (array_key_exists('owner_user_id', $this->getAttributes())) {
+            return (int) $this->getAttribute('owner_user_id');
+        }
+
         $userId = $this->deck()->withTrashed()->value('user_id');
 
         if ($userId === null) {

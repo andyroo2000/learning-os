@@ -7,21 +7,32 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class ReviewCardAction
 {
+    public function __construct(
+        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+    ) {}
+
     public function handle(ReviewCardData $data): ReviewCardResult
     {
         if (! Str::isUlid($data->cardId)) {
             throw new InvalidArgumentException('Card ID must be a valid ULID.');
         }
 
-        if (! Card::query()->whereKey($data->cardId)->exists()) {
+        $card = Card::query()->whereKey($data->cardId)->first();
+
+        if ($card === null) {
             throw new InvalidArgumentException('Card does not exist.');
         }
 
@@ -67,7 +78,22 @@ class ReviewCardAction
         }
 
         try {
-            $reviewEvent->save();
+            return DB::transaction(function () use ($card, $reviewEvent): ReviewCardResult {
+                $reviewEvent->save();
+
+                $this->recordSyncFeedEntry->handle(
+                    RecordSyncFeedEntryData::fromInput(
+                        userId: $card->ownerUserId(),
+                        domain: CardReviewEventSyncPayload::DOMAIN,
+                        resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
+                        resourceId: $reviewEvent->id,
+                        operation: SyncFeedOperation::Create->value,
+                        payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+                    ),
+                );
+
+                return ReviewCardResult::created($reviewEvent);
+            });
         } catch (QueryException $exception) {
             if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
                 throw $exception;
@@ -81,8 +107,6 @@ class ReviewCardAction
 
             return ReviewCardResult::existing($existingReviewEvent);
         }
-
-        return ReviewCardResult::created($reviewEvent);
     }
 
     private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent

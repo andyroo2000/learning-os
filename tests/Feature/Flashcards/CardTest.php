@@ -82,6 +82,21 @@ class CardTest extends TestCase
         $this->assertSame($deck->user_id, $card->ownerUserId());
     }
 
+    public function test_owner_user_id_uses_a_selected_owner_attribute(): void
+    {
+        $deck = Deck::factory()->create();
+        $card = Card::factory()->create(['deck_id' => $deck->id]);
+
+        $queriedCard = Card::query()
+            ->select('cards.*')
+            ->selectRaw('decks.user_id as owner_user_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->whereKey($card->id)
+            ->sole();
+
+        $this->assertSame($deck->user_id, $queriedCard->ownerUserId());
+    }
+
     public function test_card_can_be_soft_deleted(): void
     {
         $card = Card::factory()->create();

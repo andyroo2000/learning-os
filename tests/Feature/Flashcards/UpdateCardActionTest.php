@@ -4,8 +4,13 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use RuntimeException;
 use Tests\TestCase;
 
 class UpdateCardActionTest extends TestCase
@@ -34,6 +39,23 @@ class UpdateCardActionTest extends TestCase
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($card->deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('card', $entry->resource_type);
+        $this->assertSame($card->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame([
+            'id' => $card->id,
+            'deck_id' => $card->deck_id,
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'created_at' => $updatedCard->created_at?->toJSON(),
+            'updated_at' => $updatedCard->updated_at?->toJSON(),
+            'deleted_at' => null,
+        ], $entry->payload);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -57,6 +79,43 @@ class UpdateCardActionTest extends TestCase
         $this->assertSame('goodbye', $updatedCard->back_text);
     }
 
+    public function test_it_rolls_back_when_feed_recording_fails(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $updateCard = new UpdateCardAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $updateCard->handle(
+                $card,
+                UpdateCardData::fromInput(
+                    frontText: 'arrivederci',
+                    backText: 'goodbye',
+                ),
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+
     public function test_it_marks_unchanged_when_normalized_text_matches_the_existing_card(): void
     {
         $card = $this->cardFor($this->signIn(), [
@@ -74,6 +133,7 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertFalse($result->wasUpdated);
         $this->assertSame($card->id, $result->card->id);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rejects_blank_front_text(): void

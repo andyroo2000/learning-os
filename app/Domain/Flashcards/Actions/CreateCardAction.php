@@ -8,18 +8,25 @@ use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateCardResult;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
 use Closure;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use LogicException;
+use Throwable;
 
 class CreateCardAction
 {
     /** @internal Test-only race seams; see tests/Feature/Flashcards/CreateCardActionTest.php. */
     public function __construct(
+        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
         private readonly ?Closure $afterClientIdPrecheckMiss = null,
         private readonly ?Closure $afterClientIdUniqueConflict = null,
     ) {
@@ -78,6 +85,15 @@ class CreateCardAction
             throw CardValidationException::deckDoesNotExist();
         }
 
+        return $this->createNewCard($data);
+    }
+
+    /**
+     * Uses manual transaction control so unique-key race recovery can roll back the failed
+     * insert before refetching the winning card without emitting a duplicate feed entry.
+     */
+    private function createNewCard(CreateCardData $data): CreateCardResult
+    {
         $card = new Card([
             'deck_id' => $data->deckId,
             'front_text' => $data->frontText,
@@ -88,9 +104,23 @@ class CreateCardAction
             $card->id = $data->id;
         }
 
+        DB::beginTransaction();
+
         try {
             $card->save();
+            $this->recordSyncFeedEntry->handle(
+                RecordSyncFeedEntryData::fromInput(
+                    userId: $data->userId,
+                    domain: CardSyncPayload::DOMAIN,
+                    resourceType: CardSyncPayload::RESOURCE_TYPE,
+                    resourceId: $card->id,
+                    operation: SyncFeedOperation::Create->value,
+                    payload: CardSyncPayload::fromCard($card),
+                ),
+            );
         } catch (QueryException $exception) {
+            DB::rollBack();
+
             if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'cards')) {
                 throw $exception;
             }
@@ -109,8 +139,15 @@ class CreateCardAction
 
             // Race recovery delegates ownership hiding to resolveExistingCard; the HTTP
             // layer converts cross-user conflicts to 404 even when deck validation was skipped.
+            // The race winner owns the feed entry; this loser returns existing without duplicating it.
             return CreateCardResult::existing($this->resolveExistingCard($existingCard, $data));
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
         }
+
+        DB::commit();
 
         return CreateCardResult::created($card);
     }

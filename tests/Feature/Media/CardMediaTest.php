@@ -4,6 +4,7 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -115,5 +116,67 @@ class CardMediaTest extends TestCase
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,
         ]);
+    }
+
+    public function test_cleanup_migration_removes_cross_owner_card_media_attachments(): void
+    {
+        $owner = $this->signIn();
+        $otherUser = User::factory()->create();
+        $sameOwnerCard = $this->cardFor($owner);
+        $sameOwnerMediaAsset = $this->mediaAssetFor($owner);
+        $crossOwnerCard = $this->cardFor($owner);
+        $crossOwnerMediaAsset = $this->mediaAssetFor($otherUser);
+
+        $sameOwnerCard->mediaAssets()->attach($sameOwnerMediaAsset->id);
+        $crossOwnerCard->mediaAssets()->attach($crossOwnerMediaAsset->id);
+
+        $this->runCardMediaCleanupMigration();
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $sameOwnerCard->id,
+            'media_asset_id' => $sameOwnerMediaAsset->id,
+        ]);
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $crossOwnerCard->id,
+            'media_asset_id' => $crossOwnerMediaAsset->id,
+        ]);
+    }
+
+    public function test_cleanup_migration_removes_cross_owner_card_media_attachments_for_soft_deleted_records(): void
+    {
+        $owner = $this->signIn();
+        $otherUser = User::factory()->create();
+        $softDeletedCard = $this->cardFor($owner);
+        $softDeletedCardMediaAsset = $this->mediaAssetFor($otherUser);
+        $softDeletedDeckCard = $this->cardFor($owner);
+        $softDeletedDeckMediaAsset = $this->mediaAssetFor($otherUser);
+
+        $softDeletedCard->mediaAssets()->attach($softDeletedCardMediaAsset->id);
+        $softDeletedDeckCard->mediaAssets()->attach($softDeletedDeckMediaAsset->id);
+
+        $softDeletedCard->delete();
+        $softDeletedDeckCard->deck()->firstOrFail()->delete();
+
+        $this->runCardMediaCleanupMigration();
+
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $softDeletedCard->id,
+            'media_asset_id' => $softDeletedCardMediaAsset->id,
+        ]);
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $softDeletedDeckCard->id,
+            'media_asset_id' => $softDeletedDeckMediaAsset->id,
+        ]);
+    }
+
+    private function runCardMediaCleanupMigration(): void
+    {
+        $migrationFiles = glob(database_path('migrations/*_prune_cross_owner_card_media_pivots.php'));
+
+        $this->assertIsArray($migrationFiles);
+        $this->assertCount(1, $migrationFiles, 'Cleanup migration not found.');
+
+        $migration = include $migrationFiles[0];
+        $migration->up();
     }
 }

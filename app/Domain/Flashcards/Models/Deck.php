@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
+// Deck ownership is treated as immutable after creation; card/media ownership checks rely on that invariant.
 #[Fillable(['user_id', 'name', 'description'])]
 class Deck extends Model
 {
@@ -21,6 +23,12 @@ class Deck extends Model
 
     protected static function booted(): void
     {
+        static::updating(function (Deck $deck): void {
+            if ($deck->isDirty('user_id')) {
+                throw new LogicException('Deck owner cannot be changed.');
+            }
+        });
+
         static::deleted(function (Deck $deck): void {
             // The cards foreign key is ON DELETE CASCADE, so the database handles force deletes.
             if ($deck->isForceDeleting()) {

@@ -5,11 +5,13 @@ namespace Tests\Feature\Media;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\TestCase;
@@ -25,7 +27,7 @@ class AttachMediaToCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $updatedCard = app(AttachMediaToCardAction::class)->handle(
             AttachMediaToCardData::fromModels($card, $mediaAsset),
@@ -63,7 +65,7 @@ class AttachMediaToCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
         $attachMedia = new AttachMediaToCardAction(
             recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
             {
@@ -74,6 +76,7 @@ class AttachMediaToCardActionTest extends TestCase
             },
         );
 
+        // Use try/catch so post-exception database assertions still run.
         try {
             $attachMedia->handle(AttachMediaToCardData::fromModels($card, $mediaAsset));
 
@@ -99,7 +102,7 @@ class AttachMediaToCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
@@ -118,7 +121,7 @@ class AttachMediaToCardActionTest extends TestCase
     public function test_sync_without_detaching_reports_no_updated_changes_without_pivot_attributes(): void
     {
         $card = Card::factory()->create();
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
@@ -131,8 +134,8 @@ class AttachMediaToCardActionTest extends TestCase
     public function test_it_loads_media_assets_in_id_order(): void
     {
         $card = Card::factory()->create();
-        $firstMediaAsset = MediaAsset::factory()->create();
-        $secondMediaAsset = MediaAsset::factory()->create();
+        $firstMediaAsset = $this->mediaAssetForCardOwner($card);
+        $secondMediaAsset = $this->mediaAssetForCardOwner($card);
 
         $card->mediaAssets()->attach($secondMediaAsset->id);
 
@@ -145,5 +148,29 @@ class AttachMediaToCardActionTest extends TestCase
             ->all();
 
         $this->assertSame($expectedMediaAssetIds, $updatedCard->mediaAssets->pluck('id')->all());
+    }
+
+    public function test_it_rejects_media_assets_owned_by_another_user(): void
+    {
+        $card = $this->cardFor(User::factory()->create());
+        $mediaAsset = MediaAsset::factory()
+            ->for(User::factory()->create())
+            ->create();
+
+        // Use try/catch so post-exception database assertions still run.
+        try {
+            app(AttachMediaToCardAction::class)->handle(
+                AttachMediaToCardData::fromModels($card, $mediaAsset),
+            );
+
+            $this->fail('Expected owner mismatch was not thrown.');
+        } catch (MediaOwnershipException $exception) {
+            $this->assertSame(
+                "Card {$card->id} owner {$card->ownerUserId()} and media asset {$mediaAsset->id} owner {$mediaAsset->user_id} differ.",
+                $exception->getMessage(),
+            );
+            $this->assertDatabaseCount('card_media', 0);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 }

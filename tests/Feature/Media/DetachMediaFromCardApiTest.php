@@ -3,8 +3,13 @@
 namespace Tests\Feature\Media;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Media\Actions\DetachMediaFromCardAction;
+use App\Domain\Media\Data\DetachMediaFromCardData;
+use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -79,7 +84,7 @@ class DetachMediaFromCardApiTest extends TestCase
         $response->assertNotFound();
     }
 
-    public function test_it_rejects_another_users_media_asset(): void
+    public function test_it_returns_not_found_for_a_real_cross_owner_detach_request(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
@@ -87,15 +92,22 @@ class DetachMediaFromCardApiTest extends TestCase
 
         // This cannot happen through the attach API, but protects against stale or imported rows.
         $card->mediaAssets()->attach($mediaAsset->id);
+        Log::spy();
 
         $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}");
 
         $response->assertNotFound();
 
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(fn (string $message, array $context): bool => str_contains($message, 'media asset')
+                && ($context['exception'] ?? null) instanceof MediaOwnershipException);
+
         $this->assertDatabaseHas('card_media', [
             'card_id' => $card->id,
             'media_asset_id' => $mediaAsset->id,
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rejects_missing_card(): void
@@ -127,6 +139,32 @@ class DetachMediaFromCardApiTest extends TestCase
         $response = $this->deleteJson("/api/cards/{$otherCard->id}/media-assets/{$mediaAsset->id}");
 
         $response->assertNotFound();
+    }
+
+    public function test_it_returns_not_found_when_action_detects_owner_mismatch(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $this->app->instance(DetachMediaFromCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends DetachMediaFromCardAction
+        {
+            public function handle(DetachMediaFromCardData $data): Card
+            {
+                throw new MediaOwnershipException('Card and media asset must belong to the same user.');
+            }
+        });
+
+        $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}");
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
     }
 
     public function test_it_requires_authentication(): void

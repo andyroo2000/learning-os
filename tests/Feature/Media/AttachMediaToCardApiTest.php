@@ -5,11 +5,13 @@ namespace Tests\Feature\Media;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -206,6 +208,29 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_returns_not_found_when_action_detects_owner_mismatch(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                throw new MediaOwnershipException('Card and media asset must belong to the same user.');
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
     public function test_it_reraises_non_integrity_database_errors(): void
     {
         $user = $this->signIn();
@@ -296,19 +321,23 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
-    public function test_it_rejects_another_users_media_asset(): void
+    public function test_it_returns_not_found_for_another_users_media_asset(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->create();
+        Log::spy();
 
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
             'media_asset_id' => $mediaAsset->id,
         ]);
 
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['media_asset_id']);
+        $response->assertNotFound();
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(fn (string $message, array $context): bool => str_contains($message, 'media asset')
+                && ($context['exception'] ?? null) instanceof MediaOwnershipException);
 
         $this->assertDatabaseCount('card_media', 0);
     }

@@ -32,13 +32,14 @@ class AttachMediaToCardRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Validate presence and shape here; withValidator checks existence, and the action owns ownership.
             'media_asset_id' => ['required', 'ulid'],
         ];
     }
 
     public function mediaAsset(): MediaAsset
     {
-        // Validation owns lookup; future sync/auth work can add stronger race handling if needed.
+        // Validation owns existence lookup; the action enforces card/media ownership atomically.
         $mediaAsset = $this->resolveMediaAsset();
 
         return $mediaAsset ?? throw new LogicException('mediaAsset() called before validation completed or outside a validated request context.');
@@ -55,6 +56,7 @@ class AttachMediaToCardRequest extends FormRequest
             $mediaAsset = $this->resolveMediaAsset();
 
             if ($mediaAsset === null) {
+                // Null means missing; existing cross-owner assets continue to the action for a 404.
                 $validator->errors()->add('media_asset_id', 'The selected media asset id is invalid.');
             }
         });
@@ -68,6 +70,11 @@ class AttachMediaToCardRequest extends FormRequest
 
         $this->mediaAssetResolutionAttempted = true;
 
+        if ($this->user() === null) {
+            // The route is authenticated; keep this resolver safe if reused earlier.
+            return $this->resolvedMediaAsset = null;
+        }
+
         $mediaAssetId = $this->input('media_asset_id');
 
         if (! is_string($mediaAssetId)) {
@@ -75,16 +82,9 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset = null;
         }
 
-        $userId = $this->user()?->id;
-
-        if ($userId === null) {
-            // Unreachable behind auth:sanctum, but keeps this helper safe outside normal routing.
-            return $this->resolvedMediaAsset = null;
-        }
-
+        // Resolve by ID only; this intentionally moves ownership from validation to the action.
         return $this->resolvedMediaAsset = MediaAsset::query()
             ->whereKey($mediaAssetId)
-            ->where('user_id', $userId)
             ->first();
     }
 }

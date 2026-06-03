@@ -5,11 +5,13 @@ namespace Tests\Feature\Media;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\DetachMediaFromCardAction;
 use App\Domain\Media\Data\DetachMediaFromCardData;
+use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\TestCase;
@@ -25,7 +27,7 @@ class DetachMediaFromCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $card->mediaAssets()->attach($mediaAsset->id);
         $pivot = $card->mediaAssets()->whereKey($mediaAsset->id)->first()?->pivot;
@@ -65,7 +67,7 @@ class DetachMediaFromCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
         $detachMedia = new DetachMediaFromCardAction(
             recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
             {
@@ -78,6 +80,7 @@ class DetachMediaFromCardActionTest extends TestCase
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
+        // Use try/catch so post-exception database assertions still run.
         try {
             $detachMedia->handle(DetachMediaFromCardData::fromModels($card, $mediaAsset));
 
@@ -103,7 +106,7 @@ class DetachMediaFromCardActionTest extends TestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $mediaAsset = MediaAsset::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $updatedCard = app(DetachMediaFromCardAction::class)->handle(
             DetachMediaFromCardData::fromModels($card, $mediaAsset),
@@ -117,5 +120,34 @@ class DetachMediaFromCardActionTest extends TestCase
             'updated_at' => $timestamp,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_media_assets_owned_by_another_user(): void
+    {
+        $card = $this->cardFor(User::factory()->create());
+        $mediaAsset = MediaAsset::factory()
+            ->for(User::factory()->create())
+            ->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        // Use try/catch so post-exception database assertions still run.
+        try {
+            app(DetachMediaFromCardAction::class)->handle(
+                DetachMediaFromCardData::fromModels($card, $mediaAsset),
+            );
+
+            $this->fail('Expected owner mismatch was not thrown.');
+        } catch (MediaOwnershipException $exception) {
+            $this->assertSame(
+                "Card {$card->id} owner {$card->ownerUserId()} and media asset {$mediaAsset->id} owner {$mediaAsset->user_id} differ.",
+                $exception->getMessage(),
+            );
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 }

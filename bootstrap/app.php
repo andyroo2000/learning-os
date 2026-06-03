@@ -20,7 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
 
-        $exceptions->render(function (StaleSyncFeedCheckpointException $exception, Request $request): JsonResponse {
+        $exceptions->render(function (StaleSyncFeedCheckpointException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => $exception->reason(),

@@ -33,9 +33,13 @@ class ListSyncFeedEntriesAction
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
-        $baseQuery = SyncFeedEntry::query()
-            ->where('user_id', $userId)
+        $userFeedQuery = SyncFeedEntry::query()
+            ->where('user_id', $userId);
+
+        $baseQuery = (clone $userFeedQuery)
             ->when($domain !== null, fn ($query) => $query->where('domain', $domain));
+
+        $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
         if ($afterCheckpoint > 0) {
             $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');
@@ -55,6 +59,6 @@ class ListSyncFeedEntriesAction
             ->limit($pageSize->value() + 1)
             ->get();
 
-        return ListSyncFeedEntriesResult::fromLookahead($entries, $pageSize);
+        return ListSyncFeedEntriesResult::fromLookahead($entries, $pageSize, $currentCheckpoint);
     }
 }

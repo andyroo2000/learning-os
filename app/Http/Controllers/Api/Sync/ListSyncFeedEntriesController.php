@@ -32,7 +32,8 @@ class ListSyncFeedEntriesController extends Controller
             ->additional([
                 'meta' => [
                     'after_checkpoint' => $afterCheckpoint,
-                    // Domain-filtered clients should keep a separate bookmark from the full-feed cursor.
+                    'current_checkpoint' => $result->currentCheckpoint,
+                    // Domain-filtered complete pages can advance to the full-feed high-water mark without skipping future entries.
                     'next_checkpoint' => $result->nextCheckpoint($afterCheckpoint),
                     'has_more' => $result->hasMore,
                     'per_page' => $pageSize->value(),

@@ -14,12 +14,13 @@ final readonly class ListSyncFeedEntriesResult
     private function __construct(
         public Collection $entries,
         public bool $hasMore,
+        public int $currentCheckpoint,
     ) {}
 
     /**
      * @param  Collection<int, SyncFeedEntry>  $entries
      */
-    public static function fromLookahead(Collection $entries, CursorPageSize $pageSize): self
+    public static function fromLookahead(Collection $entries, CursorPageSize $pageSize, int $currentCheckpoint): self
     {
         $limit = $pageSize->value();
         $hasMore = $entries->count() > $limit;
@@ -28,11 +29,17 @@ final readonly class ListSyncFeedEntriesResult
         return new self(
             entries: $pageEntries,
             hasMore: $hasMore,
+            currentCheckpoint: $currentCheckpoint,
         );
     }
 
     public function nextCheckpoint(int $fallbackCheckpoint): int
     {
-        return $this->entries->max('checkpoint') ?? $fallbackCheckpoint;
+        if ($this->hasMore) {
+            return (int) ($this->entries->max('checkpoint') ?? $fallbackCheckpoint);
+        }
+
+        // The checkpoint primary key is monotonic; include delivered entries in case they arrived after currentCheckpoint was read.
+        return max($fallbackCheckpoint, $this->currentCheckpoint, (int) ($this->entries->max('checkpoint') ?? 0));
     }
 }

@@ -34,6 +34,8 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $third->checkpoint,
         ], $result->entries->pluck('checkpoint')->all());
         $this->assertFalse($result->hasMore);
+        $this->assertSame($third->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($third->checkpoint, $result->nextCheckpoint($first->checkpoint));
     }
 
     public function test_it_lists_the_full_user_feed_when_checkpoint_is_zero(): void
@@ -72,7 +74,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);
-        SyncFeedEntry::factory()->create([
+        $media = SyncFeedEntry::factory()->create([
             'user_id' => $user->id,
             'domain' => 'media',
         ]);
@@ -83,6 +85,8 @@ class ListSyncFeedEntriesActionTest extends TestCase
         );
 
         $this->assertSame([$flashcards->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertSame($media->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($result->currentCheckpoint, $result->nextCheckpoint(0));
     }
 
     public function test_it_filters_by_domain_and_checkpoint_together(): void
@@ -221,6 +225,8 @@ class ListSyncFeedEntriesActionTest extends TestCase
 
         $this->assertTrue($result->entries->isEmpty());
         $this->assertFalse($result->hasMore);
+        $this->assertSame($media->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($media->checkpoint, $result->nextCheckpoint($media->checkpoint));
     }
 
     public function test_it_caps_the_page_size(): void
@@ -235,6 +241,14 @@ class ListSyncFeedEntriesActionTest extends TestCase
 
         $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $result->entries);
         $this->assertTrue($result->hasMore);
+        $this->assertGreaterThan(
+            $result->entries->last()->checkpoint,
+            $result->currentCheckpoint,
+        );
+        $this->assertSame(
+            $result->entries->last()->checkpoint,
+            $result->nextCheckpoint(0),
+        );
     }
 
     public function test_it_uses_the_default_page_size_when_none_is_provided(): void
@@ -287,7 +301,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);
-        SyncFeedEntry::factory()->create([
+        $media = SyncFeedEntry::factory()->create([
             'user_id' => $user->id,
             'domain' => 'media',
         ]);
@@ -303,6 +317,39 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $secondFlashcards->checkpoint,
         ], $result->entries->pluck('checkpoint')->all());
         $this->assertFalse($result->hasMore);
+        $this->assertSame($media->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($result->currentCheckpoint, $result->nextCheckpoint(0));
+    }
+
+    public function test_domain_filtered_partial_pages_keep_next_checkpoint_at_the_page_boundary(): void
+    {
+        $user = User::factory()->create();
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $secondFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $media = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: 'flashcards',
+            pageSize: CursorPageSize::fromPerPage(2),
+        );
+
+        $this->assertTrue($result->hasMore);
+        $this->assertSame($media->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($secondFlashcards->checkpoint, $result->nextCheckpoint(0));
     }
 
     public function test_it_rejects_non_positive_user_id(): void

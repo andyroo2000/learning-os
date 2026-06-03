@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use LogicException;
 
 #[Fillable(['deck_id', 'front_text', 'back_text'])]
 class Card extends Model
@@ -31,6 +32,24 @@ class Card extends Model
     public function deck(): BelongsTo
     {
         return $this->belongsTo(Deck::class);
+    }
+
+    /**
+     * Prefer an eager-loaded deck when callers already have one; otherwise query only the owner ID.
+     */
+    public function ownerUserId(): int
+    {
+        if ($this->relationLoaded('deck') && $this->deck !== null) {
+            return (int) $this->deck->user_id;
+        }
+
+        $userId = $this->deck()->withTrashed()->value('user_id');
+
+        if ($userId === null) {
+            throw new LogicException('Card deck owner could not be resolved.');
+        }
+
+        return (int) $userId;
     }
 
     /**

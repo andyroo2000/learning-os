@@ -5,7 +5,12 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\DeleteCardAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Tests\TestCase;
 
 class DeleteCardActionTest extends TestCase
@@ -23,6 +28,50 @@ class DeleteCardActionTest extends TestCase
         $this->assertSoftDeleted('cards', [
             'id' => $card->id,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($card->deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('card', $entry->resource_type);
+        $this->assertSame($card->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertSame([
+            'id' => $card->id,
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'created_at' => $card->created_at?->toJSON(),
+            'updated_at' => $card->updated_at?->toJSON(),
+            'deleted_at' => $card->deleted_at?->toJSON(),
+        ], $entry->payload);
+    }
+
+    public function test_it_rolls_back_when_feed_recording_fails(): void
+    {
+        $card = $this->cardFor($this->signIn());
+        $deleteCard = new DeleteCardAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $deleteCard->handle($card);
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'deleted_at' => null,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_no_ops_when_card_is_already_soft_deleted(): void
@@ -38,6 +87,7 @@ class DeleteCardActionTest extends TestCase
         $this->assertSoftDeleted('cards', [
             'id' => $card->id,
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_retains_card_media_and_review_events(): void

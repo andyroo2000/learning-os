@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -496,6 +497,7 @@ class CreateCardApiTest extends TestCase
         $caughtUniqueConflict = false;
 
         $createCard = new CreateCardAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateCardData $data) use (&$inserted, $otherDeck): void {
                 if ($inserted || $data->id === null) {
                     return;
@@ -546,6 +548,7 @@ class CreateCardApiTest extends TestCase
         $inserted = false;
 
         $createCard = new CreateCardAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateCardData $data) use (&$inserted, $deck): void {
                 if ($inserted || $data->id === null) {
                     return;

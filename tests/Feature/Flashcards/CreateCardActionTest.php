@@ -7,6 +7,10 @@ use App\Domain\Flashcards\Data\CreateCardData;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,6 +20,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
 use ReflectionMethod;
+use RuntimeException;
 use Tests\TestCase;
 
 class CreateCardActionTest extends TestCase
@@ -46,6 +51,23 @@ class CreateCardActionTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('card', $entry->resource_type);
+        $this->assertSame($card->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame([
+            'id' => $card->id,
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'created_at' => $card->created_at?->toJSON(),
+            'updated_at' => $card->updated_at?->toJSON(),
+            'deleted_at' => null,
+        ], $entry->payload);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -72,6 +94,77 @@ class CreateCardActionTest extends TestCase
             'id' => strtolower($id),
             'deck_id' => $deck->id,
         ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $deck->user_id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => strtolower($id),
+            'operation' => 'create',
+        ]);
+    }
+
+    public function test_it_rolls_back_client_provided_id_creates_when_feed_recording_fails(): void
+    {
+        $deck = Deck::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $createCard = new CreateCardAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $createCard->handle(
+                CreateCardData::fromInput(
+                    userId: $deck->user_id,
+                    deckId: $deck->id,
+                    frontText: 'ciao',
+                    backText: 'hello',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseMissing('cards', ['id' => $id]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+
+    public function test_it_rolls_back_server_generated_id_creates_when_feed_recording_fails(): void
+    {
+        $deck = Deck::factory()->create();
+        $createCard = new CreateCardAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $createCard->handle(
+                CreateCardData::fromInput(
+                    userId: $deck->user_id,
+                    deckId: $deck->id,
+                    frontText: 'ciao',
+                    backText: 'hello',
+                ),
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseCount('cards', 0);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_trims_text_inputs(): void
@@ -140,6 +233,7 @@ class CreateCardActionTest extends TestCase
         $this->assertTrue($existingCard->is($card));
         $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_matches_legacy_untrimmed_text_for_idempotent_retries(): void
@@ -168,6 +262,7 @@ class CreateCardActionTest extends TestCase
         $this->assertTrue($existingCard->is($card));
         $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_returns_existing_card_when_concurrent_create_wins_the_race(): void
@@ -177,6 +272,7 @@ class CreateCardActionTest extends TestCase
         $inserted = false;
 
         $createCard = new CreateCardAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateCardData $data) use (&$inserted, $deck): void {
                 if ($inserted || $data->id === null) {
                     return;
@@ -211,6 +307,7 @@ class CreateCardActionTest extends TestCase
         $this->assertSame($id, $card->id);
         $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rethrows_the_unique_exception_when_the_race_winner_disappears_before_refetch(): void
@@ -221,6 +318,7 @@ class CreateCardActionTest extends TestCase
         $deleted = false;
 
         $createCard = new CreateCardAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateCardData $data) use (&$inserted, $deck): void {
                 if ($inserted || $data->id === null) {
                     return;
@@ -354,7 +452,7 @@ class CreateCardActionTest extends TestCase
         $ownerIdFor->setAccessible(true);
 
         try {
-            $ownerIdFor->invoke(new CreateCardAction, $card);
+            $ownerIdFor->invoke(app(CreateCardAction::class), $card);
 
             $this->fail('Owner resolution did not fail for an orphaned card.');
         } catch (LogicException $exception) {
@@ -380,7 +478,7 @@ class CreateCardActionTest extends TestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Card deck relation must be eager-loaded for conflict resolution.');
 
-        $ownerIdFor->invoke(new CreateCardAction, $card);
+        $ownerIdFor->invoke(app(CreateCardAction::class), $card);
     }
 
     public function test_it_rejects_non_positive_user_ids(): void

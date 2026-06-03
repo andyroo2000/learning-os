@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use LogicException;
 use Tests\TestCase;
 
 class CardTest extends TestCase
@@ -55,6 +56,30 @@ class CardTest extends TestCase
 
         $this->assertTrue($card->deck->is($deck));
         $this->assertTrue($deck->cards->contains($card));
+    }
+
+    public function test_owner_user_id_fails_when_parent_deck_cannot_be_resolved(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_resolves_soft_deleted_parent_decks(): void
+    {
+        $deck = Deck::factory()->create();
+        $card = Card::factory()->create(['deck_id' => $deck->id]);
+
+        $deck->delete();
+
+        $this->assertSame($deck->user_id, $card->ownerUserId());
     }
 
     public function test_card_can_be_soft_deleted(): void

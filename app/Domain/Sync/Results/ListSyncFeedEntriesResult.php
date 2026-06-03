@@ -35,10 +35,8 @@ final readonly class ListSyncFeedEntriesResult
 
     public function nextCheckpoint(int $fallbackCheckpoint): int
     {
-        $pageCheckpoint = $this->entries->max('checkpoint');
-
         if ($this->hasMore) {
-            return (int) ($pageCheckpoint ?? $fallbackCheckpoint);
+            return (int) ($this->entries->max('checkpoint') ?? $fallbackCheckpoint);
         }
 
         return max($fallbackCheckpoint, $this->currentCheckpoint);

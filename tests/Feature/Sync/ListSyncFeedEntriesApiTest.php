@@ -155,6 +155,21 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
+    public function test_it_reports_zero_current_checkpoint_when_the_user_feed_is_empty(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.after_checkpoint', 0)
+            ->assertJsonPath('meta.current_checkpoint', 0)
+            ->assertJsonPath('meta.next_checkpoint', 0)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
     public function test_it_lists_the_full_feed_when_after_checkpoint_is_omitted(): void
     {
         $user = $this->signIn();

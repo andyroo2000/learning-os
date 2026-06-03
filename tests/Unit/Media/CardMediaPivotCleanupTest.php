@@ -96,7 +96,7 @@ class CardMediaPivotCleanupTest extends TestCase
     {
         // Derive from the SQL fixture list so every portability test tracks the same grammar targets.
         return array_map(
-            fn (array $fixture): array => [$fixture[0]],
+            fn (array $fixture): array => [$fixture['grammar']],
             self::portableSqlProvider(),
         );
     }
@@ -107,7 +107,7 @@ class CardMediaPivotCleanupTest extends TestCase
     public static function portableSelectSqlProvider(): array
     {
         return array_map(
-            fn (array $fixture): array => [$fixture[0], $fixture[1]],
+            fn (array $fixture): array => [$fixture['grammar'], $fixture['select']],
             self::portableSqlProvider(),
         );
     }
@@ -118,32 +118,32 @@ class CardMediaPivotCleanupTest extends TestCase
     public static function portableDeleteSqlProvider(): array
     {
         return array_map(
-            fn (array $fixture): array => [$fixture[0], $fixture[2]],
+            fn (array $fixture): array => [$fixture['grammar'], $fixture['delete']],
             self::portableSqlProvider(),
         );
     }
 
     /**
-     * @return array<string, array{class-string<Grammar>, string, string}>
+     * @return array<string, array{grammar: class-string<Grammar>, select: string, delete: string}>
      */
     public static function portableSqlProvider(): array
     {
         return [
             'sqlite' => [
-                SQLiteGrammar::class,
-                self::expectedSelectSql('"'),
-                self::expectedDeleteSql('"'),
+                'grammar' => SQLiteGrammar::class,
+                'select' => self::expectedSelectSql('"'),
+                'delete' => self::expectedDeleteSql('"'),
             ],
             'postgres' => [
-                PostgresGrammar::class,
+                'grammar' => PostgresGrammar::class,
                 // SQLite and Postgres both use double-quoted identifiers; split this fixture if the grammars diverge.
-                self::expectedSelectSql('"'),
-                self::expectedDeleteSql('"'),
+                'select' => self::expectedSelectSql('"'),
+                'delete' => self::expectedDeleteSql('"'),
             ],
             'mysql' => [
-                MySqlGrammar::class,
-                self::expectedSelectSql('`'),
-                self::expectedDeleteSql('`'),
+                'grammar' => MySqlGrammar::class,
+                'select' => self::expectedSelectSql('`'),
+                'delete' => self::expectedDeleteSql('`'),
             ],
         ];
     }

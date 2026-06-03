@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Actions\CreateDeckAction;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,6 +41,22 @@ class CreateDeckActionTest extends TestCase
             'name' => 'Italian Basics',
             'description' => null,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('deck', $entry->resource_type);
+        $this->assertSame($deck->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame([
+            'id' => $deck->id,
+            'name' => 'Italian Basics',
+            'description' => null,
+            'created_at' => $deck->created_at?->toJSON(),
+            'updated_at' => $deck->updated_at?->toJSON(),
+            'deleted_at' => null,
+        ], $entry->payload);
     }
 
     public function test_it_creates_a_deck_with_a_description(): void
@@ -61,6 +79,7 @@ class CreateDeckActionTest extends TestCase
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -174,6 +193,7 @@ class CreateDeckActionTest extends TestCase
         $this->assertFalse($result->wasCreated);
         $this->assertTrue($existingDeck->is($deck));
         $this->assertDatabaseCount('decks', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_returns_existing_deck_when_concurrent_create_wins_the_race(): void
@@ -213,6 +233,7 @@ class CreateDeckActionTest extends TestCase
         $this->assertFalse($result->wasCreated);
         $this->assertSame($id, $deck->id);
         $this->assertDatabaseCount('decks', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rejects_client_provided_ulid_conflicts(): void

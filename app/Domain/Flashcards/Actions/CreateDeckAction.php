@@ -6,13 +6,22 @@ use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateDeckResult;
+use App\Domain\Flashcards\Sync\DeckSyncPayload;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class CreateDeckAction
 {
+    public function __construct(
+        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+    ) {}
+
     public function handle(CreateDeckData $data): CreateDeckResult
     {
         if ($data->name === '') {
@@ -33,35 +42,48 @@ class CreateDeckAction
             }
         }
 
-        $deck = new Deck([
-            'user_id' => $data->userId,
-            'name' => $data->name,
-            'description' => $description,
-        ]);
+        return DB::transaction(function () use ($data, $description): CreateDeckResult {
+            $deck = new Deck([
+                'user_id' => $data->userId,
+                'name' => $data->name,
+                'description' => $description,
+            ]);
 
-        if ($data->id !== null) {
-            $deck->id = $data->id;
-        }
-
-        try {
-            $deck->save();
-        } catch (QueryException $exception) {
-            if ($data->id === null || ! IntegrityConstraintViolation::matches($exception)) {
-                throw $exception;
+            if ($data->id !== null) {
+                $deck->id = $data->id;
             }
 
-            // Covers a retry race where another request inserts this client-generated ULID
-            // between the pre-check above and this save attempt.
-            $existingDeck = Deck::withTrashed()->find($data->id);
+            try {
+                $deck->save();
+            } catch (QueryException $exception) {
+                if ($data->id === null || ! IntegrityConstraintViolation::matches($exception)) {
+                    throw $exception;
+                }
 
-            if ($existingDeck === null) {
-                throw $exception;
+                // Covers a retry race where another request inserts this client-generated ULID
+                // between the pre-check above and this save attempt.
+                $existingDeck = Deck::withTrashed()->find($data->id);
+
+                if ($existingDeck === null) {
+                    throw $exception;
+                }
+
+                return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
             }
 
-            return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
-        }
+            $this->recordSyncFeedEntry->handle(
+                RecordSyncFeedEntryData::fromInput(
+                    userId: $deck->user_id,
+                    domain: DeckSyncPayload::DOMAIN,
+                    resourceType: DeckSyncPayload::RESOURCE_TYPE,
+                    resourceId: $deck->id,
+                    operation: SyncFeedOperation::Create->value,
+                    payload: DeckSyncPayload::fromDeck($deck),
+                ),
+            );
 
-        return CreateDeckResult::created($deck);
+            return CreateDeckResult::created($deck);
+        });
     }
 
     private static function normalizedDescription(?string $description): ?string

@@ -27,6 +27,18 @@ class MediaAssetSyncPayloadTest extends TestCase
 
         $payload = MediaAssetSyncPayload::fromMediaAsset($mediaAsset);
 
+        $expected = [
+            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
+            'url' => 'https://cdn.example.test/uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+            'checksum_sha256' => str_repeat('a', 64),
+            'original_filename' => 'example.jpg',
+            'created_at' => '2026-05-27T09:14:00.000000Z',
+            'updated_at' => '2026-05-27T09:15:00.000000Z',
+        ];
+
+        $this->assertSame($expected, $payload);
         $this->assertSame([
             'id',
             'url',
@@ -37,7 +49,6 @@ class MediaAssetSyncPayloadTest extends TestCase
             'created_at',
             'updated_at',
         ], array_keys($payload));
-        $this->assertSame('https://cdn.example.test/uploads/example.jpg', $payload['url']);
         $this->assertArrayNotHasKey('disk', $payload);
         $this->assertArrayNotHasKey('path', $payload);
         $this->assertArrayNotHasKey('public_url', $payload);

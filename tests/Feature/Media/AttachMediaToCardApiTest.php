@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,7 +116,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -149,7 +150,7 @@ class AttachMediaToCardApiTest extends TestCase
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
-        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -181,7 +182,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -211,7 +212,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {

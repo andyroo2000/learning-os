@@ -26,6 +26,30 @@ class SyncMetadataTest extends TestCase
         );
     }
 
+    public function test_nullable_construction_requires_client_event_id_when_other_fields_are_present(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
+
+        SyncMetadata::fromNullable(
+            clientEventId: null,
+            deviceId: 'device-abc',
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+    }
+
+    public function test_nullable_construction_requires_client_created_at_when_other_fields_are_present(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
+
+        SyncMetadata::fromNullable(
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: null,
+        );
+    }
+
     public function test_it_creates_instance_when_all_nullable_fields_are_present(): void
     {
         $metadata = SyncMetadata::fromNullable(

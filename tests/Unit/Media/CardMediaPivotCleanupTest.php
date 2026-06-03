@@ -18,12 +18,34 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Verifies the historical cleanup migration's delete predicate; the migration slug is intentionally pinned.
+ * Exact SQL strings are deliberately brittle so grammar drift fails before the PostgreSQL migration path does.
  */
 class CardMediaPivotCleanupTest extends TestCase
 {
-    #[DataProvider('portableGrammarProvider')]
-    public function test_pair_delete_constraint_compiles_to_portable_sql(string $grammarClass): void
-    {
+    #[DataProvider('portableSelectSqlProvider')]
+    public function test_stale_pair_query_compiles_to_portable_sql(
+        string $grammarClass,
+        string $expectedSelectSql,
+    ): void {
+        $connection = $this->connection($grammarClass);
+        $connection->setQueryGrammar($this->grammar($grammarClass, $connection));
+
+        $builder = $this->cardMediaCleanupMigration()
+            ->stalePairsQuery($connection);
+
+        $sql = strtolower($builder->toSql());
+
+        $this->assertSame($expectedSelectSql, $sql);
+        $this->assertStringNotContainsString('ctid', $sql);
+        $this->assertStringNotContainsString('rowid', $sql);
+        $this->assertSame([], $builder->getBindings());
+    }
+
+    #[DataProvider('portableDeleteSqlProvider')]
+    public function test_pair_delete_constraint_compiles_to_portable_sql(
+        string $grammarClass,
+        string $expectedDeleteSql,
+    ): void {
         $connection = $this->connection($grammarClass);
         $grammar = $this->grammar($grammarClass, $connection);
         $query = new Builder($connection, $grammar, new Processor);
@@ -36,10 +58,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
         $sql = strtolower($grammar->compileDelete($builder));
 
-        $this->assertStringStartsWith('delete from ', $sql);
-        $this->assertStringContainsString('card_id', $sql);
-        $this->assertStringContainsString('media_asset_id', $sql);
-        $this->assertStringContainsString(' or ', $sql);
+        $this->assertSame($expectedDeleteSql, $sql);
         $this->assertStringNotContainsString(' join ', $sql);
         $this->assertStringNotContainsString(' using ', $sql);
         $this->assertStringNotContainsString('ctid', $sql);
@@ -67,6 +86,50 @@ class CardMediaPivotCleanupTest extends TestCase
         $this->assertStringNotContainsString('ctid', $sql);
         $this->assertStringNotContainsString('rowid', $sql);
         $this->assertSame([], $builder->getBindings());
+    }
+
+    /**
+     * @return array<string, array{class-string<Grammar>, string}>
+     */
+    public static function portableSelectSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteGrammar::class,
+                'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media" inner join "cards" on "cards"."id" = "card_media"."card_id" inner join "decks" on "decks"."id" = "cards"."deck_id" inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id" where "decks"."user_id" <> "media_assets"."user_id" order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
+            ],
+            'postgres' => [
+                PostgresGrammar::class,
+                // SQLite and Postgres both use double-quoted identifiers; keep both entries to exercise each grammar,
+                // and update them independently if the grammars diverge.
+                'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media" inner join "cards" on "cards"."id" = "card_media"."card_id" inner join "decks" on "decks"."id" = "cards"."deck_id" inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id" where "decks"."user_id" <> "media_assets"."user_id" order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
+            ],
+            'mysql' => [
+                MySqlGrammar::class,
+                'select `card_media`.`card_id`, `card_media`.`media_asset_id` from `card_media` inner join `cards` on `cards`.`id` = `card_media`.`card_id` inner join `decks` on `decks`.`id` = `cards`.`deck_id` inner join `media_assets` on `media_assets`.`id` = `card_media`.`media_asset_id` where `decks`.`user_id` <> `media_assets`.`user_id` order by `card_media`.`card_id` asc, `card_media`.`media_asset_id` asc',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, array{class-string<Grammar>, string}>
+     */
+    public static function portableDeleteSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteGrammar::class,
+                'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?) or ("card_id" = ? and "media_asset_id" = ?))',
+            ],
+            'postgres' => [
+                PostgresGrammar::class,
+                'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?) or ("card_id" = ? and "media_asset_id" = ?))',
+            ],
+            'mysql' => [
+                MySqlGrammar::class,
+                'delete from `card_media` where ((`card_id` = ? and `media_asset_id` = ?) or (`card_id` = ? and `media_asset_id` = ?))',
+            ],
+        ];
     }
 
     /**

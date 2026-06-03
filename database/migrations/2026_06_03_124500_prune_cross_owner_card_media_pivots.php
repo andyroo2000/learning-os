@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Connection;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -25,14 +26,7 @@ return new class extends Migration
                 throw new RuntimeException('Cross-owner card media cleanup reached the maximum batch limit; inspect remaining rows, then rerun or raise the limit if it repeatedly reaches the cap.');
             }
 
-            $stalePairs = DB::table('card_media')
-                ->select('card_media.card_id', 'card_media.media_asset_id')
-                ->join('cards', 'cards.id', '=', 'card_media.card_id')
-                ->join('decks', 'decks.id', '=', 'cards.deck_id')
-                ->join('media_assets', 'media_assets.id', '=', 'card_media.media_asset_id')
-                ->whereColumn('decks.user_id', '<>', 'media_assets.user_id')
-                ->orderBy('card_media.card_id')
-                ->orderBy('card_media.media_asset_id')
+            $stalePairs = $this->stalePairsQuery(DB::connection())
                 ->limit(500)
                 ->get();
 
@@ -46,6 +40,21 @@ return new class extends Migration
 
             $batches++;
         } while (true);
+    }
+
+    /**
+     * Public only to unit-test SQL portability without running the full migration; not intended for reuse.
+     */
+    public function stalePairsQuery(Connection $connection): Builder
+    {
+        return $connection->table('card_media')
+            ->select('card_media.card_id', 'card_media.media_asset_id')
+            ->join('cards', 'cards.id', '=', 'card_media.card_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->join('media_assets', 'media_assets.id', '=', 'card_media.media_asset_id')
+            ->whereColumn('decks.user_id', '<>', 'media_assets.user_id')
+            ->orderBy('card_media.card_id')
+            ->orderBy('card_media.media_asset_id');
     }
 
     /**

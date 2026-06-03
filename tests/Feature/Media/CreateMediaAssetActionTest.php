@@ -7,13 +7,17 @@ use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use LogicException;
+use RuntimeException;
 use Tests\TestCase;
 
 class CreateMediaAssetActionTest extends TestCase
@@ -53,6 +57,26 @@ class CreateMediaAssetActionTest extends TestCase
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('media', $entry->domain);
+        $this->assertSame('media_asset', $entry->resource_type);
+        $this->assertSame($mediaAsset->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame([
+            'id' => $mediaAsset->id,
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 123_456,
+            'checksum_sha256' => str_repeat('a', 64),
+            'original_filename' => 'example.jpg',
+            'created_at' => $mediaAsset->created_at?->toJSON(),
+            'updated_at' => $mediaAsset->updated_at?->toJSON(),
+        ], $entry->payload);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -79,6 +103,47 @@ class CreateMediaAssetActionTest extends TestCase
             'id' => strtolower($id),
             'user_id' => $user->id,
         ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'media_asset',
+            'resource_id' => strtolower($id),
+            'operation' => 'create',
+        ]);
+    }
+
+    public function test_it_rolls_back_when_feed_recording_fails(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $createMediaAsset = new CreateMediaAssetAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $createMediaAsset->handle(
+                CreateMediaAssetData::fromInput(
+                    userId: $user->id,
+                    disk: 'media',
+                    path: 'uploads/example.jpg',
+                    mimeType: 'image/jpeg',
+                    sizeBytes: 123_456,
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseMissing('media_assets', ['id' => $id]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_returns_existing_media_asset_when_provided_ulid_is_retried(): void
@@ -104,6 +169,7 @@ class CreateMediaAssetActionTest extends TestCase
         $this->assertFalse($secondResult->wasCreated);
         $this->assertTrue($secondResult->mediaAsset->is($firstResult->mediaAsset));
         $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_rejects_provided_ulid_retry_with_different_metadata(): void
@@ -207,50 +273,46 @@ class CreateMediaAssetActionTest extends TestCase
         $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
         $now = now();
+        $createMediaAsset = new CreateMediaAssetAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            afterClientIdPrecheckMiss: function (CreateMediaAssetData $data) use ($id, $now, $user): void {
+                $this->assertSame($id, $data->id);
 
-        // Matching race metadata returns the existing row; mismatching race metadata rejects below.
-        Event::listen('eloquent.creating: '.MediaAsset::class, function (MediaAsset $mediaAsset) use ($id, $now, $user): void {
-            if ($mediaAsset->id !== $id) {
-                return;
-            }
+                DB::table('media_assets')->insert([
+                    'id' => $id,
+                    'user_id' => $user->id,
+                    'disk' => 'media',
+                    'path' => 'uploads/race.jpg',
+                    'public_url' => 'https://cdn.example.test/uploads/race.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'size_bytes' => 123_456,
+                    'checksum_sha256' => str_repeat('a', 64),
+                    'original_filename' => 'race.jpg',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            },
+        );
 
-            DB::table('media_assets')->insert([
-                'id' => $id,
-                'user_id' => $user->id,
-                'disk' => 'media',
-                'path' => 'uploads/race.jpg',
-                'public_url' => 'https://cdn.example.test/uploads/race.jpg',
-                'mime_type' => 'image/jpeg',
-                'size_bytes' => 123_456,
-                'checksum_sha256' => str_repeat('a', 64),
-                'original_filename' => 'race.jpg',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        });
-
-        try {
-            $result = app(CreateMediaAssetAction::class)->handle(
-                CreateMediaAssetData::fromInput(
-                    userId: $user->id,
-                    disk: 'media',
-                    path: 'uploads/race.jpg',
-                    publicUrl: 'https://cdn.example.test/uploads/race.jpg',
-                    mimeType: 'image/jpeg',
-                    sizeBytes: 123_456,
-                    checksumSha256: str_repeat('A', 64),
-                    originalFilename: 'race.jpg',
-                    id: $id,
-                ),
-            );
-        } finally {
-            Event::forget('eloquent.creating: '.MediaAsset::class);
-        }
+        $result = $createMediaAsset->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/race.jpg',
+                publicUrl: 'https://cdn.example.test/uploads/race.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+                checksumSha256: str_repeat('A', 64),
+                originalFilename: 'race.jpg',
+                id: $id,
+            ),
+        );
         $mediaAsset = $result->mediaAsset;
 
         $this->assertFalse($result->wasCreated);
         $this->assertSame($id, $mediaAsset->id);
         $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rejects_concurrent_provided_ulid_insert_with_different_metadata(): void
@@ -258,44 +320,40 @@ class CreateMediaAssetActionTest extends TestCase
         $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
         $now = now();
+        $createMediaAsset = new CreateMediaAssetAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            afterClientIdPrecheckMiss: function (CreateMediaAssetData $data) use ($id, $now, $user): void {
+                $this->assertSame($id, $data->id);
 
-        Event::listen('eloquent.creating: '.MediaAsset::class, function (MediaAsset $mediaAsset) use ($id, $now, $user): void {
-            if ($mediaAsset->id !== $id) {
-                return;
-            }
+                DB::table('media_assets')->insert([
+                    'id' => $id,
+                    'user_id' => $user->id,
+                    'disk' => 'media',
+                    'path' => 'uploads/different-race.jpg',
+                    'public_url' => null,
+                    'mime_type' => 'image/jpeg',
+                    'size_bytes' => 123_456,
+                    'checksum_sha256' => null,
+                    'original_filename' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            },
+        );
 
-            DB::table('media_assets')->insert([
-                'id' => $id,
-                'user_id' => $user->id,
-                'disk' => 'media',
-                'path' => 'uploads/different-race.jpg',
-                'public_url' => null,
-                'mime_type' => 'image/jpeg',
-                'size_bytes' => 123_456,
-                'checksum_sha256' => null,
-                'original_filename' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        });
+        $this->expectException(MediaAssetConflictException::class);
+        $this->expectExceptionMessage('Media asset ID already exists with different metadata.');
 
-        try {
-            $this->expectException(MediaAssetConflictException::class);
-            $this->expectExceptionMessage('Media asset ID already exists with different metadata.');
-
-            app(CreateMediaAssetAction::class)->handle(
-                CreateMediaAssetData::fromInput(
-                    userId: $user->id,
-                    disk: 'media',
-                    path: 'uploads/race.jpg',
-                    mimeType: 'image/jpeg',
-                    sizeBytes: 123_456,
-                    id: $id,
-                ),
-            );
-        } finally {
-            Event::forget('eloquent.creating: '.MediaAsset::class);
-        }
+        $createMediaAsset->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/race.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+                id: $id,
+            ),
+        );
     }
 
     public function test_it_trims_inputs_and_stores_blank_optional_values_as_null(): void

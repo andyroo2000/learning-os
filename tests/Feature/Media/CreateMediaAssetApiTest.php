@@ -8,6 +8,7 @@ use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Results\CreateMediaAssetResult;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -295,7 +296,7 @@ class CreateMediaAssetApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
+        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends CreateMediaAssetAction
         {
             public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {
@@ -478,7 +479,7 @@ class CreateMediaAssetApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->app->instance(CreateMediaAssetAction::class, new class extends CreateMediaAssetAction
+        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends CreateMediaAssetAction
         {
             public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {

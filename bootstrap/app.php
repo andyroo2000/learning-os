@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
+
         $exceptions->render(function (StaleSyncFeedCheckpointException $exception, Request $request): JsonResponse {
             return response()->json([
                 'message' => $exception->getMessage(),

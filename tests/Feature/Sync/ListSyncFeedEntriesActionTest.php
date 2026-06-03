@@ -112,21 +112,22 @@ class ListSyncFeedEntriesActionTest extends TestCase
 
     public function test_it_rejects_stale_checkpoints_before_the_oldest_available_user_entry(): void
     {
-        // Make the target user's first checkpoint nonzero so checkpoint - 1 still exercises stale replay.
-        SyncFeedEntry::factory()->create(['user_id' => User::factory()->create()->id]);
         $user = User::factory()->create();
-        $oldest = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $oldest = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+        ]);
 
         try {
             app(ListSyncFeedEntriesAction::class)->handle(
                 userId: $user->id,
-                afterCheckpoint: $oldest->checkpoint - 1,
+                afterCheckpoint: 4,
             );
 
             $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
         } catch (StaleSyncFeedCheckpointException $exception) {
             $this->assertSame('Sync checkpoint is stale; perform a full resource resync.', $exception->getMessage());
-            $this->assertSame($oldest->checkpoint - 1, $exception->afterCheckpoint());
+            $this->assertSame(4, $exception->afterCheckpoint());
             $this->assertSame($oldest->checkpoint, $exception->oldestAvailableCheckpoint());
             $this->assertNull($exception->domain());
             $this->assertSame(StaleSyncFeedCheckpointException::REASON, $exception->reason());
@@ -138,10 +139,12 @@ class ListSyncFeedEntriesActionTest extends TestCase
     {
         $user = User::factory()->create();
         $media = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
             'user_id' => $user->id,
             'domain' => 'media',
         ]);
         $oldestFlashcard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);
@@ -182,10 +185,11 @@ class ListSyncFeedEntriesActionTest extends TestCase
 
     public function test_it_allows_checkpoint_zero_before_the_oldest_available_entry(): void
     {
-        // Keep the target user's first entry above checkpoint 1 while preserving zero as the full-sync start.
-        SyncFeedEntry::factory()->create(['user_id' => User::factory()->create()->id]);
         $user = User::factory()->create();
-        $oldest = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $oldest = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+        ]);
 
         $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,

@@ -211,18 +211,19 @@ class ListSyncFeedEntriesApiTest extends TestCase
 
     public function test_it_returns_a_stale_checkpoint_response_when_the_bookmark_is_before_the_user_feed_window(): void
     {
-        // Make the target user's first checkpoint nonzero so checkpoint - 1 still exercises stale replay.
-        SyncFeedEntry::factory()->create(['user_id' => User::factory()->create()->id]);
         $user = $this->signIn();
-        $oldest = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $oldest = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+        ]);
 
-        $response = $this->getJson('/api/sync/feed?after_checkpoint='.($oldest->checkpoint - 1));
+        $response = $this->getJson('/api/sync/feed?after_checkpoint=4');
 
         $response
             ->assertConflict()
             ->assertJsonPath('message', 'Sync checkpoint is stale; perform a full resource resync.')
             ->assertJsonPath('reason', 'stale_sync_checkpoint')
-            ->assertJsonPath('meta.after_checkpoint', $oldest->checkpoint - 1)
+            ->assertJsonPath('meta.after_checkpoint', 4)
             ->assertJsonPath('meta.oldest_available_checkpoint', $oldest->checkpoint)
             ->assertJsonPath('meta.domain', null)
             ->assertJsonPath('meta.required_action', 'full_resync')
@@ -233,10 +234,12 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $user = $this->signIn();
         $media = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
             'user_id' => $user->id,
             'domain' => 'media',
         ]);
         $oldestFlashcard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);

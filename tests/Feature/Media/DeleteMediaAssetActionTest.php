@@ -5,9 +5,14 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\TestCase;
 
 class DeleteMediaAssetActionTest extends TestCase
@@ -27,6 +32,54 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertDatabaseMissing('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('media', $entry->domain);
+        $this->assertSame('media_asset', $entry->resource_type);
+        $this->assertSame($mediaAsset->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertSame([
+            'id' => $mediaAsset->id,
+            'disk' => $mediaAsset->disk,
+            'path' => $mediaAsset->path,
+            'public_url' => $mediaAsset->public_url,
+            'mime_type' => $mediaAsset->mime_type,
+            'size_bytes' => $mediaAsset->size_bytes,
+            'checksum_sha256' => $mediaAsset->checksum_sha256,
+            'original_filename' => $mediaAsset->original_filename,
+            'created_at' => $mediaAsset->created_at?->toJSON(),
+            'updated_at' => $mediaAsset->updated_at?->toJSON(),
+        ], $entry->payload);
+    }
+
+    public function test_it_rolls_back_when_feed_recording_fails(): void
+    {
+        $user = User::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $deleteMediaAsset = new DeleteMediaAssetAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $deleteMediaAsset->handle(DeleteMediaAssetData::fromInput(
+                userId: $user->id,
+                mediaAssetId: $mediaAsset->id,
+            ));
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseHas('media_assets', ['id' => $mediaAsset->id]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_removes_card_attachments_when_deleting_a_media_asset(): void
@@ -61,6 +114,7 @@ class DeleteMediaAssetActionTest extends TestCase
         ));
 
         $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_does_not_delete_another_users_media_asset(): void
@@ -76,5 +130,6 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertDatabaseHas('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 }

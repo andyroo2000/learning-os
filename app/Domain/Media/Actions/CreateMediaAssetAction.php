@@ -7,20 +7,38 @@ use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Results\CreateMediaAssetResult;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
+use Closure;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
+use Throwable;
 
 class CreateMediaAssetAction
 {
+    /** @internal Test-only race seam; see tests/Feature/Media/CreateMediaAssetActionTest.php. */
+    public function __construct(
+        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?Closure $afterClientIdPrecheckMiss = null,
+    ) {
+        if ($afterClientIdPrecheckMiss !== null && ! app()->runningUnitTests()) {
+            throw new LogicException('Media asset creation race hooks may only be used in tests.');
+        }
+    }
+
     /**
-     * PostgreSQL callers should not wrap this action in a transaction without
-     * revisiting retry recovery; constraint violations abort the transaction.
+     * This action manages its own transaction. Do not wrap it in an outer transaction:
+     * constraint-violation rollbacks target the innermost savepoint and can leave
+     * the outer transaction aborted on PostgreSQL.
      *
      * @throws MediaAssetConflictException when a client ULID or disk/path pair conflicts.
      */
@@ -108,6 +126,10 @@ class CreateMediaAssetAction
             if ($existingMediaAsset !== null) {
                 return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
             }
+
+            if ($this->afterClientIdPrecheckMiss !== null) {
+                ($this->afterClientIdPrecheckMiss)($data);
+            }
         }
 
         $mediaAsset = new MediaAsset([
@@ -127,9 +149,19 @@ class CreateMediaAssetAction
         // public_url is intentionally not fillable; assign it explicitly after invariants are checked.
         $mediaAsset->public_url = $data->publicUrl;
 
+        return $this->createNewMediaAsset($mediaAsset, $data);
+    }
+
+    private function createNewMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): CreateMediaAssetResult
+    {
+        // Manual control lets constraint recovery read after rollback while keeping feed recording atomic.
+        DB::beginTransaction();
+
         try {
             $mediaAsset->save();
         } catch (QueryException $exception) {
+            DB::rollBack();
+
             if (! IntegrityConstraintViolation::matches($exception)) {
                 throw $exception;
             }
@@ -166,6 +198,29 @@ class CreateMediaAssetAction
             ]);
 
             throw MediaAssetConflictException::unresolvedStorageConflict();
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
+        }
+
+        try {
+            $this->recordSyncFeedEntry->handle(
+                RecordSyncFeedEntryData::fromInput(
+                    userId: $data->userId,
+                    domain: MediaAssetSyncPayload::DOMAIN,
+                    resourceType: MediaAssetSyncPayload::RESOURCE_TYPE,
+                    resourceId: $mediaAsset->id,
+                    operation: SyncFeedOperation::Create->value,
+                    payload: MediaAssetSyncPayload::fromMediaAsset($mediaAsset),
+                ),
+            );
+
+            DB::commit();
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
         }
 
         return CreateMediaAssetResult::created($mediaAsset);

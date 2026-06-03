@@ -34,6 +34,7 @@ class UpdateDeckApiTest extends TestCase
                     'description',
                     'created_at',
                     'updated_at',
+                    'deleted_at',
                 ],
             ]);
 

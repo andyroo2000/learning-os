@@ -22,6 +22,7 @@ class CardResource extends JsonResource
             'media_assets' => $this->whenLoaded('mediaAssets', fn () => MediaAssetResource::collection($this->mediaAssets)),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
+            'deleted_at' => $this->deleted_at?->toJSON(),
         ];
     }
 }

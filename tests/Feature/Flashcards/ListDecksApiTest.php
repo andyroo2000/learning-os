@@ -50,6 +50,7 @@ class ListDecksApiTest extends TestCase
                         'description',
                         'created_at',
                         'updated_at',
+                        'deleted_at',
                     ],
                 ],
                 'links',
@@ -61,6 +62,7 @@ class ListDecksApiTest extends TestCase
                 'description' => 'Foundational Italian review cards.',
                 'created_at' => $firstDeck->created_at?->toJSON(),
                 'updated_at' => $firstDeck->updated_at?->toJSON(),
+                'deleted_at' => null,
             ])
             ->assertJsonFragment([
                 'id' => $secondDeck->id,
@@ -68,6 +70,7 @@ class ListDecksApiTest extends TestCase
                 'description' => null,
                 'created_at' => $secondDeck->created_at?->toJSON(),
                 'updated_at' => $secondDeck->updated_at?->toJSON(),
+                'deleted_at' => null,
             ])
             ->assertJsonMissing([
                 'id' => $otherDeck->id,

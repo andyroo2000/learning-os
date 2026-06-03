@@ -39,7 +39,7 @@ class ListSyncFeedEntriesAction
         $baseQuery = (clone $userFeedQuery)
             ->when($domain !== null, fn ($query) => $query->where('domain', $domain));
 
-        $currentCheckpoint = (int) ((clone $userFeedQuery)->max('checkpoint') ?? 0);
+        $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
         if ($afterCheckpoint > 0) {
             $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');

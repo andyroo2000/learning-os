@@ -37,7 +37,7 @@ final readonly class ListSyncFeedEntriesResult
     {
         $pageCheckpoint = $this->entries->max('checkpoint');
 
-        if ($this->hasMore && $pageCheckpoint !== null) {
+        if ($this->hasMore) {
             return (int) $pageCheckpoint;
         }
 

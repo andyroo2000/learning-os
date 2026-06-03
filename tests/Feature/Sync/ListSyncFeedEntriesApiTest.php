@@ -302,6 +302,30 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('meta.has_more', false);
     }
 
+    public function test_a_complete_domain_filtered_page_uses_the_domain_checkpoint_when_it_is_the_high_water_mark(): void
+    {
+        $user = $this->signIn();
+        $firstFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $secondFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.checkpoint', $firstFlashcards->checkpoint)
+            ->assertJsonPath('data.1.checkpoint', $secondFlashcards->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $secondFlashcards->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $secondFlashcards->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
     public function test_it_accepts_a_custom_page_size(): void
     {
         $user = $this->signIn();

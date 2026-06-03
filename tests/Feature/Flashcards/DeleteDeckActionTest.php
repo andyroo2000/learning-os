@@ -5,6 +5,8 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\DeleteDeckAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -28,6 +30,22 @@ class DeleteDeckActionTest extends TestCase
         $this->assertSoftDeleted('cards', [
             'id' => $card->id,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('deck', $entry->resource_type);
+        $this->assertSame($deck->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertSame([
+            'id' => $deck->id,
+            'name' => $deck->name,
+            'description' => $deck->description,
+            'created_at' => $deck->created_at?->toJSON(),
+            'updated_at' => $deck->updated_at?->toJSON(),
+            'deleted_at' => $deck->deleted_at?->toJSON(),
+        ], $entry->payload);
     }
 
     public function test_it_soft_deletes_an_empty_deck(): void
@@ -41,6 +59,7 @@ class DeleteDeckActionTest extends TestCase
         $this->assertSoftDeleted('decks', [
             'id' => $deck->id,
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_no_ops_when_the_deck_is_already_soft_deleted(): void
@@ -69,6 +88,7 @@ class DeleteDeckActionTest extends TestCase
                 'id' => $card->id,
                 'deleted_at' => $originalCardDeletedAt?->toDateTimeString(),
             ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
         } finally {
             Carbon::setTestNow();
         }

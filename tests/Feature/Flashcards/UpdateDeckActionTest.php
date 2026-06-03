@@ -4,6 +4,8 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\UpdateDeckAction;
 use App\Domain\Flashcards\Data\UpdateDeckData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -34,6 +36,22 @@ class UpdateDeckActionTest extends TestCase
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('deck', $entry->resource_type);
+        $this->assertSame($deck->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame([
+            'id' => $deck->id,
+            'name' => 'Italian Travel',
+            'description' => 'Phrases for airport and train station practice.',
+            'created_at' => $updatedDeck->created_at?->toJSON(),
+            'updated_at' => $updatedDeck->updated_at?->toJSON(),
+            'deleted_at' => null,
+        ], $entry->payload);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -55,6 +73,7 @@ class UpdateDeckActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame('Italian Travel', $updatedDeck->name);
         $this->assertSame('Phrases for airport and train station practice.', $updatedDeck->description);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_stores_blank_description_as_null(): void
@@ -72,6 +91,7 @@ class UpdateDeckActionTest extends TestCase
 
         $this->assertTrue($result->wasUpdated);
         $this->assertNull($updatedDeck->description);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_marks_unchanged_when_normalized_metadata_matches_the_existing_deck(): void
@@ -91,6 +111,7 @@ class UpdateDeckActionTest extends TestCase
 
         $this->assertFalse($result->wasUpdated);
         $this->assertSame($deck->id, $result->deck->id);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_rejects_blank_name(): void

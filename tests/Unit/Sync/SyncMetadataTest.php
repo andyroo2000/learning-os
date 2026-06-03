@@ -26,6 +26,19 @@ class SyncMetadataTest extends TestCase
         );
     }
 
+    public function test_it_creates_instance_when_all_nullable_fields_are_present(): void
+    {
+        $metadata = SyncMetadata::fromNullable(
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+
+        $this->assertInstanceOf(SyncMetadata::class, $metadata);
+        $this->assertSame('event-123', $metadata->clientEventId);
+        $this->assertSame('device-abc', $metadata->deviceId);
+    }
+
     public function test_it_requires_metadata_for_required_construction(): void
     {
         $this->expectException(InvalidArgumentException::class);

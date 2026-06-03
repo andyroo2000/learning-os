@@ -54,16 +54,11 @@ final readonly class SyncMetadata
         );
     }
 
-    private function clientEventKey(): ClientEventKey
-    {
-        return ClientEventKey::fromParts($this->deviceId, $this->clientEventId);
-    }
-
     /**
      * @throws \JsonException when IDs contain invalid UTF-8.
      */
     public function lookupKey(): string
     {
-        return $this->clientEventKey()->toLookupKey();
+        return ClientEventKey::fromParts($this->deviceId, $this->clientEventId)->toLookupKey();
     }
 }

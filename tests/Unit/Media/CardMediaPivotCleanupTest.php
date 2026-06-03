@@ -168,6 +168,7 @@ class CardMediaPivotCleanupTest extends TestCase
      */
     private static function expectedSqlForPostgres(): array
     {
+        // Identical to SQLite today; kept separate so Postgres grammar drift fails against its own fixture.
         return [
             'select' => 'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media"'
                 .' inner join "cards" on "cards"."id" = "card_media"."card_id"'

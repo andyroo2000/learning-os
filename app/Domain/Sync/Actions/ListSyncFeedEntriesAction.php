@@ -3,22 +3,19 @@
 namespace App\Domain\Sync\Actions;
 
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
 use App\Support\Pagination\CursorPageSize;
-use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use LogicException;
 
 class ListSyncFeedEntriesAction
 {
-    /**
-     * @return Collection<int, SyncFeedEntry>
-     */
     public function handle(
         int $userId,
         int $afterCheckpoint = 0,
         ?string $domain = null,
         ?CursorPageSize $pageSize = null,
-    ): Collection {
+    ): ListSyncFeedEntriesResult {
         if ($userId < 1) {
             throw new LogicException('Sync feed user ID must be a positive integer.');
         }
@@ -35,12 +32,14 @@ class ListSyncFeedEntriesAction
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
-        return SyncFeedEntry::query()
+        $entries = SyncFeedEntry::query()
             ->where('user_id', $userId)
             ->where('checkpoint', '>', $afterCheckpoint)
             ->when($domain !== null, fn ($query) => $query->where('domain', $domain))
             ->orderBy('checkpoint')
-            ->limit($pageSize->value())
+            ->limit($pageSize->value() + 1)
             ->get();
+
+        return ListSyncFeedEntriesResult::fromLookahead($entries, $pageSize);
     }
 }

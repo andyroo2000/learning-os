@@ -23,7 +23,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $second = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
         $third = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             afterCheckpoint: $first->checkpoint,
         );
@@ -31,7 +31,8 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertSame([
             $second->checkpoint,
             $third->checkpoint,
-        ], $entries->pluck('checkpoint')->all());
+        ], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
     }
 
     public function test_it_lists_the_full_user_feed_when_checkpoint_is_zero(): void
@@ -40,7 +41,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $first = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
         $second = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             afterCheckpoint: 0,
         );
@@ -48,7 +49,8 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertSame([
             $first->checkpoint,
             $second->checkpoint,
-        ], $entries->pluck('checkpoint')->all());
+        ], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
     }
 
     public function test_it_scopes_entries_to_the_requested_user(): void
@@ -57,9 +59,9 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $visible = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
         SyncFeedEntry::factory()->create(['user_id' => User::factory()->create()->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle($user->id);
+        $result = app(ListSyncFeedEntriesAction::class)->handle($user->id);
 
-        $this->assertSame([$visible->checkpoint], $entries->pluck('checkpoint')->all());
+        $this->assertSame([$visible->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
     public function test_it_filters_entries_by_domain(): void
@@ -74,12 +76,12 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'domain' => 'media',
         ]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             domain: ' flashcards ',
         );
 
-        $this->assertSame([$flashcards->checkpoint], $entries->pluck('checkpoint')->all());
+        $this->assertSame([$flashcards->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
     public function test_it_filters_by_domain_and_checkpoint_together(): void
@@ -98,13 +100,13 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'domain' => 'media',
         ]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             afterCheckpoint: $before->checkpoint,
             domain: 'flashcards',
         );
 
-        $this->assertSame([$after->checkpoint], $entries->pluck('checkpoint')->all());
+        $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
     public function test_it_caps_the_page_size(): void
@@ -112,12 +114,13 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $user = User::factory()->create();
         SyncFeedEntry::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->create(['user_id' => $user->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             pageSize: CursorPageSize::fromPerPage(CursorPagination::MAX_PAGE_SIZE + 1),
         );
 
-        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $entries);
+        $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $result->entries);
+        $this->assertTrue($result->hasMore);
     }
 
     public function test_it_uses_the_default_page_size_when_none_is_provided(): void
@@ -125,9 +128,10 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $user = User::factory()->create();
         SyncFeedEntry::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->create(['user_id' => $user->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle($user->id);
+        $result = app(ListSyncFeedEntriesAction::class)->handle($user->id);
 
-        $this->assertCount(CursorPagination::DEFAULT_PAGE_SIZE, $entries);
+        $this->assertCount(CursorPagination::DEFAULT_PAGE_SIZE, $result->entries);
+        $this->assertTrue($result->hasMore);
     }
 
     public function test_it_uses_at_least_one_item_per_page(): void
@@ -135,12 +139,56 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $user = User::factory()->create();
         SyncFeedEntry::factory()->count(2)->create(['user_id' => $user->id]);
 
-        $entries = app(ListSyncFeedEntriesAction::class)->handle(
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,
             pageSize: CursorPageSize::fromPerPage(0),
         );
 
-        $this->assertCount(1, $entries);
+        $this->assertCount(1, $result->entries);
+        $this->assertTrue($result->hasMore);
+    }
+
+    public function test_it_reports_no_more_entries_when_the_page_is_exactly_full(): void
+    {
+        $user = User::factory()->create();
+        SyncFeedEntry::factory()->count(2)->create(['user_id' => $user->id]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            pageSize: CursorPageSize::fromPerPage(2),
+        );
+
+        $this->assertCount(2, $result->entries);
+        $this->assertFalse($result->hasMore);
+    }
+
+    public function test_it_reports_no_more_entries_when_a_domain_filtered_page_is_exactly_full(): void
+    {
+        $user = User::factory()->create();
+        $firstFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $secondFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: 'flashcards',
+            pageSize: CursorPageSize::fromPerPage(2),
+        );
+
+        $this->assertSame([
+            $firstFlashcards->checkpoint,
+            $secondFlashcards->checkpoint,
+        ], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
     }
 
     public function test_it_rejects_non_positive_user_id(): void

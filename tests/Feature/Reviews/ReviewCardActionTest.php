@@ -7,10 +7,15 @@ use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 use Tests\TestCase;
 
 class ReviewCardActionTest extends TestCase
@@ -41,6 +46,25 @@ class ReviewCardActionTest extends TestCase
             'rating' => 'good',
             'reviewed_at' => $reviewedAt,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($card->ownerUserId(), $entry->user_id);
+        $this->assertSame('reviews', $entry->domain);
+        $this->assertSame('card_review_event', $entry->resource_type);
+        $this->assertSame($reviewEvent->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame([
+            'id' => $reviewEvent->id,
+            'card_id' => $card->id,
+            'rating' => 'good',
+            'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
+            'created_at' => $reviewEvent->created_at?->toJSON(),
+            'updated_at' => $reviewEvent->updated_at?->toJSON(),
+        ], $entry->payload);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -65,6 +89,45 @@ class ReviewCardActionTest extends TestCase
             'id' => $id,
             'card_id' => $card->id,
         ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $card->ownerUserId(),
+            'domain' => 'reviews',
+            'resource_type' => 'card_review_event',
+            'resource_id' => $id,
+            'operation' => 'create',
+        ]);
+    }
+
+    public function test_it_rolls_back_when_feed_recording_fails(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $reviewCard = new ReviewCardAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $reviewCard->handle(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: 'easy',
+                    reviewedAt: '2026-05-27 09:15:00',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseMissing('card_review_events', ['id' => $id]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_stores_client_sync_metadata(): void
@@ -134,6 +197,7 @@ class ReviewCardActionTest extends TestCase
             'rating' => CardReviewRating::Good->value,
             'reviewed_at' => '2026-05-27 09:15:00',
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
@@ -152,6 +216,7 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($secondResult->wasCreated);
         $this->assertFalse($firstResult->reviewEvent->is($secondResult->reviewEvent));
         $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_it_creates_a_distinct_event_when_a_retry_adds_sync_metadata(): void
@@ -190,6 +255,7 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame('device-abc', $secondReviewEvent->device_id);
         $this->assertSame('2026-05-27 09:14:00', $secondReviewEvent->client_created_at->toDateTimeString());
         $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_it_trims_text_inputs(): void

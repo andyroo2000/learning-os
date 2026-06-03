@@ -7,6 +7,10 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Values\ClientEventKey;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
@@ -22,6 +26,10 @@ class ReviewCardBatchAction
 {
     private const INSERT_SAVEPOINT = 'review_card_batch_insert';
 
+    public function __construct(
+        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+    ) {}
+
     /**
      * @param  iterable<ReviewCardData>  $items
      */
@@ -36,14 +44,17 @@ class ReviewCardBatchAction
         }
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
-            $this->ensureCardsExist($preparedItems);
+            $cardsById = $this->cardsById($preparedItems);
 
             $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
             $now = now();
 
-            $rows = $preparedItems
+            $createdItems = $preparedItems
                 ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
                 ->unique('sync_key')
+                ->values();
+
+            $rows = $createdItems
                 ->map(fn (array $item): array => $this->rowForInsert($item, $now))
                 ->values();
 
@@ -77,6 +88,12 @@ class ReviewCardBatchAction
 
             $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
             $reviewEvents = $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
+
+            if ($createdItems->isNotEmpty()) {
+                $createdReviewEvents = $this->createdReviewEventsForItems($createdItems, $reviewEventsBySyncKey);
+
+                $this->recordCreatedFeedEntries($createdReviewEvents, $cardsById);
+            }
 
             return $rows->isNotEmpty()
                 ? ReviewCardBatchResult::withCreatedEvents($reviewEvents)
@@ -137,21 +154,28 @@ class ReviewCardBatchAction
 
     /**
      * @param  Collection<int, array{card_id: string}>  $preparedItems
+     * @return Collection<string, Card>
      */
-    private function ensureCardsExist(Collection $preparedItems): void
+    private function cardsById(Collection $preparedItems): Collection
     {
         $cardIds = $preparedItems
             ->pluck('card_id')
             ->unique()
             ->values();
 
-        $existingCardIds = Card::query()
+        $cardsById = Card::query()
+            ->select('cards.*')
+            ->selectRaw('decks.user_id as owner_user_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->whereKey($cardIds)
-            ->pluck('id');
+            ->get()
+            ->keyBy('id');
 
-        if ($existingCardIds->count() !== $cardIds->count()) {
+        if ($cardsById->count() !== $cardIds->count()) {
             throw new InvalidArgumentException('One or more cards do not exist.');
         }
+
+        return $cardsById;
     }
 
     /**
@@ -209,5 +233,41 @@ class ReviewCardBatchAction
             ->map(fn (array $item): CardReviewEvent => $reviewEventsBySyncKey->get($item['sync_key'])
                 ?? throw new RuntimeException('Review event missing after insert or conflict recovery.'))
             ->values();
+    }
+
+    /**
+     * @param  Collection<int, array{sync_key: string}>  $createdItems
+     * @param  Collection<string, CardReviewEvent>  $reviewEventsBySyncKey
+     * @return Collection<int, CardReviewEvent>
+     */
+    private function createdReviewEventsForItems(Collection $createdItems, Collection $reviewEventsBySyncKey): Collection
+    {
+        return $createdItems
+            ->map(fn (array $item): CardReviewEvent => $reviewEventsBySyncKey->get($item['sync_key'])
+                ?? throw new RuntimeException('Created review event missing after insert.'))
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, CardReviewEvent>  $reviewEvents
+     * @param  Collection<string, Card>  $cardsById
+     */
+    private function recordCreatedFeedEntries(Collection $reviewEvents, Collection $cardsById): void
+    {
+        $reviewEvents->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
+            $card = $cardsById->get($reviewEvent->card_id)
+                ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
+
+            $this->recordSyncFeedEntry->handle(
+                RecordSyncFeedEntryData::fromInput(
+                    userId: $card->ownerUserId(),
+                    domain: CardReviewEventSyncPayload::DOMAIN,
+                    resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
+                    resourceId: $reviewEvent->id,
+                    operation: SyncFeedOperation::Create->value,
+                    payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+                ),
+            );
+        });
     }
 }

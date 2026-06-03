@@ -136,7 +136,7 @@ class CardMediaPivotCleanupTest extends TestCase
             ],
             'postgres' => [
                 PostgresGrammar::class,
-                // SQLite and Postgres both use double-quoted identifiers, but both grammars must keep passing.
+                // SQLite and Postgres both use double-quoted identifiers; split this fixture if the grammars diverge.
                 self::expectedSelectSql('"'),
                 self::expectedDeleteSql('"'),
             ],

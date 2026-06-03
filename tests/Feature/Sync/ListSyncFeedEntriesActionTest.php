@@ -172,8 +172,14 @@ class ListSyncFeedEntriesActionTest extends TestCase
     public function test_it_allows_checkpoints_equal_to_the_oldest_available_entry(): void
     {
         $user = User::factory()->create();
-        $oldest = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
-        $next = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $oldest = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+        ]);
+        $next = SyncFeedEntry::factory()->create([
+            'checkpoint' => 6,
+            'user_id' => $user->id,
+        ]);
 
         $result = app(ListSyncFeedEntriesAction::class)->handle(
             userId: $user->id,

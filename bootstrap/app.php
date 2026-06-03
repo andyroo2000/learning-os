@@ -1,8 +1,11 @@
 <?php
 
+use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,5 +18,22 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
+
+        $exceptions->render(function (StaleSyncFeedCheckpointException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
+                'meta' => [
+                    'after_checkpoint' => $exception->afterCheckpoint(),
+                    'oldest_available_checkpoint' => $exception->oldestAvailableCheckpoint(),
+                    'domain' => $exception->domain(),
+                    'required_action' => $exception->requiredAction(),
+                ],
+            ], 409);
+        });
     })->create();

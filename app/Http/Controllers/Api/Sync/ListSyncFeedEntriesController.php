@@ -20,6 +20,7 @@ class ListSyncFeedEntriesController extends Controller
 
         $afterCheckpoint = $request->afterCheckpoint();
         $pageSize = $request->pageSize();
+
         $result = $listSyncFeedEntries->handle(
             userId: $user->id,
             afterCheckpoint: $afterCheckpoint,

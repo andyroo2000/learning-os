@@ -209,6 +209,71 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $flashcards->checkpoint);
     }
 
+    public function test_it_returns_a_stale_checkpoint_response_when_the_bookmark_is_before_the_user_feed_window(): void
+    {
+        $user = $this->signIn();
+        $oldest = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?after_checkpoint=4');
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Sync checkpoint is stale; perform a full resource resync.')
+            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertJsonPath('meta.after_checkpoint', 4)
+            ->assertJsonPath('meta.oldest_available_checkpoint', $oldest->checkpoint)
+            ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.required_action', 'full_resync')
+            ->assertJsonMissingPath('data');
+    }
+
+    public function test_it_returns_a_domain_scoped_stale_checkpoint_response(): void
+    {
+        $user = $this->signIn();
+        $media = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+        $oldestFlashcard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+
+        $response = $this->getJson("/api/sync/feed?domain=flashcards&after_checkpoint={$media->checkpoint}");
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertJsonPath('meta.after_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestFlashcard->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.required_action', 'full_resync')
+            ->assertJsonMissingPath('data');
+    }
+
+    public function test_it_returns_an_empty_page_when_the_filtered_domain_has_no_entries(): void
+    {
+        $user = $this->signIn();
+        $media = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $response = $this->getJson("/api/sync/feed?domain=flashcards&after_checkpoint={$media->checkpoint}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.after_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
     public function test_it_accepts_a_custom_page_size(): void
     {
         $user = $this->signIn();

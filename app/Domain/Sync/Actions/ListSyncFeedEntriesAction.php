@@ -2,6 +2,7 @@
 
 namespace App\Domain\Sync\Actions;
 
+use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
 use App\Support\Pagination\CursorPageSize;
@@ -32,10 +33,24 @@ class ListSyncFeedEntriesAction
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
-        $entries = SyncFeedEntry::query()
+        $baseQuery = SyncFeedEntry::query()
             ->where('user_id', $userId)
+            ->when($domain !== null, fn ($query) => $query->where('domain', $domain));
+
+        if ($afterCheckpoint > 0) {
+            $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');
+
+            if ($oldestAvailableCheckpoint !== null && $afterCheckpoint < (int) $oldestAvailableCheckpoint) {
+                throw StaleSyncFeedCheckpointException::forCheckpoint(
+                    afterCheckpoint: $afterCheckpoint,
+                    oldestAvailableCheckpoint: (int) $oldestAvailableCheckpoint,
+                    domain: $domain,
+                );
+            }
+        }
+
+        $entries = (clone $baseQuery)
             ->where('checkpoint', '>', $afterCheckpoint)
-            ->when($domain !== null, fn ($query) => $query->where('domain', $domain))
             ->orderBy('checkpoint')
             ->limit($pageSize->value() + 1)
             ->get();

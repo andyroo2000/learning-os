@@ -89,6 +89,53 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_serves_flashcard_tombstone_payloads_written_by_api_deletes(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->assertNotNull($card->front_text);
+        $this->assertNotNull($card->back_text);
+
+        $deleteResponse = $this->deleteJson("/api/cards/{$card->id}");
+
+        $deleteResponse->assertNoContent();
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards');
+
+        $response->assertOk();
+
+        $deleteEntries = collect($response->json('data'))
+            ->filter(fn (array $entry): bool => $entry['operation'] === SyncFeedOperation::Delete->value
+                && (string) $entry['resource_id'] === (string) $card->id)
+            ->values();
+
+        $this->assertCount(1, $deleteEntries, 'Expected exactly one Delete entry for the card in the sync feed.');
+
+        $deleteEntry = $deleteEntries->first();
+
+        $this->assertSame('flashcards', $deleteEntry['domain']);
+        $this->assertSame('card', $deleteEntry['resource_type']);
+        $this->assertSame(SyncFeedOperation::Delete->value, $deleteEntry['operation']);
+        $this->assertIsString($deleteEntry['server_recorded_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['server_recorded_at']);
+        $this->assertSame($card->id, $deleteEntry['payload']['id']);
+        $this->assertSame($card->deck_id, $deleteEntry['payload']['deck_id']);
+        $this->assertSame($card->front_text, $deleteEntry['payload']['front_text']);
+        $this->assertSame($card->back_text, $deleteEntry['payload']['back_text']);
+        // Sync snapshots use Carbon::toJSON(), matching API resource timestamp serialization.
+        $this->assertIsString($deleteEntry['payload']['created_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['created_at']);
+        $this->assertNotNull($deleteEntry['payload']['updated_at']);
+        $this->assertIsString($deleteEntry['payload']['updated_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['updated_at']);
+        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
+        $this->assertIsString($deleteEntry['payload']['deleted_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        // This test's fresh user has no earlier feed writes; advancing by next_checkpoint must include the tombstone.
+        $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
+    }
+
     public function test_it_returns_an_empty_list_when_the_user_has_no_new_entries(): void
     {
         $user = $this->signIn();

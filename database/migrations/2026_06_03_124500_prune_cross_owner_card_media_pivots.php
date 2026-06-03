@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
@@ -41,19 +42,34 @@ return new class extends Migration
 
             // A concurrent hard delete can cascade away a selected pair; the next SELECT is the source of truth.
             // Use OR-paired predicates rather than tuple IN so the cleanup stays portable to SQLite.
-            DB::table('card_media')
-                ->where(function (Builder $query) use ($stalePairs): void {
-                    foreach ($stalePairs as $pair) {
-                        $query->orWhere(function (Builder $query) use ($pair): void {
-                            $query->where('card_id', $pair->card_id)
-                                ->where('media_asset_id', $pair->media_asset_id);
-                        });
-                    }
-                })
-                ->delete();
+            $this->constrainDeleteToPairs(DB::table('card_media'), $stalePairs)->delete();
 
             $batches++;
         } while (true);
+    }
+
+    /**
+     * Public only to unit-test SQL portability without running the full migration; not intended for reuse.
+     *
+     * @param  array<int, object{card_id: int|string, media_asset_id: int|string}>|Collection<int, object{card_id: int|string, media_asset_id: int|string}>  $pairs
+     */
+    public function constrainDeleteToPairs(Builder $query, array|Collection $pairs): Builder
+    {
+        $pairs = $pairs instanceof Collection ? $pairs : collect($pairs);
+
+        if ($pairs->isEmpty()) {
+            // The migration loop breaks before delete, but keep this predicate safe for direct test/future callers.
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $query) use ($pairs): void {
+            foreach ($pairs as $pair) {
+                $query->orWhere(function (Builder $query) use ($pair): void {
+                    $query->where('card_id', $pair->card_id)
+                        ->where('media_asset_id', $pair->media_asset_id);
+                });
+            }
+        });
     }
 
     /**

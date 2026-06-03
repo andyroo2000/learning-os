@@ -21,9 +21,7 @@ final class MediaAssetSyncPayload
         // The payload stays a manifest snapshot so clients can identify the removed asset.
         return [
             'id' => $mediaAsset->id,
-            'disk' => $mediaAsset->disk,
-            'path' => $mediaAsset->path,
-            'public_url' => $mediaAsset->public_url,
+            'url' => $mediaAsset->public_url,
             'mime_type' => $mediaAsset->mime_type,
             'size_bytes' => $mediaAsset->size_bytes,
             'checksum_sha256' => $mediaAsset->checksum_sha256,

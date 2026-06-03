@@ -19,8 +19,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Verifies the historical cleanup migration's delete predicate; the migration slug is intentionally pinned.
  * Exact SQL strings are deliberately brittle so grammar drift fails before the PostgreSQL migration path does.
- * The shared SQL helpers are the fixture boundary; update them from compiled grammar output, not production code.
- * When production changes, let these assertions fail first, then copy the actual compiled SQL into the helpers.
+ * Each grammar owns an explicit SQL fixture; update them from compiled grammar output, not production code.
+ * When production changes, let these assertions fail first, then copy the actual compiled SQL into the target fixture.
  * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
  */
 class CardMediaPivotCleanupTest extends TestCase
@@ -99,19 +99,15 @@ class CardMediaPivotCleanupTest extends TestCase
         return [
             'sqlite' => [
                 'grammar' => SQLiteGrammar::class,
-                'select' => self::expectedSelectSql('"'),
-                'delete' => self::expectedDeleteSql('"'),
+                ...self::expectedSqlForSqlite(),
             ],
             'postgres' => [
                 'grammar' => PostgresGrammar::class,
-                // SQLite and Postgres both use double-quoted identifiers; split this fixture if the grammars diverge.
-                'select' => self::expectedSelectSql('"'),
-                'delete' => self::expectedDeleteSql('"'),
+                ...self::expectedSqlForPostgres(),
             ],
             'mysql' => [
                 'grammar' => MySqlGrammar::class,
-                'select' => self::expectedSelectSql('`'),
-                'delete' => self::expectedDeleteSql('`'),
+                ...self::expectedSqlForMysql(),
             ],
         ];
     }
@@ -150,49 +146,55 @@ class CardMediaPivotCleanupTest extends TestCase
         );
     }
 
-    private static function expectedSelectSql(string $quote): string
+    /**
+     * @return array{select: string, delete: string}
+     */
+    private static function expectedSqlForSqlite(): array
     {
-        // Mirrors stalePairsQuery(); verify against compiled grammar output, not by copying production edits.
-        // Shape: card_media -> cards -> decks/media_assets, compare owner columns, order by pivot keys.
-        $cardMediaCardId = self::qualified('card_media', 'card_id', $quote);
-        $cardMediaMediaAssetId = self::qualified('card_media', 'media_asset_id', $quote);
-        $cardsId = self::qualified('cards', 'id', $quote);
-        $decksId = self::qualified('decks', 'id', $quote);
-        $cardsDeckId = self::qualified('cards', 'deck_id', $quote);
-        $mediaAssetsId = self::qualified('media_assets', 'id', $quote);
-        $decksUserId = self::qualified('decks', 'user_id', $quote);
-        $mediaAssetsUserId = self::qualified('media_assets', 'user_id', $quote);
-
-        return 'select '.$cardMediaCardId.', '.$cardMediaMediaAssetId
-            .' from '.self::identifier('card_media', $quote)
-            .' inner join '.self::identifier('cards', $quote).' on '.$cardsId.' = '.$cardMediaCardId
-            .' inner join '.self::identifier('decks', $quote).' on '.$decksId.' = '.$cardsDeckId
-            .' inner join '.self::identifier('media_assets', $quote).' on '.$mediaAssetsId.' = '.$cardMediaMediaAssetId
-            .' where '.$decksUserId.' <> '.$mediaAssetsUserId
-            .' order by '.$cardMediaCardId.' asc, '.$cardMediaMediaAssetId.' asc';
+        return [
+            'select' => 'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media"'
+                .' inner join "cards" on "cards"."id" = "card_media"."card_id"'
+                .' inner join "decks" on "decks"."id" = "cards"."deck_id"'
+                .' inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id"'
+                .' where "decks"."user_id" <> "media_assets"."user_id"'
+                .' order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
+            'delete' => 'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?)'
+                .' or ("card_id" = ? and "media_asset_id" = ?))',
+        ];
     }
 
-    private static function expectedDeleteSql(string $quote): string
+    /**
+     * @return array{select: string, delete: string}
+     */
+    private static function expectedSqlForPostgres(): array
     {
-        // Mirrors constrainDeleteToPairs(); verify against compiled grammar output, not by copying production edits.
-        // Shape: delete card_media rows matched by OR-paired (card_id, media_asset_id) predicates.
-        // Hardcoded for the two-row stale-pairs fixture in test_pair_delete_constraint_compiles_to_portable_sql.
-        $cardId = self::identifier('card_id', $quote);
-        $mediaAssetId = self::identifier('media_asset_id', $quote);
-
-        return 'delete from '.self::identifier('card_media', $quote)
-            .' where (('.$cardId.' = ? and '.$mediaAssetId.' = ?)'
-            .' or ('.$cardId.' = ? and '.$mediaAssetId.' = ?))';
+        return [
+            'select' => 'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media"'
+                .' inner join "cards" on "cards"."id" = "card_media"."card_id"'
+                .' inner join "decks" on "decks"."id" = "cards"."deck_id"'
+                .' inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id"'
+                .' where "decks"."user_id" <> "media_assets"."user_id"'
+                .' order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
+            'delete' => 'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?)'
+                .' or ("card_id" = ? and "media_asset_id" = ?))',
+        ];
     }
 
-    private static function qualified(string $table, string $column, string $quote): string
+    /**
+     * @return array{select: string, delete: string}
+     */
+    private static function expectedSqlForMysql(): array
     {
-        return self::identifier($table, $quote).'.'.self::identifier($column, $quote);
-    }
-
-    private static function identifier(string $identifier, string $quote): string
-    {
-        return $quote.$identifier.$quote;
+        return [
+            'select' => 'select `card_media`.`card_id`, `card_media`.`media_asset_id` from `card_media`'
+                .' inner join `cards` on `cards`.`id` = `card_media`.`card_id`'
+                .' inner join `decks` on `decks`.`id` = `cards`.`deck_id`'
+                .' inner join `media_assets` on `media_assets`.`id` = `card_media`.`media_asset_id`'
+                .' where `decks`.`user_id` <> `media_assets`.`user_id`'
+                .' order by `card_media`.`card_id` asc, `card_media`.`media_asset_id` asc',
+            'delete' => 'delete from `card_media` where ((`card_id` = ? and `media_asset_id` = ?)'
+                .' or (`card_id` = ? and `media_asset_id` = ?))',
+        ];
     }
 
     private function cardMediaCleanupMigration(): object

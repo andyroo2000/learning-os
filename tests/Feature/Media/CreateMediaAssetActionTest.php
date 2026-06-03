@@ -67,9 +67,7 @@ class CreateMediaAssetActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
         $this->assertSame([
             'id' => $mediaAsset->id,
-            'disk' => 'media',
-            'path' => 'uploads/example.jpg',
-            'public_url' => 'https://cdn.example.test/uploads/example.jpg',
+            'url' => 'https://cdn.example.test/uploads/example.jpg',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),

@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Reviews\ListReviewEventsController;
 use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
+use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
@@ -48,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
+    Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')
         ->group(function (): void {

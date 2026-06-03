@@ -45,6 +45,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $first->checkpoint)
             ->assertJsonPath('data.1.checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $before->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.has_more', false)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE)
@@ -62,6 +63,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
                 ],
                 'meta' => [
                     'after_checkpoint',
+                    'current_checkpoint',
                     'next_checkpoint',
                     'has_more',
                     'per_page',
@@ -147,6 +149,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.after_checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $entry->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $entry->checkpoint)
             ->assertJsonPath('meta.has_more', false)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
@@ -166,6 +169,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $first->checkpoint)
             ->assertJsonPath('data.1.checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', 0)
+            ->assertJsonPath('meta.current_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.has_more', false);
     }
@@ -270,6 +274,30 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.after_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
+    public function test_a_complete_domain_filtered_page_advances_to_the_user_feed_high_water_mark(): void
+    {
+        $user = $this->signIn();
+        $flashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $media = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $flashcards->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $media->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $media->checkpoint)
             ->assertJsonPath('meta.has_more', false);
     }
@@ -279,13 +307,14 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $user = $this->signIn();
         SyncFeedEntry::factory()->create(['user_id' => $user->id]);
         $second = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
-        SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $third = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
 
         $response = $this->getJson('/api/sync/feed?per_page=2');
 
         $response
             ->assertOk()
             ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_checkpoint', $third->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.has_more', true)
             ->assertJsonPath('meta.per_page', 2);
@@ -355,6 +384,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $firstPage
             ->assertOk()
             ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_checkpoint', $media->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $secondFlashcards->checkpoint)
             ->assertJsonPath('meta.has_more', true);
 
@@ -363,7 +393,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $thirdFlashcards->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $secondFlashcards->checkpoint)
-            ->assertJsonPath('meta.next_checkpoint', $thirdFlashcards->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $media->checkpoint)
             ->assertJsonPath('meta.has_more', false)
             ->assertJsonMissing([
                 'checkpoint' => $media->checkpoint,

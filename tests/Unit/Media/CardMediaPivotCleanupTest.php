@@ -151,6 +151,7 @@ class CardMediaPivotCleanupTest extends TestCase
     private static function expectedSelectSql(string $quote): string
     {
         // Mirrors stalePairsQuery(); verify against compiled grammar output, not by copying production edits.
+        // Shape: card_media -> cards -> decks/media_assets, compare owner columns, order by pivot keys.
         $cardMediaCardId = self::qualified('card_media', 'card_id', $quote);
         $cardMediaMediaAssetId = self::qualified('card_media', 'media_asset_id', $quote);
         $cardsId = self::qualified('cards', 'id', $quote);
@@ -172,6 +173,7 @@ class CardMediaPivotCleanupTest extends TestCase
     private static function expectedDeleteSql(string $quote): string
     {
         // Mirrors constrainDeleteToPairs(); verify against compiled grammar output, not by copying production edits.
+        // Shape: delete card_media rows matched by OR-paired (card_id, media_asset_id) predicates.
         $cardId = self::identifier('card_id', $quote);
         $mediaAssetId = self::identifier('media_asset_id', $quote);
 

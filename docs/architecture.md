@@ -60,6 +60,21 @@ Offline-first support is a core requirement, so write APIs should be designed wi
 
 These conventions should appear in the first behavior that needs them. They do not require a broad sync framework before the first sync use case exists.
 
+### Offline Change Feed Direction
+
+Mobile clients will eventually need a server-ordered feed of changes they can consume after reconnecting. The first implementation should stay narrow and grow from a concrete product workflow, not a generic event bus.
+
+- Start with one global monotonic server checkpoint as the client-facing high-water mark. Clients should store the last checkpoint they fully applied, then request changes after that checkpoint; split into per-domain checkpoints only when scale or isolation pressure makes that tradeoff worthwhile.
+- Keep checkpoint identity separate from resource IDs and client idempotency keys. A checkpoint says "where the client is in the feed"; it does not identify a deck, card, media asset, or client write attempt.
+- Scope feed entries to the resource owner and filter reads by the authenticated identity so clients only receive changes they are allowed to see.
+- Record enough feed metadata for deterministic replay: domain name, resource type, resource ID, operation, server timestamp, and the checkpoint value. The checkpoint is the replay order key; the timestamp is for observability, retention, and display.
+- Prefer compact resource snapshots over large event payloads unless a client needs historical transition details. Resource URLs are acceptable only for supplemental online fetches; tombstones and core field changes must carry enough data for the client to apply the feed entry without another request.
+- Include tombstone-style delete records for resources that disappear from normal list endpoints.
+- Return an explicit stale-checkpoint response when a client asks for changes older than the retained feed window, so the client knows to perform a full resource resync instead of applying a partial feed.
+- Scope early feeds to the domains that need offline reconciliation first. Review events and media manifests already have offline pressure; courses can join when course writes exist.
+- Keep feed reads cursor/checkpoint based. Avoid offset pagination because clients may reconnect while new writes are arriving.
+- Treat the feed as an API contract, not as the only internal event mechanism. Internal domain actions can remain simple until a real background processing need appears.
+
 ## What Not To Do
 
 - Do not copy ConvoLab prototype architecture blindly.

@@ -39,7 +39,7 @@ final readonly class ListSyncFeedEntriesResult
             return (int) ($this->entries->max('checkpoint') ?? $fallbackCheckpoint);
         }
 
-        // The checkpoint primary key is monotonic, so complete pages can advance to the full-feed high-water mark.
-        return max($fallbackCheckpoint, $this->currentCheckpoint);
+        // The checkpoint primary key is monotonic; include delivered entries in case they arrived after currentCheckpoint was read.
+        return max($fallbackCheckpoint, $this->currentCheckpoint, (int) ($this->entries->max('checkpoint') ?? 0));
     }
 }

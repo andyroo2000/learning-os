@@ -321,6 +321,37 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertSame($result->currentCheckpoint, $result->nextCheckpoint(0));
     }
 
+    public function test_domain_filtered_partial_pages_keep_next_checkpoint_at_the_page_boundary(): void
+    {
+        $user = User::factory()->create();
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $secondFlashcards = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+        ]);
+        $media = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: 'flashcards',
+            pageSize: CursorPageSize::fromPerPage(2),
+        );
+
+        $this->assertTrue($result->hasMore);
+        $this->assertSame($media->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($secondFlashcards->checkpoint, $result->nextCheckpoint(0));
+    }
+
     public function test_it_rejects_non_positive_user_id(): void
     {
         $this->expectException(LogicException::class);

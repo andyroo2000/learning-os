@@ -42,6 +42,7 @@ class CreateCardApiTest extends TestCase
                     'back_text',
                     'created_at',
                     'updated_at',
+                    'deleted_at',
                 ],
             ]);
 

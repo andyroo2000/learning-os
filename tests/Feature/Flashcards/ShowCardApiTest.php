@@ -31,6 +31,7 @@ class ShowCardApiTest extends TestCase
                     'back_text' => 'hello',
                     'created_at' => $card->created_at->toJSON(),
                     'updated_at' => $card->updated_at->toJSON(),
+                    'deleted_at' => null,
                 ],
             ]);
     }

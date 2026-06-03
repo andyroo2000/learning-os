@@ -30,6 +30,7 @@ class ShowDeckApiTest extends TestCase
                     'description' => 'Phrases for airport and train station practice.',
                     'created_at' => $deck->created_at->toJSON(),
                     'updated_at' => $deck->updated_at->toJSON(),
+                    'deleted_at' => null,
                 ],
             ]);
     }

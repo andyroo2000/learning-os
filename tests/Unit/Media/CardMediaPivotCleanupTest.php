@@ -150,7 +150,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
     private static function expectedSelectSql(string $quote): string
     {
-        // Mirrors stalePairsQuery() while keeping expected SQL fixtures centralized per quote style.
+        // Mirrors stalePairsQuery(); verify against compiled grammar output, not by copying production edits.
         $cardMediaCardId = self::qualified('card_media', 'card_id', $quote);
         $cardMediaMediaAssetId = self::qualified('card_media', 'media_asset_id', $quote);
         $cardsId = self::qualified('cards', 'id', $quote);
@@ -171,7 +171,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
     private static function expectedDeleteSql(string $quote): string
     {
-        // Mirrors constrainDeleteToPairs() for the two selected pairs used by the delete SQL test.
+        // Mirrors constrainDeleteToPairs(); verify against compiled grammar output, not by copying production edits.
         $cardId = self::identifier('card_id', $quote);
         $mediaAssetId = self::identifier('media_asset_id', $quote);
 

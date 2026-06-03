@@ -47,6 +47,8 @@ class SyncFeedEntry extends Model
     protected function casts(): array
     {
         return [
+            'checkpoint' => 'integer',
+            'user_id' => 'integer',
             'operation' => SyncFeedOperation::class,
             'server_recorded_at' => 'datetime',
             'payload' => 'array',

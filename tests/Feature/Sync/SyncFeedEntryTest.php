@@ -37,6 +37,18 @@ class SyncFeedEntryTest extends TestCase
         $this->assertGreaterThan($first->checkpoint, $second->checkpoint);
     }
 
+    public function test_feed_entry_casts_numeric_identity_columns_to_integers(): void
+    {
+        $entry = new SyncFeedEntry;
+        $entry->setRawAttributes([
+            'checkpoint' => '123',
+            'user_id' => '456',
+        ]);
+
+        $this->assertSame(123, $entry->checkpoint);
+        $this->assertSame(456, $entry->user_id);
+    }
+
     public function test_feed_entry_belongs_to_a_user(): void
     {
         $user = User::factory()->create();

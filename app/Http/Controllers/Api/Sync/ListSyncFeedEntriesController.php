@@ -33,7 +33,7 @@ class ListSyncFeedEntriesController extends Controller
                 'meta' => [
                     'after_checkpoint' => $afterCheckpoint,
                     'current_checkpoint' => $result->currentCheckpoint,
-                    // Partial pages advance to the delivered page boundary; complete pages advance to the user feed high-water mark.
+                    // Domain-filtered complete pages can advance to the full-feed high-water mark without skipping future entries.
                     'next_checkpoint' => $result->nextCheckpoint($afterCheckpoint),
                     'has_more' => $result->hasMore,
                     'per_page' => $pageSize->value(),

@@ -146,7 +146,10 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'domain' => 'flashcards',
         ]);
 
-        $this->assertLessThan($oldestFlashcard->checkpoint, $media->checkpoint);
+        $this->assertTrue(
+            $media->checkpoint < $oldestFlashcard->checkpoint,
+            'The media checkpoint must predate the oldest flashcard checkpoint for this stale-domain test.',
+        );
 
         try {
             app(ListSyncFeedEntriesAction::class)->handle(

@@ -7,6 +7,7 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
@@ -38,20 +39,14 @@ class ReviewCardAction
             throw new InvalidArgumentException('Review event ID must be a valid ULID.');
         }
 
-        $hasSyncMetadata = $data->clientEventId !== null
-            || $data->deviceId !== null
-            || $data->clientCreatedAt !== null;
+        $syncMetadata = SyncMetadata::fromNullable(
+            clientEventId: $data->clientEventId,
+            deviceId: $data->deviceId,
+            clientCreatedAt: $data->clientCreatedAt,
+        );
 
-        $hasCompleteSyncMetadata = $data->clientEventId !== null
-            && $data->deviceId !== null
-            && $data->clientCreatedAt !== null;
-
-        if ($hasSyncMetadata && ! $hasCompleteSyncMetadata) {
-            throw new InvalidArgumentException('Client event ID, device ID, and client created at must be provided together.');
-        }
-
-        if ($hasCompleteSyncMetadata) {
-            $existingReviewEvent = $this->findExistingReviewEvent($data);
+        if ($syncMetadata !== null) {
+            $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
 
             if ($existingReviewEvent !== null) {
                 return ReviewCardResult::existing($existingReviewEvent);
@@ -74,11 +69,11 @@ class ReviewCardAction
         try {
             $reviewEvent->save();
         } catch (QueryException $exception) {
-            if (! $hasCompleteSyncMetadata || ! IntegrityConstraintViolation::matches($exception)) {
+            if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
                 throw $exception;
             }
 
-            $existingReviewEvent = $this->findExistingReviewEvent($data);
+            $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
 
             if ($existingReviewEvent === null) {
                 throw $exception;
@@ -90,11 +85,11 @@ class ReviewCardAction
         return ReviewCardResult::created($reviewEvent);
     }
 
-    private function findExistingReviewEvent(ReviewCardData $data): ?CardReviewEvent
+    private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent
     {
         return CardReviewEvent::query()
-            ->where('client_event_id', $data->clientEventId)
-            ->where('device_id', $data->deviceId)
+            ->where('client_event_id', $syncMetadata->clientEventId)
+            ->where('device_id', $syncMetadata->deviceId)
             ->first();
     }
 }

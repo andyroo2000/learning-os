@@ -20,19 +20,20 @@ class ListSyncFeedEntriesController extends Controller
 
         $afterCheckpoint = $request->afterCheckpoint();
         $pageSize = $request->pageSize();
-        $entries = $listSyncFeedEntries->handle(
+        $result = $listSyncFeedEntries->handle(
             userId: $user->id,
             afterCheckpoint: $afterCheckpoint,
             domain: $request->domain(),
             pageSize: $pageSize,
         );
 
-        return SyncFeedEntryResource::collection($entries)
+        return SyncFeedEntryResource::collection($result->entries)
             ->additional([
                 'meta' => [
                     'after_checkpoint' => $afterCheckpoint,
                     // Domain-filtered clients should keep a separate bookmark from the full-feed cursor.
-                    'next_checkpoint' => $entries->max('checkpoint') ?? $afterCheckpoint,
+                    'next_checkpoint' => $result->nextCheckpoint($afterCheckpoint),
+                    'has_more' => $result->hasMore,
                     'per_page' => $pageSize->value(),
                 ],
             ]);

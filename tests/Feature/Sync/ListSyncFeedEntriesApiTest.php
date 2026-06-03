@@ -46,6 +46,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.1.checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $before->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
+            ->assertJsonPath('meta.has_more', false)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE)
             ->assertJsonStructure([
                 'data' => [
@@ -62,6 +63,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
                 'meta' => [
                     'after_checkpoint',
                     'next_checkpoint',
+                    'has_more',
                     'per_page',
                 ],
             ])
@@ -99,6 +101,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.after_checkpoint', $entry->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.has_more', false)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
@@ -116,7 +119,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $first->checkpoint)
             ->assertJsonPath('data.1.checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', 0)
-            ->assertJsonPath('meta.next_checkpoint', $second->checkpoint);
+            ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
     public function test_it_filters_entries_by_domain(): void
@@ -171,7 +175,21 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
+            ->assertJsonPath('meta.has_more', true)
             ->assertJsonPath('meta.per_page', 2);
+    }
+
+    public function test_it_reports_no_more_entries_when_the_page_is_exactly_full(): void
+    {
+        $user = $this->signIn();
+        SyncFeedEntry::factory()->count(2)->create(['user_id' => $user->id]);
+
+        $response = $this->getJson('/api/sync/feed?per_page=2');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.has_more', false);
     }
 
     public function test_it_uses_next_checkpoint_to_continue_to_the_next_page(): void
@@ -192,7 +210,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $third->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $second->checkpoint)
-            ->assertJsonPath('meta.next_checkpoint', $third->checkpoint);
+            ->assertJsonPath('meta.next_checkpoint', $third->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
     public function test_it_uses_next_checkpoint_to_continue_domain_filtered_pages(): void
@@ -224,7 +243,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $firstPage
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.next_checkpoint', $secondFlashcards->checkpoint);
+            ->assertJsonPath('meta.next_checkpoint', $secondFlashcards->checkpoint)
+            ->assertJsonPath('meta.has_more', true);
 
         $secondPage
             ->assertOk()
@@ -232,6 +252,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $thirdFlashcards->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $secondFlashcards->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $thirdFlashcards->checkpoint)
+            ->assertJsonPath('meta.has_more', false)
             ->assertJsonMissing([
                 'checkpoint' => $media->checkpoint,
             ]);
@@ -247,6 +268,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(CursorPagination::DEFAULT_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.has_more', true)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE);
     }
 
@@ -260,6 +282,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(CursorPagination::MIN_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.has_more', true)
             ->assertJsonPath('meta.per_page', CursorPagination::MIN_PAGE_SIZE);
     }
 
@@ -273,6 +296,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
+            ->assertJsonPath('meta.has_more', true)
             ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
     }
 

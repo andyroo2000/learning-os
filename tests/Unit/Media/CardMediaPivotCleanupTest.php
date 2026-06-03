@@ -19,13 +19,15 @@ use PHPUnit\Framework\TestCase;
 /**
  * Verifies the historical cleanup migration's delete predicate; the migration slug is intentionally pinned.
  * Exact SQL strings are deliberately brittle so grammar drift fails before the PostgreSQL migration path does.
+ * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
  */
 class CardMediaPivotCleanupTest extends TestCase
 {
-    #[DataProvider('portableSelectSqlProvider')]
+    #[DataProvider('portableSqlProvider')]
     public function test_stale_pair_query_compiles_to_portable_sql(
         string $grammarClass,
         string $expectedSelectSql,
+        string $_expectedDeleteSql,
     ): void {
         $connection = $this->connection($grammarClass);
         $connection->setQueryGrammar($this->grammar($grammarClass, $connection));
@@ -41,9 +43,10 @@ class CardMediaPivotCleanupTest extends TestCase
         $this->assertSame([], $builder->getBindings());
     }
 
-    #[DataProvider('portableDeleteSqlProvider')]
+    #[DataProvider('portableSqlProvider')]
     public function test_pair_delete_constraint_compiles_to_portable_sql(
         string $grammarClass,
+        string $_expectedSelectSql,
         string $expectedDeleteSql,
     ): void {
         $connection = $this->connection($grammarClass);
@@ -89,59 +92,79 @@ class CardMediaPivotCleanupTest extends TestCase
     }
 
     /**
-     * @return array<string, array{class-string<Grammar>, string}>
-     */
-    public static function portableSelectSqlProvider(): array
-    {
-        return [
-            'sqlite' => [
-                SQLiteGrammar::class,
-                'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media" inner join "cards" on "cards"."id" = "card_media"."card_id" inner join "decks" on "decks"."id" = "cards"."deck_id" inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id" where "decks"."user_id" <> "media_assets"."user_id" order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
-            ],
-            'postgres' => [
-                PostgresGrammar::class,
-                // SQLite and Postgres both use double-quoted identifiers; keep both entries to exercise each grammar,
-                // and update them independently if the grammars diverge.
-                'select "card_media"."card_id", "card_media"."media_asset_id" from "card_media" inner join "cards" on "cards"."id" = "card_media"."card_id" inner join "decks" on "decks"."id" = "cards"."deck_id" inner join "media_assets" on "media_assets"."id" = "card_media"."media_asset_id" where "decks"."user_id" <> "media_assets"."user_id" order by "card_media"."card_id" asc, "card_media"."media_asset_id" asc',
-            ],
-            'mysql' => [
-                MySqlGrammar::class,
-                'select `card_media`.`card_id`, `card_media`.`media_asset_id` from `card_media` inner join `cards` on `cards`.`id` = `card_media`.`card_id` inner join `decks` on `decks`.`id` = `cards`.`deck_id` inner join `media_assets` on `media_assets`.`id` = `card_media`.`media_asset_id` where `decks`.`user_id` <> `media_assets`.`user_id` order by `card_media`.`card_id` asc, `card_media`.`media_asset_id` asc',
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, array{class-string<Grammar>, string}>
-     */
-    public static function portableDeleteSqlProvider(): array
-    {
-        return [
-            'sqlite' => [
-                SQLiteGrammar::class,
-                'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?) or ("card_id" = ? and "media_asset_id" = ?))',
-            ],
-            'postgres' => [
-                PostgresGrammar::class,
-                'delete from "card_media" where (("card_id" = ? and "media_asset_id" = ?) or ("card_id" = ? and "media_asset_id" = ?))',
-            ],
-            'mysql' => [
-                MySqlGrammar::class,
-                'delete from `card_media` where ((`card_id` = ? and `media_asset_id` = ?) or (`card_id` = ? and `media_asset_id` = ?))',
-            ],
-        ];
-    }
-
-    /**
      * @return array<string, array{class-string<Grammar>}>
      */
     public static function portableGrammarProvider(): array
     {
+        return array_map(
+            fn (array $fixture): array => [$fixture[0]],
+            self::portableSqlProvider(),
+        );
+    }
+
+    /**
+     * @return array<string, array{class-string<Grammar>, string, string}>
+     */
+    public static function portableSqlProvider(): array
+    {
         return [
-            'sqlite' => [SQLiteGrammar::class],
-            'postgres' => [PostgresGrammar::class],
-            'mysql' => [MySqlGrammar::class],
+            'sqlite' => [
+                SQLiteGrammar::class,
+                self::expectedSelectSql('"'),
+                self::expectedDeleteSql('"'),
+            ],
+            'postgres' => [
+                PostgresGrammar::class,
+                // SQLite and Postgres both use double-quoted identifiers, but both grammars must keep passing.
+                self::expectedSelectSql('"'),
+                self::expectedDeleteSql('"'),
+            ],
+            'mysql' => [
+                MySqlGrammar::class,
+                self::expectedSelectSql('`'),
+                self::expectedDeleteSql('`'),
+            ],
         ];
+    }
+
+    private static function expectedSelectSql(string $quote): string
+    {
+        $cardMediaCardId = self::qualified('card_media', 'card_id', $quote);
+        $cardMediaMediaAssetId = self::qualified('card_media', 'media_asset_id', $quote);
+        $cardsId = self::qualified('cards', 'id', $quote);
+        $decksId = self::qualified('decks', 'id', $quote);
+        $cardsDeckId = self::qualified('cards', 'deck_id', $quote);
+        $mediaAssetsId = self::qualified('media_assets', 'id', $quote);
+        $decksUserId = self::qualified('decks', 'user_id', $quote);
+        $mediaAssetsUserId = self::qualified('media_assets', 'user_id', $quote);
+
+        return 'select '.$cardMediaCardId.', '.$cardMediaMediaAssetId
+            .' from '.self::identifier('card_media', $quote)
+            .' inner join '.self::identifier('cards', $quote).' on '.$cardsId.' = '.$cardMediaCardId
+            .' inner join '.self::identifier('decks', $quote).' on '.$decksId.' = '.$cardsDeckId
+            .' inner join '.self::identifier('media_assets', $quote).' on '.$mediaAssetsId.' = '.$cardMediaMediaAssetId
+            .' where '.$decksUserId.' <> '.$mediaAssetsUserId
+            .' order by '.$cardMediaCardId.' asc, '.$cardMediaMediaAssetId.' asc';
+    }
+
+    private static function expectedDeleteSql(string $quote): string
+    {
+        $cardId = self::identifier('card_id', $quote);
+        $mediaAssetId = self::identifier('media_asset_id', $quote);
+
+        return 'delete from '.self::identifier('card_media', $quote)
+            .' where (('.$cardId.' = ? and '.$mediaAssetId.' = ?)'
+            .' or ('.$cardId.' = ? and '.$mediaAssetId.' = ?))';
+    }
+
+    private static function qualified(string $table, string $column, string $quote): string
+    {
+        return self::identifier($table, $quote).'.'.self::identifier($column, $quote);
+    }
+
+    private static function identifier(string $identifier, string $quote): string
+    {
+        return $quote.$identifier.$quote;
     }
 
     private function cardMediaCleanupMigration(): object

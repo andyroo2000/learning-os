@@ -241,6 +241,10 @@ class ListSyncFeedEntriesActionTest extends TestCase
 
         $this->assertCount(CursorPagination::MAX_PAGE_SIZE, $result->entries);
         $this->assertTrue($result->hasMore);
+        $this->assertGreaterThan(
+            $result->entries->last()->checkpoint,
+            $result->currentCheckpoint,
+        );
         $this->assertSame(
             $result->entries->last()->checkpoint,
             $result->nextCheckpoint(0),

@@ -39,6 +39,7 @@ final readonly class ListSyncFeedEntriesResult
             return (int) ($this->entries->max('checkpoint') ?? $fallbackCheckpoint);
         }
 
+        // Checkpoints are monotonic, so a complete page can advance to the full-feed high-water mark.
         return max($fallbackCheckpoint, $this->currentCheckpoint);
     }
 }

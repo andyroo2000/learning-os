@@ -317,6 +317,25 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('meta.has_more', false);
     }
 
+    public function test_a_cold_start_domain_filter_with_no_entries_advances_to_the_user_feed_high_water_mark(): void
+    {
+        $user = $this->signIn();
+        $media = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards&after_checkpoint=0');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.after_checkpoint', 0)
+            ->assertJsonPath('meta.current_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $media->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
     public function test_a_complete_domain_filtered_page_uses_the_domain_checkpoint_when_it_is_the_high_water_mark(): void
     {
         $user = $this->signIn();

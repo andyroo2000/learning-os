@@ -8,6 +8,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
 use App\Domain\Sync\Values\ClientEventKey;
+use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -115,19 +116,22 @@ class ReviewCardBatchAction
             throw new InvalidArgumentException('Review event ID must be a valid ULID.');
         }
 
-        if ($data->clientEventId === null || $data->deviceId === null || $data->clientCreatedAt === null) {
-            throw new InvalidArgumentException('Client event ID, device ID, and client created at are required for batch review events.');
-        }
+        $syncMetadata = SyncMetadata::fromRequired(
+            clientEventId: $data->clientEventId,
+            deviceId: $data->deviceId,
+            clientCreatedAt: $data->clientCreatedAt,
+            message: 'Client event ID, device ID, and client created at are required for batch review events.',
+        );
 
         return [
             'id' => $data->id ?? strtolower((string) Str::ulid()),
             'card_id' => $data->cardId,
             'rating' => $rating,
             'reviewed_at' => $data->reviewedAt,
-            'client_event_id' => $data->clientEventId,
-            'device_id' => $data->deviceId,
-            'client_created_at' => $data->clientCreatedAt,
-            'sync_key' => ClientEventKey::lookupKey($data->deviceId, $data->clientEventId),
+            'client_event_id' => $syncMetadata->clientEventId,
+            'device_id' => $syncMetadata->deviceId,
+            'client_created_at' => $syncMetadata->clientCreatedAt,
+            'sync_key' => $syncMetadata->lookupKey(),
         ];
     }
 

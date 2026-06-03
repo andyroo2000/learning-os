@@ -52,7 +52,7 @@ class SyncMetadataTest extends TestCase
         );
     }
 
-    public function test_it_builds_a_lookup_key_from_metadata(): void
+    public function test_it_exposes_metadata_values(): void
     {
         $metadata = SyncMetadata::fromRequired(
             clientEventId: 'event-123',
@@ -62,6 +62,17 @@ class SyncMetadataTest extends TestCase
 
         $this->assertSame('event-123', $metadata->clientEventId);
         $this->assertSame('device-abc', $metadata->deviceId);
+        $this->assertTrue($metadata->clientCreatedAt->equalTo(Carbon::parse('2026-05-27T09:14:00Z')));
+    }
+
+    public function test_it_builds_a_lookup_key_from_metadata(): void
+    {
+        $metadata = SyncMetadata::fromRequired(
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+
         $this->assertSame('["device-abc","event-123"]', $metadata->lookupKey());
     }
 }

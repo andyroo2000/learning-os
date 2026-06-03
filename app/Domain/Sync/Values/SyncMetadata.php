@@ -4,7 +4,6 @@ namespace App\Domain\Sync\Values;
 
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
-use JsonException;
 
 final readonly class SyncMetadata
 {
@@ -55,13 +54,13 @@ final readonly class SyncMetadata
         );
     }
 
-    public function clientEventKey(): ClientEventKey
+    private function clientEventKey(): ClientEventKey
     {
         return ClientEventKey::fromParts($this->deviceId, $this->clientEventId);
     }
 
     /**
-     * @throws JsonException when IDs contain invalid UTF-8.
+     * @throws \JsonException when IDs contain invalid UTF-8.
      */
     public function lookupKey(): string
     {

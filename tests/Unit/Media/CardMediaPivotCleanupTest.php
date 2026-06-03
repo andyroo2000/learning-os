@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Verifies the historical cleanup migration's delete predicate; the migration slug is intentionally pinned.
  * Exact SQL strings are deliberately brittle so grammar drift fails before the PostgreSQL migration path does.
+ * The shared SQL helpers are the fixture boundary; update them from compiled grammar output, not production code.
  * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
  */
 class CardMediaPivotCleanupTest extends TestCase

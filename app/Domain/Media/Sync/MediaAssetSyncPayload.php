@@ -19,6 +19,7 @@ final class MediaAssetSyncPayload
     {
         // Media assets are hard-deleted; delete timing lives on the feed entry timestamp.
         // The payload stays a manifest snapshot so clients can identify the removed asset.
+        // public_url is persisted create metadata; expose it as client-facing url, not storage-derived internals.
         return [
             'id' => $mediaAsset->id,
             'url' => $mediaAsset->public_url,

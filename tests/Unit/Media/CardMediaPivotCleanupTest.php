@@ -90,6 +90,31 @@ class CardMediaPivotCleanupTest extends TestCase
     }
 
     /**
+     * @return array<string, array{grammar: class-string<Grammar>, select: string, delete: string}>
+     */
+    public static function portableSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                'grammar' => SQLiteGrammar::class,
+                'select' => self::expectedSelectSql('"'),
+                'delete' => self::expectedDeleteSql('"'),
+            ],
+            'postgres' => [
+                'grammar' => PostgresGrammar::class,
+                // SQLite and Postgres both use double-quoted identifiers; split this fixture if the grammars diverge.
+                'select' => self::expectedSelectSql('"'),
+                'delete' => self::expectedDeleteSql('"'),
+            ],
+            'mysql' => [
+                'grammar' => MySqlGrammar::class,
+                'select' => self::expectedSelectSql('`'),
+                'delete' => self::expectedDeleteSql('`'),
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, array{class-string<Grammar>}>
      */
     public static function portableGrammarProvider(): array
@@ -123,31 +148,6 @@ class CardMediaPivotCleanupTest extends TestCase
         );
     }
 
-    /**
-     * @return array<string, array{grammar: class-string<Grammar>, select: string, delete: string}>
-     */
-    public static function portableSqlProvider(): array
-    {
-        return [
-            'sqlite' => [
-                'grammar' => SQLiteGrammar::class,
-                'select' => self::expectedSelectSql('"'),
-                'delete' => self::expectedDeleteSql('"'),
-            ],
-            'postgres' => [
-                'grammar' => PostgresGrammar::class,
-                // SQLite and Postgres both use double-quoted identifiers; split this fixture if the grammars diverge.
-                'select' => self::expectedSelectSql('"'),
-                'delete' => self::expectedDeleteSql('"'),
-            ],
-            'mysql' => [
-                'grammar' => MySqlGrammar::class,
-                'select' => self::expectedSelectSql('`'),
-                'delete' => self::expectedDeleteSql('`'),
-            ],
-        ];
-    }
-
     private static function expectedSelectSql(string $quote): string
     {
         // Mirrors stalePairsQuery(); verify against compiled grammar output, not by copying production edits.
@@ -174,6 +174,7 @@ class CardMediaPivotCleanupTest extends TestCase
     {
         // Mirrors constrainDeleteToPairs(); verify against compiled grammar output, not by copying production edits.
         // Shape: delete card_media rows matched by OR-paired (card_id, media_asset_id) predicates.
+        // Hardcoded for the two-row stale-pairs fixture in test_pair_delete_constraint_compiles_to_portable_sql.
         $cardId = self::identifier('card_id', $quote);
         $mediaAssetId = self::identifier('media_asset_id', $quote);
 

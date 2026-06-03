@@ -40,20 +40,30 @@ class Card extends Model
     public function ownerUserId(): int
     {
         if ($this->relationLoaded('deck') && $this->deck !== null) {
-            return (int) $this->deck->user_id;
+            return $this->resolveOwnerUserId($this->deck->user_id);
         }
 
         if (array_key_exists('owner_user_id', $this->getAttributes())) {
-            return (int) $this->getAttribute('owner_user_id');
+            return $this->resolveOwnerUserId($this->getAttribute('owner_user_id'));
         }
 
-        $userId = $this->deck()->withTrashed()->value('user_id');
+        return $this->resolveOwnerUserId($this->deck()->withTrashed()->value('user_id'));
+    }
 
-        if ($userId === null) {
+    private function resolveOwnerUserId(int|string|null $userId): int
+    {
+        // Reject malformed numeric strings such as "3abc" before PHP casts them to a positive integer.
+        if (is_string($userId) && ! ctype_digit($userId)) {
             throw new LogicException('Card deck owner could not be resolved.');
         }
 
-        return (int) $userId;
+        $resolvedUserId = (int) $userId;
+
+        if ($resolvedUserId <= 0) {
+            throw new LogicException('Card deck owner could not be resolved.');
+        }
+
+        return $resolvedUserId;
     }
 
     /**

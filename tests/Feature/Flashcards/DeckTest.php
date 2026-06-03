@@ -3,9 +3,11 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Deck;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use LogicException;
 use Tests\TestCase;
 
 class DeckTest extends TestCase
@@ -49,6 +51,25 @@ class DeckTest extends TestCase
 
         $this->assertIsInt($deck->user_id);
         $this->assertSame($deck->user_id, $deck->user->id);
+    }
+
+    public function test_deck_owner_cannot_be_changed_after_creation(): void
+    {
+        $deck = Deck::factory()->create();
+        $originalUserId = $deck->user_id;
+        $deck->user_id = User::factory()->create()->id;
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Deck owner cannot be changed.');
+
+        try {
+            $deck->save();
+        } finally {
+            $this->assertDatabaseHas('decks', [
+                'id' => $deck->id,
+                'user_id' => $originalUserId,
+            ]);
+        }
     }
 
     public function test_description_is_optional(): void

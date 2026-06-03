@@ -65,6 +65,21 @@ abstract class TestCase extends BaseTestCase
     /**
      * @param  array<string, mixed>  $attributes
      */
+    protected function mediaAssetForCardOwner(Card $card, array $attributes = []): MediaAsset
+    {
+        if ($card->relationLoaded('deck') && $card->deck !== null) {
+            $deck = $card->deck;
+            $deck->loadMissing('user');
+        } else {
+            $deck = $card->deck()->withTrashed()->with('user')->firstOrFail();
+        }
+
+        return $this->mediaAssetFor($deck->user, $attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
     protected function cardReviewEventFor(User $user, array $attributes = []): CardReviewEvent
     {
         return CardReviewEvent::factory()

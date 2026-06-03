@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Media;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\AttachMediaToCardRequest;
@@ -13,6 +14,7 @@ use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AttachMediaToCardController extends Controller
@@ -29,6 +31,11 @@ class AttachMediaToCardController extends Controller
                 card: $card,
                 mediaAsset: $mediaAsset,
             ));
+        } catch (MediaOwnershipException $exception) {
+            // Hide inaccessible media assets; missing IDs remain validation errors, so this accepts that distinction.
+            Log::warning($exception->getMessage(), ['exception' => $exception]);
+
+            throw (new ModelNotFoundException)->setModel(MediaAsset::class, [$mediaAsset->getKey()]);
         } catch (QueryException $exception) {
             $updatedCard = $this->recoverFromConstraintViolation(
                 exception: $exception,

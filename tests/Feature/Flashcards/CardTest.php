@@ -72,6 +72,121 @@ class CardTest extends TestCase
         $card->ownerUserId();
     }
 
+    public function test_owner_user_id_fails_when_loaded_deck_has_no_owner(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRelation('deck', new Deck);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_fails_when_selected_owner_attribute_is_null(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRawAttributes([
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'owner_user_id' => null,
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_fails_when_selected_owner_attribute_is_zero(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRawAttributes([
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'owner_user_id' => 0,
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_fails_when_selected_owner_attribute_is_negative(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRawAttributes([
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'owner_user_id' => -1,
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_fails_when_selected_owner_attribute_is_empty(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRawAttributes([
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'owner_user_id' => '',
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
+    public function test_owner_user_id_fails_when_selected_owner_attribute_is_a_malformed_numeric_string(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        $card->setRawAttributes([
+            'deck_id' => $card->deck_id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'owner_user_id' => '3abc',
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card deck owner could not be resolved.');
+
+        $card->ownerUserId();
+    }
+
     public function test_owner_user_id_resolves_soft_deleted_parent_decks(): void
     {
         $deck = Deck::factory()->create();

@@ -4,6 +4,7 @@ namespace App\Domain\Media\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Data\AttachMediaToCardData;
+use App\Domain\Media\Support\CardMediaOwnership;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -19,7 +20,12 @@ class AttachMediaToCardAction
 
     public function handle(AttachMediaToCardData $data): Card
     {
-        DB::transaction(function () use ($data): void {
+        // Ownership is immutable once set, so the pre-transaction check cannot race a reassignment.
+        // Keep this outside the transaction to avoid extra reads while holding the write lock.
+        // The ownership helper intentionally refreshes the card's deck relation cache with trashed decks.
+        $ownerUserId = CardMediaOwnership::ownerUserIdFor($data->card, $data->mediaAsset);
+
+        DB::transaction(function () use ($data, $ownerUserId): void {
             $changes = $data->card->mediaAssets()->syncWithoutDetaching([$data->mediaAsset->id]);
 
             if ($changes['attached'] === []) {
@@ -32,7 +38,7 @@ class AttachMediaToCardAction
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
-                    userId: $data->card->ownerUserId(),
+                    userId: $ownerUserId,
                     domain: CardMediaSyncPayload::DOMAIN,
                     resourceType: CardMediaSyncPayload::RESOURCE_TYPE,
                     resourceId: CardMediaSyncPayload::resourceId($data->card->id, $data->mediaAsset->id),

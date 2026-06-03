@@ -16,6 +16,12 @@ class SyncFeedEntry extends Model
     /** @use HasFactory<SyncFeedEntryFactory> */
     use HasFactory;
 
+    public const MAX_DOMAIN_LENGTH = 64;
+
+    public const MAX_RESOURCE_TYPE_LENGTH = 64;
+
+    public const MAX_RESOURCE_ID_LENGTH = 64;
+
     protected $primaryKey = 'checkpoint';
 
     public $incrementing = true;

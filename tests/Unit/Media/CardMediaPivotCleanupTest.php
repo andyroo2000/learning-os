@@ -23,11 +23,10 @@ use PHPUnit\Framework\TestCase;
  */
 class CardMediaPivotCleanupTest extends TestCase
 {
-    #[DataProvider('portableSqlProvider')]
+    #[DataProvider('portableSelectSqlProvider')]
     public function test_stale_pair_query_compiles_to_portable_sql(
         string $grammarClass,
         string $expectedSelectSql,
-        string $_expectedDeleteSql,
     ): void {
         $connection = $this->connection($grammarClass);
         $connection->setQueryGrammar($this->grammar($grammarClass, $connection));
@@ -43,10 +42,9 @@ class CardMediaPivotCleanupTest extends TestCase
         $this->assertSame([], $builder->getBindings());
     }
 
-    #[DataProvider('portableSqlProvider')]
+    #[DataProvider('portableDeleteSqlProvider')]
     public function test_pair_delete_constraint_compiles_to_portable_sql(
         string $grammarClass,
-        string $_expectedSelectSql,
         string $expectedDeleteSql,
     ): void {
         $connection = $this->connection($grammarClass);
@@ -96,8 +94,31 @@ class CardMediaPivotCleanupTest extends TestCase
      */
     public static function portableGrammarProvider(): array
     {
+        // Derive from the SQL fixture list so every portability test tracks the same grammar targets.
         return array_map(
             fn (array $fixture): array => [$fixture[0]],
+            self::portableSqlProvider(),
+        );
+    }
+
+    /**
+     * @return array<string, array{class-string<Grammar>, string}>
+     */
+    public static function portableSelectSqlProvider(): array
+    {
+        return array_map(
+            fn (array $fixture): array => [$fixture[0], $fixture[1]],
+            self::portableSqlProvider(),
+        );
+    }
+
+    /**
+     * @return array<string, array{class-string<Grammar>, string}>
+     */
+    public static function portableDeleteSqlProvider(): array
+    {
+        return array_map(
+            fn (array $fixture): array => [$fixture[0], $fixture[2]],
             self::portableSqlProvider(),
         );
     }
@@ -129,6 +150,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
     private static function expectedSelectSql(string $quote): string
     {
+        // Mirrors stalePairsQuery() while keeping expected SQL fixtures centralized per quote style.
         $cardMediaCardId = self::qualified('card_media', 'card_id', $quote);
         $cardMediaMediaAssetId = self::qualified('card_media', 'media_asset_id', $quote);
         $cardsId = self::qualified('cards', 'id', $quote);
@@ -149,6 +171,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
     private static function expectedDeleteSql(string $quote): string
     {
+        // Mirrors constrainDeleteToPairs() for the two selected pairs used by the delete SQL test.
         $cardId = self::identifier('card_id', $quote);
         $mediaAssetId = self::identifier('media_asset_id', $quote);
 

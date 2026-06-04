@@ -3,7 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Domain\Auth\Actions\RegisterMobileUserAction;
-use App\Domain\Auth\Exceptions\DuplicateMobileUserEmailException;
+use App\Domain\Auth\Exceptions\DuplicateUserEmailException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -45,7 +45,7 @@ class RegisterMobileUserActionTest extends TestCase
             'email' => 'katherine@example.com',
         ]);
 
-        $this->expectException(DuplicateMobileUserEmailException::class);
+        $this->expectException(DuplicateUserEmailException::class);
         $this->expectExceptionMessage('The email has already been taken.');
 
         app(RegisterMobileUserAction::class)->handle(

@@ -43,6 +43,7 @@ class CreateCardApiTest extends TestCase
                     'back_text',
                     'study_status',
                     'new_queue_position',
+                    'scheduler_state',
                     'due_at',
                     'introduced_at',
                     'failed_at',
@@ -62,6 +63,7 @@ class CreateCardApiTest extends TestCase
             'back_text' => 'hello',
             'study_status' => 'new',
             'new_queue_position' => 1,
+            'scheduler_state' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -103,6 +105,7 @@ class CreateCardApiTest extends TestCase
             'back_text' => 'hello',
             'study_status' => 'review',
             'new_queue_position' => 99,
+            'scheduler_state' => ['state' => 2],
             'due_at' => '2026-06-05T14:15:00Z',
             'introduced_at' => '2026-06-01T14:15:00Z',
             'failed_at' => '2026-06-02T14:15:00Z',
@@ -113,6 +116,7 @@ class CreateCardApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.study_status', 'new')
             ->assertJsonPath('data.new_queue_position', 1)
+            ->assertJsonPath('data.scheduler_state', null)
             ->assertJsonPath('data.due_at', null)
             ->assertJsonPath('data.introduced_at', null)
             ->assertJsonPath('data.failed_at', null)
@@ -122,6 +126,7 @@ class CreateCardApiTest extends TestCase
             'id' => $response->json('data.id'),
             'study_status' => 'new',
             'new_queue_position' => 1,
+            'scheduler_state' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

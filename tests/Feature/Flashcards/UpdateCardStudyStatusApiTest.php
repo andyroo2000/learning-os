@@ -44,6 +44,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
                     'back_text',
                     'study_status',
                     'new_queue_position',
+                    'scheduler_state',
                     'due_at',
                     'introduced_at',
                     'failed_at',

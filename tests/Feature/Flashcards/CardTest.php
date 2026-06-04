@@ -29,6 +29,7 @@ class CardTest extends TestCase
             'failed_at',
             'last_reviewed_at',
             'new_queue_position',
+            'scheduler_state',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -66,6 +67,7 @@ class CardTest extends TestCase
         $this->assertNull($card->failed_at);
         $this->assertNull($card->last_reviewed_at);
         $this->assertNull($card->new_queue_position);
+        $this->assertNull($card->scheduler_state);
     }
 
     public function test_card_casts_study_state_fields(): void
@@ -79,6 +81,11 @@ class CardTest extends TestCase
         $card->failed_at = Carbon::parse('2026-06-02T14:15:00Z');
         $card->last_reviewed_at = Carbon::parse('2026-06-03T14:15:00Z');
         $card->new_queue_position = '7';
+        $card->scheduler_state = [
+            'difficulty' => 5,
+            'stability' => 0.1,
+            'state' => 0,
+        ];
         $card->save();
         $card->refresh();
 
@@ -88,6 +95,11 @@ class CardTest extends TestCase
         $this->assertSame('2026-06-02T14:15:00.000000Z', $card->failed_at?->toJSON());
         $this->assertSame('2026-06-03T14:15:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertSame(7, $card->new_queue_position);
+        $this->assertSame([
+            'difficulty' => 5,
+            'stability' => 0.1,
+            'state' => 0,
+        ], $card->scheduler_state);
     }
 
     public function test_card_study_state_is_not_mass_assignable(): void
@@ -102,6 +114,7 @@ class CardTest extends TestCase
             'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
             'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
             'new_queue_position' => 7,
+            'scheduler_state' => ['state' => 0],
         ]);
 
         $this->assertSame(CardStudyStatus::New, $card->study_status);
@@ -110,6 +123,7 @@ class CardTest extends TestCase
         $this->assertNull($card->failed_at);
         $this->assertNull($card->last_reviewed_at);
         $this->assertNull($card->new_queue_position);
+        $this->assertNull($card->scheduler_state);
     }
 
     public function test_card_belongs_to_a_deck(): void

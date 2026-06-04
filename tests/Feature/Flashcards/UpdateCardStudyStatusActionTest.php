@@ -59,6 +59,7 @@ class UpdateCardStudyStatusActionTest extends TestCase
             'back_text' => $card->back_text,
             'study_status' => 'suspended',
             'new_queue_position' => null,
+            'scheduler_state' => null,
             'due_at' => $dueAt->toJSON(),
             'introduced_at' => $updatedCard->introduced_at?->toJSON(),
             'failed_at' => null,

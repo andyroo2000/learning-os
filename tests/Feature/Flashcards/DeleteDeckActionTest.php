@@ -67,6 +67,7 @@ class DeleteDeckActionTest extends TestCase
                 'back_text' => $card->back_text,
                 'study_status' => 'new',
                 'new_queue_position' => $card->new_queue_position,
+                'scheduler_state' => null,
                 'due_at' => null,
                 'introduced_at' => null,
                 'failed_at' => null,

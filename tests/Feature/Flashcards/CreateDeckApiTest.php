@@ -121,7 +121,7 @@ class CreateDeckApiTest extends TestCase
         $course = Course::factory()->for($user)->create();
         $id = (string) Str::ulid();
 
-        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
+        // Disable TrimStrings so this test exercises request-owned normalization.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
@@ -149,6 +149,7 @@ class CreateDeckApiTest extends TestCase
         $courseId = strtolower((string) Str::ulid());
         Course::factory()->for($user)->create(['id' => $courseId]);
 
+        // Disable TrimStrings so this test exercises request-owned normalization.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
@@ -176,6 +177,7 @@ class CreateDeckApiTest extends TestCase
         $courseId = strtolower((string) Str::ulid());
         Course::factory()->for($user)->create(['id' => $courseId]);
 
+        // Disable TrimStrings so this test exercises request-owned normalization.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [

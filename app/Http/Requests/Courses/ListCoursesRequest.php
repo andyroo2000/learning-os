@@ -22,8 +22,8 @@ class ListCoursesRequest extends CursorPaginatedRequest
 
             if (is_string($value)) {
                 $input[$key] = match ($key) {
+                    'status' => mb_strtolower(trim($value)),
                     'native_language', 'target_language' => CourseLanguage::normalize($value),
-                    default => mb_strtolower(trim($value)),
                 };
             }
         }

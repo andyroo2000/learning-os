@@ -30,7 +30,7 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed checkpoint must be zero or greater.');
         }
 
-        // HTTP requests pre-normalize before validation; keep this for direct action callers.
+        // Direct callers skip HTTP request normalization, so keep this action boundary canonical.
         $domain = $domain === null ? null : SyncFeedMetadata::normalize($domain);
         $resourceType = $resourceType === null ? null : SyncFeedMetadata::normalize($resourceType);
         $resourceId = $resourceId === null ? null : SyncFeedMetadata::normalize($resourceId);

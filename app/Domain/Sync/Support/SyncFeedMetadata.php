@@ -8,6 +8,6 @@ final class SyncFeedMetadata
 
     public static function normalize(string $value): string
     {
-        return strtolower(trim($value));
+        return mb_strtolower(trim($value));
     }
 }

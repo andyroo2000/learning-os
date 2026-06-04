@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private const SYNC_METADATA_UNIQUE_INDEX = 'card_review_events_device_id_client_event_id_unique';
+
     /**
      * Run the migrations.
      */
@@ -15,7 +17,7 @@ return new class extends Migration
             $table->string('client_event_id')->nullable()->after('reviewed_at');
             $table->string('device_id')->nullable()->after('client_event_id');
             $table->timestamp('client_created_at')->nullable()->after('device_id');
-            $table->unique(['device_id', 'client_event_id']);
+            $table->unique(['device_id', 'client_event_id'], self::SYNC_METADATA_UNIQUE_INDEX);
         });
     }
 
@@ -25,7 +27,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('card_review_events', function (Blueprint $table) {
-            $table->dropUnique(['device_id', 'client_event_id']);
+            $table->dropUnique(self::SYNC_METADATA_UNIQUE_INDEX);
             $table->dropColumn([
                 'client_event_id',
                 'device_id',

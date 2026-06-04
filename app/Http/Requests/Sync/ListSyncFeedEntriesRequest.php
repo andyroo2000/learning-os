@@ -74,11 +74,13 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
     public function domain(): ?string
     {
-        if (! $this->has('domain')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('domain', $validated)) {
             return null;
         }
 
-        return (string) $this->input('domain');
+        return $validated['domain'];
     }
 
     public function pageSize(): CursorPageSize
@@ -90,28 +92,34 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
     public function resourceType(): ?string
     {
-        if (! $this->has('resource_type')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('resource_type', $validated)) {
             return null;
         }
 
-        return (string) $this->input('resource_type');
+        return $validated['resource_type'];
     }
 
     public function resourceId(): ?string
     {
-        if (! $this->has('resource_id')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('resource_id', $validated)) {
             return null;
         }
 
-        return (string) $this->input('resource_id');
+        return $validated['resource_id'];
     }
 
     public function operation(): ?string
     {
-        if (! $this->has('operation')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('operation', $validated)) {
             return null;
         }
 
-        return (string) $this->input('operation');
+        return $validated['operation'];
     }
 }

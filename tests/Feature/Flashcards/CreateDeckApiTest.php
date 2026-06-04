@@ -10,6 +10,7 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CreateDeckApiTest extends TestCase
@@ -115,30 +116,54 @@ class CreateDeckApiTest extends TestCase
         ]);
     }
 
-    public function test_it_normalizes_client_ulids_without_global_trim_middleware(): void
+    #[DataProvider('clientUlidNormalizationProvider')]
+    public function test_it_normalizes_client_ulids_without_global_trim_middleware(string $scenario): void
     {
         $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $id = (string) Str::ulid();
+        $id = strtolower((string) Str::ulid());
+        $courseId = strtolower((string) Str::ulid());
+        Course::factory()->for($user)->create(['id' => $courseId]);
 
+        // Disable TrimStrings so this test exercises request-owned normalization.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
-                'id' => '  '.strtoupper($id).'  ',
-                'course_id' => '  '.strtoupper($course->id).'  ',
+                'id' => $this->transformClientUlid($scenario, $id),
+                'course_id' => $this->transformClientUlid($scenario, $courseId),
                 'name' => 'Italian Basics',
             ]);
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.id', strtolower($id))
-            ->assertJsonPath('data.course_id', $course->id);
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.course_id', $courseId);
 
         $this->assertDatabaseHas('decks', [
-            'id' => strtolower($id),
+            'id' => $id,
             'user_id' => $user->id,
-            'course_id' => $course->id,
+            'course_id' => $courseId,
         ]);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function clientUlidNormalizationProvider(): array
+    {
+        return [
+            'padded and uppercased' => ['padded_uppercase'],
+            'trim only' => ['trim_only'],
+            'lowercase only' => ['lowercase_only'],
+        ];
+    }
+
+    private function transformClientUlid(string $scenario, string $id): string
+    {
+        return match ($scenario) {
+            'padded_uppercase' => '  '.strtoupper($id).'  ',
+            'trim_only' => "  {$id}  ",
+            'lowercase_only' => strtoupper($id),
+        };
     }
 
     public function test_it_returns_existing_deck_for_idempotent_retries(): void

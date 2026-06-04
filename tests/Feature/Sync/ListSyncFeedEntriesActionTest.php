@@ -3,6 +3,7 @@
 namespace Tests\Feature\Sync;
 
 use App\Domain\Sync\Actions\ListSyncFeedEntriesAction;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -190,6 +191,94 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
+    public function test_it_filters_entries_by_operation(): void
+    {
+        $user = User::factory()->create();
+        $create = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Create,
+        ]);
+        $delete = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+        $update = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Update,
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            operation: ' delete ',
+        );
+
+        $this->assertSame([$delete->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertSame($update->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($result->currentCheckpoint, $result->nextCheckpoint(0));
+        $this->assertNotContains($create->checkpoint, $result->entries->pluck('checkpoint')->all());
+    }
+
+    public function test_it_filters_entries_by_operation_and_checkpoint_together(): void
+    {
+        $user = User::factory()->create();
+        $before = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+        $after = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Update,
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $before->checkpoint,
+            operation: SyncFeedOperation::Delete->value,
+        );
+
+        $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
+    }
+
+    public function test_it_filters_entries_by_resource_scope_and_operation_together(): void
+    {
+        $user = User::factory()->create();
+        $targetDelete = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+            'operation' => SyncFeedOperation::Update,
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'asset',
+            'resource_id' => 'asset-1',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: 'flashcards',
+            resourceType: 'card',
+            resourceId: 'card-1',
+            operation: SyncFeedOperation::Delete->value,
+        );
+
+        $this->assertSame([$targetDelete->checkpoint], $result->entries->pluck('checkpoint')->all());
+    }
+
     public function test_it_filters_by_domain_and_checkpoint_together(): void
     {
         $user = User::factory()->create();
@@ -237,6 +326,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertNull($exception->domain());
             $this->assertNull($exception->resourceType());
             $this->assertNull($exception->resourceId());
+            $this->assertNull($exception->operation());
             $this->assertSame(StaleSyncFeedCheckpointException::REASON, $exception->reason());
             $this->assertSame(StaleSyncFeedCheckpointException::REQUIRED_ACTION, $exception->requiredAction());
         }
@@ -275,6 +365,39 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertSame('flashcards', $exception->domain());
             $this->assertNull($exception->resourceType());
             $this->assertNull($exception->resourceId());
+            $this->assertNull($exception->operation());
+        }
+    }
+
+    public function test_it_rejects_stale_checkpoints_against_the_operation_filtered_feed_window(): void
+    {
+        $user = User::factory()->create();
+        $update = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Update,
+        ]);
+        $oldestDelete = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        try {
+            app(ListSyncFeedEntriesAction::class)->handle(
+                userId: $user->id,
+                afterCheckpoint: $update->checkpoint,
+                operation: SyncFeedOperation::Delete->value,
+            );
+
+            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
+        } catch (StaleSyncFeedCheckpointException $exception) {
+            $this->assertSame($update->checkpoint, $exception->afterCheckpoint());
+            $this->assertSame($oldestDelete->checkpoint, $exception->oldestAvailableCheckpoint());
+            $this->assertNull($exception->domain());
+            $this->assertNull($exception->resourceType());
+            $this->assertNull($exception->resourceId());
+            $this->assertSame(SyncFeedOperation::Delete->value, $exception->operation());
         }
     }
 
@@ -648,6 +771,28 @@ class ListSyncFeedEntriesActionTest extends TestCase
             domain: 'flashcards',
             resourceType: 'card',
             resourceId: ' ',
+        );
+    }
+
+    public function test_it_rejects_blank_operation_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed operation must not be blank when provided.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            operation: ' ',
+        );
+    }
+
+    public function test_it_rejects_unknown_operation_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed operation must be one of: create, update, delete.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            operation: 'patch',
         );
     }
 

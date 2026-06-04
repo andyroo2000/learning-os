@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Sync;
 
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ListSyncFeedEntriesRequest extends FormRequest
 {
@@ -34,6 +36,14 @@ class ListSyncFeedEntriesRequest extends FormRequest
                 'resource_id' => trim($resourceId),
             ]);
         }
+
+        $operation = $this->input('operation');
+
+        if (is_string($operation)) {
+            $this->merge([
+                'operation' => trim($operation),
+            ]);
+        }
     }
 
     public function authorize(): bool
@@ -42,7 +52,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<mixed>>
      */
     public function rules(): array
     {
@@ -52,6 +62,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
             'domain' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_DOMAIN_LENGTH],
             'resource_type' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH],
             'resource_id' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH],
+            'operation' => ['sometimes', 'filled', 'string', Rule::in(SyncFeedOperation::values())],
             'per_page' => ['sometimes', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.CursorPagination::MAX_PAGE_SIZE],
         ];
     }
@@ -93,5 +104,14 @@ class ListSyncFeedEntriesRequest extends FormRequest
         }
 
         return (string) $this->input('resource_id');
+    }
+
+    public function operation(): ?string
+    {
+        if (! $this->has('operation')) {
+            return null;
+        }
+
+        return (string) $this->input('operation');
     }
 }

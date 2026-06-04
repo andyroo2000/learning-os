@@ -27,6 +27,7 @@ class ShowCardApiTest extends TestCase
                 'data' => [
                     'id' => $card->id,
                     'deck_id' => $card->deck_id,
+                    'course_id' => null,
                     'front_text' => 'ciao',
                     'back_text' => 'hello',
                     'created_at' => $card->created_at->toJSON(),

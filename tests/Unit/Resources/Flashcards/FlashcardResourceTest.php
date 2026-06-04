@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Resources\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Http\Resources\Flashcards\CardResource;
@@ -39,6 +40,19 @@ class FlashcardResourceTest extends TestCase
         $this->assertSame(
             $card->deleted_at->toJSON(),
             CardResource::make($card)->resolve()['deleted_at'],
+        );
+    }
+
+    public function test_card_resource_serializes_course_id_from_its_deck(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $card = Card::factory()->for($deck)->create();
+
+        $this->assertSame(
+            $course->id,
+            CardResource::make($card)->resolve()['course_id'],
         );
     }
 }

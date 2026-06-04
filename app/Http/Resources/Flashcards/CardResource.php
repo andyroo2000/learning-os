@@ -16,6 +16,7 @@ class CardResource extends JsonResource
         return [
             'id' => $this->id,
             'deck_id' => $this->deck_id,
+            'course_id' => $this->deckCourseId(),
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
             // Cross-domain resource by design while cards own the response envelope.

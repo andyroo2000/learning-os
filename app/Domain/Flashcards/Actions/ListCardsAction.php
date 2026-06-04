@@ -22,6 +22,7 @@ class ListCardsAction
         }
 
         return Card::query()
+            ->with(['deck:id,user_id,course_id'])
             ->whereHas('deck', fn ($query) => $query
                 ->where('user_id', $userId)
                 ->when($courseId !== null, fn ($query) => $query->where('course_id', $courseId)))

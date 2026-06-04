@@ -123,6 +123,69 @@ class ListCoursesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_courses_by_status(): void
+    {
+        $user = $this->signIn();
+        $draftCourse = Course::factory()->draft()->for($user)->create([
+            'updated_at' => now()->subMinute(),
+        ]);
+        $readyCourse = Course::factory()->ready()->for($user)->create([
+            'updated_at' => now(),
+        ]);
+
+        Course::factory()->generating()->for($user)->create();
+        Course::factory()->ready()->for(User::factory()->create())->create();
+
+        $response = $this->getJson('/api/courses?status=ready');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $readyCourse->id)
+            ->assertJsonPath('data.0.status', CourseStatus::Ready->value)
+            ->assertJsonMissing([
+                'id' => $draftCourse->id,
+            ]);
+    }
+
+    public function test_status_filters_preserve_query_strings_across_cursor_pages(): void
+    {
+        $user = $this->signIn();
+
+        Course::factory()->draft()->for($user)->create();
+        Course::factory()->ready()->for($user)->create([
+            'title' => 'Older Ready Course',
+            'updated_at' => now()->subMinute(),
+        ]);
+        $newerReadyCourse = Course::factory()->ready()->for($user)->create([
+            'title' => 'Newer Ready Course',
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/courses?status=ready&per_page=1');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerReadyCourse->id)
+            ->assertJsonPath('links.next', fn (string $url): bool => str_contains($url, 'status=ready'));
+    }
+
+    public function test_it_trims_status_filters(): void
+    {
+        $user = $this->signIn();
+        $readyCourse = Course::factory()->ready()->for($user)->create();
+
+        Course::factory()->draft()->for($user)->create();
+
+        $response = $this->getJson('/api/courses?status=%20ready%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $readyCourse->id);
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();
@@ -233,6 +296,28 @@ class ListCoursesApiTest extends TestCase
         $this->signIn();
 
         $this->assertCursorEndpointRejectsPageSize('/api/courses', 'abc');
+    }
+
+    public function test_it_rejects_invalid_status_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/courses?status=published');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    }
+
+    public function test_it_rejects_blank_status_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/courses?status=%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
     }
 
     public function test_it_requires_authentication(): void

@@ -16,9 +16,9 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PDOException;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -248,30 +248,45 @@ class ReviewCardActionTest extends TestCase
     {
         $card = Card::factory()->create();
         $id = strtolower((string) Str::ulid());
-        $inserted = false;
-        $deleted = false;
-        $reviewCard = new ReviewCardAction(
-            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
-            afterClientIdPrecheckMiss: function (ReviewCardData $data) use (&$inserted, $card): void {
-                if ($inserted || $data->id === null) {
-                    return;
+        $raceState = (object) [
+            'inserted' => false,
+            'deleted' => false,
+        ];
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), $raceState) extends ReviewCardAction
+        {
+            public function __construct(
+                RecordSyncFeedEntryAction $recordSyncFeedEntry,
+                private readonly object $raceState,
+            ) {
+                parent::__construct($recordSyncFeedEntry);
+            }
+
+            protected function saveReviewEvent(CardReviewEvent $reviewEvent): void
+            {
+                $this->raceState->inserted = true;
+
+                $previous = new PDOException('UNIQUE constraint failed: card_review_events.id', 19);
+                $previous->errorInfo = ['23000', '19', 'UNIQUE constraint failed: card_review_events.id'];
+
+                throw new QueryException(
+                    'sqlite',
+                    'insert into "card_review_events" ("id") values (?)',
+                    [$reviewEvent->id],
+                    $previous,
+                );
+            }
+
+            protected function findExistingReviewEventById(string $id): ?CardReviewEvent
+            {
+                if ($this->raceState->inserted && ! $this->raceState->deleted) {
+                    $this->raceState->deleted = true;
+
+                    return null;
                 }
 
-                $inserted = true;
-
-                DB::table('card_review_events')->insert([
-                    'id' => $data->id,
-                    'card_id' => $card->id,
-                    'rating' => CardReviewRating::Good->value,
-                    'reviewed_at' => '2026-05-27 09:15:00',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            },
-            afterClientIdUniqueConflict: function (ReviewCardData $data, QueryException $exception) use (&$deleted): void {
-                $deleted = DB::table('card_review_events')->where('id', $data->id)->delete() === 1;
-            },
-        );
+                return parent::findExistingReviewEventById($id);
+            }
+        };
 
         try {
             $reviewCard->handle(
@@ -285,8 +300,8 @@ class ReviewCardActionTest extends TestCase
 
             $this->fail('Expected retryable review event ID conflict was not thrown.');
         } catch (CardReviewEventConflictException $exception) {
-            $this->assertTrue($inserted);
-            $this->assertTrue($deleted);
+            $this->assertTrue($raceState->inserted);
+            $this->assertTrue($raceState->deleted);
             $this->assertFalse($exception->shouldBeHiddenFrom($card->ownerUserId()));
             $this->assertTrue($exception->isRetryable());
             $this->assertSame('card_review_event_retry', $exception->reason());

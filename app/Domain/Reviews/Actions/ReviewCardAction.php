@@ -15,7 +15,6 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
-use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -26,13 +25,7 @@ class ReviewCardAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-        private readonly ?Closure $afterClientIdPrecheckMiss = null,
-        private readonly ?Closure $afterClientIdUniqueConflict = null,
-    ) {
-        if (($afterClientIdPrecheckMiss !== null || $afterClientIdUniqueConflict !== null) && ! app()->runningUnitTests()) {
-            throw new LogicException('Review event creation race hooks may only be used in tests.');
-        }
-    }
+    ) {}
 
     public function handle(ReviewCardData $data): ReviewCardResult
     {
@@ -89,9 +82,6 @@ class ReviewCardAction
                 ));
             }
 
-            if ($this->afterClientIdPrecheckMiss !== null) {
-                ($this->afterClientIdPrecheckMiss)($data);
-            }
         }
 
         $reviewEvent = new CardReviewEvent([
@@ -109,7 +99,7 @@ class ReviewCardAction
 
         try {
             return DB::transaction(function () use ($card, $reviewEvent): ReviewCardResult {
-                $reviewEvent->save();
+                $this->saveReviewEvent($reviewEvent);
 
                 $this->recordSyncFeedEntry->handle(
                     RecordSyncFeedEntryData::fromInput(
@@ -126,10 +116,6 @@ class ReviewCardAction
             });
         } catch (QueryException $exception) {
             if ($data->id !== null && IntegrityConstraintViolation::matchesPrimaryKey($exception, 'card_review_events')) {
-                if ($this->afterClientIdUniqueConflict !== null) {
-                    ($this->afterClientIdUniqueConflict)($data, $exception);
-                }
-
                 $existingReviewEvent = $this->findExistingReviewEventById($data->id);
 
                 if ($existingReviewEvent !== null) {
@@ -171,7 +157,7 @@ class ReviewCardAction
             ->first();
     }
 
-    private function findExistingReviewEventById(string $id): ?CardReviewEvent
+    protected function findExistingReviewEventById(string $id): ?CardReviewEvent
     {
         return CardReviewEvent::query()
             ->with([
@@ -179,6 +165,11 @@ class ReviewCardAction
                 'card.deck' => fn ($query) => $query->withTrashed(),
             ])
             ->find($id);
+    }
+
+    protected function saveReviewEvent(CardReviewEvent $reviewEvent): void
+    {
+        $reviewEvent->save();
     }
 
     private function matchingExistingReviewEvent(
@@ -211,6 +202,7 @@ class ReviewCardAction
     ): void {
         $conflictingUserId = $this->ownerIdFor($reviewEvent);
 
+        // Sync metadata is the authoritative dedup key here; enforce only the newer client-provided ID contract.
         if (
             $conflictingUserId !== $card->ownerUserId()
             || ($data->id !== null && CanonicalUlid::normalize((string) $reviewEvent->id) !== $data->id)

@@ -179,6 +179,35 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseMissing('card_review_events', ['id' => $secondId]);
     }
 
+    public function test_it_returns_existing_event_when_provided_ulid_and_sync_metadata_match(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $id = strtolower((string) Str::ulid());
+        $payload = [
+            'id' => strtoupper($id),
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $payload);
+        $secondResponse = $this->postJson('/api/card-review-events', $payload);
+
+        $firstResponse->assertCreated();
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.client_event_id', 'event-123')
+            ->assertJsonPath('data.device_id', 'device-abc')
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.000000Z');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
     {
         $user = $this->signIn();

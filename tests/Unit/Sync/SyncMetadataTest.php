@@ -63,6 +63,22 @@ class SyncMetadataTest extends TestCase
         $this->assertSame('device-abc', $metadata->deviceId);
     }
 
+    public function test_nullable_construction_accepts_metadata_ids_at_the_column_limit(): void
+    {
+        $clientEventId = str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH);
+        $deviceId = str_repeat('b', SyncMetadata::MAX_DEVICE_ID_LENGTH);
+
+        $metadata = SyncMetadata::fromNullable(
+            clientEventId: $clientEventId,
+            deviceId: $deviceId,
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+
+        $this->assertInstanceOf(SyncMetadata::class, $metadata);
+        $this->assertSame($clientEventId, $metadata->clientEventId);
+        $this->assertSame($deviceId, $metadata->deviceId);
+    }
+
     public function test_nullable_construction_rejects_overlong_client_event_id(): void
     {
         $this->expectException(InvalidArgumentException::class);

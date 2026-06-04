@@ -18,6 +18,9 @@ final readonly class SyncMetadata
         public Carbon $clientCreatedAt,
     ) {}
 
+    /**
+     * @throws InvalidArgumentException when required metadata is missing or exceeds column limits.
+     */
     public static function fromRequired(
         ?string $clientEventId,
         ?string $deviceId,
@@ -35,6 +38,9 @@ final readonly class SyncMetadata
         );
     }
 
+    /**
+     * @throws InvalidArgumentException when partial metadata is present or exceeds column limits.
+     */
     public static function fromNullable(
         ?string $clientEventId,
         ?string $deviceId,

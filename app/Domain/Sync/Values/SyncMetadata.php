@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 final readonly class SyncMetadata
 {
-    // Review sync metadata uses default string columns; enforce the limit before SQLite can mask it.
+    // Enforce the default string-column limit before SQLite can mask it.
     public const MAX_CLIENT_EVENT_ID_LENGTH = 255;
 
     public const MAX_DEVICE_ID_LENGTH = 255;

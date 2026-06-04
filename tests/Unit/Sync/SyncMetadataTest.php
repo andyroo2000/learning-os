@@ -113,6 +113,30 @@ class SyncMetadataTest extends TestCase
         );
     }
 
+    public function test_required_construction_rejects_overlong_client_event_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Client event ID must not exceed '.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH.' characters.');
+
+        SyncMetadata::fromRequired(
+            clientEventId: str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH + 1),
+            deviceId: 'device-abc',
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+    }
+
+    public function test_required_construction_rejects_overlong_device_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Device ID must not exceed '.SyncMetadata::MAX_DEVICE_ID_LENGTH.' characters.');
+
+        SyncMetadata::fromRequired(
+            clientEventId: 'event-123',
+            deviceId: str_repeat('a', SyncMetadata::MAX_DEVICE_ID_LENGTH + 1),
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+    }
+
     public function test_it_exposes_metadata_values(): void
     {
         $metadata = SyncMetadata::fromRequired(

@@ -55,14 +55,14 @@ class StoreMobileTokenApiTest extends TestCase
             ->assertJsonPath('data.email', 'ada@example.com');
     }
 
-    public function test_it_trims_email_and_device_name(): void
+    public function test_it_normalizes_email_and_device_name(): void
     {
         User::factory()->create([
             'email' => 'grace@example.com',
         ]);
 
         $response = $this->postJson('/api/auth/tokens', [
-            'email' => ' grace@example.com ',
+            'email' => ' GRACE@example.com ',
             'password' => 'password',
             'device_name' => ' Grace iPad ',
         ]);
@@ -73,6 +73,29 @@ class StoreMobileTokenApiTest extends TestCase
 
         $this->assertNotNull($token);
         $this->assertSame('Grace iPad', $token->name);
+    }
+
+    public function test_it_returns_null_expiration_when_sanctum_expiration_is_disabled(): void
+    {
+        config(['sanctum.expiration' => null]);
+        User::factory()->create([
+            'email' => 'dorothy@example.com',
+        ]);
+
+        $response = $this->postJson('/api/auth/tokens', [
+            'email' => 'dorothy@example.com',
+            'password' => 'password',
+            'device_name' => 'Dorothy iPhone',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.expires_at', null);
+
+        $token = PersonalAccessToken::findToken($response->json('data.token'));
+
+        $this->assertNotNull($token);
+        $this->assertNull($token->expires_at);
     }
 
     public function test_unverified_users_can_issue_mobile_tokens(): void
@@ -128,6 +151,29 @@ class StoreMobileTokenApiTest extends TestCase
         $response
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Invalid credentials.');
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_it_rate_limits_token_attempts_by_email_and_ip(): void
+    {
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this
+                ->postJson('/api/auth/tokens', [
+                    'email' => 'throttle@example.com',
+                    'password' => 'wrong-password',
+                    'device_name' => 'Throttle iPhone',
+                ])
+                ->assertUnauthorized();
+        }
+
+        $this
+            ->postJson('/api/auth/tokens', [
+                'email' => 'throttle@example.com',
+                'password' => 'wrong-password',
+                'device_name' => 'Throttle iPhone',
+            ])
+            ->assertTooManyRequests();
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }

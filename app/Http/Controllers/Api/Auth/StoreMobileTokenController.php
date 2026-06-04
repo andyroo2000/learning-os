@@ -2,46 +2,34 @@
 
 namespace App\Http\Controllers\Api\Auth;
 
+use App\Domain\Auth\Actions\IssueMobileTokenAction;
+use App\Domain\Auth\Exceptions\InvalidMobileTokenCredentialsException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\StoreMobileTokenRequest;
-use App\Models\User;
-use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 
 class StoreMobileTokenController extends Controller
 {
-    public function __invoke(StoreMobileTokenRequest $request): JsonResponse
+    public function __invoke(StoreMobileTokenRequest $request, IssueMobileTokenAction $issueMobileToken): JsonResponse
     {
         $data = $request->validated();
-        $user = User::query()
-            ->where('email', $data['email'])
-            ->first();
 
-        if ($user === null || ! Hash::check($data['password'], $user->password)) {
-            return response()->json(['message' => 'Invalid credentials.'], 401);
+        try {
+            $result = $issueMobileToken->handle(
+                email: $data['email'],
+                password: $data['password'],
+                deviceName: $data['device_name'],
+            );
+        } catch (InvalidMobileTokenCredentialsException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 401);
         }
-
-        $expiresAt = $this->tokenExpiresAt();
-        $token = $user->createToken($data['device_name'], ['*'], $expiresAt);
 
         return response()->json([
             'data' => [
-                'token' => $token->plainTextToken,
+                'token' => $result->plainTextToken,
                 'token_type' => 'Bearer',
-                'expires_at' => $expiresAt?->toJSON(),
+                'expires_at' => $result->expiresAt?->toJSON(),
             ],
         ], 201);
-    }
-
-    private function tokenExpiresAt(): ?DateTimeInterface
-    {
-        $expirationMinutes = config('sanctum.expiration');
-
-        if (! is_numeric($expirationMinutes) || (int) $expirationMinutes < 1) {
-            return null;
-        }
-
-        return now()->addMinutes((int) $expirationMinutes);
     }
 }

@@ -30,7 +30,8 @@ use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
-Route::post('/auth/tokens', StoreMobileTokenController::class);
+Route::post('/auth/tokens', StoreMobileTokenController::class)
+    ->middleware('throttle:mobile-tokens');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);

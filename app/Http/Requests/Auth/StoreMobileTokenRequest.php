@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 class StoreMobileTokenRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class StoreMobileTokenRequest extends FormRequest
 
         if (is_string($email)) {
             $this->merge([
-                'email' => trim($email),
+                'email' => Str::lower(trim($email)),
             ]);
         }
 

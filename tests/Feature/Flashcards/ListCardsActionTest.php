@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\ListCardsAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ListCardsActionTest extends TestCase
@@ -57,5 +59,38 @@ class ListCardsActionTest extends TestCase
 
         $this->assertSame(1, $cards->perPage());
         $this->assertCount(1, $cards->items());
+    }
+
+    public function test_it_filters_cards_by_deck_course_id(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $otherCourse = Course::factory()->create(['user_id' => $user->id]);
+        $courseDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+        $standaloneDeck = $this->deckFor($user);
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        Card::factory()->for($otherCourseDeck)->create();
+        Card::factory()->for($standaloneDeck)->create();
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            courseId: ' '.$course->id.' ',
+        );
+
+        $this->assertSame([$courseCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_rejects_blank_course_id_filters(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card course_id filter must not be blank when provided.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            courseId: '   ',
+        );
     }
 }

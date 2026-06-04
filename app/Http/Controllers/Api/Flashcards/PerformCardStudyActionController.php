@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Flashcards;
 
-use App\Domain\Flashcards\Actions\SetCardDueAction;
+use App\Domain\Flashcards\Actions\PerformCardStudyAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Http\Controllers\Controller;
@@ -15,14 +15,15 @@ class PerformCardStudyActionController extends Controller
     public function __invoke(
         PerformCardStudyActionRequest $request,
         Card $card,
-        SetCardDueAction $setCardDue,
+        PerformCardStudyAction $performCardStudyAction,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
         $data = $request->validated();
 
-        $result = $setCardDue->handle(
+        $result = $performCardStudyAction->handle(
             card: $card,
-            mode: $data['mode'],
+            action: $data['action'],
+            mode: $data['mode'] ?? null,
             dueAt: $data['due_at'] ?? null,
             timeZone: $data['time_zone'] ?? null,
         );

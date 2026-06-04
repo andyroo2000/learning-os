@@ -10,6 +10,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use Exception;
 use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -36,7 +37,7 @@ class AttachMediaToCardApiTest extends TestCase
             ]);
 
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
-            'media_asset_id' => $mediaAsset->id,
+            'media_asset_id' => strtoupper($mediaAsset->id),
         ]);
 
         $response
@@ -51,6 +52,75 @@ class AttachMediaToCardApiTest extends TestCase
             ->assertJsonMissingPath('data.media_assets.0.disk')
             ->assertJsonMissingPath('data.media_assets.0.path')
             ->assertJsonMissingPath('data.media_assets.0.url_expires_at');
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+    }
+
+    public function test_it_normalizes_padded_uppercase_media_asset_id_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson("/api/cards/{$card->id}/media-assets", [
+                'media_asset_id' => '  '.strtoupper($mediaAsset->id).'  ',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id)
+            ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+    }
+
+    public function test_it_trims_media_asset_id_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson("/api/cards/{$card->id}/media-assets", [
+                'media_asset_id' => "  {$mediaAsset->id}  ",
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id)
+            ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+    }
+
+    public function test_it_lowercases_media_asset_id_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson("/api/cards/{$card->id}/media-assets", [
+                'media_asset_id' => strtoupper($mediaAsset->id),
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id)
+            ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
 
         $this->assertDatabaseHas('card_media', [
             'card_id' => $card->id,
@@ -283,6 +353,24 @@ class AttachMediaToCardApiTest extends TestCase
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
             'media_asset_id' => ['not-a-ulid'],
         ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['media_asset_id']);
+
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
+    public function test_it_rejects_blank_media_asset_id_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson("/api/cards/{$card->id}/media-assets", [
+                'media_asset_id' => '   ',
+            ]);
 
         $response
             ->assertUnprocessable()

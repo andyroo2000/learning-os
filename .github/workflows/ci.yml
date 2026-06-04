@@ -87,6 +87,7 @@ jobs:
       DB_PORT: 5432
       DB_DATABASE: learning_os_test
       DB_USERNAME: learning_os
+      DB_PASSWORD: ''
       DB_SSLMODE: disable
 
     steps:

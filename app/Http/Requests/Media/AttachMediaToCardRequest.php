@@ -51,10 +51,17 @@ class AttachMediaToCardRequest extends FormRequest
 
     public function mediaAsset(): MediaAsset
     {
-        // Validation owns existence lookup; the action enforces card/media ownership atomically.
-        $mediaAsset = $this->resolveMediaAsset();
+        if (! $this->mediaAssetResolutionAttempted) {
+            $mediaAssetId = $this->validated('media_asset_id');
 
-        return $mediaAsset ?? throw new LogicException('mediaAsset() called before validation completed or outside a validated request context.');
+            if (! is_string($mediaAssetId)) {
+                throw new LogicException('mediaAsset() called before validation completed or with an invalid media_asset_id.');
+            }
+
+            $this->resolveMediaAssetById($mediaAssetId);
+        }
+
+        return $this->resolvedMediaAsset ?? throw new LogicException('mediaAsset() called after validation without a resolved media asset.');
     }
 
     public function withValidator(Validator $validator): void
@@ -64,8 +71,15 @@ class AttachMediaToCardRequest extends FormRequest
                 return;
             }
 
+            // validated() cannot be called mid-validation; getData() already reflects prepareForValidation normalization.
+            $mediaAssetId = $validator->getData()['media_asset_id'] ?? null;
+
+            if (! is_string($mediaAssetId)) {
+                return;
+            }
+
             // Use one lookup for existence validation and for the loaded action input.
-            $mediaAsset = $this->resolveMediaAsset();
+            $mediaAsset = $this->resolveMediaAssetById($mediaAssetId);
 
             if ($mediaAsset === null) {
                 // Null means missing; existing cross-owner assets continue to the action for a 404.
@@ -74,7 +88,7 @@ class AttachMediaToCardRequest extends FormRequest
         });
     }
 
-    private function resolveMediaAsset(): ?MediaAsset
+    private function resolveMediaAssetById(string $mediaAssetId): ?MediaAsset
     {
         if ($this->mediaAssetResolutionAttempted) {
             return $this->resolvedMediaAsset;
@@ -87,13 +101,8 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset = null;
         }
 
-        $mediaAssetId = $this->input('media_asset_id');
-
-        if (! is_string($mediaAssetId)) {
-            // Protect future authorize() usage, which can run before validation.
-            return $this->resolvedMediaAsset = null;
-        }
-
+        // Safe for withValidator() after callbacks and for mediaAsset() after validation.
+        // If authorize() needs this later, validated() is not safe yet and input() is not normalized.
         // Resolve by ID only; this intentionally moves ownership from validation to the action.
         return $this->resolvedMediaAsset = MediaAsset::query()
             ->whereKey($mediaAssetId)

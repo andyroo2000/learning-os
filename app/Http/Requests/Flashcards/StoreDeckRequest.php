@@ -2,18 +2,26 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDeckRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        // Trim and lowercase before validation so padded or uppercase client ULIDs pass Laravel's ulid rule.
+        $normalized = [];
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => trim($courseId),
-            ]);
+        foreach (['id', 'course_id'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
     }
 

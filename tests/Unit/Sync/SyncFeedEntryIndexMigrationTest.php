@@ -91,6 +91,7 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
     {
         $pdo = new PDO('sqlite::memory:');
 
+        // These blueprints compile SQL only; the PDO is never executed for non-SQLite grammars.
         return $connectionClass === SQLiteConnection::class
             ? new SQLiteConnection($pdo, ':memory:')
             : new $connectionClass($pdo, 'testing');

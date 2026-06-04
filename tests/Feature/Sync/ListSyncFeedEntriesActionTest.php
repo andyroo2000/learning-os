@@ -264,6 +264,38 @@ class ListSyncFeedEntriesActionTest extends TestCase
         }
     }
 
+    public function test_it_rejects_stale_checkpoints_against_the_resource_type_only_filtered_feed_window(): void
+    {
+        $user = User::factory()->create();
+        $deck = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+        $oldestCard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card',
+        ]);
+
+        try {
+            app(ListSyncFeedEntriesAction::class)->handle(
+                userId: $user->id,
+                afterCheckpoint: $deck->checkpoint,
+                resourceType: 'card',
+            );
+
+            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
+        } catch (StaleSyncFeedCheckpointException $exception) {
+            $this->assertSame($deck->checkpoint, $exception->afterCheckpoint());
+            $this->assertSame($oldestCard->checkpoint, $exception->oldestAvailableCheckpoint());
+            $this->assertNull($exception->domain());
+            $this->assertSame('card', $exception->resourceType());
+        }
+    }
+
     public function test_it_allows_checkpoints_equal_to_the_oldest_available_entry(): void
     {
         $user = User::factory()->create();

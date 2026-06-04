@@ -398,6 +398,35 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonMissingPath('data');
     }
 
+    public function test_it_returns_a_resource_type_only_scoped_stale_checkpoint_response(): void
+    {
+        $user = $this->signIn();
+        $deck = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+        $oldestCard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card',
+        ]);
+
+        $response = $this->getJson("/api/sync/feed?resource_type=card&after_checkpoint={$deck->checkpoint}");
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertJsonPath('meta.after_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.resource_type', 'card')
+            ->assertJsonPath('meta.required_action', 'full_resync')
+            ->assertJsonMissingPath('data');
+    }
+
     public function test_it_returns_an_empty_page_when_the_filtered_domain_has_no_entries(): void
     {
         $user = $this->signIn();

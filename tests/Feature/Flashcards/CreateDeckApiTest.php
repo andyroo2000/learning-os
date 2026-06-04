@@ -121,6 +121,7 @@ class CreateDeckApiTest extends TestCase
         $course = Course::factory()->for($user)->create();
         $id = (string) Str::ulid();
 
+        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
@@ -136,6 +137,60 @@ class CreateDeckApiTest extends TestCase
 
         $this->assertDatabaseHas('decks', [
             'id' => strtolower($id),
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+    }
+
+    public function test_it_trims_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $lowercaseId = strtolower((string) Str::ulid());
+
+        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/decks', [
+                'id' => "  {$lowercaseId}  ",
+                'course_id' => "  {$course->id}  ",
+                'name' => 'Italian Basics',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $lowercaseId)
+            ->assertJsonPath('data.course_id', $course->id);
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $lowercaseId,
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+    }
+
+    public function test_it_lowercases_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $id = strtolower((string) Str::ulid());
+
+        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/decks', [
+                'id' => strtoupper($id),
+                'course_id' => strtoupper($course->id),
+                'name' => 'Italian Basics',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.course_id', $course->id);
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $id,
             'user_id' => $user->id,
             'course_id' => $course->id,
         ]);

@@ -275,6 +275,13 @@ class ListDecksApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/decks', 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsArrayPageSize('/api/decks');
+    }
+
     public function test_it_requires_authentication(): void
     {
         Deck::factory()->create();

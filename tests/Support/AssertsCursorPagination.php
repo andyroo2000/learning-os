@@ -102,6 +102,19 @@ trait AssertsCursorPagination
             ->assertJsonValidationErrors('per_page');
     }
 
+    protected function assertCursorEndpointRejectsArrayPageSize(string $uri): void
+    {
+        $this->assertAuthenticated();
+
+        // Build this manually so the query stays in the unindexed array form: per_page[]=10.
+        $separator = str_contains($uri, '?') ? '&' : '?';
+        $response = $this->getJson($uri.$separator.'per_page[]=10');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    }
+
     /**
      * @param  array<string, int|string>  $query
      */

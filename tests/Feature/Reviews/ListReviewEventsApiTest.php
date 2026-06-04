@@ -326,6 +326,13 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsArrayPageSize('/api/card-review-events');
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->getJson('/api/card-review-events');

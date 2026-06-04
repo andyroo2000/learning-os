@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
@@ -39,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
     Route::get('/auth/tokens', ListAccessTokensController::class);
     Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class);
+    Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)->whereNumber('tokenId');
     Route::get('/card-review-events', ListReviewEventsController::class);
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');

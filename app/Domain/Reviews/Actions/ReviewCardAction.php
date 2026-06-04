@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Actions;
 
+use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -26,6 +27,7 @@ class ReviewCardAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ApplyCardStudyReviewAction $applyCardStudyReview,
     ) {}
 
     public function handle(ReviewCardData $data): ReviewCardResult
@@ -101,7 +103,7 @@ class ReviewCardAction
         }
 
         try {
-            return DB::transaction(function () use ($card, $reviewEvent): ReviewCardResult {
+            return DB::transaction(function () use ($card, $rating, $reviewEvent): ReviewCardResult {
                 $this->saveReviewEvent($reviewEvent);
                 $reviewEvent->setRelation('card', $card);
 
@@ -115,6 +117,8 @@ class ReviewCardAction
                         payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
                     ),
                 );
+
+                $this->applyCardStudyReview->handle($card, $rating, $reviewEvent->reviewed_at);
 
                 return ReviewCardResult::created($reviewEvent);
             });

@@ -161,15 +161,32 @@ class CreateCourseActionTest extends TestCase
         $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
         $inserted = false;
+        $raceInsertQuery = null;
         $transactionLevelBeforeAction = DB::transactionLevel();
+        $transactionLevelDuringRaceInsert = null;
         $transactionLevelAfterRollback = null;
 
-        DB::listen(function (QueryExecuted $query) use (&$inserted, $id, $user): void {
-            if ($inserted || ! in_array($id, $query->bindings, true)) {
+        DB::listen(function (QueryExecuted $query) use (
+            &$inserted,
+            &$raceInsertQuery,
+            &$transactionLevelDuringRaceInsert,
+            $id,
+            $user,
+        ): void {
+            $sql = strtolower($query->sql);
+
+            if (
+                $inserted
+                || ! str_starts_with($sql, 'select')
+                || ! str_contains($sql, 'from "courses"')
+                || ! in_array($id, $query->bindings, true)
+            ) {
                 return;
             }
 
             $inserted = true;
+            $raceInsertQuery = $query->sql;
+            $transactionLevelDuringRaceInsert = DB::transactionLevel();
 
             DB::table('courses')->insert([
                 'id' => $id,
@@ -202,6 +219,8 @@ class CreateCourseActionTest extends TestCase
         );
 
         $this->assertTrue($inserted);
+        $this->assertNotNull($raceInsertQuery);
+        $this->assertSame($transactionLevelBeforeAction, $transactionLevelDuringRaceInsert);
         $this->assertFalse($result->wasCreated);
         $this->assertSame($transactionLevelBeforeAction, $transactionLevelAfterRollback);
         $this->assertSame($id, $result->course->id);

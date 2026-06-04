@@ -150,6 +150,7 @@ class CreateCourseAction
             throw CourseConflictException::deleted($course);
         }
 
+        // Status is server-controlled after creation and must not block idempotent retries.
         if (
             $course->user_id !== $data->userId
             || $course->title !== $data->title

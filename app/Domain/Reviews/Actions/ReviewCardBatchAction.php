@@ -106,7 +106,7 @@ class ReviewCardBatchAction
                 }
             }
 
-            $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems);
+            $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKeyForResponse($preparedItems);
             $reviewEvents = $this->reviewEventsForPreparedItems($preparedItems, $reviewEventsBySyncKey);
 
             if ($createdItems->isNotEmpty()) {
@@ -228,6 +228,7 @@ class ReviewCardBatchAction
         return $preparedItems
             ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
             ->groupBy('sync_key')
+            // Sync-key duplicates describe the same client event; prefer the item that supplied the canonical ID.
             ->map(fn (Collection $items): array => $items->firstWhere('provided_id', true) ?? $items->first())
             ->values();
     }
@@ -262,7 +263,7 @@ class ReviewCardBatchAction
      * @param  Collection<int, array{device_id: string, client_event_id: string}>  $preparedItems
      * @return Collection<string, CardReviewEvent>
      */
-    private function existingReviewEventsBySyncKey(Collection $preparedItems): Collection
+    private function existingReviewEventsBySyncKeyForResponse(Collection $preparedItems): Collection
     {
         return $this->reviewEventsBySyncKeyQuery($preparedItems)
             ->get()

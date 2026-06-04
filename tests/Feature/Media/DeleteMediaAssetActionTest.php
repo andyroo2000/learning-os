@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -19,7 +20,7 @@ class DeleteMediaAssetActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_deletes_a_media_asset(): void
+    public function test_it_deletes_an_unattached_media_asset_with_one_asset_tombstone(): void
     {
         $user = User::factory()->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
@@ -32,6 +33,8 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertDatabaseMissing('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
         $entry = SyncFeedEntry::query()->sole();
 
@@ -83,10 +86,17 @@ class DeleteMediaAssetActionTest extends TestCase
     public function test_it_removes_card_attachments_when_deleting_a_media_asset(): void
     {
         $user = User::factory()->create();
-        $card = $this->cardFor($user);
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $card->mediaAssets()->attach($mediaAsset->id);
+        $firstCard->mediaAssets()->attach($mediaAsset->id);
+        $secondCard->mediaAssets()->attach($mediaAsset->id);
+
+        $pivotsByCardId = collect([$firstCard, $secondCard])
+            ->mapWithKeys(fn ($card): array => [
+                $card->id => $card->mediaAssets()->whereKey($mediaAsset->id)->first()?->pivot,
+            ]);
 
         app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
             userId: $user->id,
@@ -94,12 +104,114 @@ class DeleteMediaAssetActionTest extends TestCase
         ));
 
         $this->assertDatabaseMissing('card_media', [
-            'card_id' => $card->id,
+            'card_id' => $firstCard->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $secondCard->id,
             'media_asset_id' => $mediaAsset->id,
         ]);
         $this->assertDatabaseHas('cards', [
-            'id' => $card->id,
+            'id' => $firstCard->id,
         ]);
+        $this->assertDatabaseHas('cards', ['id' => $secondCard->id]);
+
+        $entries = SyncFeedEntry::query()
+            ->orderBy('checkpoint')
+            ->get();
+        $cardsByReplayOrder = collect([$firstCard, $secondCard])
+            ->sortBy('id')
+            ->values();
+
+        $this->assertCount(3, $entries);
+
+        foreach ($cardsByReplayOrder as $index => $card) {
+            $entry = $entries[$index];
+            $pivot = $pivotsByCardId->get($card->id);
+
+            $this->assertSame($user->id, $entry->user_id);
+            $this->assertSame('media', $entry->domain);
+            $this->assertSame('card_media', $entry->resource_type);
+            $this->assertSame("{$card->id}:{$mediaAsset->id}", $entry->resource_id);
+            $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+            $this->assertSame([
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+                'created_at' => $pivot?->created_at?->toJSON(),
+                'updated_at' => $pivot?->updated_at?->toJSON(),
+            ], $entry->payload);
+        }
+
+        $assetEntry = $entries->last();
+
+        $this->assertSame('media_asset', $assetEntry->resource_type);
+        $this->assertSame($mediaAsset->id, $assetEntry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $assetEntry->operation);
+    }
+
+    public function test_it_rolls_back_media_asset_delete_when_card_media_feed_recording_fails(): void
+    {
+        $user = User::factory()->create();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $card->mediaAssets()->attach($mediaAsset->id);
+        $deleteMediaAsset = new DeleteMediaAssetAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    if ($data->resourceType === CardMediaSyncPayload::RESOURCE_TYPE) {
+                        throw new RuntimeException('Sync feed failed.');
+                    }
+
+                    return parent::handle($data);
+                }
+            },
+        );
+
+        try {
+            $deleteMediaAsset->handle(DeleteMediaAssetData::fromInput(
+                userId: $user->id,
+                mediaAssetId: $mediaAsset->id,
+            ));
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseHas('media_assets', ['id' => $mediaAsset->id]);
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+
+    public function test_it_skips_card_media_tombstones_for_cross_owner_pivots(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        // This cannot happen through the attach API, but imported/corrupt rows should not leak into the owner's feed.
+        $otherCard->mediaAssets()->attach($mediaAsset->id);
+
+        app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
+            userId: $user->id,
+            mediaAssetId: $mediaAsset->id,
+        ));
+
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $otherCard->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('media_asset', $entry->resource_type);
+        $this->assertSame($mediaAsset->id, $entry->resource_id);
     }
 
     public function test_it_is_idempotent_when_media_asset_is_missing(): void

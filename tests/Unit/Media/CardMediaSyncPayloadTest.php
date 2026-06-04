@@ -48,4 +48,17 @@ class CardMediaSyncPayloadTest extends TestCase
             'updated_at' => null,
         ], $payload);
     }
+
+    public function test_it_normalizes_database_timestamp_strings(): void
+    {
+        $payload = CardMediaSyncPayload::fromPivot(
+            cardId: '01jzq4nny5xbnzw14q1g68b2yt',
+            mediaAssetId: '01jzq4rqm0psp2zk6426fx85m9',
+            createdAt: '2026-05-29 11:14:00',
+            updatedAt: '2026-05-29 11:15:00',
+        );
+
+        $this->assertSame('2026-05-29T11:14:00.000000Z', $payload['created_at']);
+        $this->assertSame('2026-05-29T11:15:00.000000Z', $payload['updated_at']);
+    }
 }

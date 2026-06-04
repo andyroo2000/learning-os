@@ -172,26 +172,27 @@ class CreateDeckApiTest extends TestCase
     public function test_it_lowercases_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
         $id = strtolower((string) Str::ulid());
+        $courseId = strtolower((string) Str::ulid());
+        $course = Course::factory()->for($user)->create(['id' => $courseId]);
 
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
                 'id' => strtoupper($id),
-                'course_id' => strtoupper($course->id),
+                'course_id' => strtoupper($courseId),
                 'name' => 'Italian Basics',
             ]);
 
         $response
             ->assertCreated()
             ->assertJsonPath('data.id', $id)
-            ->assertJsonPath('data.course_id', $course->id);
+            ->assertJsonPath('data.course_id', $courseId);
 
         $this->assertDatabaseHas('decks', [
             'id' => $id,
             'user_id' => $user->id,
-            'course_id' => $course->id,
+            'course_id' => $courseId,
         ]);
     }
 

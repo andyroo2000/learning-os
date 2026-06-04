@@ -3,7 +3,6 @@
 namespace App\Domain\Courses\Sync;
 
 use App\Domain\Courses\Models\Course;
-use App\Domain\Courses\Snapshots\CourseSnapshot;
 
 final class CourseSyncPayload
 {
@@ -18,6 +17,16 @@ final class CourseSyncPayload
      */
     public static function fromCourse(Course $course): array
     {
-        return CourseSnapshot::fromCourse($course);
+        return [
+            'id' => $course->id,
+            'title' => $course->title,
+            'description' => $course->description,
+            'status' => $course->status?->value,
+            'native_language' => $course->native_language,
+            'target_language' => $course->target_language,
+            'created_at' => $course->created_at?->toJSON(),
+            'updated_at' => $course->updated_at?->toJSON(),
+            'deleted_at' => $course->deleted_at?->toJSON(),
+        ];
     }
 }

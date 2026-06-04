@@ -16,13 +16,8 @@ class StoreCourseController extends Controller
     public function __invoke(StoreCourseRequest $request, CreateCourseAction $createCourse): JsonResponse
     {
         $data = $request->validated();
-        /** @var User|null $user */
+        /** @var User $user */
         $user = $request->user();
-
-        if ($user === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
         $userId = $user->id;
 
         try {

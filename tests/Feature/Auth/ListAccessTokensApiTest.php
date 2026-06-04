@@ -67,6 +67,24 @@ class ListAccessTokensApiTest extends TestCase
             ->assertJsonMissingPath('data.0.token');
     }
 
+    public function test_it_uses_token_id_as_a_stable_tiebreaker_for_equal_created_timestamps(): void
+    {
+        $this->travelTo(Carbon::parse('2026-06-04 12:00:00'));
+        $user = User::factory()->create();
+        $firstAccessToken = $user->createToken('Ada iPhone');
+        $firstToken = $firstAccessToken->accessToken;
+        $secondToken = $user->createToken('Ada iPad')->accessToken;
+
+        $response = $this
+            ->withToken($firstAccessToken->plainTextToken)
+            ->getJson('/api/auth/tokens');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $secondToken->id)
+            ->assertJsonPath('data.1.id', $firstToken->id);
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->getJson('/api/auth/tokens');

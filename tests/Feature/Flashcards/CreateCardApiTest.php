@@ -10,6 +10,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -20,55 +21,76 @@ class CreateCardApiTest extends TestCase
 
     public function test_it_creates_a_card(): void
     {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
 
-        $response = $this->postJson('/api/cards', [
-            'deck_id' => $deck->id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-        ]);
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
 
-        $response
-            ->assertCreated()
-            ->assertJsonPath('data.deck_id', $deck->id)
-            ->assertJsonPath('data.front_text', 'ciao')
-            ->assertJsonPath('data.back_text', 'hello')
-            ->assertJsonMissingPath('data.media_assets')
-            ->assertJsonStructure([
-                'data' => [
-                    'id',
-                    'deck_id',
-                    'front_text',
-                    'back_text',
-                    'study_status',
-                    'new_queue_position',
-                    'scheduler_state',
-                    'due_at',
-                    'introduced_at',
-                    'failed_at',
-                    'last_reviewed_at',
-                    'created_at',
-                    'updated_at',
-                    'deleted_at',
-                ],
+            $response = $this->postJson('/api/cards', [
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
             ]);
 
-        $this->assertTrue(Str::isUlid($response->json('data.id')));
+            $response
+                ->assertCreated()
+                ->assertJsonPath('data.deck_id', $deck->id)
+                ->assertJsonPath('data.front_text', 'ciao')
+                ->assertJsonPath('data.back_text', 'hello')
+                ->assertJsonPath('data.scheduler_state.due', '2026-06-04T12:00:00.000000Z')
+                ->assertJsonPath('data.scheduler_state.state', 0)
+                ->assertJsonPath('data.scheduler_state.reps', 0)
+                ->assertJsonMissingPath('data.media_assets')
+                ->assertJsonStructure([
+                    'data' => [
+                        'id',
+                        'deck_id',
+                        'front_text',
+                        'back_text',
+                        'study_status',
+                        'new_queue_position',
+                        'scheduler_state',
+                        'due_at',
+                        'introduced_at',
+                        'failed_at',
+                        'last_reviewed_at',
+                        'created_at',
+                        'updated_at',
+                        'deleted_at',
+                    ],
+                ]);
 
-        $this->assertDatabaseHas('cards', [
-            'id' => $response->json('data.id'),
-            'deck_id' => $deck->id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-            'study_status' => 'new',
-            'new_queue_position' => 1,
-            'scheduler_state' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-        ]);
+            $this->assertTrue(Str::isUlid($response->json('data.id')));
+
+            $this->assertDatabaseHas('cards', [
+                'id' => $response->json('data.id'),
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'study_status' => 'new',
+                'new_queue_position' => 1,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ]);
+
+            $this->assertSame([
+                'due' => '2026-06-04T12:00:00.000000Z',
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 0,
+                'learning_steps' => 0,
+                'reps' => 0,
+                'lapses' => 0,
+                'state' => 0,
+                'last_review' => null,
+            ], Card::query()->findOrFail($response->json('data.id'))->scheduler_state);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_accepts_a_client_provided_ulid(): void
@@ -96,42 +118,50 @@ class CreateCardApiTest extends TestCase
 
     public function test_it_ignores_client_provided_study_state(): void
     {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
 
-        $response = $this->postJson('/api/cards', [
-            'deck_id' => $deck->id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-            'study_status' => 'review',
-            'new_queue_position' => 99,
-            'scheduler_state' => ['state' => 2],
-            'due_at' => '2026-06-05T14:15:00Z',
-            'introduced_at' => '2026-06-01T14:15:00Z',
-            'failed_at' => '2026-06-02T14:15:00Z',
-            'last_reviewed_at' => '2026-06-03T14:15:00Z',
-        ]);
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
 
-        $response
-            ->assertCreated()
-            ->assertJsonPath('data.study_status', 'new')
-            ->assertJsonPath('data.new_queue_position', 1)
-            ->assertJsonPath('data.scheduler_state', null)
-            ->assertJsonPath('data.due_at', null)
-            ->assertJsonPath('data.introduced_at', null)
-            ->assertJsonPath('data.failed_at', null)
-            ->assertJsonPath('data.last_reviewed_at', null);
+            $response = $this->postJson('/api/cards', [
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'study_status' => 'review',
+                'new_queue_position' => 99,
+                'scheduler_state' => ['state' => 2],
+                'due_at' => '2026-06-05T14:15:00Z',
+                'introduced_at' => '2026-06-01T14:15:00Z',
+                'failed_at' => '2026-06-02T14:15:00Z',
+                'last_reviewed_at' => '2026-06-03T14:15:00Z',
+            ]);
 
-        $this->assertDatabaseHas('cards', [
-            'id' => $response->json('data.id'),
-            'study_status' => 'new',
-            'new_queue_position' => 1,
-            'scheduler_state' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-        ]);
+            $response
+                ->assertCreated()
+                ->assertJsonPath('data.study_status', 'new')
+                ->assertJsonPath('data.new_queue_position', 1)
+                ->assertJsonPath('data.scheduler_state.due', '2026-06-04T12:00:00.000000Z')
+                ->assertJsonPath('data.scheduler_state.state', 0)
+                ->assertJsonPath('data.due_at', null)
+                ->assertJsonPath('data.introduced_at', null)
+                ->assertJsonPath('data.failed_at', null)
+                ->assertJsonPath('data.last_reviewed_at', null);
+
+            $this->assertDatabaseHas('cards', [
+                'id' => $response->json('data.id'),
+                'study_status' => 'new',
+                'new_queue_position' => 1,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ]);
+
+            $this->assertSame(0, Card::query()->findOrFail($response->json('data.id'))->scheduler_state['state']);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void

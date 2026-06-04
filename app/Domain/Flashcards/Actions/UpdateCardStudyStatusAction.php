@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
+use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -38,13 +39,35 @@ class UpdateCardStudyStatusAction
                 $card->introduced_at = null;
                 $card->failed_at = null;
                 $card->last_reviewed_at = null;
+
+                if ($card->isDirty([
+                    'study_status',
+                    'due_at',
+                    'introduced_at',
+                    'failed_at',
+                    'last_reviewed_at',
+                ]) || $card->scheduler_state === null) {
+                    $card->scheduler_state = CardSchedulerState::freshNew();
+                }
             } elseif ($card->new_queue_position !== null) {
                 $card->new_queue_position = null;
+            }
+
+            if (
+                $studyStatus !== CardStudyStatus::New
+                && $card->isDirty('study_status')
+                && $card->scheduler_state === null
+            ) {
+                $card->scheduler_state = CardSchedulerState::forStudyStatus(
+                    studyStatus: $studyStatus,
+                    dueAt: $card->due_at,
+                );
             }
 
             $wasUpdated = $card->isDirty([
                 'study_status',
                 'new_queue_position',
+                'scheduler_state',
                 'due_at',
                 'introduced_at',
                 'failed_at',

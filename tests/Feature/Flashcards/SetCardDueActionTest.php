@@ -34,6 +34,18 @@ class SetCardDueActionTest extends TestCase
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
         $this->assertNull($result->card->new_queue_position);
         $this->assertSame('2026-06-05T14:15:00.000000Z', $result->card->due_at?->toJSON());
+        $this->assertSame([
+            'due' => '2026-06-05T14:15:00.000000Z',
+            'stability' => 0.1,
+            'difficulty' => 5,
+            'elapsed_days' => 0,
+            'scheduled_days' => 1,
+            'learning_steps' => 0,
+            'reps' => 0,
+            'lapses' => 0,
+            'state' => 2,
+            'last_review' => null,
+        ], $result->card->scheduler_state);
 
         $entry = SyncFeedEntry::query()->sole();
 
@@ -43,6 +55,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertSame('review', $entry->payload['study_status']);
         $this->assertSame('2026-06-05T14:15:00.000000Z', $entry->payload['due_at']);
         $this->assertNull($entry->payload['new_queue_position']);
+        $this->assertSame($result->card->scheduler_state, $entry->payload['scheduler_state']);
     }
 
     public function test_tomorrow_mode_sets_due_at_to_9am_in_the_requested_timezone(): void
@@ -62,6 +75,8 @@ class SetCardDueActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
         $this->assertSame('2026-06-05T13:00:00.000000Z', $result->card->due_at?->toJSON());
+        $this->assertSame('2026-06-05T13:00:00.000000Z', $result->card->scheduler_state['due']);
+        $this->assertSame(2, $result->card->scheduler_state['state']);
     }
 
     public function test_now_mode_uses_the_current_time(): void
@@ -81,6 +96,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame($now->toJSON(), $result->card->due_at?->toJSON());
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
+        $this->assertSame($now->toJSON(), $result->card->scheduler_state['due']);
     }
 
     public function test_it_is_idempotent_when_due_state_is_unchanged(): void
@@ -90,6 +106,18 @@ class SetCardDueActionTest extends TestCase
         $card = $this->cardFor($this->signIn(), [
             'study_status' => CardStudyStatus::Review,
             'due_at' => $dueAt,
+            'scheduler_state' => [
+                'due' => '2026-06-05T14:15:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 4,
+                'elapsed_days' => 2,
+                'scheduled_days' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 1,
+                'state' => 2,
+                'last_review' => '2026-06-01T09:15:00.000000Z',
+            ],
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);

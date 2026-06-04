@@ -4,6 +4,7 @@ namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -28,7 +29,7 @@ class ApplyCardStudyReviewAction
 
     public function handle(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
     {
-        if ($card->last_reviewed_at !== null && $card->last_reviewed_at->greaterThan($reviewedAt)) {
+        if ($card->last_reviewed_at !== null && $card->last_reviewed_at->greaterThanOrEqualTo($reviewedAt)) {
             return false;
         }
 
@@ -38,15 +39,26 @@ class ApplyCardStudyReviewAction
             $card->introduced_at = $reviewedAt;
         }
 
-        $card->study_status = $this->nextStudyStatus($currentStatus, $rating);
+        $nextStudyStatus = $this->nextStudyStatus($currentStatus, $rating);
+        $nextDueAt = $this->nextDueAt($rating, $reviewedAt);
+
+        $card->study_status = $nextStudyStatus;
         $card->new_queue_position = null;
-        $card->due_at = $this->nextDueAt($rating, $reviewedAt);
+        $card->due_at = $nextDueAt;
         $card->failed_at = $rating === CardReviewRating::Again ? $reviewedAt : null;
         $card->last_reviewed_at = $reviewedAt;
+        $card->scheduler_state = CardSchedulerState::reviewed(
+            card: $card,
+            rating: $rating,
+            studyStatus: $nextStudyStatus,
+            dueAt: $nextDueAt,
+            reviewedAt: $reviewedAt,
+        );
 
         if (! $card->isDirty([
             'study_status',
             'new_queue_position',
+            'scheduler_state',
             'due_at',
             'introduced_at',
             'failed_at',

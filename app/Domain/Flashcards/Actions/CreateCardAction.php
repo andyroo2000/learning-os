@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateCardResult;
+use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -110,6 +111,7 @@ class CreateCardAction
 
         try {
             $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);
+            $card->scheduler_state = CardSchedulerState::freshNew();
             $card->save();
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(

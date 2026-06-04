@@ -2,6 +2,8 @@
 
 namespace App\Domain\Sync\Data;
 
+use App\Domain\Sync\Values\SyncFeedMetadata;
+
 final readonly class RecordSyncFeedEntryData
 {
     /**
@@ -29,10 +31,10 @@ final readonly class RecordSyncFeedEntryData
     ): self {
         return new self(
             userId: $userId,
-            domain: trim($domain),
-            resourceType: trim($resourceType),
-            resourceId: trim($resourceId),
-            operation: trim($operation),
+            domain: SyncFeedMetadata::normalize($domain),
+            resourceType: SyncFeedMetadata::normalize($resourceType),
+            resourceId: SyncFeedMetadata::normalize($resourceId),
+            operation: SyncFeedMetadata::normalize($operation),
             payload: $payload,
         );
     }

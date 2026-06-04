@@ -89,6 +89,26 @@ class RecordSyncFeedEntryActionTest extends TestCase
         ]);
     }
 
+    public function test_it_normalizes_metadata_case(): void
+    {
+        $user = User::factory()->create();
+
+        $entry = $this->recordFeedEntry(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $user->id,
+                domain: ' FLASHCARDS ',
+                resourceType: ' CARD ',
+                resourceId: ' DECK_01 ',
+                operation: ' UPDATE ',
+            ),
+        );
+
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('card', $entry->resource_type);
+        $this->assertSame('deck_01', $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+    }
+
     public function test_it_allows_a_nullable_payload(): void
     {
         $user = User::factory()->create();

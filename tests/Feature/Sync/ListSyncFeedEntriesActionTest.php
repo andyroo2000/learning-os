@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
 use Tests\TestCase;
@@ -189,6 +190,29 @@ class ListSyncFeedEntriesActionTest extends TestCase
         );
 
         $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
+    }
+
+    public function test_it_normalizes_filter_metadata_case(): void
+    {
+        $user = User::factory()->create();
+        $resourceId = strtolower((string) Str::ulid());
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card_media',
+            'resource_id' => $resourceId,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: ' MEDIA ',
+            resourceType: ' CARD_MEDIA ',
+            resourceId: ' '.strtoupper($resourceId).' ',
+            operation: ' DELETE ',
+        );
+
+        $this->assertSame([$entry->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
     public function test_it_filters_entries_by_operation(): void

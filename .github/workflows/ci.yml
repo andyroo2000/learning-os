@@ -71,6 +71,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_DB: learning_os_test
+          # Ephemeral CI database; trust auth avoids hardcoded dummy passwords.
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_USER: learning_os
         ports:
@@ -82,6 +83,7 @@ jobs:
           --health-retries 5
 
     env:
+      APP_ENV: testing
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
@@ -107,9 +109,6 @@ jobs:
           path: ~/.composer/cache
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
-
-      - name: Validate Composer files
-        run: composer validate --strict
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress

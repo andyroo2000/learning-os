@@ -11,8 +11,9 @@ class ShowCurrentUserController extends Controller
 {
     public function __invoke(Request $request): CurrentUserResource
     {
-        /** @var User $user */
         $user = $request->user();
+
+        abort_unless($user instanceof User, 401);
 
         return CurrentUserResource::make($user);
     }

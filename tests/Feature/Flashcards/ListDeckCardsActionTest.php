@@ -3,16 +3,20 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\ListDeckCardsAction;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
+use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class ListDeckCardsActionTest extends TestCase
 {
     use RefreshDatabase;
+    use SetsCardStudyStatus;
 
     public function test_it_caps_the_page_size(): void
     {
@@ -54,5 +58,59 @@ class ListDeckCardsActionTest extends TestCase
 
         $this->assertSame(1, $cards->perPage());
         $this->assertCount(1, $cards->items());
+    }
+
+    public function test_it_filters_deck_cards_by_study_status_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+
+        $cards = app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            studyStatus: ' REVIEW ',
+        );
+
+        $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_accepts_study_status_enums_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+
+        $cards = app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            studyStatus: CardStudyStatus::Review,
+        );
+
+        $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_rejects_blank_study_status_filters_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card study_status filter must not be blank when provided.');
+
+        app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            studyStatus: '   ',
+        );
+    }
+
+    public function test_it_rejects_malformed_study_status_filters_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.');
+
+        app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            studyStatus: 'queued',
+        );
     }
 }

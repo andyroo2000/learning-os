@@ -65,6 +65,7 @@ jobs:
   postgres-migrations:
     name: PostgreSQL migrations
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
@@ -115,6 +116,7 @@ jobs:
 
       - name: Prepare Laravel environment
         run: |
+          # Keep .env minimal so job-level DB env drives the pgsql migration smoke.
           echo "APP_KEY=" > .env
           php artisan key:generate --ansi
 

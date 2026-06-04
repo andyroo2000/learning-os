@@ -122,6 +122,9 @@ class ReviewCardAction
                         rating: $rating,
                     ));
                 }
+
+                // The race winner disappeared before recovery could map it; keep the original constraint detail.
+                throw $exception;
             }
 
             if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
@@ -149,7 +152,10 @@ class ReviewCardAction
     private function findExistingReviewEventById(string $id): ?CardReviewEvent
     {
         return CardReviewEvent::query()
-            ->with(['card.deck' => fn ($query) => $query->withTrashed()])
+            ->with([
+                'card' => fn ($query) => $query->withTrashed(),
+                'card.deck' => fn ($query) => $query->withTrashed(),
+            ])
             ->find($id);
     }
 

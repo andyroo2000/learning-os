@@ -299,6 +299,31 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_hides_client_provided_ulid_conflicts_for_other_users_soft_deleted_cards(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $otherCard = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        CardReviewEvent::factory()->for($otherCard)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+        ]);
+        $otherCard->delete();
+
+        $response = $this->postJson('/api/card-review-events', [
+            'id' => $id,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_normalizes_text_inputs(): void
     {
         $user = $this->signIn();

@@ -54,6 +54,7 @@ class ShowCurrentUserApiTest extends TestCase
         $user = User::factory()->create([
             'name' => 'Grace Hopper',
             'email' => 'grace@example.com',
+            'email_verified_at' => now(),
         ]);
         $token = $user->createToken('mobile-test')->plainTextToken;
 
@@ -66,6 +67,7 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.name', 'Grace Hopper')
             ->assertJsonPath('data.email', 'grace@example.com')
+            ->assertJsonPath('data.email_verified_at', $user->email_verified_at?->toJSON())
             ->assertJsonMissingPath('data.password')
             ->assertJsonMissingPath('data.remember_token');
     }

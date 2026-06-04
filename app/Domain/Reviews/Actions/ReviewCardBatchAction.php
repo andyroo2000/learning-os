@@ -92,6 +92,7 @@ class ReviewCardBatchAction
                     }
 
                     // Another writer may have inserted between the pre-check and the failed bulk insert.
+                    // These fresh reads are a best-effort race re-check, not a single snapshot.
                     // Keep the original card snapshot; it is the ownership context for this rolled-back write attempt.
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
@@ -239,7 +240,7 @@ class ReviewCardBatchAction
         return $preparedItems
             ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
             ->groupBy('sync_key')
-            // Sync-key duplicates describe the same client event; prefer the item that supplied the canonical ID.
+            // Sync-key duplicates describe the same client event; the canonical-ID item also wins rating and timestamps.
             ->map(fn (Collection $items): array => $items->firstWhere('client_supplied_id', true) ?? $items->first())
             ->values();
     }
@@ -271,6 +272,8 @@ class ReviewCardBatchAction
     }
 
     /**
+     * Caller must validate ownership before using these lean response rows in output.
+     *
      * @param  Collection<int, array{device_id: string, client_event_id: string}>  $preparedItems
      * @return Collection<string, CardReviewEvent>
      */

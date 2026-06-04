@@ -33,8 +33,14 @@ class UpdateCardApiTest extends TestCase
                 'data' => [
                     'id',
                     'deck_id',
+                    'course_id',
                     'front_text',
                     'back_text',
+                    'study_status',
+                    'due_at',
+                    'introduced_at',
+                    'failed_at',
+                    'last_reviewed_at',
                     'created_at',
                     'updated_at',
                     'deleted_at',
@@ -63,6 +69,39 @@ class UpdateCardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.front_text', 'arrivederci')
             ->assertJsonPath('data.back_text', 'goodbye');
+    }
+
+    public function test_it_ignores_client_provided_study_state(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'study_status' => 'review',
+            'due_at' => '2026-06-05T14:15:00Z',
+            'introduced_at' => '2026-06-01T14:15:00Z',
+            'failed_at' => '2026-06-02T14:15:00Z',
+            'last_reviewed_at' => '2026-06-03T14:15:00Z',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.study_status', 'new')
+            ->assertJsonPath('data.due_at', null)
+            ->assertJsonPath('data.introduced_at', null)
+            ->assertJsonPath('data.failed_at', null)
+            ->assertJsonPath('data.last_reviewed_at', null);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'study_status' => 'new',
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
+        ]);
     }
 
     public function test_it_is_idempotent_when_text_is_unchanged(): void

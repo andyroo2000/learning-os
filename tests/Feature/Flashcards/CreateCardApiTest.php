@@ -41,6 +41,11 @@ class CreateCardApiTest extends TestCase
                     'deck_id',
                     'front_text',
                     'back_text',
+                    'study_status',
+                    'due_at',
+                    'introduced_at',
+                    'failed_at',
+                    'last_reviewed_at',
                     'created_at',
                     'updated_at',
                     'deleted_at',
@@ -54,6 +59,11 @@ class CreateCardApiTest extends TestCase
             'deck_id' => $deck->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'study_status' => 'new',
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
         ]);
     }
 
@@ -77,6 +87,40 @@ class CreateCardApiTest extends TestCase
         $this->assertDatabaseHas('cards', [
             'id' => strtolower($id),
             'deck_id' => $deck->id,
+        ]);
+    }
+
+    public function test_it_ignores_client_provided_study_state(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'study_status' => 'review',
+            'due_at' => '2026-06-05T14:15:00Z',
+            'introduced_at' => '2026-06-01T14:15:00Z',
+            'failed_at' => '2026-06-02T14:15:00Z',
+            'last_reviewed_at' => '2026-06-03T14:15:00Z',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.study_status', 'new')
+            ->assertJsonPath('data.due_at', null)
+            ->assertJsonPath('data.introduced_at', null)
+            ->assertJsonPath('data.failed_at', null)
+            ->assertJsonPath('data.last_reviewed_at', null);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $response->json('data.id'),
+            'study_status' => 'new',
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
         ]);
     }
 

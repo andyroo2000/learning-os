@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Models;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
@@ -16,15 +17,36 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-#[Fillable(['deck_id', 'front_text', 'back_text'])]
+#[Fillable(['deck_id', 'front_text', 'back_text', 'study_status', 'due_at', 'introduced_at', 'failed_at', 'last_reviewed_at'])]
 class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'study_status' => 'new',
+    ];
+
     protected static function newFactory(): CardFactory
     {
         return CardFactory::new();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'study_status' => CardStudyStatus::class,
+            'due_at' => 'datetime',
+            'introduced_at' => 'datetime',
+            'failed_at' => 'datetime',
+            'last_reviewed_at' => 'datetime',
+        ];
     }
 
     /**

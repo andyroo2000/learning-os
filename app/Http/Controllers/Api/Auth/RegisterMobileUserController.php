@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Domain\Auth\Actions\RegisterMobileUserAction;
+use App\Domain\Auth\Exceptions\DuplicateMobileUserEmailException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterMobileUserRequest;
 use App\Http\Resources\Auth\CurrentUserResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class RegisterMobileUserController extends Controller
 {
@@ -14,12 +16,18 @@ class RegisterMobileUserController extends Controller
     {
         $data = $request->validated();
 
-        $result = $registerMobileUser->handle(
-            name: $data['name'],
-            email: $data['email'],
-            password: $data['password'],
-            deviceName: $data['device_name'],
-        );
+        try {
+            $result = $registerMobileUser->handle(
+                name: $data['name'],
+                email: $data['email'],
+                password: $data['password'],
+                deviceName: $data['device_name'],
+            );
+        } catch (DuplicateMobileUserEmailException $exception) {
+            throw ValidationException::withMessages([
+                'email' => [$exception->getMessage()],
+            ]);
+        }
 
         return response()->json([
             'data' => [

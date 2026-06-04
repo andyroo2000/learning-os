@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Media;
 
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DeleteMediaAssetRequest extends FormRequest
@@ -26,6 +27,6 @@ class DeleteMediaAssetRequest extends FormRequest
 
     public function mediaAssetId(): string
     {
-        return (string) $this->route('mediaAssetId');
+        return CanonicalUlid::normalize((string) $this->route('mediaAssetId'));
     }
 }

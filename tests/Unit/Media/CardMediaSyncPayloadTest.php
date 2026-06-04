@@ -32,12 +32,6 @@ class CardMediaSyncPayloadTest extends TestCase
             '01jzq4rqm0psp2zk6426fx85m9',
         ));
         $this->assertSame($expected, $payload);
-        $this->assertSame([
-            'card_id',
-            'media_asset_id',
-            'created_at',
-            'updated_at',
-        ], array_keys($payload));
     }
 
     public function test_it_serializes_missing_pivot_timestamps_as_null(): void

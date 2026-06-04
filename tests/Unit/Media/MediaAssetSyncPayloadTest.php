@@ -41,16 +41,6 @@ class MediaAssetSyncPayloadTest extends TestCase
         $this->assertSame('media', MediaAssetSyncPayload::DOMAIN);
         $this->assertSame('media_asset', MediaAssetSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
-        $this->assertSame([
-            'id',
-            'url',
-            'mime_type',
-            'size_bytes',
-            'checksum_sha256',
-            'original_filename',
-            'created_at',
-            'updated_at',
-        ], array_keys($payload));
         $this->assertArrayNotHasKey('disk', $payload);
         $this->assertArrayNotHasKey('path', $payload);
         $this->assertArrayNotHasKey('public_url', $payload);

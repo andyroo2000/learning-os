@@ -37,14 +37,6 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertSame('flashcards', DeckSyncPayload::DOMAIN);
         $this->assertSame('deck', DeckSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
-        $this->assertSame([
-            'id',
-            'name',
-            'description',
-            'created_at',
-            'updated_at',
-            'deleted_at',
-        ], array_keys($payload));
     }
 
     public function test_live_deck_payload_serializes_deleted_at_as_null(): void
@@ -99,15 +91,6 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertSame('flashcards', CardSyncPayload::DOMAIN);
         $this->assertSame('card', CardSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
-        $this->assertSame([
-            'id',
-            'deck_id',
-            'front_text',
-            'back_text',
-            'created_at',
-            'updated_at',
-            'deleted_at',
-        ], array_keys($payload));
         $this->assertArrayNotHasKey('media_assets', $payload);
     }
 

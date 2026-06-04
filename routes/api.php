@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
+use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
@@ -41,6 +42,7 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
+    Route::put('/me/password', UpdateCurrentUserPasswordController::class);
     Route::get('/auth/tokens', ListAccessTokensController::class);
     Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class);
     Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)->whereNumber('tokenId');

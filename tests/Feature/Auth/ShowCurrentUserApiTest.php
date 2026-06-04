@@ -26,10 +26,21 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertJsonPath('data.name', 'Ada Lovelace')
             ->assertJsonPath('data.email', 'ada@example.com')
             ->assertJsonPath('data.email_verified_at', $user->email_verified_at?->toJSON())
-            ->assertJsonPath('data.created_at', $user->created_at?->toJSON())
-            ->assertJsonPath('data.updated_at', $user->updated_at?->toJSON())
+            ->assertJsonMissingPath('data.created_at')
+            ->assertJsonMissingPath('data.updated_at')
             ->assertJsonMissingPath('data.password')
             ->assertJsonMissingPath('data.remember_token');
+    }
+
+    public function test_it_returns_null_for_unverified_email(): void
+    {
+        $this->signIn(User::factory()->unverified()->create());
+
+        $response = $this->getJson('/api/me');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.email_verified_at', null);
     }
 
     public function test_it_accepts_a_sanctum_bearer_token(): void

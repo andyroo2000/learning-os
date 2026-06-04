@@ -17,8 +17,6 @@ class CurrentUserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at?->toJSON(),
-            'created_at' => $this->created_at?->toJSON(),
-            'updated_at' => $this->updated_at?->toJSON(),
         ];
     }
 }

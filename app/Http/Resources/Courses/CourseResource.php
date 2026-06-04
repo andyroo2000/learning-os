@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Courses;
 
+use App\Domain\Courses\Models\Course;
+use App\Domain\Courses\Snapshots\CourseSnapshot;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,16 +14,9 @@ class CourseResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
-            'id' => $this->id,
-            'title' => $this->title,
-            'description' => $this->description,
-            'status' => $this->status?->value,
-            'native_language' => $this->native_language,
-            'target_language' => $this->target_language,
-            'created_at' => $this->created_at?->toJSON(),
-            'updated_at' => $this->updated_at?->toJSON(),
-            'deleted_at' => $this->deleted_at?->toJSON(),
-        ];
+        /** @var Course $course */
+        $course = $this->resource;
+
+        return CourseSnapshot::fromCourse($course);
     }
 }

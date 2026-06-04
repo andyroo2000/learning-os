@@ -6,6 +6,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCourseRequest extends FormRequest
 {
+    public const DESCRIPTION_MAX_LENGTH = 2000;
+
     public function authorize(): bool
     {
         return true;
@@ -19,7 +21,7 @@ class StoreCourseRequest extends FormRequest
         return [
             'id' => ['nullable', 'ulid'],
             'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:'.self::DESCRIPTION_MAX_LENGTH],
             'native_language' => ['required', 'string', 'max:16'],
             'target_language' => ['required', 'string', 'max:16'],
         ];

@@ -53,6 +53,7 @@ Offline-first support is a core requirement, so write APIs should be designed wi
 
 - Prefer deterministic server behavior for retried requests.
 - Add idempotency keys to event-like writes when duplicate delivery is plausible.
+- For resource create endpoints that accept client-generated ULIDs, retry-safe creation depends on the client sending that ID. Requests without a client-generated ID can create duplicate resources after an ambiguous timeout.
 - Preserve client context where useful, especially `client_event_id`, `device_id`, and `client_created_at`.
 - Treat sync inputs as facts received from a client, then validate and apply them through explicit actions.
 - Keep review and media events append-friendly unless a future behavior clearly needs mutation.

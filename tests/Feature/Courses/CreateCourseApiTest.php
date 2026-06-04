@@ -4,6 +4,7 @@ namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
+use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -223,13 +224,14 @@ class CreateCourseApiTest extends TestCase
         $response = $this->postJson('/api/courses', [
             'id' => 'not-a-ulid',
             'title' => '   ',
+            'description' => str_repeat('a', StoreCourseRequest::DESCRIPTION_MAX_LENGTH + 1),
             'native_language' => '',
             'target_language' => '',
         ]);
 
         $response
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['id', 'title', 'native_language', 'target_language']);
+            ->assertJsonValidationErrors(['id', 'title', 'description', 'native_language', 'target_language']);
 
         $this->assertDatabaseCount('courses', 0);
     }

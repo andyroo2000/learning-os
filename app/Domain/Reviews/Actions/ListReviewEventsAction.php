@@ -5,15 +5,23 @@ namespace App\Domain\Reviews\Actions;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Contracts\Pagination\CursorPaginator;
+use InvalidArgumentException;
 
 class ListReviewEventsAction
 {
     /**
+     * @param  string|null  $courseId  Trimmed when provided; non-blank and caller-validated as needed.
      * @return CursorPaginator<CardReviewEvent>
      */
-    public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
+    public function handle(int $userId, ?CursorPageSize $pageSize = null, ?string $courseId = null): CursorPaginator
     {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
+        // Keep direct action callers aligned with FormRequest-normalized API input.
+        $courseId = $courseId === null ? null : trim($courseId);
+
+        if ($courseId === '') {
+            throw new InvalidArgumentException('Review event course_id filter must not be blank when provided.');
+        }
 
         return CardReviewEvent::query()
             ->select('card_review_events.*')
@@ -22,6 +30,7 @@ class ListReviewEventsAction
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             // Joined models do not apply SoftDeletes scopes, so keep these conventional columns explicit.
             ->whereNull('cards.deleted_at')
             ->whereNull('decks.deleted_at')

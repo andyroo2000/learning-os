@@ -117,6 +117,57 @@ class ListReviewEventsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_review_events_by_course_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $otherDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+        $otherCourseEvent = CardReviewEvent::factory()->for($otherCard)->create();
+        $otherUserEvent = $this->cardReviewEventFor(User::factory()->create());
+
+        $response = $this->getJson("/api/card-review-events?course_id={$course->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewEvent->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseEvent->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherUserEvent->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/card-review-events?course_id=%20%20%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('course_id');
+    }
+
+    public function test_it_rejects_a_malformed_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/card-review-events?course_id=not-a-ulid');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('course_id');
+    }
+
     public function test_it_excludes_review_events_for_soft_deleted_cards(): void
     {
         $user = $this->signIn();

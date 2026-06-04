@@ -45,6 +45,19 @@ class ShowMediaAssetApiTest extends TestCase
             ]);
     }
 
+    public function test_it_normalizes_media_asset_id_before_showing(): void
+    {
+        $user = $this->signIn();
+        $mediaAsset = $this->mediaAssetFor($user);
+        $routeId = strtoupper($mediaAsset->id);
+
+        $response = $this->getJson("/api/media-assets/{$routeId}");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $mediaAsset->id);
+    }
+
     public function test_it_hides_another_users_media_asset(): void
     {
         $this->signIn();

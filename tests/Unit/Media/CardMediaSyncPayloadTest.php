@@ -10,6 +10,7 @@ class CardMediaSyncPayloadTest extends TestCase
 {
     public function test_it_uses_client_facing_pivot_manifest_keys(): void
     {
+        // Deliberately cover both timestamp branches in one payload: Carbon input and parseable string input.
         $payload = CardMediaSyncPayload::fromPivot(
             cardId: '01jzq4nny5xbnzw14q1g68b2yt',
             mediaAssetId: '01jzq4rqm0psp2zk6426fx85m9',

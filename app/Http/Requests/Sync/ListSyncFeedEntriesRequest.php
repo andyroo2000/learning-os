@@ -26,6 +26,14 @@ class ListSyncFeedEntriesRequest extends FormRequest
                 'resource_type' => trim($resourceType),
             ]);
         }
+
+        $resourceId = $this->input('resource_id');
+
+        if (is_string($resourceId)) {
+            $this->merge([
+                'resource_id' => trim($resourceId),
+            ]);
+        }
     }
 
     public function authorize(): bool
@@ -40,8 +48,9 @@ class ListSyncFeedEntriesRequest extends FormRequest
     {
         return [
             'after_checkpoint' => ['sometimes', 'integer', 'min:0'],
-            'domain' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_DOMAIN_LENGTH],
-            'resource_type' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH],
+            'domain' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_DOMAIN_LENGTH],
+            'resource_type' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH],
+            'resource_id' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH],
             'per_page' => ['sometimes', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.CursorPagination::MAX_PAGE_SIZE],
         ];
     }
@@ -74,5 +83,14 @@ class ListSyncFeedEntriesRequest extends FormRequest
         }
 
         return (string) $this->input('resource_type');
+    }
+
+    public function resourceId(): ?string
+    {
+        if (! $this->has('resource_id')) {
+            return null;
+        }
+
+        return (string) $this->input('resource_id');
     }
 }

@@ -15,6 +15,7 @@ final class StaleSyncFeedCheckpointException extends RuntimeException
         private readonly int $oldestAvailableCheckpoint,
         private readonly ?string $domain,
         private readonly ?string $resourceType,
+        private readonly ?string $resourceId,
     ) {
         parent::__construct('Sync checkpoint is stale; perform a full resource resync.');
     }
@@ -24,8 +25,9 @@ final class StaleSyncFeedCheckpointException extends RuntimeException
         int $oldestAvailableCheckpoint,
         ?string $domain = null,
         ?string $resourceType = null,
+        ?string $resourceId = null,
     ): self {
-        return new self($afterCheckpoint, $oldestAvailableCheckpoint, $domain, $resourceType);
+        return new self($afterCheckpoint, $oldestAvailableCheckpoint, $domain, $resourceType, $resourceId);
     }
 
     public function reason(): string
@@ -56,5 +58,10 @@ final class StaleSyncFeedCheckpointException extends RuntimeException
     public function resourceType(): ?string
     {
         return $this->resourceType;
+    }
+
+    public function resourceId(): ?string
+    {
+        return $this->resourceId;
     }
 }

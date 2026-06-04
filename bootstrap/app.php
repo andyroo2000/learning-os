@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'oldest_available_checkpoint' => $exception->oldestAvailableCheckpoint(),
                     'domain' => $exception->domain(),
                     'resource_type' => $exception->resourceType(),
+                    'resource_id' => $exception->resourceId(),
                     'required_action' => $exception->requiredAction(),
                 ],
             ], 409);

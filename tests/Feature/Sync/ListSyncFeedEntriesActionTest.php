@@ -145,6 +145,51 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
     }
 
+    public function test_it_filters_entries_by_domain_resource_type_resource_id_and_checkpoint_together(): void
+    {
+        $user = User::factory()->create();
+        $before = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+        ]);
+        $after = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-2',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+            'resource_id' => 'card-1',
+        ]);
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $before->checkpoint,
+            domain: 'flashcards',
+            resourceType: 'card',
+            resourceId: ' card-1 ',
+        );
+
+        $this->assertSame([$after->checkpoint], $result->entries->pluck('checkpoint')->all());
+    }
+
     public function test_it_filters_by_domain_and_checkpoint_together(): void
     {
         $user = User::factory()->create();
@@ -191,6 +236,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertSame($oldest->checkpoint, $exception->oldestAvailableCheckpoint());
             $this->assertNull($exception->domain());
             $this->assertNull($exception->resourceType());
+            $this->assertNull($exception->resourceId());
             $this->assertSame(StaleSyncFeedCheckpointException::REASON, $exception->reason());
             $this->assertSame(StaleSyncFeedCheckpointException::REQUIRED_ACTION, $exception->requiredAction());
         }
@@ -228,6 +274,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertSame($oldestFlashcard->checkpoint, $exception->oldestAvailableCheckpoint());
             $this->assertSame('flashcards', $exception->domain());
             $this->assertNull($exception->resourceType());
+            $this->assertNull($exception->resourceId());
         }
     }
 
@@ -261,6 +308,7 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertSame($oldestCard->checkpoint, $exception->oldestAvailableCheckpoint());
             $this->assertSame('flashcards', $exception->domain());
             $this->assertSame('card', $exception->resourceType());
+            $this->assertNull($exception->resourceId());
         }
     }
 
@@ -293,6 +341,44 @@ class ListSyncFeedEntriesActionTest extends TestCase
             $this->assertSame($oldestCard->checkpoint, $exception->oldestAvailableCheckpoint());
             $this->assertNull($exception->domain());
             $this->assertSame('card', $exception->resourceType());
+            $this->assertNull($exception->resourceId());
+        }
+    }
+
+    public function test_it_rejects_stale_checkpoints_against_the_resource_id_filtered_feed_window(): void
+    {
+        $user = User::factory()->create();
+        $otherCard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-2',
+        ]);
+        $oldestTarget = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+        ]);
+
+        try {
+            app(ListSyncFeedEntriesAction::class)->handle(
+                userId: $user->id,
+                afterCheckpoint: $otherCard->checkpoint,
+                domain: 'flashcards',
+                resourceType: 'card',
+                resourceId: 'card-1',
+            );
+
+            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
+        } catch (StaleSyncFeedCheckpointException $exception) {
+            $this->assertSame($otherCard->checkpoint, $exception->afterCheckpoint());
+            $this->assertSame($oldestTarget->checkpoint, $exception->oldestAvailableCheckpoint());
+            $this->assertSame('flashcards', $exception->domain());
+            $this->assertSame('card', $exception->resourceType());
+            $this->assertSame('card-1', $exception->resourceId());
         }
     }
 
@@ -549,6 +635,54 @@ class ListSyncFeedEntriesActionTest extends TestCase
         app(ListSyncFeedEntriesAction::class)->handle(
             userId: 1,
             resourceType: ' ',
+        );
+    }
+
+    public function test_it_rejects_blank_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id must not be blank when provided.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            domain: 'flashcards',
+            resourceType: 'card',
+            resourceId: ' ',
+        );
+    }
+
+    public function test_it_requires_domain_and_resource_type_for_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id filters require both domain and resource_type.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            resourceId: 'card-1',
+        );
+    }
+
+    public function test_it_requires_domain_for_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id filters require both domain and resource_type.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            resourceType: 'card',
+            resourceId: 'card-1',
+        );
+    }
+
+    public function test_it_requires_resource_type_for_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id filters require both domain and resource_type.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            domain: 'flashcards',
+            resourceId: 'card-1',
         );
     }
 }

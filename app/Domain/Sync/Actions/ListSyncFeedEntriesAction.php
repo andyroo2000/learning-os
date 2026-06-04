@@ -16,6 +16,7 @@ class ListSyncFeedEntriesAction
         int $afterCheckpoint = 0,
         ?string $domain = null,
         ?string $resourceType = null,
+        ?string $resourceId = null,
         ?CursorPageSize $pageSize = null,
     ): ListSyncFeedEntriesResult {
         if ($userId < 1) {
@@ -28,6 +29,7 @@ class ListSyncFeedEntriesAction
 
         $domain = $domain === null ? null : trim($domain);
         $resourceType = $resourceType === null ? null : trim($resourceType);
+        $resourceId = $resourceId === null ? null : trim($resourceId);
 
         if ($domain === '') {
             throw new InvalidArgumentException('Sync feed domain must not be blank when provided.');
@@ -37,6 +39,14 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed resource_type must not be blank when provided.');
         }
 
+        if ($resourceId === '') {
+            throw new InvalidArgumentException('Sync feed resource_id must not be blank when provided.');
+        }
+
+        if ($resourceId !== null && ($domain === null || $resourceType === null)) {
+            throw new InvalidArgumentException('Sync feed resource_id filters require both domain and resource_type.');
+        }
+
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
         $userFeedQuery = SyncFeedEntry::query()
@@ -44,7 +54,8 @@ class ListSyncFeedEntriesAction
 
         $baseQuery = (clone $userFeedQuery)
             ->when($domain !== null, fn ($query) => $query->where('domain', $domain))
-            ->when($resourceType !== null, fn ($query) => $query->where('resource_type', $resourceType));
+            ->when($resourceType !== null, fn ($query) => $query->where('resource_type', $resourceType))
+            ->when($resourceId !== null, fn ($query) => $query->where('resource_id', $resourceId));
 
         $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
@@ -57,6 +68,7 @@ class ListSyncFeedEntriesAction
                     oldestAvailableCheckpoint: (int) $oldestAvailableCheckpoint,
                     domain: $domain,
                     resourceType: $resourceType,
+                    resourceId: $resourceId,
                 );
             }
         }

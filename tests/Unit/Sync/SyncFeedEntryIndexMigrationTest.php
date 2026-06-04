@@ -18,9 +18,25 @@ use PHPUnit\Framework\TestCase;
 /**
  * Pins sync replay index DDL across the database grammars we care about.
  * The app runs SQLite today, but these fixtures make PostgreSQL drift visible before migration time.
+ * Keep the resource-history fixture here too because resource_id feed filters rely on that older index.
  */
 class SyncFeedEntryIndexMigrationTest extends TestCase
 {
+    #[DataProvider('initialIndexSqlProvider')]
+    public function test_initial_replay_indexes_compile_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedCreateSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $createSql = $this->initialReplayIndexBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedCreateSql, $createSql);
+    }
+
     #[DataProvider('portableIndexSqlProvider')]
     public function test_resource_type_replay_indexes_compile_to_portable_sql(
         string $connectionClass,
@@ -37,6 +53,50 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
 
         $this->assertSame($expectedCreateSql, $createSql);
         $this->assertSame($expectedDropSql, $dropSql);
+    }
+
+    public function test_sync_feed_index_names_fit_postgres_identifier_limit(): void
+    {
+        foreach ($this->syncFeedIndexNames() as $indexName) {
+            $this->assertLessThanOrEqual(
+                63,
+                strlen($indexName),
+                "Index name [{$indexName}] exceeds PostgreSQL's identifier limit.",
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>}>
+     */
+    public static function initialIndexSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                [
+                    'create index "sync_feed_entries_user_id_checkpoint_index" on "sync_feed_entries" ("user_id", "checkpoint")',
+                    'create index "sfe_resource_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "checkpoint")',
+                ],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'create index "sync_feed_entries_user_id_checkpoint_index" on "sync_feed_entries" ("user_id", "checkpoint")',
+                    'create index "sfe_resource_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "checkpoint")',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `sync_feed_entries` add index `sync_feed_entries_user_id_checkpoint_index`(`user_id`, `checkpoint`)',
+                    'alter table `sync_feed_entries` add index `sfe_resource_history_idx`(`user_id`, `domain`, `resource_type`, `resource_id`, `checkpoint`)',
+                ],
+            ],
+        ];
     }
 
     /**
@@ -97,6 +157,17 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
             : new $connectionClass($pdo, 'testing');
     }
 
+    private function initialReplayIndexBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
+            $table->index(['user_id', 'checkpoint']);
+            $table->index(
+                ['user_id', 'domain', 'resource_type', 'resource_id', 'checkpoint'],
+                'sfe_resource_history_idx',
+            );
+        });
+    }
+
     private function resourceTypeReplayIndexBlueprint(Connection $connection): Blueprint
     {
         return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
@@ -117,5 +188,18 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
             $table->dropIndex('sfe_user_domain_type_checkpoint_idx');
             $table->dropIndex('sfe_user_type_checkpoint_idx');
         });
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function syncFeedIndexNames(): array
+    {
+        return [
+            'sync_feed_entries_user_id_checkpoint_index',
+            'sfe_resource_history_idx',
+            'sfe_user_type_checkpoint_idx',
+            'sfe_user_domain_type_checkpoint_idx',
+        ];
     }
 }

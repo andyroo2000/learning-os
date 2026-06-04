@@ -34,7 +34,10 @@ class ReviewCardAction
             throw new InvalidArgumentException('Card ID must be a valid ULID.');
         }
 
-        $card = Card::query()->whereKey($data->cardId)->first();
+        $card = Card::query()
+            ->with('deck')
+            ->whereKey($data->cardId)
+            ->first();
 
         if ($card === null) {
             throw new InvalidArgumentException('Card does not exist.');
@@ -100,6 +103,7 @@ class ReviewCardAction
         try {
             return DB::transaction(function () use ($card, $reviewEvent): ReviewCardResult {
                 $this->saveReviewEvent($reviewEvent);
+                $reviewEvent->setRelation('card', $card);
 
                 $this->recordSyncFeedEntry->handle(
                     RecordSyncFeedEntryData::fromInput(

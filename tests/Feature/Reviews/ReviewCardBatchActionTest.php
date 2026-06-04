@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -24,7 +26,12 @@ class ReviewCardBatchActionTest extends TestCase
 
     public function test_it_returns_existing_events_for_retried_client_events(): void
     {
-        $firstCard = Card::factory()->create();
+        $course = Course::factory()->create();
+        $deck = Deck::factory()->create([
+            'user_id' => $course->user_id,
+            'course_id' => $course->id,
+        ]);
+        $firstCard = Card::factory()->for($deck)->create();
         $secondCard = Card::factory()->create();
 
         $items = [
@@ -71,6 +78,8 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame([
             'id' => $firstResult->reviewEvents[0]->id,
             'card_id' => $firstCard->id,
+            'deck_id' => $deck->id,
+            'course_id' => $course->id,
             'rating' => CardReviewRating::Good->value,
             'reviewed_at' => $firstResult->reviewEvents[0]->reviewed_at?->toJSON(),
             'client_event_id' => 'event-123',

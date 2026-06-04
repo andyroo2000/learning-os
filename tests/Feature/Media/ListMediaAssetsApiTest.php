@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Media;
 
+use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
@@ -99,6 +102,60 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJson([
                 'data' => [],
             ]);
+    }
+
+    public function test_it_filters_media_assets_by_course_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $secondCourseCard = Card::factory()->for($courseDeck)->create();
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+        $courseMediaAsset = MediaAsset::factory()
+            ->for($user)
+            ->withPublicUrl('https://cdn.example.test/uploads/course.jpg')
+            ->create([
+                'created_at' => now(),
+            ]);
+        $otherCourseMediaAsset = MediaAsset::factory()->for($user)->create();
+        $unattachedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $courseCard->mediaAssets()->attach($courseMediaAsset->id);
+        $secondCourseCard->mediaAssets()->attach($courseMediaAsset->id);
+        $otherCourseCard->mediaAssets()->attach($otherCourseMediaAsset->id);
+        $courseCard->mediaAssets()->attach($crossUserMediaAsset->id);
+
+        $response = $this->getJson("/api/media-assets?course_id={$course->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseMediaAsset->id)
+            ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/course.jpg')
+            ->assertJsonMissing([
+                'id' => $otherCourseMediaAsset->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $unattachedMediaAsset->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $crossUserMediaAsset->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/media-assets?course_id=%20%20%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 
     public function test_it_accepts_a_custom_page_size(): void

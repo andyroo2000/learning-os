@@ -187,6 +187,33 @@ class DeleteMediaAssetActionTest extends TestCase
         }
     }
 
+    public function test_it_skips_card_media_tombstones_for_cross_owner_pivots(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        // This cannot happen through the attach API, but imported/corrupt rows should not leak into the owner's feed.
+        $otherCard->mediaAssets()->attach($mediaAsset->id);
+
+        app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
+            userId: $user->id,
+            mediaAssetId: $mediaAsset->id,
+        ));
+
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $otherCard->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('media_asset', $entry->resource_type);
+        $this->assertSame($mediaAsset->id, $entry->resource_id);
+    }
+
     public function test_it_is_idempotent_when_media_asset_is_missing(): void
     {
         $user = User::factory()->create();

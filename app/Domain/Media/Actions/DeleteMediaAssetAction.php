@@ -9,6 +9,7 @@ use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DeleteMediaAssetAction
@@ -70,9 +71,9 @@ class DeleteMediaAssetAction
     }
 
     /**
-     * @return iterable<int, object{card_id: string, created_at: string|null, updated_at: string|null}>
+     * @return Collection<int, object{card_id: string, created_at: string|null, updated_at: string|null}>
      */
-    private function ownedCardMediaPivotsFor(MediaAsset $mediaAsset): iterable
+    private function ownedCardMediaPivotsFor(MediaAsset $mediaAsset): Collection
     {
         // Raw joins include soft-deleted cards/decks and avoid emitting tombstones for corrupt cross-owner pivots.
         // Pivots inserted after this snapshot may be cascade-deleted without tombstones; callers should not attach during asset deletion.

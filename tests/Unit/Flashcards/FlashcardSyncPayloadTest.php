@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 class FlashcardSyncPayloadTest extends TestCase
 {
-    public function test_deck_payload_uses_client_facing_resource_keys(): void
+    public function test_soft_deleted_deck_payload_serializes_deleted_at(): void
     {
         $deck = new Deck;
         $deck->setRawAttributes([
@@ -39,7 +39,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertSame($expected, $payload);
     }
 
-    public function test_live_deck_payload_serializes_deleted_at_as_null(): void
+    public function test_deck_payload_uses_client_facing_resource_keys(): void
     {
         $deck = new Deck;
         $deck->setRawAttributes([

@@ -38,8 +38,8 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'updated_at' => '2026-05-30T12:15:00.000000Z',
         ];
 
-        $this->assertSame(CardReviewEventSyncPayload::DOMAIN, 'reviews');
-        $this->assertSame(CardReviewEventSyncPayload::RESOURCE_TYPE, 'card_review_event');
+        $this->assertSame('reviews', CardReviewEventSyncPayload::DOMAIN);
+        $this->assertSame('card_review_event', CardReviewEventSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
         $this->assertSame([
             'id',

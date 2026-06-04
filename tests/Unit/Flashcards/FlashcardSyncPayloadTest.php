@@ -34,8 +34,8 @@ class FlashcardSyncPayloadTest extends TestCase
             'deleted_at' => '2026-05-27T09:16:00.000000Z',
         ];
 
-        $this->assertSame(DeckSyncPayload::DOMAIN, 'flashcards');
-        $this->assertSame(DeckSyncPayload::RESOURCE_TYPE, 'deck');
+        $this->assertSame('flashcards', DeckSyncPayload::DOMAIN);
+        $this->assertSame('deck', DeckSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
         $this->assertSame([
             'id',
@@ -72,8 +72,8 @@ class FlashcardSyncPayloadTest extends TestCase
             'deleted_at' => null,
         ];
 
-        $this->assertSame(CardSyncPayload::DOMAIN, 'flashcards');
-        $this->assertSame(CardSyncPayload::RESOURCE_TYPE, 'card');
+        $this->assertSame('flashcards', CardSyncPayload::DOMAIN);
+        $this->assertSame('card', CardSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
         $this->assertSame([
             'id',

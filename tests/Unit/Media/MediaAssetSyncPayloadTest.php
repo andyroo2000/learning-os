@@ -38,6 +38,8 @@ class MediaAssetSyncPayloadTest extends TestCase
             'updated_at' => '2026-05-27T09:15:00.000000Z',
         ];
 
+        $this->assertSame('media', MediaAssetSyncPayload::DOMAIN);
+        $this->assertSame('media_asset', MediaAssetSyncPayload::RESOURCE_TYPE);
         $this->assertSame($expected, $payload);
         $this->assertSame([
             'id',

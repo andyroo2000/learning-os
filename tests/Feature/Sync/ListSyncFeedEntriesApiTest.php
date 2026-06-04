@@ -7,6 +7,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ListSyncFeedEntriesApiTest extends TestCase
@@ -400,6 +401,52 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_normalizes_uppercase_ulid_resource_id_filters(): void
+    {
+        $user = $this->signIn();
+        $resourceId = strtolower((string) Str::ulid());
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => $resourceId,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=FLASHCARDS&resource_type=CARD&resource_id='.strtoupper($resourceId));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
+            ->assertJsonPath('meta.resource_id', $resourceId);
+    }
+
+    public function test_it_normalizes_uppercase_composite_resource_id_filters(): void
+    {
+        $user = $this->signIn();
+        $cardId = strtolower((string) Str::ulid());
+        $mediaAssetId = strtolower((string) Str::ulid());
+        $resourceId = "{$cardId}:{$mediaAssetId}";
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card_media',
+            'resource_id' => $resourceId,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=MEDIA&resource_type=CARD_MEDIA&resource_id='.strtoupper($resourceId));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.domain', 'media')
+            ->assertJsonPath('meta.resource_type', 'card_media')
+            ->assertJsonPath('meta.resource_id', $resourceId);
+    }
+
     public function test_it_filters_entries_by_operation(): void
     {
         $user = $this->signIn();
@@ -679,6 +726,23 @@ class ListSyncFeedEntriesApiTest extends TestCase
         ]);
 
         $response = $this->getJson('/api/sync/feed?operation=%20delete%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('data.0.checkpoint', $delete->checkpoint);
+    }
+
+    public function test_it_normalizes_the_operation_filter_case(): void
+    {
+        $user = $this->signIn();
+        $delete = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?operation=DELETE');
 
         $response
             ->assertOk()

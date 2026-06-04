@@ -4,6 +4,7 @@ namespace App\Http\Requests\Sync;
 
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Sync\Support\SyncFeedMetadata;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,7 +18,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
         if (is_string($domain)) {
             $this->merge([
-                'domain' => trim($domain),
+                'domain' => SyncFeedMetadata::normalize($domain),
             ]);
         }
 
@@ -25,7 +26,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
         if (is_string($resourceType)) {
             $this->merge([
-                'resource_type' => trim($resourceType),
+                'resource_type' => SyncFeedMetadata::normalize($resourceType),
             ]);
         }
 
@@ -33,7 +34,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
         if (is_string($resourceId)) {
             $this->merge([
-                'resource_id' => trim($resourceId),
+                'resource_id' => SyncFeedMetadata::normalize($resourceId),
             ]);
         }
 
@@ -41,7 +42,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
         if (is_string($operation)) {
             $this->merge([
-                'operation' => trim($operation),
+                'operation' => SyncFeedMetadata::normalize($operation),
             ]);
         }
     }

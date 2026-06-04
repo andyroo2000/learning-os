@@ -6,6 +6,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
+use App\Domain\Sync\Support\SyncFeedMetadata;
 use App\Support\Pagination\CursorPageSize;
 use InvalidArgumentException;
 use LogicException;
@@ -29,10 +30,11 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed checkpoint must be zero or greater.');
         }
 
-        $domain = $domain === null ? null : trim($domain);
-        $resourceType = $resourceType === null ? null : trim($resourceType);
-        $resourceId = $resourceId === null ? null : trim($resourceId);
-        $operation = $operation === null ? null : trim($operation);
+        // Direct callers skip HTTP request normalization, so keep this action boundary canonical.
+        $domain = $domain === null ? null : SyncFeedMetadata::normalize($domain);
+        $resourceType = $resourceType === null ? null : SyncFeedMetadata::normalize($resourceType);
+        $resourceId = $resourceId === null ? null : SyncFeedMetadata::normalize($resourceId);
+        $operation = $operation === null ? null : SyncFeedMetadata::normalize($operation);
 
         if ($domain === '') {
             throw new InvalidArgumentException('Sync feed domain must not be blank when provided.');

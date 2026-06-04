@@ -72,6 +72,8 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertJsonPath('data.name', 'Grace Hopper')
             ->assertJsonPath('data.email', 'grace@example.com')
             ->assertJsonPath('data.email_verified_at', $user->email_verified_at?->toJSON())
+            ->assertJsonMissingPath('data.created_at')
+            ->assertJsonMissingPath('data.updated_at')
             ->assertJsonMissingPath('data.password')
             ->assertJsonMissingPath('data.remember_token');
     }

@@ -4,7 +4,7 @@ namespace App\Http\Requests\Sync;
 
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
-use App\Domain\Sync\Values\SyncFeedMetadata;
+use App\Domain\Sync\Support\SyncFeedMetadata;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;

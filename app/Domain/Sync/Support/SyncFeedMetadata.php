@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domain\Sync\Values;
+namespace App\Domain\Sync\Support;
 
 final class SyncFeedMetadata
 {

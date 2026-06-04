@@ -6,7 +6,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
-use App\Domain\Sync\Values\SyncFeedMetadata;
+use App\Domain\Sync\Support\SyncFeedMetadata;
 use App\Support\Pagination\CursorPageSize;
 use InvalidArgumentException;
 use LogicException;
@@ -30,6 +30,7 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed checkpoint must be zero or greater.');
         }
 
+        // HTTP requests pre-normalize before validation; keep this for direct action callers.
         $domain = $domain === null ? null : SyncFeedMetadata::normalize($domain);
         $resourceType = $resourceType === null ? null : SyncFeedMetadata::normalize($resourceType);
         $resourceId = $resourceId === null ? null : SyncFeedMetadata::normalize($resourceId);

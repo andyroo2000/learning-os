@@ -2,7 +2,7 @@
 
 namespace App\Domain\Sync\Data;
 
-use App\Domain\Sync\Values\SyncFeedMetadata;
+use App\Domain\Sync\Support\SyncFeedMetadata;
 
 final readonly class RecordSyncFeedEntryData
 {

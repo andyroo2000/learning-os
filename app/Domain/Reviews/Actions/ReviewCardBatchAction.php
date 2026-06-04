@@ -95,8 +95,8 @@ class ReviewCardBatchAction
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
-                        reviewEventsById: $this->existingReviewEventsByProvidedId($preparedItems),
-                        cardsById: $this->cardsById($preparedItems),
+                        reviewEventsById: $existingReviewEventsById,
+                        cardsById: $cardsById,
                     );
 
                     // The unique constraint failed a single atomic insert; all items already exist.
@@ -184,6 +184,16 @@ class ReviewCardBatchAction
             ->filter(fn (array $item): bool => $item['provided_id'])
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
+
+        $cardIdsBySyncKey = $preparedItems
+            ->groupBy('sync_key')
+            ->map(fn (Collection $items): Collection => $items->pluck('card_id')->unique()->values());
+
+        $duplicateCardSyncKey = $cardIdsBySyncKey->search(fn (Collection $cardIds): bool => $cardIds->count() > 1);
+
+        if ($duplicateCardSyncKey !== false) {
+            throw new InvalidArgumentException("Batch review events with sync metadata [{$duplicateCardSyncKey}] must use the same card ID.");
+        }
 
         $duplicateSyncKey = $idsBySyncKey->search(fn (Collection $ids): bool => $ids->count() > 1);
 

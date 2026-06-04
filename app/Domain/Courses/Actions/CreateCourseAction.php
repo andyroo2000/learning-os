@@ -121,6 +121,7 @@ class CreateCourseAction
                 ($this->afterClientIdUniqueConflict)($data, $exception);
             }
 
+            // Re-read by primary key first; matchingExistingCourse hides cross-user collisions after recovery.
             $existingCourse = Course::withTrashed()->find($data->id);
 
             if ($existingCourse === null) {

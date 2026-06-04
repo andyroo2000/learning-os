@@ -6,6 +6,7 @@ use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
 use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -244,6 +245,25 @@ class CreateCourseApiTest extends TestCase
         ]);
 
         $response->assertUnauthorized();
+
+        $this->assertDatabaseCount('courses', 0);
+    }
+
+    public function test_it_rejects_whitespace_input_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/courses', [
+                'title' => '   ',
+                'native_language' => '   ',
+                'target_language' => '   ',
+            ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['title', 'native_language', 'target_language']);
 
         $this->assertDatabaseCount('courses', 0);
     }

@@ -8,6 +8,21 @@ class StoreCourseRequest extends FormRequest
 {
     public const DESCRIPTION_MAX_LENGTH = 2000;
 
+    protected function prepareForValidation(): void
+    {
+        $trimmed = [];
+
+        foreach (['id', 'title', 'description', 'native_language', 'target_language'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $trimmed[$key] = trim($value);
+            }
+        }
+
+        $this->merge($trimmed);
+    }
+
     /**
      * @return array<string, list<string>>
      */

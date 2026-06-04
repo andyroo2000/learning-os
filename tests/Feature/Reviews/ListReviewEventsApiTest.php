@@ -9,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\AssertsCursorPagination;
@@ -146,11 +147,63 @@ class ListReviewEventsApiTest extends TestCase
             ]);
     }
 
-    public function test_it_rejects_a_blank_course_id_filter(): void
+    public function test_it_trims_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $standaloneDeck = Deck::factory()->for($user)->create();
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($courseCard)->create();
+        $standaloneReviewEvent = CardReviewEvent::factory()->for($standaloneCard)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/card-review-events?course_id=%20'.$course->id.'%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewEvent->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneReviewEvent->id,
+            ]);
+    }
+
+    public function test_it_lowercases_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $standaloneDeck = Deck::factory()->for($user)->create();
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($courseCard)->create();
+        $standaloneReviewEvent = CardReviewEvent::factory()->for($standaloneCard)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/card-review-events?course_id='.strtoupper($course->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewEvent->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneReviewEvent->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_course_id_filter_without_global_trim_middleware(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/card-review-events?course_id=%20%20%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/card-review-events?course_id=%20%20%20');
 
         $response
             ->assertUnprocessable()

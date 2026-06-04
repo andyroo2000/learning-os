@@ -69,7 +69,7 @@ class ListDecksActionTest extends TestCase
 
         $decks = app(ListDecksAction::class)->handle(
             userId: $user->id,
-            courseId: ' '.$course->id.' ',
+            courseId: ' '.strtoupper($course->id).' ',
         );
 
         $this->assertSame([$courseDeck->id], collect($decks->items())->pluck('id')->all());

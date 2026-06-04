@@ -103,7 +103,7 @@ class ListReviewEventsActionTest extends TestCase
         CardReviewEvent::factory()->for($otherCard)->create();
         $this->cardReviewEventFor(User::factory()->create());
 
-        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, courseId: $course->id);
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, courseId: ' '.strtoupper($course->id).' ');
         $reviewEventIds = collect($reviewEvents->items())->pluck('id')->all();
 
         $this->assertSame([$reviewEvent->id], $reviewEventIds);

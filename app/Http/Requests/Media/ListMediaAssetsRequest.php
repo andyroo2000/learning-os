@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Media;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
+use App\Support\Identifiers\CanonicalUlid;
 
 class ListMediaAssetsRequest extends CursorPaginatedRequest
 {
@@ -12,7 +13,7 @@ class ListMediaAssetsRequest extends CursorPaginatedRequest
 
         if (is_string($courseId)) {
             $this->merge([
-                'course_id' => trim($courseId),
+                'course_id' => CanonicalUlid::normalize($courseId),
             ]);
         }
     }

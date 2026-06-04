@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
@@ -107,11 +108,55 @@ class ListDecksApiTest extends TestCase
             ]);
     }
 
-    public function test_it_rejects_a_blank_course_id_filter(): void
+    public function test_it_trims_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $standaloneDeck = Deck::factory()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/decks?course_id=%20'.$course->id.'%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseDeck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneDeck->id,
+            ]);
+    }
+
+    public function test_it_lowercases_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $standaloneDeck = Deck::factory()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/decks?course_id='.strtoupper($course->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseDeck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneDeck->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_course_id_filter_without_global_trim_middleware(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/decks?course_id=%20%20%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/decks?course_id=%20%20%20');
 
         $response
             ->assertUnprocessable()

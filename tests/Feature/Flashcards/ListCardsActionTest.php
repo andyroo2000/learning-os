@@ -75,7 +75,7 @@ class ListCardsActionTest extends TestCase
 
         $cards = app(ListCardsAction::class)->handle(
             userId: $user->id,
-            courseId: ' '.$course->id.' ',
+            courseId: ' '.strtoupper($course->id).' ',
         );
 
         $this->assertSame([$courseCard->id], collect($cards->items())->pluck('id')->all());

@@ -52,7 +52,7 @@ class ListMediaAssetsActionTest extends TestCase
 
         $mediaAssets = app(ListMediaAssetsAction::class)->handle(
             userId: $user->id,
-            courseId: $course->id,
+            courseId: ' '.strtoupper($course->id).' ',
         );
 
         $this->assertSame([$courseMediaAsset->id], collect($mediaAssets->items())->pluck('id')->all());

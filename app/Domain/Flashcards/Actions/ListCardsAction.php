@@ -3,6 +3,7 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Support\Identifiers\CanonicalUlid;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use InvalidArgumentException;
@@ -15,7 +16,7 @@ class ListCardsAction
     public function handle(int $userId, ?CursorPageSize $pageSize = null, ?string $courseId = null): CursorPaginator
     {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
-        $courseId = $courseId === null ? null : trim($courseId);
+        $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Card course_id filter must not be blank when provided.');

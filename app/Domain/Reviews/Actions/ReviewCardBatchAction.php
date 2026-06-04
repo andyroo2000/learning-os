@@ -262,6 +262,7 @@ class ReviewCardBatchAction
         $cardsById = Card::query()
             ->select('cards.*')
             ->selectRaw('decks.user_id as owner_user_id')
+            ->selectRaw('decks.course_id as deck_course_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->whereKey($cardIds)
             ->get()
@@ -505,6 +506,7 @@ class ReviewCardBatchAction
         $reviewEvents->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
             $card = $cardsById->get($reviewEvent->card_id)
                 ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
+            $reviewEvent->setRelation('card', $card);
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(

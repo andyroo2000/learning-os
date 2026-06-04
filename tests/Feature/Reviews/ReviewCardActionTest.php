@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -28,7 +30,12 @@ class ReviewCardActionTest extends TestCase
 
     public function test_it_records_a_card_review_event(): void
     {
-        $card = Card::factory()->create();
+        $course = Course::factory()->create();
+        $deck = Deck::factory()->create([
+            'user_id' => $course->user_id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
         $reviewedAt = Carbon::parse('2026-05-27 09:15:00');
 
         $result = $this->reviewCard(
@@ -61,6 +68,8 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame([
             'id' => $reviewEvent->id,
             'card_id' => $card->id,
+            'deck_id' => $deck->id,
+            'course_id' => $course->id,
             'rating' => 'good',
             'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
             'client_event_id' => null,

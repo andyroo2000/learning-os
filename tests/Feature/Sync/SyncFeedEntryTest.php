@@ -46,6 +46,9 @@ class SyncFeedEntryTest extends TestCase
         $this->assertNotEmpty($indexes->filter(
             fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'domain', 'operation', 'checkpoint']
         ));
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'domain', 'resource_type', 'operation', 'checkpoint']
+        ));
     }
 
     public function test_feed_entries_allocate_monotonic_checkpoints(): void

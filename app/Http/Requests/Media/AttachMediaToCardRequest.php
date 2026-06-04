@@ -71,7 +71,7 @@ class AttachMediaToCardRequest extends FormRequest
                 return;
             }
 
-            // prepareForValidation has already normalized validator data; validated() can throw here if any field fails.
+            // validated() cannot be called mid-validation; getData() already reflects prepareForValidation normalization.
             $mediaAssetId = $validator->getData()['media_asset_id'] ?? null;
 
             if (! is_string($mediaAssetId)) {
@@ -101,6 +101,8 @@ class AttachMediaToCardRequest extends FormRequest
             return $this->resolvedMediaAsset = null;
         }
 
+        // Safe for withValidator() after callbacks and for mediaAsset() after validation.
+        // If authorize() needs this later, validated() is not safe yet and input() is not normalized.
         // Resolve by ID only; this intentionally moves ownership from validation to the action.
         return $this->resolvedMediaAsset = MediaAsset::query()
             ->whereKey($mediaAssetId)

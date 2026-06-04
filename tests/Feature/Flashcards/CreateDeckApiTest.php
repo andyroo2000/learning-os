@@ -142,13 +142,12 @@ class CreateDeckApiTest extends TestCase
         ]);
     }
 
-    public function test_it_trims_client_ulids_without_global_trim_middleware(): void
+    public function test_it_trims_lowercase_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();
         $course = Course::factory()->for($user)->create();
         $id = strtolower((string) Str::ulid());
 
-        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
@@ -175,7 +174,6 @@ class CreateDeckApiTest extends TestCase
         $course = Course::factory()->for($user)->create();
         $id = strtolower((string) Str::ulid());
 
-        // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [

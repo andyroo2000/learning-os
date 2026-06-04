@@ -3,6 +3,8 @@
 namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,6 +40,42 @@ class DeleteCourseApiTest extends TestCase
         $this->assertSame($course->id, $entry->resource_id);
         $this->assertSame('delete', $entry->operation->value);
         $this->assertNotNull($entry->payload['deleted_at']);
+    }
+
+    public function test_it_deletes_course_scoped_decks_and_cards(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
+        $standaloneDeck = Deck::factory()->create(['user_id' => $user->id]);
+        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
+
+        $response = $this->deleteJson("/api/courses/{$course->id}");
+
+        $response->assertNoContent();
+
+        $this->assertSoftDeleted('courses', ['id' => $course->id]);
+        $this->assertSoftDeleted('decks', ['id' => $deck->id]);
+        $this->assertSoftDeleted('cards', ['id' => $card->id]);
+        $this->assertDatabaseHas('decks', [
+            'id' => $standaloneDeck->id,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $standaloneCard->id,
+            'deleted_at' => null,
+        ]);
+
+        $entries = SyncFeedEntry::query()
+            ->orderBy('checkpoint')
+            ->get();
+
+        $this->assertSame(['card', 'deck', 'course'], $entries->pluck('resource_type')->all());
+        $this->assertSame($course->id, $entries->last()->resource_id);
     }
 
     public function test_it_is_idempotent_for_an_already_soft_deleted_course(): void

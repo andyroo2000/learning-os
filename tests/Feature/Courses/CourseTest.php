@@ -4,6 +4,7 @@ namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -75,6 +76,25 @@ class CourseTest extends TestCase
 
         $this->assertInstanceOf(User::class, $course->user);
         $this->assertSame($course->user_id, $course->user->id);
+    }
+
+    public function test_course_has_many_decks(): void
+    {
+        $course = Course::factory()->create();
+        $firstDeck = Deck::factory()->create([
+            'user_id' => $course->user_id,
+            'course_id' => $course->id,
+        ]);
+        $secondDeck = Deck::factory()->create([
+            'user_id' => $course->user_id,
+            'course_id' => $course->id,
+        ]);
+        Deck::factory()->create(['user_id' => $course->user_id]);
+
+        $this->assertSame(
+            [$firstDeck->id, $secondDeck->id],
+            $course->decks()->orderBy('id')->pluck('id')->all(),
+        );
     }
 
     public function test_user_id_is_not_mass_assignable(): void

@@ -5,6 +5,7 @@ namespace App\Domain\Courses\Actions;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Results\DeleteCourseResult;
 use App\Domain\Courses\Sync\CourseSyncPayload;
+use App\Domain\Flashcards\Actions\DeleteDeckAction;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -14,6 +15,7 @@ class DeleteCourseAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly DeleteDeckAction $deleteDeck,
     ) {}
 
     /**
@@ -27,6 +29,11 @@ class DeleteCourseAction
         }
 
         return DB::transaction(function () use ($course): DeleteCourseResult {
+            $course->decks()
+                ->orderBy('id')
+                ->get()
+                ->each(fn ($deck) => $this->deleteDeck->handle($deck));
+
             $course->delete();
 
             $this->recordSyncFeedEntry->handle(

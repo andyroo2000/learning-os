@@ -5,16 +5,48 @@ namespace App\Http\Requests\Reviews;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class StoreCardReviewEventBatchRequest extends FormRequest
 {
+    use NormalizesUlidInput;
+
     public function authorize(): bool
     {
         // Ownership is validated per card_id so sync clients can map failures to events.
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $events = $this->input('events');
+
+        if (! is_array($events)) {
+            return;
+        }
+
+        $normalizedEvents = [];
+
+        foreach ($events as $index => $event) {
+            if (! is_array($event)) {
+                $normalizedEvents[$index] = $event;
+
+                continue;
+            }
+
+            foreach (['id', 'card_id'] as $key) {
+                if (array_key_exists($key, $event)) {
+                    $event[$key] = $this->normalizeUlidValue($event[$key]);
+                }
+            }
+
+            $normalizedEvents[$index] = $event;
+        }
+
+        $this->merge(['events' => $normalizedEvents]);
     }
 
     /**

@@ -68,7 +68,7 @@ class CreateCourseApiTest extends TestCase
     public function test_it_accepts_a_client_provided_ulid(): void
     {
         $user = $this->signIn();
-        $id = (string) Str::ulid();
+        $id = strtolower((string) Str::ulid());
 
         $response = $this->postJson('/api/courses', [
             'id' => strtoupper($id),
@@ -83,6 +83,81 @@ class CreateCourseApiTest extends TestCase
 
         $this->assertDatabaseHas('courses', [
             'id' => strtolower($id),
+            'user_id' => $user->id,
+            'title' => 'Japanese Travel Foundations',
+        ]);
+    }
+
+    public function test_it_normalizes_padded_uppercase_client_provided_ulid_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/courses', [
+                'id' => '  '.strtoupper($id).'  ',
+                'title' => 'Japanese Travel Foundations',
+                'native_language' => 'en',
+                'target_language' => 'ja',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id);
+
+        $this->assertDatabaseHas('courses', [
+            'id' => $id,
+            'user_id' => $user->id,
+            'title' => 'Japanese Travel Foundations',
+        ]);
+    }
+
+    public function test_it_trims_client_provided_ulid_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/courses', [
+                'id' => "  {$id}  ",
+                'title' => 'Japanese Travel Foundations',
+                'native_language' => 'en',
+                'target_language' => 'ja',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id);
+
+        $this->assertDatabaseHas('courses', [
+            'id' => $id,
+            'user_id' => $user->id,
+            'title' => 'Japanese Travel Foundations',
+        ]);
+    }
+
+    public function test_it_lowercases_client_provided_ulid_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/courses', [
+                'id' => strtoupper($id),
+                'title' => 'Japanese Travel Foundations',
+                'native_language' => 'en',
+                'target_language' => 'ja',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id);
+
+        $this->assertDatabaseHas('courses', [
+            'id' => $id,
             'user_id' => $user->id,
             'title' => 'Japanese Travel Foundations',
         ]);

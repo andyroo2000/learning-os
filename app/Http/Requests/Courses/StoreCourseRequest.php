@@ -2,17 +2,22 @@
 
 namespace App\Http\Requests\Courses;
 
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCourseRequest extends FormRequest
 {
+    use NormalizesUlidInput;
+
     public const DESCRIPTION_MAX_LENGTH = 2000;
 
     protected function prepareForValidation(): void
     {
         $trimmed = [];
 
-        foreach (['id', 'title', 'description', 'native_language', 'target_language'] as $key) {
+        $this->mergeNormalizedUlidInput($trimmed, 'id');
+
+        foreach (['title', 'description', 'native_language', 'target_language'] as $key) {
             $value = $this->input($key);
 
             if (is_string($value)) {

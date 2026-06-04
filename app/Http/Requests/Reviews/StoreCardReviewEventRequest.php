@@ -6,15 +6,29 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreCardReviewEventRequest extends FormRequest
 {
+    use NormalizesUlidInput;
+
     public function authorize(): bool
     {
         // Ownership is validated on card_id so clients get a field-specific 422.
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $normalized = [];
+
+        foreach (['id', 'card_id'] as $key) {
+            $this->mergeNormalizedUlidInput($normalized, $key);
+        }
+
+        $this->merge($normalized);
     }
 
     /**

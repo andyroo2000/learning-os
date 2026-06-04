@@ -47,6 +47,7 @@ class Card extends Model
             'failed_at' => 'datetime',
             'last_reviewed_at' => 'datetime',
             'new_queue_position' => 'integer',
+            'scheduler_state' => 'array',
         ];
     }
 

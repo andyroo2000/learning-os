@@ -38,6 +38,7 @@ class UpdateCardApiTest extends TestCase
                     'back_text',
                     'study_status',
                     'new_queue_position',
+                    'scheduler_state',
                     'due_at',
                     'introduced_at',
                     'failed_at',
@@ -82,6 +83,7 @@ class UpdateCardApiTest extends TestCase
             'back_text' => 'goodbye',
             'study_status' => 'review',
             'new_queue_position' => 99,
+            'scheduler_state' => ['state' => 2],
             'due_at' => '2026-06-05T14:15:00Z',
             'introduced_at' => '2026-06-01T14:15:00Z',
             'failed_at' => '2026-06-02T14:15:00Z',
@@ -92,6 +94,7 @@ class UpdateCardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.study_status', 'new')
             ->assertJsonPath('data.new_queue_position', $card->new_queue_position)
+            ->assertJsonPath('data.scheduler_state', null)
             ->assertJsonPath('data.due_at', null)
             ->assertJsonPath('data.introduced_at', null)
             ->assertJsonPath('data.failed_at', null)
@@ -101,6 +104,7 @@ class UpdateCardApiTest extends TestCase
             'id' => $card->id,
             'study_status' => 'new',
             'new_queue_position' => $card->new_queue_position,
+            'scheduler_state' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

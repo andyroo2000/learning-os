@@ -73,6 +73,7 @@ class CreateCardActionTest extends TestCase
             'back_text' => 'hello',
             'study_status' => 'new',
             'new_queue_position' => 1,
+            'scheduler_state' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

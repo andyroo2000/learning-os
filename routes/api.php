@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
+use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
@@ -29,6 +30,8 @@ use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
+Route::post('/auth/tokens', StoreMobileTokenController::class);
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
     Route::get('/card-review-events', ListReviewEventsController::class);

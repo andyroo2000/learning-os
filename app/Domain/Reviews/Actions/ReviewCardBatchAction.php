@@ -47,7 +47,7 @@ class ReviewCardBatchAction
             throw new InvalidArgumentException('At least one review event is required.');
         }
 
-        $preparedItems = $this->normalizeDuplicateSyncKeyProvidedIds($preparedItems);
+        $preparedItems = $this->normalizeAndValidateSyncKeyDuplicates($preparedItems);
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $cardsById = $this->cardsById($preparedItems);
@@ -179,7 +179,7 @@ class ReviewCardBatchAction
      * @param  Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>  $preparedItems
      * @return Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>
      */
-    private function normalizeDuplicateSyncKeyProvidedIds(Collection $preparedItems): Collection
+    private function normalizeAndValidateSyncKeyDuplicates(Collection $preparedItems): Collection
     {
         $idsBySyncKey = $preparedItems
             ->filter(fn (array $item): bool => $item['client_supplied_id'])
@@ -304,9 +304,24 @@ class ReviewCardBatchAction
 
     private function reviewEventsBySyncKeyQuery(Collection $preparedItems): Builder
     {
+        $syncPairs = $preparedItems
+            ->map(fn (array $item): array => [
+                'device_id' => $item['device_id'],
+                'client_event_id' => $item['client_event_id'],
+            ])
+            ->unique(fn (array $item): string => ClientEventKey::lookupKey($item['device_id'], $item['client_event_id']))
+            ->values();
+
         return CardReviewEvent::query()
-            ->whereIn('device_id', $preparedItems->pluck('device_id')->unique())
-            ->whereIn('client_event_id', $preparedItems->pluck('client_event_id')->unique());
+            ->where(function (Builder $query) use ($syncPairs): void {
+                $syncPairs->each(function (array $item) use ($query): void {
+                    $query->orWhere(function (Builder $query) use ($item): void {
+                        $query
+                            ->where('device_id', $item['device_id'])
+                            ->where('client_event_id', $item['client_event_id']);
+                    });
+                });
+            });
     }
 
     /**
@@ -384,6 +399,7 @@ class ReviewCardBatchAction
 
             $this->assertReviewEventBelongsToCardOwner($existingById, $card);
 
+            // Single review events can exist without sync metadata; a provided batch ID may not claim them.
             if (
                 $existingById->device_id === null
                 || $existingById->client_event_id === null

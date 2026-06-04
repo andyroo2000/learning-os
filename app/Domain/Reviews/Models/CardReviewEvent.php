@@ -30,6 +30,48 @@ class CardReviewEvent extends Model
         return $this->belongsTo(Card::class);
     }
 
+    public function cardDeckId(): ?string
+    {
+        if ($this->relationLoaded('card')) {
+            return $this->card?->deck_id;
+        }
+
+        if (array_key_exists('card_deck_id', $this->getAttributes())) {
+            $deckId = $this->getAttribute('card_deck_id');
+
+            return $deckId === null ? null : (string) $deckId;
+        }
+
+        return $this->cardForContext()?->deck_id;
+    }
+
+    public function cardCourseId(): ?string
+    {
+        if ($this->relationLoaded('card')) {
+            return $this->card?->deckCourseId();
+        }
+
+        if (array_key_exists('card_course_id', $this->getAttributes())) {
+            $courseId = $this->getAttribute('card_course_id');
+
+            return $courseId === null ? null : (string) $courseId;
+        }
+
+        return $this->cardForContext()?->deckCourseId();
+    }
+
+    private function cardForContext(): ?Card
+    {
+        $card = $this->card()
+            ->withTrashed()
+            ->with(['deck' => fn ($query) => $query->withTrashed()])
+            ->first();
+
+        $this->setRelation('card', $card);
+
+        return $card;
+    }
+
     /**
      * @return array<string, string>
      */

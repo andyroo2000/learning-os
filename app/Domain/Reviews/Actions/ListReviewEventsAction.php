@@ -17,6 +17,8 @@ class ListReviewEventsAction
 
         return CardReviewEvent::query()
             ->select('card_review_events.*')
+            ->selectRaw('cards.deck_id as card_deck_id')
+            ->selectRaw('decks.course_id as card_course_id')
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)

@@ -12,6 +12,11 @@ class ShowCardReviewEventController extends Controller
     {
         $this->authorize('view', $cardReviewEvent);
 
+        $cardReviewEvent->load([
+            'card' => fn ($query) => $query->withTrashed(),
+            'card.deck' => fn ($query) => $query->withTrashed(),
+        ]);
+
         return CardReviewEventResource::make($cardReviewEvent);
     }
 }

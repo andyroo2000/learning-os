@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
@@ -20,8 +22,11 @@ class ListReviewEventsApiTest extends TestCase
     public function test_it_lists_review_events_for_the_authenticated_user_across_cards(): void
     {
         $user = $this->signIn();
-        $firstCard = $this->cardFor($user);
-        $secondCard = $this->cardFor($user);
+        $course = Course::factory()->for($user)->create();
+        $firstDeck = Deck::factory()->for($course)->for($user)->create();
+        $secondDeck = Deck::factory()->for($course)->for($user)->create();
+        $firstCard = Card::factory()->for($firstDeck)->create();
+        $secondCard = Card::factory()->for($secondDeck)->create();
         $otherUser = User::factory()->create();
 
         $firstEvent = CardReviewEvent::factory()->for($firstCard)->create([
@@ -52,6 +57,8 @@ class ListReviewEventsApiTest extends TestCase
                     '*' => [
                         'id',
                         'card_id',
+                        'deck_id',
+                        'course_id',
                         'rating',
                         'reviewed_at',
                         'client_event_id',
@@ -67,6 +74,8 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $firstEvent->id,
                 'card_id' => $firstCard->id,
+                'deck_id' => $firstDeck->id,
+                'course_id' => $course->id,
                 'rating' => CardReviewRating::Hard->value,
                 'reviewed_at' => $firstEvent->reviewed_at->toJSON(),
                 'client_event_id' => 'event-1',
@@ -76,6 +85,8 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $secondEvent->id,
                 'card_id' => $secondCard->id,
+                'deck_id' => $secondDeck->id,
+                'course_id' => $course->id,
                 'rating' => CardReviewRating::Good->value,
                 'reviewed_at' => $secondEvent->reviewed_at->toJSON(),
                 'client_event_id' => 'event-2',

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -22,7 +24,9 @@ class CreateCardReviewEventApiTest extends TestCase
     public function test_it_creates_a_card_review_event(): void
     {
         $user = $this->signIn();
-        $card = $this->cardFor($user);
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
 
         $response = $this->postJson('/api/card-review-events', [
             'card_id' => $card->id,
@@ -33,12 +37,16 @@ class CreateCardReviewEventApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.card_id', $card->id)
+            ->assertJsonPath('data.deck_id', $deck->id)
+            ->assertJsonPath('data.course_id', $course->id)
             ->assertJsonPath('data.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z')
             ->assertJsonStructure([
                 'data' => [
                     'id',
                     'card_id',
+                    'deck_id',
+                    'course_id',
                     'rating',
                     'reviewed_at',
                     'client_event_id',

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
@@ -594,7 +595,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $this->app->instance(ReviewCardBatchAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardBatchAction
+        $this->app->instance(ReviewCardBatchAction::class, new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class)) extends ReviewCardBatchAction
         {
             public function handle(iterable $items): ReviewCardBatchResult
             {

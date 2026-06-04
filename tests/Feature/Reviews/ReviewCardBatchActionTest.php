@@ -3,6 +3,8 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
@@ -62,12 +64,14 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame(CardReviewRating::Good, $secondResult->reviewEvents[0]->rating);
         $this->assertSame(CardReviewRating::Easy, $secondResult->reviewEvents[1]->rating);
         $this->assertDatabaseCount('card_review_events', 2);
-        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
 
         $firstEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card_review_event')
             ->where('resource_id', $firstResult->reviewEvents[0]->id)
             ->sole();
         $secondEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card_review_event')
             ->where('resource_id', $firstResult->reviewEvents[1]->id)
             ->sole();
 
@@ -89,6 +93,53 @@ class ReviewCardBatchActionTest extends TestCase
             'updated_at' => $firstResult->reviewEvents[0]->updated_at?->toJSON(),
         ], $firstEntry->payload);
         $this->assertSame($secondCard->ownerUserId(), $secondEntry->user_id);
+
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => $firstCard->id,
+            'operation' => 'update',
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => $secondCard->id,
+            'operation' => 'update',
+        ]);
+    }
+
+    public function test_created_batch_reviews_update_card_study_state_in_review_order(): void
+    {
+        $card = Card::factory()->create();
+
+        app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-05-27T09:20:00Z',
+                clientEventId: 'event-2',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:20:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Again->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-1',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:15:00Z',
+            ),
+        ]);
+
+        $card->refresh();
+
+        $this->assertSame(CardStudyStatus::Review, $card->study_status);
+        $this->assertSame('2026-05-27T09:15:00.000000Z', $card->introduced_at?->toJSON());
+        $this->assertSame('2026-06-03T09:20:00.000000Z', $card->due_at?->toJSON());
+        $this->assertNull($card->failed_at);
+        $this->assertSame('2026-05-27T09:20:00.000000Z', $card->last_reviewed_at?->toJSON());
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
     }
 
     public function test_it_normalizes_text_and_sync_metadata_for_direct_callers(): void
@@ -329,6 +380,7 @@ class ReviewCardBatchActionTest extends TestCase
                     throw new RuntimeException('Sync feed failed.');
                 }
             },
+            applyCardStudyReview: app(ApplyCardStudyReviewAction::class),
         );
 
         try {

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Actions;
 
+use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -32,6 +33,7 @@ class ReviewCardBatchAction
 
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ApplyCardStudyReviewAction $applyCardStudyReview,
     ) {}
 
     /**
@@ -117,6 +119,7 @@ class ReviewCardBatchAction
                 $createdReviewEvents = $this->createdReviewEventsForItems($createdItems, $reviewEventsBySyncKey);
 
                 $this->recordCreatedFeedEntries($createdReviewEvents, $cardsById);
+                $this->applyCreatedCardStudyReviews($createdReviewEvents, $cardsById);
             }
 
             return $rows->isNotEmpty()
@@ -524,5 +527,21 @@ class ReviewCardBatchAction
                 ),
             );
         });
+    }
+
+    /**
+     * @param  Collection<int, CardReviewEvent>  $reviewEvents
+     * @param  Collection<string, Card>  $cardsById
+     */
+    private function applyCreatedCardStudyReviews(Collection $reviewEvents, Collection $cardsById): void
+    {
+        $reviewEvents
+            ->sortBy(fn (CardReviewEvent $reviewEvent): string => $reviewEvent->reviewed_at?->toJSON() ?? '')
+            ->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
+                $card = $cardsById->get($reviewEvent->card_id)
+                    ?? throw new RuntimeException('Card missing while applying review study state.');
+
+                $this->applyCardStudyReview->handle($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
+            });
     }
 }

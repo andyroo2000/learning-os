@@ -142,7 +142,7 @@ class CreateDeckApiTest extends TestCase
         ]);
     }
 
-    public function test_it_trims_lowercase_client_ulids_without_global_trim_middleware(): void
+    public function test_it_trims_padded_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();
         $course = Course::factory()->for($user)->create();

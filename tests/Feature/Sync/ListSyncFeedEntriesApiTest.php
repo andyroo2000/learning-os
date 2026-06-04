@@ -46,6 +46,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.1.checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $before->checkpoint)
             ->assertJsonPath('meta.current_checkpoint', $second->checkpoint)
+            ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.resource_type', null)
             ->assertJsonPath('meta.next_checkpoint', $second->checkpoint)
             ->assertJsonPath('meta.has_more', false)
             ->assertJsonPath('meta.per_page', CursorPagination::DEFAULT_PAGE_SIZE)
@@ -64,6 +66,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
                 'meta' => [
                     'after_checkpoint',
                     'current_checkpoint',
+                    'domain',
+                    'resource_type',
                     'next_checkpoint',
                     'has_more',
                     'per_page',
@@ -207,6 +211,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $flashcards->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', null)
             ->assertJsonMissing([
                 'checkpoint' => $media->checkpoint,
             ]);
@@ -232,6 +238,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $card->checkpoint)
+            ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $deck->checkpoint)
             ->assertJsonMissing([
@@ -264,6 +272,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $card->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.current_checkpoint', $mediaCard->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $mediaCard->checkpoint)
             ->assertJsonMissing([
@@ -287,6 +297,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('data.0.checkpoint', $card->checkpoint);
     }
 
@@ -303,6 +315,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', null)
             ->assertJsonPath('data.0.checkpoint', $flashcards->checkpoint);
     }
 
@@ -601,6 +615,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $firstPage
             ->assertOk()
             ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $secondCard->checkpoint)
             ->assertJsonPath('meta.has_more', true);
@@ -610,6 +626,8 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.checkpoint', $thirdCard->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $secondCard->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
             ->assertJsonPath('meta.next_checkpoint', $deck->checkpoint)
             ->assertJsonPath('meta.has_more', false)

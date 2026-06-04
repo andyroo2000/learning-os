@@ -19,13 +19,15 @@ class ListSyncFeedEntriesController extends Controller
         $user = $request->user();
 
         $afterCheckpoint = $request->afterCheckpoint();
+        $domain = $request->domain();
+        $resourceType = $request->resourceType();
         $pageSize = $request->pageSize();
 
         $result = $listSyncFeedEntries->handle(
             userId: $user->id,
             afterCheckpoint: $afterCheckpoint,
-            domain: $request->domain(),
-            resourceType: $request->resourceType(),
+            domain: $domain,
+            resourceType: $resourceType,
             pageSize: $pageSize,
         );
 
@@ -34,7 +36,9 @@ class ListSyncFeedEntriesController extends Controller
                 'meta' => [
                     'after_checkpoint' => $afterCheckpoint,
                     'current_checkpoint' => $result->currentCheckpoint,
-                    // Domain-filtered complete pages can advance to the full-feed high-water mark without skipping future entries.
+                    'domain' => $domain,
+                    'resource_type' => $resourceType,
+                    // Filtered complete pages can advance to the full-feed high-water mark without skipping future entries.
                     'next_checkpoint' => $result->nextCheckpoint($afterCheckpoint),
                     'has_more' => $result->hasMore,
                     'per_page' => $pageSize->value(),

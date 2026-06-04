@@ -152,6 +152,7 @@ class CreateDeckApiTest extends TestCase
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
                 'id' => "  {$id}  ",
+                // The factory ID is already lowercase; this field only exercises trimming.
                 'course_id' => "  {$course->id}  ",
                 'name' => 'Italian Basics',
             ]);

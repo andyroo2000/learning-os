@@ -17,7 +17,15 @@ class ListCoursesController extends Controller
         $user = $request->user();
 
         return CourseResource::collection(
-            $listCourses->handle($user->id, $request->pageSize(), $request->status())->withQueryString()
+            $listCourses
+                ->handle(
+                    userId: $user->id,
+                    pageSize: $request->pageSize(),
+                    status: $request->status(),
+                    nativeLanguage: $request->nativeLanguage(),
+                    targetLanguage: $request->targetLanguage(),
+                )
+                ->withQueryString()
         );
     }
 }

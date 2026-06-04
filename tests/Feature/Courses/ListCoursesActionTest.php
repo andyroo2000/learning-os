@@ -74,4 +74,36 @@ class ListCoursesActionTest extends TestCase
         $this->assertCount(1, $courses->items());
         $this->assertSame($readyCourse->id, $courses->items()[0]->id);
     }
+
+    public function test_it_filters_courses_by_language_pair(): void
+    {
+        $user = User::factory()->create();
+        $matchingCourse = Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'it',
+        ]);
+        Course::factory()->for($user)->create([
+            'native_language' => 'es',
+            'target_language' => 'ja',
+        ]);
+        Course::factory()->for(User::factory()->create())->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        $courses = app(ListCoursesAction::class)->handle(
+            userId: $user->id,
+            pageSize: CursorPageSize::fromPerPage(10),
+            nativeLanguage: 'en',
+            targetLanguage: 'ja',
+        );
+
+        $this->assertCount(1, $courses->items());
+        $this->assertSame($matchingCourse->id, $courses->items()[0]->id);
+    }
 }

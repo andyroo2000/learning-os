@@ -19,13 +19,15 @@ use PHPUnit\Framework\TestCase;
  * Pins course list index DDL across the database grammars we care about.
  * Postgres gets its own fixture even when it matches SQLite so grammar drift fails against the target we plan to run.
  * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
- * Keep the blueprint below in sync with 2026_06_04_003000_create_courses_table.php.
+ * Keep the blueprint below in sync with course list index migrations.
  */
 class CourseIndexMigrationTest extends TestCase
 {
     private const LIST_INDEX = 'courses_user_deleted_updated_id_idx';
 
     private const STATUS_LIST_INDEX = 'courses_user_status_deleted_updated_id_idx';
+
+    private const LANGUAGE_PAIR_LIST_INDEX = 'courses_user_langs_deleted_updated_id_idx';
 
     #[DataProvider('courseIndexSqlProvider')]
     public function test_course_indexes_compile_to_portable_sql(
@@ -40,6 +42,21 @@ class CourseIndexMigrationTest extends TestCase
         $createSql = $this->courseIndexBlueprint($connection)->toSql();
 
         $this->assertSame($expectedCreateSql, $createSql);
+    }
+
+    #[DataProvider('languagePairIndexDropSqlProvider')]
+    public function test_language_pair_index_rollback_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $dropSql = $this->dropLanguagePairIndexBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedDropSql, $dropSql);
     }
 
     public function test_course_index_sql_fixture_targets_stay_explicit(): void
@@ -70,7 +87,18 @@ class CourseIndexMigrationTest extends TestCase
     }
 
     /**
-     * @return array<string, array{connection: class-string<Connection>, grammar: class-string<Grammar>, create: list<string>}>
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>}>
+     */
+    public static function languagePairIndexDropSqlProvider(): array
+    {
+        return array_map(
+            fn (array $fixture): array => [$fixture['connection'], $fixture['grammar'], $fixture['drop_language_pair']],
+            self::portableSqlProvider(),
+        );
+    }
+
+    /**
+     * @return array<string, array{connection: class-string<Connection>, grammar: class-string<Grammar>, create: list<string>, drop_language_pair: list<string>}>
      */
     private static function portableSqlProvider(): array
     {
@@ -79,16 +107,25 @@ class CourseIndexMigrationTest extends TestCase
                 'connection' => SQLiteConnection::class,
                 'grammar' => SQLiteGrammar::class,
                 'create' => self::expectedSqlForSqlite(),
+                'drop_language_pair' => [
+                    'drop index "'.self::LANGUAGE_PAIR_LIST_INDEX.'"',
+                ],
             ],
             'postgres' => [
                 'connection' => PostgresConnection::class,
                 'grammar' => PostgresGrammar::class,
                 'create' => self::expectedSqlForPostgres(),
+                'drop_language_pair' => [
+                    'drop index "'.self::LANGUAGE_PAIR_LIST_INDEX.'"',
+                ],
             ],
             'mysql' => [
                 'connection' => MySqlConnection::class,
                 'grammar' => MySqlGrammar::class,
                 'create' => self::expectedSqlForMysql(),
+                'drop_language_pair' => [
+                    'alter table `courses` drop index `'.self::LANGUAGE_PAIR_LIST_INDEX.'`',
+                ],
             ],
         ];
     }
@@ -101,6 +138,7 @@ class CourseIndexMigrationTest extends TestCase
         return [
             'create index "'.self::LIST_INDEX.'" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
             'create index "'.self::STATUS_LIST_INDEX.'" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
+            'create index "'.self::LANGUAGE_PAIR_LIST_INDEX.'" on "courses" ("user_id", "native_language", "target_language", "deleted_at", "updated_at", "id")',
         ];
     }
 
@@ -112,6 +150,7 @@ class CourseIndexMigrationTest extends TestCase
         return [
             'create index "'.self::LIST_INDEX.'" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
             'create index "'.self::STATUS_LIST_INDEX.'" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
+            'create index "'.self::LANGUAGE_PAIR_LIST_INDEX.'" on "courses" ("user_id", "native_language", "target_language", "deleted_at", "updated_at", "id")',
         ];
     }
 
@@ -123,6 +162,7 @@ class CourseIndexMigrationTest extends TestCase
         return [
             'alter table `courses` add index `'.self::LIST_INDEX.'`(`user_id`, `deleted_at`, `updated_at`, `id`)',
             'alter table `courses` add index `'.self::STATUS_LIST_INDEX.'`(`user_id`, `status`, `deleted_at`, `updated_at`, `id`)',
+            'alter table `courses` add index `'.self::LANGUAGE_PAIR_LIST_INDEX.'`(`user_id`, `native_language`, `target_language`, `deleted_at`, `updated_at`, `id`)',
         ];
     }
 
@@ -147,6 +187,17 @@ class CourseIndexMigrationTest extends TestCase
                 ['user_id', 'status', 'deleted_at', 'updated_at', 'id'],
                 self::STATUS_LIST_INDEX,
             );
+            $table->index(
+                ['user_id', 'native_language', 'target_language', 'deleted_at', 'updated_at', 'id'],
+                self::LANGUAGE_PAIR_LIST_INDEX,
+            );
+        });
+    }
+
+    private function dropLanguagePairIndexBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'courses', function (Blueprint $table): void {
+            $table->dropIndex(self::LANGUAGE_PAIR_LIST_INDEX);
         });
     }
 
@@ -158,6 +209,7 @@ class CourseIndexMigrationTest extends TestCase
         return [
             self::LIST_INDEX,
             self::STATUS_LIST_INDEX,
+            self::LANGUAGE_PAIR_LIST_INDEX,
         ];
     }
 }

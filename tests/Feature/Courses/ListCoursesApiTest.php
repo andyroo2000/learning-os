@@ -186,6 +186,134 @@ class ListCoursesApiTest extends TestCase
             ->assertJsonPath('data.0.id', $readyCourse->id);
     }
 
+    public function test_it_filters_courses_by_native_language(): void
+    {
+        $user = $this->signIn();
+        $englishCourse = Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'es',
+            'target_language' => 'ja',
+        ]);
+
+        $response = $this->getJson('/api/courses?native_language=en');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $englishCourse->id)
+            ->assertJsonPath('data.0.native_language', 'en');
+    }
+
+    public function test_it_filters_courses_by_target_language(): void
+    {
+        $user = $this->signIn();
+        $japaneseCourse = Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'it',
+        ]);
+
+        $response = $this->getJson('/api/courses?target_language=ja');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $japaneseCourse->id)
+            ->assertJsonPath('data.0.target_language', 'ja');
+    }
+
+    public function test_it_filters_courses_by_language_pair_and_status(): void
+    {
+        $user = $this->signIn();
+        $matchingCourse = Course::factory()->ready()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->draft()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+        Course::factory()->ready()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'it',
+        ]);
+        Course::factory()->ready()->for(User::factory()->create())->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        $response = $this->getJson('/api/courses?status=ready&native_language=en&target_language=ja');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchingCourse->id)
+            ->assertJsonPath('data.0.status', CourseStatus::Ready->value)
+            ->assertJsonPath('data.0.native_language', 'en')
+            ->assertJsonPath('data.0.target_language', 'ja');
+    }
+
+    public function test_language_filters_preserve_query_strings_across_cursor_pages(): void
+    {
+        $user = $this->signIn();
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'it',
+        ]);
+        Course::factory()->for($user)->create([
+            'title' => 'Older Japanese Course',
+            'native_language' => 'en',
+            'target_language' => 'ja',
+            'updated_at' => now()->subMinute(),
+        ]);
+        $newerCourse = Course::factory()->for($user)->create([
+            'title' => 'Newer Japanese Course',
+            'native_language' => 'en',
+            'target_language' => 'ja',
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/courses?native_language=en&target_language=ja&per_page=1');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerCourse->id)
+            ->assertJsonPath('links.next', fn (string $url): bool => str_contains($url, 'native_language=en')
+                && str_contains($url, 'target_language=ja'));
+    }
+
+    public function test_it_trims_language_filters(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'es',
+            'target_language' => 'it',
+        ]);
+
+        $response = $this->getJson('/api/courses?native_language=%20en%20&target_language=%20ja%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $course->id);
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();
@@ -318,6 +446,17 @@ class ListCoursesApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['status']);
+    }
+
+    public function test_it_rejects_invalid_language_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/courses?native_language='.str_repeat('a', 17).'&target_language=%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['native_language', 'target_language']);
     }
 
     public function test_it_requires_authentication(): void

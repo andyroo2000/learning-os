@@ -124,8 +124,8 @@ class ReviewCardAction
                     ));
                 }
 
-                // The race winner disappeared before recovery could map it; keep the original constraint detail.
-                throw $exception;
+                // The race winner disappeared before recovery could map it; keep the response retryable.
+                throw CardReviewEventConflictException::unresolvedConflict();
             }
 
             if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
@@ -172,7 +172,7 @@ class ReviewCardAction
             $conflictingUserId !== $card->ownerUserId()
             || CanonicalUlid::normalize((string) $reviewEvent->card_id) !== $data->cardId
             || $reviewEvent->rating !== $rating
-            || ! $reviewEvent->reviewed_at?->equalTo($data->reviewedAt)
+            || ! $this->nullableTimestampsMatch($reviewEvent->reviewed_at, $data->reviewedAt)
             || $reviewEvent->client_event_id !== $data->clientEventId
             || $reviewEvent->device_id !== $data->deviceId
             || ! $this->nullableTimestampsMatch($reviewEvent->client_created_at, $data->clientCreatedAt)

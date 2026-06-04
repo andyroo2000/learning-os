@@ -6,15 +6,19 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PDOException;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -96,6 +100,212 @@ class ReviewCardActionTest extends TestCase
             'resource_id' => $id,
             'operation' => 'create',
         ]);
+    }
+
+    public function test_it_returns_existing_review_event_for_provided_ulid_retries(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $reviewedAt = Carbon::parse('2026-05-27 09:15:00');
+        $existingReviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => $reviewedAt,
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
+        ]);
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: $reviewedAt,
+                id: strtoupper($id),
+            ),
+        );
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertTrue($existingReviewEvent->is($result->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_returns_existing_review_event_for_provided_ulid_retries_with_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $reviewedAt = Carbon::parse('2026-05-27 09:15:00');
+        $clientCreatedAt = Carbon::parse('2026-05-27 09:14:00');
+        $existingReviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => $reviewedAt,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => $clientCreatedAt,
+        ]);
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: $reviewedAt,
+                id: $id,
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: $clientCreatedAt,
+            ),
+        );
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertTrue($existingReviewEvent->is($result->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_provided_ulid_retries_with_different_metadata(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        CardReviewEvent::factory()->for($card)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+        ]);
+
+        $this->expectException(CardReviewEventConflictException::class);
+        $this->expectExceptionMessage('Card review event ID already exists with different metadata.');
+
+        $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-05-27 09:15:00',
+                id: $id,
+            ),
+        );
+    }
+
+    public function test_it_reports_cross_user_provided_ulid_conflicts_for_http_hiding(): void
+    {
+        $card = Card::factory()->create();
+        $otherCard = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        CardReviewEvent::factory()->for($otherCard)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+        ]);
+
+        try {
+            $this->reviewCard(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27 09:15:00',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected review event ID conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertTrue($exception->shouldBeHiddenFrom($card->ownerUserId()));
+            $this->assertSame('card_review_event_id_conflict', $exception->reason());
+        }
+    }
+
+    public function test_it_reports_cross_user_provided_ulid_conflicts_for_soft_deleted_cards(): void
+    {
+        $card = Card::factory()->create();
+        $otherCard = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        CardReviewEvent::factory()->for($otherCard)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+        ]);
+        $otherCard->delete();
+
+        try {
+            $this->reviewCard(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27 09:15:00',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected review event ID conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertTrue($exception->shouldBeHiddenFrom($card->ownerUserId()));
+            $this->assertSame('card_review_event_id_conflict', $exception->reason());
+        }
+    }
+
+    public function test_it_returns_retryable_conflict_when_race_winner_disappears_before_refetch(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $raceState = (object) [
+            'inserted' => false,
+            'deleted' => false,
+        ];
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), $raceState) extends ReviewCardAction
+        {
+            public function __construct(
+                RecordSyncFeedEntryAction $recordSyncFeedEntry,
+                private readonly object $raceState,
+            ) {
+                parent::__construct($recordSyncFeedEntry);
+            }
+
+            protected function saveReviewEvent(CardReviewEvent $reviewEvent): void
+            {
+                $this->raceState->inserted = true;
+
+                $previous = new PDOException('UNIQUE constraint failed: card_review_events.id', 19);
+                $previous->errorInfo = ['23000', '19', 'UNIQUE constraint failed: card_review_events.id'];
+
+                throw new QueryException(
+                    'sqlite',
+                    'insert into "card_review_events" ("id") values (?)',
+                    [$reviewEvent->id],
+                    $previous,
+                );
+            }
+
+            protected function findExistingReviewEventById(string $id): ?CardReviewEvent
+            {
+                if ($this->raceState->inserted && ! $this->raceState->deleted) {
+                    $this->raceState->deleted = true;
+
+                    return null;
+                }
+
+                return parent::findExistingReviewEventById($id);
+            }
+        };
+
+        try {
+            $reviewCard->handle(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27 09:15:00',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected retryable review event ID conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertTrue($raceState->inserted);
+            $this->assertTrue($raceState->deleted);
+            $this->assertFalse($exception->shouldBeHiddenFrom($card->ownerUserId()));
+            $this->assertTrue($exception->isRetryable());
+            $this->assertSame('card_review_event_retry', $exception->reason());
+        }
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void

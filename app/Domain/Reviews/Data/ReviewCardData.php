@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Data;
 
+use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 
@@ -27,10 +28,10 @@ final readonly class ReviewCardData
         DateTimeInterface|string|null $clientCreatedAt = null,
     ): self {
         return new self(
-            cardId: trim($cardId),
+            cardId: CanonicalUlid::normalize($cardId),
             rating: trim($rating),
             reviewedAt: Carbon::parse($reviewedAt),
-            id: $id === null ? null : trim($id),
+            id: $id === null ? null : CanonicalUlid::normalize($id),
             clientEventId: blank($clientEventId) ? null : trim($clientEventId),
             deviceId: blank($deviceId) ? null : trim($deviceId),
             clientCreatedAt: blank($clientCreatedAt) ? null : Carbon::parse($clientCreatedAt),

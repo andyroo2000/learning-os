@@ -147,7 +147,7 @@ class CreateDeckApiTest extends TestCase
         $user = $this->signIn();
         $id = strtolower((string) Str::ulid());
         $courseId = strtolower((string) Str::ulid());
-        $course = Course::factory()->for($user)->create(['id' => $courseId]);
+        Course::factory()->for($user)->create(['id' => $courseId]);
 
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
@@ -174,7 +174,7 @@ class CreateDeckApiTest extends TestCase
         $user = $this->signIn();
         $id = strtolower((string) Str::ulid());
         $courseId = strtolower((string) Str::ulid());
-        $course = Course::factory()->for($user)->create(['id' => $courseId]);
+        Course::factory()->for($user)->create(['id' => $courseId]);
 
         $response = $this
             ->withoutMiddleware(TrimStrings::class)

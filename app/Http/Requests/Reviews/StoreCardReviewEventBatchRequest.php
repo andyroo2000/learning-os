@@ -4,6 +4,7 @@ namespace App\Http\Requests\Reviews;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Sync\Values\SyncMetadata;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -27,8 +28,8 @@ class StoreCardReviewEventBatchRequest extends FormRequest
             'events.*.card_id' => ['required', 'ulid'],
             'events.*.rating' => ['required', Rule::enum(CardReviewRating::class)],
             'events.*.reviewed_at' => ['required', 'date'],
-            'events.*.client_event_id' => ['required', 'string'],
-            'events.*.device_id' => ['required', 'string'],
+            'events.*.client_event_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH],
+            'events.*.device_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_DEVICE_ID_LENGTH],
             'events.*.client_created_at' => ['required', 'date'],
         ];
     }

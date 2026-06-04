@@ -7,6 +7,11 @@ use InvalidArgumentException;
 
 final readonly class SyncMetadata
 {
+    // Review sync metadata uses default string columns; enforce the limit before SQLite can mask it.
+    public const MAX_CLIENT_EVENT_ID_LENGTH = 255;
+
+    public const MAX_DEVICE_ID_LENGTH = 255;
+
     private function __construct(
         public string $clientEventId,
         public string $deviceId,
@@ -24,8 +29,8 @@ final readonly class SyncMetadata
         }
 
         return new self(
-            clientEventId: $clientEventId,
-            deviceId: $deviceId,
+            clientEventId: self::validateClientEventId($clientEventId),
+            deviceId: self::validateDeviceId($deviceId),
             clientCreatedAt: $clientCreatedAt,
         );
     }
@@ -48,10 +53,28 @@ final readonly class SyncMetadata
         }
 
         return new self(
-            clientEventId: $clientEventId,
-            deviceId: $deviceId,
+            clientEventId: self::validateClientEventId($clientEventId),
+            deviceId: self::validateDeviceId($deviceId),
             clientCreatedAt: $clientCreatedAt,
         );
+    }
+
+    private static function validateClientEventId(string $clientEventId): string
+    {
+        if (mb_strlen($clientEventId) > self::MAX_CLIENT_EVENT_ID_LENGTH) {
+            throw new InvalidArgumentException('Client event ID must not exceed '.self::MAX_CLIENT_EVENT_ID_LENGTH.' characters.');
+        }
+
+        return $clientEventId;
+    }
+
+    private static function validateDeviceId(string $deviceId): string
+    {
+        if (mb_strlen($deviceId) > self::MAX_DEVICE_ID_LENGTH) {
+            throw new InvalidArgumentException('Device ID must not exceed '.self::MAX_DEVICE_ID_LENGTH.' characters.');
+        }
+
+        return $deviceId;
     }
 
     /**

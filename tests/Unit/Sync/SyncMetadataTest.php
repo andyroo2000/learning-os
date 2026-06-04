@@ -63,6 +63,30 @@ class SyncMetadataTest extends TestCase
         $this->assertSame('device-abc', $metadata->deviceId);
     }
 
+    public function test_nullable_construction_rejects_overlong_client_event_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Client event ID must not exceed '.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH.' characters.');
+
+        SyncMetadata::fromNullable(
+            clientEventId: str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH + 1),
+            deviceId: 'device-abc',
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+    }
+
+    public function test_nullable_construction_rejects_overlong_device_id(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Device ID must not exceed '.SyncMetadata::MAX_DEVICE_ID_LENGTH.' characters.');
+
+        SyncMetadata::fromNullable(
+            clientEventId: 'event-123',
+            deviceId: str_repeat('a', SyncMetadata::MAX_DEVICE_ID_LENGTH + 1),
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+    }
+
     public function test_it_requires_metadata_for_required_construction(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -100,6 +124,21 @@ class SyncMetadataTest extends TestCase
         $this->assertSame('event-123', $metadata->clientEventId);
         $this->assertSame('device-abc', $metadata->deviceId);
         $this->assertTrue($metadata->clientCreatedAt->equalTo(Carbon::parse('2026-05-27T09:14:00Z')));
+    }
+
+    public function test_required_construction_accepts_metadata_ids_at_the_column_limit(): void
+    {
+        $clientEventId = str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH);
+        $deviceId = str_repeat('b', SyncMetadata::MAX_DEVICE_ID_LENGTH);
+
+        $metadata = SyncMetadata::fromRequired(
+            clientEventId: $clientEventId,
+            deviceId: $deviceId,
+            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        );
+
+        $this->assertSame($clientEventId, $metadata->clientEventId);
+        $this->assertSame($deviceId, $metadata->deviceId);
     }
 
     public function test_it_builds_a_lookup_key_from_metadata(): void

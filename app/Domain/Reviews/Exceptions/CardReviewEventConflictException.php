@@ -11,20 +11,14 @@ final class CardReviewEventConflictException extends RuntimeException
     private const CONFLICT_REASON = 'card_review_event_id_conflict';
 
     private function __construct(
-        string $message,
         private readonly int $conflictingUserId,
-        private readonly string $reason,
     ) {
-        parent::__construct($message);
+        parent::__construct(self::CONFLICT_MESSAGE);
     }
 
     public static function conflict(int $conflictingUserId): self
     {
-        return new self(
-            message: self::CONFLICT_MESSAGE,
-            conflictingUserId: $conflictingUserId,
-            reason: self::CONFLICT_REASON,
-        );
+        return new self($conflictingUserId);
     }
 
     public function shouldBeHiddenFrom(int $userId): bool
@@ -34,6 +28,6 @@ final class CardReviewEventConflictException extends RuntimeException
 
     public function reason(): string
     {
-        return $this->reason;
+        return self::CONFLICT_REASON;
     }
 }

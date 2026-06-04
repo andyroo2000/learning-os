@@ -68,6 +68,7 @@ class ReviewCardAction
         }
 
         if ($data->id !== null) {
+            // Resolve common retries before opening a transaction; the catch below covers concurrent inserts.
             $existingReviewEvent = $this->findExistingReviewEventById($data->id);
 
             if ($existingReviewEvent !== null) {
@@ -169,7 +170,7 @@ class ReviewCardAction
 
         if (
             $conflictingUserId !== $card->ownerUserId()
-            || CanonicalUlid::normalize((string) $reviewEvent->card_id) !== CanonicalUlid::normalize($data->cardId)
+            || CanonicalUlid::normalize((string) $reviewEvent->card_id) !== $data->cardId
             || $reviewEvent->rating !== $rating
             || ! $reviewEvent->reviewed_at?->equalTo($data->reviewedAt)
             || $reviewEvent->client_event_id !== $data->clientEventId
@@ -188,7 +189,17 @@ class ReviewCardAction
             throw new LogicException('Review event card relation must be eager-loaded for conflict resolution.');
         }
 
-        $ownerId = $reviewEvent->card?->deck?->user_id;
+        $card = $reviewEvent->card;
+
+        if ($card === null) {
+            throw new LogicException('Review event card owner could not be resolved.');
+        }
+
+        if (! $card->relationLoaded('deck')) {
+            throw new LogicException('Review event card deck relation must be eager-loaded for conflict resolution.');
+        }
+
+        $ownerId = $card->deck?->user_id;
 
         if ($ownerId === null) {
             throw new LogicException('Review event card owner could not be resolved.');

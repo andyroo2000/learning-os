@@ -129,6 +129,39 @@ class ReviewCardActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_it_returns_existing_review_event_for_provided_ulid_retries_with_sync_metadata(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $reviewedAt = Carbon::parse('2026-05-27 09:15:00');
+        $clientCreatedAt = Carbon::parse('2026-05-27 09:14:00');
+        $existingReviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => $reviewedAt,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => $clientCreatedAt,
+        ]);
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: $reviewedAt,
+                id: $id,
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: $clientCreatedAt,
+            ),
+        );
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertTrue($existingReviewEvent->is($result->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_rejects_provided_ulid_retries_with_different_metadata(): void
     {
         $card = Card::factory()->create();

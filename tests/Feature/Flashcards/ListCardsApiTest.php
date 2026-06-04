@@ -355,6 +355,13 @@ class ListCardsApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/cards', 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsArrayPageSize('/api/cards');
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->getJson('/api/cards');

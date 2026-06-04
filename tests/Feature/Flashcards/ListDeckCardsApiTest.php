@@ -255,6 +255,14 @@ class ListDeckCardsApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize("/api/decks/{$deck->id}/cards", 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $this->assertCursorEndpointRejectsArrayPageSize("/api/decks/{$deck->id}/cards");
+    }
+
     public function test_it_hides_another_users_deck(): void
     {
         $this->signIn();

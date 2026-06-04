@@ -233,6 +233,13 @@ class ListMediaAssetsApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/media-assets', 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsArrayPageSize('/api/media-assets');
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();

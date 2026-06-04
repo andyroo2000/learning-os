@@ -29,11 +29,11 @@ abstract class CursorPaginatedRequest extends FormRequest
     }
 
     /**
-     * Raw request input that is normalized by CursorPageSize::fromPerPage().
+     * Validated request input that is normalized by CursorPageSize::fromPerPage().
      */
     protected function perPage(): int
     {
-        return $this->integer('per_page', $this->defaultPerPage());
+        return (int) ($this->validated()['per_page'] ?? $this->defaultPerPage());
     }
 
     protected function defaultPerPage(): int

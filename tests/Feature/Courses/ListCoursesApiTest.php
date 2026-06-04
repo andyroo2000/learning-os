@@ -426,6 +426,13 @@ class ListCoursesApiTest extends TestCase
         $this->assertCursorEndpointRejectsPageSize('/api/courses', 'abc');
     }
 
+    public function test_it_rejects_an_array_page_size(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsArrayPageSize('/api/courses');
+    }
+
     public function test_it_rejects_invalid_status_filters(): void
     {
         $this->signIn();

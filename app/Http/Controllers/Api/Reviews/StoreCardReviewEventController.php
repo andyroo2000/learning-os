@@ -32,6 +32,13 @@ class StoreCardReviewEventController extends Controller
                 return response()->json(['message' => 'Not Found'], 404);
             }
 
+            if ($exception->isRetryable()) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'reason' => $exception->reason(),
+                ], 503)->header('Retry-After', '1');
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => $exception->reason(),

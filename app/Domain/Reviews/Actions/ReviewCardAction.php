@@ -15,6 +15,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
+use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,7 +26,13 @@ class ReviewCardAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-    ) {}
+        private readonly ?Closure $afterClientIdPrecheckMiss = null,
+        private readonly ?Closure $afterClientIdUniqueConflict = null,
+    ) {
+        if (($afterClientIdPrecheckMiss !== null || $afterClientIdUniqueConflict !== null) && ! app()->runningUnitTests()) {
+            throw new LogicException('Review event creation race hooks may only be used in tests.');
+        }
+    }
 
     public function handle(ReviewCardData $data): ReviewCardResult
     {
@@ -63,6 +70,8 @@ class ReviewCardAction
             $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
 
             if ($existingReviewEvent !== null) {
+                $this->assertExistingSyncEventMatchesRequest($existingReviewEvent, $data, $card);
+
                 return ReviewCardResult::existing($existingReviewEvent);
             }
         }
@@ -78,6 +87,10 @@ class ReviewCardAction
                     card: $card,
                     rating: $rating,
                 ));
+            }
+
+            if ($this->afterClientIdPrecheckMiss !== null) {
+                ($this->afterClientIdPrecheckMiss)($data);
             }
         }
 
@@ -113,6 +126,10 @@ class ReviewCardAction
             });
         } catch (QueryException $exception) {
             if ($data->id !== null && IntegrityConstraintViolation::matchesPrimaryKey($exception, 'card_review_events')) {
+                if ($this->afterClientIdUniqueConflict !== null) {
+                    ($this->afterClientIdUniqueConflict)($data, $exception);
+                }
+
                 $existingReviewEvent = $this->findExistingReviewEventById($data->id);
 
                 if ($existingReviewEvent !== null) {
@@ -124,8 +141,8 @@ class ReviewCardAction
                     ));
                 }
 
-                // The race winner disappeared before recovery could map it; keep the response retryable.
-                throw CardReviewEventConflictException::unresolvedConflict();
+                // The race winner disappeared before recovery could map it; ask the client to retry.
+                throw CardReviewEventConflictException::retryableConflict();
             }
 
             if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
@@ -145,6 +162,10 @@ class ReviewCardAction
     private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent
     {
         return CardReviewEvent::query()
+            ->with([
+                'card' => fn ($query) => $query->withTrashed(),
+                'card.deck' => fn ($query) => $query->withTrashed(),
+            ])
             ->where('client_event_id', $syncMetadata->clientEventId)
             ->where('device_id', $syncMetadata->deviceId)
             ->first();
@@ -181,6 +202,21 @@ class ReviewCardAction
         }
 
         return $reviewEvent;
+    }
+
+    private function assertExistingSyncEventMatchesRequest(
+        CardReviewEvent $reviewEvent,
+        ReviewCardData $data,
+        Card $card,
+    ): void {
+        $conflictingUserId = $this->ownerIdFor($reviewEvent);
+
+        if (
+            $conflictingUserId !== $card->ownerUserId()
+            || ($data->id !== null && CanonicalUlid::normalize((string) $reviewEvent->id) !== $data->id)
+        ) {
+            throw CardReviewEventConflictException::conflict($conflictingUserId);
+        }
     }
 
     private function ownerIdFor(CardReviewEvent $reviewEvent): int

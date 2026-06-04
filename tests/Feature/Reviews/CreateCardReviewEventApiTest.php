@@ -142,6 +142,43 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_rejects_sync_metadata_retries_with_a_different_provided_ulid(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $firstId = strtolower((string) Str::ulid());
+        $secondId = strtolower((string) Str::ulid());
+
+        $firstResponse = $this->postJson('/api/card-review-events', [
+            'id' => $firstId,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ]);
+
+        $secondResponse = $this->postJson('/api/card-review-events', [
+            'id' => $secondId,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ]);
+
+        $firstResponse->assertCreated();
+        $secondResponse
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseMissing('card_review_events', ['id' => $secondId]);
+    }
+
     public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
     {
         $user = $this->signIn();

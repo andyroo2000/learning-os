@@ -13,8 +13,10 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -239,6 +241,55 @@ class ReviewCardActionTest extends TestCase
         } catch (CardReviewEventConflictException $exception) {
             $this->assertTrue($exception->shouldBeHiddenFrom($card->ownerUserId()));
             $this->assertSame('card_review_event_id_conflict', $exception->reason());
+        }
+    }
+
+    public function test_it_returns_retryable_conflict_when_race_winner_disappears_before_refetch(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $inserted = false;
+        $deleted = false;
+        $reviewCard = new ReviewCardAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            afterClientIdPrecheckMiss: function (ReviewCardData $data) use (&$inserted, $card): void {
+                if ($inserted || $data->id === null) {
+                    return;
+                }
+
+                $inserted = true;
+
+                DB::table('card_review_events')->insert([
+                    'id' => $data->id,
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27 09:15:00',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            },
+            afterClientIdUniqueConflict: function (ReviewCardData $data, QueryException $exception) use (&$deleted): void {
+                $deleted = DB::table('card_review_events')->where('id', $data->id)->delete() === 1;
+            },
+        );
+
+        try {
+            $reviewCard->handle(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27 09:15:00',
+                    id: $id,
+                ),
+            );
+
+            $this->fail('Expected retryable review event ID conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertTrue($inserted);
+            $this->assertTrue($deleted);
+            $this->assertFalse($exception->shouldBeHiddenFrom($card->ownerUserId()));
+            $this->assertTrue($exception->isRetryable());
+            $this->assertSame('card_review_event_retry', $exception->reason());
         }
     }
 

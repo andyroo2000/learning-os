@@ -8,13 +8,17 @@ final class CardReviewEventConflictException extends RuntimeException
 {
     private const CONFLICT_MESSAGE = 'Card review event ID already exists with different metadata.';
 
-    private const UNRESOLVED_CONFLICT_MESSAGE = 'Card review event already exists.';
+    private const RETRYABLE_MESSAGE = 'Card review event ID conflict could not be resolved; retry the request.';
 
     private const CONFLICT_REASON = 'card_review_event_id_conflict';
+
+    private const RETRYABLE_REASON = 'card_review_event_retry';
 
     private function __construct(
         string $message,
         private readonly ?int $conflictingUserId,
+        private readonly string $reason,
+        private readonly bool $retryable = false,
     ) {
         parent::__construct($message);
     }
@@ -24,14 +28,17 @@ final class CardReviewEventConflictException extends RuntimeException
         return new self(
             message: self::CONFLICT_MESSAGE,
             conflictingUserId: $conflictingUserId,
+            reason: self::CONFLICT_REASON,
         );
     }
 
-    public static function unresolvedConflict(): self
+    public static function retryableConflict(): self
     {
         return new self(
-            message: self::UNRESOLVED_CONFLICT_MESSAGE,
+            message: self::RETRYABLE_MESSAGE,
             conflictingUserId: null,
+            reason: self::RETRYABLE_REASON,
+            retryable: true,
         );
     }
 
@@ -43,6 +50,11 @@ final class CardReviewEventConflictException extends RuntimeException
 
     public function reason(): string
     {
-        return self::CONFLICT_REASON;
+        return $this->reason;
+    }
+
+    public function isRetryable(): bool
+    {
+        return $this->retryable;
     }
 }

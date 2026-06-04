@@ -73,6 +73,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $card->setRawAttributes([
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
@@ -85,6 +86,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $expected = [
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'created_at' => '2026-05-28T10:14:00.000000Z',
@@ -104,6 +106,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $card->setRawAttributes([
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'deck_course_id' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
@@ -116,6 +119,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertSame([
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'created_at' => '2026-05-28T10:14:00.000000Z',

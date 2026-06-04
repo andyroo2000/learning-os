@@ -3,6 +3,7 @@
 namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Actions\ListCoursesAction;
+use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
@@ -54,5 +55,23 @@ class ListCoursesActionTest extends TestCase
 
         $this->assertSame(1, $courses->perPage());
         $this->assertCount(1, $courses->items());
+    }
+
+    public function test_it_filters_courses_by_status(): void
+    {
+        $user = User::factory()->create();
+        $readyCourse = Course::factory()->ready()->for($user)->create();
+
+        Course::factory()->draft()->for($user)->create();
+        Course::factory()->ready()->for(User::factory()->create())->create();
+
+        $courses = app(ListCoursesAction::class)->handle(
+            $user->id,
+            CursorPageSize::fromPerPage(10),
+            CourseStatus::Ready,
+        );
+
+        $this->assertCount(1, $courses->items());
+        $this->assertSame($readyCourse->id, $courses->items()[0]->id);
     }
 }

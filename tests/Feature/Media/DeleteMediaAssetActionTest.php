@@ -5,6 +5,7 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -19,7 +20,7 @@ class DeleteMediaAssetActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_deletes_a_media_asset(): void
+    public function test_it_deletes_an_unattached_media_asset_with_one_asset_tombstone(): void
     {
         $user = User::factory()->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
@@ -32,6 +33,8 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertDatabaseMissing('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
         $entry = SyncFeedEntry::query()->sole();
 
@@ -157,7 +160,7 @@ class DeleteMediaAssetActionTest extends TestCase
             {
                 public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
                 {
-                    if ($data->resourceType === 'card_media') {
+                    if ($data->resourceType === CardMediaSyncPayload::RESOURCE_TYPE) {
                         throw new RuntimeException('Sync feed failed.');
                     }
 

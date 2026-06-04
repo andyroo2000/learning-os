@@ -4,6 +4,7 @@ namespace App\Http\Requests\Media;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -53,12 +54,12 @@ class DetachMediaFromCardRequest extends FormRequest
         $mediaAssetId = $this->route('mediaAsset');
 
         // Resolve by ID only; this intentionally moves ownership from request lookup to the action.
-        if ($mediaAssetId === null) {
+        if (! is_string($mediaAssetId)) {
             return $this->resolvedMediaAsset = null;
         }
 
         return $this->resolvedMediaAsset = MediaAsset::query()
-            ->whereKey($mediaAssetId)
+            ->whereKey(CanonicalUlid::normalize($mediaAssetId))
             ->first();
     }
 }

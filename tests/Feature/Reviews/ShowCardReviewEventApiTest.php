@@ -53,6 +53,18 @@ class ShowCardReviewEventApiTest extends TestCase
             ]);
     }
 
+    public function test_it_shows_an_owned_review_event_with_an_uppercase_route_id(): void
+    {
+        $user = $this->signIn();
+        $reviewEvent = $this->cardReviewEventFor($user);
+
+        $response = $this->getJson('/api/card-review-events/'.strtoupper($reviewEvent->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $reviewEvent->id);
+    }
+
     public function test_it_hides_another_users_review_event(): void
     {
         $this->signIn();

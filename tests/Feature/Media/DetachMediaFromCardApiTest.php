@@ -48,6 +48,27 @@ class DetachMediaFromCardApiTest extends TestCase
         ]);
     }
 
+    public function test_it_detaches_media_from_a_card_with_uppercase_route_ids(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $response = $this->deleteJson('/api/cards/'.strtoupper($card->id).'/media-assets/'.strtoupper($mediaAsset->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id)
+            ->assertJsonCount(0, 'data.media_assets');
+
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+    }
+
     public function test_it_is_idempotent_when_attachment_is_already_missing(): void
     {
         $user = $this->signIn();

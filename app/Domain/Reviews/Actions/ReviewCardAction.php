@@ -5,6 +5,7 @@ namespace App\Domain\Reviews\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -13,10 +14,12 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use LogicException;
 
 class ReviewCardAction
 {
@@ -64,6 +67,19 @@ class ReviewCardAction
             }
         }
 
+        if ($data->id !== null) {
+            $existingReviewEvent = $this->findExistingReviewEventById($data->id);
+
+            if ($existingReviewEvent !== null) {
+                return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+                    reviewEvent: $existingReviewEvent,
+                    data: $data,
+                    card: $card,
+                    rating: $rating,
+                ));
+            }
+        }
+
         $reviewEvent = new CardReviewEvent([
             'card_id' => $data->cardId,
             'rating' => $rating,
@@ -95,6 +111,19 @@ class ReviewCardAction
                 return ReviewCardResult::created($reviewEvent);
             });
         } catch (QueryException $exception) {
+            if ($data->id !== null && IntegrityConstraintViolation::matchesPrimaryKey($exception, 'card_review_events')) {
+                $existingReviewEvent = $this->findExistingReviewEventById($data->id);
+
+                if ($existingReviewEvent !== null) {
+                    return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+                        reviewEvent: $existingReviewEvent,
+                        data: $data,
+                        card: $card,
+                        rating: $rating,
+                    ));
+                }
+            }
+
             if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
                 throw $exception;
             }
@@ -115,5 +144,59 @@ class ReviewCardAction
             ->where('client_event_id', $syncMetadata->clientEventId)
             ->where('device_id', $syncMetadata->deviceId)
             ->first();
+    }
+
+    private function findExistingReviewEventById(string $id): ?CardReviewEvent
+    {
+        return CardReviewEvent::query()
+            ->with(['card.deck' => fn ($query) => $query->withTrashed()])
+            ->find($id);
+    }
+
+    private function matchingExistingReviewEvent(
+        CardReviewEvent $reviewEvent,
+        ReviewCardData $data,
+        Card $card,
+        CardReviewRating $rating,
+    ): CardReviewEvent {
+        $conflictingUserId = $this->ownerIdFor($reviewEvent);
+
+        if (
+            $conflictingUserId !== $card->ownerUserId()
+            || CanonicalUlid::normalize((string) $reviewEvent->card_id) !== CanonicalUlid::normalize($data->cardId)
+            || $reviewEvent->rating !== $rating
+            || ! $reviewEvent->reviewed_at?->equalTo($data->reviewedAt)
+            || $reviewEvent->client_event_id !== $data->clientEventId
+            || $reviewEvent->device_id !== $data->deviceId
+            || ! $this->nullableTimestampsMatch($reviewEvent->client_created_at, $data->clientCreatedAt)
+        ) {
+            throw CardReviewEventConflictException::conflict($conflictingUserId);
+        }
+
+        return $reviewEvent;
+    }
+
+    private function ownerIdFor(CardReviewEvent $reviewEvent): int
+    {
+        if (! $reviewEvent->relationLoaded('card')) {
+            throw new LogicException('Review event card relation must be eager-loaded for conflict resolution.');
+        }
+
+        $ownerId = $reviewEvent->card?->deck?->user_id;
+
+        if ($ownerId === null) {
+            throw new LogicException('Review event card owner could not be resolved.');
+        }
+
+        return (int) $ownerId;
+    }
+
+    private function nullableTimestampsMatch(mixed $left, mixed $right): bool
+    {
+        if ($left === null || $right === null) {
+            return $left === null && $right === null;
+        }
+
+        return $left->equalTo($right);
     }
 }

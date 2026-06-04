@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
 use App\Http\Controllers\Api\Flashcards\ListDueCardsController;
 use App\Http\Controllers\Api\Flashcards\ListNewCardsController;
+use App\Http\Controllers\Api\Flashcards\ReorderNewCardQueueController;
 use App\Http\Controllers\Api\Flashcards\ShowCardController;
 use App\Http\Controllers\Api\Flashcards\ShowDeckController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
@@ -73,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events', StoreCardReviewEventController::class);
     Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/new', ListNewCardsController::class);
+    Route::post('/cards/new/reorder', ReorderNewCardQueueController::class);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');

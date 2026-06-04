@@ -1,0 +1,199 @@
+<?php
+
+namespace Tests\Feature\Flashcards;
+
+use App\Domain\Flashcards\Actions\ReorderNewCardQueueAction;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Exceptions\CardValidationException;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
+use Tests\Support\SetsCardStudyStatus;
+use Tests\TestCase;
+
+class ReorderNewCardQueueActionTest extends TestCase
+{
+    use RefreshDatabase;
+    use SetsCardStudyStatus;
+
+    public function test_it_reorders_owned_new_cards_and_records_sync_entries(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $thirdCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 3,
+        ]);
+
+        $cards = app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [$thirdCard->id, strtoupper($firstCard->id), $secondCard->id],
+        );
+
+        $this->assertSame([$thirdCard->id, $firstCard->id, $secondCard->id], $cards->pluck('id')->all());
+        $this->assertDatabaseHas('cards', [
+            'id' => $thirdCard->id,
+            'new_queue_position' => 1,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $firstCard->id,
+            'new_queue_position' => 2,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $secondCard->id,
+            'new_queue_position' => 3,
+        ]);
+
+        $entries = SyncFeedEntry::query()->orderBy('resource_id')->get();
+
+        $this->assertCount(3, $entries);
+        $this->assertTrue($entries->every(fn (SyncFeedEntry $entry): bool => $entry->operation === SyncFeedOperation::Update));
+        $this->assertSame([
+            $firstCard->id => 2,
+            $secondCard->id => 3,
+            $thirdCard->id => 1,
+        ], $entries->mapWithKeys(fn (SyncFeedEntry $entry): array => [
+            $entry->resource_id => $entry->payload['new_queue_position'],
+        ])->all());
+    }
+
+    public function test_it_repairs_null_queue_positions_when_reordering_legacy_new_cards(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $legacyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+        $queuedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 8,
+        ]);
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [$legacyCard->id, $queuedCard->id],
+        );
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $legacyCard->id,
+            'new_queue_position' => 2,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $queuedCard->id,
+            'new_queue_position' => 9,
+        ]);
+    }
+
+    public function test_it_is_idempotent_when_order_is_unchanged(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [$firstCard->id, $secondCard->id],
+        );
+
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_duplicate_card_ids(): void
+    {
+        $cardId = strtolower((string) str()->ulid());
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('card_ids must not contain duplicates.');
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            cardIds: [$cardId, strtoupper($cardId)],
+        );
+    }
+
+    public function test_it_rejects_malformed_card_ids_for_direct_callers(): void
+    {
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Each card_id must be a valid ULID.');
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            cardIds: ['not-a-ulid'],
+        );
+    }
+
+    public function test_it_rejects_non_active_or_unowned_cards(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $newCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Every reordered card must be an active new card owned by the user.');
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [$newCard->id, $reviewCard->id],
+        );
+    }
+
+    public function test_it_rolls_back_when_sync_recording_fails(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $reorderNewCardQueue = new ReorderNewCardQueueAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        try {
+            $reorderNewCardQueue->handle(
+                userId: $user->id,
+                cardIds: [$secondCard->id, $firstCard->id],
+            );
+
+            $this->fail('Expected sync feed failure was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Sync feed failed.', $exception->getMessage());
+            $this->assertDatabaseHas('cards', [
+                'id' => $firstCard->id,
+                'new_queue_position' => 1,
+            ]);
+            $this->assertDatabaseHas('cards', [
+                'id' => $secondCard->id,
+                'new_queue_position' => 2,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+}

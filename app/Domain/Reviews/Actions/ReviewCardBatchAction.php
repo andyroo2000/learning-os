@@ -95,7 +95,7 @@ class ReviewCardBatchAction
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
-                        reviewEventsById: $existingReviewEventsById,
+                        reviewEventsById: $this->existingReviewEventsByProvidedId($preparedItems),
                         cardsById: $cardsById,
                     );
 
@@ -414,17 +414,7 @@ class ReviewCardBatchAction
             throw new LogicException('Review event card owner could not be resolved.');
         }
 
-        if (! $card->relationLoaded('deck')) {
-            throw new LogicException('Review event card deck relation must be eager-loaded for conflict resolution.');
-        }
-
-        $ownerId = $card->deck?->user_id;
-
-        if ($ownerId === null) {
-            throw new LogicException('Review event card owner could not be resolved.');
-        }
-
-        return (int) $ownerId;
+        return $card->ownerUserId();
     }
 
     /**

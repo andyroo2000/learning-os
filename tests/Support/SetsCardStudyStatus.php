@@ -13,10 +13,11 @@ trait SetsCardStudyStatus
      */
     protected function cardWithStudyStatus(Deck $deck, CardStudyStatus $studyStatus, array $attributes = []): Card
     {
-        $card = Card::factory()->for($deck)->create($attributes);
-        $card->study_status = $studyStatus;
-        $card->save();
-
-        return $card->refresh();
+        return Card::factory()
+            ->for($deck)
+            ->create([
+                ...$attributes,
+                'study_status' => $studyStatus,
+            ]);
     }
 }

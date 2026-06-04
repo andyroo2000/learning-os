@@ -38,7 +38,7 @@ enum CardStudyStatus: string
 
         return self::tryFrom($normalized)
             ?? throw new InvalidArgumentException(
-                'Card study_status filter must be new, learning, review, relearning, suspended, or buried.',
+                'Card study_status filter must be one of: '.implode(', ', self::values()).'.',
             );
     }
 }

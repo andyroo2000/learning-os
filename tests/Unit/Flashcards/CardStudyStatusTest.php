@@ -37,7 +37,7 @@ class CardStudyStatusTest extends TestCase
     public function test_it_rejects_malformed_filter_values(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card study_status filter must be new, learning, review, relearning, suspended, or buried.');
+        $this->expectExceptionMessage('Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.');
 
         CardStudyStatus::fromFilter('queued');
     }

@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -111,6 +112,32 @@ class CreateDeckApiTest extends TestCase
             'id' => strtolower($id),
             'user_id' => $user->id,
             'name' => 'Italian Basics',
+        ]);
+    }
+
+    public function test_it_normalizes_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $id = (string) Str::ulid();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/decks', [
+                'id' => '  '.strtoupper($id).'  ',
+                'course_id' => '  '.strtoupper($course->id).'  ',
+                'name' => 'Italian Basics',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', strtolower($id))
+            ->assertJsonPath('data.course_id', $course->id);
+
+        $this->assertDatabaseHas('decks', [
+            'id' => strtolower($id),
+            'user_id' => $user->id,
+            'course_id' => $course->id,
         ]);
     }
 

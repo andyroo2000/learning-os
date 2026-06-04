@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -19,7 +22,13 @@ class UpdateCardActionTest extends TestCase
 
     public function test_it_updates_card_text(): void
     {
-        $card = $this->cardFor($this->signIn());
+        $user = $this->signIn();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
 
         $result = app(UpdateCardAction::class)->handle(
             $card,
@@ -50,6 +59,7 @@ class UpdateCardActionTest extends TestCase
         $this->assertSame([
             'id' => $card->id,
             'deck_id' => $card->deck_id,
+            'course_id' => $course->id,
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
             'created_at' => $updatedCard->created_at?->toJSON(),

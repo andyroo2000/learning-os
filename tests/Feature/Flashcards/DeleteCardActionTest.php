@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\DeleteCardAction;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -19,7 +22,13 @@ class DeleteCardActionTest extends TestCase
 
     public function test_it_soft_deletes_a_card(): void
     {
-        $card = $this->cardFor($this->signIn());
+        $user = $this->signIn();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
 
         $result = app(DeleteCardAction::class)->handle($card);
 
@@ -39,6 +48,7 @@ class DeleteCardActionTest extends TestCase
         $this->assertSame([
             'id' => $card->id,
             'deck_id' => $card->deck_id,
+            'course_id' => $course->id,
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
             'created_at' => $card->created_at?->toJSON(),

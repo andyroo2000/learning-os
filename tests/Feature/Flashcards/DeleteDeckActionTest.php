@@ -62,6 +62,7 @@ class DeleteDeckActionTest extends TestCase
             $this->assertSame([
                 'id' => $card->id,
                 'deck_id' => $deck->id,
+                'course_id' => null,
                 'front_text' => $card->front_text,
                 'back_text' => $card->back_text,
                 'created_at' => $card->created_at?->toJSON(),

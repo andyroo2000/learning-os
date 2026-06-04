@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
@@ -29,7 +30,11 @@ class CreateCardActionTest extends TestCase
 
     public function test_it_creates_a_card_for_a_deck(): void
     {
-        $deck = Deck::factory()->create();
+        $course = Course::factory()->create();
+        $deck = Deck::factory()->create([
+            'user_id' => $course->user_id,
+            'course_id' => $course->id,
+        ]);
 
         $result = app(CreateCardAction::class)->handle(
             CreateCardData::fromInput(
@@ -62,6 +67,7 @@ class CreateCardActionTest extends TestCase
         $this->assertSame([
             'id' => $card->id,
             'deck_id' => $deck->id,
+            'course_id' => $course->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
             'created_at' => $card->created_at?->toJSON(),

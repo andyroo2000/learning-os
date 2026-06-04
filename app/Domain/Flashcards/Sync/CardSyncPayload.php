@@ -20,6 +20,7 @@ final class CardSyncPayload
         return [
             'id' => $card->id,
             'deck_id' => $card->deck_id,
+            'course_id' => $card->deckCourseId(),
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
             'created_at' => $card->created_at?->toJSON(),

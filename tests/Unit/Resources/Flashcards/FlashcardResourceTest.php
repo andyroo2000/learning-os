@@ -55,4 +55,21 @@ class FlashcardResourceTest extends TestCase
             CardResource::make($card)->resolve()['course_id'],
         );
     }
+
+    public function test_card_resource_defaults_missing_study_status_to_new(): void
+    {
+        $card = new Card;
+        $card->setRawAttributes([
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'study_status' => null,
+        ], sync: true);
+
+        $this->assertSame(
+            'new',
+            CardResource::make($card)->resolve()['study_status'],
+        );
+    }
 }

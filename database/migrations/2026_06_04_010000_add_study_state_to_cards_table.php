@@ -19,6 +19,7 @@ return new class extends Migration
                 ->after('back_text');
             $table->timestamp('due_at')->nullable()->after('study_status');
             $table->timestamp('introduced_at')->nullable()->after('due_at');
+            // Timestamp of the most recent failed review attempt; NULL until first failure.
             $table->timestamp('failed_at')->nullable()->after('introduced_at');
             $table->timestamp('last_reviewed_at')->nullable()->after('failed_at');
 

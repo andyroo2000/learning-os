@@ -23,6 +23,8 @@ final class CardMediaSyncPayload
     public static function fromPivot(
         string $cardId,
         string $mediaAssetId,
+        ?string $deckId = null,
+        ?string $courseId = null,
         Carbon|string|null $createdAt = null,
         Carbon|string|null $updatedAt = null,
     ): array {
@@ -30,6 +32,8 @@ final class CardMediaSyncPayload
         return [
             'card_id' => $cardId,
             'media_asset_id' => $mediaAssetId,
+            'deck_id' => $deckId,
+            'course_id' => $courseId,
             'created_at' => self::timestamp($createdAt),
             'updated_at' => self::timestamp($updatedAt),
         ];

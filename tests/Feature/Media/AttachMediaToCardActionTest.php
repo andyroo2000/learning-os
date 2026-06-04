@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Media;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
@@ -23,7 +25,10 @@ class AttachMediaToCardActionTest extends TestCase
     public function test_it_attaches_media_to_a_card(): void
     {
         $timestamp = now()->subDay()->startOfSecond();
-        $card = Card::factory()->create([
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $card = Card::factory()->for($deck)->create([
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
@@ -53,6 +58,8 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertSame([
             'card_id' => $card->id,
             'media_asset_id' => $mediaAsset->id,
+            'deck_id' => $deck->id,
+            'course_id' => $course->id,
             'created_at' => $pivot?->created_at?->toJSON(),
             'updated_at' => $pivot?->updated_at?->toJSON(),
         ], $entry->payload);

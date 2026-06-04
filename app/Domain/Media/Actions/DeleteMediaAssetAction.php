@@ -50,6 +50,8 @@ class DeleteMediaAssetAction
                         payload: CardMediaSyncPayload::fromPivot(
                             cardId: $pivot->card_id,
                             mediaAssetId: $mediaAsset->id,
+                            deckId: $pivot->deck_id,
+                            courseId: $pivot->course_id,
                             createdAt: $pivot->created_at,
                             updatedAt: $pivot->updated_at,
                         ),
@@ -71,14 +73,20 @@ class DeleteMediaAssetAction
     }
 
     /**
-     * @return Collection<int, object{card_id: string, created_at: string|null, updated_at: string|null}>
+     * @return Collection<int, object{card_id: string, deck_id: string, course_id: string|null, created_at: string|null, updated_at: string|null}>
      */
     private function ownedCardMediaPivotsFor(MediaAsset $mediaAsset): Collection
     {
         // Raw joins include soft-deleted cards/decks and avoid emitting tombstones for corrupt cross-owner pivots.
         // Pivots inserted after this snapshot may be cascade-deleted without tombstones; callers should not attach during asset deletion.
         return DB::table('card_media')
-            ->select('card_media.card_id', 'card_media.created_at', 'card_media.updated_at')
+            ->select(
+                'card_media.card_id',
+                'cards.deck_id',
+                'decks.course_id',
+                'card_media.created_at',
+                'card_media.updated_at',
+            )
             ->join('cards', 'cards.id', '=', 'card_media.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('card_media.media_asset_id', $mediaAsset->id)

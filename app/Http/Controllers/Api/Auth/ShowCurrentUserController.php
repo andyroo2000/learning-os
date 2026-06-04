@@ -14,6 +14,8 @@ class ShowCurrentUserController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        abort_if($user === null, 401);
+
         return CurrentUserResource::make($user);
     }
 }

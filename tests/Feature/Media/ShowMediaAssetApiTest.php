@@ -49,7 +49,7 @@ class ShowMediaAssetApiTest extends TestCase
     {
         $user = $this->signIn();
         $mediaAsset = $this->mediaAssetFor($user);
-        $routeId = rawurlencode('  '.strtoupper($mediaAsset->id).'  ');
+        $routeId = strtoupper($mediaAsset->id);
 
         $response = $this->getJson("/api/media-assets/{$routeId}");
 

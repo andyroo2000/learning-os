@@ -89,6 +89,91 @@ class PerformCardStudyActionApiTest extends TestCase
         }
     }
 
+    public function test_it_suspends_a_card_without_requiring_set_due_mode(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'time_zone' => 'America/New_York',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'suspended')
+            ->assertJsonPath('data.card.due_at', '2026-06-05T12:00:00.000000Z')
+            ->assertJsonPath('data.overview.review_count', 0)
+            ->assertJsonPath('data.overview.suspended_count', 1);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'study_status' => 'suspended',
+        ]);
+        $this->assertSame('suspended', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_it_forgets_a_card_and_returns_new_card_overview_counts(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Relearning,
+            'due_at' => '2026-06-05T14:15:00Z',
+            'introduced_at' => '2026-06-01T14:15:00Z',
+            'failed_at' => '2026-06-02T14:15:00Z',
+            'last_reviewed_at' => '2026-06-03T14:15:00Z',
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'forget',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'new')
+            ->assertJsonPath('data.card.new_queue_position', 1)
+            ->assertJsonPath('data.card.due_at', null)
+            ->assertJsonPath('data.card.introduced_at', null)
+            ->assertJsonPath('data.card.failed_at', null)
+            ->assertJsonPath('data.card.last_reviewed_at', null)
+            ->assertJsonPath('data.overview.new_count', 1)
+            ->assertJsonPath('data.overview.learning_count', 0);
+
+        $this->assertSame('new', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_it_unsuspends_a_card_and_preserves_existing_due_date(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => '2026-06-05T14:15:00Z',
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'unsuspend',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'review')
+            ->assertJsonPath('data.card.due_at', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('data.overview.review_count', 1)
+            ->assertJsonPath('data.overview.suspended_count', 0);
+    }
+
+    public function test_action_must_be_a_supported_string(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => ['suspend'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['action']);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'not-real',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['action']);
+    }
+
     public function test_tomorrow_mode_requires_a_valid_timezone(): void
     {
         $card = $this->cardFor($this->signIn());

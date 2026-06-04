@@ -49,10 +49,11 @@ class PerformCardStudyActionRequest extends FormRequest
             'action' => [
                 'required',
                 'string',
-                Rule::in(['set_due']),
+                Rule::in(['set_due', 'suspend', 'unsuspend', 'forget']),
             ],
             'mode' => [
                 'required_if:action,set_due',
+                'exclude_unless:action,set_due',
                 'string',
                 Rule::in(['now', 'tomorrow', 'custom_date']),
             ],
@@ -96,8 +97,9 @@ class PerformCardStudyActionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'action.in' => 'action must be set_due.',
+            'action.in' => 'action must be set_due, suspend, unsuspend, or forget.',
             'mode.in' => 'mode must be now, tomorrow, or custom_date for set_due.',
+            'mode.required_if' => 'mode must be now, tomorrow, or custom_date for set_due.',
             'due_at.date' => 'due_at must be a valid ISO-8601 datetime for custom_date.',
             'due_at.required_if' => 'due_at must be a valid ISO-8601 datetime for custom_date.',
             'time_zone.required_if' => 'time_zone must be a valid IANA timezone for tomorrow.',

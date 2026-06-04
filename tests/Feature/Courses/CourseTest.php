@@ -32,7 +32,7 @@ class CourseTest extends TestCase
         ]));
     }
 
-    public function test_courses_table_has_list_filter_indexes(): void
+    public function test_courses_table_has_current_and_status_filtered_list_indexes(): void
     {
         $indexes = collect(Schema::getIndexes('courses'));
 

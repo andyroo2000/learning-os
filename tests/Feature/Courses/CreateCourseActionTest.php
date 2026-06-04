@@ -184,7 +184,7 @@ class CreateCourseActionTest extends TestCase
             ]);
         });
 
-        $createCourse = new CreateCourseAction(
+        $createCourse = CreateCourseAction::withClientIdUniqueConflictHookForTests(
             recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
             afterClientIdUniqueConflict: function () use (&$transactionLevelAfterRollback): void {
                 $transactionLevelAfterRollback = DB::transactionLevel();

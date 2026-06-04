@@ -8,11 +8,6 @@ class StoreCourseRequest extends FormRequest
 {
     public const DESCRIPTION_MAX_LENGTH = 2000;
 
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * @return array<string, list<string>>
      */

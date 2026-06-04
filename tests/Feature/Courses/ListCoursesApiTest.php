@@ -59,7 +59,6 @@ class ListCoursesApiTest extends TestCase
                         'target_language',
                         'created_at',
                         'updated_at',
-                        'deleted_at',
                     ],
                 ],
                 'links',
@@ -74,7 +73,6 @@ class ListCoursesApiTest extends TestCase
                 'target_language' => 'ja',
                 'created_at' => $firstCourse->created_at?->toJSON(),
                 'updated_at' => $firstCourse->updated_at?->toJSON(),
-                'deleted_at' => null,
             ])
             ->assertJsonFragment([
                 'id' => $secondCourse->id,
@@ -85,7 +83,6 @@ class ListCoursesApiTest extends TestCase
                 'target_language' => 'it',
                 'created_at' => $secondCourse->created_at?->toJSON(),
                 'updated_at' => $secondCourse->updated_at?->toJSON(),
-                'deleted_at' => null,
             ])
             ->assertJsonMissing([
                 'id' => $otherCourse->id,

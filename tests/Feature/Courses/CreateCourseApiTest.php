@@ -42,7 +42,6 @@ class CreateCourseApiTest extends TestCase
                     'target_language',
                     'created_at',
                     'updated_at',
-                    'deleted_at',
                 ],
             ]);
 

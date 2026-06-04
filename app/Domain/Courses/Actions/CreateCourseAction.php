@@ -22,14 +22,27 @@ use Throwable;
 
 class CreateCourseAction
 {
-    /** @internal Test-only race hook; see tests/Feature/Courses/CreateCourseActionTest.php. */
+    private ?Closure $afterClientIdUniqueConflict = null;
+
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-        private readonly ?Closure $afterClientIdUniqueConflict = null,
-    ) {
-        if ($afterClientIdUniqueConflict !== null && ! app()->runningUnitTests()) {
+    ) {}
+
+    /**
+     * @internal Test-only race hook; see tests/Feature/Courses/CreateCourseActionTest.php.
+     */
+    public static function withClientIdUniqueConflictHookForTests(
+        RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        Closure $afterClientIdUniqueConflict,
+    ): self {
+        if (! app()->runningUnitTests()) {
             throw new LogicException('Course creation race hooks may only be used in tests.');
         }
+
+        $action = new self($recordSyncFeedEntry);
+        $action->afterClientIdUniqueConflict = $afterClientIdUniqueConflict;
+
+        return $action;
     }
 
     public function handle(CreateCourseData $data): CreateCourseResult
@@ -53,6 +66,7 @@ class CreateCourseAction
         $description = self::normalizedDescription($data->description);
 
         if ($data->id !== null) {
+            // Common retry path only; primary-key recovery below handles concurrent inserts after this read.
             $existingCourse = Course::withTrashed()->find($data->id);
 
             if ($existingCourse !== null) {

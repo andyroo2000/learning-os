@@ -27,6 +27,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['user_id', 'deleted_at', 'updated_at', 'id'], 'courses_user_deleted_updated_id_idx');
+            // Reserved for upcoming status-filtered course lists; unfiltered lists use the index above.
             $table->index(
                 ['user_id', 'status', 'deleted_at', 'updated_at', 'id'],
                 'courses_user_status_deleted_updated_id_idx',

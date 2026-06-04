@@ -42,9 +42,7 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
         $this->assertSame([
             'id' => $mediaAsset->id,
-            'disk' => $mediaAsset->disk,
-            'path' => $mediaAsset->path,
-            'public_url' => $mediaAsset->public_url,
+            'url' => $mediaAsset->public_url,
             'mime_type' => $mediaAsset->mime_type,
             'size_bytes' => $mediaAsset->size_bytes,
             'checksum_sha256' => $mediaAsset->checksum_sha256,

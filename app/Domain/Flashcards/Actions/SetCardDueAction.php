@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
+use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -39,7 +40,7 @@ class SetCardDueAction
             now: $now,
         );
 
-        return DB::transaction(function () use ($card, $dueAt): UpdateCardResult {
+        return DB::transaction(function () use ($card, $dueAt, $now): UpdateCardResult {
             $nextStudyStatus = $this->restoredStudyStatus($card);
 
             if (($card->study_status ?? CardStudyStatus::New) !== $nextStudyStatus) {
@@ -54,7 +55,14 @@ class SetCardDueAction
                 $card->due_at = $dueAt;
             }
 
-            if (! $card->isDirty(['study_status', 'new_queue_position', 'due_at'])) {
+            $card->scheduler_state = CardSchedulerState::dueOverride(
+                card: $card,
+                studyStatus: $nextStudyStatus,
+                dueAt: $dueAt,
+                now: $now,
+            );
+
+            if (! $card->isDirty(['study_status', 'new_queue_position', 'scheduler_state', 'due_at'])) {
                 return UpdateCardResult::unchanged($card);
             }
 

@@ -15,6 +15,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -30,58 +31,75 @@ class CreateCardActionTest extends TestCase
 
     public function test_it_creates_a_card_for_a_deck(): void
     {
-        $course = Course::factory()->create();
-        $deck = Deck::factory()->create([
-            'user_id' => $course->user_id,
-            'course_id' => $course->id,
-        ]);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
 
-        $result = app(CreateCardAction::class)->handle(
-            CreateCardData::fromInput(
-                userId: $deck->user_id,
-                deckId: $deck->id,
-                frontText: 'ciao',
-                backText: 'hello',
-            ),
-        );
+        try {
+            $course = Course::factory()->create();
+            $deck = Deck::factory()->create([
+                'user_id' => $course->user_id,
+                'course_id' => $course->id,
+            ]);
 
-        $card = $result->card;
+            $result = app(CreateCardAction::class)->handle(
+                CreateCardData::fromInput(
+                    userId: $deck->user_id,
+                    deckId: $deck->id,
+                    frontText: 'ciao',
+                    backText: 'hello',
+                ),
+            );
 
-        $this->assertTrue($result->wasCreated);
-        $this->assertTrue(Str::isUlid($card->id));
+            $card = $result->card;
 
-        $this->assertDatabaseHas('cards', [
-            'id' => $card->id,
-            'deck_id' => $deck->id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-            'new_queue_position' => 1,
-        ]);
+            $this->assertTrue($result->wasCreated);
+            $this->assertTrue(Str::isUlid($card->id));
 
-        $entry = SyncFeedEntry::query()->sole();
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'new_queue_position' => 1,
+            ]);
 
-        $this->assertSame($deck->user_id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('card', $entry->resource_type);
-        $this->assertSame($card->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame([
-            'id' => $card->id,
-            'deck_id' => $deck->id,
-            'course_id' => $course->id,
-            'front_text' => 'ciao',
-            'back_text' => 'hello',
-            'study_status' => 'new',
-            'new_queue_position' => 1,
-            'scheduler_state' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-            'created_at' => $card->created_at?->toJSON(),
-            'updated_at' => $card->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+            $entry = SyncFeedEntry::query()->sole();
+
+            $this->assertSame($deck->user_id, $entry->user_id);
+            $this->assertSame('flashcards', $entry->domain);
+            $this->assertSame('card', $entry->resource_type);
+            $this->assertSame($card->id, $entry->resource_id);
+            $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+            $this->assertSame([
+                'id' => $card->id,
+                'deck_id' => $deck->id,
+                'course_id' => $course->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'study_status' => 'new',
+                'new_queue_position' => 1,
+                'scheduler_state' => [
+                    'due' => '2026-06-04T12:00:00.000000Z',
+                    'stability' => 0.1,
+                    'difficulty' => 5,
+                    'elapsed_days' => 0,
+                    'scheduled_days' => 0,
+                    'learning_steps' => 0,
+                    'reps' => 0,
+                    'lapses' => 0,
+                    'state' => 0,
+                    'last_review' => null,
+                ],
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+                'created_at' => $card->created_at?->toJSON(),
+                'updated_at' => $card->updated_at?->toJSON(),
+                'deleted_at' => null,
+            ], $entry->payload);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void

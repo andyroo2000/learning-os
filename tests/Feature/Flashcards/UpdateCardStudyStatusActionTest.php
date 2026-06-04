@@ -23,51 +23,68 @@ class UpdateCardStudyStatusActionTest extends TestCase
 
     public function test_it_updates_card_study_status_and_records_a_sync_entry(): void
     {
-        $user = $this->signIn();
-        $course = Course::factory()->create(['user_id' => $user->id]);
-        $deck = Deck::factory()->create([
-            'user_id' => $user->id,
-            'course_id' => $course->id,
-        ]);
-        $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
-        $card = Card::factory()->for($deck)->create([
-            'study_status' => CardStudyStatus::Review,
-            'due_at' => $dueAt,
-            'introduced_at' => '2026-06-01T14:15:00Z',
-            'last_reviewed_at' => '2026-06-03T14:15:00Z',
-        ]);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
 
-        $result = app(UpdateCardStudyStatusAction::class)->handle($card, CardStudyStatus::Suspended);
-        $updatedCard = $result->card;
+        try {
+            $user = $this->signIn();
+            $course = Course::factory()->create(['user_id' => $user->id]);
+            $deck = Deck::factory()->create([
+                'user_id' => $user->id,
+                'course_id' => $course->id,
+            ]);
+            $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
+            $card = Card::factory()->for($deck)->create([
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => $dueAt,
+                'introduced_at' => '2026-06-01T14:15:00Z',
+                'last_reviewed_at' => '2026-06-03T14:15:00Z',
+            ]);
 
-        $this->assertTrue($result->wasUpdated);
-        $this->assertSame(CardStudyStatus::Suspended, $updatedCard->study_status);
-        $this->assertSame($dueAt->toJSON(), $updatedCard->due_at?->toJSON());
+            $result = app(UpdateCardStudyStatusAction::class)->handle($card, CardStudyStatus::Suspended);
+            $updatedCard = $result->card;
 
-        $entry = SyncFeedEntry::query()->sole();
+            $this->assertTrue($result->wasUpdated);
+            $this->assertSame(CardStudyStatus::Suspended, $updatedCard->study_status);
+            $this->assertSame($dueAt->toJSON(), $updatedCard->due_at?->toJSON());
 
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('card', $entry->resource_type);
-        $this->assertSame($card->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame([
-            'id' => $card->id,
-            'deck_id' => $deck->id,
-            'course_id' => $course->id,
-            'front_text' => $card->front_text,
-            'back_text' => $card->back_text,
-            'study_status' => 'suspended',
-            'new_queue_position' => null,
-            'scheduler_state' => null,
-            'due_at' => $dueAt->toJSON(),
-            'introduced_at' => $updatedCard->introduced_at?->toJSON(),
-            'failed_at' => null,
-            'last_reviewed_at' => $updatedCard->last_reviewed_at?->toJSON(),
-            'created_at' => $updatedCard->created_at?->toJSON(),
-            'updated_at' => $updatedCard->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+            $entry = SyncFeedEntry::query()->sole();
+
+            $this->assertSame($user->id, $entry->user_id);
+            $this->assertSame('flashcards', $entry->domain);
+            $this->assertSame('card', $entry->resource_type);
+            $this->assertSame($card->id, $entry->resource_id);
+            $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+            $this->assertSame([
+                'id' => $card->id,
+                'deck_id' => $deck->id,
+                'course_id' => $course->id,
+                'front_text' => $card->front_text,
+                'back_text' => $card->back_text,
+                'study_status' => 'suspended',
+                'new_queue_position' => null,
+                'scheduler_state' => [
+                    'due' => '2026-06-05T14:15:00.000000Z',
+                    'stability' => 0.1,
+                    'difficulty' => 5,
+                    'elapsed_days' => 0,
+                    'scheduled_days' => 1,
+                    'learning_steps' => 0,
+                    'reps' => 0,
+                    'lapses' => 0,
+                    'state' => 2,
+                    'last_review' => null,
+                ],
+                'due_at' => $dueAt->toJSON(),
+                'introduced_at' => $updatedCard->introduced_at?->toJSON(),
+                'failed_at' => null,
+                'last_reviewed_at' => $updatedCard->last_reviewed_at?->toJSON(),
+                'created_at' => $updatedCard->created_at?->toJSON(),
+                'updated_at' => $updatedCard->updated_at?->toJSON(),
+                'deleted_at' => null,
+            ], $entry->payload);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_normalizes_string_statuses_for_direct_callers(): void
@@ -82,27 +99,45 @@ class UpdateCardStudyStatusActionTest extends TestCase
 
     public function test_new_status_resets_study_schedule(): void
     {
-        $card = $this->cardFor($this->signIn(), [
-            'study_status' => CardStudyStatus::Relearning,
-            'due_at' => '2026-06-05T14:15:00Z',
-            'introduced_at' => '2026-06-01T14:15:00Z',
-            'failed_at' => '2026-06-02T14:15:00Z',
-            'last_reviewed_at' => '2026-06-03T14:15:00Z',
-        ]);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
 
-        $result = app(UpdateCardStudyStatusAction::class)->handle($card, 'new');
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Relearning,
+                'due_at' => '2026-06-05T14:15:00Z',
+                'introduced_at' => '2026-06-01T14:15:00Z',
+                'failed_at' => '2026-06-02T14:15:00Z',
+                'last_reviewed_at' => '2026-06-03T14:15:00Z',
+            ]);
 
-        $this->assertTrue($result->wasUpdated);
-        $this->assertSame(CardStudyStatus::New, $result->card->study_status);
-        $this->assertSame(1, $result->card->new_queue_position);
-        $this->assertNull($result->card->due_at);
-        $this->assertNull($result->card->introduced_at);
-        $this->assertNull($result->card->failed_at);
-        $this->assertNull($result->card->last_reviewed_at);
-        $this->assertDatabaseHas('cards', [
-            'id' => $card->id,
-            'new_queue_position' => 1,
-        ]);
+            $result = app(UpdateCardStudyStatusAction::class)->handle($card, 'new');
+
+            $this->assertTrue($result->wasUpdated);
+            $this->assertSame(CardStudyStatus::New, $result->card->study_status);
+            $this->assertSame(1, $result->card->new_queue_position);
+            $this->assertNull($result->card->due_at);
+            $this->assertNull($result->card->introduced_at);
+            $this->assertNull($result->card->failed_at);
+            $this->assertNull($result->card->last_reviewed_at);
+            $this->assertSame([
+                'due' => '2026-06-04T12:00:00.000000Z',
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 0,
+                'learning_steps' => 0,
+                'reps' => 0,
+                'lapses' => 0,
+                'state' => 0,
+                'last_review' => null,
+            ], $result->card->scheduler_state);
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'new_queue_position' => 1,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_non_new_status_clears_new_queue_position(): void

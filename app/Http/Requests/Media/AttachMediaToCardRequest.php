@@ -4,6 +4,7 @@ namespace App\Http\Requests\Media;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
@@ -11,6 +12,8 @@ use LogicException;
 
 class AttachMediaToCardRequest extends FormRequest
 {
+    use NormalizesUlidInput;
+
     private bool $mediaAssetResolutionAttempted = false;
 
     private ?MediaAsset $resolvedMediaAsset = null;
@@ -24,6 +27,15 @@ class AttachMediaToCardRequest extends FormRequest
         Gate::authorize('update', $card);
 
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $input = [];
+
+        $this->mergeNormalizedUlidInput($input, 'media_asset_id');
+
+        $this->merge($input);
     }
 
     /**

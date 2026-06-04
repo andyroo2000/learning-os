@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 
 class StoreCardReviewEventController extends Controller
 {
+    // Keep the first retry short; repeated 503s tell clients to retry again if the race is still settling.
     private const RETRY_AFTER_SECONDS = 1;
 
     public function __invoke(StoreCardReviewEventRequest $request, ReviewCardAction $reviewCard): JsonResponse

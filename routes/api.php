@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
+use App\Http\Controllers\Api\Flashcards\ListDueCardsController;
 use App\Http\Controllers\Api\Flashcards\ShowCardController;
 use App\Http\Controllers\Api\Flashcards\ShowDeckController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
@@ -68,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
     Route::post('/card-review-events', StoreCardReviewEventController::class);
+    Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');

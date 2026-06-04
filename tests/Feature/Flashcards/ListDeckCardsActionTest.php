@@ -100,4 +100,17 @@ class ListDeckCardsActionTest extends TestCase
             studyStatus: '   ',
         );
     }
+
+    public function test_it_rejects_malformed_study_status_filters_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.');
+
+        app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            studyStatus: 'queued',
+        );
+    }
 }

@@ -128,6 +128,19 @@ class ListCardsActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_malformed_study_status_filters_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            studyStatus: 'queued',
+        );
+    }
+
     public function test_it_rejects_blank_course_id_filters(): void
     {
         $user = User::factory()->create();

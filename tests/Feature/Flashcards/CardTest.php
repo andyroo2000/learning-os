@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,11 @@ class CardTest extends TestCase
             'deck_id',
             'front_text',
             'back_text',
+            'study_status',
+            'due_at',
+            'introduced_at',
+            'failed_at',
+            'last_reviewed_at',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -47,6 +53,57 @@ class CardTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
         ]);
+    }
+
+    public function test_new_cards_default_to_new_study_status_without_schedule_dates(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->assertSame(CardStudyStatus::New, $card->study_status);
+        $this->assertNull($card->due_at);
+        $this->assertNull($card->introduced_at);
+        $this->assertNull($card->failed_at);
+        $this->assertNull($card->last_reviewed_at);
+    }
+
+    public function test_card_casts_study_state_fields(): void
+    {
+        $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
+
+        $card = Card::factory()->create();
+        $card->study_status = CardStudyStatus::Review;
+        $card->due_at = $dueAt;
+        $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
+        $card->failed_at = Carbon::parse('2026-06-02T14:15:00Z');
+        $card->last_reviewed_at = Carbon::parse('2026-06-03T14:15:00Z');
+        $card->save();
+        $card->refresh();
+
+        $this->assertSame(CardStudyStatus::Review, $card->study_status);
+        $this->assertSame($dueAt->toJSON(), $card->due_at?->toJSON());
+        $this->assertSame('2026-06-01T14:15:00.000000Z', $card->introduced_at?->toJSON());
+        $this->assertSame('2026-06-02T14:15:00.000000Z', $card->failed_at?->toJSON());
+        $this->assertSame('2026-06-03T14:15:00.000000Z', $card->last_reviewed_at?->toJSON());
+    }
+
+    public function test_card_study_state_is_not_mass_assignable(): void
+    {
+        $card = new Card([
+            'deck_id' => strtolower((string) Str::ulid()),
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
+            'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
+            'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
+        ]);
+
+        $this->assertSame(CardStudyStatus::New, $card->study_status);
+        $this->assertNull($card->due_at);
+        $this->assertNull($card->introduced_at);
+        $this->assertNull($card->failed_at);
+        $this->assertNull($card->last_reviewed_at);
     }
 
     public function test_card_belongs_to_a_deck(): void

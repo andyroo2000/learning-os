@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -18,6 +20,12 @@ class ShowCardApiTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
         ]);
+        $card->study_status = CardStudyStatus::Review;
+        $card->due_at = Carbon::parse('2026-06-05T14:15:00Z');
+        $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
+        $card->failed_at = Carbon::parse('2026-06-02T14:15:00Z');
+        $card->last_reviewed_at = Carbon::parse('2026-06-03T14:15:00Z');
+        $card->save();
 
         $response = $this->getJson("/api/cards/{$card->id}");
 
@@ -30,6 +38,11 @@ class ShowCardApiTest extends TestCase
                     'course_id' => null,
                     'front_text' => 'ciao',
                     'back_text' => 'hello',
+                    'study_status' => 'review',
+                    'due_at' => '2026-06-05T14:15:00.000000Z',
+                    'introduced_at' => '2026-06-01T14:15:00.000000Z',
+                    'failed_at' => '2026-06-02T14:15:00.000000Z',
+                    'last_reviewed_at' => '2026-06-03T14:15:00.000000Z',
                     'created_at' => $card->created_at->toJSON(),
                     'updated_at' => $card->updated_at->toJSON(),
                     'deleted_at' => null,

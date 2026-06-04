@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Models;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
@@ -22,9 +23,30 @@ class Card extends Model
     /** @use HasFactory<CardFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'study_status' => CardStudyStatus::New->value,
+    ];
+
     protected static function newFactory(): CardFactory
     {
         return CardFactory::new();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'study_status' => CardStudyStatus::class,
+            'due_at' => 'datetime',
+            'introduced_at' => 'datetime',
+            'failed_at' => 'datetime',
+            'last_reviewed_at' => 'datetime',
+        ];
     }
 
     /**

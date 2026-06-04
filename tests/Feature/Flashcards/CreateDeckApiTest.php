@@ -146,24 +146,24 @@ class CreateDeckApiTest extends TestCase
     {
         $user = $this->signIn();
         $course = Course::factory()->for($user)->create();
-        $lowercaseId = strtolower((string) Str::ulid());
+        $id = strtolower((string) Str::ulid());
 
         // TrimStrings processes JSON bodies too; disable it to prove StoreDeckRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/decks', [
-                'id' => "  {$lowercaseId}  ",
+                'id' => "  {$id}  ",
                 'course_id' => "  {$course->id}  ",
                 'name' => 'Italian Basics',
             ]);
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.id', $lowercaseId)
+            ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.course_id', $course->id);
 
         $this->assertDatabaseHas('decks', [
-            'id' => $lowercaseId,
+            'id' => $id,
             'user_id' => $user->id,
             'course_id' => $course->id,
         ]);

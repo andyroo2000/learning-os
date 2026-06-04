@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
+use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
@@ -33,6 +34,8 @@ use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
+Route::post('/auth/register', RegisterMobileUserController::class)
+    ->middleware('throttle:mobile-registrations');
 Route::post('/auth/tokens', StoreMobileTokenController::class)
     ->middleware('throttle:mobile-tokens');
 

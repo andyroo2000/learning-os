@@ -42,5 +42,11 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
         });
+
+        RateLimiter::for('mobile-registrations', function (Request $request): Limit {
+            $email = strtolower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        });
     }
 }

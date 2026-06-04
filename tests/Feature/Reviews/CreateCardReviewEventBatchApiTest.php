@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
@@ -23,8 +25,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
     public function test_it_creates_card_review_events_in_a_batch(): void
     {
         $user = $this->signIn();
-        $firstCard = $this->cardFor($user);
-        $secondCard = $this->cardFor($user);
+        $course = Course::factory()->for($user)->create();
+        $firstDeck = Deck::factory()->for($course)->for($user)->create();
+        $secondDeck = Deck::factory()->for($course)->for($user)->create();
+        $firstCard = Card::factory()->for($firstDeck)->create();
+        $secondCard = Card::factory()->for($secondDeck)->create();
 
         $response = $this->postJson('/api/card-review-events/batch', [
             'events' => [
@@ -51,9 +56,13 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertCreated()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.card_id', $firstCard->id)
+            ->assertJsonPath('data.0.deck_id', $firstDeck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
             ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.0.client_event_id', 'event-123')
             ->assertJsonPath('data.1.card_id', $secondCard->id)
+            ->assertJsonPath('data.1.deck_id', $secondDeck->id)
+            ->assertJsonPath('data.1.course_id', $course->id)
             ->assertJsonPath('data.1.rating', CardReviewRating::Easy->value)
             ->assertJsonPath('data.1.client_event_id', 'event-456')
             ->assertJsonStructure([
@@ -61,6 +70,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                     [
                         'id',
                         'card_id',
+                        'deck_id',
+                        'course_id',
                         'rating',
                         'reviewed_at',
                         'client_event_id',

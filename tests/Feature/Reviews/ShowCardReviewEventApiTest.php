@@ -2,7 +2,11 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -15,7 +19,10 @@ class ShowCardReviewEventApiTest extends TestCase
     public function test_it_shows_an_owned_review_event(): void
     {
         $user = $this->signIn();
-        $reviewEvent = $this->cardReviewEventFor($user, [
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create([
             'rating' => CardReviewRating::Hard,
             'reviewed_at' => now()->subMinute()->startOfSecond(),
             'client_event_id' => 'event-123',
@@ -33,6 +40,8 @@ class ShowCardReviewEventApiTest extends TestCase
                 'data' => [
                     'id' => $reviewEvent->id,
                     'card_id' => $reviewEvent->card_id,
+                    'deck_id' => $deck->id,
+                    'course_id' => $course->id,
                     'rating' => CardReviewRating::Hard->value,
                     'reviewed_at' => $reviewEvent->reviewed_at->toJSON(),
                     'client_event_id' => 'event-123',

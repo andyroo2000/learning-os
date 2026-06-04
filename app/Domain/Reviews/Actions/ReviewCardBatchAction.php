@@ -284,6 +284,11 @@ class ReviewCardBatchAction
     private function existingReviewEventsBySyncKeyForResponse(Collection $preparedItems): Collection
     {
         return $this->reviewEventsBySyncKeyQuery($preparedItems)
+            ->select('card_review_events.*')
+            ->selectRaw('cards.deck_id as card_deck_id')
+            ->selectRaw('decks.course_id as card_course_id')
+            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->get()
             ->keyBy(fn (CardReviewEvent $reviewEvent): string => ClientEventKey::lookupKey(
                 $reviewEvent->device_id,

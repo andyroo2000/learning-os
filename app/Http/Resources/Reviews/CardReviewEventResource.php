@@ -16,6 +16,8 @@ class CardReviewEventResource extends JsonResource
         return [
             'id' => $this->id,
             'card_id' => $this->card_id,
+            'deck_id' => $this->cardDeckId(),
+            'course_id' => $this->cardCourseId(),
             'rating' => $this->rating instanceof CardReviewRating ? $this->rating->value : $this->rating,
             'reviewed_at' => $this->reviewed_at?->toJSON(),
             'client_event_id' => $this->client_event_id,

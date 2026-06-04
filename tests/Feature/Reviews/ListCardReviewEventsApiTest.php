@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
@@ -20,7 +22,9 @@ class ListCardReviewEventsApiTest extends TestCase
     public function test_it_lists_review_events_for_an_owned_card(): void
     {
         $user = $this->signIn();
-        $card = $this->cardFor($user);
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
         $otherCard = $this->cardFor($user);
 
         $firstEvent = CardReviewEvent::factory()->for($card)->create([
@@ -51,6 +55,8 @@ class ListCardReviewEventsApiTest extends TestCase
                     '*' => [
                         'id',
                         'card_id',
+                        'deck_id',
+                        'course_id',
                         'rating',
                         'reviewed_at',
                         'client_event_id',
@@ -66,6 +72,8 @@ class ListCardReviewEventsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $firstEvent->id,
                 'card_id' => $card->id,
+                'deck_id' => $deck->id,
+                'course_id' => $course->id,
                 'rating' => CardReviewRating::Hard->value,
                 'reviewed_at' => $firstEvent->reviewed_at->toJSON(),
                 'client_event_id' => 'event-1',
@@ -75,6 +83,8 @@ class ListCardReviewEventsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $secondEvent->id,
                 'card_id' => $card->id,
+                'deck_id' => $deck->id,
+                'course_id' => $course->id,
                 'rating' => CardReviewRating::Good->value,
                 'reviewed_at' => $secondEvent->reviewed_at->toJSON(),
                 'client_event_id' => 'event-2',

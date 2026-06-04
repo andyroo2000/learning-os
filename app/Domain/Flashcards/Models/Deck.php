@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Models;
 
+use App\Domain\Courses\Models\Course;
 use App\Models\User;
 use Database\Factories\DeckFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,8 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
-// Deck ownership is treated as immutable after creation; card/media ownership checks rely on that invariant.
-#[Fillable(['user_id', 'name', 'description'])]
+// Deck ownership and course scope are treated as immutable after creation; card/media ownership checks rely on that invariant.
+#[Fillable(['user_id', 'course_id', 'name', 'description'])]
 class Deck extends Model
 {
     /** @use HasFactory<DeckFactory> */
@@ -26,6 +27,10 @@ class Deck extends Model
         static::updating(function (Deck $deck): void {
             if ($deck->isDirty('user_id')) {
                 throw new LogicException('Deck owner cannot be changed.');
+            }
+
+            if ($deck->isDirty('course_id')) {
+                throw new LogicException('Deck course cannot be changed.');
             }
         });
 
@@ -88,6 +93,14 @@ class Deck extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return BelongsTo<Course, $this>
+     */
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     /**

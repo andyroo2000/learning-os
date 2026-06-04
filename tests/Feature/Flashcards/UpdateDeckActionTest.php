@@ -46,6 +46,7 @@ class UpdateDeckActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
         $this->assertSame([
             'id' => $deck->id,
+            'course_id' => null,
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
             'created_at' => $updatedDeck->created_at?->toJSON(),

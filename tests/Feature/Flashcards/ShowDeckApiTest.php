@@ -26,6 +26,7 @@ class ShowDeckApiTest extends TestCase
             ->assertExactJson([
                 'data' => [
                     'id' => $deck->id,
+                    'course_id' => null,
                     'name' => 'Italian Travel',
                     'description' => 'Phrases for airport and train station practice.',
                     'created_at' => $deck->created_at->toJSON(),

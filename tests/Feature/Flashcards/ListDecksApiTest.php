@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
@@ -46,6 +47,7 @@ class ListDecksApiTest extends TestCase
                 'data' => [
                     '*' => [
                         'id',
+                        'course_id',
                         'name',
                         'description',
                         'created_at',
@@ -58,6 +60,7 @@ class ListDecksApiTest extends TestCase
             ])
             ->assertJsonFragment([
                 'id' => $firstDeck->id,
+                'course_id' => null,
                 'name' => 'Italian Basics',
                 'description' => 'Foundational Italian review cards.',
                 'created_at' => $firstDeck->created_at?->toJSON(),
@@ -66,6 +69,7 @@ class ListDecksApiTest extends TestCase
             ])
             ->assertJsonFragment([
                 'id' => $secondDeck->id,
+                'course_id' => null,
                 'name' => 'Travel Phrases',
                 'description' => null,
                 'created_at' => $secondDeck->created_at?->toJSON(),
@@ -75,6 +79,43 @@ class ListDecksApiTest extends TestCase
             ->assertJsonMissing([
                 'id' => $otherDeck->id,
             ]);
+    }
+
+    public function test_it_filters_decks_by_course_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $otherCourse = Course::factory()->create(['user_id' => $user->id]);
+        $courseDeck = Deck::factory()->for($course)->for($user)->create([
+            'name' => 'Italian Basics',
+        ]);
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $standaloneDeck = Deck::factory()->for($user)->create();
+
+        $response = $this->getJson("/api/decks?course_id={$course->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseDeck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseDeck->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $standaloneDeck->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks?course_id=%20%20%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 
     public function test_it_returns_an_empty_list_when_the_user_has_no_decks(): void

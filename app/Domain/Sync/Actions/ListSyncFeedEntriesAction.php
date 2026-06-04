@@ -73,6 +73,7 @@ class ListSyncFeedEntriesAction
         $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
         if ($afterCheckpoint > 0) {
+            // Each filter context has its own retained window while still advancing against the full feed high-water mark.
             $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');
 
             if ($oldestAvailableCheckpoint !== null && $afterCheckpoint < (int) $oldestAvailableCheckpoint) {

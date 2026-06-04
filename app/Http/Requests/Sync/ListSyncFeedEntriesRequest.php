@@ -69,7 +69,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
 
     public function afterCheckpoint(): int
     {
-        return $this->integer('after_checkpoint', 0);
+        return (int) ($this->validated()['after_checkpoint'] ?? 0);
     }
 
     public function domain(): ?string
@@ -86,7 +86,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
     public function pageSize(): CursorPageSize
     {
         return CursorPageSize::fromPerPage(
-            $this->integer('per_page', CursorPagination::DEFAULT_PAGE_SIZE)
+            (int) ($this->validated()['per_page'] ?? CursorPagination::DEFAULT_PAGE_SIZE)
         );
     }
 

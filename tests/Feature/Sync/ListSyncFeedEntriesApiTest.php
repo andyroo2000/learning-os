@@ -1221,6 +1221,15 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_it_rejects_array_page_sizes(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?per_page[]=10');
+
+        $response->assertUnprocessable();
+    }
+
     public function test_it_rejects_negative_checkpoints(): void
     {
         $this->signIn();
@@ -1235,6 +1244,15 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->signIn();
 
         $response = $this->getJson('/api/sync/feed?after_checkpoint=abc');
+
+        $response->assertUnprocessable();
+    }
+
+    public function test_it_rejects_array_checkpoints(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?after_checkpoint[]=1');
 
         $response->assertUnprocessable();
     }

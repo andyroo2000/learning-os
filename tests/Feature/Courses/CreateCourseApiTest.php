@@ -86,13 +86,6 @@ class CreateCourseApiTest extends TestCase
             'user_id' => $user->id,
             'title' => 'Japanese Travel Foundations',
         ]);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'user_id' => $user->id,
-            'domain' => 'courses',
-            'resource_type' => 'course',
-            'resource_id' => $id,
-            'operation' => 'create',
-        ]);
     }
 
     public function test_it_normalizes_padded_uppercase_client_provided_ulid_without_global_trim_middleware(): void

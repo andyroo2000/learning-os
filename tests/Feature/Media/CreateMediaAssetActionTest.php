@@ -110,6 +110,37 @@ class CreateMediaAssetActionTest extends TestCase
         ]);
     }
 
+    public function test_it_normalizes_padded_provided_ulids_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $id = (string) Str::ulid();
+
+        $result = app(CreateMediaAssetAction::class)->handle(
+            CreateMediaAssetData::fromInput(
+                userId: $user->id,
+                disk: 'media',
+                path: 'uploads/example.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: 123_456,
+                id: "  {$id}  ",
+            ),
+        );
+        $mediaAsset = $result->mediaAsset;
+
+        $this->assertTrue($result->wasCreated);
+        $this->assertSame(strtolower($id), $mediaAsset->id);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => strtolower($id),
+            'user_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'resource_id' => strtolower($id),
+            'operation' => 'create',
+        ]);
+    }
+
     public function test_it_rolls_back_when_feed_recording_fails(): void
     {
         $user = User::factory()->create();

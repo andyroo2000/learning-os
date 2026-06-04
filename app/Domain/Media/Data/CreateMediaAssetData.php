@@ -4,6 +4,7 @@ namespace App\Domain\Media\Data;
 
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\OriginalFilename;
+use App\Support\Identifiers\CanonicalUlid;
 
 final readonly class CreateMediaAssetData
 {
@@ -75,6 +76,6 @@ final readonly class CreateMediaAssetData
     {
         $value = self::normalizeOptionalString($value);
 
-        return $value === null ? null : strtolower($value);
+        return $value === null ? null : CanonicalUlid::normalize($value);
     }
 }

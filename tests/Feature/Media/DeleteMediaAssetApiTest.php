@@ -35,6 +35,21 @@ class DeleteMediaAssetApiTest extends TestCase
         ]);
     }
 
+    public function test_it_normalizes_media_asset_id_before_deleting(): void
+    {
+        $user = $this->signIn();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $routeId = rawurlencode('  '.strtoupper($mediaAsset->id).'  ');
+
+        $response = $this->deleteJson("/api/media-assets/{$routeId}");
+
+        $response->assertNoContent();
+
+        $this->assertDatabaseMissing('media_assets', [
+            'id' => $mediaAsset->id,
+        ]);
+    }
+
     public function test_it_is_idempotent_when_media_asset_is_missing(): void
     {
         $this->signIn();

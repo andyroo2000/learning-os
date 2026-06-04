@@ -2,6 +2,8 @@
 
 namespace App\Domain\Media\Data;
 
+use App\Support\Identifiers\CanonicalUlid;
+
 final readonly class DeleteMediaAssetData
 {
     private function __construct(
@@ -13,7 +15,7 @@ final readonly class DeleteMediaAssetData
     {
         return new self(
             userId: $userId,
-            mediaAssetId: $mediaAssetId,
+            mediaAssetId: CanonicalUlid::normalize($mediaAssetId),
         );
     }
 }

@@ -157,6 +157,26 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Delete, $assetEntry->operation);
     }
 
+    public function test_it_normalizes_media_asset_id_before_deleting(): void
+    {
+        $user = User::factory()->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
+            userId: $user->id,
+            mediaAssetId: '  '.strtoupper($mediaAsset->id).'  ',
+        ));
+
+        $this->assertDatabaseMissing('media_assets', [
+            'id' => $mediaAsset->id,
+        ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($mediaAsset->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+    }
+
     public function test_it_rolls_back_media_asset_delete_when_card_media_feed_recording_fails(): void
     {
         $user = User::factory()->create();

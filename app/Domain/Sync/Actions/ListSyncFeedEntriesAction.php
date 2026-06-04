@@ -51,8 +51,9 @@ class ListSyncFeedEntriesAction
         }
 
         if ($operation !== null) {
-            $operation = SyncFeedOperation::tryFrom($operation)?->value
-                ?? throw new InvalidArgumentException('Sync feed operation must be one of: '.implode(', ', SyncFeedOperation::values()).'.');
+            if (SyncFeedOperation::tryFrom($operation) === null) {
+                throw new InvalidArgumentException('Sync feed operation must be one of: '.implode(', ', SyncFeedOperation::values()).'.');
+            }
         }
 
         if ($resourceId !== null && ($domain === null || $resourceType === null)) {

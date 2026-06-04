@@ -24,6 +24,7 @@ return new class extends Migration
                 ['user_id', 'domain', 'resource_type', 'operation', 'checkpoint'],
                 'sfe_user_domain_type_operation_checkpoint_idx',
             );
+            // Full resource+operation queries use sfe_resource_history_idx; avoid a sixth-column index on every feed write.
         });
     }
 

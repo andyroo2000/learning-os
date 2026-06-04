@@ -96,7 +96,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Prefer Laravel's conventional pgsql SSL env name while preserving the older alias.
+            'sslmode' => env('PGSQL_SSL_MODE', env('DB_SSLMODE', 'prefer')),
         ],
 
         'sqlsrv' => [

@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+env:
+  PHP_VERSION: '8.5'
+
 jobs:
   test:
     name: Test
@@ -18,9 +21,16 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.5'
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, pdo_sqlite, sqlite3
           coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-${{ github.job }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-${{ github.job }}-composer-
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -51,3 +61,69 @@ jobs:
 
       - name: Build frontend assets
         run: npm run build
+
+  postgres-migrations:
+    name: PostgreSQL migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: learning_os_test
+          # Ephemeral CI database; trust auth avoids hardcoded dummy passwords.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: learning_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U learning_os -d learning_os_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: testing
+      CACHE_STORE: array
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: learning_os_test
+      DB_USERNAME: learning_os
+      DB_PASSWORD: ''
+      PGSQL_SSL_MODE: disable
+      SESSION_DRIVER: array
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_pgsql, pgsql
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-${{ github.job }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-${{ github.job }}-composer-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel environment
+        run: |
+          # Keep .env minimal so job-level DB env drives the pgsql migration smoke.
+          echo "APP_KEY=" > .env
+          php artisan key:generate --ansi
+
+      - name: Run PostgreSQL migrations
+        run: php artisan migrate:fresh --force --ansi
+
+      - name: Verify PostgreSQL migration status
+        run: php artisan migrate:status --ansi

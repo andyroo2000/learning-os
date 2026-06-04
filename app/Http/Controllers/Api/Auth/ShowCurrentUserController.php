@@ -13,6 +13,7 @@ class ShowCurrentUserController extends Controller
     {
         $user = $request->user();
 
+        // Narrow the auth contract before the resource reads app-specific fields.
         abort_unless($user instanceof User, 401);
 
         return CurrentUserResource::make($user);

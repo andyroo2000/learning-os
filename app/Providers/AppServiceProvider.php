@@ -10,7 +10,10 @@ use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\DeckPolicy;
 use App\Policies\MediaAssetPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -33,5 +36,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CardReviewEvent::class, CardReviewEventPolicy::class);
         Gate::policy(Deck::class, DeckPolicy::class);
         Gate::policy(MediaAsset::class, MediaAssetPolicy::class);
+
+        RateLimiter::for('mobile-tokens', function (Request $request): Limit {
+            $email = strtolower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        });
     }
 }

@@ -15,8 +15,8 @@ use LogicException;
 
 // Course ownership is immutable for Eloquent model updates so future sync/media/course-child records
 // can trust the owner boundary. Query-builder updates must not mutate user_id.
-// Creation actions must source user_id from auth context; fillable exists for trusted model construction.
-#[Fillable(['user_id', 'title', 'description', 'status', 'native_language', 'target_language'])]
+// Creation actions must assign user_id from auth context, not request input.
+#[Fillable(['title', 'description', 'status', 'native_language', 'target_language'])]
 class Course extends Model
 {
     /** @use HasFactory<CourseFactory> */
@@ -29,6 +29,20 @@ class Course extends Model
                 throw new LogicException('Course owner cannot be changed.');
             }
         });
+    }
+
+    public function delete(): ?bool
+    {
+        if ($this->isForceDeleting()) {
+            return parent::delete();
+        }
+
+        if ($this->trashed()) {
+            // Keep retrying DELETE idempotent: SoftDeletes would otherwise refresh deleted_at.
+            return true;
+        }
+
+        return parent::delete();
     }
 
     protected static function newFactory(): CourseFactory

@@ -31,6 +31,13 @@ class CourseFactory extends Factory
         ];
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => CourseStatus::Draft,
+        ]);
+    }
+
     public function generating(): static
     {
         return $this->state(fn (): array => [

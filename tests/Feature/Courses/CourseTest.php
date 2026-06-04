@@ -6,6 +6,7 @@ use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use LogicException;
@@ -60,16 +61,27 @@ class CourseTest extends TestCase
     {
         $course = Course::factory()->create();
 
-        $this->assertIsInt($course->user_id);
-        $this->assertEquals($course->user_id, $course->user->id);
+        $this->assertInstanceOf(User::class, $course->user);
+        $this->assertSame($course->user_id, $course->user->id);
+    }
+
+    public function test_user_id_is_not_mass_assignable(): void
+    {
+        $course = Course::make([
+            'user_id' => User::factory()->create()->id,
+        ]);
+
+        $this->assertNull($course->user_id);
     }
 
     public function test_factory_states_create_expected_statuses(): void
     {
+        $draft = Course::factory()->draft()->create();
         $generating = Course::factory()->generating()->create();
         $ready = Course::factory()->ready()->create();
         $error = Course::factory()->error()->create();
 
+        $this->assertSame(CourseStatus::Draft, $draft->status);
         $this->assertSame(CourseStatus::Generating, $generating->status);
         $this->assertSame(CourseStatus::Ready, $ready->status);
         $this->assertSame(CourseStatus::Error, $error->status);
@@ -115,5 +127,28 @@ class CourseTest extends TestCase
         $this->assertSoftDeleted('courses', [
             'id' => $course->id,
         ]);
+    }
+
+    public function test_redeleting_a_soft_deleted_course_preserves_deleted_timestamp(): void
+    {
+        $course = Course::factory()->create();
+
+        Carbon::setTestNow(Carbon::parse('2026-06-04 12:00:00'));
+
+        try {
+            $course->delete();
+            $originalDeletedAt = $course->refresh()->deleted_at;
+
+            Carbon::setTestNow(Carbon::parse('2026-06-04 12:00:01'));
+
+            Course::withTrashed()->findOrFail($course->id)->delete();
+
+            $this->assertDatabaseHas('courses', [
+                'id' => $course->id,
+                'deleted_at' => $originalDeletedAt?->toDateTimeString(),
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }

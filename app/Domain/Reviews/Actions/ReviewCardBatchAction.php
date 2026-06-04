@@ -96,7 +96,7 @@ class ReviewCardBatchAction
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
                         reviewEventsById: $this->existingReviewEventsByProvidedId($preparedItems),
-                        cardsById: $cardsById,
+                        cardsById: $this->cardsById($preparedItems),
                     );
 
                     // The unique constraint failed a single atomic insert; all items already exist.
@@ -185,10 +185,10 @@ class ReviewCardBatchAction
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
 
-        $duplicateIdsForSyncKey = $idsBySyncKey->first(fn (Collection $ids): bool => $ids->count() > 1);
+        $duplicateSyncKey = $idsBySyncKey->search(fn (Collection $ids): bool => $ids->count() > 1);
 
-        if ($duplicateIdsForSyncKey !== null) {
-            throw new InvalidArgumentException('Batch review events with the same sync metadata must use the same review event ID.');
+        if ($duplicateSyncKey !== false) {
+            throw new InvalidArgumentException("Batch review events with sync metadata [{$duplicateSyncKey}] must use the same review event ID.");
         }
 
         $syncKeyByProvidedId = $preparedItems
@@ -196,10 +196,10 @@ class ReviewCardBatchAction
             ->groupBy('id')
             ->map(fn (Collection $items): Collection => $items->pluck('sync_key')->unique()->values());
 
-        $duplicateSyncKeysForId = $syncKeyByProvidedId->first(fn (Collection $syncKeys): bool => $syncKeys->count() > 1);
+        $duplicateId = $syncKeyByProvidedId->search(fn (Collection $syncKeys): bool => $syncKeys->count() > 1);
 
-        if ($duplicateSyncKeysForId !== null) {
-            throw new InvalidArgumentException('Batch review events with the same review event ID must use the same sync metadata.');
+        if ($duplicateId !== false) {
+            throw new InvalidArgumentException("Batch review events with review event ID [{$duplicateId}] must use the same sync metadata.");
         }
 
         return $preparedItems

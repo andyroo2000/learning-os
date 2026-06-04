@@ -396,6 +396,79 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('reason', 'card_review_event_retry');
     }
 
+    public function test_it_rejects_same_batch_sync_key_duplicates_with_different_provided_ulids(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'id' => strtolower((string) Str::ulid()),
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+                [
+                    'id' => strtolower((string) Str::ulid()),
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Easy->value,
+                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:19:00Z',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['events']);
+
+        $this->assertStringContainsString('["device-abc","event-123"]', $response->json('errors.events.0'));
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_same_batch_provided_ulid_duplicates_with_different_sync_keys(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'id' => $id,
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+                [
+                    'id' => strtoupper($id),
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Easy->value,
+                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'client_event_id' => 'event-456',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:19:00Z',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['events']);
+
+        $this->assertStringContainsString($id, $response->json('errors.events.0'));
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
     public function test_it_uses_a_provided_ulid_for_duplicate_client_events_in_the_same_batch(): void
     {
         $user = $this->signIn();

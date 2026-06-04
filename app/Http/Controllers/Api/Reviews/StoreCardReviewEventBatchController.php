@@ -14,7 +14,7 @@ use InvalidArgumentException;
 
 class StoreCardReviewEventBatchController extends Controller
 {
-    // Match single review creation if batch conflict recovery ever needs a retryable response.
+    // Keep the shared conflict exception's retry contract consistent with single review creation.
     private const RETRY_AFTER_SECONDS = 1;
 
     public function __invoke(StoreCardReviewEventBatchRequest $request, ReviewCardBatchAction $reviewCards): JsonResponse

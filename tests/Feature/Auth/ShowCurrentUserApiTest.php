@@ -46,7 +46,9 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.name', 'Katherine Johnson')
             ->assertJsonPath('data.email', 'katherine@example.com')
-            ->assertJsonPath('data.email_verified_at', null);
+            ->assertJsonPath('data.email_verified_at', null)
+            ->assertJsonMissingPath('data.password')
+            ->assertJsonMissingPath('data.remember_token');
     }
 
     public function test_it_accepts_a_sanctum_bearer_token(): void

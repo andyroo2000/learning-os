@@ -10,6 +10,7 @@ final readonly class CreateDeckData
         public int $userId,
         public string $name,
         public ?string $description = null,
+        public ?string $courseId = null,
         public ?string $id = null,
     ) {}
 
@@ -17,12 +18,14 @@ final readonly class CreateDeckData
         int $userId,
         string $name,
         ?string $description = null,
+        ?string $courseId = null,
         ?string $id = null,
     ): self {
         return new self(
             userId: $userId,
             name: trim($name),
             description: $description === null ? null : trim($description),
+            courseId: $courseId === null ? null : CanonicalUlid::normalize($courseId),
             id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }

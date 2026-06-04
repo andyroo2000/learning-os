@@ -16,6 +16,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $deck = new Deck;
         $deck->setRawAttributes([
             'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'name' => 'Biology',
             'description' => 'Chapter 4',
             'created_at' => Carbon::parse('2026-05-27T09:14:00Z'),
@@ -27,6 +28,7 @@ class FlashcardSyncPayloadTest extends TestCase
 
         $expected = [
             'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'name' => 'Biology',
             'description' => 'Chapter 4',
             'created_at' => '2026-05-27T09:14:00.000000Z',
@@ -44,6 +46,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $deck = new Deck;
         $deck->setRawAttributes([
             'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => null,
             'name' => 'Biology',
             'description' => null,
             'created_at' => Carbon::parse('2026-05-27T09:14:00Z'),
@@ -55,6 +58,7 @@ class FlashcardSyncPayloadTest extends TestCase
 
         $this->assertSame([
             'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'course_id' => null,
             'name' => 'Biology',
             'description' => null,
             'created_at' => '2026-05-27T09:14:00.000000Z',

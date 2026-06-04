@@ -14,6 +14,7 @@ class DeckResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'course_id' => $this->course_id,
             'name' => $this->name,
             'description' => $this->description,
             'created_at' => $this->created_at?->toJSON(),

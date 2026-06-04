@@ -19,6 +19,7 @@ final class DeckSyncPayload
     {
         return [
             'id' => $deck->id,
+            'course_id' => $deck->course_id,
             'name' => $deck->name,
             'description' => $deck->description,
             'created_at' => $deck->created_at?->toJSON(),

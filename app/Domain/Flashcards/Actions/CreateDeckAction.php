@@ -2,8 +2,10 @@
 
 namespace App\Domain\Flashcards\Actions;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
+use App\Domain\Flashcards\Exceptions\DeckCourseNotFoundException;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateDeckResult;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
@@ -41,27 +43,33 @@ class CreateDeckAction
             throw new InvalidArgumentException('Deck ID must be a valid ULID.');
         }
 
+        if ($data->courseId !== null && ! Str::isUlid($data->courseId)) {
+            throw new InvalidArgumentException('Deck course ID must be a valid ULID.');
+        }
+
         $description = self::normalizedDescription($data->description);
+        $courseId = $this->ownedCourseId($data);
 
         if ($data->id !== null) {
             $existingDeck = Deck::withTrashed()->find($data->id);
 
             if ($existingDeck !== null) {
-                return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
+                return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description, $courseId));
             }
         }
 
-        return $this->createNewDeck($data, $description);
+        return $this->createNewDeck($data, $description, $courseId);
     }
 
     /**
      * Uses manual transaction control so primary-key race recovery can roll back the
      * failed insert before refetching the winning deck on PostgreSQL.
      */
-    private function createNewDeck(CreateDeckData $data, ?string $description): CreateDeckResult
+    private function createNewDeck(CreateDeckData $data, ?string $description, ?string $courseId): CreateDeckResult
     {
         $deck = new Deck([
             'user_id' => $data->userId,
+            'course_id' => $courseId,
             'name' => $data->name,
             'description' => $description,
         ]);
@@ -103,7 +111,7 @@ class CreateDeckAction
                 throw $exception;
             }
 
-            return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description));
+            return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description, $courseId));
         } catch (Throwable $exception) {
             DB::rollBack();
 
@@ -120,7 +128,25 @@ class CreateDeckAction
         return $description === '' ? null : $description;
     }
 
-    private function matchingExistingDeck(Deck $deck, CreateDeckData $data, ?string $description): Deck
+    private function ownedCourseId(CreateDeckData $data): ?string
+    {
+        if ($data->courseId === null) {
+            return null;
+        }
+
+        $courseExists = Course::query()
+            ->whereKey($data->courseId)
+            ->where('user_id', $data->userId)
+            ->exists();
+
+        if (! $courseExists) {
+            throw new DeckCourseNotFoundException($data->courseId);
+        }
+
+        return $data->courseId;
+    }
+
+    private function matchingExistingDeck(Deck $deck, CreateDeckData $data, ?string $description, ?string $courseId): Deck
     {
         if ($deck->trashed()) {
             // Deleted IDs remain reserved. The owning client gets a deletion signal
@@ -132,6 +158,7 @@ class CreateDeckAction
         // hide them behind a 404 without coupling this action to status codes.
         if (
             $deck->user_id !== $data->userId
+            || $deck->course_id !== $courseId
             || $deck->name !== $data->name
             || $deck->description !== $description
         ) {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
@@ -25,11 +26,13 @@ class CreateDeckApiTest extends TestCase
 
         $response
             ->assertCreated()
+            ->assertJsonPath('data.course_id', null)
             ->assertJsonPath('data.name', 'Italian Basics')
             ->assertJsonPath('data.description', 'Foundational Italian review cards.')
             ->assertJsonStructure([
                 'data' => [
                     'id',
+                    'course_id',
                     'name',
                     'description',
                     'created_at',
@@ -43,9 +46,51 @@ class CreateDeckApiTest extends TestCase
         $this->assertDatabaseHas('decks', [
             'id' => $response->json('data.id'),
             'user_id' => $user->id,
+            'course_id' => null,
             'name' => 'Italian Basics',
             'description' => 'Foundational Italian review cards.',
         ]);
+    }
+
+    public function test_it_creates_a_deck_for_an_owned_course(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->postJson('/api/decks', [
+            'course_id' => strtoupper($course->id),
+            'name' => 'Italian Basics',
+            'description' => 'Foundational Italian review cards.',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.course_id', $course->id)
+            ->assertJsonPath('data.name', 'Italian Basics');
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $response->json('data.id'),
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'name' => 'Italian Basics',
+        ]);
+    }
+
+    public function test_it_hides_missing_or_cross_user_courses_when_creating_a_deck(): void
+    {
+        $this->signIn();
+        $otherUserCourse = Course::factory()->create();
+
+        $response = $this->postJson('/api/decks', [
+            'course_id' => $otherUserCourse->id,
+            'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
+
+        $this->assertDatabaseCount('decks', 0);
     }
 
     public function test_it_accepts_a_client_provided_ulid(): void

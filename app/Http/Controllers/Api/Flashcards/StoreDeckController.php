@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Flashcards;
 use App\Domain\Flashcards\Actions\CreateDeckAction;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
+use App\Domain\Flashcards\Exceptions\DeckCourseNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\StoreDeckRequest;
 use App\Http\Resources\Flashcards\DeckResource;
@@ -22,8 +23,11 @@ class StoreDeckController extends Controller
                 userId: $userId,
                 name: $data['name'],
                 description: $data['description'] ?? null,
+                courseId: $data['course_id'] ?? null,
                 id: $data['id'] ?? null,
             ));
+        } catch (DeckCourseNotFoundException) {
+            return response()->json(['message' => 'Not Found'], 404);
         } catch (DeckConflictException $exception) {
             // Hide cross-user IDs before returning same-user deletion details.
             if ($exception->shouldBeHiddenFrom($userId)) {

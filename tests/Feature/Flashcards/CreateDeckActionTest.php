@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\CreateDeckAction;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
+use App\Domain\Flashcards\Exceptions\DeckCourseNotFoundException;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -41,6 +43,7 @@ class CreateDeckActionTest extends TestCase
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
             'user_id' => $user->id,
+            'course_id' => null,
             'name' => 'Italian Basics',
             'description' => null,
         ]);
@@ -54,12 +57,58 @@ class CreateDeckActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
         $this->assertSame([
             'id' => $deck->id,
+            'course_id' => null,
             'name' => 'Italian Basics',
             'description' => null,
             'created_at' => $deck->created_at?->toJSON(),
             'updated_at' => $deck->updated_at?->toJSON(),
             'deleted_at' => null,
         ], $entry->payload);
+    }
+
+    public function test_it_creates_a_deck_for_an_owned_course(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+
+        $result = app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                courseId: strtoupper($course->id),
+                name: 'Italian Basics',
+            ),
+        );
+        $deck = $result->deck;
+
+        $this->assertTrue($result->wasCreated);
+        $this->assertSame($course->id, $deck->course_id);
+        $this->assertDatabaseHas('decks', [
+            'id' => $deck->id,
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'name' => 'Italian Basics',
+        ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame($course->id, $entry->payload['course_id']);
+    }
+
+    public function test_it_rejects_decks_for_missing_or_cross_user_courses(): void
+    {
+        $user = User::factory()->create();
+        $otherUserCourse = Course::factory()->create();
+
+        $this->expectException(DeckCourseNotFoundException::class);
+        $this->expectExceptionMessage('Course not found.');
+
+        app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                courseId: $otherUserCourse->id,
+                name: 'Italian Basics',
+            ),
+        );
     }
 
     public function test_it_creates_a_deck_with_a_description(): void
@@ -197,6 +246,61 @@ class CreateDeckActionTest extends TestCase
         $this->assertTrue($existingDeck->is($deck));
         $this->assertDatabaseCount('decks', 1);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_includes_course_scope_when_matching_idempotent_retries(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $id = strtolower((string) Str::ulid());
+
+        $existingDeck = Deck::factory()->for($course)->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+
+        $result = app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                courseId: strtoupper($course->id),
+                name: 'Italian Basics',
+                description: '   ',
+                id: strtoupper($id),
+            ),
+        );
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertTrue($existingDeck->is($result->deck));
+        $this->assertDatabaseCount('decks', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_idempotent_retries_with_a_different_course_scope(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $otherCourse = Course::factory()->create(['user_id' => $user->id]);
+        $id = strtolower((string) Str::ulid());
+
+        Deck::factory()->for($course)->for($user)->create([
+            'id' => $id,
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+
+        $this->expectException(DeckConflictException::class);
+        $this->expectExceptionMessage('Deck ID already exists with different metadata.');
+
+        app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                courseId: $otherCourse->id,
+                name: 'Italian Basics',
+                description: '   ',
+                id: $id,
+            ),
+        );
     }
 
     public function test_it_returns_existing_deck_when_concurrent_create_wins_the_race(): void

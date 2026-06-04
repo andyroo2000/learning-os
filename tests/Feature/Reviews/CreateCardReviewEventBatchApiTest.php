@@ -240,6 +240,41 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_hides_provided_ulid_collisions_for_other_users(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $otherCard = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        CardReviewEvent::factory()->for($otherCard)->create([
+            'id' => $id,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => 'other-event',
+            'device_id' => 'other-device',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'id' => $id,
+                    'card_id' => $card->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+            ],
+        ]);
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_uses_a_provided_ulid_for_duplicate_client_events_in_the_same_batch(): void
     {
         $user = $this->signIn();

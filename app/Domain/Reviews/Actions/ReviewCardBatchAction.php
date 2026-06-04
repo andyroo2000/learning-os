@@ -46,7 +46,7 @@ class ReviewCardBatchAction
             throw new InvalidArgumentException('At least one review event is required.');
         }
 
-        $preparedItems = $this->normalizeDuplicateSyncKeyIds($preparedItems);
+        $preparedItems = $this->normalizeDuplicateSyncKeyProvidedIds($preparedItems);
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $cardsById = $this->cardsById($preparedItems);
@@ -63,10 +63,7 @@ class ReviewCardBatchAction
 
             $now = now();
 
-            $createdItems = $preparedItems
-                ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
-                ->unique('sync_key')
-                ->values();
+            $createdItems = $this->canonicalItemsForInsert($preparedItems, $existingReviewEventsBySyncKey);
 
             $rows = $createdItems
                 ->map(fn (array $item): array => $this->rowForInsert($item, $now))
@@ -93,6 +90,7 @@ class ReviewCardBatchAction
                         throw $exception;
                     }
 
+                    // Another writer may have inserted between the pre-check and the failed bulk insert.
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
@@ -179,16 +177,16 @@ class ReviewCardBatchAction
      * @param  Collection<int, array{id: string, sync_key: string, provided_id: bool}>  $preparedItems
      * @return Collection<int, array{id: string, sync_key: string, provided_id: bool}>
      */
-    private function normalizeDuplicateSyncKeyIds(Collection $preparedItems): Collection
+    private function normalizeDuplicateSyncKeyProvidedIds(Collection $preparedItems): Collection
     {
         $idsBySyncKey = $preparedItems
             ->filter(fn (array $item): bool => $item['provided_id'])
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
 
-        $conflictingSyncKey = $idsBySyncKey->first(fn (Collection $ids): bool => $ids->count() > 1);
+        $conflictingIds = $idsBySyncKey->first(fn (Collection $ids): bool => $ids->count() > 1);
 
-        if ($conflictingSyncKey !== null) {
+        if ($conflictingIds !== null) {
             throw new InvalidArgumentException('Batch review events with the same sync metadata must use the same review event ID.');
         }
 
@@ -197,9 +195,9 @@ class ReviewCardBatchAction
             ->groupBy('id')
             ->map(fn (Collection $items): Collection => $items->pluck('sync_key')->unique()->values());
 
-        $conflictingId = $syncKeyByProvidedId->first(fn (Collection $syncKeys): bool => $syncKeys->count() > 1);
+        $conflictingSyncKeys = $syncKeyByProvidedId->first(fn (Collection $syncKeys): bool => $syncKeys->count() > 1);
 
-        if ($conflictingId !== null) {
+        if ($conflictingSyncKeys !== null) {
             throw new InvalidArgumentException('Batch review events with the same review event ID must use the same sync metadata.');
         }
 
@@ -214,6 +212,22 @@ class ReviewCardBatchAction
 
                 return $item;
             })
+            ->values();
+    }
+
+    /**
+     * Keep duplicate input items for response mapping, but insert only one canonical row per sync key.
+     *
+     * @param  Collection<int, array{sync_key: string, provided_id: bool}>  $preparedItems
+     * @param  Collection<string, CardReviewEvent>  $existingReviewEventsBySyncKey
+     * @return Collection<int, array{sync_key: string, provided_id: bool}>
+     */
+    private function canonicalItemsForInsert(Collection $preparedItems, Collection $existingReviewEventsBySyncKey): Collection
+    {
+        return $preparedItems
+            ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
+            ->groupBy('sync_key')
+            ->map(fn (Collection $items): array => $items->firstWhere('provided_id', true) ?? $items->first())
             ->values();
     }
 

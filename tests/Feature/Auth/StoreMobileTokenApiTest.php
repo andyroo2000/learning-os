@@ -15,6 +15,7 @@ class StoreMobileTokenApiTest extends TestCase
     public function test_it_issues_a_mobile_bearer_token(): void
     {
         $this->travelTo(Carbon::parse('2026-06-04 12:00:00'));
+        $expirationMinutes = (int) config('sanctum.expiration');
         $user = User::factory()->create([
             'email' => 'ada@example.com',
         ]);
@@ -28,7 +29,7 @@ class StoreMobileTokenApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.token_type', 'Bearer')
-            ->assertJsonPath('data.expires_at', now()->addMinutes(config('sanctum.expiration'))->toJSON())
+            ->assertJsonPath('data.expires_at', now()->addMinutes($expirationMinutes)->toJSON())
             ->assertJsonStructure([
                 'data' => [
                     'token',
@@ -44,7 +45,7 @@ class StoreMobileTokenApiTest extends TestCase
         $this->assertTrue($token->tokenable->is($user));
         $this->assertSame('Ada iPhone', $token->name);
         $this->assertSame(['*'], $token->abilities);
-        $this->assertSame(now()->addMinutes(config('sanctum.expiration'))->toJSON(), $token->expires_at?->toJSON());
+        $this->assertSame(now()->addMinutes($expirationMinutes)->toJSON(), $token->expires_at?->toJSON());
 
         $this
             ->withToken($plainTextToken)

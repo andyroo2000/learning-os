@@ -2,7 +2,6 @@
 
 namespace App\Domain\Flashcards\Sync;
 
-use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 
 final class CardSyncPayload
@@ -24,7 +23,7 @@ final class CardSyncPayload
             'course_id' => $card->deckCourseId(),
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
-            'study_status' => $card->study_status instanceof CardStudyStatus ? $card->study_status->value : $card->study_status,
+            'study_status' => $card->study_status->value,
             'due_at' => $card->due_at?->toJSON(),
             'introduced_at' => $card->introduced_at?->toJSON(),
             'failed_at' => $card->failed_at?->toJSON(),

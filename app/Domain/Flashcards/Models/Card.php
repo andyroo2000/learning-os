@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-#[Fillable(['deck_id', 'front_text', 'back_text', 'study_status', 'due_at', 'introduced_at', 'failed_at', 'last_reviewed_at'])]
+#[Fillable(['deck_id', 'front_text', 'back_text'])]
 class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
@@ -27,7 +27,7 @@ class Card extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'study_status' => 'new',
+        'study_status' => CardStudyStatus::New->value,
     ];
 
     protected static function newFactory(): CardFactory

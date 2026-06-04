@@ -19,12 +19,13 @@ class ShowCardApiTest extends TestCase
         $card = $this->cardFor($user, [
             'front_text' => 'ciao',
             'back_text' => 'hello',
-            'study_status' => CardStudyStatus::Review,
-            'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
-            'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
-            'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
-            'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
         ]);
+        $card->study_status = CardStudyStatus::Review;
+        $card->due_at = Carbon::parse('2026-06-05T14:15:00Z');
+        $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
+        $card->failed_at = Carbon::parse('2026-06-02T14:15:00Z');
+        $card->last_reviewed_at = Carbon::parse('2026-06-03T14:15:00Z');
+        $card->save();
 
         $response = $this->getJson("/api/cards/{$card->id}");
 

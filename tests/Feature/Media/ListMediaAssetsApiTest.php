@@ -158,6 +158,17 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
+    public function test_it_rejects_a_malformed_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/media-assets?course_id=not-a-ulid');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+    }
+
     public function test_it_accepts_a_custom_page_size(): void
     {
         $user = $this->signIn();

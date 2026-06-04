@@ -47,6 +47,8 @@ class ShowCardReviewEventApiTest extends TestCase
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
                     'client_created_at' => $reviewEvent->client_created_at->toJSON(),
+                    'scheduler_state_before' => null,
+                    'scheduler_state_after' => null,
                     'created_at' => $reviewEvent->created_at->toJSON(),
                     'updated_at' => $reviewEvent->updated_at->toJSON(),
                 ],

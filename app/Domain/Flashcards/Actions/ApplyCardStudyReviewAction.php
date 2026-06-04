@@ -29,7 +29,7 @@ class ApplyCardStudyReviewAction
 
     public function handle(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
     {
-        if ($card->last_reviewed_at !== null && $card->last_reviewed_at->greaterThanOrEqualTo($reviewedAt)) {
+        if (! $this->shouldApply($card, $reviewedAt)) {
             return false;
         }
 
@@ -81,6 +81,33 @@ class ApplyCardStudyReviewAction
         );
 
         return true;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function schedulerStateAfterReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): ?array
+    {
+        if (! $this->shouldApply($card, $reviewedAt)) {
+            return is_array($card->scheduler_state) ? $card->scheduler_state : null;
+        }
+
+        $currentStatus = $card->study_status ?? CardStudyStatus::New;
+        $nextStudyStatus = $this->nextStudyStatus($currentStatus, $rating);
+        $nextDueAt = $this->nextDueAt($rating, $reviewedAt);
+
+        return CardSchedulerState::reviewed(
+            card: $card,
+            rating: $rating,
+            studyStatus: $nextStudyStatus,
+            dueAt: $nextDueAt,
+            reviewedAt: $reviewedAt,
+        );
+    }
+
+    private function shouldApply(Card $card, Carbon $reviewedAt): bool
+    {
+        return $card->last_reviewed_at === null || $card->last_reviewed_at->lessThan($reviewedAt);
     }
 
     private function nextStudyStatus(CardStudyStatus $currentStatus, CardReviewRating $rating): CardStudyStatus

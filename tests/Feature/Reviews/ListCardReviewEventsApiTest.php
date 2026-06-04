@@ -62,6 +62,8 @@ class ListCardReviewEventsApiTest extends TestCase
                         'client_event_id',
                         'device_id',
                         'client_created_at',
+                        'scheduler_state_before',
+                        'scheduler_state_after',
                         'created_at',
                         'updated_at',
                     ],
@@ -79,6 +81,8 @@ class ListCardReviewEventsApiTest extends TestCase
                 'client_event_id' => 'event-1',
                 'device_id' => 'device-a',
                 'client_created_at' => $firstEvent->client_created_at->toJSON(),
+                'scheduler_state_before' => null,
+                'scheduler_state_after' => null,
             ])
             ->assertJsonFragment([
                 'id' => $secondEvent->id,
@@ -90,6 +94,8 @@ class ListCardReviewEventsApiTest extends TestCase
                 'client_event_id' => 'event-2',
                 'device_id' => 'device-a',
                 'client_created_at' => $secondEvent->client_created_at->toJSON(),
+                'scheduler_state_before' => null,
+                'scheduler_state_after' => null,
             ])
             ->assertJsonMissing([
                 'id' => $otherEvent->id,

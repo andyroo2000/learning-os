@@ -89,6 +89,19 @@ class ReviewCardBatchActionTest extends TestCase
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
             'client_created_at' => $firstResult->reviewEvents[0]->client_created_at?->toJSON(),
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => [
+                'due' => '2026-05-30T09:15:00.000000Z',
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 3,
+                'learning_steps' => 0,
+                'reps' => 1,
+                'lapses' => 0,
+                'state' => 2,
+                'last_review' => '2026-05-27T09:15:00.000000Z',
+            ],
             'created_at' => $firstResult->reviewEvents[0]->created_at?->toJSON(),
             'updated_at' => $firstResult->reviewEvents[0]->updated_at?->toJSON(),
         ], $firstEntry->payload);
@@ -140,6 +153,64 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame('2026-05-27T09:20:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertDatabaseCount('card_review_events', 2);
         $this->assertDatabaseCount('sync_feed_entries', 4);
+    }
+
+    public function test_created_batch_reviews_snapshot_scheduler_state_in_review_order(): void
+    {
+        $card = Card::factory()->create();
+
+        app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-05-27T09:20:00Z',
+                clientEventId: 'event-2',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:20:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Again->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-1',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:15:00Z',
+            ),
+        ]);
+
+        $firstReview = CardReviewEvent::query()
+            ->where('client_event_id', 'event-1')
+            ->sole();
+        $secondReview = CardReviewEvent::query()
+            ->where('client_event_id', 'event-2')
+            ->sole();
+
+        $this->assertNull($firstReview->scheduler_state_before);
+        $this->assertSame([
+            'due' => '2026-05-27T09:25:00.000000Z',
+            'stability' => 0.1,
+            'difficulty' => 5,
+            'elapsed_days' => 0,
+            'scheduled_days' => 0,
+            'learning_steps' => 0,
+            'reps' => 1,
+            'lapses' => 1,
+            'state' => 3,
+            'last_review' => '2026-05-27T09:15:00.000000Z',
+        ], $firstReview->scheduler_state_after);
+        $this->assertSame($firstReview->scheduler_state_after, $secondReview->scheduler_state_before);
+        $this->assertSame([
+            'due' => '2026-06-03T09:20:00.000000Z',
+            'stability' => 0.1,
+            'difficulty' => 5,
+            'elapsed_days' => 0,
+            'scheduled_days' => 7,
+            'learning_steps' => 0,
+            'reps' => 2,
+            'lapses' => 1,
+            'state' => 2,
+            'last_review' => '2026-05-27T09:20:00.000000Z',
+        ], $secondReview->scheduler_state_after);
     }
 
     public function test_it_normalizes_text_and_sync_metadata_for_direct_callers(): void

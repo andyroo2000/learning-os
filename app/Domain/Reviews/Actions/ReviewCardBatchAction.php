@@ -118,8 +118,7 @@ class ReviewCardBatchAction
             if ($createdItems->isNotEmpty()) {
                 $createdReviewEvents = $this->createdReviewEventsForItems($createdItems, $reviewEventsBySyncKey);
 
-                $this->recordCreatedFeedEntries($createdReviewEvents, $cardsById);
-                $this->applyCreatedCardStudyReviews($createdReviewEvents, $cardsById);
+                $this->recordAndApplyCreatedReviewEvents($createdReviewEvents, $cardsById);
             }
 
             return $rows->isNotEmpty()
@@ -509,39 +508,42 @@ class ReviewCardBatchAction
      * @param  Collection<int, CardReviewEvent>  $reviewEvents
      * @param  Collection<string, Card>  $cardsById
      */
-    private function recordCreatedFeedEntries(Collection $reviewEvents, Collection $cardsById): void
-    {
-        $reviewEvents->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
-            $card = $cardsById->get($reviewEvent->card_id)
-                ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
-            $reviewEvent->setRelation('card', $card);
-
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $card->ownerUserId(),
-                    domain: CardReviewEventSyncPayload::DOMAIN,
-                    resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
-                    resourceId: $reviewEvent->id,
-                    operation: SyncFeedOperation::Create->value,
-                    payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
-                ),
-            );
-        });
-    }
-
-    /**
-     * @param  Collection<int, CardReviewEvent>  $reviewEvents
-     * @param  Collection<string, Card>  $cardsById
-     */
-    private function applyCreatedCardStudyReviews(Collection $reviewEvents, Collection $cardsById): void
+    private function recordAndApplyCreatedReviewEvents(Collection $reviewEvents, Collection $cardsById): void
     {
         $reviewEvents
             ->sortBy(fn (CardReviewEvent $reviewEvent): string => $reviewEvent->reviewed_at?->toJSON() ?? '')
             ->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
                 $card = $cardsById->get($reviewEvent->card_id)
-                    ?? throw new RuntimeException('Card missing while applying review study state.');
+                    ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
+
+                $this->assignSchedulerSnapshots($reviewEvent, $card);
+                $reviewEvent->saveOrFail();
+                $reviewEvent->setRelation('card', $card);
+
+                $this->recordSyncFeedEntry->handle(
+                    RecordSyncFeedEntryData::fromInput(
+                        userId: $card->ownerUserId(),
+                        domain: CardReviewEventSyncPayload::DOMAIN,
+                        resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
+                        resourceId: $reviewEvent->id,
+                        operation: SyncFeedOperation::Create->value,
+                        payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+                    ),
+                );
 
                 $this->applyCardStudyReview->handle($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
             });
+    }
+
+    private function assignSchedulerSnapshots(CardReviewEvent $reviewEvent, Card $card): void
+    {
+        $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
+            ? $card->scheduler_state
+            : null;
+        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterReview(
+            card: $card,
+            rating: $reviewEvent->rating,
+            reviewedAt: $reviewEvent->reviewed_at,
+        );
     }
 }

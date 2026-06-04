@@ -43,6 +43,9 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('data.course_id', $course->id)
             ->assertJsonPath('data.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z')
+            ->assertJsonPath('data.scheduler_state_before', null)
+            ->assertJsonPath('data.scheduler_state_after.reps', 1)
+            ->assertJsonPath('data.scheduler_state_after.state', 2)
             ->assertJsonStructure([
                 'data' => [
                     'id',
@@ -54,6 +57,8 @@ class CreateCardReviewEventApiTest extends TestCase
                     'client_event_id',
                     'device_id',
                     'client_created_at',
+                    'scheduler_state_before',
+                    'scheduler_state_after',
                     'created_at',
                     'updated_at',
                 ],

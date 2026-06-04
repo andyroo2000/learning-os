@@ -52,6 +52,19 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($reviewEvent->id));
         $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
+        $this->assertNull($reviewEvent->scheduler_state_before);
+        $this->assertSame([
+            'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
+            'stability' => 0.1,
+            'difficulty' => 5,
+            'elapsed_days' => 0,
+            'scheduled_days' => 3,
+            'learning_steps' => 0,
+            'reps' => 1,
+            'lapses' => 0,
+            'state' => 2,
+            'last_review' => $reviewedAt->toJSON(),
+        ], $reviewEvent->scheduler_state_after);
 
         $this->assertDatabaseHas('card_review_events', [
             'id' => $reviewEvent->id,
@@ -79,6 +92,19 @@ class ReviewCardActionTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => [
+                'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 3,
+                'learning_steps' => 0,
+                'reps' => 1,
+                'lapses' => 0,
+                'state' => 2,
+                'last_review' => $reviewedAt->toJSON(),
+            ],
             'created_at' => $reviewEvent->created_at?->toJSON(),
             'updated_at' => $reviewEvent->updated_at?->toJSON(),
         ], $entry->payload);

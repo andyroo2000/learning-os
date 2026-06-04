@@ -3,8 +3,13 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Actions\ReviewCardAction;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Values\SyncMetadata;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -266,6 +271,33 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('reason', 'card_review_event_id_conflict');
 
         $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_returns_retryable_response_when_review_event_race_recovery_fails(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->app->instance(ReviewCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardAction
+        {
+            public function handle(ReviewCardData $data): ReviewCardResult
+            {
+                throw CardReviewEventConflictException::retryableConflict();
+            }
+        });
+
+        $response = $this->postJson('/api/card-review-events', [
+            'id' => strtolower((string) Str::ulid()),
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '1')
+            ->assertJsonPath('message', 'Card review event ID conflict could not be resolved; retry the request.')
+            ->assertJsonPath('reason', 'card_review_event_retry');
     }
 
     public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void

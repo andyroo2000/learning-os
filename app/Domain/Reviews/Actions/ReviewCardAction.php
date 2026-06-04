@@ -82,7 +82,6 @@ class ReviewCardAction
                     rating: $rating,
                 ));
             }
-
         }
 
         $reviewEvent = new CardReviewEvent([

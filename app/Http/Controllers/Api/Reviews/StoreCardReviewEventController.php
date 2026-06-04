@@ -12,13 +12,10 @@ use Illuminate\Http\JsonResponse;
 
 class StoreCardReviewEventController extends Controller
 {
-    // Keep the first retry short; repeated 503s tell clients to retry again if the race is still settling.
-    private const RETRY_AFTER_SECONDS = 1;
-
     public function __invoke(StoreCardReviewEventRequest $request, ReviewCardAction $reviewCard): JsonResponse
     {
         $data = $request->validated();
-        $userId = (int) $request->user()->id;
+        $userId = (int) $request->user()->getKey();
 
         try {
             $result = $reviewCard->handle(ReviewCardData::fromInput(
@@ -39,7 +36,7 @@ class StoreCardReviewEventController extends Controller
                 return response()->json([
                     'message' => $exception->getMessage(),
                     'reason' => $exception->reason(),
-                ], 503)->header('Retry-After', (string) self::RETRY_AFTER_SECONDS);
+                ], 503)->header('Retry-After', (string) CardReviewEventConflictException::RETRY_AFTER_SECONDS);
             }
 
             return response()->json([

@@ -6,6 +6,8 @@ use RuntimeException;
 
 final class CardReviewEventConflictException extends RuntimeException
 {
+    public const RETRY_AFTER_SECONDS = 1;
+
     private const CONFLICT_MESSAGE = 'Card review event ID already exists with different metadata.';
 
     private const RETRYABLE_MESSAGE = 'Card review event ID conflict could not be resolved; retry the request.';

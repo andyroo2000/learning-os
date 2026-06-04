@@ -27,6 +27,21 @@ class SyncFeedEntryTest extends TestCase
         ]));
     }
 
+    public function test_sync_feed_entries_table_has_replay_filter_indexes(): void
+    {
+        $indexes = collect(Schema::getIndexes('sync_feed_entries'));
+
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'domain', 'checkpoint']
+        ));
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'resource_type', 'checkpoint']
+        ));
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'domain', 'resource_type', 'checkpoint']
+        ));
+    }
+
     public function test_feed_entries_allocate_monotonic_checkpoints(): void
     {
         $first = SyncFeedEntry::factory()->create();

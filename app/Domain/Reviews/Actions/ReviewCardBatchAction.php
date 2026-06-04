@@ -207,7 +207,6 @@ class ReviewCardBatchAction
 
                 if ($providedIds !== null && $providedIds->count() === 1) {
                     $item['id'] = $providedIds->first();
-                    $item['provided_id'] = true;
                 }
 
                 return $item;
@@ -258,6 +257,9 @@ class ReviewCardBatchAction
     }
 
     /**
+     * Pass withOwnerContext only for conflict validation/recovery; the successful post-insert
+     * response lookup stays lean for large batches.
+     *
      * @param  Collection<int, array{device_id: string, client_event_id: string}>  $preparedItems
      * @return Collection<string, CardReviewEvent>
      */

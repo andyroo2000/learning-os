@@ -4,6 +4,7 @@ namespace App\Domain\Courses\Actions;
 
 use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
+use App\Domain\Courses\Support\CourseLanguage;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 
@@ -20,6 +21,8 @@ class ListCoursesAction
         ?string $targetLanguage = null,
     ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
+        $nativeLanguage = $nativeLanguage === null ? null : CourseLanguage::normalize($nativeLanguage);
+        $targetLanguage = $targetLanguage === null ? null : CourseLanguage::normalize($targetLanguage);
 
         return Course::query()
             ->where('user_id', $userId)

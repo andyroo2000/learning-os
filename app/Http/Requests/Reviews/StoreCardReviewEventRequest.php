@@ -28,9 +28,7 @@ class StoreCardReviewEventRequest extends FormRequest
             $this->mergeNormalizedUlidInput($normalized, $key);
         }
 
-        if ($normalized !== []) {
-            $this->merge($normalized);
-        }
+        $this->merge($normalized);
     }
 
     /**

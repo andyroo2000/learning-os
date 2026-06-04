@@ -4,14 +4,16 @@ namespace App\Domain\Auth\Actions;
 
 use App\Domain\Auth\Exceptions\InvalidMobileTokenCredentialsException;
 use App\Domain\Auth\Results\IssueMobileTokenResult;
+use App\Domain\Auth\Support\MobileTokenExpiration;
 use App\Models\User;
-use DateTimeInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class IssueMobileTokenAction
 {
     private const DUMMY_PASSWORD_HASH = '$2y$12$Ua0PWOoP5l5fnjhnZ00AnuYQhV5wl7iADVLPFNwuzN3VZ.g3RVJT2';
+
+    public function __construct(private MobileTokenExpiration $mobileTokenExpiration) {}
 
     public function handle(string $email, string $password, string $deviceName): IssueMobileTokenResult
     {
@@ -31,7 +33,7 @@ class IssueMobileTokenAction
             throw new InvalidMobileTokenCredentialsException;
         }
 
-        $expiresAt = $this->tokenExpiresAt();
+        $expiresAt = $this->mobileTokenExpiration->expiresAt();
         // Email verification is intentionally not required; clients use /api/me to branch on verification state.
         $token = $user->createToken($deviceName, ['*'], $expiresAt);
 
@@ -39,22 +41,5 @@ class IssueMobileTokenAction
             plainTextToken: $token->plainTextToken,
             expiresAt: $expiresAt,
         );
-    }
-
-    private function tokenExpiresAt(): ?DateTimeInterface
-    {
-        $expirationMinutes = config('sanctum.expiration');
-
-        if (! is_int($expirationMinutes) && ! ctype_digit((string) $expirationMinutes)) {
-            return null;
-        }
-
-        $expirationMinutes = (int) $expirationMinutes;
-
-        if ($expirationMinutes < 1) {
-            return null;
-        }
-
-        return now()->addMinutes($expirationMinutes);
     }
 }

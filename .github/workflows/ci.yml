@@ -125,5 +125,10 @@ jobs:
       - name: Run PostgreSQL migrations
         run: php artisan migrate:fresh --force --ansi
 
+      - name: Exercise PostgreSQL migration rollbacks
+        run: |
+          php artisan migrate:reset --force --ansi
+          php artisan migrate --force --ansi
+
       - name: Verify PostgreSQL migration status
         run: php artisan migrate:status --ansi

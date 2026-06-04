@@ -46,6 +46,8 @@ class AttachMediaToCardAction
                     payload: CardMediaSyncPayload::fromPivot(
                         cardId: $data->card->id,
                         mediaAssetId: $data->mediaAsset->id,
+                        deckId: $data->card->deck_id,
+                        courseId: $data->card->deckCourseId(),
                         createdAt: $pivot->created_at,
                         updatedAt: $pivot->updated_at,
                     ),

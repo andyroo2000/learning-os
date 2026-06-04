@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Media;
 
+use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
@@ -86,8 +89,11 @@ class DeleteMediaAssetActionTest extends TestCase
     public function test_it_removes_card_attachments_when_deleting_a_media_asset(): void
     {
         $user = User::factory()->create();
-        $firstCard = $this->cardFor($user);
-        $secondCard = $this->cardFor($user);
+        $course = Course::factory()->for($user)->create();
+        $firstDeck = Deck::factory()->for($course)->for($user)->create();
+        $secondDeck = Deck::factory()->for($course)->for($user)->create();
+        $firstCard = Card::factory()->for($firstDeck)->create();
+        $secondCard = Card::factory()->for($secondDeck)->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $firstCard->mediaAssets()->attach($mediaAsset->id);
@@ -137,6 +143,8 @@ class DeleteMediaAssetActionTest extends TestCase
             $this->assertSame([
                 'card_id' => $card->id,
                 'media_asset_id' => $mediaAsset->id,
+                'deck_id' => $card->deck_id,
+                'course_id' => $course->id,
                 'created_at' => $pivot?->created_at?->toJSON(),
                 'updated_at' => $pivot?->updated_at?->toJSON(),
             ], $entry->payload);

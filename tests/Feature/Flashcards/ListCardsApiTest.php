@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\AssertsCursorPagination;
@@ -138,6 +139,52 @@ class ListCardsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_trims_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $standaloneDeck = $this->deckFor($user);
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?course_id=%20'.$course->id.'%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseCard->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneCard->id,
+            ]);
+    }
+
+    public function test_it_lowercases_course_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $standaloneDeck = $this->deckFor($user);
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?course_id='.strtoupper($course->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $courseCard->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $standaloneCard->id,
+            ]);
+    }
+
     public function test_it_returns_an_empty_list_for_another_users_course_id(): void
     {
         $this->signIn();
@@ -156,11 +203,13 @@ class ListCardsApiTest extends TestCase
             ]);
     }
 
-    public function test_it_rejects_a_blank_course_id_filter(): void
+    public function test_it_rejects_a_blank_course_id_filter_without_global_trim_middleware(): void
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/cards?course_id=%20%20%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?course_id=%20%20%20');
 
         $response
             ->assertUnprocessable()

@@ -3,6 +3,7 @@
 namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Support\Identifiers\CanonicalUlid;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use InvalidArgumentException;
@@ -17,7 +18,7 @@ class ListReviewEventsAction
     {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         // Keep direct action callers aligned with FormRequest-normalized API input.
-        $courseId = $courseId === null ? null : trim($courseId);
+        $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Review event course_id filter must not be blank when provided.');

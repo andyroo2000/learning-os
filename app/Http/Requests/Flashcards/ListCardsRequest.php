@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
+use App\Support\Identifiers\CanonicalUlid;
 
 class ListCardsRequest extends CursorPaginatedRequest
 {
@@ -12,7 +13,7 @@ class ListCardsRequest extends CursorPaginatedRequest
 
         if (is_string($courseId)) {
             $this->merge([
-                'course_id' => trim($courseId),
+                'course_id' => CanonicalUlid::normalize($courseId),
             ]);
         }
     }

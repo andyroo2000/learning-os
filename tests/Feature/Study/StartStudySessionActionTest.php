@@ -136,7 +136,7 @@ class StartStudySessionActionTest extends TestCase
     public function test_it_rejects_invalid_time_zones_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study session time_zone must be a valid IANA timezone.');
+        $this->expectExceptionMessage('Study time_zone must be a valid IANA timezone.');
 
         app(StartStudySessionAction::class)->handle(
             userId: User::factory()->create()->id,

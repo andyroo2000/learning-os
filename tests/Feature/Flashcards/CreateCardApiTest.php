@@ -113,6 +113,7 @@ class CreateCardApiTest extends TestCase
         $deck = $this->deckFor($user);
         $lowercaseId = strtolower((string) Str::ulid());
 
+        // TrimStrings processes JSON bodies too; disable it to prove StoreCardRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/cards', [
@@ -139,6 +140,7 @@ class CreateCardApiTest extends TestCase
         $deck = $this->deckFor($user);
         $id = strtolower((string) Str::ulid());
 
+        // TrimStrings processes JSON bodies too; disable it to prove StoreCardRequest normalizes independently.
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/cards', [

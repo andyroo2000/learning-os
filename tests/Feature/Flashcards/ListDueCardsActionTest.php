@@ -39,6 +39,9 @@ class ListDueCardsActionTest extends TestCase
         $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended, [
             'due_at' => $now->copy()->subDay(),
         ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Buried, [
+            'due_at' => $now->copy()->subDay(),
+        ]);
         $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review, [
             'due_at' => $now->copy()->subDay(),
         ]);

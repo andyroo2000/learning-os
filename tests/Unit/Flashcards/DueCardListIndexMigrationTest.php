@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
  */
 class DueCardListIndexMigrationTest extends TestCase
 {
-    private const DUE_LIST_INDEX = 'cards_deleted_due_id_idx';
+    private const DUE_LIST_INDEX = 'cards_deleted_study_due_id_idx';
 
     #[DataProvider('dueCardListIndexSqlProvider')]
     public function test_due_card_list_index_compiles_to_portable_sql(
@@ -60,7 +60,7 @@ class DueCardListIndexMigrationTest extends TestCase
                 SQLiteConnection::class,
                 SQLiteGrammar::class,
                 [
-                    'create index "'.self::DUE_LIST_INDEX.'" on "cards" ("deleted_at", "due_at", "id")',
+                    'create index "'.self::DUE_LIST_INDEX.'" on "cards" ("deleted_at", "study_status", "due_at", "id")',
                 ],
                 [
                     'drop index "'.self::DUE_LIST_INDEX.'"',
@@ -70,7 +70,7 @@ class DueCardListIndexMigrationTest extends TestCase
                 PostgresConnection::class,
                 PostgresGrammar::class,
                 [
-                    'create index "'.self::DUE_LIST_INDEX.'" on "cards" ("deleted_at", "due_at", "id")',
+                    'create index "'.self::DUE_LIST_INDEX.'" on "cards" ("deleted_at", "study_status", "due_at", "id")',
                 ],
                 [
                     'drop index "'.self::DUE_LIST_INDEX.'"',
@@ -80,7 +80,7 @@ class DueCardListIndexMigrationTest extends TestCase
                 MySqlConnection::class,
                 MySqlGrammar::class,
                 [
-                    'alter table `cards` add index `'.self::DUE_LIST_INDEX.'`(`deleted_at`, `due_at`, `id`)',
+                    'alter table `cards` add index `'.self::DUE_LIST_INDEX.'`(`deleted_at`, `study_status`, `due_at`, `id`)',
                 ],
                 [
                     'alter table `cards` drop index `'.self::DUE_LIST_INDEX.'`',
@@ -106,7 +106,7 @@ class DueCardListIndexMigrationTest extends TestCase
     {
         return new Blueprint($connection, 'cards', function (Blueprint $table): void {
             $table->index(
-                ['deleted_at', 'due_at', 'id'],
+                ['deleted_at', 'study_status', 'due_at', 'id'],
                 self::DUE_LIST_INDEX,
             );
         });

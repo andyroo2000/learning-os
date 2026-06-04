@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    private const DUE_LIST_INDEX = 'cards_deleted_due_id_idx';
+    private const DUE_LIST_INDEX = 'cards_deleted_study_due_id_idx';
 
     /**
      * Run the migrations.
@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::table('cards', function (Blueprint $table) {
             $table->index(
-                ['deleted_at', 'due_at', 'id'],
+                ['deleted_at', 'study_status', 'due_at', 'id'],
                 self::DUE_LIST_INDEX,
             );
         });

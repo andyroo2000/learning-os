@@ -30,19 +30,20 @@ class ListDueCardsAction
         }
 
         return Card::query()
+            ->select('cards.*')
             ->with(['deck:id,user_id,course_id'])
-            ->whereIn('study_status', [
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->where('decks.user_id', $userId)
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->whereIn('cards.study_status', [
                 CardStudyStatus::Learning->value,
                 CardStudyStatus::Review->value,
                 CardStudyStatus::Relearning->value,
             ])
-            ->where('due_at', '<=', $now)
-            ->whereHas('deck', fn ($query) => $query
-                ->where('user_id', $userId)
-                ->when($courseId !== null, fn ($query) => $query->where('course_id', $courseId)))
-            ->orderBy('due_at')
+            ->where('cards.due_at', '<=', $now)
+            ->orderBy('cards.due_at')
             // id asc is stable for cursor pagination when several cards share a due timestamp.
-            ->orderBy('id')
+            ->orderBy('cards.id')
             ->cursorPaginate($pageSize->value());
     }
 }

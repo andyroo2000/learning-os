@@ -16,6 +16,7 @@ use App\Domain\Sync\Values\ClientEventKey;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -51,7 +52,7 @@ class ReviewCardBatchAction
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $cardsById = $this->cardsById($preparedItems);
 
-            $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems, withOwnerContext: true);
+            $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKeyWithOwnerContext($preparedItems);
             $existingReviewEventsById = $this->existingReviewEventsByProvidedId($preparedItems);
 
             $this->assertExistingReviewEventsMatchRequest(
@@ -83,7 +84,7 @@ class ReviewCardBatchAction
                         throw $exception;
                     }
 
-                    $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKey($preparedItems, withOwnerContext: true);
+                    $reviewEventsBySyncKey = $this->existingReviewEventsBySyncKeyWithOwnerContext($preparedItems);
 
                     if ($rows->contains(fn (array $item): bool => ! $reviewEventsBySyncKey->has($item['sync_key']))) {
                         // A partial match is not a clean retry; surface the original database error.
@@ -258,31 +259,42 @@ class ReviewCardBatchAction
     }
 
     /**
-     * Pass withOwnerContext only for conflict validation/recovery; the successful post-insert
-     * response lookup stays lean for large batches.
-     *
      * @param  Collection<int, array{device_id: string, client_event_id: string}>  $preparedItems
      * @return Collection<string, CardReviewEvent>
      */
-    private function existingReviewEventsBySyncKey(Collection $preparedItems, bool $withOwnerContext = false): Collection
+    private function existingReviewEventsBySyncKey(Collection $preparedItems): Collection
     {
-        $query = CardReviewEvent::query();
-
-        if ($withOwnerContext) {
-            $query->with([
-                'card' => fn ($query) => $query->withTrashed(),
-                'card.deck' => fn ($query) => $query->withTrashed(),
-            ]);
-        }
-
-        return $query
-            ->whereIn('device_id', $preparedItems->pluck('device_id')->unique())
-            ->whereIn('client_event_id', $preparedItems->pluck('client_event_id')->unique())
+        return $this->reviewEventsBySyncKeyQuery($preparedItems)
             ->get()
             ->keyBy(fn (CardReviewEvent $reviewEvent): string => ClientEventKey::lookupKey(
                 $reviewEvent->device_id,
                 $reviewEvent->client_event_id,
             ));
+    }
+
+    /**
+     * @param  Collection<int, array{device_id: string, client_event_id: string}>  $preparedItems
+     * @return Collection<string, CardReviewEvent>
+     */
+    private function existingReviewEventsBySyncKeyWithOwnerContext(Collection $preparedItems): Collection
+    {
+        return $this->reviewEventsBySyncKeyQuery($preparedItems)
+            ->with([
+                'card' => fn ($query) => $query->withTrashed(),
+                'card.deck' => fn ($query) => $query->withTrashed(),
+            ])
+            ->get()
+            ->keyBy(fn (CardReviewEvent $reviewEvent): string => ClientEventKey::lookupKey(
+                $reviewEvent->device_id,
+                $reviewEvent->client_event_id,
+            ));
+    }
+
+    private function reviewEventsBySyncKeyQuery(Collection $preparedItems): Builder
+    {
+        return CardReviewEvent::query()
+            ->whereIn('device_id', $preparedItems->pluck('device_id')->unique())
+            ->whereIn('client_event_id', $preparedItems->pluck('client_event_id')->unique());
     }
 
     /**
@@ -354,6 +366,9 @@ class ReviewCardBatchAction
             if ($existingById === null) {
                 continue;
             }
+
+            $card = $cardsById->get($item['card_id'])
+                ?? throw new RuntimeException('Card missing while validating review event conflicts.');
 
             $this->assertReviewEventBelongsToCardOwner($existingById, $card);
 

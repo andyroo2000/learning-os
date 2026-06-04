@@ -65,11 +65,13 @@ class FlashcardResourceTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => null,
+            'new_queue_position' => null,
         ], sync: true);
 
         $this->assertSame(
             'new',
             CardResource::make($card)->resolve()['study_status'],
         );
+        $this->assertNull(CardResource::make($card)->resolve()['new_queue_position']);
     }
 }

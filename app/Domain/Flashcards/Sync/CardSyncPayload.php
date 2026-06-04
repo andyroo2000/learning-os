@@ -25,6 +25,7 @@ final class CardSyncPayload
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
             'study_status' => $card->study_status?->value ?? CardStudyStatus::New->value,
+            'new_queue_position' => $card->new_queue_position,
             'due_at' => $card->due_at?->toJSON(),
             'introduced_at' => $card->introduced_at?->toJSON(),
             'failed_at' => $card->failed_at?->toJSON(),

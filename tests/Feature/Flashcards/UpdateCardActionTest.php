@@ -63,6 +63,7 @@ class UpdateCardActionTest extends TestCase
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
             'study_status' => 'new',
+            'new_queue_position' => $updatedCard->new_queue_position,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

@@ -52,6 +52,7 @@ class DeleteCardActionTest extends TestCase
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
             'study_status' => 'new',
+            'new_queue_position' => $card->new_queue_position,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

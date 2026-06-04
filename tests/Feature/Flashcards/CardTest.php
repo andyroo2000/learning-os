@@ -28,6 +28,7 @@ class CardTest extends TestCase
             'introduced_at',
             'failed_at',
             'last_reviewed_at',
+            'new_queue_position',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -64,6 +65,7 @@ class CardTest extends TestCase
         $this->assertNull($card->introduced_at);
         $this->assertNull($card->failed_at);
         $this->assertNull($card->last_reviewed_at);
+        $this->assertNull($card->new_queue_position);
     }
 
     public function test_card_casts_study_state_fields(): void
@@ -76,6 +78,7 @@ class CardTest extends TestCase
         $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
         $card->failed_at = Carbon::parse('2026-06-02T14:15:00Z');
         $card->last_reviewed_at = Carbon::parse('2026-06-03T14:15:00Z');
+        $card->new_queue_position = '7';
         $card->save();
         $card->refresh();
 
@@ -84,6 +87,7 @@ class CardTest extends TestCase
         $this->assertSame('2026-06-01T14:15:00.000000Z', $card->introduced_at?->toJSON());
         $this->assertSame('2026-06-02T14:15:00.000000Z', $card->failed_at?->toJSON());
         $this->assertSame('2026-06-03T14:15:00.000000Z', $card->last_reviewed_at?->toJSON());
+        $this->assertSame(7, $card->new_queue_position);
     }
 
     public function test_card_study_state_is_not_mass_assignable(): void
@@ -97,6 +101,7 @@ class CardTest extends TestCase
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
             'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
             'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
+            'new_queue_position' => 7,
         ]);
 
         $this->assertSame(CardStudyStatus::New, $card->study_status);
@@ -104,6 +109,7 @@ class CardTest extends TestCase
         $this->assertNull($card->introduced_at);
         $this->assertNull($card->failed_at);
         $this->assertNull($card->last_reviewed_at);
+        $this->assertNull($card->new_queue_position);
     }
 
     public function test_card_belongs_to_a_deck(): void

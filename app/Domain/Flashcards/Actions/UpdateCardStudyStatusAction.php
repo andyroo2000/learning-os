@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -16,6 +17,7 @@ class UpdateCardStudyStatusAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
     ) {}
 
     public function handle(Card $card, CardStudyStatus|string $studyStatus): UpdateCardResult
@@ -23,28 +25,37 @@ class UpdateCardStudyStatusAction
         $studyStatus = $this->normalizeStudyStatus($studyStatus);
 
         return DB::transaction(function () use ($card, $studyStatus): UpdateCardResult {
-            $card->study_status = $studyStatus;
+            if (($card->study_status ?? CardStudyStatus::New) !== $studyStatus) {
+                $card->study_status = $studyStatus;
+            }
 
             if ($studyStatus === CardStudyStatus::New) {
+                if ($card->new_queue_position === null) {
+                    $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($card->ownerUserId());
+                }
+
                 $card->due_at = null;
                 $card->introduced_at = null;
                 $card->failed_at = null;
                 $card->last_reviewed_at = null;
+            } elseif ($card->new_queue_position !== null) {
+                $card->new_queue_position = null;
             }
 
             $wasUpdated = $card->isDirty([
                 'study_status',
+                'new_queue_position',
                 'due_at',
                 'introduced_at',
                 'failed_at',
                 'last_reviewed_at',
             ]);
 
-            $card->saveOrFail();
-
             if (! $wasUpdated) {
                 return UpdateCardResult::unchanged($card);
             }
+
+            $card->saveOrFail();
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
@@ -77,5 +88,10 @@ class UpdateCardStudyStatusAction
             ?? throw new InvalidArgumentException(
                 'Card study_status must be one of: '.implode(', ', CardStudyStatus::values()).'.',
             );
+    }
+
+    private function newCardQueuePosition(): NewCardQueuePosition
+    {
+        return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
     }
 }

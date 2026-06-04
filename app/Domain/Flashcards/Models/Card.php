@@ -46,6 +46,7 @@ class Card extends Model
             'introduced_at' => 'datetime',
             'failed_at' => 'datetime',
             'last_reviewed_at' => 'datetime',
+            'new_queue_position' => 'integer',
         ];
     }
 

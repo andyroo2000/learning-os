@@ -21,6 +21,7 @@ class CardResource extends JsonResource
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
             'study_status' => $this->study_status?->value ?? CardStudyStatus::New->value,
+            'new_queue_position' => $this->new_queue_position,
             'due_at' => $this->due_at?->toJSON(),
             'introduced_at' => $this->introduced_at?->toJSON(),
             'failed_at' => $this->failed_at?->toJSON(),

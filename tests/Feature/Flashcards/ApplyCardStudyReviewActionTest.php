@@ -16,7 +16,9 @@ class ApplyCardStudyReviewActionTest extends TestCase
 
     public function test_it_applies_hard_reviews_to_new_cards_as_learning(): void
     {
-        $card = Card::factory()->create();
+        $card = Card::factory()->create([
+            'new_queue_position' => 3,
+        ]);
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
 
         $updated = app(ApplyCardStudyReviewAction::class)->handle(
@@ -29,6 +31,7 @@ class ApplyCardStudyReviewActionTest extends TestCase
 
         $this->assertTrue($updated);
         $this->assertSame(CardStudyStatus::Learning, $card->study_status);
+        $this->assertNull($card->new_queue_position);
         $this->assertSame($reviewedAt->toJSON(), $card->introduced_at?->toJSON());
         $this->assertSame($reviewedAt->copy()->addDay()->toJSON(), $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);

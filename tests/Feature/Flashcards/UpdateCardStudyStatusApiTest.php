@@ -33,6 +33,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $card->id)
             ->assertJsonPath('data.study_status', 'suspended')
+            ->assertJsonPath('data.new_queue_position', null)
             ->assertJsonPath('data.due_at', '2026-06-05T14:15:00.000000Z')
             ->assertJsonStructure([
                 'data' => [
@@ -42,6 +43,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
                     'front_text',
                     'back_text',
                     'study_status',
+                    'new_queue_position',
                     'due_at',
                     'introduced_at',
                     'failed_at',
@@ -63,6 +65,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
         $this->assertSame($card->id, $entry->resource_id);
         $this->assertSame('suspended', $entry->payload['study_status']);
+        $this->assertNull($entry->payload['new_queue_position']);
     }
 
     public function test_it_normalizes_status_without_global_trim_middleware(): void
@@ -98,6 +101,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.study_status', 'new')
+            ->assertJsonPath('data.new_queue_position', 1)
             ->assertJsonPath('data.due_at', null)
             ->assertJsonPath('data.introduced_at', null)
             ->assertJsonPath('data.failed_at', null)
@@ -106,6 +110,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,
             'study_status' => 'new',
+            'new_queue_position' => 1,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,

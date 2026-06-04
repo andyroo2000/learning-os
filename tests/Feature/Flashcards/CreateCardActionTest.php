@@ -55,6 +55,7 @@ class CreateCardActionTest extends TestCase
             'deck_id' => $deck->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'new_queue_position' => 1,
         ]);
 
         $entry = SyncFeedEntry::query()->sole();
@@ -71,6 +72,7 @@ class CreateCardActionTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
             'study_status' => 'new',
+            'new_queue_position' => 1,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -79,6 +81,56 @@ class CreateCardActionTest extends TestCase
             'updated_at' => $card->updated_at?->toJSON(),
             'deleted_at' => null,
         ], $entry->payload);
+    }
+
+    public function test_it_appends_new_cards_to_the_users_new_card_queue(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $otherDeck = Deck::factory()->for($user)->create();
+        $otherUserDeck = Deck::factory()->create();
+
+        $first = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $user->id,
+                deckId: $deck->id,
+                frontText: 'ciao',
+                backText: 'hello',
+            ),
+        )->card;
+        $second = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $user->id,
+                deckId: $otherDeck->id,
+                frontText: 'arrivederci',
+                backText: 'goodbye',
+            ),
+        )->card;
+        $otherUserCard = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $otherUserDeck->user_id,
+                deckId: $otherUserDeck->id,
+                frontText: 'hola',
+                backText: 'hello',
+            ),
+        )->card;
+
+        $this->assertSame(1, $first->new_queue_position);
+        $this->assertSame(2, $second->new_queue_position);
+        $this->assertSame(1, $otherUserCard->new_queue_position);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $first->id,
+            'new_queue_position' => 1,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $second->id,
+            'new_queue_position' => 2,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $otherUserCard->id,
+            'new_queue_position' => 1,
+        ]);
     }
 
     public function test_it_uses_a_provided_ulid(): void

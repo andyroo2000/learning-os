@@ -95,6 +95,7 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame($card->id, $cardEntry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $cardEntry->operation);
         $this->assertSame('review', $cardEntry->payload['study_status']);
+        $this->assertNull($cardEntry->payload['new_queue_position']);
         $this->assertSame($reviewedAt->toJSON(), $cardEntry->payload['introduced_at']);
         $this->assertSame($reviewedAt->toJSON(), $cardEntry->payload['last_reviewed_at']);
     }

@@ -22,6 +22,15 @@ class ShowMediaAssetActionTest extends TestCase
         $this->assertSame($mediaAsset->id, $shownMediaAsset->id);
     }
 
+    public function test_it_normalizes_media_asset_id_before_showing(): void
+    {
+        $mediaAsset = MediaAsset::factory()->create();
+
+        $shownMediaAsset = app(ShowMediaAssetAction::class)->handle('  '.strtoupper($mediaAsset->id).'  ');
+
+        $this->assertSame($mediaAsset->id, $shownMediaAsset->id);
+    }
+
     public function test_it_rejects_missing_media_assets(): void
     {
         $this->expectException(ModelNotFoundException::class);

@@ -102,6 +102,8 @@ class ReviewCardAction
             $reviewEvent->id = $data->id;
         }
 
+        $this->assignSchedulerSnapshots($reviewEvent, $card, $rating);
+
         try {
             return DB::transaction(function () use ($card, $rating, $reviewEvent): ReviewCardResult {
                 $this->saveReviewEvent($reviewEvent);
@@ -205,6 +207,18 @@ class ReviewCardAction
         }
 
         return $reviewEvent;
+    }
+
+    private function assignSchedulerSnapshots(CardReviewEvent $reviewEvent, Card $card, CardReviewRating $rating): void
+    {
+        $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
+            ? $card->scheduler_state
+            : null;
+        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterReview(
+            card: $card,
+            rating: $rating,
+            reviewedAt: $reviewEvent->reviewed_at,
+        );
     }
 
     private function assertExistingSyncEventMatchesRequest(

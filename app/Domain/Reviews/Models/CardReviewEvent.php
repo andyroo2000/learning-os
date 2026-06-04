@@ -82,6 +82,8 @@ class CardReviewEvent extends Model
             'rating' => CardReviewRating::class,
             'reviewed_at' => 'datetime',
             'client_created_at' => 'datetime',
+            'scheduler_state_before' => 'array',
+            'scheduler_state_after' => 'array',
         ];
     }
 }

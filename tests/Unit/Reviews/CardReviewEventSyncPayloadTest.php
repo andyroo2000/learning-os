@@ -22,6 +22,14 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => 'review-event-1',
             'device_id' => 'ios-device-1',
             'client_created_at' => Carbon::parse('2026-05-30T12:13:00Z'),
+            'scheduler_state_before' => json_encode([
+                'state' => 0,
+                'reps' => 0,
+            ]),
+            'scheduler_state_after' => json_encode([
+                'state' => 2,
+                'reps' => 1,
+            ]),
             'created_at' => Carbon::parse('2026-05-30T12:14:30Z'),
             'updated_at' => Carbon::parse('2026-05-30T12:15:00Z'),
         ], sync: true);
@@ -38,6 +46,14 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => 'review-event-1',
             'device_id' => 'ios-device-1',
             'client_created_at' => '2026-05-30T12:13:00.000000Z',
+            'scheduler_state_before' => [
+                'state' => 0,
+                'reps' => 0,
+            ],
+            'scheduler_state_after' => [
+                'state' => 2,
+                'reps' => 1,
+            ],
             'created_at' => '2026-05-30T12:14:30.000000Z',
             'updated_at' => '2026-05-30T12:15:00.000000Z',
         ];
@@ -60,6 +76,8 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => null,
             'created_at' => Carbon::parse('2026-05-30T12:14:30Z'),
             'updated_at' => Carbon::parse('2026-05-30T12:15:00Z'),
         ], sync: true);
@@ -76,6 +94,8 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => null,
             'created_at' => '2026-05-30T12:14:30.000000Z',
             'updated_at' => '2026-05-30T12:15:00.000000Z',
         ], $payload);

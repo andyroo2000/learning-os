@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Actions\CreateDeckAction;
 use App\Domain\Flashcards\Data\CreateDeckData;
 use App\Domain\Flashcards\Exceptions\DeckConflictException;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -14,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 use Tests\TestCase;
 
 class CreateDeckActionTest extends TestCase
@@ -201,6 +204,8 @@ class CreateDeckActionTest extends TestCase
         $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
         $inserted = false;
+        $transactionLevelBeforeAction = DB::transactionLevel();
+        $transactionLevelAfterRollback = null;
 
         DB::listen(function (QueryExecuted $query) use (&$inserted, $id, $user): void {
             if ($inserted || ! in_array($id, $query->bindings, true)) {
@@ -219,7 +224,14 @@ class CreateDeckActionTest extends TestCase
             ]);
         });
 
-        $result = app(CreateDeckAction::class)->handle(
+        $createDeck = new CreateDeckAction(
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            afterClientIdUniqueConflict: function () use (&$transactionLevelAfterRollback): void {
+                $transactionLevelAfterRollback = DB::transactionLevel();
+            },
+        );
+
+        $result = $createDeck->handle(
             CreateDeckData::fromInput(
                 userId: $user->id,
                 name: 'Italian Basics',
@@ -231,9 +243,40 @@ class CreateDeckActionTest extends TestCase
 
         $this->assertTrue($inserted);
         $this->assertFalse($result->wasCreated);
+        $this->assertSame($transactionLevelBeforeAction, $transactionLevelAfterRollback);
         $this->assertSame($id, $deck->id);
         $this->assertDatabaseCount('decks', 1);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rolls_back_the_deck_when_recording_sync_feed_fails(): void
+    {
+        $user = User::factory()->create();
+
+        $createDeck = new CreateDeckAction(
+            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
+            {
+                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                {
+                    throw new RuntimeException('Sync feed failed.');
+                }
+            },
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Sync feed failed.');
+
+        try {
+            $createDeck->handle(
+                CreateDeckData::fromInput(
+                    userId: $user->id,
+                    name: 'Italian Basics',
+                ),
+            );
+        } finally {
+            $this->assertDatabaseCount('decks', 0);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_rejects_client_provided_ulid_conflicts(): void

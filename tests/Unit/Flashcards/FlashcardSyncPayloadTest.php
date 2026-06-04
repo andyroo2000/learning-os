@@ -1,0 +1,89 @@
+<?php
+
+namespace Tests\Unit\Flashcards;
+
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Flashcards\Sync\DeckSyncPayload;
+use Illuminate\Support\Carbon;
+use PHPUnit\Framework\TestCase;
+
+class FlashcardSyncPayloadTest extends TestCase
+{
+    public function test_deck_payload_uses_client_facing_resource_keys(): void
+    {
+        $deck = new Deck;
+        $deck->setRawAttributes([
+            'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'name' => 'Biology',
+            'description' => 'Chapter 4',
+            'created_at' => Carbon::parse('2026-05-27T09:14:00Z'),
+            'updated_at' => Carbon::parse('2026-05-27T09:15:00Z'),
+            'deleted_at' => Carbon::parse('2026-05-27T09:16:00Z'),
+        ], sync: true);
+
+        $payload = DeckSyncPayload::fromDeck($deck);
+
+        $expected = [
+            'id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'name' => 'Biology',
+            'description' => 'Chapter 4',
+            'created_at' => '2026-05-27T09:14:00.000000Z',
+            'updated_at' => '2026-05-27T09:15:00.000000Z',
+            'deleted_at' => '2026-05-27T09:16:00.000000Z',
+        ];
+
+        $this->assertSame(DeckSyncPayload::DOMAIN, 'flashcards');
+        $this->assertSame(DeckSyncPayload::RESOURCE_TYPE, 'deck');
+        $this->assertSame($expected, $payload);
+        $this->assertSame([
+            'id',
+            'name',
+            'description',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ], array_keys($payload));
+    }
+
+    public function test_card_payload_uses_client_facing_resource_keys(): void
+    {
+        $card = new Card;
+        $card->setRawAttributes([
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
+            'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
+            'deleted_at' => null,
+        ], sync: true);
+
+        $payload = CardSyncPayload::fromCard($card);
+
+        $expected = [
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'created_at' => '2026-05-28T10:14:00.000000Z',
+            'updated_at' => '2026-05-28T10:15:00.000000Z',
+            'deleted_at' => null,
+        ];
+
+        $this->assertSame(CardSyncPayload::DOMAIN, 'flashcards');
+        $this->assertSame(CardSyncPayload::RESOURCE_TYPE, 'card');
+        $this->assertSame($expected, $payload);
+        $this->assertSame([
+            'id',
+            'deck_id',
+            'front_text',
+            'back_text',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ], array_keys($payload));
+        $this->assertArrayNotHasKey('media_assets', $payload);
+    }
+}

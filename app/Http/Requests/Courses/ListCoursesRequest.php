@@ -44,28 +44,34 @@ class ListCoursesRequest extends CursorPaginatedRequest
 
     public function status(): ?CourseStatus
     {
-        if (! $this->has('status')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('status', $validated)) {
             return null;
         }
 
-        return CourseStatus::from((string) $this->input('status'));
+        return CourseStatus::from($validated['status']);
     }
 
     public function nativeLanguage(): ?string
     {
-        if (! $this->has('native_language')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('native_language', $validated)) {
             return null;
         }
 
-        return (string) $this->input('native_language');
+        return $validated['native_language'];
     }
 
     public function targetLanguage(): ?string
     {
-        if (! $this->has('target_language')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('target_language', $validated)) {
             return null;
         }
 
-        return (string) $this->input('target_language');
+        return $validated['target_language'];
     }
 }

@@ -74,6 +74,15 @@ class CourseTest extends TestCase
         $this->assertNull($course->user_id);
     }
 
+    public function test_status_is_not_mass_assignable(): void
+    {
+        $course = Course::make([
+            'status' => CourseStatus::Ready,
+        ]);
+
+        $this->assertNull($course->status);
+    }
+
     public function test_factory_states_create_expected_statuses(): void
     {
         $draft = Course::factory()->draft()->create();
@@ -106,6 +115,29 @@ class CourseTest extends TestCase
         }
     }
 
+    public function test_course_language_pair_cannot_be_changed_after_creation(): void
+    {
+        $course = Course::factory()->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        $course->native_language = 'fr';
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Course language pair cannot be changed.');
+
+        try {
+            $course->save();
+        } finally {
+            $this->assertDatabaseHas('courses', [
+                'id' => $course->id,
+                'native_language' => 'en',
+                'target_language' => 'ja',
+            ]);
+        }
+    }
+
     public function test_description_is_optional(): void
     {
         $course = Course::factory()->create([
@@ -125,6 +157,17 @@ class CourseTest extends TestCase
         $course->delete();
 
         $this->assertSoftDeleted('courses', [
+            'id' => $course->id,
+        ]);
+    }
+
+    public function test_course_can_be_force_deleted(): void
+    {
+        $course = Course::factory()->create();
+
+        $course->forceDelete();
+
+        $this->assertDatabaseMissing('courses', [
             'id' => $course->id,
         ]);
     }

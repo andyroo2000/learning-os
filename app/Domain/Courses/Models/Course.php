@@ -13,10 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-// Course ownership is immutable for Eloquent model updates so future sync/media/course-child records
-// can trust the owner boundary. Query-builder updates must not mutate user_id.
+// Course ownership and language pair are immutable for Eloquent model updates so future
+// sync/media/course-child records can trust those boundaries. Query-builder updates must not mutate them.
 // Creation actions must assign user_id from auth context, not request input.
-#[Fillable(['title', 'description', 'status', 'native_language', 'target_language'])]
+#[Fillable(['title', 'description', 'native_language', 'target_language'])]
 class Course extends Model
 {
     /** @use HasFactory<CourseFactory> */
@@ -27,6 +27,10 @@ class Course extends Model
         static::updating(function (Course $course): void {
             if ($course->isDirty('user_id')) {
                 throw new LogicException('Course owner cannot be changed.');
+            }
+
+            if ($course->isDirty('native_language') || $course->isDirty('target_language')) {
+                throw new LogicException('Course language pair cannot be changed.');
             }
         });
     }

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Media;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -12,6 +13,8 @@ use InvalidArgumentException;
 
 final class StoreMediaAssetRequest extends FormRequest
 {
+    use NormalizesUlidInput;
+
     public function authorize(): bool
     {
         // The route requires auth:sanctum; add policy checks here when media ownership grows.
@@ -20,13 +23,17 @@ final class StoreMediaAssetRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $input = [
             'disk' => $this->trimStringInput('disk'),
             'path' => $this->trimStringInput('path'),
             'mime_type' => $this->trimStringInput('mime_type'),
             'public_url' => $this->trimStringInput('public_url'),
             'original_filename' => $this->trimStringInput('original_filename'),
-        ]);
+        ];
+
+        $this->mergeNormalizedUlidInput($input, 'id');
+
+        $this->merge($input);
     }
 
     /**

@@ -7,12 +7,20 @@ use InvalidArgumentException;
 
 final readonly class SyncMetadata
 {
+    // Enforce the default string-column limit before SQLite can mask it.
+    public const MAX_CLIENT_EVENT_ID_LENGTH = 255;
+
+    public const MAX_DEVICE_ID_LENGTH = 255;
+
     private function __construct(
         public string $clientEventId,
         public string $deviceId,
         public Carbon $clientCreatedAt,
     ) {}
 
+    /**
+     * @throws InvalidArgumentException when required metadata is missing or exceeds column limits.
+     */
     public static function fromRequired(
         ?string $clientEventId,
         ?string $deviceId,
@@ -24,12 +32,15 @@ final readonly class SyncMetadata
         }
 
         return new self(
-            clientEventId: $clientEventId,
-            deviceId: $deviceId,
+            clientEventId: self::validateClientEventId($clientEventId),
+            deviceId: self::validateDeviceId($deviceId),
             clientCreatedAt: $clientCreatedAt,
         );
     }
 
+    /**
+     * @throws InvalidArgumentException when partial metadata is present or exceeds column limits.
+     */
     public static function fromNullable(
         ?string $clientEventId,
         ?string $deviceId,
@@ -48,10 +59,28 @@ final readonly class SyncMetadata
         }
 
         return new self(
-            clientEventId: $clientEventId,
-            deviceId: $deviceId,
+            clientEventId: self::validateClientEventId($clientEventId),
+            deviceId: self::validateDeviceId($deviceId),
             clientCreatedAt: $clientCreatedAt,
         );
+    }
+
+    private static function validateClientEventId(string $clientEventId): string
+    {
+        if (mb_strlen($clientEventId) > self::MAX_CLIENT_EVENT_ID_LENGTH) {
+            throw new InvalidArgumentException('Client event ID must not exceed '.self::MAX_CLIENT_EVENT_ID_LENGTH.' characters.');
+        }
+
+        return $clientEventId;
+    }
+
+    private static function validateDeviceId(string $deviceId): string
+    {
+        if (mb_strlen($deviceId) > self::MAX_DEVICE_ID_LENGTH) {
+            throw new InvalidArgumentException('Device ID must not exceed '.self::MAX_DEVICE_ID_LENGTH.' characters.');
+        }
+
+        return $deviceId;
     }
 
     /**

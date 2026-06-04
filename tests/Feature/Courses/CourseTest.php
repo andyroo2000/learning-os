@@ -32,6 +32,18 @@ class CourseTest extends TestCase
         ]));
     }
 
+    public function test_courses_table_has_current_and_status_filtered_list_indexes(): void
+    {
+        $indexes = collect(Schema::getIndexes('courses'));
+
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'deleted_at', 'updated_at', 'id']
+        ));
+        $this->assertNotEmpty($indexes->filter(
+            fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'status', 'deleted_at', 'updated_at', 'id']
+        ));
+    }
+
     public function test_course_can_be_created_with_a_factory(): void
     {
         $course = Course::factory()->create([

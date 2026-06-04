@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Courses\ListCoursesController;
+use App\Http\Controllers\Api\Courses\StoreCourseController;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
@@ -54,6 +56,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/tokens', ListAccessTokensController::class);
     Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class);
     Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)->whereNumber('tokenId');
+    Route::get('/courses', ListCoursesController::class);
+    Route::post('/courses', StoreCourseController::class);
     Route::get('/card-review-events', ListReviewEventsController::class);
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');

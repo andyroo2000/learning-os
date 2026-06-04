@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('courses', function (Blueprint $table) {
+            // Future child tables should reference this with foreignUlid('course_id'), not foreignId().
             $table->ulid('id')->primary();
             // users.id is the default bigint id column; switch this with a coordinated user-id migration.
             // User hard-delete is account erasure; owned courses are hard-deleted with the user.

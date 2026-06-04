@@ -138,6 +138,29 @@ class CourseTest extends TestCase
         }
     }
 
+    public function test_course_target_language_cannot_be_changed_after_creation(): void
+    {
+        $course = Course::factory()->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        $course->target_language = 'it';
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Course language pair cannot be changed.');
+
+        try {
+            $course->save();
+        } finally {
+            $this->assertDatabaseHas('courses', [
+                'id' => $course->id,
+                'native_language' => 'en',
+                'target_language' => 'ja',
+            ]);
+        }
+    }
+
     public function test_description_is_optional(): void
     {
         $course = Course::factory()->create([

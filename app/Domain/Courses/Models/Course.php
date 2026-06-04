@@ -43,6 +43,7 @@ class Course extends Model
 
         if ($this->trashed()) {
             // Keep retrying DELETE idempotent: SoftDeletes would otherwise refresh deleted_at.
+            // Observers that must run on retry should live in the future delete action, not model events.
             return true;
         }
 

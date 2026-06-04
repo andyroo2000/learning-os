@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-// Course ownership is immutable so future sync/media/course-child records can trust the owner boundary.
+// Course ownership is immutable for Eloquent model updates so future sync/media/course-child records
+// can trust the owner boundary. Query-builder updates must not mutate user_id.
 // Creation actions must source user_id from auth context; fillable exists for trusted model construction.
 #[Fillable(['user_id', 'title', 'description', 'status', 'native_language', 'target_language'])]
 class Course extends Model
@@ -41,7 +42,6 @@ class Course extends Model
     protected function casts(): array
     {
         return [
-            'user_id' => 'integer',
             'status' => CourseStatus::class,
         ];
     }

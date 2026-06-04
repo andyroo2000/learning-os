@@ -115,7 +115,7 @@ jobs:
 
       - name: Prepare Laravel environment
         run: |
-          cp .env.example .env
+          echo "APP_KEY=" > .env
           php artisan key:generate --ansi
 
       - name: Run PostgreSQL migrations

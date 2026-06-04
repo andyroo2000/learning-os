@@ -14,7 +14,8 @@ class ListAccessTokensAction
     public function handle(User $user): Collection
     {
         return $user->tokens()
-            ->latest('created_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get();
     }
 }

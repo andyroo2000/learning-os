@@ -18,7 +18,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Pins course list index DDL across the database grammars we care about.
  * Postgres gets its own fixture even when it matches SQLite so grammar drift fails against the target we plan to run.
- * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
+ * Keep create/drop grammar fixtures centralized so future database support extends every portability assertion together.
+ * Pin drop SQL for every named index so future standalone index migrations cover PostgreSQL/MySQL rollback differences.
  * Keep the blueprint below in sync with course list index migrations.
  */
 class CourseIndexMigrationTest extends TestCase
@@ -44,17 +45,18 @@ class CourseIndexMigrationTest extends TestCase
         $this->assertSame($expectedCreateSql, $createSql);
     }
 
-    #[DataProvider('languagePairIndexDropSqlProvider')]
-    public function test_language_pair_index_rollback_compiles_to_portable_sql(
+    #[DataProvider('courseIndexDropSqlProvider')]
+    public function test_course_index_rollbacks_compile_to_portable_sql(
         string $connectionClass,
         string $grammarClass,
+        string $indexName,
         array $expectedDropSql,
     ): void {
         $connection = $this->connection($connectionClass);
         $grammar = new $grammarClass($connection);
         $connection->setSchemaGrammar($grammar);
 
-        $dropSql = $this->dropLanguagePairIndexBlueprint($connection)->toSql();
+        $dropSql = $this->dropCourseIndexBlueprint($connection, $indexName)->toSql();
 
         $this->assertSame($expectedDropSql, $dropSql);
     }
@@ -89,16 +91,26 @@ class CourseIndexMigrationTest extends TestCase
     /**
      * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>}>
      */
-    public static function languagePairIndexDropSqlProvider(): array
+    public static function courseIndexDropSqlProvider(): array
     {
-        return array_map(
-            fn (array $fixture): array => [$fixture['connection'], $fixture['grammar'], $fixture['drop_language_pair']],
-            self::portableSqlProvider(),
-        );
+        $cases = [];
+
+        foreach (self::portableSqlProvider() as $grammar => $fixture) {
+            foreach ($fixture['drop'] as $indexName => $dropSql) {
+                $cases[$grammar.' '.$indexName] = [
+                    $fixture['connection'],
+                    $fixture['grammar'],
+                    $indexName,
+                    $dropSql,
+                ];
+            }
+        }
+
+        return $cases;
     }
 
     /**
-     * @return array<string, array{connection: class-string<Connection>, grammar: class-string<Grammar>, create: list<string>, drop_language_pair: list<string>}>
+     * @return array<string, array{connection: class-string<Connection>, grammar: class-string<Grammar>, create: list<string>, drop: array<string, list<string>>}>
      */
     private static function portableSqlProvider(): array
     {
@@ -107,25 +119,19 @@ class CourseIndexMigrationTest extends TestCase
                 'connection' => SQLiteConnection::class,
                 'grammar' => SQLiteGrammar::class,
                 'create' => self::expectedSqlForSqlite(),
-                'drop_language_pair' => [
-                    'drop index "'.self::LANGUAGE_PAIR_LIST_INDEX.'"',
-                ],
+                'drop' => self::expectedDropSqlForSqlite(),
             ],
             'postgres' => [
                 'connection' => PostgresConnection::class,
                 'grammar' => PostgresGrammar::class,
                 'create' => self::expectedSqlForPostgres(),
-                'drop_language_pair' => [
-                    'drop index "'.self::LANGUAGE_PAIR_LIST_INDEX.'"',
-                ],
+                'drop' => self::expectedDropSqlForPostgres(),
             ],
             'mysql' => [
                 'connection' => MySqlConnection::class,
                 'grammar' => MySqlGrammar::class,
                 'create' => self::expectedSqlForMysql(),
-                'drop_language_pair' => [
-                    'alter table `courses` drop index `'.self::LANGUAGE_PAIR_LIST_INDEX.'`',
-                ],
+                'drop' => self::expectedDropSqlForMysql(),
             ],
         ];
     }
@@ -167,6 +173,44 @@ class CourseIndexMigrationTest extends TestCase
     }
 
     /**
+     * @return array<string, list<string>>
+     */
+    private static function expectedDropSqlForSqlite(): array
+    {
+        return self::expectedDropSqlWithFormat('drop index "%s"');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function expectedDropSqlForPostgres(): array
+    {
+        return self::expectedDropSqlWithFormat('drop index "%s"');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function expectedDropSqlForMysql(): array
+    {
+        return self::expectedDropSqlWithFormat('alter table `courses` drop index `%s`');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function expectedDropSqlWithFormat(string $format): array
+    {
+        $fixtures = [];
+
+        foreach (self::courseIndexNames() as $indexName) {
+            $fixtures[$indexName] = [sprintf($format, $indexName)];
+        }
+
+        return $fixtures;
+    }
+
+    /**
      * @param  class-string<Connection>  $connectionClass
      */
     private function connection(string $connectionClass): Connection
@@ -194,17 +238,17 @@ class CourseIndexMigrationTest extends TestCase
         });
     }
 
-    private function dropLanguagePairIndexBlueprint(Connection $connection): Blueprint
+    private function dropCourseIndexBlueprint(Connection $connection, string $indexName): Blueprint
     {
-        return new Blueprint($connection, 'courses', function (Blueprint $table): void {
-            $table->dropIndex(self::LANGUAGE_PAIR_LIST_INDEX);
+        return new Blueprint($connection, 'courses', function (Blueprint $table) use ($indexName): void {
+            $table->dropIndex($indexName);
         });
     }
 
     /**
      * @return list<string>
      */
-    private function courseIndexNames(): array
+    private static function courseIndexNames(): array
     {
         return [
             self::LIST_INDEX,

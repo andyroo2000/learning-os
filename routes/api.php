@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Courses\DeleteCourseController;
 use App\Http\Controllers\Api\Courses\ListCoursesController;
 use App\Http\Controllers\Api\Courses\ShowCourseController;
 use App\Http\Controllers\Api\Courses\StoreCourseController;
@@ -62,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/courses', StoreCourseController::class);
     Route::get('/courses/{course}', ShowCourseController::class)->whereUlid('course');
     Route::put('/courses/{course}', UpdateCourseController::class)->whereUlid('course');
+    Route::delete('/courses/{course}', DeleteCourseController::class)->whereUlid('course');
     Route::get('/card-review-events', ListReviewEventsController::class);
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');

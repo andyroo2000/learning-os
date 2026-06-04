@@ -19,4 +19,9 @@ class CoursePolicy
     {
         return $this->view($user, $course);
     }
+
+    public function delete(User $user, Course $course): Response
+    {
+        return $this->view($user, $course);
+    }
 }

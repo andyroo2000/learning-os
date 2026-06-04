@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ListReviewEventsAction;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
@@ -10,6 +12,7 @@ use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ListReviewEventsActionTest extends TestCase
@@ -84,5 +87,44 @@ class ListReviewEventsActionTest extends TestCase
         $reviewEventIds = collect($reviewEvents->items())->pluck('id')->all();
 
         $this->assertSame([$visibleEvent->id], $reviewEventIds);
+    }
+
+    public function test_it_filters_results_by_course_id(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $otherDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+
+        CardReviewEvent::factory()->for($otherCard)->create();
+        $this->cardReviewEventFor(User::factory()->create());
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, courseId: $course->id);
+        $reviewEventIds = collect($reviewEvents->items())->pluck('id')->all();
+
+        $this->assertSame([$reviewEvent->id], $reviewEventIds);
+    }
+
+    public function test_it_returns_empty_results_for_a_course_owned_by_another_user(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $otherCourse = Course::factory()->for($otherUser)->create();
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, courseId: $otherCourse->id);
+
+        $this->assertEmpty($reviewEvents->items());
+    }
+
+    public function test_it_rejects_blank_course_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Review event course_id filter must not be blank when provided.');
+
+        app(ListReviewEventsAction::class)->handle(User::factory()->create()->id, courseId: '   ');
     }
 }

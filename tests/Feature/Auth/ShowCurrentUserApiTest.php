@@ -32,14 +32,20 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertJsonMissingPath('data.remember_token');
     }
 
-    public function test_it_returns_null_for_unverified_email(): void
+    public function test_unverified_user_has_null_email_verified_at(): void
     {
-        $this->signIn(User::factory()->unverified()->create());
+        $user = $this->signIn(User::factory()->unverified()->create([
+            'name' => 'Katherine Johnson',
+            'email' => 'katherine@example.com',
+        ]));
 
         $response = $this->getJson('/api/me');
 
         $response
             ->assertOk()
+            ->assertJsonPath('data.id', $user->id)
+            ->assertJsonPath('data.name', 'Katherine Johnson')
+            ->assertJsonPath('data.email', 'katherine@example.com')
             ->assertJsonPath('data.email_verified_at', null);
     }
 
@@ -59,7 +65,9 @@ class ShowCurrentUserApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.name', 'Grace Hopper')
-            ->assertJsonPath('data.email', 'grace@example.com');
+            ->assertJsonPath('data.email', 'grace@example.com')
+            ->assertJsonMissingPath('data.password')
+            ->assertJsonMissingPath('data.remember_token');
     }
 
     public function test_it_requires_authentication(): void

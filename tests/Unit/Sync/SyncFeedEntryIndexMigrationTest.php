@@ -175,8 +175,10 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                     'create index "sfe_user_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "operation", "checkpoint")',
                     'create index "sfe_user_domain_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "operation", "checkpoint")',
                     'create index "sfe_user_domain_type_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "operation", "checkpoint")',
+                    'create index "sfe_resource_operation_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "operation", "checkpoint")',
                 ],
                 [
+                    'drop index "sfe_resource_operation_history_idx"',
                     'drop index "sfe_user_domain_type_operation_checkpoint_idx"',
                     'drop index "sfe_user_domain_operation_checkpoint_idx"',
                     'drop index "sfe_user_operation_checkpoint_idx"',
@@ -189,8 +191,10 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                     'create index "sfe_user_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "operation", "checkpoint")',
                     'create index "sfe_user_domain_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "operation", "checkpoint")',
                     'create index "sfe_user_domain_type_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "operation", "checkpoint")',
+                    'create index "sfe_resource_operation_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "operation", "checkpoint")',
                 ],
                 [
+                    'drop index "sfe_resource_operation_history_idx"',
                     'drop index "sfe_user_domain_type_operation_checkpoint_idx"',
                     'drop index "sfe_user_domain_operation_checkpoint_idx"',
                     'drop index "sfe_user_operation_checkpoint_idx"',
@@ -203,8 +207,10 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                     'alter table `sync_feed_entries` add index `sfe_user_operation_checkpoint_idx`(`user_id`, `operation`, `checkpoint`)',
                     'alter table `sync_feed_entries` add index `sfe_user_domain_operation_checkpoint_idx`(`user_id`, `domain`, `operation`, `checkpoint`)',
                     'alter table `sync_feed_entries` add index `sfe_user_domain_type_operation_checkpoint_idx`(`user_id`, `domain`, `resource_type`, `operation`, `checkpoint`)',
+                    'alter table `sync_feed_entries` add index `sfe_resource_operation_history_idx`(`user_id`, `domain`, `resource_type`, `resource_id`, `operation`, `checkpoint`)',
                 ],
                 [
+                    'alter table `sync_feed_entries` drop index `sfe_resource_operation_history_idx`',
                     'alter table `sync_feed_entries` drop index `sfe_user_domain_type_operation_checkpoint_idx`',
                     'alter table `sync_feed_entries` drop index `sfe_user_domain_operation_checkpoint_idx`',
                     'alter table `sync_feed_entries` drop index `sfe_user_operation_checkpoint_idx`',
@@ -274,12 +280,17 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                 ['user_id', 'domain', 'resource_type', 'operation', 'checkpoint'],
                 'sfe_user_domain_type_operation_checkpoint_idx',
             );
+            $table->index(
+                ['user_id', 'domain', 'resource_type', 'resource_id', 'operation', 'checkpoint'],
+                'sfe_resource_operation_history_idx',
+            );
         });
     }
 
     private function dropOperationReplayIndexBlueprint(Connection $connection): Blueprint
     {
         return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
+            $table->dropIndex('sfe_resource_operation_history_idx');
             $table->dropIndex('sfe_user_domain_type_operation_checkpoint_idx');
             $table->dropIndex('sfe_user_domain_operation_checkpoint_idx');
             $table->dropIndex('sfe_user_operation_checkpoint_idx');
@@ -299,6 +310,7 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
             'sfe_user_operation_checkpoint_idx',
             'sfe_user_domain_operation_checkpoint_idx',
             'sfe_user_domain_type_operation_checkpoint_idx',
+            'sfe_resource_operation_history_idx',
         ];
     }
 }

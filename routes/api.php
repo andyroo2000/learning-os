@@ -43,6 +43,8 @@ use App\Http\Controllers\Api\Reviews\ListReviewEventsController;
 use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
+use App\Http\Controllers\Api\Study\ShowStudySettingsController;
+use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +95,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
+    Route::get('/study/settings', ShowStudySettingsController::class);
+    Route::patch('/study/settings', UpdateStudySettingsController::class);
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')
         ->group(function (): void {

@@ -3,6 +3,7 @@
 namespace App\Domain\Flashcards\Models;
 
 use App\Domain\Courses\Models\Course;
+use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
 use Database\Factories\DeckFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,7 +21,7 @@ use LogicException;
 class Deck extends Model
 {
     /** @use HasFactory<DeckFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
     protected static function booted(): void
     {

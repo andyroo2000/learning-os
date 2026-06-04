@@ -4,6 +4,7 @@ namespace App\Domain\Courses\Models;
 
 use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Flashcards\Models\Deck;
+use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
 use Database\Factories\CourseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,7 +23,7 @@ use LogicException;
 class Course extends Model
 {
     /** @use HasFactory<CourseFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
     protected static function booted(): void
     {

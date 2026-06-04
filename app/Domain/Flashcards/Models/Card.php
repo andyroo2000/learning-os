@@ -4,6 +4,7 @@ namespace App\Domain\Flashcards\Models;
 
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -19,7 +20,7 @@ use LogicException;
 class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
     protected static function newFactory(): CardFactory
     {

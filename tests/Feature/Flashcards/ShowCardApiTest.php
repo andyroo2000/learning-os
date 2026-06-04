@@ -37,6 +37,18 @@ class ShowCardApiTest extends TestCase
             ]);
     }
 
+    public function test_it_shows_an_owned_card_with_an_uppercase_route_id(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->getJson('/api/cards/'.strtoupper($card->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $card->id);
+    }
+
     public function test_it_hides_another_users_card(): void
     {
         $this->signIn();

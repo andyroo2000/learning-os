@@ -41,6 +41,18 @@ class ShowCourseApiTest extends TestCase
             ]);
     }
 
+    public function test_it_shows_an_owned_course_with_an_uppercase_route_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+
+        $response = $this->getJson('/api/courses/'.strtoupper($course->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $course->id);
+    }
+
     public function test_it_hides_another_users_course(): void
     {
         $this->signIn();

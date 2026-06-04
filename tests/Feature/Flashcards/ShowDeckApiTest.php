@@ -36,6 +36,18 @@ class ShowDeckApiTest extends TestCase
             ]);
     }
 
+    public function test_it_shows_an_owned_deck_with_an_uppercase_route_id(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson('/api/decks/'.strtoupper($deck->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $deck->id);
+    }
+
     public function test_it_hides_another_users_deck(): void
     {
         $this->signIn();

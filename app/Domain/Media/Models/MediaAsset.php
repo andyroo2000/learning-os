@@ -5,6 +5,7 @@ namespace App\Domain\Media\Models;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Media\Values\PublicUrl;
+use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
 use Database\Factories\MediaAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,7 +26,7 @@ use InvalidArgumentException;
 class MediaAsset extends Model
 {
     /** @use HasFactory<MediaAssetFactory> */
-    use HasFactory, HasUlids;
+    use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings;
 
     public const MAX_DISK_LENGTH = 255;
 

@@ -17,7 +17,12 @@ class ListCardsController extends Controller
         $user = $request->user();
 
         return CardResource::collection(
-            $listCards->handle($user->id, $request->pageSize(), $request->courseId())->withQueryString()
+            $listCards->handle(
+                userId: $user->id,
+                pageSize: $request->pageSize(),
+                courseId: $request->courseId(),
+                studyStatus: $request->studyStatus(),
+            )->withQueryString()
         );
     }
 }

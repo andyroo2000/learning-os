@@ -2,18 +2,22 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Support\AssertsCursorPagination;
+use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class ListDeckCardsApiTest extends TestCase
 {
     use AssertsCursorPagination;
     use RefreshDatabase;
+    use SetsCardStudyStatus;
 
     public function test_it_lists_cards_for_an_owned_deck(): void
     {
@@ -140,6 +144,87 @@ class ListDeckCardsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_deck_cards_by_study_status(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $newCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+        $otherDeckCard = $this->cardWithStudyStatus($this->deckFor($user), CardStudyStatus::Review);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?study_status=review");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewCard->id)
+            ->assertJsonPath('data.0.study_status', 'review')
+            ->assertJsonMissing([
+                'id' => $newCard->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherDeckCard->id,
+            ]);
+    }
+
+    public function test_it_normalizes_deck_card_study_status_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $newCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson("/api/decks/{$deck->id}/cards?study_status=%20REVIEW%20");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewCard->id)
+            ->assertJsonMissing([
+                'id' => $newCard->id,
+            ]);
+    }
+
+    public function test_it_rejects_a_blank_deck_card_study_status_filter_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson("/api/decks/{$deck->id}/cards?study_status=%20%20%20");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['study_status']);
+    }
+
+    public function test_it_rejects_a_malformed_deck_card_study_status_filter(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?study_status=queued");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['study_status']);
+    }
+
+    public function test_it_rejects_an_array_deck_card_study_status_filter(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?study_status[]=review");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['study_status']);
+    }
+
     public function test_it_returns_not_found_for_a_soft_deleted_deck(): void
     {
         $user = $this->signIn();
@@ -199,6 +284,47 @@ class ListDeckCardsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lowTieCard->id)
             ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_preserves_deck_card_study_status_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstReviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $secondReviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $newCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'created_at' => now()->subSeconds(30),
+            'updated_at' => now()->subSeconds(30),
+        ]);
+
+        $firstPage = $this->getJson("/api/decks/{$deck->id}/cards?study_status=review&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $firstReviewCard->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'study_status', 'review');
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondReviewCard->id)
+            ->assertJsonMissing([
+                'id' => $newCard->id,
+            ]);
     }
 
     public function test_it_accepts_a_custom_page_size(): void

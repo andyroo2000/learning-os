@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Actions;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Support\Identifiers\CanonicalUlid;
 use App\Support\Pagination\CursorPageSize;
@@ -13,10 +14,15 @@ class ListCardsAction
     /**
      * @return CursorPaginator<Card>
      */
-    public function handle(int $userId, ?CursorPageSize $pageSize = null, ?string $courseId = null): CursorPaginator
-    {
+    public function handle(
+        int $userId,
+        ?CursorPageSize $pageSize = null,
+        ?string $courseId = null,
+        CardStudyStatus|string|null $studyStatus = null,
+    ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
+        $studyStatus = $studyStatus === null ? null : CardStudyStatus::fromFilter($studyStatus);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Card course_id filter must not be blank when provided.');
@@ -27,6 +33,7 @@ class ListCardsAction
             ->whereHas('deck', fn ($query) => $query
                 ->where('user_id', $userId)
                 ->when($courseId !== null, fn ($query) => $query->where('course_id', $courseId)))
+            ->when($studyStatus !== null, fn ($query) => $query->where('study_status', $studyStatus->value))
             ->orderByDesc('created_at')
             // id desc is stable for cursor pagination; same-millisecond ULID order is arbitrary.
             ->orderByDesc('id')

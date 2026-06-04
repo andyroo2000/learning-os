@@ -3,10 +3,13 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
+use App\Http\Requests\Flashcards\Concerns\FiltersCardStudyStatus;
 use App\Support\Identifiers\CanonicalUlid;
 
 class ListCardsRequest extends CursorPaginatedRequest
 {
+    use FiltersCardStudyStatus;
+
     protected function prepareForValidation(): void
     {
         $courseId = $this->input('course_id');
@@ -16,6 +19,8 @@ class ListCardsRequest extends CursorPaginatedRequest
                 'course_id' => CanonicalUlid::normalize($courseId),
             ]);
         }
+
+        $this->prepareStudyStatusForValidation();
     }
 
     /**
@@ -25,6 +30,7 @@ class ListCardsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'study_status' => $this->studyStatusRules(),
         ];
     }
 

@@ -4,17 +4,20 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\ListCardsAction;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class ListCardsActionTest extends TestCase
 {
     use RefreshDatabase;
+    use SetsCardStudyStatus;
 
     public function test_it_caps_the_page_size(): void
     {
@@ -79,6 +82,50 @@ class ListCardsActionTest extends TestCase
         );
 
         $this->assertSame([$courseCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_filters_cards_by_study_status_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+        $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            studyStatus: ' REVIEW ',
+        );
+
+        $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_accepts_study_status_enums_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $reviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            studyStatus: CardStudyStatus::Review,
+        );
+
+        $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_rejects_blank_study_status_filters_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card study_status filter must not be blank when provided.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            studyStatus: '   ',
+        );
     }
 
     public function test_it_rejects_blank_course_id_filters(): void

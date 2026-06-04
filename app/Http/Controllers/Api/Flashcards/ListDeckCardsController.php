@@ -16,7 +16,11 @@ class ListDeckCardsController extends Controller
         $this->authorize('view', $deck);
 
         return CardResource::collection(
-            $listDeckCards->handle($deck, $request->pageSize())->withQueryString()
+            $listDeckCards->handle(
+                deck: $deck,
+                pageSize: $request->pageSize(),
+                studyStatus: $request->studyStatus(),
+            )->withQueryString()
         );
     }
 }

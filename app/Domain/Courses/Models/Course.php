@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
 // Course ownership is immutable so future sync/media/course-child records can trust the owner boundary.
+// Creation actions must source user_id from auth context; fillable exists for trusted model construction.
 #[Fillable(['user_id', 'title', 'description', 'status', 'native_language', 'target_language'])]
 class Course extends Model
 {

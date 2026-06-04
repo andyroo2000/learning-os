@@ -61,7 +61,18 @@ class CourseTest extends TestCase
         $course = Course::factory()->create();
 
         $this->assertIsInt($course->user_id);
-        $this->assertSame($course->user_id, $course->user->id);
+        $this->assertEquals($course->user_id, $course->user->id);
+    }
+
+    public function test_factory_states_create_expected_statuses(): void
+    {
+        $generating = Course::factory()->generating()->create();
+        $ready = Course::factory()->ready()->create();
+        $error = Course::factory()->error()->create();
+
+        $this->assertSame(CourseStatus::Generating, $generating->status);
+        $this->assertSame(CourseStatus::Ready, $ready->status);
+        $this->assertSame(CourseStatus::Error, $error->status);
     }
 
     public function test_course_owner_cannot_be_changed_after_creation(): void

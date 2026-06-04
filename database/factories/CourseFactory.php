@@ -30,4 +30,25 @@ class CourseFactory extends Factory
             'target_language' => 'ja',
         ];
     }
+
+    public function generating(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => CourseStatus::Generating,
+        ]);
+    }
+
+    public function ready(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => CourseStatus::Ready,
+        ]);
+    }
+
+    public function error(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => CourseStatus::Error,
+        ]);
+    }
 }

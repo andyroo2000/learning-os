@@ -146,6 +146,56 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 
+    public function test_it_serves_course_entries_written_by_course_api_writes(): void
+    {
+        $this->signIn();
+
+        $createResponse = $this->postJson('/api/courses', [
+            'title' => 'Japanese Travel Foundations',
+            'description' => 'Audio-first course for common travel scenarios.',
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        $createResponse->assertCreated();
+
+        $courseId = $createResponse->json('data.id');
+
+        $this->putJson("/api/courses/{$courseId}", [
+            'title' => 'Japanese Travel Foundations',
+            'description' => 'Airport and train-station conversations.',
+        ])->assertOk();
+
+        $this->deleteJson("/api/courses/{$courseId}")
+            ->assertNoContent();
+
+        $response = $this->getJson("/api/sync/feed?domain=courses&resource_type=course&resource_id={$courseId}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('meta.domain', 'courses')
+            ->assertJsonPath('meta.resource_type', 'course')
+            ->assertJsonPath('meta.resource_id', $courseId)
+            ->assertJsonPath('data.0.operation', SyncFeedOperation::Create->value)
+            ->assertJsonPath('data.1.operation', SyncFeedOperation::Update->value)
+            ->assertJsonPath('data.2.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('data.0.payload.title', 'Japanese Travel Foundations')
+            ->assertJsonPath('data.0.payload.description', 'Audio-first course for common travel scenarios.')
+            ->assertJsonPath('data.1.payload.description', 'Airport and train-station conversations.')
+            ->assertJsonPath('data.2.payload.id', $courseId)
+            ->assertJsonPath('data.2.payload.status', 'draft')
+            ->assertJsonPath('data.2.payload.native_language', 'en')
+            ->assertJsonPath('data.2.payload.target_language', 'ja');
+
+        $deleteEntry = $response->json('data.2');
+
+        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
+        $this->assertIsString($deleteEntry['payload']['deleted_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
+    }
+
     public function test_it_returns_an_empty_list_when_the_user_has_no_new_entries(): void
     {
         $user = $this->signIn();

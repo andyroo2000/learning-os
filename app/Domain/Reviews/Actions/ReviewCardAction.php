@@ -17,6 +17,7 @@ use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
@@ -128,6 +129,10 @@ class ReviewCardAction
                 }
 
                 // The race winner disappeared before recovery could map it; ask the client to retry.
+                Log::warning('Review event race recovery failed after primary key collision.', [
+                    'review_event_id' => $data->id,
+                ]);
+
                 throw CardReviewEventConflictException::retryableConflict();
             }
 

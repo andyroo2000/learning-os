@@ -26,6 +26,7 @@ final class CardMediaSyncPayload
         Carbon|string|null $createdAt = null,
         Carbon|string|null $updatedAt = null,
     ): array {
+        // Delete tombstones may be built without a pivot timestamp snapshot; preserve the keys with null values.
         return [
             'card_id' => $cardId,
             'media_asset_id' => $mediaAssetId,

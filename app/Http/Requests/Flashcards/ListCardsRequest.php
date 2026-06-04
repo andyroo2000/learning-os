@@ -29,10 +29,12 @@ class ListCardsRequest extends CursorPaginatedRequest
 
     public function courseId(): ?string
     {
-        if (! $this->has('course_id')) {
+        $validated = $this->validated();
+
+        if (! array_key_exists('course_id', $validated)) {
             return null;
         }
 
-        return (string) $this->input('course_id');
+        return $validated['course_id'];
     }
 }

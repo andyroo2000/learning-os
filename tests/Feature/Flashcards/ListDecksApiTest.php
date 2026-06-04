@@ -118,6 +118,17 @@ class ListDecksApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
+    public function test_it_rejects_a_malformed_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks?course_id=not-a-ulid');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+    }
+
     public function test_it_returns_an_empty_list_when_the_user_has_no_decks(): void
     {
         $this->signIn();

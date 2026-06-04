@@ -29,8 +29,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
+          key: ${{ runner.os }}-${{ github.job }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-${{ github.job }}-composer-
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -85,6 +85,7 @@ jobs:
 
     env:
       APP_ENV: testing
+      CACHE_STORE: array
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
@@ -92,6 +93,7 @@ jobs:
       DB_USERNAME: learning_os
       DB_PASSWORD: ''
       PGSQL_SSL_MODE: disable
+      SESSION_DRIVER: array
 
     steps:
       - name: Checkout
@@ -108,8 +110,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
+          key: ${{ runner.os }}-${{ github.job }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-${{ github.job }}-composer-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -122,3 +124,6 @@ jobs:
 
       - name: Run PostgreSQL migrations
         run: php artisan migrate:fresh --force --ansi
+
+      - name: Verify PostgreSQL migration status
+        run: php artisan migrate:status --ansi

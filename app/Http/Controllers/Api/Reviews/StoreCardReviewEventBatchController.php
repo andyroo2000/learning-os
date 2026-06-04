@@ -14,6 +14,9 @@ use InvalidArgumentException;
 
 class StoreCardReviewEventBatchController extends Controller
 {
+    // Match single review creation if batch conflict recovery ever needs a retryable response.
+    private const RETRY_AFTER_SECONDS = 1;
+
     public function __invoke(StoreCardReviewEventBatchRequest $request, ReviewCardBatchAction $reviewCards): JsonResponse
     {
         $userId = (int) $request->user()->id;
@@ -38,6 +41,13 @@ class StoreCardReviewEventBatchController extends Controller
         } catch (CardReviewEventConflictException $exception) {
             if ($exception->shouldBeHiddenFrom($userId)) {
                 return response()->json(['message' => 'Not Found'], 404);
+            }
+
+            if ($exception->isRetryable()) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'reason' => $exception->reason(),
+                ], 503)->header('Retry-After', (string) self::RETRY_AFTER_SECONDS);
             }
 
             return response()->json([

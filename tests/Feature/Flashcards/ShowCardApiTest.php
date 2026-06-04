@@ -39,6 +39,7 @@ class ShowCardApiTest extends TestCase
                     'front_text' => 'ciao',
                     'back_text' => 'hello',
                     'study_status' => 'review',
+                    'new_queue_position' => null,
                     'due_at' => '2026-06-05T14:15:00.000000Z',
                     'introduced_at' => '2026-06-01T14:15:00.000000Z',
                     'failed_at' => '2026-06-02T14:15:00.000000Z',

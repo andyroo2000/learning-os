@@ -58,6 +58,7 @@ class UpdateCardStudyStatusActionTest extends TestCase
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
             'study_status' => 'suspended',
+            'new_queue_position' => null,
             'due_at' => $dueAt->toJSON(),
             'introduced_at' => $updatedCard->introduced_at?->toJSON(),
             'failed_at' => null,
@@ -92,10 +93,35 @@ class UpdateCardStudyStatusActionTest extends TestCase
 
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::New, $result->card->study_status);
+        $this->assertSame(1, $result->card->new_queue_position);
         $this->assertNull($result->card->due_at);
         $this->assertNull($result->card->introduced_at);
         $this->assertNull($result->card->failed_at);
         $this->assertNull($result->card->last_reviewed_at);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'new_queue_position' => 1,
+        ]);
+    }
+
+    public function test_non_new_status_clears_new_queue_position(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::New,
+            'new_queue_position' => 7,
+        ]);
+
+        $result = app(UpdateCardStudyStatusAction::class)->handle($card, CardStudyStatus::Suspended);
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::Suspended, $result->card->study_status);
+        $this->assertNull($result->card->new_queue_position);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'study_status' => 'suspended',
+            'new_queue_position' => null,
+        ]);
+        $this->assertNull(SyncFeedEntry::query()->sole()->payload['new_queue_position']);
     }
 
     public function test_it_is_idempotent_when_status_is_unchanged(): void

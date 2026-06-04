@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateCardResult;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -27,6 +28,7 @@ class CreateCardAction
     /** @internal Test-only race seams; see tests/Feature/Flashcards/CreateCardActionTest.php. */
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
         private readonly ?Closure $afterClientIdPrecheckMiss = null,
         private readonly ?Closure $afterClientIdUniqueConflict = null,
     ) {
@@ -107,6 +109,7 @@ class CreateCardAction
         DB::beginTransaction();
 
         try {
+            $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);
             $card->save();
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
@@ -150,6 +153,11 @@ class CreateCardAction
         DB::commit();
 
         return CreateCardResult::created($card);
+    }
+
+    private function newCardQueuePosition(): NewCardQueuePosition
+    {
+        return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
     }
 
     private function findExistingCard(string $id): ?Card

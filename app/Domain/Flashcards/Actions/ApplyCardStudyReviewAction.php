@@ -39,12 +39,14 @@ class ApplyCardStudyReviewAction
         }
 
         $card->study_status = $this->nextStudyStatus($currentStatus, $rating);
+        $card->new_queue_position = null;
         $card->due_at = $this->nextDueAt($rating, $reviewedAt);
         $card->failed_at = $rating === CardReviewRating::Again ? $reviewedAt : null;
         $card->last_reviewed_at = $reviewedAt;
 
         if (! $card->isDirty([
             'study_status',
+            'new_queue_position',
             'due_at',
             'introduced_at',
             'failed_at',

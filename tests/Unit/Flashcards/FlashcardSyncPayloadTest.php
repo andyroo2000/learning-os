@@ -78,6 +78,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => CardStudyStatus::Review,
+            'new_queue_position' => null,
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
             'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
@@ -96,6 +97,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => 'review',
+            'new_queue_position' => null,
             'due_at' => '2026-06-05T14:15:00.000000Z',
             'introduced_at' => '2026-06-01T14:15:00.000000Z',
             'failed_at' => '2026-06-02T14:15:00.000000Z',
@@ -121,6 +123,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => CardStudyStatus::New,
+            'new_queue_position' => 7,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -139,6 +142,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => 'new',
+            'new_queue_position' => 7,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -159,6 +163,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'study_status' => null,
+            'new_queue_position' => null,
             'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
             'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
             'deleted_at' => null,
@@ -167,5 +172,6 @@ class FlashcardSyncPayloadTest extends TestCase
         $payload = CardSyncPayload::fromCard($card);
 
         $this->assertSame('new', $payload['study_status']);
+        $this->assertNull($payload['new_queue_position']);
     }
 }

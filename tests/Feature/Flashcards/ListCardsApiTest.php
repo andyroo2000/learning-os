@@ -52,6 +52,7 @@ class ListCardsApiTest extends TestCase
                     '*' => [
                         'id',
                         'deck_id',
+                        'course_id',
                         'front_text',
                         'back_text',
                         'created_at',
@@ -65,6 +66,7 @@ class ListCardsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $firstCard->id,
                 'deck_id' => $firstDeck->id,
+                'course_id' => null,
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
                 'created_at' => $firstCard->created_at?->toJSON(),
@@ -74,6 +76,7 @@ class ListCardsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => $secondCard->id,
                 'deck_id' => $secondDeck->id,
+                'course_id' => null,
                 'front_text' => 'grazie',
                 'back_text' => 'thanks',
                 'created_at' => $secondCard->created_at?->toJSON(),
@@ -125,6 +128,7 @@ class ListCardsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $courseCard->id)
             ->assertJsonPath('data.0.deck_id', $courseDeck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
             ->assertJsonPath('data.0.front_text', 'ciao')
             ->assertJsonMissing([
                 'id' => $otherCourseCard->id,

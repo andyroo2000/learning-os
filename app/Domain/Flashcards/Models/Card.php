@@ -34,6 +34,23 @@ class Card extends Model
         return $this->belongsTo(Deck::class);
     }
 
+    public function deckCourseId(): ?string
+    {
+        if ($this->relationLoaded('deck')) {
+            return $this->deck?->course_id;
+        }
+
+        if (array_key_exists('deck_course_id', $this->getAttributes())) {
+            $courseId = $this->getAttribute('deck_course_id');
+
+            return $courseId === null ? null : (string) $courseId;
+        }
+
+        $courseId = $this->deck()->withTrashed()->value('course_id');
+
+        return $courseId === null ? null : (string) $courseId;
+    }
+
     /**
      * Prefer an eager-loaded deck when callers already have one; otherwise query only the owner ID.
      */

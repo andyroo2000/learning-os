@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public const CARD_MEDIA_PAIR_UNIQUE_INDEX = 'card_media_card_id_media_asset_id_unique';
+
     /**
      * Run the migrations.
      */
@@ -16,7 +18,7 @@ return new class extends Migration
             $table->foreignUlid('media_asset_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique(['card_id', 'media_asset_id']);
+            $table->unique(['card_id', 'media_asset_id'], self::CARD_MEDIA_PAIR_UNIQUE_INDEX);
         });
     }
 

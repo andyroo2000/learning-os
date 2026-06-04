@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public const DISK_PATH_UNIQUE_INDEX = 'media_assets_disk_path_unique';
+
     /**
      * Run the migrations.
      */
@@ -21,7 +23,7 @@ return new class extends Migration
             $table->string('original_filename')->nullable();
             $table->timestamps();
 
-            $table->unique(['disk', 'path']);
+            $table->unique(['disk', 'path'], self::DISK_PATH_UNIQUE_INDEX);
             $table->index('checksum_sha256');
         });
     }

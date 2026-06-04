@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+env:
+  PHP_VERSION: '8.5'
+
 jobs:
   test:
     name: Test
@@ -18,9 +21,16 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.5'
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, pdo_sqlite, sqlite3
           coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -86,9 +96,16 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.5'
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, pdo_pgsql, pgsql
           coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Validate Composer files
         run: composer validate --strict

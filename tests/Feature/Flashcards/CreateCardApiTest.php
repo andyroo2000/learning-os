@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -75,6 +76,84 @@ class CreateCardApiTest extends TestCase
 
         $this->assertDatabaseHas('cards', [
             'id' => strtolower($id),
+            'deck_id' => $deck->id,
+        ]);
+    }
+
+    public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', [
+                'id' => '  '.strtoupper($id).'  ',
+                'deck_id' => '  '.strtoupper($deck->id).'  ',
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.deck_id', $deck->id);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $id,
+            'deck_id' => $deck->id,
+        ]);
+    }
+
+    public function test_it_trims_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', [
+                'id' => "  {$id}  ",
+                'deck_id' => "  {$deck->id}  ",
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.deck_id', $deck->id);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $id,
+            'deck_id' => $deck->id,
+        ]);
+    }
+
+    public function test_it_lowercases_client_ulids_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', [
+                'id' => strtoupper($id),
+                'deck_id' => strtoupper($deck->id),
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.deck_id', $deck->id);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $id,
             'deck_id' => $deck->id,
         ]);
     }

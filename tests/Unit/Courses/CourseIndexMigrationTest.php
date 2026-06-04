@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Pins course list index DDL across SQLite, PostgreSQL, and MySQL.
  * The explicit names keep future PostgreSQL migrations safely under its 63-byte identifier limit.
+ * These exact fixtures may need intentional updates when Laravel schema grammar output changes.
  */
 class CourseIndexMigrationTest extends TestCase
 {

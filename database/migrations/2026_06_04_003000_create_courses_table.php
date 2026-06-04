@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('courses', function (Blueprint $table) {
             $table->ulid('id')->primary();
+            // users.id is the default bigint id column; switch this with a coordinated user-id migration.
             // User hard-delete is account erasure; owned courses are hard-deleted with the user.
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('title');

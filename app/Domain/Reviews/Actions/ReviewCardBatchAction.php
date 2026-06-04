@@ -93,6 +93,8 @@ class ReviewCardBatchAction
 
                     // Another writer may have inserted between the pre-check and the failed bulk insert.
                     // These fresh reads are a best-effort race re-check, not a single snapshot.
+                    // Under repeatable-read isolation they may still see the original snapshot; the
+                    // partial-match guard above then surfaces the database error for a client retry.
                     // Keep the original card snapshot; it is the ownership context for this rolled-back write attempt.
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
@@ -187,6 +189,7 @@ class ReviewCardBatchAction
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
 
+        // Card mismatches are invalid for every duplicate sync key, even when no item supplied an ID.
         $cardIdsBySyncKey = $preparedItems
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('card_id')->unique()->values());
@@ -296,6 +299,7 @@ class ReviewCardBatchAction
         return $this->reviewEventsBySyncKeyQuery($preparedItems)
             ->with([
                 'card' => fn ($query) => $query->withTrashed(),
+                // ownerUserId() prefers the eager-loaded deck and avoids N+1 owner lookups.
                 'card.deck' => fn ($query) => $query->withTrashed(),
             ])
             ->get()

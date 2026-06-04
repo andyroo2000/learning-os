@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Reviews;
 
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use Illuminate\Support\Carbon;
@@ -24,6 +25,8 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'created_at' => Carbon::parse('2026-05-30T12:14:30Z'),
             'updated_at' => Carbon::parse('2026-05-30T12:15:00Z'),
         ], sync: true);
+
+        $this->assertInstanceOf(CardReviewRating::class, $reviewEvent->rating);
 
         $payload = CardReviewEventSyncPayload::fromReviewEvent($reviewEvent);
 

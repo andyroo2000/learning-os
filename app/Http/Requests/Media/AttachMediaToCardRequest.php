@@ -55,13 +55,13 @@ class AttachMediaToCardRequest extends FormRequest
             $mediaAssetId = $this->validated('media_asset_id');
 
             if (! is_string($mediaAssetId)) {
-                throw new LogicException('mediaAsset() called before validation completed or outside a validated request context.');
+                throw new LogicException('mediaAsset() called before validation completed or with an invalid media_asset_id.');
             }
 
             $this->resolveMediaAssetById($mediaAssetId);
         }
 
-        return $this->resolvedMediaAsset ?? throw new LogicException('mediaAsset() called before validation completed or outside a validated request context.');
+        return $this->resolvedMediaAsset ?? throw new LogicException('mediaAsset() called after validation without a resolved media asset.');
     }
 
     public function withValidator(Validator $validator): void
@@ -71,7 +71,7 @@ class AttachMediaToCardRequest extends FormRequest
                 return;
             }
 
-            // validated() can throw inside after callbacks when another field fails; this field passed above.
+            // prepareForValidation has already normalized validator data; validated() can throw here if any field fails.
             $mediaAssetId = $validator->getData()['media_asset_id'] ?? null;
 
             if (! is_string($mediaAssetId)) {

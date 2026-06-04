@@ -55,6 +55,24 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
         $this->assertSame($expectedDropSql, $dropSql);
     }
 
+    #[DataProvider('operationIndexSqlProvider')]
+    public function test_operation_replay_index_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedCreateSql,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $createSql = $this->operationReplayIndexBlueprint($connection)->toSql();
+        $dropSql = $this->dropOperationReplayIndexBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedCreateSql, $createSql);
+        $this->assertSame($expectedDropSql, $dropSql);
+    }
+
     public function test_sync_feed_index_names_fit_postgres_identifier_limit(): void
     {
         foreach ($this->syncFeedIndexNames() as $indexName) {
@@ -145,6 +163,57 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
     }
 
     /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function operationIndexSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                [
+                    'create index "sfe_user_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "operation", "checkpoint")',
+                    'create index "sfe_user_domain_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "operation", "checkpoint")',
+                    'create index "sfe_user_domain_type_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "operation", "checkpoint")',
+                ],
+                [
+                    'drop index "sfe_user_domain_type_operation_checkpoint_idx"',
+                    'drop index "sfe_user_domain_operation_checkpoint_idx"',
+                    'drop index "sfe_user_operation_checkpoint_idx"',
+                ],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'create index "sfe_user_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "operation", "checkpoint")',
+                    'create index "sfe_user_domain_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "operation", "checkpoint")',
+                    'create index "sfe_user_domain_type_operation_checkpoint_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "operation", "checkpoint")',
+                ],
+                [
+                    'drop index "sfe_user_domain_type_operation_checkpoint_idx"',
+                    'drop index "sfe_user_domain_operation_checkpoint_idx"',
+                    'drop index "sfe_user_operation_checkpoint_idx"',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `sync_feed_entries` add index `sfe_user_operation_checkpoint_idx`(`user_id`, `operation`, `checkpoint`)',
+                    'alter table `sync_feed_entries` add index `sfe_user_domain_operation_checkpoint_idx`(`user_id`, `domain`, `operation`, `checkpoint`)',
+                    'alter table `sync_feed_entries` add index `sfe_user_domain_type_operation_checkpoint_idx`(`user_id`, `domain`, `resource_type`, `operation`, `checkpoint`)',
+                ],
+                [
+                    'alter table `sync_feed_entries` drop index `sfe_user_domain_type_operation_checkpoint_idx`',
+                    'alter table `sync_feed_entries` drop index `sfe_user_domain_operation_checkpoint_idx`',
+                    'alter table `sync_feed_entries` drop index `sfe_user_operation_checkpoint_idx`',
+                ],
+            ],
+        ];
+    }
+
+    /**
      * @param  class-string<Connection>  $connectionClass
      */
     private function connection(string $connectionClass): Connection
@@ -190,6 +259,33 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
         });
     }
 
+    private function operationReplayIndexBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
+            $table->index(
+                ['user_id', 'operation', 'checkpoint'],
+                'sfe_user_operation_checkpoint_idx',
+            );
+            $table->index(
+                ['user_id', 'domain', 'operation', 'checkpoint'],
+                'sfe_user_domain_operation_checkpoint_idx',
+            );
+            $table->index(
+                ['user_id', 'domain', 'resource_type', 'operation', 'checkpoint'],
+                'sfe_user_domain_type_operation_checkpoint_idx',
+            );
+        });
+    }
+
+    private function dropOperationReplayIndexBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
+            $table->dropIndex('sfe_user_domain_type_operation_checkpoint_idx');
+            $table->dropIndex('sfe_user_domain_operation_checkpoint_idx');
+            $table->dropIndex('sfe_user_operation_checkpoint_idx');
+        });
+    }
+
     /**
      * @return list<string>
      */
@@ -200,6 +296,9 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
             'sfe_resource_history_idx',
             'sfe_user_type_checkpoint_idx',
             'sfe_user_domain_type_checkpoint_idx',
+            'sfe_user_operation_checkpoint_idx',
+            'sfe_user_domain_operation_checkpoint_idx',
+            'sfe_user_domain_type_operation_checkpoint_idx',
         ];
     }
 }

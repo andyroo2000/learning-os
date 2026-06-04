@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'domain' => $exception->domain(),
                     'resource_type' => $exception->resourceType(),
                     'resource_id' => $exception->resourceId(),
+                    'operation' => $exception->operation(),
                     'required_action' => $exception->requiredAction(),
                 ],
             ], 409);

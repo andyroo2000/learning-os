@@ -2,6 +2,7 @@
 
 namespace App\Domain\Sync\Actions;
 
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
@@ -17,6 +18,7 @@ class ListSyncFeedEntriesAction
         ?string $domain = null,
         ?string $resourceType = null,
         ?string $resourceId = null,
+        ?string $operation = null,
         ?CursorPageSize $pageSize = null,
     ): ListSyncFeedEntriesResult {
         if ($userId < 1) {
@@ -30,6 +32,7 @@ class ListSyncFeedEntriesAction
         $domain = $domain === null ? null : trim($domain);
         $resourceType = $resourceType === null ? null : trim($resourceType);
         $resourceId = $resourceId === null ? null : trim($resourceId);
+        $operation = $operation === null ? null : trim($operation);
 
         if ($domain === '') {
             throw new InvalidArgumentException('Sync feed domain must not be blank when provided.');
@@ -41,6 +44,16 @@ class ListSyncFeedEntriesAction
 
         if ($resourceId === '') {
             throw new InvalidArgumentException('Sync feed resource_id must not be blank when provided.');
+        }
+
+        if ($operation === '') {
+            throw new InvalidArgumentException('Sync feed operation must not be blank when provided.');
+        }
+
+        if ($operation !== null) {
+            if (SyncFeedOperation::tryFrom($operation) === null) {
+                throw new InvalidArgumentException('Sync feed operation must be one of: '.implode(', ', SyncFeedOperation::values()).'.');
+            }
         }
 
         if ($resourceId !== null && ($domain === null || $resourceType === null)) {
@@ -55,11 +68,13 @@ class ListSyncFeedEntriesAction
         $baseQuery = (clone $userFeedQuery)
             ->when($domain !== null, fn ($query) => $query->where('domain', $domain))
             ->when($resourceType !== null, fn ($query) => $query->where('resource_type', $resourceType))
-            ->when($resourceId !== null, fn ($query) => $query->where('resource_id', $resourceId));
+            ->when($resourceId !== null, fn ($query) => $query->where('resource_id', $resourceId))
+            ->when($operation !== null, fn ($query) => $query->where('operation', $operation));
 
         $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
         if ($afterCheckpoint > 0) {
+            // Each filter context has its own retained window while still advancing against the full feed high-water mark.
             $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');
 
             if ($oldestAvailableCheckpoint !== null && $afterCheckpoint < (int) $oldestAvailableCheckpoint) {
@@ -69,6 +84,7 @@ class ListSyncFeedEntriesAction
                     domain: $domain,
                     resourceType: $resourceType,
                     resourceId: $resourceId,
+                    operation: $operation,
                 );
             }
         }

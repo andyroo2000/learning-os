@@ -15,6 +15,7 @@ class ListSyncFeedEntriesAction
         int $userId,
         int $afterCheckpoint = 0,
         ?string $domain = null,
+        ?string $resourceType = null,
         ?CursorPageSize $pageSize = null,
     ): ListSyncFeedEntriesResult {
         if ($userId < 1) {
@@ -26,9 +27,14 @@ class ListSyncFeedEntriesAction
         }
 
         $domain = $domain === null ? null : trim($domain);
+        $resourceType = $resourceType === null ? null : trim($resourceType);
 
         if ($domain === '') {
             throw new InvalidArgumentException('Sync feed domain must not be blank when provided.');
+        }
+
+        if ($resourceType === '') {
+            throw new InvalidArgumentException('Sync feed resource_type must not be blank when provided.');
         }
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
@@ -37,7 +43,8 @@ class ListSyncFeedEntriesAction
             ->where('user_id', $userId);
 
         $baseQuery = (clone $userFeedQuery)
-            ->when($domain !== null, fn ($query) => $query->where('domain', $domain));
+            ->when($domain !== null, fn ($query) => $query->where('domain', $domain))
+            ->when($resourceType !== null, fn ($query) => $query->where('resource_type', $resourceType));
 
         $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
 
@@ -49,6 +56,7 @@ class ListSyncFeedEntriesAction
                     afterCheckpoint: $afterCheckpoint,
                     oldestAvailableCheckpoint: (int) $oldestAvailableCheckpoint,
                     domain: $domain,
+                    resourceType: $resourceType,
                 );
             }
         }

@@ -212,6 +212,84 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_entries_by_resource_type(): void
+    {
+        $user = $this->signIn();
+        $card = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $deck = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?resource_type=card');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $card->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $deck->checkpoint)
+            ->assertJsonMissing([
+                'checkpoint' => $deck->checkpoint,
+            ]);
+    }
+
+    public function test_it_filters_entries_by_domain_and_resource_type(): void
+    {
+        $user = $this->signIn();
+        $card = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $deck = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+        $mediaCard = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'card',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards&resource_type=card');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $card->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $mediaCard->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $mediaCard->checkpoint)
+            ->assertJsonMissing([
+                'checkpoint' => $deck->checkpoint,
+            ])
+            ->assertJsonMissing([
+                'checkpoint' => $mediaCard->checkpoint,
+            ]);
+    }
+
+    public function test_it_trims_the_resource_type_filter(): void
+    {
+        $user = $this->signIn();
+        $card = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'resource_type' => 'card',
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?resource_type=%20card%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $card->checkpoint);
+    }
+
     public function test_it_trims_the_domain_filter(): void
     {
         $user = $this->signIn();
@@ -245,6 +323,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('meta.after_checkpoint', 4)
             ->assertJsonPath('meta.oldest_available_checkpoint', $oldest->checkpoint)
             ->assertJsonPath('meta.domain', null)
+            ->assertJsonPath('meta.resource_type', null)
             ->assertJsonPath('meta.required_action', 'full_resync')
             ->assertJsonMissingPath('data');
     }
@@ -271,6 +350,36 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('meta.after_checkpoint', $media->checkpoint)
             ->assertJsonPath('meta.oldest_available_checkpoint', $oldestFlashcard->checkpoint)
             ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', null)
+            ->assertJsonPath('meta.required_action', 'full_resync')
+            ->assertJsonMissingPath('data');
+    }
+
+    public function test_it_returns_a_resource_type_scoped_stale_checkpoint_response(): void
+    {
+        $user = $this->signIn();
+        $deck = SyncFeedEntry::factory()->create([
+            'checkpoint' => 4,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+        $oldestCard = SyncFeedEntry::factory()->create([
+            'checkpoint' => 5,
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+
+        $response = $this->getJson("/api/sync/feed?domain=flashcards&resource_type=card&after_checkpoint={$deck->checkpoint}");
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertJsonPath('meta.after_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.required_action', 'full_resync')
             ->assertJsonMissingPath('data');
     }
@@ -459,6 +568,56 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_uses_next_checkpoint_to_continue_resource_type_filtered_pages(): void
+    {
+        $user = $this->signIn();
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $secondCard = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $thirdCard = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $deck = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'deck',
+        ]);
+
+        $firstPage = $this->getJson('/api/sync/feed?domain=flashcards&resource_type=card&per_page=2');
+
+        $nextCheckpoint = $firstPage->json('meta.next_checkpoint');
+
+        $secondPage = $this->getJson("/api/sync/feed?domain=flashcards&resource_type=card&after_checkpoint={$nextCheckpoint}&per_page=2");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $secondCard->checkpoint)
+            ->assertJsonPath('meta.has_more', true);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $thirdCard->checkpoint)
+            ->assertJsonPath('meta.after_checkpoint', $secondCard->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $deck->checkpoint)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonMissing([
+                'checkpoint' => $deck->checkpoint,
+            ]);
+    }
+
     public function test_it_uses_the_default_page_size_when_omitted(): void
     {
         $user = $this->signIn();
@@ -560,6 +719,33 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->signIn();
 
         $response = $this->getJson('/api/sync/feed?domain[]=flashcards');
+
+        $response->assertUnprocessable();
+    }
+
+    public function test_it_rejects_blank_resource_type_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?resource_type=%20');
+
+        $response->assertUnprocessable();
+    }
+
+    public function test_it_rejects_resource_type_filters_above_the_maximum_length(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?resource_type='.str_repeat('a', SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH + 1));
+
+        $response->assertUnprocessable();
+    }
+
+    public function test_it_rejects_array_resource_type_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?resource_type[]=card');
 
         $response->assertUnprocessable();
     }

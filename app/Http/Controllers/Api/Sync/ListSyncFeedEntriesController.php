@@ -25,6 +25,7 @@ class ListSyncFeedEntriesController extends Controller
             userId: $user->id,
             afterCheckpoint: $afterCheckpoint,
             domain: $request->domain(),
+            resourceType: $request->resourceType(),
             pageSize: $pageSize,
         );
 

@@ -6,6 +6,7 @@ use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
@@ -186,6 +187,23 @@ class ListCoursesApiTest extends TestCase
             ->assertJsonPath('data.0.id', $readyCourse->id);
     }
 
+    public function test_it_normalizes_status_filter_case_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $readyCourse = Course::factory()->ready()->for($user)->create();
+
+        Course::factory()->draft()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/courses?status=%20READY%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $readyCourse->id);
+    }
+
     public function test_it_filters_courses_by_native_language(): void
     {
         $user = $this->signIn();
@@ -307,6 +325,29 @@ class ListCoursesApiTest extends TestCase
         ]);
 
         $response = $this->getJson('/api/courses?native_language=%20en%20&target_language=%20ja%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $course->id);
+    }
+
+    public function test_it_normalizes_language_filter_case_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create([
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+
+        Course::factory()->for($user)->create([
+            'native_language' => 'es',
+            'target_language' => 'it',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/courses?native_language=%20EN%20&target_language=%20JA%20');
 
         $response
             ->assertOk()

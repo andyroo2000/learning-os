@@ -3,12 +3,13 @@
 namespace App\Http\Requests\Courses;
 
 use App\Domain\Courses\Enums\CourseStatus;
+use App\Domain\Courses\Support\CourseLanguage;
 use App\Http\Requests\Api\CursorPaginatedRequest;
 use Illuminate\Validation\Rule;
 
 class ListCoursesRequest extends CursorPaginatedRequest
 {
-    private const TRIMMED_INPUT_KEYS = ['status', 'native_language', 'target_language'];
+    private const NORMALIZED_INPUT_KEYS = ['status', 'native_language', 'target_language'];
 
     protected function prepareForValidation(): void
     {
@@ -16,11 +17,14 @@ class ListCoursesRequest extends CursorPaginatedRequest
 
         $input = [];
 
-        foreach (self::TRIMMED_INPUT_KEYS as $key) {
+        foreach (self::NORMALIZED_INPUT_KEYS as $key) {
             $value = $this->input($key);
 
             if (is_string($value)) {
-                $input[$key] = trim($value);
+                $input[$key] = match ($key) {
+                    'status' => mb_strtolower(trim($value)),
+                    'native_language', 'target_language' => CourseLanguage::normalize($value),
+                };
             }
         }
 

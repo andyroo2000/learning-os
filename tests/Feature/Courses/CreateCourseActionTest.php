@@ -73,7 +73,7 @@ class CreateCourseActionTest extends TestCase
         ], $entry->payload);
     }
 
-    public function test_it_uses_a_provided_ulid_and_trims_inputs(): void
+    public function test_it_uses_a_provided_ulid_and_normalizes_inputs(): void
     {
         $user = User::factory()->create();
         $id = (string) Str::ulid();
@@ -82,8 +82,8 @@ class CreateCourseActionTest extends TestCase
             CreateCourseData::fromInput(
                 userId: $user->id,
                 title: '  Japanese Travel Foundations  ',
-                nativeLanguage: ' en ',
-                targetLanguage: ' ja ',
+                nativeLanguage: ' EN ',
+                targetLanguage: ' JA ',
                 description: '   ',
                 id: strtoupper($id),
             ),
@@ -115,8 +115,8 @@ class CreateCourseActionTest extends TestCase
             CreateCourseData::fromInput(
                 userId: $user->id,
                 title: 'Japanese Travel Foundations',
-                nativeLanguage: 'en',
-                targetLanguage: 'ja',
+                nativeLanguage: ' EN ',
+                targetLanguage: ' JA ',
                 description: '   ',
                 id: strtoupper($id),
             ),

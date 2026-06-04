@@ -292,6 +292,39 @@ class CreateCourseApiTest extends TestCase
             ->assertJsonPath('data.target_language', 'ja');
     }
 
+    public function test_it_normalizes_language_codes_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/courses', [
+                'title' => 'Japanese Travel Foundations',
+                'native_language' => ' EN ',
+                'target_language' => ' JA ',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.native_language', 'en')
+            ->assertJsonPath('data.target_language', 'ja');
+
+        $courseId = $response->json('data.id');
+
+        $this->assertDatabaseHas('courses', [
+            'id' => $courseId,
+            'user_id' => $user->id,
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'resource_id' => $courseId,
+            'payload->native_language' => 'en',
+            'payload->target_language' => 'ja',
+        ]);
+    }
+
     public function test_it_rejects_invalid_input(): void
     {
         $this->signIn();

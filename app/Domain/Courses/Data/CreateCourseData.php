@@ -2,6 +2,7 @@
 
 namespace App\Domain\Courses\Data;
 
+use App\Domain\Courses\Support\CourseLanguage;
 use App\Support\Identifiers\CanonicalUlid;
 
 final readonly class CreateCourseData
@@ -26,8 +27,8 @@ final readonly class CreateCourseData
         return new self(
             userId: $userId,
             title: trim($title),
-            nativeLanguage: trim($nativeLanguage),
-            targetLanguage: trim($targetLanguage),
+            nativeLanguage: CourseLanguage::normalize($nativeLanguage),
+            targetLanguage: CourseLanguage::normalize($targetLanguage),
             description: $description === null ? null : trim($description),
             id: $id === null ? null : CanonicalUlid::normalize($id),
         );

@@ -379,6 +379,39 @@ class ReviewCardActionTest extends TestCase
         ]);
     }
 
+    public function test_it_normalizes_text_and_sync_metadata_for_direct_callers(): void
+    {
+        $card = Card::factory()->create();
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: strtoupper($card->id),
+                rating: '  good  ',
+                reviewedAt: '  2026-05-27 09:15:00  ',
+                clientEventId: '  event-123  ',
+                deviceId: '  device-abc  ',
+                clientCreatedAt: '  2026-05-27 09:14:00  ',
+            ),
+        );
+        $reviewEvent = $result->reviewEvent;
+
+        $this->assertTrue($result->wasCreated);
+        $this->assertSame($card->id, $reviewEvent->card_id);
+        $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
+        $this->assertSame('event-123', $reviewEvent->client_event_id);
+        $this->assertSame('device-abc', $reviewEvent->device_id);
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $reviewEvent->id,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+    }
+
     public function test_it_is_idempotent_for_the_same_client_event_and_device(): void
     {
         $card = Card::factory()->create();

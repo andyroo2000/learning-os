@@ -43,6 +43,12 @@ class StoreCardReviewEventBatchRequest extends FormRequest
                 }
             }
 
+            foreach (['rating', 'reviewed_at', 'client_event_id', 'device_id', 'client_created_at'] as $key) {
+                if (array_key_exists($key, $event) && is_string($event[$key])) {
+                    $event[$key] = trim($event[$key]);
+                }
+            }
+
             $normalizedEvents[$index] = $event;
         }
 

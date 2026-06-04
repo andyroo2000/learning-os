@@ -96,6 +96,40 @@ class CreateCardReviewEventApiTest extends TestCase
         ]);
     }
 
+    public function test_it_trims_client_sync_metadata_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/card-review-events', [
+                'card_id' => $card->id,
+                'rating' => '  good  ',
+                'reviewed_at' => '  2026-05-27T09:15:00Z  ',
+                'client_event_id' => '  event-123  ',
+                'device_id' => '  device-abc  ',
+                'client_created_at' => '  2026-05-27T09:14:00Z  ',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.rating', CardReviewRating::Good->value)
+            ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z')
+            ->assertJsonPath('data.client_event_id', 'event-123')
+            ->assertJsonPath('data.device_id', 'device-abc')
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.000000Z');
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $response->json('data.id'),
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+    }
+
     public function test_it_accepts_sync_metadata_ids_at_the_column_limit(): void
     {
         $user = $this->signIn();
@@ -648,6 +682,29 @@ class CreateCardReviewEventApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['device_id', 'client_created_at']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_blank_client_sync_metadata_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/card-review-events', [
+                'card_id' => $card->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => '2026-05-27T09:15:00Z',
+                'client_event_id' => '   ',
+                'device_id' => '   ',
+                'client_created_at' => '  2026-05-27T09:14:00Z  ',
+            ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['client_event_id', 'device_id']);
 
         $this->assertDatabaseCount('card_review_events', 0);
     }

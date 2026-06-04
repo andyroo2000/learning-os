@@ -28,6 +28,10 @@ class StoreCardReviewEventRequest extends FormRequest
             $this->mergeNormalizedUlidInput($normalized, $key);
         }
 
+        foreach (['rating', 'reviewed_at', 'client_event_id', 'device_id', 'client_created_at'] as $key) {
+            $this->mergeTrimmedStringInput($normalized, $key);
+        }
+
         $this->merge($normalized);
     }
 
@@ -60,5 +64,17 @@ class StoreCardReviewEventRequest extends FormRequest
             'device_id' => ['nullable', 'string', 'max:'.SyncMetadata::MAX_DEVICE_ID_LENGTH, 'required_with:client_event_id,client_created_at'],
             'client_created_at' => ['nullable', 'date', 'required_with:client_event_id,device_id'],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $target
+     */
+    private function mergeTrimmedStringInput(array &$target, string $key): void
+    {
+        $value = $this->input($key);
+
+        if (is_string($value)) {
+            $target[$key] = trim($value);
+        }
     }
 }

@@ -91,6 +91,39 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame($secondCard->ownerUserId(), $secondEntry->user_id);
     }
 
+    public function test_it_normalizes_text_and_sync_metadata_for_direct_callers(): void
+    {
+        $card = Card::factory()->create();
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: strtoupper($card->id),
+                rating: '  good  ',
+                reviewedAt: '  2026-05-27T09:15:00Z  ',
+                clientEventId: '  event-123  ',
+                deviceId: '  device-abc  ',
+                clientCreatedAt: '  2026-05-27T09:14:00Z  ',
+            ),
+        ]);
+        $reviewEvent = $result->reviewEvents->sole();
+
+        $this->assertTrue($result->hasCreatedEvents);
+        $this->assertSame($card->id, $reviewEvent->card_id);
+        $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
+        $this->assertSame('event-123', $reviewEvent->client_event_id);
+        $this->assertSame('device-abc', $reviewEvent->device_id);
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $reviewEvent->id,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+    }
+
     public function test_it_returns_existing_events_for_retried_client_events_with_matching_provided_ids(): void
     {
         $card = Card::factory()->create();

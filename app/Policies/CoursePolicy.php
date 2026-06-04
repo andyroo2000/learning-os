@@ -14,4 +14,9 @@ class CoursePolicy
             ? Response::allow()
             : Response::denyAsNotFound();
     }
+
+    public function update(User $user, Course $course): Response
+    {
+        return $this->view($user, $course);
+    }
 }

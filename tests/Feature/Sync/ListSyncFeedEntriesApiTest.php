@@ -463,6 +463,43 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_entries_by_domain_and_operation(): void
+    {
+        $user = $this->signIn();
+        $flashcardDelete = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+        $flashcardUpdate = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'operation' => SyncFeedOperation::Update,
+        ]);
+        $mediaDelete = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?domain=flashcards&operation=delete');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $flashcardDelete->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('meta.current_checkpoint', $mediaDelete->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $mediaDelete->checkpoint)
+            ->assertJsonMissing([
+                'checkpoint' => $flashcardUpdate->checkpoint,
+            ])
+            ->assertJsonMissing([
+                'checkpoint' => $mediaDelete->checkpoint,
+            ]);
+    }
+
     public function test_it_trims_the_resource_type_filter(): void
     {
         $user = $this->signIn();

@@ -16,6 +16,10 @@ return new class extends Migration
                 ['user_id', 'operation', 'checkpoint'],
                 'sfe_user_operation_checkpoint_idx',
             );
+            $table->index(
+                ['user_id', 'domain', 'operation', 'checkpoint'],
+                'sfe_user_domain_operation_checkpoint_idx',
+            );
         });
     }
 
@@ -25,6 +29,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('sync_feed_entries', function (Blueprint $table): void {
+            $table->dropIndex('sfe_user_domain_operation_checkpoint_idx');
             $table->dropIndex('sfe_user_operation_checkpoint_idx');
         });
     }

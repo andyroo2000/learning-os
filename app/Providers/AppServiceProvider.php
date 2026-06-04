@@ -10,11 +10,14 @@ use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\DeckPolicy;
 use App\Policies\MediaAssetPolicy;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,6 +50,29 @@ class AppServiceProvider extends ServiceProvider
             $email = strtolower(trim((string) $request->input('email')));
 
             return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        });
+
+        RateLimiter::for('password-reset-links', function (Request $request): Limit {
+            $email = Str::lower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        });
+
+        RateLimiter::for('password-reset-tokens', function (Request $request): Limit {
+            $email = Str::lower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(12)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        });
+
+        // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.
+        ResetPassword::createUrlUsing(function (CanResetPasswordContract $notifiable, string $token): string {
+            $baseUrl = rtrim((string) config('app.password_reset_url'), '?&');
+            $separator = str_contains($baseUrl, '?') ? '&' : '?';
+
+            return $baseUrl.$separator.http_build_query([
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
         });
     }
 }

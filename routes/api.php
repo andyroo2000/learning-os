@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
+use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
+use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
@@ -38,6 +40,10 @@ use Illuminate\Support\Facades\Route;
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::post('/auth/register', RegisterMobileUserController::class)
     ->middleware('throttle:mobile-registrations');
+Route::post('/auth/password/forgot', SendPasswordResetLinkController::class)
+    ->middleware('throttle:password-reset-links');
+Route::post('/auth/password/reset', ResetUserPasswordController::class)
+    ->middleware('throttle:password-reset-tokens');
 Route::post('/auth/tokens', StoreMobileTokenController::class)
     ->middleware('throttle:mobile-tokens');
 

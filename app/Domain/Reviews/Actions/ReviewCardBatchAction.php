@@ -92,6 +92,7 @@ class ReviewCardBatchAction
                     }
 
                     // Another writer may have inserted between the pre-check and the failed bulk insert.
+                    // Keep the original card snapshot; it is the ownership context for this rolled-back write attempt.
                     $this->assertExistingReviewEventsMatchRequest(
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
@@ -131,7 +132,7 @@ class ReviewCardBatchAction
      *     device_id: string,
      *     client_created_at: Carbon,
      *     sync_key: string,
-     *     provided_id: bool
+     *     client_supplied_id: bool
      * }
      */
     private function prepare(ReviewCardData $data): array
@@ -170,18 +171,18 @@ class ReviewCardBatchAction
             'device_id' => $syncMetadata->deviceId,
             'client_created_at' => $syncMetadata->clientCreatedAt,
             'sync_key' => $syncMetadata->lookupKey(),
-            'provided_id' => $data->id !== null,
+            'client_supplied_id' => $data->id !== null,
         ];
     }
 
     /**
-     * @param  Collection<int, array{id: string, sync_key: string, provided_id: bool}>  $preparedItems
-     * @return Collection<int, array{id: string, sync_key: string, provided_id: bool}>
+     * @param  Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>  $preparedItems
+     * @return Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>
      */
     private function normalizeDuplicateSyncKeyProvidedIds(Collection $preparedItems): Collection
     {
         $idsBySyncKey = $preparedItems
-            ->filter(fn (array $item): bool => $item['provided_id'])
+            ->filter(fn (array $item): bool => $item['client_supplied_id'])
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
 
@@ -202,7 +203,7 @@ class ReviewCardBatchAction
         }
 
         $syncKeyByProvidedId = $preparedItems
-            ->filter(fn (array $item): bool => $item['provided_id'])
+            ->filter(fn (array $item): bool => $item['client_supplied_id'])
             ->groupBy('id')
             ->map(fn (Collection $items): Collection => $items->pluck('sync_key')->unique()->values());
 
@@ -218,7 +219,7 @@ class ReviewCardBatchAction
 
                 if ($providedIds !== null && $providedIds->count() === 1) {
                     $item['id'] = $providedIds->first();
-                    // Keep provided_id as "the client sent an ID"; canonical insert selection relies on it.
+                    // Keep client_supplied_id as "the client sent an ID"; canonical insert selection relies on it.
                 }
 
                 return $item;
@@ -229,9 +230,9 @@ class ReviewCardBatchAction
     /**
      * Keep duplicate input items for response mapping, but insert only one canonical row per sync key.
      *
-     * @param  Collection<int, array{sync_key: string, provided_id: bool}>  $preparedItems
+     * @param  Collection<int, array{sync_key: string, client_supplied_id: bool}>  $preparedItems
      * @param  Collection<string, CardReviewEvent>  $existingReviewEventsBySyncKey
-     * @return Collection<int, array{sync_key: string, provided_id: bool}>
+     * @return Collection<int, array{sync_key: string, client_supplied_id: bool}>
      */
     private function canonicalItemsForInsert(Collection $preparedItems, Collection $existingReviewEventsBySyncKey): Collection
     {
@@ -239,7 +240,7 @@ class ReviewCardBatchAction
             ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
             ->groupBy('sync_key')
             // Sync-key duplicates describe the same client event; prefer the item that supplied the canonical ID.
-            ->map(fn (Collection $items): array => $items->firstWhere('provided_id', true) ?? $items->first())
+            ->map(fn (Collection $items): array => $items->firstWhere('client_supplied_id', true) ?? $items->first())
             ->values();
     }
 
@@ -309,13 +310,13 @@ class ReviewCardBatchAction
     }
 
     /**
-     * @param  Collection<int, array{id: string, provided_id: bool}>  $preparedItems
+     * @param  Collection<int, array{id: string, client_supplied_id: bool}>  $preparedItems
      * @return Collection<string, CardReviewEvent>
      */
     private function existingReviewEventsByProvidedId(Collection $preparedItems): Collection
     {
         $ids = $preparedItems
-            ->filter(fn (array $item): bool => $item['provided_id'])
+            ->filter(fn (array $item): bool => $item['client_supplied_id'])
             ->pluck('id')
             ->unique()
             ->values();
@@ -335,7 +336,7 @@ class ReviewCardBatchAction
     }
 
     /**
-     * @param  Collection<int, array{id: string, card_id: string, sync_key: string, provided_id: bool}>  $preparedItems
+     * @param  Collection<int, array{id: string, card_id: string, sync_key: string, client_supplied_id: bool}>  $preparedItems
      * @param  Collection<string, CardReviewEvent>  $reviewEventsBySyncKey
      * @param  Collection<string, CardReviewEvent>  $reviewEventsById
      * @param  Collection<string, Card>  $cardsById
@@ -359,7 +360,7 @@ class ReviewCardBatchAction
                 $this->assertReviewEventBelongsToCardOwner($existingBySyncKey, $card);
 
                 // Sync metadata remains the authoritative dedup key; explicit IDs must agree when present.
-                $providedId = $items->firstWhere('provided_id', true)['id'] ?? null;
+                $providedId = $items->firstWhere('client_supplied_id', true)['id'] ?? null;
 
                 if ($providedId !== null && CanonicalUlid::normalize((string) $existingBySyncKey->id) !== $providedId) {
                     throw CardReviewEventConflictException::conflict($this->ownerIdFor($existingBySyncKey));
@@ -368,7 +369,7 @@ class ReviewCardBatchAction
         }
 
         $providedItemsById = $preparedItems
-            ->filter(fn (array $item): bool => $item['provided_id'])
+            ->filter(fn (array $item): bool => $item['client_supplied_id'])
             ->unique('id');
 
         foreach ($providedItemsById as $item) {

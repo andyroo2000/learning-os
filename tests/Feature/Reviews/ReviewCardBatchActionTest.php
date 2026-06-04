@@ -183,6 +183,38 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_uses_provided_ulid_payload_for_mixed_duplicate_client_events(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-05-27T09:20:00Z',
+                id: strtoupper($id),
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:19:00Z',
+            ),
+        ]);
+
+        $this->assertTrue($result->hasCreatedEvents);
+        $this->assertSame([$id, $id], $result->reviewEvents->pluck('id')->all());
+        $this->assertSame(CardReviewRating::Easy, $result->reviewEvents[0]->rating);
+        $this->assertSame(CardReviewRating::Easy, $result->reviewEvents[1]->rating);
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_reports_cross_user_sync_metadata_collisions_for_http_hiding(): void
     {
         $card = Card::factory()->create();

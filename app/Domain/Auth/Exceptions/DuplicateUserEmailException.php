@@ -4,7 +4,7 @@ namespace App\Domain\Auth\Exceptions;
 
 use RuntimeException;
 
-final class DuplicateMobileUserEmailException extends RuntimeException
+final class DuplicateUserEmailException extends RuntimeException
 {
     public function __construct()
     {

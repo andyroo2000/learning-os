@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Domain\Auth\Actions\RegisterMobileUserAction;
-use App\Domain\Auth\Exceptions\DuplicateMobileUserEmailException;
+use App\Domain\Auth\Exceptions\DuplicateUserEmailException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterMobileUserRequest;
 use App\Http\Resources\Auth\CurrentUserResource;
@@ -23,7 +23,7 @@ class RegisterMobileUserController extends Controller
                 password: $data['password'],
                 deviceName: $data['device_name'],
             );
-        } catch (DuplicateMobileUserEmailException $exception) {
+        } catch (DuplicateUserEmailException $exception) {
             throw ValidationException::withMessages([
                 'email' => [$exception->getMessage()],
             ]);

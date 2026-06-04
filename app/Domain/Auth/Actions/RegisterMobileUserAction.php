@@ -2,7 +2,7 @@
 
 namespace App\Domain\Auth\Actions;
 
-use App\Domain\Auth\Exceptions\DuplicateMobileUserEmailException;
+use App\Domain\Auth\Exceptions\DuplicateUserEmailException;
 use App\Domain\Auth\Results\RegisterMobileUserResult;
 use App\Domain\Auth\Support\MobileTokenExpiration;
 use App\Models\User;
@@ -22,7 +22,7 @@ class RegisterMobileUserAction
                 'password' => $password,
             ]);
         } catch (UniqueConstraintViolationException) {
-            throw new DuplicateMobileUserEmailException;
+            throw new DuplicateUserEmailException;
         }
 
         $expiresAt = $this->mobileTokenExpiration->expiresAt();

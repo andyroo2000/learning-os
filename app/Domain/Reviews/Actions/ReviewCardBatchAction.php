@@ -162,7 +162,7 @@ class ReviewCardBatchAction
         );
 
         return [
-            'id' => $data->id ?? strtolower((string) Str::ulid()),
+            'id' => $data->id === null ? strtolower((string) Str::ulid()) : CanonicalUlid::normalize($data->id),
             'card_id' => $data->cardId,
             'rating' => $rating,
             'reviewed_at' => $data->reviewedAt,
@@ -411,6 +411,7 @@ class ReviewCardBatchAction
         $card = $reviewEvent->card;
 
         if ($card === null) {
+            // Soft-deleted cards are loaded with withTrashed(); null here means broken historical data.
             throw new LogicException('Review event card owner could not be resolved.');
         }
 

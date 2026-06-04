@@ -48,6 +48,7 @@ class ListSyncFeedEntriesRequest extends FormRequest
     {
         return [
             'after_checkpoint' => ['sometimes', 'integer', 'min:0'],
+            // resource_id is only unique inside its domain/type scope; keep those filters optional otherwise.
             'domain' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_DOMAIN_LENGTH],
             'resource_type' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH],
             'resource_id' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH],

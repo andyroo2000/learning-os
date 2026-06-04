@@ -1004,6 +1004,17 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonValidationErrors(['resource_type']);
     }
 
+    public function test_it_rejects_resource_id_without_domain_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?resource_type=card&resource_id=card-1');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['domain']);
+    }
+
     public function test_it_rejects_blank_resource_id_filters(): void
     {
         $this->signIn();

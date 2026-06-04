@@ -661,4 +661,28 @@ class ListSyncFeedEntriesActionTest extends TestCase
             resourceId: 'card-1',
         );
     }
+
+    public function test_it_requires_domain_for_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id filters require both domain and resource_type.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            resourceType: 'card',
+            resourceId: 'card-1',
+        );
+    }
+
+    public function test_it_requires_resource_type_for_resource_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id filters require both domain and resource_type.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            domain: 'flashcards',
+            resourceId: 'card-1',
+        );
+    }
 }

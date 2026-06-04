@@ -6,9 +6,9 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 
 final class StoreMediaAssetRequest extends FormRequest
@@ -51,59 +51,53 @@ final class StoreMediaAssetRequest extends FormRequest
                 'not_regex:'.MediaAsset::PATH_ABSOLUTE_PATTERN,
                 'not_regex:'.MediaAsset::PATH_TRAVERSAL_PATTERN,
             ],
-            'mime_type' => ['required', 'string', 'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH],
+            'mime_type' => [
+                'bail',
+                'required',
+                'string',
+                'max:'.MediaAsset::MAX_MIME_TYPE_LENGTH,
+                $this->validMimeTypeShapeRule(),
+            ],
             'size_bytes' => ['required', 'integer', 'min:1', 'max:'.MediaAsset::MAX_JSON_SAFE_SIZE_BYTES],
-            'public_url' => ['nullable', 'string', 'url', 'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH],
+            'public_url' => [
+                'bail',
+                'nullable',
+                'string',
+                'url',
+                'max:'.MediaAsset::MAX_PUBLIC_URL_LENGTH,
+                $this->publicHttpUrlRule(),
+            ],
             'checksum_sha256' => ['nullable', 'string', 'size:64', 'regex:/\\A[0-9a-fA-F]+\\z/'],
             'original_filename' => ['nullable', 'string', 'max:'.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH],
         ];
     }
 
-    public function withValidator(Validator $validator): void
+    private function validMimeTypeShapeRule(): Closure
     {
-        $validator->after(function (Validator $validator): void {
-            $this->validateMimeType($validator);
-            $this->validatePublicUrl($validator);
-        });
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value)) {
+                return;
+            }
+
+            if (! MimeType::hasValidNormalizedShape(MimeType::normalize($value))) {
+                $fail('Media asset MIME type must include a type and subtype.');
+            }
+        };
     }
 
-    private function validateMimeType(Validator $validator): void
+    private function publicHttpUrlRule(): Closure
     {
-        if ($validator->errors()->has('mime_type')) {
-            return;
-        }
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if ($value === null || ! is_string($value)) {
+                return;
+            }
 
-        $mimeType = $this->input('mime_type');
-
-        if (! is_string($mimeType)) {
-            return;
-        }
-
-        $mimeType = MimeType::normalize($mimeType);
-
-        if (! MimeType::hasValidNormalizedShape($mimeType)) {
-            $validator->errors()->add('mime_type', 'Media asset MIME type must include a type and subtype.');
-        }
-    }
-
-    private function validatePublicUrl(Validator $validator): void
-    {
-        // The base URL rule handles syntax; PublicUrl narrows accepted schemes and hosts.
-        if ($validator->errors()->has('public_url')) {
-            return;
-        }
-
-        $publicUrl = $this->input('public_url');
-
-        if ($publicUrl === null) {
-            return;
-        }
-
-        try {
-            PublicUrl::assertValid($publicUrl, MediaAsset::MAX_PUBLIC_URL_LENGTH);
-        } catch (InvalidArgumentException) {
-            $validator->errors()->add('public_url', 'The public URL must be a valid public HTTP(S) URL.');
-        }
+            try {
+                PublicUrl::assertValid($value, MediaAsset::MAX_PUBLIC_URL_LENGTH);
+            } catch (InvalidArgumentException) {
+                $fail('The public URL must be a valid public HTTP(S) URL.');
+            }
+        };
     }
 
     private function trimStringInput(string $key): mixed

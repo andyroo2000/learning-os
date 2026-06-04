@@ -539,6 +539,27 @@ class CreateMediaAssetApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
+    public function test_it_rejects_trimmed_private_public_urls_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/media-assets', [
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'mime_type' => 'image/jpeg',
+                'size_bytes' => 123_456,
+                'public_url' => '  https://10.0.0.1/uploads/example.jpg  ',
+            ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['public_url']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
     public function test_it_rejects_malformed_mime_types(): void
     {
         $this->signIn();
@@ -549,6 +570,26 @@ class CreateMediaAssetApiTest extends TestCase
             'mime_type' => 'image',
             'size_bytes' => 123_456,
         ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['mime_type']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_rejects_trimmed_malformed_mime_types_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/media-assets', [
+                'disk' => 'media',
+                'path' => 'uploads/example.jpg',
+                'mime_type' => '  image  ',
+                'size_bytes' => 123_456,
+            ]);
 
         $response
             ->assertUnprocessable()

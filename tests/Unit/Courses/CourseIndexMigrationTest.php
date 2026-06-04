@@ -16,13 +16,17 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pins course list index DDL across SQLite, PostgreSQL, and MySQL.
- * The explicit names keep future PostgreSQL migrations safely under its 63-byte identifier limit.
- * These exact fixtures may need intentional updates when Laravel schema grammar output changes.
+ * Pins course list index DDL across the database grammars we care about.
+ * Postgres gets its own fixture even when it matches SQLite so grammar drift fails against the target we plan to run.
+ * Keep target grammar fixtures centralized so future database support extends every portability assertion together.
  * Keep the blueprint below in sync with 2026_06_04_003000_create_courses_table.php.
  */
 class CourseIndexMigrationTest extends TestCase
 {
+    private const LIST_INDEX = 'courses_user_deleted_updated_id_idx';
+
+    private const STATUS_LIST_INDEX = 'courses_user_status_deleted_updated_id_idx';
+
     #[DataProvider('courseIndexSqlProvider')]
     public function test_course_indexes_compile_to_portable_sql(
         string $connectionClass,
@@ -36,6 +40,11 @@ class CourseIndexMigrationTest extends TestCase
         $createSql = $this->courseIndexBlueprint($connection)->toSql();
 
         $this->assertSame($expectedCreateSql, $createSql);
+    }
+
+    public function test_course_index_sql_fixture_targets_stay_explicit(): void
+    {
+        $this->assertSame(['sqlite', 'postgres', 'mysql'], array_keys(self::portableSqlProvider()));
     }
 
     public function test_course_index_names_fit_postgres_identifier_limit(): void
@@ -54,31 +63,66 @@ class CourseIndexMigrationTest extends TestCase
      */
     public static function courseIndexSqlProvider(): array
     {
+        return array_map(
+            fn (array $fixture): array => [$fixture['connection'], $fixture['grammar'], $fixture['create']],
+            self::portableSqlProvider(),
+        );
+    }
+
+    /**
+     * @return array<string, array{connection: class-string<Connection>, grammar: class-string<Grammar>, create: list<string>}>
+     */
+    private static function portableSqlProvider(): array
+    {
         return [
             'sqlite' => [
-                SQLiteConnection::class,
-                SQLiteGrammar::class,
-                [
-                    'create index "courses_user_deleted_updated_id_idx" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
-                    'create index "courses_user_status_deleted_updated_id_idx" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
-                ],
+                'connection' => SQLiteConnection::class,
+                'grammar' => SQLiteGrammar::class,
+                'create' => self::expectedSqlForSqlite(),
             ],
             'postgres' => [
-                PostgresConnection::class,
-                PostgresGrammar::class,
-                [
-                    'create index "courses_user_deleted_updated_id_idx" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
-                    'create index "courses_user_status_deleted_updated_id_idx" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
-                ],
+                'connection' => PostgresConnection::class,
+                'grammar' => PostgresGrammar::class,
+                'create' => self::expectedSqlForPostgres(),
             ],
             'mysql' => [
-                MySqlConnection::class,
-                MySqlGrammar::class,
-                [
-                    'alter table `courses` add index `courses_user_deleted_updated_id_idx`(`user_id`, `deleted_at`, `updated_at`, `id`)',
-                    'alter table `courses` add index `courses_user_status_deleted_updated_id_idx`(`user_id`, `status`, `deleted_at`, `updated_at`, `id`)',
-                ],
+                'connection' => MySqlConnection::class,
+                'grammar' => MySqlGrammar::class,
+                'create' => self::expectedSqlForMysql(),
             ],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function expectedSqlForSqlite(): array
+    {
+        return [
+            'create index "'.self::LIST_INDEX.'" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
+            'create index "'.self::STATUS_LIST_INDEX.'" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function expectedSqlForPostgres(): array
+    {
+        return [
+            'create index "'.self::LIST_INDEX.'" on "courses" ("user_id", "deleted_at", "updated_at", "id")',
+            'create index "'.self::STATUS_LIST_INDEX.'" on "courses" ("user_id", "status", "deleted_at", "updated_at", "id")',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function expectedSqlForMysql(): array
+    {
+        return [
+            'alter table `courses` add index `'.self::LIST_INDEX.'`(`user_id`, `deleted_at`, `updated_at`, `id`)',
+            'alter table `courses` add index `'.self::STATUS_LIST_INDEX.'`(`user_id`, `status`, `deleted_at`, `updated_at`, `id`)',
         ];
     }
 
@@ -98,10 +142,10 @@ class CourseIndexMigrationTest extends TestCase
     private function courseIndexBlueprint(Connection $connection): Blueprint
     {
         return new Blueprint($connection, 'courses', function (Blueprint $table): void {
-            $table->index(['user_id', 'deleted_at', 'updated_at', 'id'], 'courses_user_deleted_updated_id_idx');
+            $table->index(['user_id', 'deleted_at', 'updated_at', 'id'], self::LIST_INDEX);
             $table->index(
                 ['user_id', 'status', 'deleted_at', 'updated_at', 'id'],
-                'courses_user_status_deleted_updated_id_idx',
+                self::STATUS_LIST_INDEX,
             );
         });
     }
@@ -112,8 +156,8 @@ class CourseIndexMigrationTest extends TestCase
     private function courseIndexNames(): array
     {
         return [
-            'courses_user_deleted_updated_id_idx',
-            'courses_user_status_deleted_updated_id_idx',
+            self::LIST_INDEX,
+            self::STATUS_LIST_INDEX,
         ];
     }
 }

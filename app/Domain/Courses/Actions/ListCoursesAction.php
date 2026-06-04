@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Domain\Courses\Actions;
+
+use App\Domain\Courses\Models\Course;
+use App\Support\Pagination\CursorPageSize;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+
+class ListCoursesAction
+{
+    /**
+     * @return CursorPaginator<Course>
+     */
+    public function handle(int $userId, ?CursorPageSize $pageSize = null): CursorPaginator
+    {
+        $pageSize ??= CursorPageSize::fromDefaultPageSize();
+
+        return Course::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->cursorPaginate($pageSize->value());
+    }
+}

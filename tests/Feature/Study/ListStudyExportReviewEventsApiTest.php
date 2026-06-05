@@ -19,6 +19,11 @@ class ListStudyExportReviewEventsApiTest extends TestCase
         $this->getJson('/api/study/export/review-events')->assertUnauthorized();
     }
 
+    public function test_convolab_review_logs_export_alias_requires_authentication(): void
+    {
+        $this->getJson('/api/study/export/review-logs')->assertUnauthorized();
+    }
+
     public function test_index_returns_current_review_events_for_the_authenticated_user(): void
     {
         $user = $this->signIn();
@@ -100,5 +105,22 @@ class ListStudyExportReviewEventsApiTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_convolab_review_logs_export_alias_returns_review_events_for_the_authenticated_user(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $event = CardReviewEvent::factory()->for($card)->create([
+            'rating' => CardReviewRating::Good,
+        ]);
+        CardReviewEvent::factory()->for($this->cardFor(User::factory()->create()))->create();
+
+        $this->getJson('/api/study/export/review-logs')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $event->id)
+            ->assertJsonPath('data.0.card_id', $card->id)
+            ->assertJsonPath('data.0.rating', CardReviewRating::Good->value);
     }
 }

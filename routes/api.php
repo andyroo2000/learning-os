@@ -129,7 +129,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');
     Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');
     Route::get('/study/export/imports', ListStudyExportImportJobsController::class)->name('api.study.export.imports');
+    Route::get('/study/export/media', ListStudyExportMediaAssetsController::class)->name('api.study.export.media');
     Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
+    Route::get('/study/export/review-logs', ListStudyExportReviewEventsController::class)->name('api.study.export.review-logs');
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
     Route::get('/study/imports', ListStudyImportJobsController::class);

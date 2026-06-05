@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
+use LogicException;
 
 class StartStudySessionAction
 {
@@ -35,7 +36,11 @@ class StartStudySessionAction
             deckId: $deckId,
         );
 
-        $cards = $overview['due_count'] > 0 || $overview['failed_due_count'] > 0
+        $this->assertOverviewKeys($overview, ['due_count', 'failed_due_count']);
+
+        $hasReadyBacklog = $overview['due_count'] > 0 || $overview['failed_due_count'] > 0;
+
+        $cards = $hasReadyBacklog
             ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT, $deckId)
             : $this->newCards(
                 userId: $userId,
@@ -44,6 +49,19 @@ class StartStudySessionAction
             );
 
         return new StartStudySessionResult($overview, $cards);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overview
+     * @param  list<string>  $keys
+     */
+    private function assertOverviewKeys(array $overview, array $keys): void
+    {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $overview)) {
+                throw new LogicException("Study overview is missing {$key}.");
+            }
+        }
     }
 
     /**

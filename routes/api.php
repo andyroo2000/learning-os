@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
 use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
+use App\Http\Controllers\Api\Study\ListStudyExportImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
 use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
@@ -116,6 +117,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');
     Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');
     Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');
+    Route::get('/study/export/imports', ListStudyExportImportJobsController::class)->name('api.study.export.imports');
     Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');

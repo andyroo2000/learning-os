@@ -46,6 +46,7 @@ class StudyExportManifestResource extends JsonResource
             'decks' => 'api.study.export.decks',
             'cards' => 'api.study.export.cards',
             'review_events' => 'api.study.export.review-events',
+            'imports' => 'api.study.export.imports',
             'media_assets' => 'api.study.export.media-assets',
             default => throw new LogicException("Study export section [{$section}] is missing a route name."),
         };

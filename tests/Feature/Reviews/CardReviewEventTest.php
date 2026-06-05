@@ -20,6 +20,17 @@ class CardReviewEventTest extends TestCase
         $this->assertTrue(Schema::hasColumns('card_review_events', [
             'id',
             'card_id',
+            'import_job_id',
+            'source_kind',
+            'source_review_id',
+            'source_card_id',
+            'source_ease',
+            'source_interval',
+            'source_last_interval',
+            'source_factor',
+            'source_time_ms',
+            'source_review_type',
+            'raw_payload_json',
             'rating',
             'reviewed_at',
             'duration_ms',
@@ -59,6 +70,58 @@ class CardReviewEventTest extends TestCase
             'device_id' => null,
             'client_created_at' => null,
         ]);
+    }
+
+    public function test_import_source_fields_are_casts_but_not_mass_assignable(): void
+    {
+        $event = new CardReviewEvent([
+            'card_id' => strtolower((string) Str::ulid()),
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => now(),
+            'import_job_id' => strtolower((string) Str::ulid()),
+            'source_kind' => 'anki_import',
+            'source_review_id' => 1700000000001,
+            'source_card_id' => 1700000000002,
+            'source_ease' => 3,
+            'source_interval' => 12,
+            'source_last_interval' => 6,
+            'source_factor' => 2500,
+            'source_time_ms' => 980,
+            'source_review_type' => 1,
+            'raw_payload_json' => ['ease' => 3],
+        ]);
+
+        $this->assertNull($event->import_job_id);
+        $this->assertNull($event->source_kind);
+        $this->assertNull($event->source_review_id);
+        $this->assertNull($event->source_card_id);
+        $this->assertNull($event->source_ease);
+        $this->assertNull($event->source_interval);
+        $this->assertNull($event->source_last_interval);
+        $this->assertNull($event->source_factor);
+        $this->assertNull($event->source_time_ms);
+        $this->assertNull($event->source_review_type);
+        $this->assertNull($event->raw_payload_json);
+
+        $event->source_review_id = '1700000000001';
+        $event->source_card_id = '1700000000002';
+        $event->source_ease = '3';
+        $event->source_interval = '12';
+        $event->source_last_interval = '6';
+        $event->source_factor = '2500';
+        $event->source_time_ms = '980';
+        $event->source_review_type = '1';
+        $event->raw_payload_json = ['ease' => 3];
+
+        $this->assertSame(1700000000001, $event->source_review_id);
+        $this->assertSame(1700000000002, $event->source_card_id);
+        $this->assertSame(3, $event->source_ease);
+        $this->assertSame(12, $event->source_interval);
+        $this->assertSame(6, $event->source_last_interval);
+        $this->assertSame(2500, $event->source_factor);
+        $this->assertSame(980, $event->source_time_ms);
+        $this->assertSame(1, $event->source_review_type);
+        $this->assertSame(['ease' => 3], $event->raw_payload_json);
     }
 
     public function test_review_event_belongs_to_a_card(): void

@@ -394,19 +394,42 @@ class CreateDeckApiTest extends TestCase
         ]);
     }
 
-    public function test_it_normalizes_optional_description(): void
+    public function test_it_normalizes_padded_name_and_blank_description(): void
     {
         $this->signIn();
 
-        $response = $this->postJson('/api/decks', [
-            'name' => '  Italian Basics  ',
-            'description' => '   ',
-        ]);
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/decks', [
+                'name' => '  Italian Basics  ',
+                'description' => '   ',
+            ]);
 
         $response
             ->assertCreated()
             ->assertJsonPath('data.name', 'Italian Basics')
             ->assertJsonPath('data.description', null);
+
+        $this->assertDatabaseHas('decks', [
+            'id' => $response->json('data.id'),
+            'name' => 'Italian Basics',
+            'description' => null,
+        ]);
+    }
+
+    public function test_it_rejects_blank_names_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/decks', [
+                'name' => '   ',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['name']);
+
+        $this->assertDatabaseCount('decks', 0);
     }
 
     public function test_it_rejects_invalid_input(): void

@@ -7,6 +7,9 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDeckRequest extends FormRequest
 {
+    // Keep aligned with the string fields in rules(); omitted optional fields must stay omitted.
+    private const TRIMMED_INPUT_KEYS = ['name', 'description'];
+
     protected function prepareForValidation(): void
     {
         // Trim and lowercase before validation so padded or uppercase client ULIDs pass Laravel's ulid rule.
@@ -17,6 +20,13 @@ class StoreDeckRequest extends FormRequest
 
             if (is_string($value)) {
                 $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        foreach (self::TRIMMED_INPUT_KEYS as $key) {
+            if ($this->exists($key)) {
+                $value = $this->input($key);
+                $normalized[$key] = is_string($value) ? trim($value) : $value;
             }
         }
 

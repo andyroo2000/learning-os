@@ -60,7 +60,13 @@ trait BuildsStudyImportArchives
         $pdo->exec('CREATE TABLE col (id integer primary key, models text not null, decks text not null)');
         $pdo->exec('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, flds text not null)');
         $pdo->exec('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null)');
-        $pdo->exec('CREATE TABLE revlog (id integer primary key, cid integer not null)');
+        if ($options['omit_revlog_table'] ?? false) {
+            // Minimal exports from never-reviewed decks can omit revlog entirely.
+        } elseif ($options['legacy_revlog_schema'] ?? false) {
+            $pdo->exec('CREATE TABLE revlog (id integer primary key, cid integer not null)');
+        } else {
+            $pdo->exec('CREATE TABLE revlog (id integer primary key, cid integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null)');
+        }
 
         $deckId = 1700000000000;
         $basicNoteTypeId = 1001;
@@ -123,9 +129,19 @@ trait BuildsStudyImportArchives
         $statement->execute(['id' => 702, 'nid' => 501, 'did' => $deckId, 'ord' => 1]);
         $statement->execute(['id' => 703, 'nid' => 502, 'did' => $deckId, 'ord' => 0]);
 
-        $statement = $pdo->prepare('INSERT INTO revlog (id, cid) VALUES (:id, :cid)');
-        $statement->execute(['id' => 901, 'cid' => 701]);
-        $statement->execute(['id' => 902, 'cid' => 703]);
+        if ($options['omit_revlog_table'] ?? false) {
+            return;
+        }
+
+        if ($options['legacy_revlog_schema'] ?? false) {
+            $statement = $pdo->prepare('INSERT INTO revlog (id, cid) VALUES (:id, :cid)');
+            $statement->execute(['id' => 901, 'cid' => 701]);
+            $statement->execute(['id' => 902, 'cid' => 703]);
+        } else {
+            $statement = $pdo->prepare('INSERT INTO revlog (id, cid, ease, ivl, lastIvl, factor, time, type) VALUES (:id, :cid, :ease, :ivl, :lastIvl, :factor, :time, :type)');
+            $statement->execute(['id' => 901, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1]);
+            $statement->execute(['id' => 902, 'cid' => 703, 'ease' => 4, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1]);
+        }
     }
 
     private function createStudyImportZip(string $archivePath, array $entries): void

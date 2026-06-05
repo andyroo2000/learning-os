@@ -29,6 +29,7 @@ class Card extends Model
      */
     protected $attributes = [
         'card_type' => CardType::Recognition->value,
+        'search_text' => '',
         'study_status' => CardStudyStatus::New->value,
     ];
 

@@ -32,6 +32,7 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonPath('data.card_type', 'recognition')
             ->assertJsonPath('data.prompt_json', null)
             ->assertJsonPath('data.answer_json', null)
+            ->assertJsonPath('data.search_text', 'arrivederci goodbye')
             ->assertJsonMissingPath('data.media_assets')
             ->assertJsonStructure([
                 'data' => [
@@ -43,6 +44,7 @@ class UpdateCardApiTest extends TestCase
                     'card_type',
                     'prompt_json',
                     'answer_json',
+                    'search_text',
                     'study_status',
                     'new_queue_position',
                     'scheduler_state',
@@ -64,6 +66,7 @@ class UpdateCardApiTest extends TestCase
             'card_type' => 'recognition',
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => 'arrivederci goodbye',
         ]);
     }
 

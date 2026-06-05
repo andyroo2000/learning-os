@@ -115,6 +115,47 @@ class ListCardsActionTest extends TestCase
         $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_cards_by_search_query_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $match = Card::factory()->for($deck)->create([
+            'search_text' => 'Photosynthesis makes glucose',
+        ]);
+        Card::factory()->for($deck)->create([
+            'search_text' => 'Cellular respiration releases energy',
+        ]);
+        Card::factory()->for($this->deckFor(User::factory()->create()))->create([
+            'search_text' => 'Photosynthesis from another user',
+        ]);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            q: ' PHOTO ',
+        );
+
+        $this->assertSame([$match->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_treats_search_wildcards_as_literals_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $match = Card::factory()->for($deck)->create([
+            'search_text' => 'Recall 100% of deck_1',
+        ]);
+        Card::factory()->for($deck)->create([
+            'search_text' => 'Recall 100 percent of deckA1',
+        ]);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            q: '100% of deck_1',
+        );
+
+        $this->assertSame([$match->id], collect($cards->items())->pluck('id')->all());
+    }
+
     public function test_it_rejects_blank_study_status_filters_for_direct_callers(): void
     {
         $user = User::factory()->create();
@@ -125,6 +166,19 @@ class ListCardsActionTest extends TestCase
         app(ListCardsAction::class)->handle(
             userId: $user->id,
             studyStatus: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_search_queries_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card search query filter must not be blank when provided.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            q: '   ',
         );
     }
 

@@ -66,6 +66,7 @@ class UpdateCardActionTest extends TestCase
             'card_type' => 'recognition',
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => 'arrivederci goodbye',
             'study_status' => 'new',
             'new_queue_position' => $updatedCard->new_queue_position,
             'scheduler_state' => null,
@@ -127,11 +128,19 @@ class UpdateCardActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $result->card->prompt_json);
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $result->card->answer_json);
+        $this->assertSame(
+            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
+            $result->card->search_text,
+        );
 
         $payload = SyncFeedEntry::query()->sole()->payload;
 
         $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
+        $this->assertSame(
+            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
+            $payload['search_text'],
+        );
     }
 
     public function test_it_clears_structured_content_when_explicit_nulls_are_provided(): void
@@ -158,8 +167,10 @@ class UpdateCardActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertNull($result->card->prompt_json);
         $this->assertNull($result->card->answer_json);
+        $this->assertSame('What is ATP? Cellular energy currency.', $result->card->search_text);
         $this->assertNull(SyncFeedEntry::query()->sole()->payload['prompt_json']);
         $this->assertNull(SyncFeedEntry::query()->sole()->payload['answer_json']);
+        $this->assertSame('What is ATP? Cellular energy currency.', SyncFeedEntry::query()->sole()->payload['search_text']);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -238,6 +249,54 @@ class UpdateCardActionTest extends TestCase
         $this->assertFalse($result->wasUpdated);
         $this->assertSame($card->id, $result->card->id);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_does_not_emit_a_sync_entry_only_to_fill_legacy_null_search_text(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        Card::query()
+            ->whereKey($card->id)
+            ->update(['search_text' => null]);
+        $card->refresh();
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'ciao',
+                backText: 'hello',
+            ),
+        );
+
+        $this->assertFalse($result->wasUpdated);
+        $this->assertNull($result->card->search_text);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_derives_search_text_when_legacy_null_card_content_changes(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+        Card::query()
+            ->whereKey($card->id)
+            ->update(['search_text' => null]);
+        $card->refresh();
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'arrivederci',
+                backText: 'goodbye',
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame('arrivederci goodbye', $result->card->search_text);
+        $this->assertSame('arrivederci goodbye', SyncFeedEntry::query()->sole()->payload['search_text']);
     }
 
     public function test_it_marks_unchanged_when_card_type_is_omitted(): void

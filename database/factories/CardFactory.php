@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\CardSearchText;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -13,6 +14,22 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class CardFactory extends Factory
 {
     protected $model = Card::class;
+
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Card $card): void {
+            if (($card->search_text ?? '') !== '') {
+                return;
+            }
+
+            $card->search_text = CardSearchText::fromContent(
+                frontText: $card->front_text,
+                backText: $card->back_text,
+                promptJson: $card->prompt_json,
+                answerJson: $card->answer_json,
+            );
+        });
+    }
 
     /**
      * Define the model's default state.

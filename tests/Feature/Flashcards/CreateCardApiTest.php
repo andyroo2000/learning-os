@@ -41,6 +41,7 @@ class CreateCardApiTest extends TestCase
                 ->assertJsonPath('data.card_type', 'recognition')
                 ->assertJsonPath('data.prompt_json', null)
                 ->assertJsonPath('data.answer_json', null)
+                ->assertJsonPath('data.search_text', 'ciao hello')
                 ->assertJsonPath('data.scheduler_state.due', '2026-06-04T12:00:00.000000Z')
                 ->assertJsonPath('data.scheduler_state.state', 0)
                 ->assertJsonPath('data.scheduler_state.reps', 0)
@@ -54,6 +55,7 @@ class CreateCardApiTest extends TestCase
                         'card_type',
                         'prompt_json',
                         'answer_json',
+                        'search_text',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',
@@ -77,6 +79,7 @@ class CreateCardApiTest extends TestCase
                 'card_type' => 'recognition',
                 'prompt_json' => null,
                 'answer_json' => null,
+                'search_text' => 'ciao hello',
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'due_at' => null,

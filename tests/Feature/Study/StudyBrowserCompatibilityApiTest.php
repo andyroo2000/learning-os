@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class StudyBrowserCompatibilityApiTest extends TestCase
@@ -159,6 +160,35 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 1)
             ->assertJsonPath('rows.0.noteId', $card->id);
+    }
+
+    public function test_it_omits_malformed_raw_enum_facet_values_without_failing(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create([
+            'front_text' => '',
+            'source_note_id' => 2401,
+            'source_notetype_name' => 'Legacy Note Type',
+            'search_text' => 'legacy malformed enum card',
+        ]);
+
+        DB::table('cards')
+            ->where('id', $card->id)
+            ->update([
+                'card_type' => 'legacy-card-type',
+                'study_status' => 'legacy-study-status',
+            ]);
+
+        $this->getJson('/api/study/browser?q=legacy')
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('rows.0.noteId', '2401')
+            ->assertJsonPath('rows.0.displayText', $card->id)
+            ->assertJsonPath('rows.0.queueSummary.new', 1)
+            ->assertJsonPath('filterOptions.noteTypes', ['Legacy Note Type'])
+            ->assertJsonPath('filterOptions.cardTypes', [])
+            ->assertJsonPath('filterOptions.queueStates', []);
     }
 
     public function test_it_excludes_deleted_cards_deleted_decks_and_other_users_from_rows_and_filter_options(): void

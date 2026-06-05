@@ -14,7 +14,7 @@ use InvalidArgumentException;
 
 class ListStudyBrowserAction
 {
-    public const DEFAULT_LIMIT = 100;
+    public const DEFAULT_LIMIT = 50;
 
     public const MAX_LIMIT = 100;
 
@@ -225,7 +225,7 @@ class ListStudyBrowserAction
                 $reviewCount = 0;
 
                 foreach ($group as $card) {
-                    $state = $card->study_status?->value ?? CardStudyStatus::New->value;
+                    $state = $this->queueStateSummaryValue($card);
                     $queueSummary[$state] = ($queueSummary[$state] ?? 0) + 1;
                     $reviewCount += $reviewCounts[$card->id] ?? 0;
                 }
@@ -311,7 +311,22 @@ class ListStudyBrowserAction
             }
         }
 
-        return trim($card->front_text) !== '' ? $card->front_text : $card->id;
+        return trim($card->front_text) !== '' ? $card->front_text : (string) $card->id;
+    }
+
+    private function queueStateSummaryValue(Card $card): string
+    {
+        $rawState = $card->getRawOriginal('study_status');
+
+        if ($rawState instanceof CardStudyStatus) {
+            return $rawState->value;
+        }
+
+        if (is_string($rawState)) {
+            return CardStudyStatus::tryFrom($rawState)?->value ?? CardStudyStatus::New->value;
+        }
+
+        return CardStudyStatus::New->value;
     }
 
     /**
@@ -344,8 +359,10 @@ class ListStudyBrowserAction
         return $this->browserCardQuery($userId, $q, $noteType, null, $queueState)
             ->distinct()
             ->orderBy('cards.card_type')
+            ->toBase()
             ->pluck('cards.card_type')
-            ->map(fn (mixed $cardType): string => $this->cardTypeFacetValue($cardType))
+            ->map(fn (mixed $cardType): ?string => $this->cardTypeFacetValue($cardType))
+            ->filter()
             ->unique()
             ->values()
             ->all();
@@ -363,41 +380,44 @@ class ListStudyBrowserAction
         return $this->browserCardQuery($userId, $q, $noteType, $cardType, null)
             ->distinct()
             ->orderBy('cards.study_status')
+            ->toBase()
             ->pluck('cards.study_status')
-            ->map(fn (mixed $queueState): string => $this->queueStateFacetValue($queueState))
+            ->map(fn (mixed $queueState): ?string => $this->queueStateFacetValue($queueState))
+            ->filter()
             ->unique()
             ->values()
             ->all();
     }
 
-    private function cardTypeFacetValue(mixed $cardType): string
+    private function cardTypeFacetValue(mixed $cardType): ?string
     {
         if ($cardType instanceof CardType) {
             return $cardType->value;
         }
 
         if (is_string($cardType)) {
-            return CardType::fromFilter($cardType)->value;
+            return CardType::tryFrom($cardType)?->value;
         }
 
-        throw new InvalidArgumentException('Study browser card type facet must be a string or CardType.');
+        return null;
     }
 
-    private function queueStateFacetValue(mixed $queueState): string
+    private function queueStateFacetValue(mixed $queueState): ?string
     {
         if ($queueState instanceof CardStudyStatus) {
             return $queueState->value;
         }
 
         if (is_string($queueState)) {
-            return CardStudyStatus::fromFilter($queueState)->value;
+            return CardStudyStatus::tryFrom($queueState)?->value;
         }
 
-        throw new InvalidArgumentException('Study browser queue state facet must be a string or CardStudyStatus.');
+        return null;
     }
 
     private function encodeOffsetCursor(int $offset): string
     {
+        // Offset cursors mirror the legacy browser contract; data changes between page requests can shift later pages.
         return rtrim(strtr(base64_encode(json_encode(['offset' => $offset], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
     }
 

@@ -3,12 +3,14 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use LogicException;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -135,6 +137,7 @@ class StartStudySessionActionTest extends TestCase
             now: $now,
         );
 
+        // Session order is due-date order across regular due and ready-failed cards.
         $this->assertSame([$readyFailedCard->id, $regularDueCard->id], $result->cards->pluck('id')->all());
         $this->assertSame(1, $result->overview['due_count']);
         $this->assertSame(1, $result->overview['failed_count']);
@@ -170,6 +173,34 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(0, $result->overview['failed_count']);
         $this->assertSame(0, $result->overview['failed_due_count']);
         $this->assertSame(1, $result->overview['new_cards_available_today']);
+    }
+
+    public function test_it_requires_the_internal_failed_due_count_overview_key(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study overview is missing failed_due_count.');
+
+        $this->startStudySessionWithOverview([
+            'due_count' => 0,
+            'new_cards_available_today' => 0,
+        ])->handle(
+            userId: User::factory()->create()->id,
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+    }
+
+    public function test_it_requires_the_internal_due_count_overview_key(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study overview is missing due_count.');
+
+        $this->startStudySessionWithOverview([
+            'failed_due_count' => 0,
+            'new_cards_available_today' => 0,
+        ])->handle(
+            userId: User::factory()->create()->id,
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
     }
 
     public function test_it_only_uses_owned_cards_from_active_decks(): void
@@ -325,6 +356,34 @@ class StartStudySessionActionTest extends TestCase
         app(StartStudySessionAction::class)->handle(
             userId: User::factory()->create()->id,
             deckId: '   ',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $overview
+     */
+    private function startStudySessionWithOverview(array $overview): StartStudySessionAction
+    {
+        return new StartStudySessionAction(
+            new class($overview) extends GetStudyOverviewAction
+            {
+                /**
+                 * @param  array<string, mixed>  $overview
+                 */
+                public function __construct(private readonly array $overview) {}
+
+                /**
+                 * @return array<string, mixed>
+                 */
+                public function handle(
+                    int $userId,
+                    ?string $timeZone = null,
+                    ?Carbon $now = null,
+                    ?string $deckId = null,
+                ): array {
+                    return $this->overview;
+                }
+            },
         );
     }
 }

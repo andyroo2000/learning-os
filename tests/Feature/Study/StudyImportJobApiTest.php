@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -112,6 +113,32 @@ class StudyImportJobApiTest extends TestCase
         $this->getJson('/api/study/imports/current')
             ->assertOk()
             ->assertJsonPath('data', null);
+    }
+
+    public function test_current_expires_stale_processing_imports_before_returning_active_import(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+
+        try {
+            $user = $this->signIn();
+            $stale = StudyImportJob::factory()->processing()->for($user)->create([
+                'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+                'updated_at' => now()->addMinute(),
+            ]);
+            $fresh = StudyImportJob::factory()->for($user)->create([
+                'updated_at' => now(),
+            ]);
+
+            $this->getJson('/api/study/imports/current')
+                ->assertOk()
+                ->assertJsonPath('data.id', $fresh->id)
+                ->assertJsonPath('data.status', StudyImportStatus::Pending->value);
+
+            $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+            $this->assertSame('Study import timed out before completion.', $stale->error_message);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_show_returns_the_authenticated_users_import_job(): void

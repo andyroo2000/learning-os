@@ -20,11 +20,12 @@ class StoreCardReviewEventBatchController extends Controller
 
         try {
             $result = $reviewCards->handle(
-                collect($request->validated('events'))
+                collect($request->reviewEvents())
                     ->map(fn (array $event) => ReviewCardData::fromInput(
                         cardId: $event['card_id'],
                         rating: $event['rating'],
                         reviewedAt: $event['reviewed_at'],
+                        durationMs: $event['duration_ms'] ?? null,
                         id: $event['id'] ?? null,
                         clientEventId: $event['client_event_id'],
                         deviceId: $event['device_id'],

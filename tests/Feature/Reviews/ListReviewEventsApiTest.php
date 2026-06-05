@@ -33,6 +33,7 @@ class ListReviewEventsApiTest extends TestCase
         $firstEvent = CardReviewEvent::factory()->for($firstCard)->create([
             'rating' => CardReviewRating::Hard,
             'reviewed_at' => now()->subDay(),
+            'duration_ms' => 1200,
             'client_event_id' => 'event-1',
             'device_id' => 'device-a',
             'client_created_at' => now()->subDay()->subMinute(),
@@ -62,6 +63,7 @@ class ListReviewEventsApiTest extends TestCase
                         'course_id',
                         'rating',
                         'reviewed_at',
+                        'duration_ms',
                         'client_event_id',
                         'device_id',
                         'client_created_at',
@@ -81,6 +83,7 @@ class ListReviewEventsApiTest extends TestCase
                 'course_id' => $course->id,
                 'rating' => CardReviewRating::Hard->value,
                 'reviewed_at' => $firstEvent->reviewed_at->toJSON(),
+                'duration_ms' => 1200,
                 'client_event_id' => 'event-1',
                 'device_id' => 'device-a',
                 'client_created_at' => $firstEvent->client_created_at->toJSON(),

@@ -93,6 +93,7 @@ class ReviewCardAction
             'card_id' => $data->cardId,
             'rating' => $rating,
             'reviewed_at' => $data->reviewedAt,
+            'duration_ms' => $data->durationMs,
             'client_event_id' => $data->clientEventId,
             'device_id' => $data->deviceId,
             'client_created_at' => $data->clientCreatedAt,
@@ -199,6 +200,7 @@ class ReviewCardAction
             || CanonicalUlid::normalize((string) $reviewEvent->card_id) !== $data->cardId
             || $reviewEvent->rating !== $rating
             || ! $this->nullableTimestampsMatch($reviewEvent->reviewed_at, $data->reviewedAt)
+            || $reviewEvent->duration_ms !== $data->durationMs
             || $reviewEvent->client_event_id !== $data->clientEventId
             || $reviewEvent->device_id !== $data->deviceId
             || ! $this->nullableTimestampsMatch($reviewEvent->client_created_at, $data->clientCreatedAt)

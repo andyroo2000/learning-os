@@ -14,6 +14,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class UndoCardReviewEventAction
 {
@@ -24,6 +25,7 @@ class UndoCardReviewEventAction
     public function handle(CardReviewEvent $reviewEvent): Card
     {
         return DB::transaction(function () use ($reviewEvent): Card {
+            // Reload card/deck inside the transaction so direct callers cannot reuse stale loaded relations.
             $reviewEvent->load(['card.deck']);
 
             $card = $reviewEvent->card;
@@ -64,6 +66,7 @@ class UndoCardReviewEventAction
                 ),
             );
 
+            // Capture the tombstone payload before hard-deleting the review event.
             $reviewEvent->delete();
 
             $this->recordSyncFeedEntry->handle(
@@ -164,6 +167,10 @@ class UndoCardReviewEventAction
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 
-        return Carbon::parse($value);
+        try {
+            return Carbon::parse($value);
+        } catch (Throwable) {
+            throw UndoCardReviewEventException::invalidSnapshot($key);
+        }
     }
 }

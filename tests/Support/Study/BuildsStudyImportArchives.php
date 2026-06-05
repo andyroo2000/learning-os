@@ -16,13 +16,21 @@ trait BuildsStudyImportArchives
 
         try {
             $this->createStudyImportCollectionDatabase($databasePath, $options);
-            $this->createStudyImportZip($archivePath, [
+            $mediaMap = $options['media_map'] ?? [
+                '0' => 'word.mp3',
+                '1' => 'company.png',
+            ];
+            $mediaEntries = $options['media_entries'] ?? array_fill_keys(array_keys($mediaMap), 'media-bytes');
+            $entries = [
                 $options['collection_entry'] ?? 'collection.anki21' => file_get_contents($databasePath),
-                'media' => json_encode([
-                    '0' => 'word.mp3',
-                    '1' => 'company.png',
-                ], JSON_THROW_ON_ERROR),
-            ]);
+                'media' => $options['media_contents'] ?? json_encode($mediaMap, JSON_THROW_ON_ERROR),
+            ];
+
+            foreach ($mediaEntries as $sourceMediaRef => $contents) {
+                $entries[(string) $sourceMediaRef] = $contents;
+            }
+
+            $this->createStudyImportZip($archivePath, $entries);
 
             return (string) file_get_contents($archivePath);
         } finally {
@@ -59,6 +67,7 @@ trait BuildsStudyImportArchives
         $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
         $fieldSeparator = "\x1f";
+        $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png">';
 
         $models = [
             (string) $basicNoteTypeId => [
@@ -100,7 +109,7 @@ trait BuildsStudyImportArchives
             'id' => 501,
             'guid' => 'note-one',
             'mid' => $basicNoteTypeId,
-            'flds' => '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png">',
+            'flds' => $noteOneFields,
         ]);
         $statement->execute([
             'id' => 502,

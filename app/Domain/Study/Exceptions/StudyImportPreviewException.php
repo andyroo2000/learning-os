@@ -20,4 +20,9 @@ final class StudyImportPreviewException extends RuntimeException
     {
         return new self('The uploaded collection database could not be parsed.');
     }
+
+    public static function invalidMediaManifest(): self
+    {
+        return new self('The uploaded media manifest could not be parsed.');
+    }
 }

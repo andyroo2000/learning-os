@@ -75,6 +75,123 @@ class StudyImportArchivePreviewerTest extends TestCase
         ], $preview['note_type_breakdown']);
     }
 
+    public function test_it_reports_missing_and_skipped_media_manifest_entries(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/media-gaps.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_map' => [
+                    '0' => 'word.mp3',
+                    '2' => 'unused.mp3',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/media-gaps.colpkg',
+        );
+
+        $this->assertSame(2, $preview['media_reference_count']);
+        $this->assertSame(1, $preview['skipped_media_count']);
+        $this->assertSame([
+            'Media file "company.png" is referenced by notes but is missing from the archive manifest.',
+        ], $preview['warnings']);
+    }
+
+    public function test_it_reports_manifest_entries_without_archive_content(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/missing-media-content.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => 'audio-bytes',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/missing-media-content.colpkg',
+        );
+
+        $this->assertSame(2, $preview['media_reference_count']);
+        $this->assertSame(0, $preview['skipped_media_count']);
+        $this->assertSame([
+            'Media file "company.png" is listed in the archive manifest but content entry "1" is missing.',
+        ], $preview['warnings']);
+    }
+
+    public function test_it_rejects_invalid_media_manifest_json(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/invalid-media-json.colpkg',
+            $this->buildStudyImportArchiveBytes(['media_contents' => '{']),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('The uploaded media manifest could not be parsed.');
+
+        app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/invalid-media-json.colpkg',
+        );
+    }
+
+    public function test_it_caps_media_warnings_with_a_summary(): void
+    {
+        Storage::fake('study-imports');
+        $fields = implode('', array_map(
+            static fn (int $index): string => '<img src="missing-'.$index.'.png">',
+            range(1, 12),
+        ));
+
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/many-media-gaps.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_map' => [],
+                'note_one_fields' => $fields,
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/many-media-gaps.colpkg',
+        );
+
+        $this->assertSame(12, $preview['media_reference_count']);
+        $this->assertCount(11, $preview['warnings']);
+        $this->assertSame('Media file "missing-1.png" is referenced by notes but is missing from the archive manifest.', $preview['warnings'][0]);
+        $this->assertSame('Media file "missing-10.png" is referenced by notes but is missing from the archive manifest.', $preview['warnings'][9]);
+        $this->assertSame('2 additional media warnings were omitted from this preview.', $preview['warnings'][10]);
+    }
+
+    public function test_it_skips_media_manifest_filenames_containing_nul_bytes(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/nul-media-filename.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_map' => [
+                    '0' => "word\0.mp3",
+                    '1' => 'company.png',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/nul-media-filename.colpkg',
+        );
+
+        $this->assertSame([
+            'Media file "word.mp3" is referenced by notes but is missing from the archive manifest.',
+        ], $preview['warnings']);
+    }
+
     public function test_it_rejects_archives_without_a_collection_database(): void
     {
         Storage::fake('study-imports');

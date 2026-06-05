@@ -177,6 +177,34 @@ class ListReviewEventsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_review_events_by_deck_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $otherDeck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create();
+        $otherUserEvent = $this->cardReviewEventFor(User::factory()->create());
+
+        $response = $this->getJson("/api/card-review-events?deck_id={$deck->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewEvent->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckEvent->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherUserEvent->id,
+            ]);
+    }
+
     public function test_it_requires_card_id_filters_to_match_the_course_filter_when_both_are_provided(): void
     {
         $user = $this->signIn();
@@ -193,6 +221,43 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonCount(0, 'data')
             ->assertJsonMissing([
                 'id' => $otherCourseEvent->id,
+            ]);
+    }
+
+    public function test_it_returns_empty_when_deck_id_and_course_id_are_in_different_courses(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+        $otherCourseEvent = CardReviewEvent::factory()->for($otherCourseCard)->create();
+
+        $response = $this->getJson("/api/card-review-events?course_id={$course->id}&deck_id={$otherCourseDeck->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing([
+                'id' => $otherCourseEvent->id,
+            ]);
+    }
+
+    public function test_it_returns_empty_when_card_id_and_deck_id_do_not_match(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+        $otherDeckEvent = CardReviewEvent::factory()->for($otherDeckCard)->create();
+
+        $response = $this->getJson("/api/card-review-events?deck_id={$deck->id}&card_id={$otherDeckCard->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing([
+                'id' => $otherDeckEvent->id,
             ]);
     }
 
@@ -290,6 +355,30 @@ class ListReviewEventsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_normalizes_deck_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/card-review-events?deck_id=%20'.strtoupper($deck->id).'%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $reviewEvent->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckEvent->id,
+            ]);
+    }
+
     public function test_it_rejects_a_blank_course_id_filter_without_global_trim_middleware(): void
     {
         $this->signIn();
@@ -316,6 +405,19 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonValidationErrors('card_id');
     }
 
+    public function test_it_rejects_a_blank_deck_id_filter_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/card-review-events?deck_id=%20%20%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('deck_id');
+    }
+
     public function test_it_rejects_a_malformed_course_id_filter(): void
     {
         $this->signIn();
@@ -338,6 +440,17 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonValidationErrors('card_id');
     }
 
+    public function test_it_rejects_a_malformed_deck_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/card-review-events?deck_id=not-a-ulid');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('deck_id');
+    }
+
     public function test_it_rejects_an_array_card_id_filter(): void
     {
         $this->signIn();
@@ -349,6 +462,17 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonValidationErrors('card_id');
     }
 
+    public function test_it_rejects_an_array_deck_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/card-review-events?deck_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('deck_id');
+    }
+
     public function test_it_returns_empty_results_for_a_card_id_owned_by_another_user(): void
     {
         $this->signIn();
@@ -356,6 +480,23 @@ class ListReviewEventsApiTest extends TestCase
         $otherUserEvent = CardReviewEvent::factory()->for($otherUserCard)->create();
 
         $response = $this->getJson("/api/card-review-events?card_id={$otherUserCard->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing([
+                'id' => $otherUserEvent->id,
+            ]);
+    }
+
+    public function test_it_returns_empty_results_for_a_deck_id_owned_by_another_user(): void
+    {
+        $this->signIn();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+        $otherUserEvent = CardReviewEvent::factory()->for($otherDeckCard)->create();
+
+        $response = $this->getJson("/api/card-review-events?deck_id={$otherDeck->id}");
 
         $response
             ->assertOk()
@@ -490,6 +631,46 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonPath('data.0.id', $olderEvent->id)
             ->assertJsonMissing([
                 'id' => $otherCardEvent->id,
+            ]);
+    }
+
+    public function test_it_preserves_deck_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $olderEvent = CardReviewEvent::factory()->for($card)->create([
+            'reviewed_at' => now()->subMinutes(2),
+        ]);
+        $newerEvent = CardReviewEvent::factory()->for($card)->create([
+            'reviewed_at' => now()->subMinute(),
+        ]);
+        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create([
+            'reviewed_at' => now(),
+        ]);
+
+        $firstPage = $this->getJson("/api/card-review-events?deck_id={$deck->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerEvent->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderEvent->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckEvent->id,
             ]);
     }
 

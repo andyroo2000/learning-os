@@ -127,6 +127,19 @@ final class CardSchedulerState
         return self::fresh($studyStatus, $dueAt, $now);
     }
 
+    public static function studyStatus(Card $card, ?CardStudyStatus $fallback = null): CardStudyStatus
+    {
+        $state = self::integer(self::existing($card), 'state', -1);
+
+        return match ($state) {
+            self::STATE_NEW => CardStudyStatus::New,
+            self::STATE_LEARNING => CardStudyStatus::Learning,
+            self::STATE_REVIEW => CardStudyStatus::Review,
+            self::STATE_RELEARNING => CardStudyStatus::Relearning,
+            default => $fallback ?? ($card->study_status ?? CardStudyStatus::New),
+        };
+    }
+
     private static function stateForStudyStatus(CardStudyStatus $studyStatus): int
     {
         return match ($studyStatus) {

@@ -79,6 +79,100 @@ class SetCardDueActionTest extends TestCase
         $this->assertSame(2, $result->card->scheduler_state['state']);
     }
 
+    public function test_it_restores_suspended_cards_to_the_scheduler_state_status(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => '2026-06-05T12:00:00Z',
+            'scheduler_state' => [
+                'due' => '2026-06-05T12:00:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 4,
+                'elapsed_days' => 2,
+                'scheduled_days' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 1,
+                'state' => 1,
+                'last_review' => '2026-06-01T09:15:00.000000Z',
+            ],
+        ]);
+
+        $result = app(SetCardDueAction::class)->handle(
+            card: $card,
+            mode: 'custom_date',
+            dueAt: '2026-06-06T14:15:00Z',
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::Learning, $result->card->study_status);
+        $this->assertSame(1, $result->card->scheduler_state['state']);
+        $this->assertSame('learning', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_it_restores_buried_cards_to_the_scheduler_state_status(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Buried,
+            'due_at' => '2026-06-05T12:00:00Z',
+            'scheduler_state' => [
+                'due' => '2026-06-05T12:00:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 4,
+                'elapsed_days' => 2,
+                'scheduled_days' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 1,
+                'state' => 3,
+                'last_review' => '2026-06-01T09:15:00.000000Z',
+            ],
+        ]);
+
+        $result = app(SetCardDueAction::class)->handle(
+            card: $card,
+            mode: 'custom_date',
+            dueAt: '2026-06-06T14:15:00Z',
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::Relearning, $result->card->study_status);
+        $this->assertSame(3, $result->card->scheduler_state['state']);
+        $this->assertSame('relearning', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_set_due_promotes_suspended_new_scheduler_state_to_review(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => null,
+            'scheduler_state' => [
+                'due' => '2026-06-04T12:00:00.000000Z',
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 0,
+                'learning_steps' => 0,
+                'reps' => 0,
+                'lapses' => 0,
+                'state' => 0,
+                'last_review' => null,
+            ],
+        ]);
+
+        $result = app(SetCardDueAction::class)->handle(
+            card: $card,
+            mode: 'now',
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
+        $this->assertSame(2, $result->card->scheduler_state['state']);
+    }
+
     public function test_now_mode_uses_the_current_time(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

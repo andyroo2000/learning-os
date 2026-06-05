@@ -83,6 +83,38 @@ class PerformCardStudyActionTest extends TestCase
         $this->assertSame('review', SyncFeedEntry::query()->sole()->payload['study_status']);
     }
 
+    public function test_unsuspend_restores_scheduler_state_status_and_preserves_existing_due_date(): void
+    {
+        $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => $dueAt,
+            'scheduler_state' => [
+                'due' => '2026-06-05T14:15:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 4,
+                'elapsed_days' => 2,
+                'scheduled_days' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 1,
+                'state' => 3,
+                'last_review' => '2026-06-01T09:15:00.000000Z',
+            ],
+        ]);
+
+        $result = app(PerformCardStudyAction::class)->handle(
+            card: $card,
+            action: 'unsuspend',
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::Relearning, $result->card->study_status);
+        $this->assertSame($dueAt->toJSON(), $result->card->due_at?->toJSON());
+        $this->assertSame('relearning', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
     public function test_unsuspend_sets_due_now_when_no_due_date_exists(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

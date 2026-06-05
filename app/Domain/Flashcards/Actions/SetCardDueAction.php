@@ -148,12 +148,16 @@ class SetCardDueAction
     {
         $currentStatus = $card->study_status ?? CardStudyStatus::New;
 
-        return in_array($currentStatus, [
-            CardStudyStatus::New,
-            CardStudyStatus::Suspended,
-            CardStudyStatus::Buried,
-        ], strict: true)
-            ? CardStudyStatus::Review
-            : $currentStatus;
+        if ($currentStatus === CardStudyStatus::New) {
+            return CardStudyStatus::Review;
+        }
+
+        if (in_array($currentStatus, [CardStudyStatus::Suspended, CardStudyStatus::Buried], strict: true)) {
+            $restoredStatus = CardSchedulerState::studyStatus($card, CardStudyStatus::Review);
+
+            return $restoredStatus === CardStudyStatus::New ? CardStudyStatus::Review : $restoredStatus;
+        }
+
+        return $currentStatus;
     }
 }

@@ -35,11 +35,15 @@ class GetStudyExportManifestActionTest extends TestCase
         CardReviewEvent::factory()->for($deletedCard)->create();
         CardReviewEvent::factory()->for($deletedDeckCard)->create();
         StudyImportJob::factory()->for($user)->create();
-        MediaAsset::factory()->for($user)->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
+        $activeCard->mediaAssets()->attach($mediaAsset->id);
+        $activeCard->mediaAssets()->attach($otherMediaAsset->id);
+        $deletedCard->mediaAssets()->attach($mediaAsset->id);
+        $deletedDeckCard->mediaAssets()->attach($mediaAsset->id);
         $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
         SyncFeedEntry::factory()->for($otherUser)->create();
         StudyImportJob::factory()->for($otherUser)->create();
-        MediaAsset::factory()->for($otherUser)->create();
         Course::factory()->for($otherUser)->create();
         Card::factory()->for($this->deckFor($otherUser))->create();
 
@@ -59,6 +63,7 @@ class GetStudyExportManifestActionTest extends TestCase
             'courses' => ['total' => 1],
             'decks' => ['total' => 1],
             'cards' => ['total' => 1],
+            'card_media' => ['total' => 1],
             'review_events' => ['total' => 1],
             'imports' => ['total' => 1],
             'media_assets' => ['total' => 1],

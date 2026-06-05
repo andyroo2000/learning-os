@@ -35,7 +35,8 @@ class ShowStudyExportManifestApiTest extends TestCase
 
             CardReviewEvent::factory()->for($card)->create();
             StudyImportJob::factory()->for($user)->create();
-            MediaAsset::factory()->for($user)->create();
+            $mediaAsset = MediaAsset::factory()->for($user)->create();
+            $card->mediaAssets()->attach($mediaAsset->id);
             $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
             Course::factory()->for($otherUser)->create();
             Card::factory()->for($this->deckFor($otherUser))->create();
@@ -51,6 +52,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertJsonPath('data.sections.courses.total', 1)
                 ->assertJsonPath('data.sections.decks.total', 1)
                 ->assertJsonPath('data.sections.cards.total', 1)
+                ->assertJsonPath('data.sections.card_media.total', 1)
                 ->assertJsonPath('data.sections.review_events.total', 1)
                 ->assertJsonPath('data.sections.imports.total', 1)
                 ->assertJsonPath('data.sections.media_assets.total', 1)
@@ -58,6 +60,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertJsonPath('data.sections.courses.path', '/api/study/export/courses')
                 ->assertJsonPath('data.sections.decks.path', '/api/study/export/decks')
                 ->assertJsonPath('data.sections.cards.path', '/api/study/export/cards')
+                ->assertJsonPath('data.sections.card_media.path', '/api/study/export/card-media')
                 ->assertJsonPath('data.sections.review_events.path', '/api/study/export/review-events')
                 ->assertJsonPath('data.sections.imports.path', '/api/study/export/imports')
                 ->assertJsonPath('data.sections.media_assets.path', '/api/study/export/media-assets')
@@ -70,6 +73,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                             'courses' => ['total', 'path'],
                             'decks' => ['total', 'path'],
                             'cards' => ['total', 'path'],
+                            'card_media' => ['total', 'path'],
                             'review_events' => ['total', 'path'],
                             'imports' => ['total', 'path'],
                             'media_assets' => ['total', 'path'],

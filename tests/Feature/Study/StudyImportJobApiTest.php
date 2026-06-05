@@ -18,6 +18,36 @@ class StudyImportJobApiTest extends TestCase
         $this->getJson('/api/study/imports/current')->assertUnauthorized();
     }
 
+    public function test_readiness_requires_authentication(): void
+    {
+        $this->getJson('/api/study/imports/readiness')->assertUnauthorized();
+    }
+
+    public function test_readiness_returns_upload_availability(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/imports/readiness')
+            ->assertOk()
+            ->assertJsonPath('ready', true)
+            ->assertJsonPath('message', null)
+            ->assertJsonStructure([
+                'ready',
+                'message',
+            ]);
+    }
+
+    public function test_readiness_reports_unavailable_when_storage_is_not_configured(): void
+    {
+        $this->signIn();
+        config()->offsetUnset('filesystems.disks.study-imports');
+
+        $this->getJson('/api/study/imports/readiness')
+            ->assertOk()
+            ->assertJsonPath('ready', false)
+            ->assertJsonPath('message', 'Study import uploads are temporarily unavailable because storage is not configured.');
+    }
+
     public function test_show_requires_authentication(): void
     {
         $this->getJson('/api/study/imports/'.strtolower((string) Str::ulid()))->assertUnauthorized();

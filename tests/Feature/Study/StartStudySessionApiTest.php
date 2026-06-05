@@ -200,4 +200,35 @@ class StartStudySessionApiTest extends TestCase
             Carbon::setTestNow();
         }
     }
+
+    public function test_start_returns_ready_failed_cards_before_new_cards(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $readyFailedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+                'due_at' => Carbon::parse('2026-06-04T11:50:00Z'),
+                'failed_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => 1,
+            ]);
+
+            $this->postJson('/api/study/session/start')
+                ->assertOk()
+                ->assertJsonPath('data.overview.due_count', 0)
+                ->assertJsonPath('data.overview.failed_count', 1)
+                ->assertJsonPath('data.overview.new_cards_available_today', 0)
+                ->assertJsonMissingPath('data.overview.failed_due_count')
+                ->assertJsonPath('data.cards.0.id', $readyFailedCard->id)
+                ->assertJsonCount(1, 'data.cards');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
 }

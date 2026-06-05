@@ -90,6 +90,35 @@ class ShowStudyOverviewApiTest extends TestCase
         }
     }
 
+    public function test_show_reports_ready_failed_cards_separately_from_due_cards(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+                'due_at' => Carbon::parse('2026-06-04T11:50:00Z'),
+                'failed_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => 1,
+            ]);
+
+            $this->getJson('/api/study/overview')
+                ->assertOk()
+                ->assertJsonPath('data.due_count', 0)
+                ->assertJsonPath('data.failed_count', 1)
+                ->assertJsonPath('data.new_cards_available_today', 0)
+                ->assertJsonMissingPath('data.failed_due_count');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_show_normalizes_deck_id_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);

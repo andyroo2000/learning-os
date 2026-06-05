@@ -14,7 +14,7 @@ class StudySessionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'overview' => $this->overview,
+            'overview' => StudyOverviewResource::publicData($this->overview),
             'cards' => CardResource::collection($this->cards),
         ];
     }

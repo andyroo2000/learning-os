@@ -38,6 +38,12 @@ class GetStudyOverviewAction
         $dueCount = (clone $baseQuery)
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->where('cards.due_at', '<=', $now)
+            ->whereNull('cards.failed_at')
+            ->count('cards.id');
+        $failedDueCount = (clone $baseQuery)
+            ->whereIn('cards.study_status', $this->activeDueStatuses())
+            ->where('cards.due_at', '<=', $now)
+            ->whereNotNull('cards.failed_at')
             ->count('cards.id');
         $newCount = (clone $baseQuery)
             ->where('cards.study_status', CardStudyStatus::New->value)
@@ -51,10 +57,13 @@ class GetStudyOverviewAction
                 ->whereIn('cards.study_status', $this->activeDueStatuses())
                 ->whereNotNull('cards.failed_at')
                 ->count('cards.id'),
+            'failed_due_count' => $failedDueCount,
             'new_count' => $newCount,
             'new_cards_per_day' => $settings->new_cards_per_day,
             'new_cards_introduced_today' => $introducedToday,
-            'new_cards_available_today' => $dueCount > 0 ? 0 : min($newCount, $remainingNewCards),
+            'new_cards_available_today' => $dueCount > 0 || $failedDueCount > 0
+                ? 0
+                : min($newCount, $remainingNewCards),
             'learning_count' => (clone $baseQuery)
                 ->whereIn('cards.study_status', [
                     CardStudyStatus::Learning->value,

@@ -35,7 +35,7 @@ class StartStudySessionAction
             deckId: $deckId,
         );
 
-        $cards = $overview['due_count'] > 0
+        $cards = $overview['due_count'] > 0 || $overview['failed_due_count'] > 0
             ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT, $deckId)
             : $this->newCards(
                 userId: $userId,

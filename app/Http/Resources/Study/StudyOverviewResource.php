@@ -4,14 +4,42 @@ namespace App\Http\Resources\Study;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Arr;
 
 class StudyOverviewResource extends JsonResource
 {
+    /**
+     * Public API fields are opt-in so internal counters can guide session logic without
+     * becoming client-visible contracts.
+     */
+    private const PUBLIC_KEYS = [
+        'due_count',
+        'failed_count',
+        'new_count',
+        'new_cards_per_day',
+        'new_cards_introduced_today',
+        'new_cards_available_today',
+        'learning_count',
+        'review_count',
+        'suspended_count',
+        'total_cards',
+        'next_due_at',
+    ];
+
+    /**
+     * @param  array<string, mixed>  $overview
+     * @return array<string, mixed>
+     */
+    public static function publicData(array $overview): array
+    {
+        return Arr::only($overview, self::PUBLIC_KEYS);
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        return $this->resource;
+        return self::publicData($this->resource);
     }
 }

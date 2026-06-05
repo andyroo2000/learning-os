@@ -125,10 +125,7 @@ class CreateStudyImportUploadSessionAction
     {
         return StudyImportJob::query()
             ->where('user_id', $userId)
-            ->whereIn('status', [
-                StudyImportStatus::Pending->value,
-                StudyImportStatus::Processing->value,
-            ])
+            ->active()
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->first();

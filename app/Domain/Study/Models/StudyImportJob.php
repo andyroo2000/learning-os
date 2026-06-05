@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
 use Database\Factories\StudyImportJobFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -82,5 +83,17 @@ class StudyImportJob extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            StudyImportStatus::Pending->value,
+            StudyImportStatus::Processing->value,
+        ]);
     }
 }

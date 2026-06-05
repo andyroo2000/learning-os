@@ -53,6 +53,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'sourceContentType' => $latestImport->source_content_type,
             'sourceSizeBytes' => $latestImport->source_size_bytes,
             'deckName' => $latestImport->deck_name,
+            // ConvoLab import views consume the full preview/summary structures from the import job.
             'preview' => $latestImport->preview_json,
             'summary' => $latestImport->summary_json,
             'errorMessage' => $latestImport->error_message,

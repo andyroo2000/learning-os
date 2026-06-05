@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Study;
 
-use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -12,7 +11,6 @@ use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -331,11 +329,15 @@ class StudyReviewCompatibilityApiTest extends TestCase
     {
         $card = $this->cardFor($this->signIn());
 
-        $this->app->instance(ReviewCardAction::class, new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class)) extends ReviewCardAction
+        $realReviewCard = app(ReviewCardAction::class);
+
+        $this->app->instance(ReviewCardAction::class, new class($realReviewCard) extends ReviewCardAction
         {
+            public function __construct(private readonly ReviewCardAction $realReviewCard) {}
+
             public function handle(ReviewCardData $data): ReviewCardResult
             {
-                $result = parent::handle($data);
+                $result = $this->realReviewCard->handle($data);
 
                 Card::query()->whereKey($data->cardId)->firstOrFail()->delete();
 
@@ -351,8 +353,12 @@ class StudyReviewCompatibilityApiTest extends TestCase
         $reviewLogId = $response->json('reviewLogId');
 
         $response
-            ->assertNotFound()
-            ->assertJsonPath('message', 'Study card not found after review.');
+            ->assertOk()
+            ->assertJsonPath('message', 'Study card not found after review.')
+            ->assertJsonPath('committed', true)
+            ->assertJsonPath('cardFetchFailed', true)
+            ->assertJsonPath('card', null)
+            ->assertJsonPath('overview.totalCards', 0);
 
         $this->assertIsString($reviewLogId);
         $this->assertDatabaseHas('card_review_events', [

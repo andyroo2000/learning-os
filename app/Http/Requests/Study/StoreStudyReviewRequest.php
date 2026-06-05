@@ -21,6 +21,7 @@ class StoreStudyReviewRequest extends FormRequest
         foreach (['grade', 'timeZone'] as $key) {
             $value = $this->input($key);
 
+            // Leave non-string values untouched so validation reports type errors instead of coercing them.
             if (is_string($value)) {
                 $normalized[$key] = trim($value);
             }
@@ -62,6 +63,7 @@ class StoreStudyReviewRequest extends FormRequest
             return null;
         }
 
+        // Laravel integer validation accepts numeric strings; cast before crossing the action boundary.
         return (int) $validated['durationMs'];
     }
 

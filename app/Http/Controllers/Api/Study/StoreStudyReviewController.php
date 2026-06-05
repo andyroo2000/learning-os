@@ -58,18 +58,30 @@ class StoreStudyReviewController extends Controller
             ], 409);
         }
 
-        // Re-fetch after the action writes scheduler state back to the card row.
+        // Re-fetch through the ownership/deck guard after the action writes scheduler state back to the card row.
         $card = $this->ownedActiveCard($card->id, $userId);
 
         if ($card === null) {
+            $overview = StudyOverviewCompatibilityResource::make(
+                $getStudyOverview->handle(
+                    userId: $userId,
+                    timeZone: $request->timeZone(),
+                ),
+            )->resolve($request);
+
             return response()->json([
                 'message' => 'Study card not found after review.',
                 'reviewLogId' => $result->reviewEvent->id,
-            ], 404);
+                'committed' => true,
+                'cardFetchFailed' => true,
+                'card' => null,
+                'overview' => $overview,
+            ]);
         }
 
         return response()->json([
             'reviewLogId' => $result->reviewEvent->id,
+            // Resolve resources inline because this compatibility response intentionally has no data wrapper.
             'card' => StudyCardSummaryResource::make($card)->resolve($request),
             // ConvoLab clients may send currentOverview; this adapter recomputes to keep counts authoritative.
             'overview' => StudyOverviewCompatibilityResource::make(

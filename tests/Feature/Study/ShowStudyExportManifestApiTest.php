@@ -20,6 +20,21 @@ class ShowStudyExportManifestApiTest extends TestCase
         $this->getJson('/api/study/export')->assertUnauthorized();
     }
 
+    public function test_export_section_route_names_resolve_to_client_visible_paths(): void
+    {
+        $expectedPaths = [
+            'api.study.export.courses' => '/api/study/export/courses',
+            'api.study.export.decks' => '/api/study/export/decks',
+            'api.study.export.cards' => '/api/study/export/cards',
+            'api.study.export.review-events' => '/api/study/export/review-events',
+            'api.study.export.media-assets' => '/api/study/export/media-assets',
+        ];
+
+        foreach ($expectedPaths as $routeName => $path) {
+            $this->assertSame($path, route($routeName, absolute: false));
+        }
+    }
+
     public function test_show_returns_the_authenticated_users_export_manifest(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-05T12:34:56Z'));

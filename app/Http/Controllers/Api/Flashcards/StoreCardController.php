@@ -26,6 +26,8 @@ class StoreCardController extends Controller
                 frontText: $data['front_text'],
                 backText: $data['back_text'],
                 cardType: $data['card_type'] ?? null,
+                promptJson: $data['prompt_json'] ?? null,
+                answerJson: $data['answer_json'] ?? null,
                 id: $data['id'] ?? null,
             ));
         } catch (CardConflictException $exception) {

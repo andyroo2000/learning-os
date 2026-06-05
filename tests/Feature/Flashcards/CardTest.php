@@ -25,6 +25,8 @@ class CardTest extends TestCase
             'front_text',
             'back_text',
             'card_type',
+            'prompt_json',
+            'answer_json',
             'study_status',
             'due_at',
             'introduced_at',
@@ -57,6 +59,8 @@ class CardTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
             'card_type' => 'recognition',
+            'prompt_json' => null,
+            'answer_json' => null,
         ]);
     }
 
@@ -74,12 +78,14 @@ class CardTest extends TestCase
         $this->assertNull($card->scheduler_state);
     }
 
-    public function test_card_casts_card_type_and_study_state_fields(): void
+    public function test_card_casts_card_type_structured_content_and_study_state_fields(): void
     {
         $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
 
         $card = Card::factory()->create();
         $card->card_type = CardType::Production;
+        $card->prompt_json = ['type' => 'text', 'text' => 'What is ATP?'];
+        $card->answer_json = ['type' => 'text', 'text' => 'Cellular energy currency.'];
         $card->study_status = CardStudyStatus::Review;
         $card->due_at = $dueAt;
         $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
@@ -95,6 +101,8 @@ class CardTest extends TestCase
         $card->refresh();
 
         $this->assertSame(CardType::Production, $card->card_type);
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $card->answer_json);
         $this->assertSame(CardStudyStatus::Review, $card->study_status);
         $this->assertSame($dueAt->toJSON(), $card->due_at?->toJSON());
         $this->assertSame('2026-06-01T14:15:00.000000Z', $card->introduced_at?->toJSON());

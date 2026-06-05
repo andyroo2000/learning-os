@@ -46,6 +46,8 @@ class UpdateCardRequest extends FormRequest
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],
             'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
+            'prompt_json' => ['sometimes', 'nullable', 'array'],
+            'answer_json' => ['sometimes', 'nullable', 'array'],
         ];
     }
 

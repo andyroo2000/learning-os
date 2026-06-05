@@ -14,6 +14,8 @@ final readonly class CreateCardData
         public string $frontText,
         public string $backText,
         public CardType $cardType,
+        public ?array $promptJson,
+        public ?array $answerJson,
         public ?string $id = null,
     ) {}
 
@@ -23,6 +25,8 @@ final readonly class CreateCardData
         string $frontText,
         string $backText,
         CardType|string|null $cardType = null,
+        ?array $promptJson = null,
+        ?array $answerJson = null,
         ?string $id = null,
     ): self {
         if ($userId < 1) {
@@ -37,6 +41,8 @@ final readonly class CreateCardData
             frontText: trim($frontText),
             backText: trim($backText),
             cardType: $cardType === null ? CardType::Recognition : CardType::fromInput($cardType),
+            promptJson: $promptJson,
+            answerJson: $answerJson,
             id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }

@@ -64,6 +64,8 @@ class UpdateCardActionTest extends TestCase
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
             'card_type' => 'recognition',
+            'prompt_json' => null,
+            'answer_json' => null,
             'study_status' => 'new',
             'new_queue_position' => $updatedCard->new_queue_position,
             'scheduler_state' => null,
@@ -101,6 +103,63 @@ class UpdateCardActionTest extends TestCase
             'card_type' => 'cloze',
         ]);
         $this->assertSame('cloze', SyncFeedEntry::query()->sole()->payload['card_type']);
+    }
+
+    public function test_it_updates_structured_content(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'What is ATP?',
+                backText: 'Cellular energy currency.',
+                hasPromptJson: true,
+                promptJson: ['type' => 'text', 'text' => 'What is ATP?'],
+                hasAnswerJson: true,
+                answerJson: ['type' => 'text', 'text' => 'Cellular energy currency.'],
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $result->card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $result->card->answer_json);
+
+        $payload = SyncFeedEntry::query()->sole()->payload;
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
+    }
+
+    public function test_it_clears_structured_content_when_explicit_nulls_are_provided(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'What is ATP?',
+                backText: 'Cellular energy currency.',
+                hasPromptJson: true,
+                promptJson: null,
+                hasAnswerJson: true,
+                answerJson: null,
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertNull($result->card->prompt_json);
+        $this->assertNull($result->card->answer_json);
+        $this->assertNull(SyncFeedEntry::query()->sole()->payload['prompt_json']);
+        $this->assertNull(SyncFeedEntry::query()->sole()->payload['answer_json']);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -199,6 +258,29 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertFalse($result->wasUpdated);
         $this->assertSame(CardType::Production, $result->card->card_type);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_marks_unchanged_when_structured_content_is_omitted(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'What is ATP?',
+                backText: 'Cellular energy currency.',
+            ),
+        );
+
+        $this->assertFalse($result->wasUpdated);
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $result->card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $result->card->answer_json);
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 

@@ -103,6 +103,8 @@ class CreateCardAction
             'front_text' => $data->frontText,
             'back_text' => $data->backText,
             'card_type' => $data->cardType,
+            'prompt_json' => $data->promptJson,
+            'answer_json' => $data->answerJson,
         ]);
 
         if ($data->id !== null) {
@@ -207,11 +209,29 @@ class CreateCardAction
             || trim($card->front_text ?? '') !== $data->frontText
             || trim($card->back_text ?? '') !== $data->backText
             || ($card->card_type ?? CardType::Recognition) !== $data->cardType
+            || $this->canonicalJsonValue($card->prompt_json) !== $this->canonicalJsonValue($data->promptJson)
+            || $this->canonicalJsonValue($card->answer_json) !== $this->canonicalJsonValue($data->answerJson)
         ) {
             throw CardConflictException::conflict($conflictingUserId);
         }
 
         return $card;
+    }
+
+    private function canonicalJsonValue(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(
+            fn ($item) => is_array($item) ? $this->canonicalJsonValue($item) : $item,
+            $value,
+        );
     }
 
     private function ownerIdFor(Card $card): int

@@ -30,6 +30,8 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonPath('data.front_text', 'arrivederci')
             ->assertJsonPath('data.back_text', 'goodbye')
             ->assertJsonPath('data.card_type', 'recognition')
+            ->assertJsonPath('data.prompt_json', null)
+            ->assertJsonPath('data.answer_json', null)
             ->assertJsonMissingPath('data.media_assets')
             ->assertJsonStructure([
                 'data' => [
@@ -39,6 +41,8 @@ class UpdateCardApiTest extends TestCase
                     'front_text',
                     'back_text',
                     'card_type',
+                    'prompt_json',
+                    'answer_json',
                     'study_status',
                     'new_queue_position',
                     'scheduler_state',
@@ -58,6 +62,8 @@ class UpdateCardApiTest extends TestCase
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
             'card_type' => 'recognition',
+            'prompt_json' => null,
+            'answer_json' => null,
         ]);
     }
 
@@ -139,6 +145,83 @@ class UpdateCardApiTest extends TestCase
             'back_text' => 'goodbye',
             'card_type' => 'cloze',
         ]);
+    }
+
+    public function test_it_updates_structured_content(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.prompt_json.type', 'text')
+            ->assertJsonPath('data.prompt_json.text', 'What is ATP?')
+            ->assertJsonPath('data.answer_json.type', 'text')
+            ->assertJsonPath('data.answer_json.text', 'Cellular energy currency.');
+
+        $card->refresh();
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $card->answer_json);
+    }
+
+    public function test_it_clears_structured_content_when_explicit_nulls_are_provided(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => null,
+            'answer_json' => null,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.prompt_json', null)
+            ->assertJsonPath('data.answer_json', null);
+
+        $card->refresh();
+
+        $this->assertNull($card->prompt_json);
+        $this->assertNull($card->answer_json);
+    }
+
+    public function test_it_preserves_structured_content_when_omitted(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.prompt_json.type', 'text')
+            ->assertJsonPath('data.prompt_json.text', 'What is ATP?')
+            ->assertJsonPath('data.answer_json.type', 'text')
+            ->assertJsonPath('data.answer_json.text', 'Cellular energy currency.');
+
+        $card->refresh();
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $card->answer_json);
     }
 
     public function test_it_is_idempotent_when_text_is_unchanged(): void
@@ -402,6 +485,29 @@ class UpdateCardApiTest extends TestCase
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,
             'card_type' => 'recognition',
+        ]);
+    }
+
+    public function test_it_rejects_non_array_structured_content(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => 'What is ATP?',
+            'answer_json' => 'Cellular energy currency.',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['prompt_json', 'answer_json']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'prompt_json' => null,
+            'answer_json' => null,
         ]);
     }
 

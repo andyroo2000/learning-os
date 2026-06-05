@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-#[Fillable(['deck_id', 'front_text', 'back_text', 'card_type'])]
+#[Fillable(['deck_id', 'front_text', 'back_text', 'card_type', 'prompt_json', 'answer_json'])]
 class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
@@ -44,6 +44,8 @@ class Card extends Model
     {
         return [
             'card_type' => CardType::class,
+            'prompt_json' => 'array',
+            'answer_json' => 'array',
             'study_status' => CardStudyStatus::class,
             'due_at' => 'datetime',
             'introduced_at' => 'datetime',

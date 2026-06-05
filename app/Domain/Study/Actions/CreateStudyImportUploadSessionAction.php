@@ -28,6 +28,7 @@ class CreateStudyImportUploadSessionAction
         return DB::transaction(function () use ($userId, $filename, $contentType, $now): StudyImportUploadSessionResult {
             $this->lockUser($userId);
             $this->expireStalePendingImports($userId, $now);
+            $this->expireStaleProcessingImports($userId, $now);
             $activeImport = $this->activeImport($userId);
 
             if ($activeImport !== null) {
@@ -116,6 +117,21 @@ class CreateStudyImportUploadSessionAction
             ->update([
                 'status' => StudyImportStatus::Failed->value,
                 'error_message' => 'Study import upload session has expired.',
+                'completed_at' => $now,
+                'updated_at' => $now,
+            ]);
+    }
+
+    private function expireStaleProcessingImports(int $userId, Carbon $now): void
+    {
+        StudyImportJob::query()
+            ->where('user_id', $userId)
+            ->where('status', StudyImportStatus::Processing->value)
+            ->whereNotNull('started_at')
+            ->where('started_at', '<', $now->copy()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES))
+            ->update([
+                'status' => StudyImportStatus::Failed->value,
+                'error_message' => 'Study import timed out before completion.',
                 'completed_at' => $now,
                 'updated_at' => $now,
             ]);

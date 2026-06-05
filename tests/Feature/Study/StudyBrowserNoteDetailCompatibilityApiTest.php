@@ -114,6 +114,15 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             $response->collect('rawFields')->pluck('name')->unique()->values()->all(),
             'Study browser note detail should expose unique raw field names.',
         );
+        $this->assertSame(
+            ['会社'],
+            $response->collect('rawFields')
+                ->where('name', 'prompt.cueText')
+                ->pluck('value')
+                ->values()
+                ->all(),
+            'Study browser note detail should keep the first card value when raw field names collide.',
+        );
 
         $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_contains(strtolower($query['query']), 'from "cards"'));

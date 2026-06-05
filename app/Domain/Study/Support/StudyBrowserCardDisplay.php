@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Models\Card;
 
 class StudyBrowserCardDisplay
 {
+    private function __construct() {}
+
     public static function displayTextFor(Card $card): string
     {
         $promptJson = is_array($card->prompt_json) ? $card->prompt_json : [];

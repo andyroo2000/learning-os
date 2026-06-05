@@ -59,7 +59,28 @@ class ShowStudyBrowserNoteAction
                 'review_event_stats',
                 fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
             )
-            ->addSelect(DB::raw('coalesce(review_event_stats.review_events_count, 0) as review_events_count'))
+            ->select([
+                'cards.id',
+                'cards.front_text',
+                'cards.back_text',
+                'cards.card_type',
+                'cards.prompt_json',
+                'cards.answer_json',
+                'cards.study_status',
+                'cards.scheduler_state',
+                'cards.due_at',
+                'cards.introduced_at',
+                'cards.failed_at',
+                'cards.source_kind',
+                'cards.source_card_id',
+                'cards.source_note_id',
+                'cards.source_deck_id',
+                'cards.source_notetype_name',
+                'cards.source_template_ord',
+                'cards.created_at',
+                'cards.updated_at',
+            ])
+            ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
             ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -156,6 +177,7 @@ class ShowStudyBrowserNoteAction
             $name = "{$prefix}.{$key}";
             $field = $this->field($name, $value);
 
+            // Note-level fields should be unique; keep the first meaningful value across card templates.
             if (! array_key_exists($name, $fieldsByName) || ($fieldsByName[$name]['value'] === null && $field['value'] !== null)) {
                 $fieldsByName[$name] = $field;
             }

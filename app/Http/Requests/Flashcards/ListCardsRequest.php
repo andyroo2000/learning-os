@@ -3,14 +3,15 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 use App\Http\Requests\Flashcards\Concerns\FiltersCardStudyStatus;
 use App\Http\Requests\Flashcards\Concerns\FiltersCardType;
-use App\Support\Identifiers\CanonicalUlid;
 
 class ListCardsRequest extends CursorPaginatedRequest
 {
     use FiltersCardStudyStatus;
     use FiltersCardType;
+    use NormalizesUlidInput;
 
     protected function prepareForValidation(): void
     {
@@ -18,11 +19,7 @@ class ListCardsRequest extends CursorPaginatedRequest
         $searchQuery = $this->input('q');
 
         foreach (['course_id', 'deck_id'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $normalized[$key] = CanonicalUlid::normalize($value);
-            }
+            $this->mergeNormalizedUlidInput($normalized, $key);
         }
 
         if ($normalized !== []) {

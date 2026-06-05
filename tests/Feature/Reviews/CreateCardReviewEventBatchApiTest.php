@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -39,6 +40,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                     'card_id' => $firstCard->id,
                     'rating' => CardReviewRating::Good->value,
                     'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'duration_ms' => '1250',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
                     'client_created_at' => '2026-05-27T09:14:00Z',
@@ -47,6 +49,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                     'card_id' => $secondCard->id,
                     'rating' => CardReviewRating::Easy->value,
                     'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'duration_ms' => 1820,
                     'client_event_id' => 'event-456',
                     'device_id' => 'device-abc',
                     'client_created_at' => '2026-05-27T09:19:00Z',
@@ -61,6 +64,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.0.deck_id', $firstDeck->id)
             ->assertJsonPath('data.0.course_id', $course->id)
             ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
+            ->assertJsonPath('data.0.duration_ms', 1250)
             ->assertJsonPath('data.0.client_event_id', 'event-123')
             ->assertJsonPath('data.0.scheduler_state_before', null)
             ->assertJsonPath('data.0.scheduler_state_after.reps', 1)
@@ -68,6 +72,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.1.deck_id', $secondDeck->id)
             ->assertJsonPath('data.1.course_id', $course->id)
             ->assertJsonPath('data.1.rating', CardReviewRating::Easy->value)
+            ->assertJsonPath('data.1.duration_ms', 1820)
             ->assertJsonPath('data.1.client_event_id', 'event-456')
             ->assertJsonPath('data.1.scheduler_state_before', null)
             ->assertJsonPath('data.1.scheduler_state_after.scheduled_days', 7)
@@ -80,6 +85,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                         'course_id',
                         'rating',
                         'reviewed_at',
+                        'duration_ms',
                         'client_event_id',
                         'device_id',
                         'client_created_at',
@@ -98,6 +104,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             'id' => $response->json('data.0.id'),
             'card_id' => $firstCard->id,
             'rating' => CardReviewRating::Good->value,
+            'duration_ms' => 1250,
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
         ]);
@@ -106,6 +113,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             'id' => $response->json('data.1.id'),
             'card_id' => $secondCard->id,
             'rating' => CardReviewRating::Easy->value,
+            'duration_ms' => 1820,
             'client_event_id' => 'event-456',
             'device_id' => 'device-abc',
         ]);
@@ -1011,6 +1019,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                     'card_id' => 'also-not-a-ulid',
                     'rating' => 'medium',
                     'reviewed_at' => 'not-a-date',
+                    'duration_ms' => ReviewCardData::MAX_DURATION_MS + 1,
                     'client_event_id' => '',
                     'device_id' => '',
                     'client_created_at' => 'also-not-a-date',
@@ -1025,10 +1034,39 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 'events.0.card_id',
                 'events.0.rating',
                 'events.0.reviewed_at',
+                'events.0.duration_ms',
                 'events.0.client_event_id',
                 'events.0.device_id',
                 'events.0.client_created_at',
             ]);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_malformed_batch_duration_ms(): void
+    {
+        $this->signIn();
+        $card = Card::factory()->create();
+
+        foreach ([['duration_ms' => -1], ['duration_ms' => ['1250']]] as $payload) {
+            $response = $this->postJson('/api/card-review-events/batch', [
+                'events' => [
+                    [
+                        'card_id' => $card->id,
+                        'rating' => CardReviewRating::Good->value,
+                        'reviewed_at' => '2026-05-27T09:15:00Z',
+                        'client_event_id' => 'event-123',
+                        'device_id' => 'device-abc',
+                        'client_created_at' => '2026-05-27T09:14:00Z',
+                        ...$payload,
+                    ],
+                ],
+            ]);
+
+            $response
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['events.0.duration_ms']);
+        }
 
         $this->assertDatabaseCount('card_review_events', 0);
     }

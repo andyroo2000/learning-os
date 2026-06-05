@@ -25,6 +25,7 @@ class ShowCardReviewEventApiTest extends TestCase
         $reviewEvent = CardReviewEvent::factory()->for($card)->create([
             'rating' => CardReviewRating::Hard,
             'reviewed_at' => now()->subMinute()->startOfSecond(),
+            'duration_ms' => 980,
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
             'client_created_at' => now()->subMinutes(2)->startOfSecond(),
@@ -44,6 +45,7 @@ class ShowCardReviewEventApiTest extends TestCase
                     'course_id' => $course->id,
                     'rating' => CardReviewRating::Hard->value,
                     'reviewed_at' => $reviewEvent->reviewed_at->toJSON(),
+                    'duration_ms' => 980,
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
                     'client_created_at' => $reviewEvent->client_created_at->toJSON(),

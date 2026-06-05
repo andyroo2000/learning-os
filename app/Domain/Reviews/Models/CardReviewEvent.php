@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['card_id', 'rating', 'reviewed_at', 'client_event_id', 'device_id', 'client_created_at'])]
+#[Fillable(['card_id', 'rating', 'reviewed_at', 'duration_ms', 'client_event_id', 'device_id', 'client_created_at'])]
 class CardReviewEvent extends Model
 {
     /** @use HasFactory<CardReviewEventFactory> */
@@ -81,6 +81,7 @@ class CardReviewEvent extends Model
         return [
             'rating' => CardReviewRating::class,
             'reviewed_at' => 'datetime',
+            'duration_ms' => 'integer',
             'client_created_at' => 'datetime',
             'scheduler_state_before' => 'array',
             'scheduler_state_after' => 'array',

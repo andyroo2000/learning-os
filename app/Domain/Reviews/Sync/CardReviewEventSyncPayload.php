@@ -24,6 +24,7 @@ final class CardReviewEventSyncPayload
             'course_id' => $reviewEvent->cardCourseId(),
             'rating' => $reviewEvent->rating->value,
             'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
+            'duration_ms' => $reviewEvent->duration_ms,
             'client_event_id' => $reviewEvent->client_event_id,
             'device_id' => $reviewEvent->device_id,
             'client_created_at' => $reviewEvent->client_created_at?->toJSON(),

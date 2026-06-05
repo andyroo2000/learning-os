@@ -25,6 +25,7 @@ class CardReviewEventFactory extends Factory
             'card_id' => Card::factory(),
             'rating' => fake()->randomElement(CardReviewRating::cases()),
             'reviewed_at' => now(),
+            'duration_ms' => null,
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,

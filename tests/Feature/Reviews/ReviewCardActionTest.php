@@ -45,6 +45,7 @@ class ReviewCardActionTest extends TestCase
                 cardId: $card->id,
                 rating: 'good',
                 reviewedAt: $reviewedAt,
+                durationMs: 1250,
             ),
         );
         $reviewEvent = $result->reviewEvent;
@@ -71,6 +72,7 @@ class ReviewCardActionTest extends TestCase
             'card_id' => $card->id,
             'rating' => 'good',
             'reviewed_at' => $reviewedAt,
+            'duration_ms' => 1250,
         ]);
 
         $entry = SyncFeedEntry::query()
@@ -89,6 +91,7 @@ class ReviewCardActionTest extends TestCase
             'course_id' => $course->id,
             'rating' => 'good',
             'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
+            'duration_ms' => 1250,
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
@@ -801,6 +804,21 @@ class ReviewCardActionTest extends TestCase
                 rating: 'medium',
                 reviewedAt: '2026-05-27 09:15:00',
             ),
+        );
+    }
+
+    public function test_it_rejects_invalid_duration_ms(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Review duration_ms must be a non-negative integer.');
+
+        ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27 09:15:00',
+            durationMs: '-1',
         );
     }
 

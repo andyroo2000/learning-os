@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Reviews;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
@@ -66,16 +67,33 @@ class StoreCardReviewEventBatchRequest extends FormRequest
             'events.*.card_id' => ['required', 'ulid'],
             'events.*.rating' => ['required', Rule::enum(CardReviewRating::class)],
             'events.*.reviewed_at' => ['required', 'date'],
+            'events.*.duration_ms' => ['nullable', 'integer', 'min:0', 'max:'.ReviewCardData::MAX_DURATION_MS],
             'events.*.client_event_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH],
             'events.*.device_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_DEVICE_ID_LENGTH],
             'events.*.client_created_at' => ['required', 'date'],
         ];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function reviewEvents(): array
+    {
+        return collect($this->validated('events'))
+            ->map(function (array $event): array {
+                if (array_key_exists('duration_ms', $event) && $event['duration_ms'] !== null) {
+                    $event['duration_ms'] = (int) $event['duration_ms'];
+                }
+
+                return $event;
+            })
+            ->all();
+    }
+
     protected function passedValidation(): void
     {
         // Batch sync needs per-item ownership errors and rejects atomically on any mismatch.
-        $events = collect($this->validated('events'));
+        $events = collect($this->reviewEvents());
         $cardIds = $events->pluck('card_id')->unique()->values();
 
         // Eloquent applies Card and Deck SoftDeletes scopes here.

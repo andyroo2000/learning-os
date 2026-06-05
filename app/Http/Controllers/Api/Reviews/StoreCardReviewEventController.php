@@ -22,6 +22,7 @@ class StoreCardReviewEventController extends Controller
                 cardId: $data['card_id'],
                 rating: $data['rating'],
                 reviewedAt: $data['reviewed_at'],
+                durationMs: $request->durationMs(),
                 id: $data['id'] ?? null,
                 clientEventId: $data['client_event_id'] ?? null,
                 deviceId: $data['device_id'] ?? null,

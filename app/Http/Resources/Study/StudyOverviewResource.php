@@ -23,6 +23,7 @@ class StudyOverviewResource extends JsonResource
         'review_count',
         'suspended_count',
         'total_cards',
+        'latest_import',
         'next_due_at',
     ];
 
@@ -32,7 +33,13 @@ class StudyOverviewResource extends JsonResource
      */
     public static function publicData(array $overview): array
     {
-        return Arr::only($overview, self::PUBLIC_KEYS);
+        $data = Arr::only($overview, self::PUBLIC_KEYS);
+
+        $data['latest_import'] = array_key_exists('latest_import', $overview)
+            ? self::latestImportData($overview['latest_import'])
+            : null;
+
+        return $data;
     }
 
     /**
@@ -41,5 +48,17 @@ class StudyOverviewResource extends JsonResource
     public function toArray(Request $request): array
     {
         return self::publicData($this->resource);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function latestImportData(mixed $latestImport): ?array
+    {
+        if ($latestImport === null) {
+            return null;
+        }
+
+        return StudyImportJobResource::make($latestImport)->resolve();
     }
 }

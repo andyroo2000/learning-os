@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,6 +111,42 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['suspended_count']);
         $this->assertSame(4, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
+    }
+
+    public function test_it_includes_the_latest_import_for_the_user(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        StudySettings::factory()->for($user)->create();
+        $olderImport = StudyImportJob::factory()->completed()->for($user)->create([
+            'created_at' => $now->copy()->subDay(),
+        ]);
+        $latestImport = StudyImportJob::factory()->failed()->for($user)->create([
+            'source_filename' => 'latest.colpkg',
+            'created_at' => $now,
+        ]);
+        StudyImportJob::factory()->completed()->for(User::factory()->create())->create([
+            'created_at' => $now->copy()->addDay(),
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertInstanceOf(StudyImportJob::class, $overview['latest_import']);
+        $this->assertSame($latestImport->id, $overview['latest_import']->id);
+        $this->assertNotSame($olderImport->id, $overview['latest_import']->id);
+    }
+
+    public function test_it_returns_null_latest_import_when_the_user_has_no_imports(): void
+    {
+        $user = User::factory()->create();
+        StudySettings::factory()->for($user)->create();
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id);
+
+        $this->assertNull($overview['latest_import']);
     }
 
     public function test_due_count_excludes_failed_cards_but_ready_failed_cards_block_new_cards(): void

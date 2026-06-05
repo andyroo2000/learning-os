@@ -3,6 +3,8 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Study\Enums\StudyImportStatus;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -47,10 +49,57 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('data.new_cards_per_day', 2)
                 ->assertJsonPath('data.new_cards_introduced_today', 1)
                 ->assertJsonPath('data.new_cards_available_today', 1)
+                ->assertJsonPath('data.latest_import', null)
                 ->assertJsonPath('data.total_cards', 3);
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_show_includes_the_authenticated_users_latest_import(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create();
+        StudyImportJob::factory()->completed()->for($user)->create([
+            'created_at' => Carbon::parse('2026-06-03T12:00:00Z'),
+        ]);
+        $latestImport = StudyImportJob::factory()->failed()->for($user)->create([
+            'source_filename' => 'latest.colpkg',
+            'error_message' => 'Import failed.',
+            'created_at' => Carbon::parse('2026-06-04T12:00:00Z'),
+        ]);
+        StudyImportJob::factory()->completed()->for(User::factory()->create())->create([
+            'created_at' => Carbon::parse('2026-06-05T12:00:00Z'),
+        ]);
+
+        $this->getJson('/api/study/overview')
+            ->assertOk()
+            ->assertJsonPath('data.latest_import.id', $latestImport->id)
+            ->assertJsonPath('data.latest_import.status', StudyImportStatus::Failed->value)
+            ->assertJsonPath('data.latest_import.source_filename', 'latest.colpkg')
+            ->assertJsonPath('data.latest_import.error_message', 'Import failed.')
+            ->assertJsonStructure([
+                'data' => [
+                    'latest_import' => [
+                        'id',
+                        'status',
+                        'source_type',
+                        'source_filename',
+                        'source_content_type',
+                        'source_size_bytes',
+                        'deck_name',
+                        'preview',
+                        'summary',
+                        'error_message',
+                        'started_at',
+                        'uploaded_at',
+                        'upload_expires_at',
+                        'completed_at',
+                        'created_at',
+                        'updated_at',
+                    ],
+                ],
+            ]);
     }
 
     public function test_show_filters_overview_by_deck_id(): void

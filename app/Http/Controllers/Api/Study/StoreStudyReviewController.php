@@ -86,7 +86,6 @@ class StoreStudyReviewController extends Controller
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
-            ->whereNull('cards.deleted_at')
             ->where('cards.id', $cardId)
             ->first();
     }

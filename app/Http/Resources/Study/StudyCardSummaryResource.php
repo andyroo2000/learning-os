@@ -9,6 +9,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class StudyCardSummaryResource extends JsonResource
 {
+    private const ANSWER_AUDIO_SOURCE_MISSING = 'missing';
+
     /**
      * @return array<string, mixed>
      */
@@ -29,6 +31,7 @@ class StudyCardSummaryResource extends JsonResource
                 'scheduler' => $this->scheduler_state,
                 'source' => [
                     'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
+                    // Anki-only source fields remain present for ConvoLab compatibility.
                     'noteGuid' => null,
                     'cardId' => $this->source_card_id === null ? null : (string) $this->source_card_id,
                     'deckId' => $this->source_deck_id === null ? null : (string) $this->source_deck_id,
@@ -51,7 +54,7 @@ class StudyCardSummaryResource extends JsonResource
                 'rawFsrs' => null,
             ],
             // Laravel cards do not track generated/imported audio roles yet; expose the safe ConvoLab sentinel.
-            'answerAudioSource' => 'missing',
+            'answerAudioSource' => self::ANSWER_AUDIO_SOURCE_MISSING,
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),
         ];

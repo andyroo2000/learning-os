@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Study;
 
-use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -69,10 +68,6 @@ class StudyOverviewCompatibilityResource extends JsonResource
     private function importStatusValue(StudyImportJob $latestImport): ?string
     {
         $status = $latestImport->getAttributes()['status'] ?? null;
-
-        if ($status instanceof StudyImportStatus) {
-            return $status->value;
-        }
 
         return $status === null ? null : (string) $status;
     }

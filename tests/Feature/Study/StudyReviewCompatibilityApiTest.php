@@ -9,6 +9,7 @@ use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -181,6 +182,57 @@ class StudyReviewCompatibilityApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_it_treats_omitted_and_null_time_zone_as_default_overview_timezone(): void
+    {
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
+        $getStudyOverview = new class extends GetStudyOverviewAction
+        {
+            /** @var list<string|null> */
+            public array $timeZones = [];
+
+            public function __construct() {}
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): array
+            {
+                $this->timeZones[] = $timeZone;
+
+                return [
+                    'due_count' => 0,
+                    'failed_count' => 0,
+                    'new_count' => 0,
+                    'new_cards_per_day' => 0,
+                    'new_cards_introduced_today' => 0,
+                    'new_cards_available_today' => 0,
+                    'learning_count' => 0,
+                    'review_count' => 0,
+                    'suspended_count' => 0,
+                    'total_cards' => 0,
+                    'latest_import' => null,
+                    'next_due_at' => null,
+                ];
+            }
+        };
+        $this->app->instance(GetStudyOverviewAction::class, $getStudyOverview);
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $firstCard->id,
+            'grade' => 'good',
+        ])->assertOk();
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $secondCard->id,
+            'grade' => 'good',
+            'timeZone' => null,
+        ])->assertOk();
+
+        $this->assertSame([null, null], $getStudyOverview->timeZones);
     }
 
     public function test_it_validates_camel_case_inputs(): void

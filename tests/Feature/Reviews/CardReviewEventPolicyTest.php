@@ -43,6 +43,18 @@ class CardReviewEventPolicyTest extends TestCase
         $this->assertSame(404, $response->status());
     }
 
+    public function test_it_hides_another_users_review_event_when_deleting(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $reviewEvent = $this->cardReviewEventFor($otherUser);
+
+        $response = Gate::forUser($user)->inspect('delete', $reviewEvent);
+
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
+
     public function test_it_hides_a_review_event_for_a_soft_deleted_card_when_viewing(): void
     {
         $user = User::factory()->create();

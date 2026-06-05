@@ -110,6 +110,18 @@ class UndoCardReviewEventApiTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
+    public function test_it_hides_review_events_for_soft_deleted_cards(): void
+    {
+        $user = $this->signIn();
+        $reviewEvent = $this->cardReviewEventFor($user);
+        $reviewEvent->card->delete();
+
+        $this->deleteJson("/api/card-review-events/{$reviewEvent->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+    }
+
     public function test_it_returns_unprocessable_when_the_undo_snapshot_is_missing(): void
     {
         $user = $this->signIn();

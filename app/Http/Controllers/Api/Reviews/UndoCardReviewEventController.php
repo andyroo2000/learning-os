@@ -23,11 +23,21 @@ class UndoCardReviewEventController extends Controller
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => $exception->reason(),
-            ], $exception->statusCode());
+            ], $this->statusCodeFor($exception));
         }
 
         return CardResource::make($card)
             ->response()
             ->setStatusCode(200);
+    }
+
+    private function statusCodeFor(UndoCardReviewEventException $exception): int
+    {
+        return match ($exception->reason()) {
+            UndoCardReviewEventException::CARD_UNAVAILABLE => 404,
+            UndoCardReviewEventException::NOT_LATEST => 409,
+            UndoCardReviewEventException::MISSING_SNAPSHOT,
+            UndoCardReviewEventException::INVALID_SNAPSHOT => 422,
+        };
     }
 }

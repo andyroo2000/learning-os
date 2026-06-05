@@ -14,7 +14,6 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 class UndoCardReviewEventAction
 {
@@ -25,12 +24,12 @@ class UndoCardReviewEventAction
     public function handle(CardReviewEvent $reviewEvent): Card
     {
         return DB::transaction(function () use ($reviewEvent): Card {
-            $reviewEvent->loadMissing(['card.deck']);
+            $reviewEvent->load(['card.deck']);
 
             $card = $reviewEvent->card;
 
-            if ($card === null) {
-                throw new LogicException('Review event card must be loaded before undo.');
+            if ($card === null || $card->deck === null) {
+                throw UndoCardReviewEventException::cardUnavailable();
             }
 
             if ($this->hasNewerReviewEvent($reviewEvent)) {

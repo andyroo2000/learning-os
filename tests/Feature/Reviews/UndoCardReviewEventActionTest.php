@@ -81,7 +81,6 @@ class UndoCardReviewEventActionTest extends TestCase
             $this->fail('Expected latest-review undo conflict was not thrown.');
         } catch (UndoCardReviewEventException $exception) {
             $this->assertSame('card_review_event_not_latest', $exception->reason());
-            $this->assertSame(409, $exception->statusCode());
         }
 
         $this->assertDatabaseHas('card_review_events', ['id' => $firstReviewEvent->id]);
@@ -119,6 +118,23 @@ class UndoCardReviewEventActionTest extends TestCase
         }
     }
 
+    public function test_it_rejects_review_events_for_soft_deleted_cards(): void
+    {
+        $card = Card::factory()->create();
+        $reviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00Z')->reviewEvent;
+        $card->delete();
+
+        try {
+            app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+            $this->fail('Expected unavailable card undo exception was not thrown.');
+        } catch (UndoCardReviewEventException $exception) {
+            $this->assertSame('card_review_event_card_unavailable', $exception->reason());
+        }
+
+        $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+    }
+
     public function test_it_rejects_review_events_without_a_card_state_snapshot(): void
     {
         $reviewEvent = CardReviewEvent::factory()->create([
@@ -131,10 +147,32 @@ class UndoCardReviewEventActionTest extends TestCase
             $this->fail('Expected missing undo snapshot exception was not thrown.');
         } catch (UndoCardReviewEventException $exception) {
             $this->assertSame('card_review_event_missing_undo_state', $exception->reason());
-            $this->assertSame(422, $exception->statusCode());
         }
 
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+    }
+
+    public function test_it_rejects_invalid_undo_snapshot_fields(): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->create([
+            'card_state_before' => [
+                'study_status' => 123,
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+
+        try {
+            app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+            $this->fail('Expected invalid undo snapshot exception was not thrown.');
+        } catch (UndoCardReviewEventException $exception) {
+            $this->assertSame('card_review_event_invalid_undo_state', $exception->reason());
+        }
     }
 
     private function reviewCard(Card $card, string $reviewedAt): ReviewCardResult

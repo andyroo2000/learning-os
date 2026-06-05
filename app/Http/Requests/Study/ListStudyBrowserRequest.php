@@ -42,8 +42,8 @@ class ListStudyBrowserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'q' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'noteType' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'q' => ['sometimes', 'filled', 'string', 'max:200'],
+            'noteType' => ['sometimes', 'filled', 'string', 'max:200'],
             'cardType' => ['sometimes', 'nullable', 'string', Rule::in(['recognition', 'production', 'cloze'])],
             'queueState' => ['sometimes', 'nullable', 'string', Rule::in(['new', 'learning', 'review', 'relearning', 'suspended', 'buried'])],
             'sortField' => ['sometimes', 'nullable', 'string', Rule::in(ListStudyBrowserAction::ALLOWED_SORT_FIELDS)],

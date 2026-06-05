@@ -232,6 +232,21 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('rows.0.noteId', '3001');
     }
 
+    public function test_it_rejects_blank_text_filters_without_trim_strings_middleware(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?q=%20%20%20')
+            ->assertJsonValidationErrors(['q']);
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?noteType=%20%20%20')
+            ->assertJsonValidationErrors(['noteType']);
+    }
+
     public function test_it_validates_browser_query_inputs(): void
     {
         $this->signIn();

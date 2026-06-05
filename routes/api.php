@@ -62,6 +62,7 @@ use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
+use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
 use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
@@ -155,6 +156,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('studyImportJobId');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
     Route::get('/study/browser', ListStudyBrowserController::class);
+    // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
+    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

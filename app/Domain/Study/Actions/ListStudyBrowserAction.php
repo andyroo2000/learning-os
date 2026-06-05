@@ -6,9 +6,10 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
-use App\Domain\Reviews\Queries\CardReviewCountsByCardQuery;
+use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +34,6 @@ class ListStudyBrowserAction
         'asc',
         'desc',
     ];
-
-    public function __construct(private readonly CardReviewCountsByCardQuery $cardReviewCountsByCard) {}
 
     /**
      * @return array{
@@ -88,9 +87,8 @@ class ListStudyBrowserAction
             ];
         }
 
-        $reviewCounts = $this->reviewCountsByCard($cards->pluck('id'));
         $rows = $this->sortRows(
-            $this->rowsFromCards($cards, $reviewCounts),
+            $this->rowsFromCards($cards),
             $sortField ?? 'created_on',
             $sortDirection ?? 'desc',
         );
@@ -175,7 +173,19 @@ class ListStudyBrowserAction
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
     ): Collection {
-        return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+        $baseQuery = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState);
+
+        // Mirror the outer filters so the review aggregate scans only stats for visible browser cards.
+        $matchingCardIds = (clone $baseQuery)
+            ->select('cards.id')
+            ->toBase();
+
+        return $baseQuery
+            ->leftJoinSub(
+                $this->reviewCountSubquery($matchingCardIds),
+                'review_event_stats',
+                fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
+            )
             // Keep this projection in sync with rowsFromCards(), displayTextFor(), and queueStateSummaryValue().
             ->select([
                 'cards.id',
@@ -190,6 +200,7 @@ class ListStudyBrowserAction
                 'cards.created_at',
                 'cards.updated_at',
             ])
+            ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
             ->orderBy('cards.source_note_id')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -278,25 +289,24 @@ class ListStudyBrowserAction
             ));
     }
 
-    /**
-     * @param  Collection<int, string>  $cardIds
-     * @return array<string, int>
-     */
-    private function reviewCountsByCard(Collection $cardIds): array
+    private function reviewCountSubquery(QueryBuilder $matchingCardIds): QueryBuilder
     {
-        return $this->cardReviewCountsByCard->handle($cardIds);
+        return DB::table('card_review_events')
+            ->select('card_id')
+            ->selectRaw('count(*) as review_events_count')
+            ->whereIn('card_id', $matchingCardIds)
+            ->groupBy('card_id');
     }
 
     /**
      * @param  Collection<int, Card>  $cards
-     * @param  array<string, int>  $reviewCounts
      * @return list<array<string, mixed>>
      */
-    private function rowsFromCards(Collection $cards, array $reviewCounts): array
+    private function rowsFromCards(Collection $cards): array
     {
         return $cards
             ->groupBy(fn (Card $card) => $this->noteIdFor($card))
-            ->map(function (Collection $group, string $noteId) use ($reviewCounts): array {
+            ->map(function (Collection $group, string $noteId): array {
                 /** @var Card $firstCard */
                 $firstCard = $group->first();
                 $createdAt = $group->min(fn (Card $card) => $card->created_at?->getTimestamp()) ?? 0;
@@ -307,7 +317,7 @@ class ListStudyBrowserAction
                 foreach ($group as $card) {
                     $state = $this->queueStateSummaryValue($card);
                     $queueSummary[$state] = ($queueSummary[$state] ?? 0) + 1;
-                    $reviewCount += $reviewCounts[$card->id] ?? 0;
+                    $reviewCount += (int) ($card->getAttribute('review_events_count') ?? 0);
                 }
 
                 ksort($queueSummary);
@@ -379,25 +389,7 @@ class ListStudyBrowserAction
 
     private function displayTextFor(Card $card): string
     {
-        $promptJson = is_array($card->prompt_json) ? $card->prompt_json : [];
-        $answerJson = is_array($card->answer_json) ? $card->answer_json : [];
-
-        // ConvoLab browser labels prefer each key across prompt then answer before moving to the next key.
-        foreach (['cueText', 'expression', 'clozeText', 'text'] as $key) {
-            $promptValue = $promptJson[$key] ?? null;
-            if (is_string($promptValue) && trim($promptValue) !== '') {
-                return trim($promptValue);
-            }
-
-            $answerValue = $answerJson[$key] ?? null;
-            if (is_string($answerValue) && trim($answerValue) !== '') {
-                return trim($answerValue);
-            }
-        }
-
-        $frontText = trim($card->front_text ?? '');
-
-        return $frontText !== '' ? $frontText : (string) $card->id;
+        return StudyBrowserCardDisplay::displayTextFor($card);
     }
 
     private function queueStateSummaryValue(Card $card): string

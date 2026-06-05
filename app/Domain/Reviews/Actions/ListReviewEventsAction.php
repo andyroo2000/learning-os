@@ -12,16 +12,26 @@ class ListReviewEventsAction
 {
     /**
      * @param  string|null  $courseId  Trimmed when provided; non-blank and caller-validated as needed.
+     * @param  string|null  $cardId  Trimmed when provided; non-blank and caller-validated as needed.
      * @return CursorPaginator<CardReviewEvent>
      */
-    public function handle(int $userId, ?CursorPageSize $pageSize = null, ?string $courseId = null): CursorPaginator
-    {
+    public function handle(
+        int $userId,
+        ?CursorPageSize $pageSize = null,
+        ?string $courseId = null,
+        ?string $cardId = null,
+    ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         // Keep direct action callers aligned with FormRequest-normalized API input.
         $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
+        $cardId = $cardId === null ? null : CanonicalUlid::normalize($cardId);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Review event course_id filter must not be blank when provided.');
+        }
+
+        if ($cardId === '') {
+            throw new InvalidArgumentException('Review event card_id filter must not be blank when provided.');
         }
 
         return CardReviewEvent::query()
@@ -32,6 +42,7 @@ class ListReviewEventsAction
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($cardId !== null, fn ($query) => $query->where('card_review_events.card_id', $cardId))
             // Joined models do not apply SoftDeletes scopes, so keep these conventional columns explicit.
             ->whereNull('cards.deleted_at')
             ->whereNull('decks.deleted_at')

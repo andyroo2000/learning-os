@@ -17,7 +17,12 @@ class ListReviewEventsController extends Controller
         $user = $request->user();
 
         return CardReviewEventResource::collection(
-            $listReviewEvents->handle($user->id, $request->pageSize(), $request->courseId())->withQueryString()
+            $listReviewEvents->handle(
+                userId: $user->id,
+                pageSize: $request->pageSize(),
+                courseId: $request->courseId(),
+                cardId: $request->cardId(),
+            )->withQueryString()
         );
     }
 }

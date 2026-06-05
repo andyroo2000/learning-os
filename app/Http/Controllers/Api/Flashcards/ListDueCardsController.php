@@ -21,6 +21,7 @@ class ListDueCardsController extends Controller
                 userId: $user->id,
                 pageSize: $request->pageSize(),
                 courseId: $request->courseId(),
+                deckId: $request->deckId(),
             )->withQueryString()
         );
     }

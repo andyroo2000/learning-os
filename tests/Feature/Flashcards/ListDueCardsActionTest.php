@@ -77,6 +77,73 @@ class ListDueCardsActionTest extends TestCase
         $this->assertSame([$courseCard->id], collect($cards->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_due_cards_by_deck_id_for_direct_callers(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user);
+        $deckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+
+        $cards = app(ListDueCardsAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: ' '.strtoupper($deck->id).' ',
+        );
+
+        $this->assertSame([$deckCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_returns_empty_when_deck_id_and_course_id_are_in_different_courses(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+
+        $this->cardWithStudyStatus($otherCourseDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+
+        $cards = app(ListDueCardsAction::class)->handle(
+            userId: $user->id,
+            courseId: $course->id,
+            now: $now,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertEmpty($cards->items());
+    }
+
+    public function test_it_returns_empty_results_for_a_deck_owned_by_another_user(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+
+        $cards = app(ListDueCardsAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertEmpty($cards->items());
+    }
+
     public function test_it_rejects_blank_course_id_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -85,6 +152,17 @@ class ListDueCardsActionTest extends TestCase
         app(ListDueCardsAction::class)->handle(
             userId: User::factory()->create()->id,
             courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_id_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Due card deck_id filter must not be blank when provided.');
+
+        app(ListDueCardsAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: '   ',
         );
     }
 

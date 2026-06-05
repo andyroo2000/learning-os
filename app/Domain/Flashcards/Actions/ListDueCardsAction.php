@@ -19,14 +19,20 @@ class ListDueCardsAction
         int $userId,
         ?CursorPageSize $pageSize = null,
         ?string $courseId = null,
+        ?string $deckId = null,
         ?Carbon $now = null,
     ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
+        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
         $now ??= now();
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Due card course_id filter must not be blank when provided.');
+        }
+
+        if ($deckId === '') {
+            throw new InvalidArgumentException('Due card deck_id filter must not be blank when provided.');
         }
 
         return Card::query()
@@ -35,6 +41,7 @@ class ListDueCardsAction
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
             ->whereIn('cards.study_status', [
                 CardStudyStatus::Learning->value,
                 CardStudyStatus::Review->value,

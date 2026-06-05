@@ -38,6 +38,7 @@ class StudyExportManifestResource extends JsonResource
 
     private function routeNameForSection(string $section): string
     {
+        // Keep this map aligned with GetStudyExportManifestAction whenever export sections change.
         return match ($section) {
             'courses' => 'api.study.export.courses',
             'decks' => 'api.study.export.decks',

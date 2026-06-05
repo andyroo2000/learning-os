@@ -6,23 +6,22 @@ use App\Domain\Reviews\Actions\UndoCardReviewEventAction;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Http\Controllers\Api\Study\Concerns\RespondsToStudyReviewUndo;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Study\UndoStudyReviewRequest;
+use App\Http\Requests\Study\StoreStudyReviewUndoRequest;
 use Illuminate\Http\JsonResponse;
 
-class UndoStudyReviewController extends Controller
+class StoreStudyReviewUndoController extends Controller
 {
     use RespondsToStudyReviewUndo;
 
     public function __invoke(
-        UndoStudyReviewRequest $request,
-        string $reviewLogId,
+        StoreStudyReviewUndoRequest $request,
         UndoCardReviewEventAction $undoCardReviewEvent,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
         return $this->undoStudyReview(
             request: $request,
             userId: (int) $request->user()->id,
-            reviewLogId: $reviewLogId,
+            reviewLogId: $request->reviewLogId(),
             timeZone: $request->timeZone(),
             undoCardReviewEvent: $undoCardReviewEvent,
             getStudyOverview: $getStudyOverview,

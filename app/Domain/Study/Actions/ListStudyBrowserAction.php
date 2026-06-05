@@ -307,7 +307,7 @@ class ListStudyBrowserAction
             }
         }
 
-        return trim($card->front_text ?? '') !== '' ? $card->front_text : (string) $card->id;
+        return trim($card->front_text ?? '') !== '' ? trim($card->front_text) : (string) $card->id;
     }
 
     private function queueStateSummaryValue(Card $card): string

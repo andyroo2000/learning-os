@@ -184,7 +184,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 1)
             ->assertJsonPath('rows.0.noteId', '2401')
-            ->assertJsonPath('rows.0.displayText', $card->id)
+            ->assertJsonPath('rows.0.displayText', (string) $card->id)
             ->assertJsonPath('rows.0.queueSummary.new', 1)
             ->assertJsonPath('filterOptions.noteTypes', ['Legacy Note Type'])
             ->assertJsonPath('filterOptions.cardTypes', [])

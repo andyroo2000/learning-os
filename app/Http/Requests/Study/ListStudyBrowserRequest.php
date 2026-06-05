@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -44,8 +46,8 @@ class ListStudyBrowserRequest extends FormRequest
         return [
             'q' => ['sometimes', 'filled', 'string', 'max:200'],
             'noteType' => ['sometimes', 'filled', 'string', 'max:200'],
-            'cardType' => ['sometimes', 'nullable', 'string', Rule::in(['recognition', 'production', 'cloze'])],
-            'queueState' => ['sometimes', 'nullable', 'string', Rule::in(['new', 'learning', 'review', 'relearning', 'suspended', 'buried'])],
+            'cardType' => ['sometimes', 'nullable', 'string', Rule::in(CardType::values())],
+            'queueState' => ['sometimes', 'nullable', 'string', Rule::in(CardStudyStatus::values())],
             'sortField' => ['sometimes', 'nullable', 'string', Rule::in(ListStudyBrowserAction::ALLOWED_SORT_FIELDS)],
             'sortDirection' => ['sometimes', 'nullable', 'string', Rule::in(ListStudyBrowserAction::ALLOWED_SORT_DIRECTIONS)],
             'cursor' => [

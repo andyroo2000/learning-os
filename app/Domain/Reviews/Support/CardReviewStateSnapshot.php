@@ -4,7 +4,15 @@ namespace App\Domain\Reviews\Support;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use UnexpectedValueException;
 
+/**
+ * Captures the whole card scheduling state needed for future undo flows.
+ *
+ * The nested scheduler_state intentionally duplicates scheduler_state_before on
+ * new review events; clients keep the legacy top-level field while undo logic
+ * can restore every card field from one richer snapshot.
+ */
 final class CardReviewStateSnapshot
 {
     private function __construct() {}
@@ -27,6 +35,7 @@ final class CardReviewStateSnapshot
 
     private static function studyStatusValue(Card $card): string
     {
+        // Raw attributes are usually database strings; direct in-memory assignment can leave enum instances.
         $studyStatus = $card->getAttributes()['study_status'] ?? null;
 
         if ($studyStatus instanceof CardStudyStatus) {
@@ -37,6 +46,14 @@ final class CardReviewStateSnapshot
             return CardStudyStatus::New->value;
         }
 
-        return (string) $studyStatus;
+        if (is_string($studyStatus)) {
+            $status = CardStudyStatus::tryFrom($studyStatus);
+
+            if ($status !== null) {
+                return $status->value;
+            }
+        }
+
+        throw new UnexpectedValueException('Card study status cannot be snapshotted because it is not recognized.');
     }
 }

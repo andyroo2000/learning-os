@@ -56,6 +56,8 @@ use App\Http\Controllers\Api\Study\ListStudyExportImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
 use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
 use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
+use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
+use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
@@ -146,6 +148,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
         ->whereUlid('studyImportJobId');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
+    Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
+    Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);

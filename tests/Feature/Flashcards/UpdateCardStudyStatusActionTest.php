@@ -63,6 +63,7 @@ class UpdateCardStudyStatusActionTest extends TestCase
                 'card_type' => 'recognition',
                 'prompt_json' => null,
                 'answer_json' => null,
+                'search_text' => $card->search_text,
                 'study_status' => 'suspended',
                 'new_queue_position' => null,
                 'scheduler_state' => [

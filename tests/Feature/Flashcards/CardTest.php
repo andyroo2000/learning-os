@@ -27,6 +27,7 @@ class CardTest extends TestCase
             'card_type',
             'prompt_json',
             'answer_json',
+            'search_text',
             'study_status',
             'due_at',
             'introduced_at',
@@ -61,6 +62,7 @@ class CardTest extends TestCase
             'card_type' => 'recognition',
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => 'ciao hello',
         ]);
     }
 
@@ -129,6 +131,7 @@ class CardTest extends TestCase
             'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
             'new_queue_position' => 7,
             'scheduler_state' => ['state' => 0],
+            'search_text' => 'client-owned text',
         ]);
 
         $this->assertSame(CardStudyStatus::New, $card->study_status);
@@ -138,6 +141,7 @@ class CardTest extends TestCase
         $this->assertNull($card->last_reviewed_at);
         $this->assertNull($card->new_queue_position);
         $this->assertNull($card->scheduler_state);
+        $this->assertSame('', $card->search_text);
     }
 
     public function test_card_belongs_to_a_deck(): void

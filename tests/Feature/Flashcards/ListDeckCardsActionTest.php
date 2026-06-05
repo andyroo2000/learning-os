@@ -88,6 +88,46 @@ class ListDeckCardsActionTest extends TestCase
         $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_deck_cards_by_search_query_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $match = Card::factory()->for($deck)->create([
+            'search_text' => 'Photosynthesis makes glucose',
+        ]);
+        Card::factory()->for($deck)->create([
+            'search_text' => 'Cellular respiration releases energy',
+        ]);
+        Card::factory()->for($otherDeck)->create([
+            'search_text' => 'Photosynthesis from another deck',
+        ]);
+
+        $cards = app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            q: ' PHOTO ',
+        );
+
+        $this->assertSame([$match->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_treats_deck_card_search_wildcards_as_literals_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+        $match = Card::factory()->for($deck)->create([
+            'search_text' => 'Recall 100% of deck_1',
+        ]);
+        Card::factory()->for($deck)->create([
+            'search_text' => 'Recall 100 percent of deckA1',
+        ]);
+
+        $cards = app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            q: '100% of deck_1',
+        );
+
+        $this->assertSame([$match->id], collect($cards->items())->pluck('id')->all());
+    }
+
     public function test_it_rejects_blank_study_status_filters_for_direct_callers(): void
     {
         $deck = $this->deckFor(User::factory()->create());
@@ -98,6 +138,19 @@ class ListDeckCardsActionTest extends TestCase
         app(ListDeckCardsAction::class)->handle(
             deck: $deck,
             studyStatus: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_search_queries_for_direct_callers(): void
+    {
+        $deck = $this->deckFor(User::factory()->create());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card search query filter must not be blank when provided.');
+
+        app(ListDeckCardsAction::class)->handle(
+            deck: $deck,
+            q: '   ',
         );
     }
 

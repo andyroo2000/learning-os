@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
+use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -44,7 +45,25 @@ class UpdateCardAction
                 $card->answer_json = $data->answerJson;
             }
 
-            $wasUpdated = $card->isDirty(['front_text', 'back_text', 'card_type', 'prompt_json', 'answer_json']);
+            $contentWasUpdated = $card->isDirty(['front_text', 'back_text', 'prompt_json', 'answer_json']);
+
+            if ($contentWasUpdated) {
+                $card->search_text = CardSearchText::fromContent(
+                    frontText: $card->front_text,
+                    backText: $card->back_text,
+                    promptJson: $card->prompt_json,
+                    answerJson: $card->answer_json,
+                );
+            }
+
+            $wasUpdated = $card->isDirty([
+                'front_text',
+                'back_text',
+                'card_type',
+                'prompt_json',
+                'answer_json',
+                ...($contentWasUpdated ? ['search_text'] : []),
+            ]);
 
             $card->saveOrFail();
 

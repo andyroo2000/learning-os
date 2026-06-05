@@ -10,6 +10,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateCardResult;
 use App\Domain\Flashcards\Support\CardSchedulerState;
+use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -106,6 +107,12 @@ class CreateCardAction
             'prompt_json' => $data->promptJson,
             'answer_json' => $data->answerJson,
         ]);
+        $card->search_text = CardSearchText::fromContent(
+            frontText: $data->frontText,
+            backText: $data->backText,
+            promptJson: $data->promptJson,
+            answerJson: $data->answerJson,
+        );
 
         if ($data->id !== null) {
             $card->id = $data->id;

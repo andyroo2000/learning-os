@@ -87,6 +87,7 @@ class FlashcardSyncPayloadTest extends TestCase
                 'type' => 'text',
                 'text' => 'Cellular energy currency.',
             ]),
+            'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => CardStudyStatus::Review,
             'new_queue_position' => null,
             'scheduler_state' => json_encode([
@@ -120,6 +121,7 @@ class FlashcardSyncPayloadTest extends TestCase
                 'type' => 'text',
                 'text' => 'Cellular energy currency.',
             ],
+            'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => 'review',
             'new_queue_position' => null,
             'scheduler_state' => [
@@ -154,6 +156,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'card_type' => CardType::Production->value,
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => CardStudyStatus::New,
             'new_queue_position' => 7,
             'scheduler_state' => null,
@@ -177,6 +180,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'card_type' => 'production',
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => 'new',
             'new_queue_position' => 7,
             'scheduler_state' => null,
@@ -202,6 +206,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'card_type' => null,
             'prompt_json' => null,
             'answer_json' => null,
+            'search_text' => null,
             'study_status' => null,
             'new_queue_position' => null,
             'scheduler_state' => null,
@@ -214,6 +219,7 @@ class FlashcardSyncPayloadTest extends TestCase
 
         $this->assertSame('new', $payload['study_status']);
         $this->assertSame('recognition', $payload['card_type']);
+        $this->assertSame('', $payload['search_text']);
         $this->assertNull($payload['new_queue_position']);
         $this->assertNull($payload['scheduler_state']);
     }

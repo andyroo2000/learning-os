@@ -72,6 +72,7 @@ class ListNewCardsApiTest extends TestCase
                         'card_type',
                         'prompt_json',
                         'answer_json',
+                        'search_text',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',

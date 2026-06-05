@@ -32,6 +32,7 @@ class ListDeckCardsApiTest extends TestCase
             'card_type' => CardType::Production,
             'prompt_json' => ['type' => 'text', 'text' => 'ciao'],
             'answer_json' => ['type' => 'text', 'text' => 'hello'],
+            'search_text' => 'ciao hello text ciao text hello',
             'created_at' => now()->subDay(),
             'updated_at' => now()->subDay(),
         ]);
@@ -41,6 +42,7 @@ class ListDeckCardsApiTest extends TestCase
             'card_type' => CardType::Cloze,
             'prompt_json' => ['type' => 'text', 'text' => 'grazie'],
             'answer_json' => ['type' => 'text', 'text' => 'thanks'],
+            'search_text' => 'grazie thanks text grazie text thanks',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -67,6 +69,7 @@ class ListDeckCardsApiTest extends TestCase
                         'card_type',
                         'prompt_json',
                         'answer_json',
+                        'search_text',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',
@@ -91,6 +94,7 @@ class ListDeckCardsApiTest extends TestCase
                 'card_type' => 'production',
                 'prompt_json' => ['type' => 'text', 'text' => 'ciao'],
                 'answer_json' => ['type' => 'text', 'text' => 'hello'],
+                'search_text' => 'ciao hello text ciao text hello',
                 'study_status' => 'new',
                 'new_queue_position' => $firstCard->new_queue_position,
                 'scheduler_state' => null,
@@ -111,6 +115,7 @@ class ListDeckCardsApiTest extends TestCase
                 'card_type' => 'cloze',
                 'prompt_json' => ['type' => 'text', 'text' => 'grazie'],
                 'answer_json' => ['type' => 'text', 'text' => 'thanks'],
+                'search_text' => 'grazie thanks text grazie text thanks',
                 'study_status' => 'new',
                 'new_queue_position' => $secondCard->new_queue_position,
                 'scheduler_state' => null,
@@ -247,6 +252,93 @@ class ListDeckCardsApiTest extends TestCase
             ->assertJsonValidationErrors(['study_status']);
     }
 
+    public function test_it_filters_deck_cards_by_search_query(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $match = Card::factory()->for($deck)->create([
+            'front_text' => 'Photosynthesis',
+            'search_text' => 'Photosynthesis makes glucose',
+        ]);
+        $nonMatch = Card::factory()->for($deck)->create([
+            'front_text' => 'Respiration',
+            'search_text' => 'Cellular respiration releases energy',
+        ]);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create([
+            'search_text' => 'Photosynthesis from another deck',
+        ]);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?q=photo");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonMissing(['id' => $nonMatch->id])
+            ->assertJsonMissing(['id' => $otherDeckCard->id]);
+    }
+
+    public function test_it_trims_deck_card_search_queries_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $match = Card::factory()->for($deck)->create([
+            'search_text' => 'Photosynthesis makes glucose',
+        ]);
+        $nonMatch = Card::factory()->for($deck)->create([
+            'search_text' => 'Cellular respiration releases energy',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson("/api/decks/{$deck->id}/cards?q=%20PHOTO%20");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonMissing(['id' => $nonMatch->id]);
+    }
+
+    public function test_it_rejects_a_blank_deck_card_search_query_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson("/api/decks/{$deck->id}/cards?q=%20%20%20");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['q']);
+    }
+
+    public function test_it_rejects_an_array_deck_card_search_query(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?q[]=photo");
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['q']);
+    }
+
+    public function test_it_rejects_an_overlong_deck_card_search_query(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->getJson("/api/decks/{$deck->id}/cards?q=".str_repeat('a', 256));
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['q']);
+    }
+
     public function test_it_returns_not_found_for_a_soft_deleted_deck(): void
     {
         $user = $this->signIn();
@@ -346,6 +438,50 @@ class ListDeckCardsApiTest extends TestCase
             ->assertJsonPath('data.0.id', $secondReviewCard->id)
             ->assertJsonMissing([
                 'id' => $newCard->id,
+            ]);
+    }
+
+    public function test_it_preserves_deck_card_search_query_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstMatch = Card::factory()->for($deck)->create([
+            'search_text' => 'Photosynthesis alpha',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $secondMatch = Card::factory()->for($deck)->create([
+            'search_text' => 'Photosynthesis beta',
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $nonMatch = Card::factory()->for($deck)->create([
+            'search_text' => 'Respiration',
+            'created_at' => now()->subSeconds(30),
+            'updated_at' => now()->subSeconds(30),
+        ]);
+
+        $firstPage = $this->getJson("/api/decks/{$deck->id}/cards?q=photo&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $firstMatch->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'q', 'photo');
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondMatch->id)
+            ->assertJsonMissing([
+                'id' => $nonMatch->id,
             ]);
     }
 

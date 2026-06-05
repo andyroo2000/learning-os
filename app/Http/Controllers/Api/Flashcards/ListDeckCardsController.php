@@ -20,6 +20,7 @@ class ListDeckCardsController extends Controller
                 deck: $deck,
                 pageSize: $request->pageSize(),
                 studyStatus: $request->studyStatus(),
+                q: $request->searchQuery(),
             )->withQueryString()
         );
     }

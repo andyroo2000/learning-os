@@ -79,6 +79,7 @@ class CreateCardActionTest extends TestCase
                 'card_type' => 'recognition',
                 'prompt_json' => null,
                 'answer_json' => null,
+                'search_text' => 'ciao hello',
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'scheduler_state' => [
@@ -145,16 +146,25 @@ class CreateCardActionTest extends TestCase
 
         $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $result->card->prompt_json);
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $result->card->answer_json);
+        $this->assertSame(
+            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
+            $result->card->search_text,
+        );
         $this->assertDatabaseHas('cards', [
             'id' => $result->card->id,
             'prompt_json' => json_encode(['type' => 'text', 'text' => 'What is ATP?']),
             'answer_json' => json_encode(['type' => 'text', 'text' => 'Cellular energy currency.']),
+            'search_text' => 'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
         ]);
 
         $payload = SyncFeedEntry::query()->sole()->payload;
 
         $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
+        $this->assertSame(
+            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
+            $payload['search_text'],
+        );
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void

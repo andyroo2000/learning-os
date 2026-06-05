@@ -80,6 +80,7 @@ class StudyImportJobActionTest extends TestCase
             'started_at' => $now->copy()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
         ]);
         $fresh = StudyImportJob::factory()->for($user)->create([
+            'status' => StudyImportStatus::Pending,
             'updated_at' => $now,
         ]);
         $otherUsersStale = StudyImportJob::factory()->processing()->for(User::factory()->create())->create([

@@ -15,6 +15,7 @@ class GetCurrentStudyImportJobAction
     {
         $now ??= now();
 
+        // Current lookup can tolerate read-path cleanup races; upload-session creation remains the serialized conflict gate.
         $this->expireStaleProcessingStudyImports->handle($userId, $now);
 
         return StudyImportJob::query()

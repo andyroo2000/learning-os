@@ -74,6 +74,7 @@ use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
+use App\Http\Controllers\Api\Study\UpdateStudyCardController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
@@ -166,6 +167,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
+    Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)->whereUlid('cardId');
     Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);

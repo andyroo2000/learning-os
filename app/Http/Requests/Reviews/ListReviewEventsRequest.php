@@ -9,12 +9,18 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
 {
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        $normalized = [];
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => CanonicalUlid::normalize($courseId),
-            ]);
+        foreach (['course_id', 'card_id'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
     }
 
@@ -25,6 +31,7 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'card_id' => ['sometimes', 'filled', 'ulid'],
         ];
     }
 
@@ -37,5 +44,16 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
         }
 
         return $validated['course_id'];
+    }
+
+    public function cardId(): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('card_id', $validated)) {
+            return null;
+        }
+
+        return $validated['card_id'];
     }
 }

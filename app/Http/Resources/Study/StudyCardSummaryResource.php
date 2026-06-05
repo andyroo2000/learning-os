@@ -19,7 +19,7 @@ class StudyCardSummaryResource extends JsonResource
         return [
             'id' => $this->id,
             // ConvoLab exposes noteId at both the root and state.source; keep both values aligned.
-            'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
+            'noteId' => $this->noteIdString(),
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
             'answer' => $this->answer_json ?? ['type' => 'text', 'text' => $this->back_text],
@@ -30,7 +30,7 @@ class StudyCardSummaryResource extends JsonResource
                 'queueState' => $this->study_status?->value ?? CardStudyStatus::New->value,
                 'scheduler' => $this->scheduler_state,
                 'source' => [
-                    'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
+                    'noteId' => $this->noteIdString(),
                     // Anki-only source fields remain present for ConvoLab compatibility.
                     'noteGuid' => null,
                     'cardId' => $this->source_card_id === null ? null : (string) $this->source_card_id,
@@ -58,5 +58,10 @@ class StudyCardSummaryResource extends JsonResource
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),
         ];
+    }
+
+    private function noteIdString(): ?string
+    {
+        return $this->source_note_id === null ? null : (string) $this->source_note_id;
     }
 }

@@ -67,6 +67,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
 
     private function importStatusValue(StudyImportJob $latestImport): ?string
     {
+        // Use the raw value so legacy/out-of-range rows cannot trigger enum cast failures while serializing.
         $status = $latestImport->getAttributes()['status'] ?? null;
 
         return $status === null ? null : (string) $status;

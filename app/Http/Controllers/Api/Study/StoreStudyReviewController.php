@@ -22,6 +22,7 @@ class StoreStudyReviewController extends Controller
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
         $data = $request->validated();
+        // currentOverview is accepted for ConvoLab request compatibility; this adapter recomputes overview below.
         $userId = $request->user()->id;
         $card = $this->ownedActiveCard($data['cardId'], $userId);
 
@@ -29,6 +30,7 @@ class StoreStudyReviewController extends Controller
             return response()->json(['message' => 'Study card not found.'], 404);
         }
 
+        // This compatibility endpoint is real-time; offline replay should use the canonical reviewed_at endpoint.
         $reviewedAt = Carbon::now();
 
         try {
@@ -81,6 +83,7 @@ class StoreStudyReviewController extends Controller
 
     private function ownedActiveCard(string $cardId, int $userId): ?Card
     {
+        // Card::query() keeps the card SoftDeletes scope; decks need an explicit joined-table guard.
         return Card::query()
             ->select('cards.*')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')

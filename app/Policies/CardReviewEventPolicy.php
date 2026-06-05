@@ -16,4 +16,9 @@ class CardReviewEventPolicy
                 ? Response::allow()
                 : Response::denyAsNotFound();
     }
+
+    public function delete(User $user, CardReviewEvent $cardReviewEvent): Response
+    {
+        return $this->view($user, $cardReviewEvent);
+    }
 }

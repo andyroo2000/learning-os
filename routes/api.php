@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\Reviews\ListReviewEventsController;
 use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
+use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
@@ -76,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/card-review-events', ListReviewEventsController::class);
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
+    Route::delete('/card-review-events/{cardReviewEvent}', UndoCardReviewEventController::class)->whereUlid('cardReviewEvent');
     Route::post('/card-review-events', StoreCardReviewEventController::class);
     Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/new', ListNewCardsController::class);

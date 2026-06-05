@@ -8,5 +8,7 @@ final readonly class StudyImportArchiveMediaEntry
         public string $sourceMediaRef,
         public string $sourceFilename,
         public bool $hasContent,
+        public ?int $sizeBytes,
+        public ?string $checksumSha256,
     ) {}
 }

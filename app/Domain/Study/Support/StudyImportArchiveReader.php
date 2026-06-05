@@ -178,15 +178,60 @@ final class StudyImportArchiveReader
                 }
 
                 $sourceMediaRef = (string) $sourceMediaRef;
+                $contentMetadata = $this->mediaContentMetadata($zip, $sourceMediaRef);
 
                 $manifest[$filename] = new StudyImportArchiveMediaEntry(
                     sourceMediaRef: $sourceMediaRef,
                     sourceFilename: $filename,
-                    hasContent: $zip->locateName($sourceMediaRef) !== false,
+                    hasContent: $contentMetadata['has_content'],
+                    sizeBytes: $contentMetadata['size_bytes'],
+                    checksumSha256: $contentMetadata['checksum_sha256'],
                 );
             }
 
             return $manifest;
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    /**
+     * @return array{has_content: bool, size_bytes: int|null, checksum_sha256: string|null}
+     */
+    private function mediaContentMetadata(ZipArchive $zip, string $sourceMediaRef): array
+    {
+        $index = $zip->locateName($sourceMediaRef);
+
+        if ($index === false) {
+            return [
+                'has_content' => false,
+                'size_bytes' => null,
+                'checksum_sha256' => null,
+            ];
+        }
+
+        $stream = $zip->getStream($sourceMediaRef);
+
+        if ($stream === false) {
+            return [
+                'has_content' => false,
+                'size_bytes' => null,
+                'checksum_sha256' => null,
+            ];
+        }
+
+        try {
+            $hashContext = hash_init('sha256');
+            hash_update_stream($hashContext, $stream);
+            $stat = $zip->statIndex($index);
+
+            return [
+                'has_content' => true,
+                'size_bytes' => is_array($stat) && isset($stat['size']) && is_numeric($stat['size'])
+                    ? (int) $stat['size']
+                    : null,
+                'checksum_sha256' => hash_final($hashContext),
+            ];
         } finally {
             fclose($stream);
         }

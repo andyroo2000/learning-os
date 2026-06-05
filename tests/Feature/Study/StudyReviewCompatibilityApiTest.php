@@ -4,6 +4,11 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Actions\ReviewCardAction;
+use App\Domain\Reviews\Data\ReviewCardData;
+use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
+use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -35,6 +40,9 @@ class StudyReviewCompatibilityApiTest extends TestCase
             $user = $this->signIn();
             StudySettings::factory()->for($user)->create([
                 'new_cards_per_day' => 20,
+            ]);
+            $importJob = StudyImportJob::factory()->for($user)->completed()->create([
+                'source_filename' => 'core-2k.apkg',
             ]);
             $card = $this->cardFor($user, [
                 'front_text' => '会社',
@@ -81,7 +89,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('overview.newCount', 0)
                 ->assertJsonPath('overview.reviewCount', 1)
                 ->assertJsonPath('overview.newCardsPerDay', 20)
-                ->assertJsonPath('overview.latestImport', null);
+                ->assertJsonPath('overview.latestImport.id', $importJob->id)
+                ->assertJsonPath('overview.latestImport.source_filename', 'core-2k.apkg');
 
             $reviewLogId = $response->json('reviewLogId');
 
@@ -176,8 +185,10 @@ class StudyReviewCompatibilityApiTest extends TestCase
 
     public function test_it_returns_not_found_for_missing_or_unowned_cards(): void
     {
-        $this->signIn();
+        $user = $this->signIn();
         $otherUserCard = $this->cardFor(User::factory()->create());
+        $deletedOwnedCard = $this->cardFor($user);
+        $deletedOwnedCard->delete();
 
         $this->postJson('/api/study/reviews', [
             'cardId' => strtolower((string) str()->ulid()),
@@ -193,6 +204,89 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('message', 'Study card not found.');
 
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $deletedOwnedCard->id,
+            'grade' => 'good',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
         $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_returns_retryable_response_when_review_event_race_recovery_fails(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->app->instance(ReviewCardAction::class, new class extends ReviewCardAction
+        {
+            public function __construct() {}
+
+            public function handle(ReviewCardData $data): ReviewCardResult
+            {
+                throw CardReviewEventConflictException::retryableConflict();
+            }
+        });
+
+        $response = $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+        ]);
+
+        $response
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '1')
+            ->assertJsonPath('message', 'Card review event ID conflict could not be resolved; retry the request.')
+            ->assertJsonPath('reason', 'card_review_event_retry');
+    }
+
+    public function test_it_returns_conflict_for_owned_review_event_conflicts(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->app->instance(ReviewCardAction::class, new class($user->id) extends ReviewCardAction
+        {
+            public function __construct(private readonly int $conflictingUserId) {}
+
+            public function handle(ReviewCardData $data): ReviewCardResult
+            {
+                throw CardReviewEventConflictException::conflict($this->conflictingUserId);
+            }
+        });
+
+        $response = $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
+    }
+
+    public function test_it_hides_cross_user_review_event_conflicts(): void
+    {
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+        $card = $this->cardFor($user);
+
+        $this->app->instance(ReviewCardAction::class, new class($otherUser->id) extends ReviewCardAction
+        {
+            public function __construct(private readonly int $conflictingUserId) {}
+
+            public function handle(ReviewCardData $data): ReviewCardResult
+            {
+                throw CardReviewEventConflictException::conflict($this->conflictingUserId);
+            }
+        });
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
     }
 }

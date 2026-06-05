@@ -49,6 +49,7 @@ class StudyCardSummaryResource extends JsonResource
                 ],
                 'rawFsrs' => null,
             ],
+            // Laravel cards do not track generated/imported audio roles yet; expose the safe ConvoLab sentinel.
             'answerAudioSource' => 'missing',
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),

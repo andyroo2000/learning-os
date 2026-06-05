@@ -214,11 +214,7 @@ class ListStudyBrowserAction
             ->groupBy(fn (Card $card) => $this->noteIdFor($card))
             ->map(function (Collection $group, string $noteId) use ($reviewCounts): array {
                 /** @var Card $firstCard */
-                $firstCard = $group->sortBy([
-                    ['source_template_ord', 'asc'],
-                    ['created_at', 'asc'],
-                    ['id', 'asc'],
-                ])->first();
+                $firstCard = $group->first();
                 $createdAt = $group->min(fn (Card $card) => $card->created_at?->getTimestamp()) ?? 0;
                 $updatedAt = $group->max(fn (Card $card) => $card->updated_at?->getTimestamp()) ?? 0;
                 $queueSummary = [];
@@ -311,7 +307,7 @@ class ListStudyBrowserAction
             }
         }
 
-        return trim($card->front_text) !== '' ? $card->front_text : (string) $card->id;
+        return trim($card->front_text ?? '') !== '' ? $card->front_text : (string) $card->id;
     }
 
     private function queueStateSummaryValue(Card $card): string

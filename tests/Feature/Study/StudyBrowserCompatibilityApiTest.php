@@ -159,7 +159,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $this->getJson('/api/study/browser?q=unsourced')
             ->assertOk()
             ->assertJsonPath('total', 1)
-            ->assertJsonPath('rows.0.noteId', $card->id);
+            ->assertJsonPath('rows.0.noteId', (string) $card->id);
     }
 
     public function test_it_omits_malformed_raw_enum_facet_values_without_failing(): void

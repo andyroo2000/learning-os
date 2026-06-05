@@ -138,11 +138,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
         $rowSelectsWithReviewCount = $cardSelects->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'review_events_count')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
+        $filteredReviewCountSelects = $rowSelectsWithReviewCount->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'where "card_id" in'));
 
         $this->assertCount(1, $facetSelects, 'Study browser should use one unioned facet query instead of one query per facet.');
         $this->assertLessThanOrEqual(2, $cardSelects->count(), 'Study browser should keep card selects bounded to the row query plus the unioned facet query.');
         $this->assertCount(0, $standaloneReviewCountSelects, 'Study browser should not run a standalone review-count query on each page load.');
         $this->assertCount(1, $rowSelectsWithReviewCount, 'Study browser should load review counts in the row query.');
+        $this->assertCount(1, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards.');
     }
 
     public function test_it_returns_sorted_filter_options_without_filters(): void

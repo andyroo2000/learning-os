@@ -43,6 +43,7 @@ class ShowStudyBrowserNoteAction
                 ])
                 ->values()
                 ->all(),
+            // The first card mirrors the deterministic card ordering used by the legacy browser detail.
             selectedCardId: $firstCard->id,
         );
     }
@@ -53,9 +54,21 @@ class ShowStudyBrowserNoteAction
     private function cardsForNote(int $userId, string $noteId): EloquentCollection
     {
         $query = Card::query()
-            ->ownedByActiveDeck($userId)
+            ->ownedByActiveDeck($userId);
+
+        if (ctype_digit($noteId)) {
+            $query->where('cards.source_note_id', (int) $noteId);
+        } else {
+            $query->whereNull('cards.source_note_id')->whereKey($noteId);
+        }
+
+        $matchingCardIds = (clone $query)
+            ->select('cards.id')
+            ->toBase();
+
+        return $query
             ->leftJoinSub(
-                $this->reviewStatsSubquery(),
+                $this->reviewStatsSubquery($matchingCardIds),
                 'review_event_stats',
                 fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
             )
@@ -84,23 +97,17 @@ class ShowStudyBrowserNoteAction
             ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
-            ->orderBy('cards.id');
-
-        if (ctype_digit($noteId)) {
-            $query->where('cards.source_note_id', (int) $noteId);
-        } else {
-            $query->whereNull('cards.source_note_id')->whereKey($noteId);
-        }
-
-        return $query->get();
+            ->orderBy('cards.id')
+            ->get();
     }
 
-    private function reviewStatsSubquery(): QueryBuilder
+    private function reviewStatsSubquery(QueryBuilder $matchingCardIds): QueryBuilder
     {
         return DB::table('card_review_events')
             ->select('card_id')
             ->selectRaw('count(*) as review_events_count')
             ->selectRaw('max(reviewed_at) as review_events_max_reviewed_at')
+            ->whereIn('card_id', $matchingCardIds)
             ->groupBy('card_id');
     }
 
@@ -193,6 +200,7 @@ class ShowStudyBrowserNoteAction
 
         return [
             'name' => $name,
+            // Keep both ConvoLab-compatible keys aligned until richer media field parsing exists.
             'value' => $textValue,
             'textValue' => $textValue,
             'audio' => null,

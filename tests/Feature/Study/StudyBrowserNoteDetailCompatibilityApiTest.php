@@ -109,9 +109,11 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonCount(4, 'rawFields')
             ->assertJsonCount(2, 'cardStats');
 
+        $rawFieldNames = $response->collect('rawFields')->pluck('name');
+
         $this->assertSame(
-            $response->collect('rawFields')->pluck('name')->all(),
-            $response->collect('rawFields')->pluck('name')->unique()->values()->all(),
+            $rawFieldNames->unique()->values()->all(),
+            $rawFieldNames->all(),
             'Study browser note detail should expose unique raw field names.',
         );
         $this->assertSame(
@@ -132,10 +134,12 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $cardSelectsWithReviewStats = $cardSelects->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'review_events_count')
             && str_contains(strtolower($query['query']), 'review_events_max_reviewed_at')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
+        $filteredReviewStatsSelects = $cardSelectsWithReviewStats->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'where "card_id" in'));
 
         $this->assertCount(1, $cardSelects, 'Study browser note detail should load cards in one bounded query.');
         $this->assertCount(0, $standaloneReviewStatsSelects, 'Study browser note detail should not run a standalone review-stats query.');
         $this->assertCount(1, $cardSelectsWithReviewStats, 'Study browser note detail should load review stats in the card query.');
+        $this->assertCount(1, $filteredReviewStatsSelects, 'Study browser note detail should filter review-stat aggregation to matching cards.');
     }
 
     public function test_it_uses_card_id_for_unsourced_note_detail(): void

@@ -173,9 +173,13 @@ class ListStudyBrowserAction
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
     ): Collection {
+        $matchingCardIds = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+            ->select('cards.id')
+            ->toBase();
+
         return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
             ->leftJoinSub(
-                $this->reviewCountSubquery(),
+                $this->reviewCountSubquery($matchingCardIds),
                 'review_event_stats',
                 fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
             )
@@ -282,11 +286,12 @@ class ListStudyBrowserAction
             ));
     }
 
-    private function reviewCountSubquery(): QueryBuilder
+    private function reviewCountSubquery(QueryBuilder $matchingCardIds): QueryBuilder
     {
         return DB::table('card_review_events')
             ->select('card_id')
             ->selectRaw('count(*) as review_events_count')
+            ->whereIn('card_id', $matchingCardIds)
             ->groupBy('card_id');
     }
 

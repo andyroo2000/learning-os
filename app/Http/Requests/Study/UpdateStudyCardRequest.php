@@ -40,7 +40,7 @@ class UpdateStudyCardRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<mixed>>
+     * @return array<string, list<string>>
      */
     public function rules(): array
     {

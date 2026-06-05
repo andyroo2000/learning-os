@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -129,10 +130,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['review']);
 
-        $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
-            && str_contains(strtolower($query['query']), 'from "cards"'));
-        $facetSelects = $cardSelects->filter(fn (array $query): bool => str_contains(strtolower($query['query']), ' as facet')
-            && str_contains(strtolower($query['query']), ' union '));
+        $cardSelects = $this->cardSelectQueries($queries);
+        $facetSelects = $this->facetSelectQueries($cardSelects);
         $standaloneReviewCountSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_starts_with(strtolower($query['query']), 'select card_id, count(*) as review_count')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
@@ -167,12 +166,122 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'source_notetype_name' => 'Alpha',
         ]);
 
-        $this->getJson('/api/study/browser')
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->getJson('/api/study/browser');
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $response
             ->assertOk()
             ->assertJsonPath('total', 2)
             ->assertJsonPath('filterOptions.noteTypes', ['Alpha', 'Beta'])
             ->assertJsonPath('filterOptions.cardTypes', ['cloze', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['buried', 'new']);
+
+        $cardSelects = $this->cardSelectQueries($queries);
+        $facetSelects = $this->facetSelectQueries($cardSelects);
+
+        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
+        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+    }
+
+    public function test_it_reuses_the_unfiltered_row_query_for_initial_filter_options(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'recognition card',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::Review,
+            'source_note_id' => 1251,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => 'initial browser load',
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'production card',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::New,
+            'source_note_id' => 1252,
+            'source_notetype_name' => 'Japanese - Grammar',
+            'search_text' => 'initial browser load',
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->getJson('/api/study/browser?q=initial%20browser%20load');
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('filterOptions.noteTypes', ['Japanese - Grammar', 'Japanese - Vocab'])
+            ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
+            ->assertJsonPath('filterOptions.queueStates', ['new', 'review']);
+
+        $cardSelects = $this->cardSelectQueries($queries);
+        $facetSelects = $this->facetSelectQueries($cardSelects);
+
+        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
+        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+    }
+
+    public function test_it_derives_initial_filter_options_from_the_full_result_set_not_the_current_page(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'first paged card',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::Review,
+            'source_note_id' => 1301,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => 'paged browser load',
+            'created_at' => now()->subDay(),
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'second paged card',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::New,
+            'source_note_id' => 1302,
+            'source_notetype_name' => 'Japanese - Grammar',
+            'search_text' => 'paged browser load',
+            'created_at' => now(),
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->getJson('/api/study/browser?q=paged%20browser%20load&limit=1');
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'rows')
+            ->assertJsonPath('rows.0.noteId', '1302')
+            ->assertJsonPath('filterOptions.noteTypes', ['Japanese - Grammar', 'Japanese - Vocab'])
+            ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
+            ->assertJsonPath('filterOptions.queueStates', ['new', 'review']);
+
+        $this->assertIsString($response->json('nextCursor'));
+
+        $cardSelects = $this->cardSelectQueries($queries);
+        $facetSelects = $this->facetSelectQueries($cardSelects);
+
+        $this->assertCount(1, $cardSelects, 'Paged initial browser loads should reuse the full row query for filter options.');
+        $this->assertCount(0, $facetSelects, 'Paged initial browser loads should not run a separate facet query.');
     }
 
     public function test_it_paginates_browser_rows_with_returned_cursor(): void
@@ -459,5 +568,33 @@ class StudyBrowserCompatibilityApiTest extends TestCase
     {
         $this->getJson('/api/study/browser')
             ->assertUnauthorized();
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $queries
+     * @return Collection<int, array{query: string}>
+     */
+    private function cardSelectQueries(Collection $queries): Collection
+    {
+        return $queries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_starts_with($sql, 'select')
+                && (str_contains($sql, 'from "cards"') || str_contains($sql, 'from `cards`'));
+        });
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $cardQueries
+     * @return Collection<int, array{query: string}>
+     */
+    private function facetSelectQueries(Collection $cardQueries): Collection
+    {
+        return $cardQueries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, ' as facet')
+                && str_contains($sql, ' union ');
+        });
     }
 }

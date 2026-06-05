@@ -9,12 +9,18 @@ class ListDueCardsRequest extends CursorPaginatedRequest
 {
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        $normalized = [];
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => CanonicalUlid::normalize($courseId),
-            ]);
+        foreach (['course_id', 'deck_id'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
     }
 
@@ -25,6 +31,7 @@ class ListDueCardsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
         ];
     }
 
@@ -37,5 +44,16 @@ class ListDueCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['course_id'];
+    }
+
+    public function deckId(): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('deck_id', $validated)) {
+            return null;
+        }
+
+        return $validated['deck_id'];
     }
 }

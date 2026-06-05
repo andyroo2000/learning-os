@@ -23,6 +23,8 @@ final class StudyImportArchivePreviewer
 
     private const FIELD_SEPARATOR = "\x1f";
 
+    private const MAX_MEDIA_WARNINGS = 10;
+
     /**
      * @return array<string, mixed>
      */
@@ -30,12 +32,18 @@ final class StudyImportArchivePreviewer
     {
         $archivePath = $this->copyStorageObjectToTempFile($disk, $sourceObjectPath);
         $collectionPath = null;
+        $zip = null;
 
         try {
-            $collectionPath = $this->extractCollectionDatabase($archivePath);
+            $zip = $this->openArchive($archivePath);
+            $collectionPath = $this->extractCollectionDatabase($zip);
 
-            return $this->previewFromCollectionDatabase($collectionPath);
+            return $this->previewFromCollectionDatabase(
+                $collectionPath,
+                $this->mediaManifestByFilename($zip),
+            );
         } finally {
+            $zip?->close();
             @unlink($archivePath);
 
             if ($collectionPath !== null) {
@@ -47,7 +55,7 @@ final class StudyImportArchivePreviewer
     /**
      * @return array<string, mixed>
      */
-    private function previewFromCollectionDatabase(string $collectionPath): array
+    private function previewFromCollectionDatabase(string $collectionPath, array $mediaManifestByFilename): array
     {
         try {
             $pdo = new PDO('sqlite:'.$collectionPath);
@@ -62,15 +70,17 @@ final class StudyImportArchivePreviewer
             }
 
             $reviewLogCount = $this->countTargetDeckReviewLogs($pdo, $deckId);
+            $mediaReferences = $this->mediaReferences($cardRows);
+            $mediaPreview = $this->mediaPreview($mediaReferences, $mediaManifestByFilename);
 
             return [
                 'deck_name' => StudyImportJob::DEFAULT_DECK_NAME,
                 'card_count' => count($cardRows),
                 'note_count' => count(array_unique(array_column($cardRows, 'note_id'))),
                 'review_log_count' => $reviewLogCount,
-                'media_reference_count' => count($this->mediaReferences($cardRows)),
-                'skipped_media_count' => 0,
-                'warnings' => [],
+                'media_reference_count' => count($mediaReferences),
+                'skipped_media_count' => $mediaPreview['skipped_media_count'],
+                'warnings' => $mediaPreview['warnings'],
                 'note_type_breakdown' => $this->noteTypeBreakdown($cardRows, $noteTypeNames),
             ];
         } catch (StudyImportPreviewException $exception) {
@@ -107,7 +117,7 @@ final class StudyImportArchivePreviewer
         }
     }
 
-    private function extractCollectionDatabase(string $archivePath): string
+    private function openArchive(string $archivePath): ZipArchive
     {
         $zip = new ZipArchive;
 
@@ -115,25 +125,85 @@ final class StudyImportArchivePreviewer
             throw StudyImportPreviewException::invalidCollectionDatabase();
         }
 
-        try {
-            foreach (self::COLLECTION_DATABASE_ENTRIES as $entryName) {
-                $stream = $zip->getStream($entryName);
+        return $zip;
+    }
 
-                if ($stream === false) {
-                    continue;
-                }
+    private function extractCollectionDatabase(ZipArchive $zip): string
+    {
+        foreach (self::COLLECTION_DATABASE_ENTRIES as $entryName) {
+            $stream = $zip->getStream($entryName);
 
-                try {
-                    return $this->copyCollectionStreamToTempFile($stream);
-                } finally {
-                    fclose($stream);
-                }
+            if ($stream === false) {
+                continue;
             }
-        } finally {
-            $zip->close();
+
+            try {
+                return $this->copyCollectionStreamToTempFile($stream);
+            } finally {
+                fclose($stream);
+            }
         }
 
         throw StudyImportPreviewException::missingCollectionDatabase();
+    }
+
+    /**
+     * @return array<string, array{source_media_ref: string, has_content: bool}>
+     */
+    private function mediaManifestByFilename(ZipArchive $zip): array
+    {
+        $stream = $zip->getStream('media');
+
+        if ($stream === false) {
+            return [];
+        }
+
+        try {
+            $contents = stream_get_contents($stream);
+
+            if ($contents === false) {
+                throw StudyImportPreviewException::invalidMediaManifest();
+            }
+
+            try {
+                $decoded = json_decode(str_replace("\0", '', $contents), true, flags: JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                throw StudyImportPreviewException::invalidMediaManifest();
+            }
+
+            if (! is_array($decoded)) {
+                return [];
+            }
+
+            $manifest = [];
+
+            foreach ($decoded as $sourceMediaRef => $filename) {
+                if (! is_string($filename)) {
+                    continue;
+                }
+
+                if (str_contains($filename, "\0")) {
+                    continue;
+                }
+
+                $filename = trim($filename);
+
+                if ($filename === '' || array_key_exists($filename, $manifest)) {
+                    continue;
+                }
+
+                $sourceMediaRef = (string) $sourceMediaRef;
+
+                $manifest[$filename] = [
+                    'source_media_ref' => $sourceMediaRef,
+                    'has_content' => $zip->locateName($sourceMediaRef) !== false,
+                ];
+            }
+
+            return $manifest;
+        } finally {
+            fclose($stream);
+        }
     }
 
     /**
@@ -345,6 +415,58 @@ final class StudyImportArchivePreviewer
         }
 
         return array_keys($mediaReferences);
+    }
+
+    /**
+     * @param  list<string>  $mediaReferences
+     * @param  array<string, array{source_media_ref: string, has_content: bool}>  $mediaManifestByFilename
+     * @return array{skipped_media_count: int, warnings: list<string>}
+     */
+    private function mediaPreview(array $mediaReferences, array $mediaManifestByFilename): array
+    {
+        $referencedFilenames = array_fill_keys($mediaReferences, true);
+        $warnings = [];
+        $totalWarningCount = 0;
+
+        foreach ($mediaReferences as $filename) {
+            $manifestEntry = $mediaManifestByFilename[$filename] ?? null;
+            $warning = null;
+
+            if ($manifestEntry === null) {
+                $warning = 'Media file "'.$filename.'" is referenced by notes but is missing from the archive manifest.';
+            } elseif (! $manifestEntry['has_content']) {
+                $warning = 'Media file "'.$filename.'" is listed in the archive manifest but content entry "'.$manifestEntry['source_media_ref'].'" is missing.';
+            }
+
+            if ($warning !== null) {
+                $totalWarningCount++;
+
+                if (count($warnings) < self::MAX_MEDIA_WARNINGS) {
+                    $warnings[] = $warning;
+                }
+            }
+        }
+
+        $omittedWarningCount = $totalWarningCount - count($warnings);
+
+        if ($omittedWarningCount > 0) {
+            $warnings[] = $omittedWarningCount.' additional media '
+                .($omittedWarningCount === 1 ? 'warning was' : 'warnings were')
+                .' omitted from this preview.';
+        }
+
+        $skippedMediaCount = 0;
+
+        foreach (array_keys($mediaManifestByFilename) as $filename) {
+            if (! isset($referencedFilenames[$filename])) {
+                $skippedMediaCount++;
+            }
+        }
+
+        return [
+            'skipped_media_count' => $skippedMediaCount,
+            'warnings' => $warnings,
+        ];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
 use App\Domain\Study\Actions\CreateStudyImportUploadSessionAction;
+use App\Domain\Study\Actions\ProcessStudyImportJobAction;
 use App\Domain\Study\Actions\UploadStudyImportFileAction;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportArchiveException;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class StudyImportUploadActionTest extends TestCase
@@ -388,6 +390,75 @@ class StudyImportUploadActionTest extends TestCase
         $result = app(CancelStudyImportUploadAction::class)->handle($completed->user_id, $completed->id);
 
         $this->assertSame(StudyImportStatus::Completed, $result->status);
+    }
+
+    public function test_process_job_claims_pending_imports_for_processing(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $sourceObjectPath = 'study/imports/process/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+            'error_message' => 'previous warning',
+            'completed_at' => now()->subHour(),
+            'started_at' => null,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle('  '.strtoupper($importJob->id).'  ');
+
+        $this->assertNotNull($processed);
+        $this->assertSame($importJob->id, $processed->id);
+        $this->assertSame(StudyImportStatus::Processing, $processed->status);
+        $this->assertSame(now()->toJSON(), $processed->started_at->toJSON());
+        $this->assertNull($processed->error_message);
+        $this->assertNull($processed->completed_at);
+    }
+
+    public function test_process_job_is_idempotent_for_processing_and_terminal_imports(): void
+    {
+        Storage::fake('study-imports');
+        $processing = StudyImportJob::factory()->processing()->create([
+            'source_object_path' => 'study/imports/missing/processing.colpkg',
+            'started_at' => now()->subMinute(),
+        ]);
+        $completed = StudyImportJob::factory()->completed()->create([
+            'source_object_path' => 'study/imports/missing/completed.colpkg',
+        ]);
+
+        $processingResult = app(ProcessStudyImportJobAction::class)->handle($processing->id);
+        $completedResult = app(ProcessStudyImportJobAction::class)->handle($completed->id);
+
+        $this->assertSame(StudyImportStatus::Processing, $processingResult?->status);
+        $this->assertSame($processing->started_at->toJSON(), $processingResult?->started_at->toJSON());
+        $this->assertSame(StudyImportStatus::Completed, $completedResult?->status);
+    }
+
+    public function test_process_job_marks_missing_upload_targets_failed(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $missingTarget = StudyImportJob::factory()->create([
+            'source_object_path' => null,
+        ]);
+        $missingArchive = StudyImportJob::factory()->create([
+            'source_object_path' => 'study/imports/missing/archive.colpkg',
+        ]);
+
+        $missingTargetResult = app(ProcessStudyImportJobAction::class)->handle($missingTarget->id);
+        $missingArchiveResult = app(ProcessStudyImportJobAction::class)->handle($missingArchive->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $missingTargetResult?->status);
+        $this->assertSame('Study import upload target is missing.', $missingTargetResult?->error_message);
+        $this->assertSame(now()->toJSON(), $missingTargetResult?->completed_at->toJSON());
+        $this->assertSame(StudyImportStatus::Failed, $missingArchiveResult?->status);
+        $this->assertSame('Study import archive is missing.', $missingArchiveResult?->error_message);
+        $this->assertSame(now()->toJSON(), $missingArchiveResult?->completed_at->toJSON());
+    }
+
+    public function test_process_job_returns_null_for_missing_imports(): void
+    {
+        $this->assertNull(app(ProcessStudyImportJobAction::class)->handle(strtolower((string) Str::ulid())));
     }
 
     private function writeSparseStudyImportFile(string $path, int $sizeBytes): void

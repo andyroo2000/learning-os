@@ -4,9 +4,11 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Jobs\ProcessStudyImportJob;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -235,6 +237,7 @@ class StudyImportUploadApiTest extends TestCase
     public function test_complete_validates_the_uploaded_archive(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
         Storage::fake('study-imports');
         $user = $this->signIn();
         $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
@@ -253,6 +256,26 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.source_size_bytes', 15)
             ->assertJsonPath('data.uploaded_at', now()->toJSON())
             ->assertJsonMissingPath('data.source_object_path');
+
+        Queue::assertPushedOn(
+            ProcessStudyImportJob::QUEUE_NAME,
+            ProcessStudyImportJob::class,
+            fn (ProcessStudyImportJob $job): bool => $job->importJobId === $importJob->id,
+        );
+    }
+
+    public function test_complete_does_not_enqueue_terminal_imports(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $importJob = StudyImportJob::factory()->completed()->for($user)->create();
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertStatus(202)
+            ->assertJsonPath('data.id', $importJob->id)
+            ->assertJsonPath('data.status', StudyImportStatus::Completed->value);
+
+        Queue::assertNotPushed(ProcessStudyImportJob::class);
     }
 
     public function test_complete_hides_cross_user_import_jobs(): void

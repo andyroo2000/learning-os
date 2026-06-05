@@ -125,6 +125,24 @@ class ListReviewEventsActionTest extends TestCase
         $this->assertSame([$reviewEvent->id], $reviewEventIds);
     }
 
+    public function test_it_filters_results_by_deck_id(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
+
+        CardReviewEvent::factory()->for($otherCard)->create();
+        $this->cardReviewEventFor(User::factory()->create());
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, deckId: ' '.strtoupper($deck->id).' ');
+        $reviewEventIds = collect($reviewEvents->items())->pluck('id')->all();
+
+        $this->assertSame([$reviewEvent->id], $reviewEventIds);
+    }
+
     public function test_it_requires_card_id_filters_to_match_the_course_filter_when_both_are_provided(): void
     {
         $user = User::factory()->create();
@@ -139,6 +157,43 @@ class ListReviewEventsActionTest extends TestCase
             $user->id,
             courseId: $course->id,
             cardId: $otherCourseCard->id,
+        );
+
+        $this->assertEmpty($reviewEvents->items());
+    }
+
+    public function test_it_returns_empty_when_deck_id_and_course_id_are_in_different_courses(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+
+        CardReviewEvent::factory()->for($otherCourseCard)->create();
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle(
+            $user->id,
+            courseId: $course->id,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertEmpty($reviewEvents->items());
+    }
+
+    public function test_it_returns_empty_when_card_id_and_deck_id_do_not_match(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+
+        CardReviewEvent::factory()->for($otherDeckCard)->create();
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle(
+            $user->id,
+            deckId: $deck->id,
+            cardId: $otherDeckCard->id,
         );
 
         $this->assertEmpty($reviewEvents->items());
@@ -166,12 +221,32 @@ class ListReviewEventsActionTest extends TestCase
         $this->assertEmpty($reviewEvents->items());
     }
 
+    public function test_it_returns_empty_results_for_a_deck_owned_by_another_user(): void
+    {
+        $user = User::factory()->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+
+        CardReviewEvent::factory()->for(Card::factory()->for($otherDeck)->create())->create();
+
+        $reviewEvents = app(ListReviewEventsAction::class)->handle($user->id, deckId: $otherDeck->id);
+
+        $this->assertEmpty($reviewEvents->items());
+    }
+
     public function test_it_rejects_blank_course_id_filters(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Review event course_id filter must not be blank when provided.');
 
         app(ListReviewEventsAction::class)->handle(User::factory()->create()->id, courseId: '   ');
+    }
+
+    public function test_it_rejects_blank_deck_id_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Review event deck_id filter must not be blank when provided.');
+
+        app(ListReviewEventsAction::class)->handle(User::factory()->create()->id, deckId: '   ');
     }
 
     public function test_it_rejects_blank_card_id_filters(): void

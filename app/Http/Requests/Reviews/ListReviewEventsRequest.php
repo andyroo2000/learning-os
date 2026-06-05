@@ -3,25 +3,25 @@
 namespace App\Http\Requests\Reviews;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Http\Requests\Concerns\FiltersByDeckId;
 
 class ListReviewEventsRequest extends CursorPaginatedRequest
 {
+    use FiltersByDeckId;
+
     protected function prepareForValidation(): void
     {
         $normalized = [];
 
         foreach (['course_id', 'card_id'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $normalized[$key] = CanonicalUlid::normalize($value);
-            }
+            $this->mergeNormalizedUlidInput($normalized, $key);
         }
 
         if ($normalized !== []) {
             $this->merge($normalized);
         }
+
+        $this->prepareDeckIdForValidation();
     }
 
     /**
@@ -31,6 +31,7 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
             'card_id' => ['sometimes', 'filled', 'ulid'],
         ];
     }

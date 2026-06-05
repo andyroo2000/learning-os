@@ -21,6 +21,7 @@ class ListReviewEventsController extends Controller
                 userId: $user->id,
                 pageSize: $request->pageSize(),
                 courseId: $request->courseId(),
+                deckId: $request->deckId(),
                 cardId: $request->cardId(),
             )->withQueryString()
         );

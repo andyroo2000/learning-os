@@ -31,6 +31,8 @@ class ListDueCardsApiTest extends TestCase
         $this->travelTo(Carbon::parse('2026-06-04T12:00:00Z'));
         $user = $this->signIn();
         $deck = $this->deckFor($user);
+        $deletedDeck = $this->deckFor($user);
+        $deletedDeck->delete();
         $relearningCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
             'due_at' => now()->subHours(2),
         ]);
@@ -52,6 +54,9 @@ class ListDueCardsApiTest extends TestCase
         $otherUserCard = $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review, [
             'due_at' => now()->subDay(),
         ]);
+        $deletedDeckCard = $this->cardWithStudyStatus($deletedDeck, CardStudyStatus::Review, [
+            'due_at' => now()->subDay(),
+        ]);
         $deletedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
             'due_at' => now()->subDay(),
         ]);
@@ -70,6 +75,7 @@ class ListDueCardsApiTest extends TestCase
             ->assertJsonMissing(['id' => $suspendedCard->id])
             ->assertJsonMissing(['id' => $buriedCard->id])
             ->assertJsonMissing(['id' => $otherUserCard->id])
+            ->assertJsonMissing(['id' => $deletedDeckCard->id])
             ->assertJsonMissing(['id' => $deletedCard->id]);
     }
 

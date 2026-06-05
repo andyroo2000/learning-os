@@ -19,11 +19,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Support\Study\BuildsStudyImportArchives;
 use Tests\TestCase;
 
 class StudyImportUploadActionTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsStudyImportArchives, RefreshDatabase;
 
     protected function tearDown(): void
     {
@@ -397,7 +398,7 @@ class StudyImportUploadActionTest extends TestCase
         Carbon::setTestNow('2026-06-05 12:00:00');
         Storage::fake('study-imports');
         $sourceObjectPath = 'study/imports/process/core.colpkg';
-        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
         $importJob = StudyImportJob::factory()->create([
             'source_object_path' => $sourceObjectPath,
             'error_message' => 'previous warning',
@@ -413,6 +414,22 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(now()->toJSON(), $processed->started_at->toJSON());
         $this->assertNull($processed->error_message);
         $this->assertNull($processed->completed_at);
+        $this->assertSame(StudyImportJob::DEFAULT_DECK_NAME, $processed->deck_name);
+        $this->assertSame(3, $processed->preview_json['card_count']);
+        $this->assertSame(2, $processed->preview_json['note_count']);
+        $this->assertSame(2, $processed->preview_json['review_log_count']);
+        $this->assertSame([
+            [
+                'note_type_name' => 'Basic',
+                'note_count' => 1,
+                'card_count' => 2,
+            ],
+            [
+                'note_type_name' => 'Cloze',
+                'note_count' => 1,
+                'card_count' => 1,
+            ],
+        ], $processed->preview_json['note_type_breakdown']);
     }
 
     public function test_process_job_is_idempotent_for_processing_and_terminal_imports(): void
@@ -454,6 +471,26 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Failed, $missingArchiveResult?->status);
         $this->assertSame('Study import archive is missing.', $missingArchiveResult?->error_message);
         $this->assertSame(now()->toJSON(), $missingArchiveResult?->completed_at->toJSON());
+    }
+
+    public function test_process_job_marks_unparseable_archives_failed(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $sourceObjectPath = 'study/imports/process/broken.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportZipBytes(['collection.anki21' => 'not a sqlite database']),
+        );
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame('The uploaded collection database could not be parsed.', $processed?->error_message);
+        $this->assertSame(now()->toJSON(), $processed?->completed_at->toJSON());
     }
 
     public function test_process_job_returns_null_for_missing_imports(): void

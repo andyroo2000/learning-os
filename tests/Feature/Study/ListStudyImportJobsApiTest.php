@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
@@ -112,6 +113,103 @@ class ListStudyImportJobsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderImport->id);
+    }
+
+    public function test_index_filters_import_jobs_by_status(): void
+    {
+        $user = $this->signIn();
+        $completedImport = StudyImportJob::factory()->completed()->for($user)->create([
+            'updated_at' => now(),
+        ]);
+        $pendingImport = StudyImportJob::factory()->for($user)->create([
+            'updated_at' => now()->addMinute(),
+        ]);
+        $otherUserCompletedImport = StudyImportJob::factory()->completed()->for(User::factory()->create())->create([
+            'updated_at' => now()->addMinutes(2),
+        ]);
+
+        $this->getJson('/api/study/imports?status=completed')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $completedImport->id)
+            ->assertJsonPath('data.0.status', StudyImportStatus::Completed->value)
+            ->assertJsonMissing([
+                'id' => $pendingImport->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherUserCompletedImport->id,
+            ]);
+    }
+
+    public function test_index_normalizes_status_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $completedImport = StudyImportJob::factory()->completed()->for($user)->create();
+        $pendingImport = StudyImportJob::factory()->for($user)->create();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/imports?status=%20COMPLETED%20')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $completedImport->id)
+            ->assertJsonMissing([
+                'id' => $pendingImport->id,
+            ]);
+    }
+
+    public function test_index_rejects_blank_malformed_and_array_status_filters(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/imports?status=%20%20%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+
+        $this->getJson('/api/study/imports?status=queued')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+
+        $this->getJson('/api/study/imports?status[]=completed')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    }
+
+    public function test_index_preserves_status_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $olderImport = StudyImportJob::factory()->completed()->for($user)->create([
+            'updated_at' => now()->subDay(),
+        ]);
+        $newerImport = StudyImportJob::factory()->completed()->for($user)->create([
+            'updated_at' => now(),
+        ]);
+        $pendingImport = StudyImportJob::factory()->for($user)->create([
+            'updated_at' => now()->addDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/imports?status=completed&per_page=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerImport->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'status', 'completed');
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
+
+        $this->getJson($nextUrl)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderImport->id)
+            ->assertJsonMissing([
+                'id' => $pendingImport->id,
+            ]);
     }
 
     public function test_it_accepts_a_custom_page_size(): void

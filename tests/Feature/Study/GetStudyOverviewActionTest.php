@@ -112,6 +112,92 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
     }
 
+    public function test_due_count_excludes_failed_cards_but_ready_failed_cards_block_new_cards(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $readyFailedCardDueAt = $now->copy()->subMinutes(10);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $readyFailedCardDueAt,
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(1, $overview['failed_count']);
+        $this->assertSame(1, $overview['failed_due_count']);
+        $this->assertSame(1, $overview['new_count']);
+        $this->assertSame(0, $overview['new_cards_available_today']);
+        $this->assertSame($readyFailedCardDueAt->toJSON(), $overview['next_due_at']);
+    }
+
+    public function test_future_failed_cards_do_not_block_new_cards(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->addHour(),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(1, $overview['failed_count']);
+        $this->assertSame(0, $overview['failed_due_count']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
+    }
+
+    public function test_ready_failed_cards_outside_the_deck_filter_do_not_block_new_cards(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->subMinutes(10),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: $deck->id,
+        );
+
+        $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(0, $overview['failed_count']);
+        $this->assertSame(0, $overview['failed_due_count']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
+    }
+
     public function test_it_returns_empty_overview_for_another_users_deck_id(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

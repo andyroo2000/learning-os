@@ -82,6 +82,96 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(2, $result->overview['new_cards_available_today']);
     }
 
+    public function test_ready_failed_cards_block_new_cards_and_are_returned_even_when_due_count_is_zero(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $readyFailedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->subMinutes(10),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame([$readyFailedCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(0, $result->overview['due_count']);
+        $this->assertSame(1, $result->overview['failed_count']);
+        $this->assertSame(1, $result->overview['failed_due_count']);
+        $this->assertSame(0, $result->overview['new_cards_available_today']);
+    }
+
+    public function test_regular_due_and_ready_failed_cards_are_returned_together_with_separate_counts(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $readyFailedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->subMinutes(20),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $regularDueCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subMinutes(10),
+            'failed_at' => null,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame([$readyFailedCard->id, $regularDueCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(1, $result->overview['due_count']);
+        $this->assertSame(1, $result->overview['failed_count']);
+        $this->assertSame(1, $result->overview['failed_due_count']);
+        $this->assertSame(0, $result->overview['new_cards_available_today']);
+    }
+
+    public function test_ready_failed_cards_outside_the_deck_filter_do_not_change_the_deck_session(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->subMinutes(10),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: $deck->id,
+        );
+
+        $this->assertSame([$targetDeckCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(0, $result->overview['due_count']);
+        $this->assertSame(0, $result->overview['failed_count']);
+        $this->assertSame(0, $result->overview['failed_due_count']);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
+    }
+
     public function test_it_only_uses_owned_cards_from_active_decks(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

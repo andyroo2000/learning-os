@@ -327,9 +327,23 @@ class StudyImportUploadApiTest extends TestCase
         $importJob = StudyImportJob::factory()->completed()->for($user)->create();
 
         $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
-            ->assertStatus(202)
+            ->assertOk()
             ->assertJsonPath('data.id', $importJob->id)
             ->assertJsonPath('data.status', StudyImportStatus::Completed->value);
+
+        Queue::assertNotPushed(ProcessStudyImportJob::class);
+    }
+
+    public function test_complete_returns_ok_for_failed_terminal_imports_without_enqueuing(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $importJob = StudyImportJob::factory()->failed()->for($user)->create();
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertOk()
+            ->assertJsonPath('data.id', $importJob->id)
+            ->assertJsonPath('data.status', StudyImportStatus::Failed->value);
 
         Queue::assertNotPushed(ProcessStudyImportJob::class);
     }

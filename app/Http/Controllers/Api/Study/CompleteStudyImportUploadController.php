@@ -54,6 +54,14 @@ class CompleteStudyImportUploadController extends Controller
 
         return StudyImportJobResource::make($importJob)
             ->response()
-            ->setStatusCode(202);
+            ->setStatusCode($this->statusCodeFor($importJob->status));
+    }
+
+    private function statusCodeFor(StudyImportStatus $status): int
+    {
+        return in_array($status, [
+            StudyImportStatus::Pending,
+            StudyImportStatus::Processing,
+        ], true) ? 202 : 200;
     }
 }

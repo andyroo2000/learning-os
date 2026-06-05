@@ -8,6 +8,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class UndoCardReviewEventController extends Controller
 {
@@ -20,10 +21,19 @@ class UndoCardReviewEventController extends Controller
         try {
             $card = $undoCardReviewEvent->handle($cardReviewEvent);
         } catch (UndoCardReviewEventException $exception) {
+            $statusCode = $this->statusCodeFor($exception);
+
+            if ($statusCode >= 500) {
+                Log::error('Review undo failed because stored undo state is invalid.', [
+                    'review_event_id' => $cardReviewEvent->id,
+                    'reason' => $exception->reason(),
+                ]);
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => $exception->reason(),
-            ], $this->statusCodeFor($exception));
+            ], $statusCode);
         }
 
         return CardResource::make($card)
@@ -39,6 +49,7 @@ class UndoCardReviewEventController extends Controller
             UndoCardReviewEventException::NOT_LATEST => 409,
             UndoCardReviewEventException::MISSING_SNAPSHOT,
             UndoCardReviewEventException::INVALID_SNAPSHOT => 500,
+            default => 500,
         };
     }
 }

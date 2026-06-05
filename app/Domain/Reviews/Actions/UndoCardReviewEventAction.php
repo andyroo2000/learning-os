@@ -188,6 +188,10 @@ class UndoCardReviewEventAction
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $value)) {
+            throw UndoCardReviewEventException::invalidSnapshot($key);
+        }
+
         try {
             return Carbon::parse($value);
         } catch (Throwable) {

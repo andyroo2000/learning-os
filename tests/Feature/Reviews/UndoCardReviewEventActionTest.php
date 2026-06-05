@@ -135,6 +135,23 @@ class UndoCardReviewEventActionTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
+    public function test_it_rejects_review_events_for_cards_in_soft_deleted_decks(): void
+    {
+        $card = Card::factory()->create();
+        $reviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00Z')->reviewEvent;
+        $card->deck->delete();
+
+        try {
+            app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+            $this->fail('Expected unavailable card undo exception was not thrown.');
+        } catch (UndoCardReviewEventException $exception) {
+            $this->assertSame('card_review_event_card_unavailable', $exception->reason());
+        }
+
+        $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+    }
+
     public function test_it_rejects_stale_review_event_models_after_the_row_is_deleted(): void
     {
         $reviewEvent = CardReviewEvent::factory()->create([
@@ -186,6 +203,29 @@ class UndoCardReviewEventActionTest extends TestCase
                 'new_queue_position' => null,
                 'scheduler_state' => null,
                 'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+
+        try {
+            app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+            $this->fail('Expected invalid undo snapshot exception was not thrown.');
+        } catch (UndoCardReviewEventException $exception) {
+            $this->assertSame('card_review_event_invalid_undo_state', $exception->reason());
+        }
+    }
+
+    public function test_it_rejects_relative_timestamp_strings_in_undo_snapshots(): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->create([
+            'card_state_before' => [
+                'study_status' => 'new',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => 'tomorrow',
                 'introduced_at' => null,
                 'failed_at' => null,
                 'last_reviewed_at' => null,

@@ -37,6 +37,30 @@ class StudyImportJobActionTest extends TestCase
         $this->assertNotSame($oldActive->id, $current->id);
     }
 
+    public function test_current_uses_id_as_the_tiebreaker_for_active_import_jobs(): void
+    {
+        $user = User::factory()->create();
+        $sharedUpdatedAt = now();
+        $lowTieImport = StudyImportJob::factory()->for($user)->create([
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh33',
+            'updated_at' => $sharedUpdatedAt,
+        ]);
+        $highTieImport = StudyImportJob::factory()->processing()->for($user)->create([
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh34',
+            'updated_at' => $sharedUpdatedAt,
+        ]);
+        StudyImportJob::factory()->completed()->for($user)->create([
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh35',
+            'updated_at' => $sharedUpdatedAt,
+        ]);
+
+        $current = app(GetCurrentStudyImportJobAction::class)->handle($user->id);
+
+        $this->assertNotNull($current);
+        $this->assertSame($highTieImport->id, $current->id);
+        $this->assertNotSame($lowTieImport->id, $current->id);
+    }
+
     public function test_current_returns_null_when_there_is_no_active_import_job(): void
     {
         $user = User::factory()->create();

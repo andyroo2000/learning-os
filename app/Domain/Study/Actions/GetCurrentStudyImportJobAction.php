@@ -2,7 +2,6 @@
 
 namespace App\Domain\Study\Actions;
 
-use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 
 class GetCurrentStudyImportJobAction
@@ -11,10 +10,7 @@ class GetCurrentStudyImportJobAction
     {
         return StudyImportJob::query()
             ->where('user_id', $userId)
-            ->whereIn('status', [
-                StudyImportStatus::Pending->value,
-                StudyImportStatus::Processing->value,
-            ])
+            ->active()
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->first();

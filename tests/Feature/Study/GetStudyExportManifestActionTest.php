@@ -49,23 +49,23 @@ class GetStudyExportManifestActionTest extends TestCase
         $this->assertSame([
             'courses' => [
                 'total' => 1,
-                'path' => '/api/study/export/courses',
+                'path' => route('api.study.export.courses', absolute: false),
             ],
             'decks' => [
                 'total' => 1,
-                'path' => '/api/study/export/decks',
+                'path' => route('api.study.export.decks', absolute: false),
             ],
             'cards' => [
                 'total' => 1,
-                'path' => '/api/study/export/cards',
+                'path' => route('api.study.export.cards', absolute: false),
             ],
             'review_events' => [
                 'total' => 1,
-                'path' => '/api/study/export/review-events',
+                'path' => route('api.study.export.review-events', absolute: false),
             ],
             'media_assets' => [
                 'total' => 1,
-                'path' => '/api/study/export/media-assets',
+                'path' => route('api.study.export.media-assets', absolute: false),
             ],
         ], $manifest['sections']);
     }

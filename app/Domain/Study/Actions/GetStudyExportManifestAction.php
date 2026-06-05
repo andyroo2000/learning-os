@@ -32,23 +32,23 @@ class GetStudyExportManifestAction
             'sections' => [
                 'courses' => [
                     'total' => Course::query()->where('user_id', $userId)->count('id'),
-                    'path' => '/api/study/export/courses',
+                    'path' => route('api.study.export.courses', absolute: false),
                 ],
                 'decks' => [
                     'total' => Deck::query()->where('user_id', $userId)->count('id'),
-                    'path' => '/api/study/export/decks',
+                    'path' => route('api.study.export.decks', absolute: false),
                 ],
                 'cards' => [
                     'total' => $this->activeCardCount($userId),
-                    'path' => '/api/study/export/cards',
+                    'path' => route('api.study.export.cards', absolute: false),
                 ],
                 'review_events' => [
                     'total' => $this->activeReviewEventCount($userId),
-                    'path' => '/api/study/export/review-events',
+                    'path' => route('api.study.export.review-events', absolute: false),
                 ],
                 'media_assets' => [
                     'total' => MediaAsset::query()->where('user_id', $userId)->count('id'),
-                    'path' => '/api/study/export/media-assets',
+                    'path' => route('api.study.export.media-assets', absolute: false),
                 ],
             ],
         ];

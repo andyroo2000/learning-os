@@ -221,6 +221,22 @@ class CreateDeckActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_invalid_course_ulid_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Deck course ID must be a valid ULID.');
+
+        app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                name: 'Italian Basics',
+                courseId: 'not-a-ulid',
+            ),
+        );
+    }
+
     public function test_it_returns_existing_deck_for_idempotent_retries(): void
     {
         $user = User::factory()->create();

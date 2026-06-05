@@ -415,12 +415,30 @@ class CreateDeckApiTest extends TestCase
 
         $response = $this->postJson('/api/decks', [
             'id' => 'not-a-ulid',
+            'course_id' => 'also-not-a-ulid',
             'name' => '   ',
         ]);
 
         $response
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['id', 'name']);
+            ->assertJsonValidationErrors(['id', 'course_id', 'name']);
+
+        $this->assertDatabaseCount('decks', 0);
+    }
+
+    public function test_it_rejects_array_ulid_inputs(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/decks', [
+            'id' => [strtolower((string) Str::ulid())],
+            'course_id' => [strtolower((string) Str::ulid())],
+            'name' => 'Italian Basics',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id', 'course_id']);
 
         $this->assertDatabaseCount('decks', 0);
     }

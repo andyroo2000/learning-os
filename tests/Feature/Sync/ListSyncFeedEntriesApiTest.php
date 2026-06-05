@@ -6,6 +6,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -666,7 +667,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
             'resource_type' => 'card',
         ]);
 
-        $response = $this->getJson('/api/sync/feed?resource_type=%20card%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?resource_type=%20card%20');
 
         $response
             ->assertOk()
@@ -685,7 +688,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
             'domain' => 'flashcards',
         ]);
 
-        $response = $this->getJson('/api/sync/feed?domain=%20flashcards%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?domain=%20flashcards%20');
 
         $response
             ->assertOk()
@@ -706,7 +711,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
             'resource_id' => 'card-1',
         ]);
 
-        $response = $this->getJson('/api/sync/feed?domain=flashcards&resource_type=card&resource_id=%20card-1%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?domain=flashcards&resource_type=card&resource_id=%20card-1%20');
 
         $response
             ->assertOk()
@@ -725,7 +732,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
             'operation' => SyncFeedOperation::Delete,
         ]);
 
-        $response = $this->getJson('/api/sync/feed?operation=%20delete%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?operation=%20delete%20');
 
         $response
             ->assertOk()
@@ -1373,7 +1382,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/sync/feed?domain=%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?domain=%20');
 
         $response->assertUnprocessable();
     }
@@ -1400,7 +1411,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/sync/feed?resource_type=%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?resource_type=%20');
 
         $response->assertUnprocessable();
     }
@@ -1436,7 +1449,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/sync/feed?operation=%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?operation=%20');
 
         $response->assertUnprocessable();
     }
@@ -1487,7 +1502,9 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->getJson('/api/sync/feed?domain=flashcards&resource_type=card&resource_id=%20');
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?domain=flashcards&resource_type=card&resource_id=%20');
 
         $response->assertUnprocessable();
     }

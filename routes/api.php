@@ -60,6 +60,7 @@ use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
 use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
+use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
@@ -133,6 +134,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
     Route::get('/study/imports', ListStudyImportJobsController::class);
     Route::post('/study/imports', StoreStudyImportController::class);
+    Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class);
     Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class);
     Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
         ->whereUlid('studyImportJobId')

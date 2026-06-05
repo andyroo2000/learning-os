@@ -24,6 +24,7 @@ class CardReviewEventResource extends JsonResource
             'client_event_id' => $this->client_event_id,
             'device_id' => $this->device_id,
             'client_created_at' => $this->client_created_at?->toJSON(),
+            'card_state_before' => $this->card_state_before,
             'scheduler_state_before' => $this->scheduler_state_before,
             'scheduler_state_after' => $this->scheduler_state_after,
             'created_at' => $this->created_at?->toJSON(),

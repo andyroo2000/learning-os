@@ -92,6 +92,15 @@ class ReviewCardBatchActionTest extends TestCase
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
             'client_created_at' => $firstResult->reviewEvents[0]->client_created_at?->toJSON(),
+            'card_state_before' => [
+                'study_status' => 'new',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
             'scheduler_state_before' => null,
             'scheduler_state_after' => [
                 'due' => '2026-05-30T09:15:00.000000Z',
@@ -188,6 +197,15 @@ class ReviewCardBatchActionTest extends TestCase
             ->where('client_event_id', 'event-2')
             ->sole();
 
+        $this->assertSame([
+            'study_status' => 'new',
+            'new_queue_position' => null,
+            'scheduler_state' => null,
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
+        ], $firstReview->card_state_before);
         $this->assertNull($firstReview->scheduler_state_before);
         $this->assertSame([
             'due' => '2026-05-27T09:25:00.000000Z',
@@ -201,6 +219,15 @@ class ReviewCardBatchActionTest extends TestCase
             'state' => 3,
             'last_review' => '2026-05-27T09:15:00.000000Z',
         ], $firstReview->scheduler_state_after);
+        $this->assertSame([
+            'study_status' => 'relearning',
+            'new_queue_position' => null,
+            'scheduler_state' => $firstReview->scheduler_state_after,
+            'due_at' => '2026-05-27T09:25:00.000000Z',
+            'introduced_at' => '2026-05-27T09:15:00.000000Z',
+            'failed_at' => '2026-05-27T09:15:00.000000Z',
+            'last_reviewed_at' => '2026-05-27T09:15:00.000000Z',
+        ], $secondReview->card_state_before);
         $this->assertSame($firstReview->scheduler_state_after, $secondReview->scheduler_state_before);
         $this->assertSame([
             'due' => '2026-06-03T09:20:00.000000Z',

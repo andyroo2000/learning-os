@@ -9,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -103,7 +104,7 @@ class ReviewCardAction
             $reviewEvent->id = $data->id;
         }
 
-        $this->assignSchedulerSnapshots($reviewEvent, $card, $rating);
+        $this->assignReviewSnapshots($reviewEvent, $card, $rating);
 
         try {
             return DB::transaction(function () use ($card, $rating, $reviewEvent): ReviewCardResult {
@@ -211,8 +212,9 @@ class ReviewCardAction
         return $reviewEvent;
     }
 
-    private function assignSchedulerSnapshots(CardReviewEvent $reviewEvent, Card $card, CardReviewRating $rating): void
+    private function assignReviewSnapshots(CardReviewEvent $reviewEvent, Card $card, CardReviewRating $rating): void
     {
+        $reviewEvent->card_state_before = CardReviewStateSnapshot::beforeReview($card);
         $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
             ? $card->scheduler_state
             : null;

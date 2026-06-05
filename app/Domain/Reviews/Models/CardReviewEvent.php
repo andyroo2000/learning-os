@@ -83,6 +83,7 @@ class CardReviewEvent extends Model
             'reviewed_at' => 'datetime',
             'duration_ms' => 'integer',
             'client_created_at' => 'datetime',
+            'card_state_before' => 'array',
             'scheduler_state_before' => 'array',
             'scheduler_state_after' => 'array',
         ];

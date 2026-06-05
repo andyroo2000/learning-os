@@ -53,6 +53,15 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($reviewEvent->id));
         $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
+        $this->assertSame([
+            'study_status' => 'new',
+            'new_queue_position' => null,
+            'scheduler_state' => null,
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
+        ], $reviewEvent->card_state_before);
         $this->assertNull($reviewEvent->scheduler_state_before);
         $this->assertSame([
             'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
@@ -95,6 +104,15 @@ class ReviewCardActionTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'card_state_before' => [
+                'study_status' => 'new',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
             'scheduler_state_before' => null,
             'scheduler_state_after' => [
                 'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
@@ -149,6 +167,43 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame($reviewedAt->copy()->addDays(3)->toJSON(), $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);
         $this->assertSame($reviewedAt->toJSON(), $card->last_reviewed_at?->toJSON());
+    }
+
+    public function test_it_snapshots_existing_card_state_before_single_reviews(): void
+    {
+        $card = Card::factory()->create([
+            'study_status' => CardStudyStatus::Learning,
+            'new_queue_position' => 7,
+            'scheduler_state' => [
+                'state' => 1,
+                'reps' => 2,
+            ],
+            'due_at' => '2026-05-28T09:15:00Z',
+            'introduced_at' => '2026-05-20T09:15:00Z',
+            'failed_at' => '2026-05-24T09:15:00Z',
+            'last_reviewed_at' => '2026-05-25T09:15:00Z',
+        ]);
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27T09:15:00Z',
+            ),
+        );
+
+        $this->assertSame([
+            'study_status' => 'learning',
+            'new_queue_position' => 7,
+            'scheduler_state' => [
+                'state' => 1,
+                'reps' => 2,
+            ],
+            'due_at' => '2026-05-28T09:15:00.000000Z',
+            'introduced_at' => '2026-05-20T09:15:00.000000Z',
+            'failed_at' => '2026-05-24T09:15:00.000000Z',
+            'last_reviewed_at' => '2026-05-25T09:15:00.000000Z',
+        ], $result->reviewEvent->card_state_before);
     }
 
     public function test_again_reviews_mark_cards_relearning_and_failed(): void

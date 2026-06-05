@@ -66,6 +66,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
             ->assertJsonPath('data.0.duration_ms', 1250)
             ->assertJsonPath('data.0.client_event_id', 'event-123')
+            ->assertJsonPath('data.0.card_state_before.study_status', 'new')
             ->assertJsonPath('data.0.scheduler_state_before', null)
             ->assertJsonPath('data.0.scheduler_state_after.reps', 1)
             ->assertJsonPath('data.1.card_id', $secondCard->id)
@@ -74,6 +75,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.1.rating', CardReviewRating::Easy->value)
             ->assertJsonPath('data.1.duration_ms', 1820)
             ->assertJsonPath('data.1.client_event_id', 'event-456')
+            ->assertJsonPath('data.1.card_state_before.study_status', 'new')
             ->assertJsonPath('data.1.scheduler_state_before', null)
             ->assertJsonPath('data.1.scheduler_state_after.scheduled_days', 7)
             ->assertJsonStructure([
@@ -89,6 +91,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                         'client_event_id',
                         'device_id',
                         'client_created_at',
+                        'card_state_before',
                         'scheduler_state_before',
                         'scheduler_state_after',
                         'created_at',

@@ -67,6 +67,7 @@ class ListReviewEventsApiTest extends TestCase
                         'client_event_id',
                         'device_id',
                         'client_created_at',
+                        'card_state_before',
                         'scheduler_state_before',
                         'scheduler_state_after',
                         'created_at',
@@ -87,6 +88,7 @@ class ListReviewEventsApiTest extends TestCase
                 'client_event_id' => 'event-1',
                 'device_id' => 'device-a',
                 'client_created_at' => $firstEvent->client_created_at->toJSON(),
+                'card_state_before' => null,
                 'scheduler_state_before' => null,
                 'scheduler_state_after' => null,
             ])
@@ -100,6 +102,7 @@ class ListReviewEventsApiTest extends TestCase
                 'client_event_id' => 'event-2',
                 'device_id' => 'device-a',
                 'client_created_at' => $secondEvent->client_created_at->toJSON(),
+                'card_state_before' => null,
                 'scheduler_state_before' => null,
                 'scheduler_state_after' => null,
             ])

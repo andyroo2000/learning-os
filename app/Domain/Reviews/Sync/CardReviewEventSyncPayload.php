@@ -29,6 +29,7 @@ final class CardReviewEventSyncPayload
             'client_event_id' => $reviewEvent->client_event_id,
             'device_id' => $reviewEvent->device_id,
             'client_created_at' => $reviewEvent->client_created_at?->toJSON(),
+            'card_state_before' => $reviewEvent->card_state_before,
             'scheduler_state_before' => $reviewEvent->scheduler_state_before,
             'scheduler_state_after' => $reviewEvent->scheduler_state_after,
             'created_at' => $reviewEvent->created_at?->toJSON(),

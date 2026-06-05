@@ -53,6 +53,15 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($result->wasCreated);
         $this->assertTrue(Str::isUlid($reviewEvent->id));
         $this->assertSame(CardReviewRating::Good, $reviewEvent->rating);
+        $this->assertSame([
+            'study_status' => 'new',
+            'new_queue_position' => null,
+            'scheduler_state' => null,
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
+        ], $reviewEvent->card_state_before);
         $this->assertNull($reviewEvent->scheduler_state_before);
         $this->assertSame([
             'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
@@ -95,6 +104,15 @@ class ReviewCardActionTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'card_state_before' => [
+                'study_status' => 'new',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
             'scheduler_state_before' => null,
             'scheduler_state_after' => [
                 'due' => $reviewedAt->copy()->addDays(3)->toJSON(),

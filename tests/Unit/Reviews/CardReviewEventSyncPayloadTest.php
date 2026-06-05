@@ -23,6 +23,10 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => 'review-event-1',
             'device_id' => 'ios-device-1',
             'client_created_at' => Carbon::parse('2026-05-30T12:13:00Z'),
+            'card_state_before' => json_encode([
+                'study_status' => 'learning',
+                'new_queue_position' => 4,
+            ]),
             'scheduler_state_before' => json_encode([
                 'state' => 0,
                 'reps' => 0,
@@ -48,6 +52,10 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => 'review-event-1',
             'device_id' => 'ios-device-1',
             'client_created_at' => '2026-05-30T12:13:00.000000Z',
+            'card_state_before' => [
+                'study_status' => 'learning',
+                'new_queue_position' => 4,
+            ],
             'scheduler_state_before' => [
                 'state' => 0,
                 'reps' => 0,
@@ -79,6 +87,7 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'card_state_before' => null,
             'scheduler_state_before' => null,
             'scheduler_state_after' => null,
             'created_at' => Carbon::parse('2026-05-30T12:14:30Z'),
@@ -98,6 +107,7 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'card_state_before' => null,
             'scheduler_state_before' => null,
             'scheduler_state_after' => null,
             'created_at' => '2026-05-30T12:14:30.000000Z',
@@ -119,6 +129,7 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'client_event_id' => null,
             'device_id' => null,
             'client_created_at' => null,
+            'card_state_before' => null,
             'scheduler_state_before' => null,
             'scheduler_state_after' => null,
             'created_at' => null,

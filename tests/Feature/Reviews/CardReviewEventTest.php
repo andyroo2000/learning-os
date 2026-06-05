@@ -26,6 +26,7 @@ class CardReviewEventTest extends TestCase
             'client_event_id',
             'device_id',
             'client_created_at',
+            'card_state_before',
             'scheduler_state_before',
             'scheduler_state_after',
             'created_at',

@@ -9,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
+use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -520,7 +521,7 @@ class ReviewCardBatchAction
                 $card = $cardsById->get($reviewEvent->card_id)
                     ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
 
-                $this->assignSchedulerSnapshots($reviewEvent, $card);
+                $this->assignReviewSnapshots($reviewEvent, $card);
                 $reviewEvent->saveOrFail();
                 $reviewEvent->setRelation('card', $card);
 
@@ -539,8 +540,9 @@ class ReviewCardBatchAction
             });
     }
 
-    private function assignSchedulerSnapshots(CardReviewEvent $reviewEvent, Card $card): void
+    private function assignReviewSnapshots(CardReviewEvent $reviewEvent, Card $card): void
     {
+        $reviewEvent->card_state_before = CardReviewStateSnapshot::beforeReview($card);
         $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
             ? $card->scheduler_state
             : null;

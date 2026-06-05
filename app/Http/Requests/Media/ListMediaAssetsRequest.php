@@ -3,19 +3,23 @@
 namespace App\Http\Requests\Media;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Http\Requests\Concerns\FiltersByDeckId;
 
 class ListMediaAssetsRequest extends CursorPaginatedRequest
 {
+    use FiltersByDeckId;
+
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        $normalized = [];
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => CanonicalUlid::normalize($courseId),
-            ]);
+        $this->mergeNormalizedUlidInput($normalized, 'course_id');
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
+
+        $this->prepareDeckIdForValidation();
     }
 
     /**
@@ -25,6 +29,7 @@ class ListMediaAssetsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
         ];
     }
 

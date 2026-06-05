@@ -13,20 +13,30 @@ class ListMediaAssetsAction
     /**
      * @return CursorPaginator<MediaAsset>
      */
-    public function handle(int $userId, ?CursorPageSize $pageSize = null, ?string $courseId = null): CursorPaginator
-    {
+    public function handle(
+        int $userId,
+        ?CursorPageSize $pageSize = null,
+        ?string $courseId = null,
+        ?string $deckId = null,
+    ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
+        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('Media asset course_id filter must not be blank when provided.');
         }
 
+        if ($deckId === '') {
+            throw new InvalidArgumentException('Media asset deck_id filter must not be blank when provided.');
+        }
+
         return MediaAsset::query()
             ->where('user_id', $userId)
-            ->when($courseId !== null, fn ($query) => $query->whereHas('cards.deck', fn ($query) => $query
+            ->when($courseId !== null || $deckId !== null, fn ($query) => $query->whereHas('cards.deck', fn ($query) => $query
                 ->where('user_id', $userId)
-                ->where('course_id', $courseId)))
+                ->when($courseId !== null, fn ($query) => $query->where('course_id', $courseId))
+                ->when($deckId !== null, fn ($query) => $query->whereKey($deckId))))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->cursorPaginate($pageSize->value());

@@ -24,6 +24,7 @@ class ListCardsController extends Controller
                 studyStatus: $request->studyStatus(),
                 cardType: $request->cardType(),
                 q: $request->searchQuery(),
+                deckId: $request->deckId(),
             )->withQueryString()
         );
     }

@@ -85,6 +85,57 @@ class ListCardsActionTest extends TestCase
         $this->assertSame([$courseCard->id], collect($cards->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_cards_by_deck_id(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $deckCard = Card::factory()->for($deck)->create();
+        Card::factory()->for($otherDeck)->create();
+        Card::factory()->for($this->deckFor(User::factory()->create()))->create();
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            deckId: ' '.strtoupper($deck->id).' ',
+        );
+
+        $this->assertSame([$deckCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_requires_deck_id_filters_to_match_the_course_filter_when_both_are_provided(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+
+        Card::factory()->for($otherCourseDeck)->create();
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            courseId: $course->id,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertEmpty($cards->items());
+    }
+
+    public function test_it_returns_empty_results_for_a_deck_owned_by_another_user(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $otherDeck = $this->deckFor($otherUser);
+
+        Card::factory()->for($otherDeck)->create();
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertEmpty($cards->items());
+    }
+
     public function test_it_filters_cards_by_study_status_for_direct_callers(): void
     {
         $user = User::factory()->create();
@@ -273,6 +324,19 @@ class ListCardsActionTest extends TestCase
         app(ListCardsAction::class)->handle(
             userId: $user->id,
             courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_id_filters(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card deck_id filter must not be blank when provided.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            deckId: '   ',
         );
     }
 }

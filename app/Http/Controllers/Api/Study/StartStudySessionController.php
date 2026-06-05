@@ -20,6 +20,7 @@ class StartStudySessionController extends Controller
             $startStudySession->handle(
                 userId: (int) $request->user()->id,
                 timeZone: $data['time_zone'] ?? null,
+                deckId: $request->deckId(),
             ),
         )->response()->setStatusCode(200);
     }

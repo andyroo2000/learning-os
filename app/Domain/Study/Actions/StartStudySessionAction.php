@@ -5,9 +5,11 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Results\StartStudySessionResult;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 class StartStudySessionAction
 {
@@ -17,16 +19,28 @@ class StartStudySessionAction
         private readonly GetStudyOverviewAction $getStudyOverview,
     ) {}
 
-    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null): StartStudySessionResult
+    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): StartStudySessionResult
     {
         $now ??= now();
-        $overview = $this->getStudyOverview->handle($userId, $timeZone, $now);
+        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
+
+        if ($deckId === '') {
+            throw new InvalidArgumentException('Study deck_id filter must not be blank when provided.');
+        }
+
+        $overview = $this->getStudyOverview->handle(
+            userId: $userId,
+            timeZone: $timeZone,
+            now: $now,
+            deckId: $deckId,
+        );
 
         $cards = $overview['due_count'] > 0
-            ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT)
+            ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT, $deckId)
             : $this->newCards(
                 userId: $userId,
                 limit: min(self::READY_CARD_LIMIT, $overview['new_cards_available_today']),
+                deckId: $deckId,
             );
 
         return new StartStudySessionResult($overview, $cards);
@@ -35,9 +49,9 @@ class StartStudySessionAction
     /**
      * @return Collection<int, Card>
      */
-    private function dueCards(int $userId, Carbon $now, int $limit): Collection
+    private function dueCards(int $userId, Carbon $now, int $limit, ?string $deckId): Collection
     {
-        return $this->ownedActiveCardsQuery($userId)
+        return $this->ownedActiveCardsQuery($userId, $deckId)
             ->select('cards.*')
             ->with(['deck:id,user_id,course_id'])
             ->whereIn('cards.study_status', $this->activeDueStatuses())
@@ -51,13 +65,13 @@ class StartStudySessionAction
     /**
      * @return Collection<int, Card>
      */
-    private function newCards(int $userId, int $limit): Collection
+    private function newCards(int $userId, int $limit, ?string $deckId): Collection
     {
         if ($limit <= 0) {
             return collect();
         }
 
-        return $this->ownedActiveCardsQuery($userId)
+        return $this->ownedActiveCardsQuery($userId, $deckId)
             ->select('cards.*')
             ->with(['deck:id,user_id,course_id'])
             ->where('cards.study_status', CardStudyStatus::New->value)
@@ -71,12 +85,13 @@ class StartStudySessionAction
     /**
      * @return Builder<Card>
      */
-    private function ownedActiveCardsQuery(int $userId): Builder
+    private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
-            ->whereNull('decks.deleted_at');
+            ->whereNull('decks.deleted_at')
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
     }
 
     /**

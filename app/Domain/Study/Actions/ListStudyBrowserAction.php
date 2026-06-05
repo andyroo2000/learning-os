@@ -6,7 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
-use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Queries\CardReviewCountsByCardQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -31,6 +31,8 @@ class ListStudyBrowserAction
         'asc',
         'desc',
     ];
+
+    public function __construct(private readonly CardReviewCountsByCardQuery $cardReviewCountsByCard) {}
 
     /**
      * @return array{
@@ -69,6 +71,21 @@ class ListStudyBrowserAction
             cardType: $cardType,
             queueState: $queueState,
         );
+
+        if ($cards->isEmpty()) {
+            return [
+                'rows' => [],
+                'total' => 0,
+                'limit' => $limit,
+                'nextCursor' => null,
+                'filterOptions' => [
+                    'noteTypes' => [],
+                    'cardTypes' => [],
+                    'queueStates' => [],
+                ],
+            ];
+        }
+
         $reviewCounts = $this->reviewCountsByCard($cards->pluck('id'));
         $rows = $this->sortRows(
             $this->rowsFromCards($cards, $reviewCounts),
@@ -190,17 +207,7 @@ class ListStudyBrowserAction
      */
     private function reviewCountsByCard(Collection $cardIds): array
     {
-        if ($cardIds->isEmpty()) {
-            return [];
-        }
-
-        return CardReviewEvent::query()
-            ->whereIn('card_id', $cardIds->all())
-            ->selectRaw('card_id, count(*) as review_count')
-            ->groupBy('card_id')
-            ->pluck('review_count', 'card_id')
-            ->map(fn ($count) => (int) $count)
-            ->all();
+        return $this->cardReviewCountsByCard->handle($cardIds);
     }
 
     /**
@@ -295,28 +302,29 @@ class ListStudyBrowserAction
 
     private function displayTextFor(Card $card): string
     {
+        $promptJson = is_array($card->prompt_json) ? $card->prompt_json : [];
+        $answerJson = is_array($card->answer_json) ? $card->answer_json : [];
+
         foreach (['cueText', 'expression', 'clozeText', 'text'] as $key) {
-            $promptValue = $card->prompt_json[$key] ?? null;
+            $promptValue = $promptJson[$key] ?? null;
             if (is_string($promptValue) && trim($promptValue) !== '') {
                 return trim($promptValue);
             }
 
-            $answerValue = $card->answer_json[$key] ?? null;
+            $answerValue = $answerJson[$key] ?? null;
             if (is_string($answerValue) && trim($answerValue) !== '') {
                 return trim($answerValue);
             }
         }
 
-        return trim($card->front_text ?? '') !== '' ? trim($card->front_text) : (string) $card->id;
+        $frontText = trim($card->front_text ?? '');
+
+        return $frontText !== '' ? $frontText : (string) $card->id;
     }
 
     private function queueStateSummaryValue(Card $card): string
     {
         $rawState = $card->getRawOriginal('study_status');
-
-        if ($rawState instanceof CardStudyStatus) {
-            return $rawState->value;
-        }
 
         if (is_string($rawState)) {
             return CardStudyStatus::tryFrom($rawState)?->value ?? CardStudyStatus::New->value;

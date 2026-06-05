@@ -45,7 +45,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'created_at' => now()->subDay(),
             'updated_at' => now()->subMinutes(30),
         ]);
-        $otherNote = Card::factory()->for($deck)->create([
+        Card::factory()->for($deck)->create([
             'front_text' => '水',
             'back_text' => 'water',
             'card_type' => CardType::Recognition,
@@ -80,7 +80,6 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['new', 'review']);
 
-        $this->assertSame($otherNote->source_note_id, 1002);
     }
 
     public function test_it_paginates_browser_rows_with_returned_cursor(): void
@@ -162,6 +161,30 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('rows.0.noteId', (string) $card->id);
     }
 
+    public function test_it_chooses_display_text_by_prompt_answer_priority(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'front fallback',
+            'source_note_id' => 2301,
+            'prompt_json' => [
+                'cueText' => ' prompt cue ',
+                'expression' => 'prompt expression',
+                'clozeText' => 'prompt cloze',
+                'text' => 'prompt text',
+            ],
+            'answer_json' => [
+                'cueText' => 'answer cue',
+            ],
+            'search_text' => 'priority display note',
+        ]);
+
+        $this->getJson('/api/study/browser?q=priority')
+            ->assertOk()
+            ->assertJsonPath('rows.0.displayText', 'prompt cue');
+    }
+
     public function test_it_omits_malformed_raw_enum_facet_values_without_failing(): void
     {
         $user = $this->signIn();
@@ -177,6 +200,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->where('id', $card->id)
             ->update([
                 'card_type' => 'legacy-card-type',
+                'prompt_json' => null,
+                'answer_json' => null,
                 'study_status' => 'legacy-study-status',
             ]);
 

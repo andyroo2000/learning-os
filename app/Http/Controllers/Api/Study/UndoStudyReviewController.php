@@ -24,7 +24,6 @@ class UndoStudyReviewController extends Controller
         UndoCardReviewEventAction $undoCardReviewEvent,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
-        $data = $request->validated();
         // currentOverview is accepted for ConvoLab request compatibility; this adapter recomputes overview below.
         $reviewLogId = CanonicalUlid::normalize($reviewLogId);
         $userId = (int) $request->user()->id;
@@ -48,7 +47,7 @@ class UndoStudyReviewController extends Controller
             'overview' => StudyOverviewCompatibilityResource::make(
                 $getStudyOverview->handle(
                     userId: $userId,
-                    timeZone: $request->timeZone($data),
+                    timeZone: $request->timeZone(),
                 ),
             )->resolve($request),
         ]);

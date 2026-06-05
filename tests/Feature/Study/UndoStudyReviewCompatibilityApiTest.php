@@ -163,6 +163,23 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_it_returns_not_found_on_retry_after_successful_undo(): void
+    {
+        $card = $this->cardFor($this->signIn());
+        $createResponse = $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+        ]);
+        $reviewLogId = $createResponse->json('reviewLogId');
+
+        $this->deleteJson("/api/study/reviews/{$reviewLogId}")
+            ->assertOk();
+
+        $this->deleteJson("/api/study/reviews/{$reviewLogId}")
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study review not found.');
+    }
+
     public function test_it_returns_server_error_when_the_undo_snapshot_is_missing(): void
     {
         $user = $this->signIn();

@@ -25,6 +25,8 @@ class CardReviewEvent extends Model
     }
 
     /**
+     * Soft-deleted cards and decks are excluded by their relationship global scopes.
+     *
      * @param  Builder<static>  $query
      * @return Builder<static>
      */

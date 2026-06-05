@@ -20,6 +20,10 @@ class MediaAssetTest extends TestCase
         $this->assertTrue(Schema::hasColumns('media_assets', [
             'id',
             'user_id',
+            'import_job_id',
+            'source_kind',
+            'source_media_ref',
+            'source_filename',
             'disk',
             'path',
             'public_url',
@@ -38,6 +42,39 @@ class MediaAssetTest extends TestCase
             ->filter(fn (array $index): bool => ($index['columns'] ?? []) === ['user_id', 'created_at', 'id']);
 
         $this->assertNotEmpty($matchingIndexes);
+    }
+
+    public function test_import_source_fields_are_server_owned_but_explicitly_assignable(): void
+    {
+        $asset = new MediaAsset([
+            'user_id' => User::factory()->create()->id,
+            'import_job_id' => strtolower((string) Str::ulid()),
+            'source_kind' => 'anki_import',
+            'source_media_ref' => '42',
+            'source_filename' => 'audio/example.mp3',
+            'disk' => 'media',
+            'path' => 'imports/example.mp3',
+            'mime_type' => 'audio/mpeg',
+            'size_bytes' => 123_456,
+            'checksum_sha256' => str_repeat('a', 64),
+            'original_filename' => 'example.mp3',
+        ]);
+
+        $this->assertNull($asset->import_job_id);
+        $this->assertNull($asset->source_kind);
+        $this->assertNull($asset->source_media_ref);
+        $this->assertNull($asset->source_filename);
+
+        $importJobId = strtolower((string) Str::ulid());
+        $asset->import_job_id = $importJobId;
+        $asset->source_kind = 'anki_import';
+        $asset->source_media_ref = '42';
+        $asset->source_filename = 'audio/example.mp3';
+
+        $this->assertSame($importJobId, $asset->import_job_id);
+        $this->assertSame('anki_import', $asset->source_kind);
+        $this->assertSame('42', $asset->source_media_ref);
+        $this->assertSame('audio/example.mp3', $asset->source_filename);
     }
 
     public function test_media_asset_can_be_created(): void

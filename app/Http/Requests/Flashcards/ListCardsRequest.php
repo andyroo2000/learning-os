@@ -14,13 +14,19 @@ class ListCardsRequest extends CursorPaginatedRequest
 
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        $normalized = [];
         $searchQuery = $this->input('q');
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => CanonicalUlid::normalize($courseId),
-            ]);
+        foreach (['course_id', 'deck_id'] as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
 
         if (is_string($searchQuery)) {
@@ -40,6 +46,7 @@ class ListCardsRequest extends CursorPaginatedRequest
     {
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
             'study_status' => $this->studyStatusRules(),
             'card_type' => $this->cardTypeRules(),
             'q' => ['sometimes', 'filled', 'string', 'max:255'],
@@ -55,6 +62,17 @@ class ListCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['course_id'];
+    }
+
+    public function deckId(): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('deck_id', $validated)) {
+            return null;
+        }
+
+        return $validated['deck_id'];
     }
 
     public function searchQuery(): ?string

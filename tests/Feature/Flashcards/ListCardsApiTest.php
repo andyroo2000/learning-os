@@ -248,6 +248,111 @@ class ListCardsApiTest extends TestCase
             ]);
     }
 
+    public function test_it_filters_cards_by_deck_id(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $deckCard = Card::factory()->for($deck)->create([
+            'front_text' => 'ciao',
+        ]);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+        $otherUserCard = $this->cardFor(User::factory()->create());
+
+        $response = $this->getJson("/api/cards?deck_id={$deck->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $deckCard->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonPath('data.0.front_text', 'ciao')
+            ->assertJsonMissing([
+                'id' => $otherDeckCard->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherUserCard->id,
+            ]);
+    }
+
+    public function test_it_requires_deck_id_filters_to_match_the_course_filter_when_both_are_provided(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+
+        $response = $this->getJson("/api/cards?course_id={$course->id}&deck_id={$otherCourseDeck->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing([
+                'id' => $otherCourseCard->id,
+            ]);
+    }
+
+    public function test_it_trims_deck_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $deckCard = Card::factory()->for($deck)->create();
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?deck_id=%20'.$deck->id.'%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $deckCard->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckCard->id,
+            ]);
+    }
+
+    public function test_it_lowercases_deck_id_filters_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $deckCard = Card::factory()->for($deck)->create();
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?deck_id='.strtoupper($deck->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $deckCard->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckCard->id,
+            ]);
+    }
+
+    public function test_it_returns_an_empty_list_for_another_users_deck_id(): void
+    {
+        $this->signIn();
+        $otherUserDeck = $this->deckFor(User::factory()->create());
+        $otherUserCard = Card::factory()->for($otherUserDeck)->create();
+
+        $response = $this->getJson("/api/cards?deck_id={$otherUserDeck->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing([
+                'id' => $otherUserCard->id,
+            ]);
+    }
+
     public function test_it_filters_cards_by_study_status(): void
     {
         $user = $this->signIn();
@@ -507,6 +612,19 @@ class ListCardsApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
+    public function test_it_rejects_a_blank_deck_id_filter_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/cards?deck_id=%20%20%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
     public function test_it_rejects_a_malformed_course_id_filter(): void
     {
         $this->signIn();
@@ -516,6 +634,28 @@ class ListCardsApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['course_id']);
+    }
+
+    public function test_it_rejects_a_malformed_deck_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/cards?deck_id=not-a-ulid');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    public function test_it_rejects_an_array_deck_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/cards?deck_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
     }
 
     public function test_it_excludes_soft_deleted_cards(): void
@@ -709,6 +849,48 @@ class ListCardsApiTest extends TestCase
             ->assertJsonPath('data.0.id', $secondProductionCard->id)
             ->assertJsonMissing([
                 'id' => $recognitionCard->id,
+            ]);
+    }
+
+    public function test_it_preserves_deck_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $firstDeckCard = Card::factory()->for($deck)->create([
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $secondDeckCard = Card::factory()->for($deck)->create([
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $otherDeckCard = Card::factory()->for($otherDeck)->create([
+            'created_at' => now()->subSeconds(30),
+            'updated_at' => now()->subSeconds(30),
+        ]);
+
+        $firstPage = $this->getJson("/api/cards?deck_id={$deck->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $firstDeckCard->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondDeckCard->id)
+            ->assertJsonMissing([
+                'id' => $otherDeckCard->id,
             ]);
     }
 

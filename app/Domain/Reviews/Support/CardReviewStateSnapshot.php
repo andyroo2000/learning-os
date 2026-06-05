@@ -4,6 +4,7 @@ namespace App\Domain\Reviews\Support;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use Illuminate\Support\Facades\Log;
 use UnexpectedValueException;
 
 /**
@@ -22,6 +23,7 @@ final class CardReviewStateSnapshot
      */
     public static function beforeReview(Card $card): array
     {
+        // Date fields use Eloquent casts for stable JSON formatting; study_status is read raw below for validation.
         return [
             'study_status' => self::studyStatusValue($card),
             'new_queue_position' => $card->new_queue_position,
@@ -53,6 +55,13 @@ final class CardReviewStateSnapshot
             if ($status !== null) {
                 return $status->value;
             }
+
+            Log::warning('Card review snapshot preserved an unrecognized study status.', [
+                'card_id' => $card->getKey(),
+                'study_status' => $studyStatus,
+            ]);
+
+            return $studyStatus;
         }
 
         throw new UnexpectedValueException('Card study status cannot be snapshotted because it is not recognized.');

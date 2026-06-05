@@ -1,0 +1,116 @@
+<?php
+
+namespace Tests\Feature\Study;
+
+use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Flashcards\Models\Card;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class ListStudyExportCardsApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_index_requires_authentication(): void
+    {
+        $this->getJson('/api/study/export/cards')->assertUnauthorized();
+    }
+
+    public function test_index_returns_current_cards_for_the_authenticated_user(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $deletedDeck = $this->deckFor($user);
+        $otherDeck = $this->deckFor(User::factory()->create());
+
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'bonjour',
+            'back_text' => 'hello',
+            'card_type' => CardType::Recognition,
+            'prompt_json' => ['kind' => 'text'],
+            'answer_json' => ['kind' => 'text'],
+            'study_status' => CardStudyStatus::New,
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'merci',
+            'back_text' => 'thanks',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::Review,
+            'new_queue_position' => null,
+            'due_at' => now()->addDay(),
+        ]);
+        $deletedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'deleted',
+        ]);
+        $cardInDeletedDeck = Card::factory()->for($deletedDeck)->create([
+            'front_text' => 'hidden by deck tombstone',
+        ]);
+        $otherCard = Card::factory()->for($otherDeck)->create([
+            'front_text' => 'hidden',
+        ]);
+
+        $deletedCard->delete();
+        DB::table('decks')
+            ->where('id', $deletedDeck->id)
+            ->update([
+                'deleted_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $this->getJson('/api/study/export/cards')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $firstCard->id)
+            ->assertJsonPath('data.0.deck_id', $deck->id)
+            ->assertJsonPath('data.0.course_id', $deck->course_id)
+            ->assertJsonPath('data.0.front_text', 'bonjour')
+            ->assertJsonPath('data.0.back_text', 'hello')
+            ->assertJsonPath('data.0.card_type', CardType::Recognition->value)
+            ->assertJsonPath('data.0.prompt_json.kind', 'text')
+            ->assertJsonPath('data.0.answer_json.kind', 'text')
+            ->assertJsonPath('data.0.study_status', CardStudyStatus::New->value)
+            ->assertJsonPath('data.0.new_queue_position', 1)
+            ->assertJsonPath('data.0.deleted_at', null)
+            ->assertJsonPath('data.1.id', $secondCard->id)
+            ->assertJsonPath('data.1.card_type', CardType::Production->value)
+            ->assertJsonPath('data.1.study_status', CardStudyStatus::Review->value)
+            ->assertJsonMissing([
+                'id' => $deletedCard->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $cardInDeletedDeck->id,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherCard->id,
+            ])
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'deck_id',
+                        'course_id',
+                        'front_text',
+                        'back_text',
+                        'card_type',
+                        'prompt_json',
+                        'answer_json',
+                        'search_text',
+                        'study_status',
+                        'new_queue_position',
+                        'scheduler_state',
+                        'due_at',
+                        'introduced_at',
+                        'failed_at',
+                        'last_reviewed_at',
+                        'created_at',
+                        'updated_at',
+                        'deleted_at',
+                    ],
+                ],
+            ]);
+    }
+}

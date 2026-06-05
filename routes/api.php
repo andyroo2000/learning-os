@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
+use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
 use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
@@ -107,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class);
     Route::get('/study/export', ShowStudyExportManifestController::class);
+    Route::get('/study/export/cards', ListStudyExportCardsController::class);
     Route::get('/study/export/courses', ListStudyExportCoursesController::class);
     Route::get('/study/export/decks', ListStudyExportDecksController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

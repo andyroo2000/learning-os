@@ -82,6 +82,93 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
     }
 
+    public function test_it_derives_filter_options_without_per_facet_card_queries(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'selected recognition card',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::Review,
+            'source_note_id' => 1101,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => 'shared browser facet term',
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'alternate card type',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::Review,
+            'source_note_id' => 1102,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => 'shared browser facet term',
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'alternate note type',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::New,
+            'source_note_id' => 1103,
+            'source_notetype_name' => 'Japanese - Grammar',
+            'search_text' => 'shared browser facet term',
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->getJson('/api/study/browser?q=shared%20browser%20facet%20term&noteType=Japanese%20-%20Vocab&cardType=recognition');
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('rows.0.noteId', '1101')
+            ->assertJsonPath('filterOptions.noteTypes', ['Japanese - Grammar', 'Japanese - Vocab'])
+            ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
+            ->assertJsonPath('filterOptions.queueStates', ['review']);
+
+        $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "cards"'));
+        $facetSelects = $cardSelects->filter(fn (array $query): bool => str_contains(strtolower($query['query']), ' as facet')
+            && str_contains(strtolower($query['query']), ' union '));
+        $reviewCountSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "card_review_events"'));
+
+        $this->assertCount(1, $facetSelects, 'Study browser should use one unioned facet query instead of one query per facet.');
+        $this->assertLessThanOrEqual(2, $cardSelects->count(), 'Study browser should keep card selects bounded to the row query plus the unioned facet query.');
+        $this->assertCount(1, $reviewCountSelects, 'Study browser should load review counts in one aggregate query.');
+    }
+
+    public function test_it_returns_sorted_filter_options_without_filters(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'beta recognition',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::New,
+            'source_note_id' => 1201,
+            'source_notetype_name' => 'Beta',
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'alpha cloze',
+            'card_type' => CardType::Cloze,
+            'study_status' => CardStudyStatus::Buried,
+            'source_note_id' => 1202,
+            'source_notetype_name' => 'Alpha',
+        ]);
+
+        $this->getJson('/api/study/browser')
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('filterOptions.noteTypes', ['Alpha', 'Beta'])
+            ->assertJsonPath('filterOptions.cardTypes', ['cloze', 'recognition'])
+            ->assertJsonPath('filterOptions.queueStates', ['buried', 'new']);
+    }
+
     public function test_it_paginates_browser_rows_with_returned_cursor(): void
     {
         $user = $this->signIn();

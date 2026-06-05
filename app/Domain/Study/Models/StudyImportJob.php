@@ -22,9 +22,28 @@ class StudyImportJob extends Model
 
     public const DEFAULT_DECK_NAME = 'Japanese';
 
+    public const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
+
+    public const SOURCE_UPLOAD_FOLDER = 'study/imports';
+
+    public const UPLOAD_SESSION_TTL_MINUTES = 60;
+
+    public const MAX_ASYNC_IMPORT_BYTES = 2_147_483_648;
+
+    public const MAX_SOURCE_FILENAME_LENGTH = 255;
+
+    public const MAX_SOURCE_CONTENT_TYPE_LENGTH = 255;
+
     public const MAX_STATUS_LENGTH = 32;
 
     public const MAX_SOURCE_TYPE_LENGTH = 64;
+
+    public const ALLOWED_CONTENT_TYPES = [
+        self::DEFAULT_CONTENT_TYPE,
+        'application/zip',
+        'application/x-zip-compressed',
+        'multipart/x-zip',
+    ];
 
     protected static function booted(): void
     {

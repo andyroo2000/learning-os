@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Support\Carbon;
 
@@ -22,6 +23,7 @@ class GetStudyExportManifestAction
      *         decks: array{total: int},
      *         cards: array{total: int},
      *         review_events: array{total: int},
+     *         imports: array{total: int},
      *         media_assets: array{total: int}
      *     }
      * }
@@ -39,6 +41,7 @@ class GetStudyExportManifestAction
                 'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
                 'cards' => ['total' => $this->activeCardCount($userId)],
                 'review_events' => ['total' => $this->activeReviewEventCount($userId)],
+                'imports' => ['total' => StudyImportJob::query()->where('user_id', $userId)->count('id')],
                 'media_assets' => ['total' => MediaAsset::query()->where('user_id', $userId)->count('id')],
             ],
         ];

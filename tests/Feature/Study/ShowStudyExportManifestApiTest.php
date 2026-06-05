@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,10 +34,12 @@ class ShowStudyExportManifestApiTest extends TestCase
             $card = Card::factory()->for($deck)->create();
 
             CardReviewEvent::factory()->for($card)->create();
+            StudyImportJob::factory()->for($user)->create();
             MediaAsset::factory()->for($user)->create();
             $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
             Course::factory()->for($otherUser)->create();
             Card::factory()->for($this->deckFor($otherUser))->create();
+            StudyImportJob::factory()->for($otherUser)->create();
             MediaAsset::factory()->for($otherUser)->create();
             SyncFeedEntry::factory()->for($otherUser)->create();
 
@@ -49,12 +52,14 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertJsonPath('data.sections.decks.total', 1)
                 ->assertJsonPath('data.sections.cards.total', 1)
                 ->assertJsonPath('data.sections.review_events.total', 1)
+                ->assertJsonPath('data.sections.imports.total', 1)
                 ->assertJsonPath('data.sections.media_assets.total', 1)
                 ->assertJsonPath('data.sections.settings.path', '/api/study/export/settings')
                 ->assertJsonPath('data.sections.courses.path', '/api/study/export/courses')
                 ->assertJsonPath('data.sections.decks.path', '/api/study/export/decks')
                 ->assertJsonPath('data.sections.cards.path', '/api/study/export/cards')
                 ->assertJsonPath('data.sections.review_events.path', '/api/study/export/review-events')
+                ->assertJsonPath('data.sections.imports.path', '/api/study/export/imports')
                 ->assertJsonPath('data.sections.media_assets.path', '/api/study/export/media-assets')
                 ->assertJsonStructure([
                     'data' => [
@@ -66,6 +71,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                             'decks' => ['total', 'path'],
                             'cards' => ['total', 'path'],
                             'review_events' => ['total', 'path'],
+                            'imports' => ['total', 'path'],
                             'media_assets' => ['total', 'path'],
                         ],
                     ],

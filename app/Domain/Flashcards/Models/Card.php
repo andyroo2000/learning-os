@@ -46,6 +46,7 @@ class Card extends Model
     public function scopeOwnedByActiveDeck(Builder $query, int $userId): Builder
     {
         return $query
+            // Own the projection because the deck join also has an id column; apply custom selects after this scope.
             ->select('cards.*')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)

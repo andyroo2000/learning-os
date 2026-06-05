@@ -38,7 +38,7 @@ class StoreStudyReviewController extends Controller
                 cardId: $card->id,
                 rating: $data['grade'],
                 reviewedAt: $reviewedAt,
-                durationMs: $request->durationMs(),
+                durationMs: $request->durationMs($data),
             ));
         } catch (CardReviewEventConflictException $exception) {
             if ($exception->shouldBeHiddenFrom($userId)) {
@@ -65,10 +65,11 @@ class StoreStudyReviewController extends Controller
             $overview = StudyOverviewCompatibilityResource::make(
                 $getStudyOverview->handle(
                     userId: $userId,
-                    timeZone: $request->timeZone(),
+                    timeZone: $request->timeZone($data),
                 ),
             )->resolve($request);
 
+            // The review is committed, so use 200 to prevent clients from retrying a successful write.
             return response()->json([
                 'message' => 'Study card not found after review.',
                 'reviewLogId' => $result->reviewEvent->id,
@@ -87,7 +88,7 @@ class StoreStudyReviewController extends Controller
             'overview' => StudyOverviewCompatibilityResource::make(
                 $getStudyOverview->handle(
                     userId: $userId,
-                    timeZone: $request->timeZone(),
+                    timeZone: $request->timeZone($data),
                 ),
             )->resolve($request),
         ]);

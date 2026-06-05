@@ -182,6 +182,33 @@ class StudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_it_records_zero_duration_when_provided(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $response = $this->postJson('/api/study/reviews', [
+                'cardId' => $card->id,
+                'grade' => 'good',
+                'durationMs' => 0,
+            ]);
+
+            $response->assertOk();
+
+            $this->assertDatabaseHas('card_review_events', [
+                'id' => $response->json('reviewLogId'),
+                'duration_ms' => 0,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_treats_omitted_and_null_time_zone_as_default_overview_timezone(): void
     {
         $user = $this->signIn();

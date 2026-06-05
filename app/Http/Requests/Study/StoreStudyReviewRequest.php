@@ -55,9 +55,12 @@ class StoreStudyReviewRequest extends FormRequest
         ];
     }
 
-    public function durationMs(): ?int
+    /**
+     * @param  array<string, mixed>|null  $validated
+     */
+    public function durationMs(?array $validated = null): ?int
     {
-        $validated = $this->validated();
+        $validated ??= $this->validated();
 
         if (! array_key_exists('durationMs', $validated) || $validated['durationMs'] === null) {
             return null;
@@ -67,14 +70,17 @@ class StoreStudyReviewRequest extends FormRequest
         return (int) $validated['durationMs'];
     }
 
-    public function timeZone(): ?string
+    /**
+     * @param  array<string, mixed>|null  $validated
+     */
+    public function timeZone(?array $validated = null): ?string
     {
-        $validated = $this->validated();
+        $validated ??= $this->validated();
 
         if (! array_key_exists('timeZone', $validated)) {
             return null;
         }
 
-        return $validated['timeZone'];
+        return $validated['timeZone'] === null ? null : (string) $validated['timeZone'];
     }
 }

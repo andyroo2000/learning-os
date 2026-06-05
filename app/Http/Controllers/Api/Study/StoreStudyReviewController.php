@@ -59,6 +59,7 @@ class StoreStudyReviewController extends Controller
         }
 
         // Re-fetch through the ownership/deck guard after the action writes scheduler state back to the card row.
+        // If a card or deck is deleted during the request, the committed fallback below prevents a retry.
         $card = $this->ownedActiveCard($card->id, $userId);
 
         if ($card === null) {

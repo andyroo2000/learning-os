@@ -307,7 +307,9 @@ class StudyReviewCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $otherUserCard = $this->cardFor(User::factory()->create());
         $deletedOwnedCard = $this->cardFor($user);
+        $cardInDeletedOwnedDeck = $this->cardFor($user);
         $deletedOwnedCard->delete();
+        $cardInDeletedOwnedDeck->deck()->firstOrFail()->delete();
 
         $this->postJson('/api/study/reviews', [
             'cardId' => strtolower((string) str()->ulid()),
@@ -325,6 +327,13 @@ class StudyReviewCompatibilityApiTest extends TestCase
 
         $this->postJson('/api/study/reviews', [
             'cardId' => $deletedOwnedCard->id,
+            'grade' => 'good',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $cardInDeletedOwnedDeck->id,
             'grade' => 'good',
         ])
             ->assertNotFound()

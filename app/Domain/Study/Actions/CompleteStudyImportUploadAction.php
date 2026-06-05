@@ -15,16 +15,29 @@ use Illuminate\Support\Facades\Storage;
 
 class CompleteStudyImportUploadAction
 {
+    public function __construct(
+        private readonly ExpireStaleProcessingStudyImportsAction $expireStaleProcessingStudyImports,
+    ) {}
+
     public function handle(
         int $userId,
         string $importJobId,
         ?Carbon $now = null,
     ): StudyImportJob {
         $now ??= now();
-        $importJob = $this->findImportJob($userId, CanonicalUlid::normalize($importJobId));
+        $importJobId = CanonicalUlid::normalize($importJobId);
+        $importJob = $this->findImportJob($userId, $importJobId);
 
         if ($importJob->status !== StudyImportStatus::Pending) {
             return $importJob;
+        }
+
+        $this->expireStaleProcessingStudyImports->handle($userId, $now);
+
+        // Best-effort: completion validates the upload; the queued worker transitions the job to Processing.
+        $activeProcessingImport = $this->activeProcessingImport($userId);
+        if ($activeProcessingImport !== null) {
+            throw StudyImportConflictException::activeImport($activeProcessingImport);
         }
 
         if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
@@ -75,6 +88,16 @@ class CompleteStudyImportUploadAction
             ->whereKey($importJobId)
             ->first()
             ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
+    }
+
+    private function activeProcessingImport(int $userId): ?StudyImportJob
+    {
+        return StudyImportJob::query()
+            ->where('user_id', $userId)
+            ->where('status', StudyImportStatus::Processing->value)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function markFailedAndDeleteArchive(StudyImportJob $importJob, string $message, Carbon $now): void

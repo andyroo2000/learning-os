@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -356,6 +357,64 @@ class StudyImportUploadActionTest extends TestCase
 
         $this->assertSame($importJob->id, $completedUpload->id);
         $this->assertSame(StudyImportStatus::Completed, $completedUpload->status);
+    }
+
+    public function test_complete_expires_stale_processing_imports_before_checking_active_processing_imports(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $stale = StudyImportJob::factory()->processing()->for($user)->create([
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+        $otherUsersStale = StudyImportJob::factory()->processing()->for(User::factory()->create())->create([
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $completedUpload = app(CompleteStudyImportUploadAction::class)->handle(
+            userId: $user->id,
+            importJobId: $importJob->id,
+        );
+
+        $this->assertSame($importJob->id, $completedUpload->id);
+        $this->assertSame(StudyImportStatus::Pending, $completedUpload->status);
+        $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        $this->assertSame('Study import timed out before completion.', $stale->error_message);
+        $this->assertSame(now()->toJSON(), $stale->completed_at?->toJSON());
+        $this->assertSame(StudyImportStatus::Processing, $otherUsersStale->refresh()->status);
+    }
+
+    public function test_complete_blocks_another_active_processing_import(): void
+    {
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        StudyImportJob::factory()->processing()->for($user)->create([
+            'started_at' => now()->subMinute(),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        try {
+            app(CompleteStudyImportUploadAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+            );
+            $this->fail('Expected active processing imports to block completion.');
+        } catch (StudyImportConflictException $exception) {
+            $this->assertSame('active_study_import', $exception->reason());
+            $this->assertNull($importJob->refresh()->uploaded_at);
+        }
     }
 
     public function test_complete_hides_cross_user_import_jobs(): void

@@ -636,6 +636,17 @@ class ListCardsApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
+    public function test_it_rejects_an_array_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/cards?course_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+    }
+
     public function test_it_rejects_a_malformed_deck_id_filter(): void
     {
         $this->signIn();
@@ -765,6 +776,50 @@ class ListCardsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lowTieCard->id)
             ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_preserves_course_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+        $firstCourseCard = Card::factory()->for($deck)->create([
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $secondCourseCard = Card::factory()->for($deck)->create([
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $otherCourseCard = Card::factory()->for($otherDeck)->create([
+            'created_at' => now()->subSeconds(30),
+            'updated_at' => now()->subSeconds(30),
+        ]);
+
+        $firstPage = $this->getJson("/api/cards?course_id={$course->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $firstCourseCard->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondCourseCard->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseCard->id,
+            ]);
     }
 
     public function test_it_preserves_study_status_filter_when_following_a_cursor(): void

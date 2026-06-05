@@ -16,7 +16,7 @@ class StudyCardSummaryResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'noteId' => $this->source_note_id === null ? $this->id : (string) $this->source_note_id,
+            'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
             'answer' => $this->answer_json ?? ['type' => 'text', 'text' => $this->back_text],

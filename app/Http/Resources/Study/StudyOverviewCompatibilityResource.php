@@ -23,10 +23,41 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'reviewCount' => $this->resource['review_count'],
             'suspendedCount' => $this->resource['suspended_count'],
             'totalCards' => $this->resource['total_cards'],
-            'latestImport' => ($this->resource['latest_import'] ?? null) === null
-                ? null
-                : StudyImportJobResource::make($this->resource['latest_import'])->resolve($request),
+            'latestImport' => $this->latestImport($request),
             'nextDueAt' => $this->resource['next_due_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function latestImport(Request $request): ?array
+    {
+        if (($this->resource['latest_import'] ?? null) === null) {
+            return null;
+        }
+
+        $latestImport = StudyImportJobResource::make(
+            $this->resource['latest_import'],
+        )->resolve($request);
+
+        return [
+            'id' => $latestImport['id'],
+            'status' => $latestImport['status'],
+            'sourceType' => $latestImport['source_type'],
+            'sourceFilename' => $latestImport['source_filename'],
+            'sourceContentType' => $latestImport['source_content_type'],
+            'sourceSizeBytes' => $latestImport['source_size_bytes'],
+            'deckName' => $latestImport['deck_name'],
+            'preview' => $latestImport['preview'],
+            'summary' => $latestImport['summary'],
+            'errorMessage' => $latestImport['error_message'],
+            'startedAt' => $latestImport['started_at'],
+            'uploadedAt' => $latestImport['uploaded_at'],
+            'uploadExpiresAt' => $latestImport['upload_expires_at'],
+            'completedAt' => $latestImport['completed_at'],
+            'createdAt' => $latestImport['created_at'],
+            'updatedAt' => $latestImport['updated_at'],
         ];
     }
 }

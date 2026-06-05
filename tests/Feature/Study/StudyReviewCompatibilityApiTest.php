@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -10,6 +11,7 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -90,7 +92,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('overview.reviewCount', 1)
                 ->assertJsonPath('overview.newCardsPerDay', 20)
                 ->assertJsonPath('overview.latestImport.id', $importJob->id)
-                ->assertJsonPath('overview.latestImport.source_filename', 'core-2k.apkg');
+                ->assertJsonPath('overview.latestImport.sourceFilename', 'core-2k.apkg');
 
             $reviewLogId = $response->json('reviewLogId');
 
@@ -143,6 +145,37 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('card.id', $card->id)
                 ->assertJsonPath('card.state.queueState', 'review');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_records_native_cards_with_null_note_id_and_nullable_duration(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'source_note_id' => null,
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $response = $this->postJson('/api/study/reviews', [
+                'cardId' => $card->id,
+                'grade' => 'good',
+                'durationMs' => null,
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('card.noteId', null)
+                ->assertJsonPath('card.state.source.noteId', null);
+
+            $this->assertDatabaseHas('card_review_events', [
+                'id' => $response->json('reviewLogId'),
+                'duration_ms' => null,
+            ]);
         } finally {
             Carbon::setTestNow();
         }
@@ -238,6 +271,40 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ->assertHeader('Retry-After', '1')
             ->assertJsonPath('message', 'Card review event ID conflict could not be resolved; retry the request.')
             ->assertJsonPath('reason', 'card_review_event_retry');
+    }
+
+    public function test_it_returns_review_log_id_when_card_disappears_after_review_is_recorded(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->app->instance(ReviewCardAction::class, new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class)) extends ReviewCardAction
+        {
+            public function handle(ReviewCardData $data): ReviewCardResult
+            {
+                $result = parent::handle($data);
+
+                Card::query()->whereKey($data->cardId)->firstOrFail()->delete();
+
+                return $result;
+            }
+        });
+
+        $response = $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+        ]);
+
+        $reviewLogId = $response->json('reviewLogId');
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found after review.');
+
+        $this->assertIsString($reviewLogId);
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $reviewLogId,
+            'card_id' => $card->id,
+        ]);
     }
 
     public function test_it_returns_conflict_for_owned_review_event_conflicts(): void

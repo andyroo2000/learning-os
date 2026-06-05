@@ -22,13 +22,14 @@ class StoreStudyReviewController extends Controller
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
         $data = $request->validated();
-        $reviewedAt = Carbon::now();
         $userId = $request->user()->id;
         $card = $this->ownedActiveCard($data['cardId'], $userId);
 
         if ($card === null) {
             return response()->json(['message' => 'Study card not found.'], 404);
         }
+
+        $reviewedAt = Carbon::now();
 
         try {
             $result = $reviewCard->handle(ReviewCardData::fromInput(
@@ -58,7 +59,10 @@ class StoreStudyReviewController extends Controller
         $card = $this->ownedActiveCard($card->id, $userId);
 
         if ($card === null) {
-            return response()->json(['message' => 'Study card not found after review.'], 404);
+            return response()->json([
+                'message' => 'Study card not found after review.',
+                'reviewLogId' => $result->reviewEvent->id,
+            ], 404);
         }
 
         return response()->json([

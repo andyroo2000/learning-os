@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Sync;
 
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 
 final class CardReviewEventSyncPayload
@@ -22,7 +23,7 @@ final class CardReviewEventSyncPayload
             'card_id' => $reviewEvent->card_id,
             'deck_id' => $reviewEvent->cardDeckId(),
             'course_id' => $reviewEvent->cardCourseId(),
-            'rating' => $reviewEvent->rating->value,
+            'rating' => self::ratingValue($reviewEvent),
             'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
             'duration_ms' => $reviewEvent->duration_ms,
             'client_event_id' => $reviewEvent->client_event_id,
@@ -33,5 +34,16 @@ final class CardReviewEventSyncPayload
             'created_at' => $reviewEvent->created_at?->toJSON(),
             'updated_at' => $reviewEvent->updated_at?->toJSON(),
         ];
+    }
+
+    private static function ratingValue(CardReviewEvent $reviewEvent): ?string
+    {
+        $rating = $reviewEvent->getAttributes()['rating'] ?? null;
+
+        if ($rating instanceof CardReviewRating) {
+            return $rating->value;
+        }
+
+        return $rating === null ? null : (string) $rating;
     }
 }

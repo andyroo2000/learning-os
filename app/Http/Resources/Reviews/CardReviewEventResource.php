@@ -18,7 +18,7 @@ class CardReviewEventResource extends JsonResource
             'card_id' => $this->card_id,
             'deck_id' => $this->cardDeckId(),
             'course_id' => $this->cardCourseId(),
-            'rating' => $this->rating instanceof CardReviewRating ? $this->rating->value : $this->rating,
+            'rating' => $this->ratingValue(),
             'reviewed_at' => $this->reviewed_at?->toJSON(),
             'duration_ms' => $this->duration_ms,
             'client_event_id' => $this->client_event_id,
@@ -29,5 +29,16 @@ class CardReviewEventResource extends JsonResource
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];
+    }
+
+    private function ratingValue(): ?string
+    {
+        $rating = $this->resource->getAttributes()['rating'] ?? null;
+
+        if ($rating instanceof CardReviewRating) {
+            return $rating->value;
+        }
+
+        return $rating === null ? null : (string) $rating;
     }
 }

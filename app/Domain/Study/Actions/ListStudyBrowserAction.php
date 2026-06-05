@@ -94,7 +94,9 @@ class ListStudyBrowserAction
         );
         $pageRows = array_slice($rows, $offset, $limit);
         $nextOffset = $offset + count($pageRows);
-        $filterOptionRows = $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState);
+        $filterOptionRows = $this->canReuseLoadedCardsForFilterOptions($noteType, $cardType, $queueState)
+            ? $this->filterOptionRowsFromCards($cards)
+            : $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState);
 
         return [
             'rows' => $pageRows,
@@ -247,6 +249,35 @@ class ListStudyBrowserAction
             ->orderBy('facet')
             ->orderBy('value')
             ->get();
+    }
+
+    private function canReuseLoadedCardsForFilterOptions(
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+    ): bool {
+        return $noteType === null
+            && $cardType === null
+            && $queueState === null;
+    }
+
+    /**
+     * @param  Collection<int, Card>  $cards
+     * @return Collection<int, object{facet: string, value: string}>
+     */
+    private function filterOptionRowsFromCards(Collection $cards): Collection
+    {
+        return $cards
+            ->flatMap(fn (Card $card): array => [
+                (object) ['facet' => 'note_type', 'value' => $card->getRawOriginal('source_notetype_name')],
+                (object) ['facet' => 'card_type', 'value' => $card->getRawOriginal('card_type')],
+                (object) ['facet' => 'queue_state', 'value' => $card->getRawOriginal('study_status')],
+            ])
+            ->filter(fn (object $row): bool => is_string($row->value) && $row->value !== '')
+            // Facet names are fixed literals and SQL text values cannot contain NUL, so this is collision-free.
+            ->unique(fn (object $row): string => $row->facet."\0".$row->value)
+            ->sort(fn (object $left, object $right): int => [$left->facet, $left->value] <=> [$right->facet, $right->value])
+            ->values();
     }
 
     private function filterOptionQuery(

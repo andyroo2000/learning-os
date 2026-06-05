@@ -673,6 +673,24 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 0);
     }
 
+    public function test_it_rejects_array_ulid_inputs(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/card-review-events', [
+            'id' => [strtolower((string) Str::ulid())],
+            'card_id' => [strtolower((string) Str::ulid())],
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id', 'card_id']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
     public function test_it_rejects_partial_client_sync_metadata(): void
     {
         $user = $this->signIn();

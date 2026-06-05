@@ -50,6 +50,50 @@ final class StudyImportArchiveReader
     }
 
     /**
+     * @param  array<string, string>  $targetPathsBySourceMediaRef
+     * @return array<string, bool>
+     */
+    public function copyMediaEntriesToDisk(
+        FilesystemAdapter $sourceDisk,
+        string $sourceObjectPath,
+        FilesystemAdapter $targetDisk,
+        array $targetPathsBySourceMediaRef,
+    ): array {
+        if ($targetPathsBySourceMediaRef === []) {
+            return [];
+        }
+
+        $archivePath = $this->copyStorageObjectToTempFile($sourceDisk, $sourceObjectPath);
+        $zip = null;
+
+        try {
+            $zip = $this->openArchive($archivePath);
+            $copied = [];
+
+            foreach ($targetPathsBySourceMediaRef as $sourceMediaRef => $targetPath) {
+                $stream = $zip->getStream((string) $sourceMediaRef);
+
+                if ($stream === false) {
+                    $copied[(string) $sourceMediaRef] = false;
+
+                    continue;
+                }
+
+                try {
+                    $copied[(string) $sourceMediaRef] = $targetDisk->put($targetPath, $stream);
+                } finally {
+                    fclose($stream);
+                }
+            }
+
+            return $copied;
+        } finally {
+            $zip?->close();
+            @unlink($archivePath);
+        }
+    }
+
+    /**
      * @param  array<string, StudyImportArchiveMediaEntry>  $mediaManifestByFilename
      */
     private function readFromCollectionDatabase(string $collectionPath, array $mediaManifestByFilename): StudyImportArchiveRead

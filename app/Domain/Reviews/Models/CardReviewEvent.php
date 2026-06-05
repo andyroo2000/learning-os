@@ -7,6 +7,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use Database\Factories\CardReviewEventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,17 @@ class CardReviewEvent extends Model
     protected static function newFactory(): CardReviewEventFactory
     {
         return CardReviewEventFactory::new();
+    }
+
+    /**
+     * Soft-deleted cards and decks are excluded by their relationship global scopes.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOwnedByActiveCardDeck(Builder $query, int $userId): Builder
+    {
+        return $query->whereHas('card.deck', fn (Builder $query) => $query->where('user_id', $userId));
     }
 
     /**

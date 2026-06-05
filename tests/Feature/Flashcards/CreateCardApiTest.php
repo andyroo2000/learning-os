@@ -886,6 +886,24 @@ class CreateCardApiTest extends TestCase
         $this->assertDatabaseCount('cards', 0);
     }
 
+    public function test_it_rejects_array_ulid_inputs(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/cards', [
+            'id' => [strtolower((string) Str::ulid())],
+            'deck_id' => [strtolower((string) Str::ulid())],
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id', 'deck_id']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
     public function test_it_rejects_blank_card_type_without_global_trim_middleware(): void
     {
         $user = $this->signIn();

@@ -17,7 +17,14 @@ final class StudyImportArchivePreviewer
      */
     public function preview(FilesystemAdapter $disk, string $sourceObjectPath): array
     {
-        $archive = $this->archiveReader->read($disk, $sourceObjectPath);
+        return $this->previewArchive($this->archiveReader->read($disk, $sourceObjectPath));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function previewArchive(StudyImportArchiveRead $archive): array
+    {
         $mediaReferences = $archive->mediaReferences();
         $mediaPreview = $this->mediaPreview($mediaReferences, $archive->mediaManifestByFilename);
 

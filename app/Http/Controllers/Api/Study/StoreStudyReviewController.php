@@ -95,12 +95,8 @@ class StoreStudyReviewController extends Controller
 
     private function ownedActiveCard(string $cardId, int $userId): ?Card
     {
-        // Card::query() keeps the card SoftDeletes scope; decks need an explicit joined-table guard.
         return Card::query()
-            ->select('cards.*')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->whereNull('decks.deleted_at')
+            ->ownedByActiveDeck($userId)
             ->where('cards.id', $cardId)
             ->first();
     }

@@ -28,6 +28,7 @@ class StudyCardSummaryResource extends JsonResource
                 'introducedAt' => $this->introduced_at?->toJSON(),
                 'failedAt' => $this->failed_at?->toJSON(),
                 'queueState' => $this->study_status?->value ?? CardStudyStatus::New->value,
+                // ConvoLab clients interpret scheduler internals; expose the stored state verbatim.
                 'scheduler' => $this->scheduler_state,
                 'source' => [
                     'noteId' => $this->noteIdString(),

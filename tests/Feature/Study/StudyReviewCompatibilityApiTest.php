@@ -219,18 +219,25 @@ class StudyReviewCompatibilityApiTest extends TestCase
         };
         $this->app->instance(GetStudyOverviewAction::class, $getStudyOverview);
 
-        $this->postJson('/api/study/reviews', [
+        $firstResponse = $this->postJson('/api/study/reviews', [
             'cardId' => $firstCard->id,
             'grade' => 'good',
-        ])->assertOk();
+        ]);
 
-        $this->postJson('/api/study/reviews', [
+        $secondResponse = $this->postJson('/api/study/reviews', [
             'cardId' => $secondCard->id,
             'grade' => 'good',
             'timeZone' => null,
-        ])->assertOk();
+        ]);
+
+        $firstResponse->assertOk();
+        $secondResponse->assertOk();
 
         $this->assertSame([null, null], $getStudyOverview->timeZones);
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $firstResponse->json('reviewLogId'),
+            'duration_ms' => null,
+        ]);
     }
 
     public function test_it_validates_camel_case_inputs(): void

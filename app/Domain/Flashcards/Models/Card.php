@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,6 +37,19 @@ class Card extends Model
     protected static function newFactory(): CardFactory
     {
         return CardFactory::new();
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOwnedByActiveDeck(Builder $query, int $userId): Builder
+    {
+        return $query
+            ->select('cards.*')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->where('decks.user_id', $userId)
+            ->whereNull('decks.deleted_at');
     }
 
     /**

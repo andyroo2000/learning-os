@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
 use App\Domain\Study\Actions\CreateStudyImportUploadSessionAction;
@@ -18,6 +19,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -398,6 +400,7 @@ class StudyImportUploadActionTest extends TestCase
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
         Storage::fake('study-imports');
+        Storage::fake('media');
         $sourceObjectPath = 'study/imports/process/core.colpkg';
         Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
         $importJob = StudyImportJob::factory()->create([
@@ -436,7 +439,8 @@ class StudyImportUploadActionTest extends TestCase
             'imported_cards' => 3,
             'skipped_cards' => 0,
             'imported_review_logs' => 0,
-            'imported_media_assets' => 0,
+            'imported_media_assets' => 2,
+            'skipped_media_assets' => 0,
         ], $processed->summary_json);
 
         $this->assertDatabaseHas('decks', [
@@ -462,13 +466,91 @@ class StudyImportUploadActionTest extends TestCase
             'back_text' => 'company 会社',
             'new_queue_position' => 2,
         ]);
-        $this->assertSame(4, SyncFeedEntry::query()->count());
+
+        $wordMediaAsset = MediaAsset::query()->where('source_media_ref', '0')->sole();
+        $companyMediaAsset = MediaAsset::query()->where('source_media_ref', '1')->sole();
+
+        $this->assertSame('study/imports/'.$importJob->id.'/0-word.mp3', $wordMediaAsset->path);
+        $this->assertSame('word.mp3', $wordMediaAsset->source_filename);
+        $this->assertSame('audio/mpeg', $wordMediaAsset->mime_type);
+        $this->assertSame(hash('sha256', 'media-bytes'), $wordMediaAsset->checksum_sha256);
+        $this->assertSame('study/imports/'.$importJob->id.'/1-company.png', $companyMediaAsset->path);
+        $this->assertSame('image/png', $companyMediaAsset->mime_type);
+        Storage::disk('media')->assertExists($wordMediaAsset->path);
+        Storage::disk('media')->assertExists($companyMediaAsset->path);
+        $this->assertSame('media-bytes', Storage::disk('media')->get($wordMediaAsset->path));
+        $this->assertSame('media-bytes', Storage::disk('media')->get($companyMediaAsset->path));
+
+        $cardIdsBySourceCardId = DB::table('cards')
+            ->where('import_job_id', $importJob->id)
+            ->pluck('id', 'source_card_id');
+
+        foreach ([701, 702] as $sourceCardId) {
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $cardIdsBySourceCardId[$sourceCardId],
+                'media_asset_id' => $wordMediaAsset->id,
+            ]);
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $cardIdsBySourceCardId[$sourceCardId],
+                'media_asset_id' => $companyMediaAsset->id,
+            ]);
+        }
+
+        $this->assertSame(10, SyncFeedEntry::query()->count());
+        $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
+        $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
+    }
+
+    public function test_process_job_skips_missing_media_content(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/missing-media.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => 'word-bytes',
+                ],
+            ]),
+        );
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame([
+            'imported_decks' => 1,
+            'imported_cards' => 3,
+            'skipped_cards' => 0,
+            'imported_review_logs' => 0,
+            'imported_media_assets' => 1,
+            'skipped_media_assets' => 1,
+        ], $processed?->summary_json);
+        $this->assertDatabaseHas('media_assets', [
+            'import_job_id' => $importJob->id,
+            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_media_ref' => '0',
+            'source_filename' => 'word.mp3',
+            'size_bytes' => 10,
+            'checksum_sha256' => hash('sha256', 'word-bytes'),
+        ]);
+        $this->assertDatabaseMissing('media_assets', [
+            'import_job_id' => $importJob->id,
+            'source_media_ref' => '1',
+        ]);
+        $this->assertDatabaseCount('card_media', 2);
+        $this->assertSame(7, SyncFeedEntry::query()->count());
     }
 
     public function test_process_job_skips_cards_with_blank_rendered_text(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
         Storage::fake('study-imports');
+        Storage::fake('media');
         $sourceObjectPath = 'study/imports/process/blank-card.colpkg';
         Storage::disk('study-imports')->put(
             $sourceObjectPath,
@@ -487,6 +569,7 @@ class StudyImportUploadActionTest extends TestCase
             'skipped_cards' => 1,
             'imported_review_logs' => 0,
             'imported_media_assets' => 0,
+            'skipped_media_assets' => 0,
         ], $processed?->summary_json);
         $this->assertDatabaseHas('cards', [
             'import_job_id' => $importJob->id,

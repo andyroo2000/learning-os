@@ -25,14 +25,22 @@ class UploadStudyImportFileAction
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
         $contentType = $this->normalizeContentType($contentType);
-        $contentSizeBytes ??= strlen($contents);
+        $actualContentSizeBytes = mb_strlen($contents, '8bit');
 
-        if ($contentSizeBytes < 1) {
+        if ($actualContentSizeBytes < 1) {
             throw new StudyImportValidationException('file', 'Study import upload must contain file bytes.');
         }
 
-        if ($contentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
+        if ($actualContentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
             throw new StudyImportValidationException('file', 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.');
+        }
+
+        if ($contentSizeBytes !== null && $contentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
+            throw new StudyImportValidationException('file', 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.');
+        }
+
+        if ($contentSizeBytes !== null && $contentSizeBytes !== $actualContentSizeBytes) {
+            throw new StudyImportValidationException('file', 'Study import upload content length does not match the file bytes received.');
         }
 
         $importJob = StudyImportJob::query()
@@ -64,7 +72,7 @@ class UploadStudyImportFileAction
 
         Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
 
-        $importJob->source_size_bytes = $contentSizeBytes;
+        $importJob->source_size_bytes = $actualContentSizeBytes;
         $importJob->uploaded_at = $now;
         $importJob->saveOrFail();
 

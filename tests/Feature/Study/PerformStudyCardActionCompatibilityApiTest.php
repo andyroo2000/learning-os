@@ -128,6 +128,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
 
         $this->postJson("/api/study/cards/{$card->id}/actions", [
             'action' => 'suspend',
+            'mode' => 'custom_date',
             'timeZone' => 'America/New_York',
         ])
             ->assertOk()
@@ -140,6 +141,77 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             'id' => $card->id,
             'study_status' => 'suspended',
         ]);
+    }
+
+    public function test_it_forgets_a_card_and_returns_new_card_counts(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Relearning,
+            'due_at' => '2026-06-05T14:15:00Z',
+            'introduced_at' => '2026-06-01T14:15:00Z',
+            'failed_at' => '2026-06-02T14:15:00Z',
+            'last_reviewed_at' => '2026-06-03T14:15:00Z',
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/actions", [
+            'action' => 'forget',
+        ])
+            ->assertOk()
+            ->assertJsonPath('card.state.queueState', 'new')
+            ->assertJsonPath('card.state.dueAt', null)
+            ->assertJsonPath('card.state.introducedAt', null)
+            ->assertJsonPath('card.state.failedAt', null)
+            ->assertJsonPath('overview.newCount', 1)
+            ->assertJsonPath('overview.learningCount', 0);
+
+        $this->assertSame('new', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_it_sets_due_now(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 1,
+            ]);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'now',
+            ])
+                ->assertOk()
+                ->assertJsonPath('card.state.queueState', 'review')
+                ->assertJsonPath('card.state.dueAt', '2026-06-05T15:30:00.000000Z')
+                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.newCount', 0);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_sets_due_tomorrow_in_the_requested_timezone(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T23:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'tomorrow',
+                'timeZone' => 'America/New_York',
+            ])
+                ->assertOk()
+                ->assertJsonPath('card.state.queueState', 'review')
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T13:00:00.000000Z');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_returns_not_found_for_missing_unowned_or_deleted_cards_before_payload_validation(): void

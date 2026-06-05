@@ -14,6 +14,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PerformStudyCardActionRequest extends FormRequest
 {
+    private ?Card $studyCard = null;
+
     protected function prepareForValidation(): void
     {
         $normalized = [];
@@ -44,12 +46,12 @@ class PerformStudyCardActionRequest extends FormRequest
         $cardId = $this->route('cardId');
 
         if ($user !== null && is_string($cardId)) {
-            $ownedActiveCardExists = Card::query()
+            $this->studyCard = Card::query()
                 ->ownedByActiveDeck((int) $user->id)
                 ->where('cards.id', CanonicalUlid::normalize($cardId))
-                ->exists();
+                ->first();
 
-            if (! $ownedActiveCardExists) {
+            if ($this->studyCard === null) {
                 throw new NotFoundHttpException('Study card not found.');
             }
         }
@@ -71,10 +73,9 @@ class PerformStudyCardActionRequest extends FormRequest
                 Rule::in(['now', 'tomorrow', 'custom_date']),
             ],
             'dueAt' => [
-                'exclude_unless:mode,custom_date',
+                'exclude_unless:action,set_due',
                 'required_if:mode,custom_date',
                 'string',
-                'date',
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (! is_string($value) || ! StrictIsoDateTime::matches($value)) {
                         $fail('dueAt must be a valid ISO-8601 datetime for custom_date.');
@@ -101,6 +102,7 @@ class PerformStudyCardActionRequest extends FormRequest
                 'string',
                 'timezone',
             ],
+            // currentOverview is accepted for ConvoLab request compatibility; controllers recompute overview.
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];
     }
@@ -157,5 +159,14 @@ class PerformStudyCardActionRequest extends FormRequest
         }
 
         return $validated['timeZone'] === null ? null : (string) $validated['timeZone'];
+    }
+
+    public function studyCard(): Card
+    {
+        if ($this->studyCard === null) {
+            throw new NotFoundHttpException('Study card not found.');
+        }
+
+        return $this->studyCard;
     }
 }

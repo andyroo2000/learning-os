@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
+use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
@@ -153,6 +154,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
         ->whereUlid('studyImportJobId');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
+    Route::get('/study/browser', ListStudyBrowserController::class);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

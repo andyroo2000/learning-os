@@ -18,12 +18,18 @@ class ListNewCardsAction
         int $userId,
         ?CursorPageSize $pageSize = null,
         ?string $courseId = null,
+        ?string $deckId = null,
     ): CursorPaginator {
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         $courseId = $courseId === null ? null : CanonicalUlid::normalize($courseId);
+        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
 
         if ($courseId === '') {
             throw new InvalidArgumentException('New card course_id filter must not be blank when provided.');
+        }
+
+        if ($deckId === '') {
+            throw new InvalidArgumentException('New card deck_id filter must not be blank when provided.');
         }
 
         return Card::query()
@@ -33,6 +39,7 @@ class ListNewCardsAction
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
             ->where('cards.study_status', CardStudyStatus::New->value)
             ->whereNotNull('cards.new_queue_position')
             ->orderBy('cards.new_queue_position')

@@ -36,7 +36,15 @@ class UpdateCardAction
                 $card->card_type = $data->cardType;
             }
 
-            $wasUpdated = $card->isDirty(['front_text', 'back_text', 'card_type']);
+            if ($data->hasPromptJson) {
+                $card->prompt_json = $data->promptJson;
+            }
+
+            if ($data->hasAnswerJson) {
+                $card->answer_json = $data->answerJson;
+            }
+
+            $wasUpdated = $card->isDirty(['front_text', 'back_text', 'card_type', 'prompt_json', 'answer_json']);
 
             $card->saveOrFail();
 

@@ -20,6 +20,10 @@ class UpdateCardController extends Controller
             frontText: $data['front_text'],
             backText: $data['back_text'],
             cardType: $data['card_type'] ?? null,
+            hasPromptJson: array_key_exists('prompt_json', $data),
+            promptJson: $data['prompt_json'] ?? null,
+            hasAnswerJson: array_key_exists('answer_json', $data),
+            answerJson: $data['answer_json'] ?? null,
         ));
 
         return CardResource::make($result->card)

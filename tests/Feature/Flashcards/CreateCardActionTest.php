@@ -77,6 +77,8 @@ class CreateCardActionTest extends TestCase
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
                 'card_type' => 'recognition',
+                'prompt_json' => null,
+                'answer_json' => null,
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'scheduler_state' => [
@@ -124,6 +126,35 @@ class CreateCardActionTest extends TestCase
             'card_type' => 'production',
         ]);
         $this->assertSame('production', SyncFeedEntry::query()->sole()->payload['card_type']);
+    }
+
+    public function test_it_creates_a_card_with_structured_content(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'What is ATP?',
+                backText: 'Cellular energy currency.',
+                promptJson: ['type' => 'text', 'text' => 'What is ATP?'],
+                answerJson: ['type' => 'text', 'text' => 'Cellular energy currency.'],
+            ),
+        );
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $result->card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $result->card->answer_json);
+        $this->assertDatabaseHas('cards', [
+            'id' => $result->card->id,
+            'prompt_json' => json_encode(['type' => 'text', 'text' => 'What is ATP?']),
+            'answer_json' => json_encode(['type' => 'text', 'text' => 'Cellular energy currency.']),
+        ]);
+
+        $payload = SyncFeedEntry::query()->sole()->payload;
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void
@@ -405,6 +436,49 @@ class CreateCardActionTest extends TestCase
 
         $this->assertSame($existingCard, $result);
         $this->assertDatabaseCount('cards', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_matches_reordered_structured_content_for_idempotent_retries(): void
+    {
+        $deck = Deck::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $existingCard = Card::factory()->for($deck)->create([
+            'id' => $id,
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => [
+                'text' => 'What is ATP?',
+                'type' => 'text',
+            ],
+            'answer_json' => [
+                'text' => 'Cellular energy currency.',
+                'type' => 'text',
+            ],
+        ]);
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'What is ATP?',
+                backText: 'Cellular energy currency.',
+                promptJson: [
+                    'type' => 'text',
+                    'text' => 'What is ATP?',
+                ],
+                answerJson: [
+                    'type' => 'text',
+                    'text' => 'Cellular energy currency.',
+                ],
+                id: $id,
+            ),
+        );
+
+        $this->assertTrue($existingCard->is($result->card));
+        $this->assertFalse($result->wasCreated);
+        $this->assertDatabaseCount('cards', 1);
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 

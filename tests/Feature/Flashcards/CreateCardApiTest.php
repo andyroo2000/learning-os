@@ -39,6 +39,8 @@ class CreateCardApiTest extends TestCase
                 ->assertJsonPath('data.front_text', 'ciao')
                 ->assertJsonPath('data.back_text', 'hello')
                 ->assertJsonPath('data.card_type', 'recognition')
+                ->assertJsonPath('data.prompt_json', null)
+                ->assertJsonPath('data.answer_json', null)
                 ->assertJsonPath('data.scheduler_state.due', '2026-06-04T12:00:00.000000Z')
                 ->assertJsonPath('data.scheduler_state.state', 0)
                 ->assertJsonPath('data.scheduler_state.reps', 0)
@@ -50,6 +52,8 @@ class CreateCardApiTest extends TestCase
                         'front_text',
                         'back_text',
                         'card_type',
+                        'prompt_json',
+                        'answer_json',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',
@@ -71,6 +75,8 @@ class CreateCardApiTest extends TestCase
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
                 'card_type' => 'recognition',
+                'prompt_json' => null,
+                'answer_json' => null,
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'due_at' => null,
@@ -191,6 +197,56 @@ class CreateCardApiTest extends TestCase
         ]);
     }
 
+    public function test_it_accepts_structured_content(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => ['type' => 'text', 'text' => 'What is ATP?'],
+            'answer_json' => ['type' => 'text', 'text' => 'Cellular energy currency.'],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.prompt_json.type', 'text')
+            ->assertJsonPath('data.prompt_json.text', 'What is ATP?')
+            ->assertJsonPath('data.answer_json.type', 'text')
+            ->assertJsonPath('data.answer_json.text', 'Cellular energy currency.');
+
+        $card = Card::query()->findOrFail($response->json('data.id'));
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $card->prompt_json);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $card->answer_json);
+    }
+
+    public function test_it_accepts_null_structured_content(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => null,
+            'answer_json' => null,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.prompt_json', null)
+            ->assertJsonPath('data.answer_json', null);
+
+        $card = Card::query()->findOrFail($response->json('data.id'));
+
+        $this->assertNull($card->prompt_json);
+        $this->assertNull($card->answer_json);
+    }
+
     public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();
@@ -294,7 +350,9 @@ class CreateCardApiTest extends TestCase
             ->assertJsonPath('data.deck_id', $deck->id)
             ->assertJsonPath('data.front_text', 'ciao')
             ->assertJsonPath('data.back_text', 'hello')
-            ->assertJsonPath('data.card_type', 'recognition');
+            ->assertJsonPath('data.card_type', 'recognition')
+            ->assertJsonPath('data.prompt_json', null)
+            ->assertJsonPath('data.answer_json', null);
 
         $secondResponse
             ->assertOk()
@@ -302,7 +360,9 @@ class CreateCardApiTest extends TestCase
             ->assertJsonPath('data.deck_id', $deck->id)
             ->assertJsonPath('data.front_text', 'ciao')
             ->assertJsonPath('data.back_text', 'hello')
-            ->assertJsonPath('data.card_type', 'recognition');
+            ->assertJsonPath('data.card_type', 'recognition')
+            ->assertJsonPath('data.prompt_json', null)
+            ->assertJsonPath('data.answer_json', null);
 
         $this->assertDatabaseCount('cards', 1);
     }
@@ -897,6 +957,26 @@ class CreateCardApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_non_array_structured_content(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'What is ATP?',
+            'back_text' => 'Cellular energy currency.',
+            'prompt_json' => 'What is ATP?',
+            'answer_json' => 'Cellular energy currency.',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['prompt_json', 'answer_json']);
 
         $this->assertDatabaseCount('cards', 0);
     }

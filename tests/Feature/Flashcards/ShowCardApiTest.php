@@ -21,6 +21,8 @@ class ShowCardApiTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
             'card_type' => CardType::Cloze,
+            'prompt_json' => ['type' => 'text', 'text' => 'ciao'],
+            'answer_json' => ['type' => 'text', 'text' => 'hello'],
         ]);
         $card->study_status = CardStudyStatus::Review;
         $card->due_at = Carbon::parse('2026-06-05T14:15:00Z');
@@ -41,6 +43,8 @@ class ShowCardApiTest extends TestCase
                     'front_text' => 'ciao',
                     'back_text' => 'hello',
                     'card_type' => 'cloze',
+                    'prompt_json' => ['type' => 'text', 'text' => 'ciao'],
+                    'answer_json' => ['type' => 'text', 'text' => 'hello'],
                     'study_status' => 'review',
                     'new_queue_position' => null,
                     'scheduler_state' => null,

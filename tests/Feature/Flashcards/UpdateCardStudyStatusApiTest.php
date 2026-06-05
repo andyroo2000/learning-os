@@ -43,6 +43,8 @@ class UpdateCardStudyStatusApiTest extends TestCase
                     'front_text',
                     'back_text',
                     'card_type',
+                    'prompt_json',
+                    'answer_json',
                     'study_status',
                     'new_queue_position',
                     'scheduler_state',

@@ -17,7 +17,12 @@ class ListMediaAssetsController extends Controller
         $user = $request->user();
 
         return MediaAssetResource::collection(
-            $listMediaAssets->handle($user->id, $request->pageSize(), $request->courseId())->withQueryString()
+            $listMediaAssets->handle(
+                userId: $user->id,
+                pageSize: $request->pageSize(),
+                courseId: $request->courseId(),
+                deckId: $request->deckId(),
+            )->withQueryString()
         );
     }
 }

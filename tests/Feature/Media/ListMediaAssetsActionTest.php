@@ -61,6 +61,76 @@ class ListMediaAssetsActionTest extends TestCase
         $this->assertNotContains($crossUserMediaAsset->id, collect($mediaAssets->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_media_assets_by_attached_card_deck(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $secondCard = Card::factory()->for($deck)->create();
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+        $deckMediaAsset = MediaAsset::factory()->for($user)->create([
+            'created_at' => now(),
+        ]);
+        $otherDeckMediaAsset = MediaAsset::factory()->for($user)->create();
+        $unattachedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $card->mediaAssets()->attach($deckMediaAsset->id);
+        $secondCard->mediaAssets()->attach($deckMediaAsset->id);
+        $otherDeckCard->mediaAssets()->attach($otherDeckMediaAsset->id);
+        $card->mediaAssets()->attach($crossUserMediaAsset->id);
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle(
+            userId: $user->id,
+            deckId: ' '.strtoupper($deck->id).' ',
+        );
+
+        $mediaAssetIds = collect($mediaAssets->items())->pluck('id')->all();
+
+        $this->assertSame([$deckMediaAsset->id], $mediaAssetIds);
+        $this->assertNotContains($otherDeckMediaAsset->id, $mediaAssetIds);
+        $this->assertNotContains($unattachedMediaAsset->id, $mediaAssetIds);
+        $this->assertNotContains($crossUserMediaAsset->id, $mediaAssetIds);
+    }
+
+    public function test_it_returns_empty_when_deck_id_and_course_id_are_in_different_courses(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+        $otherCourseMediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $otherCourseCard->mediaAssets()->attach($otherCourseMediaAsset->id);
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle(
+            userId: $user->id,
+            courseId: $course->id,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertEmpty($mediaAssets->items());
+    }
+
+    public function test_it_returns_empty_results_for_a_deck_owned_by_another_user(): void
+    {
+        $user = User::factory()->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $otherDeckCard = Card::factory()->for($otherDeck)->create();
+        $otherUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $otherDeckCard->mediaAssets()->attach($otherUserMediaAsset->id);
+
+        $mediaAssets = app(ListMediaAssetsAction::class)->handle(
+            userId: $user->id,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertEmpty($mediaAssets->items());
+    }
+
     public function test_it_rejects_blank_course_id_filters(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -69,6 +139,17 @@ class ListMediaAssetsActionTest extends TestCase
         app(ListMediaAssetsAction::class)->handle(
             userId: User::factory()->create()->id,
             courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_id_filters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Media asset deck_id filter must not be blank when provided.');
+
+        app(ListMediaAssetsAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: '   ',
         );
     }
 

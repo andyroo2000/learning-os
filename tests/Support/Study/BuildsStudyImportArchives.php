@@ -73,16 +73,45 @@ trait BuildsStudyImportArchives
         $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
         $fieldSeparator = "\x1f";
-        $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png">';
+        $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
         $models = [
             (string) $basicNoteTypeId => [
                 'id' => $basicNoteTypeId,
                 'name' => 'Basic',
+                'flds' => [
+                    ['name' => 'Front'],
+                    ['name' => 'Back'],
+                ],
+                'tmpls' => [
+                    [
+                        'name' => 'Card 1',
+                        'ord' => 0,
+                        'qfmt' => '{{Front}}',
+                        'afmt' => '{{FrontSide}}<hr id="answer">{{Back}}',
+                    ],
+                    [
+                        'name' => 'Card 2',
+                        'ord' => 1,
+                        'qfmt' => '{{Back}}',
+                        'afmt' => '{{FrontSide}}<hr id="answer">{{Front}}',
+                    ],
+                ],
             ],
             (string) $clozeNoteTypeId => [
                 'id' => $clozeNoteTypeId,
                 'name' => 'Cloze',
+                'flds' => [
+                    ['name' => 'Text'],
+                ],
+                'tmpls' => [
+                    [
+                        'name' => 'Cloze',
+                        'ord' => 0,
+                        'qfmt' => '{{cloze:Text}}',
+                        'afmt' => '{{cloze:Text}}',
+                    ],
+                ],
             ],
         ];
         $decks = [

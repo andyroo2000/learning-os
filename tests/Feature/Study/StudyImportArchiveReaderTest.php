@@ -50,7 +50,20 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame(1001, $firstCard->sourceNoteTypeId);
         $this->assertSame('Basic', $firstCard->sourceNoteTypeName);
         $this->assertSame(0, $firstCard->sourceTemplateOrdinal);
+        $this->assertSame('会社', $firstCard->frontText);
+        $this->assertSame('会社 company', $firstCard->backText);
         $this->assertSame(['word.mp3', 'company.png'], $firstCard->mediaReferences());
+
+        $secondCard = $archive->cards[1];
+        $this->assertSame(702, $secondCard->sourceCardId);
+        $this->assertSame(1, $secondCard->sourceTemplateOrdinal);
+        $this->assertSame('company', $secondCard->frontText);
+        $this->assertSame('company 会社', $secondCard->backText);
+
+        $clozeCard = $archive->cards[2];
+        $this->assertSame(703, $clozeCard->sourceCardId);
+        $this->assertSame('漢字', $clozeCard->frontText);
+        $this->assertSame('漢字', $clozeCard->backText);
 
         $firstReview = $archive->reviewLogs[0];
         $this->assertSame(901, $firstReview->sourceReviewId);

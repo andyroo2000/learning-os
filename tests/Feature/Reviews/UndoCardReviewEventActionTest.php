@@ -241,6 +241,25 @@ class UndoCardReviewEventActionTest extends TestCase
         }
     }
 
+    public function test_it_accepts_iso_timestamp_strings_without_fractional_seconds_in_undo_snapshots(): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->create([
+            'card_state_before' => [
+                'study_status' => 'review',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => '2026-05-28T09:15:00Z',
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+        $this->assertSame('2026-05-28T09:15:00.000000Z', $restoredCard->due_at?->toJSON());
+    }
+
     private function reviewCard(Card $card, string $reviewedAt): ReviewCardResult
     {
         return app(ReviewCardAction::class)->handle(

@@ -49,10 +49,6 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::reviewEventUnavailable();
             }
 
-            if ($reviewEvent->card_id !== $card->id) {
-                throw UndoCardReviewEventException::cardUnavailable();
-            }
-
             $reviewEvent->setRelation('card', $card);
 
             if ($this->hasNewerReviewEvent($reviewEvent)) {
@@ -65,6 +61,7 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::missingSnapshot();
             }
 
+            // Keep this restore list in sync with CardReviewStateSnapshot::beforeReview().
             $card->study_status = $this->studyStatus($snapshot);
             $card->new_queue_position = $this->nullableInteger($snapshot, 'new_queue_position');
             $card->scheduler_state = $this->nullableArray($snapshot, 'scheduler_state');
@@ -188,7 +185,7 @@ class UndoCardReviewEventAction
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $value)) {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/', $value)) {
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 

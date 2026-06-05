@@ -499,11 +499,33 @@ class ListCoursesApiTest extends TestCase
             ->assertJsonValidationErrors(['status']);
     }
 
+    public function test_it_rejects_array_status_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/courses?status[]=ready');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    }
+
     public function test_it_rejects_invalid_language_filters(): void
     {
         $this->signIn();
 
         $response = $this->getJson('/api/courses?native_language='.str_repeat('a', 17).'&target_language=%20');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['native_language', 'target_language']);
+    }
+
+    public function test_it_rejects_array_language_filters(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/courses?native_language[]=en&target_language[]=ja');
 
         $response
             ->assertUnprocessable()

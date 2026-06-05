@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Support\Identifiers\CanonicalUlid;
 use DateTimeZone;
 use Exception;
@@ -80,6 +81,7 @@ class GetStudyOverviewAction
                 ])
                 ->count('cards.id'),
             'total_cards' => (clone $baseQuery)->count('cards.id'),
+            'latest_import' => $this->latestImport($userId),
             'next_due_at' => $this->nextDueAt($userId, $deckId),
         ];
     }
@@ -131,6 +133,15 @@ class GetStudyOverviewAction
             ->value('cards.due_at');
 
         return $nextDueAt === null ? null : Carbon::parse($nextDueAt)->toJSON();
+    }
+
+    private function latestImport(int $userId): ?StudyImportJob
+    {
+        return StudyImportJob::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

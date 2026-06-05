@@ -3,6 +3,7 @@
 namespace App\Domain\Media\Sync;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Support\MediaAssetContentUrl;
 
 final class MediaAssetSyncPayload
 {
@@ -23,6 +24,7 @@ final class MediaAssetSyncPayload
         return [
             'id' => $mediaAsset->id,
             'url' => $mediaAsset->public_url,
+            'content_url' => MediaAssetContentUrl::path($mediaAsset),
             'mime_type' => $mediaAsset->mime_type,
             'size_bytes' => $mediaAsset->size_bytes,
             'checksum_sha256' => $mediaAsset->checksum_sha256,

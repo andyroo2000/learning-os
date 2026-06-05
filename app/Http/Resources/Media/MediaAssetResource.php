@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Media;
 
+use App\Domain\Media\Support\MediaAssetContentUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,6 +16,7 @@ class MediaAssetResource extends JsonResource
         return [
             'id' => $this->id,
             'url' => $this->public_url,
+            'content_url' => MediaAssetContentUrl::path($this->resource),
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
             // Clients can use this to verify downloaded media bytes.

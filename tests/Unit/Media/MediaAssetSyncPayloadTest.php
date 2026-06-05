@@ -30,6 +30,7 @@ class MediaAssetSyncPayloadTest extends TestCase
         $expected = [
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
             'url' => 'https://cdn.example.test/uploads/example.jpg',
+            'content_url' => '/api/media-assets/01jzk7k5g9e1k8z6w3b4n9y2pa/content',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),

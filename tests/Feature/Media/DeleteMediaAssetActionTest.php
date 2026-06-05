@@ -49,6 +49,7 @@ class DeleteMediaAssetActionTest extends TestCase
         $this->assertSame([
             'id' => $mediaAsset->id,
             'url' => $mediaAsset->public_url,
+            'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
             'mime_type' => $mediaAsset->mime_type,
             'size_bytes' => $mediaAsset->size_bytes,
             'checksum_sha256' => $mediaAsset->checksum_sha256,

@@ -68,6 +68,7 @@ class CreateMediaAssetActionTest extends TestCase
         $this->assertSame([
             'id' => $mediaAsset->id,
             'url' => 'https://cdn.example.test/uploads/example.jpg',
+            'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
             'mime_type' => 'image/jpeg',
             'size_bytes' => 123_456,
             'checksum_sha256' => str_repeat('a', 64),

@@ -35,6 +35,7 @@ class CreateMediaAssetApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.url', 'https://cdn.example.test/uploads/example.jpg')
+            ->assertJsonPath('data.content_url', '/api/media-assets/'.$response->json('data.id').'/content')
             ->assertJsonPath('data.mime_type', 'image/jpeg')
             ->assertJsonPath('data.size_bytes', 123_456)
             ->assertJsonPath('data.checksum_sha256', str_repeat('a', 64))
@@ -45,6 +46,7 @@ class CreateMediaAssetApiTest extends TestCase
                 'data' => [
                     'id',
                     'url',
+                    'content_url',
                     'mime_type',
                     'size_bytes',
                     'checksum_sha256',

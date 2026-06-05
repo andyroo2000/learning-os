@@ -112,6 +112,89 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(1, $result->overview['total_cards']);
     }
 
+    public function test_it_filters_due_session_cards_by_deck_id(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subMinutes(30),
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: strtoupper($deck->id),
+        );
+
+        $this->assertSame([$targetDeckCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(1, $result->overview['due_count']);
+        $this->assertSame(1, $result->overview['total_cards']);
+    }
+
+    public function test_it_filters_new_session_cards_by_deck_id_and_keeps_the_daily_allowance_user_wide(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 2,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 3,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'introduced_at' => $now->copy()->subHour(),
+            'due_at' => $now->copy()->addDay(),
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: $deck->id,
+        );
+
+        $this->assertSame([$targetDeckCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(2, $result->overview['new_count']);
+        $this->assertSame(1, $result->overview['new_cards_introduced_today']);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
+    }
+
+    public function test_it_returns_empty_session_for_another_users_deck_id(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        StudySettings::factory()->for($user)->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertTrue($result->cards->isEmpty());
+        $this->assertSame(0, $result->overview['due_count']);
+        $this->assertSame(0, $result->overview['total_cards']);
+    }
+
     public function test_new_cards_are_capped_by_the_server_owned_session_limit(): void
     {
         $user = User::factory()->create();
@@ -141,6 +224,17 @@ class StartStudySessionActionTest extends TestCase
         app(StartStudySessionAction::class)->handle(
             userId: User::factory()->create()->id,
             timeZone: 'Not/A_Zone',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_id_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study deck_id filter must not be blank when provided.');
+
+        app(StartStudySessionAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: '   ',
         );
     }
 }

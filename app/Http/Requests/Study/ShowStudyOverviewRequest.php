@@ -2,13 +2,21 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Http\Requests\Concerns\FiltersByDeckId;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ShowStudyOverviewRequest extends FormRequest
 {
+    use FiltersByDeckId;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareDeckIdForValidation();
     }
 
     /**
@@ -17,6 +25,7 @@ class ShowStudyOverviewRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
             'time_zone' => [
                 'sometimes',
                 'nullable',

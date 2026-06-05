@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Support\Identifiers\CanonicalUlid;
 use DateTimeZone;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,14 +20,21 @@ class GetStudyOverviewAction
     /**
      * @return array<string, mixed>
      */
-    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null): array
+    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): array
     {
         $now ??= now();
+        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
+
+        if ($deckId === '') {
+            throw new InvalidArgumentException('Study deck_id filter must not be blank when provided.');
+        }
+
         $resolvedTimeZone = $this->resolveTimeZone($timeZone);
         [$dayStart, $dayEnd] = $this->studyDayWindow($now, $resolvedTimeZone);
         $settings = $this->getStudySettings->handle($userId);
+        // The daily introduction limit is user-wide, even when overview counts are deck-scoped.
         $introducedToday = $this->countIntroducedToday($userId, $dayStart, $dayEnd);
-        $baseQuery = $this->ownedActiveCardsQuery($userId);
+        $baseQuery = $this->ownedActiveCardsQuery($userId, $deckId);
         $dueCount = (clone $baseQuery)
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->where('cards.due_at', '<=', $now)
@@ -63,7 +71,7 @@ class GetStudyOverviewAction
                 ])
                 ->count('cards.id'),
             'total_cards' => (clone $baseQuery)->count('cards.id'),
-            'next_due_at' => $this->nextDueAt($userId),
+            'next_due_at' => $this->nextDueAt($userId, $deckId),
         ];
     }
 
@@ -105,9 +113,9 @@ class GetStudyOverviewAction
             ->count('cards.id');
     }
 
-    private function nextDueAt(int $userId): ?string
+    private function nextDueAt(int $userId, ?string $deckId): ?string
     {
-        $nextDueAt = $this->ownedActiveCardsQuery($userId)
+        $nextDueAt = $this->ownedActiveCardsQuery($userId, $deckId)
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->whereNotNull('cards.due_at')
             ->orderBy('cards.due_at')
@@ -119,12 +127,13 @@ class GetStudyOverviewAction
     /**
      * @return Builder<Card>
      */
-    private function ownedActiveCardsQuery(int $userId): Builder
+    private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
-            ->whereNull('decks.deleted_at');
+            ->whereNull('decks.deleted_at')
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
     }
 
     /**

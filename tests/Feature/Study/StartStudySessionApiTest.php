@@ -4,6 +4,8 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Models\StudySettings;
+use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\Support\SetsCardStudyStatus;
@@ -50,6 +52,75 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonCount(2, 'data.cards');
     }
 
+    public function test_start_filters_ready_cards_by_deck_id(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => $deck->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 1)
+            ->assertJsonPath('data.overview.total_cards', 1)
+            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'data.cards');
+    }
+
+    public function test_start_normalizes_deck_id_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => '  '.strtoupper($deck->id).'  ',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 1)
+            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'data.cards');
+    }
+
+    public function test_start_returns_empty_session_for_another_users_deck_id(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => $otherDeck->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.due_count', 0)
+            ->assertJsonPath('data.overview.total_cards', 0)
+            ->assertJsonCount(0, 'data.cards');
+    }
+
     public function test_start_validates_time_zone_without_coercing_malformed_values(): void
     {
         $this->signIn();
@@ -65,6 +136,35 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['time_zone']);
+    }
+
+    public function test_start_rejects_malformed_deck_id_filters(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => 'not-a-ulid',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => ['01J00000000000000000000000'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    public function test_start_rejects_blank_deck_id_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        $this->signIn();
+
+        $this->postJson('/api/study/session/start', [
+            'deck_id' => '   ',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
     }
 
     public function test_start_uses_the_requested_time_zone_for_daily_new_card_allowance(): void

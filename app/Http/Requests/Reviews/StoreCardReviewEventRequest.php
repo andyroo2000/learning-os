@@ -32,7 +32,9 @@ class StoreCardReviewEventRequest extends FormRequest
             $this->mergeTrimmedStringInput($normalized, $key);
         }
 
-        $this->merge($normalized);
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
     }
 
     /**

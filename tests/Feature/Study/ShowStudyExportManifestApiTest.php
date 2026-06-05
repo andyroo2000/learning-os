@@ -45,11 +45,11 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertJsonPath('data.sections.cards.total', 1)
                 ->assertJsonPath('data.sections.review_events.total', 1)
                 ->assertJsonPath('data.sections.media_assets.total', 1)
-                ->assertJsonPath('data.sections.courses.path', route('api.study.export.courses', absolute: false))
-                ->assertJsonPath('data.sections.decks.path', route('api.study.export.decks', absolute: false))
-                ->assertJsonPath('data.sections.cards.path', route('api.study.export.cards', absolute: false))
-                ->assertJsonPath('data.sections.review_events.path', route('api.study.export.review-events', absolute: false))
-                ->assertJsonPath('data.sections.media_assets.path', route('api.study.export.media-assets', absolute: false))
+                ->assertJsonPath('data.sections.courses.path', '/api/study/export/courses')
+                ->assertJsonPath('data.sections.decks.path', '/api/study/export/decks')
+                ->assertJsonPath('data.sections.cards.path', '/api/study/export/cards')
+                ->assertJsonPath('data.sections.review_events.path', '/api/study/export/review-events')
+                ->assertJsonPath('data.sections.media_assets.path', '/api/study/export/media-assets')
                 ->assertJsonStructure([
                     'data' => [
                         'exported_at',

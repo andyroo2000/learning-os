@@ -109,7 +109,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class);
-    Route::get('/study/export', ShowStudyExportManifestController::class);
+    Route::get('/study/export', ShowStudyExportManifestController::class)->name('api.study.export');
     Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');
     Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');
     Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');

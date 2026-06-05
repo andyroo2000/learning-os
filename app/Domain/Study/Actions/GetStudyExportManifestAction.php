@@ -15,11 +15,11 @@ class GetStudyExportManifestAction
      * @return array{
      *     exported_at: string,
      *     sections: array{
-     *         courses: array{total: int, path: string},
-     *         decks: array{total: int, path: string},
-     *         cards: array{total: int, path: string},
-     *         review_events: array{total: int, path: string},
-     *         media_assets: array{total: int, path: string}
+     *         courses: array{total: int},
+     *         decks: array{total: int},
+     *         cards: array{total: int},
+     *         review_events: array{total: int},
+     *         media_assets: array{total: int}
      *     }
      * }
      */
@@ -30,26 +30,11 @@ class GetStudyExportManifestAction
         return [
             'exported_at' => $now->toJSON(),
             'sections' => [
-                'courses' => [
-                    'total' => Course::query()->where('user_id', $userId)->count('id'),
-                    'path' => route('api.study.export.courses', absolute: false),
-                ],
-                'decks' => [
-                    'total' => Deck::query()->where('user_id', $userId)->count('id'),
-                    'path' => route('api.study.export.decks', absolute: false),
-                ],
-                'cards' => [
-                    'total' => $this->activeCardCount($userId),
-                    'path' => route('api.study.export.cards', absolute: false),
-                ],
-                'review_events' => [
-                    'total' => $this->activeReviewEventCount($userId),
-                    'path' => route('api.study.export.review-events', absolute: false),
-                ],
-                'media_assets' => [
-                    'total' => MediaAsset::query()->where('user_id', $userId)->count('id'),
-                    'path' => route('api.study.export.media-assets', absolute: false),
-                ],
+                'courses' => ['total' => Course::query()->where('user_id', $userId)->count('id')],
+                'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
+                'cards' => ['total' => $this->activeCardCount($userId)],
+                'review_events' => ['total' => $this->activeReviewEventCount($userId)],
+                'media_assets' => ['total' => MediaAsset::query()->where('user_id', $userId)->count('id')],
             ],
         ];
     }

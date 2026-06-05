@@ -47,26 +47,11 @@ class GetStudyExportManifestActionTest extends TestCase
 
         $this->assertSame('2026-06-05T12:34:56.000000Z', $manifest['exported_at']);
         $this->assertSame([
-            'courses' => [
-                'total' => 1,
-                'path' => route('api.study.export.courses', absolute: false),
-            ],
-            'decks' => [
-                'total' => 1,
-                'path' => route('api.study.export.decks', absolute: false),
-            ],
-            'cards' => [
-                'total' => 1,
-                'path' => route('api.study.export.cards', absolute: false),
-            ],
-            'review_events' => [
-                'total' => 1,
-                'path' => route('api.study.export.review-events', absolute: false),
-            ],
-            'media_assets' => [
-                'total' => 1,
-                'path' => route('api.study.export.media-assets', absolute: false),
-            ],
+            'courses' => ['total' => 1],
+            'decks' => ['total' => 1],
+            'cards' => ['total' => 1],
+            'review_events' => ['total' => 1],
+            'media_assets' => ['total' => 1],
         ], $manifest['sections']);
     }
 }

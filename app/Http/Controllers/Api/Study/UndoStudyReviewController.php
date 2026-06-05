@@ -27,6 +27,7 @@ class UndoStudyReviewController extends Controller
         // currentOverview is accepted for ConvoLab request compatibility; this adapter recomputes overview below.
         $reviewLogId = CanonicalUlid::normalize($reviewLogId);
         $userId = (int) $request->user()->id;
+        // Undo hard-deletes the review event, so a retry after success intentionally resolves as not found.
         $reviewEvent = $this->ownedReviewEvent($reviewLogId, $userId);
 
         if ($reviewEvent === null) {

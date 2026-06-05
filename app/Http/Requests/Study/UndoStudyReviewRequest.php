@@ -32,12 +32,9 @@ class UndoStudyReviewRequest extends FormRequest
         ];
     }
 
-    /**
-     * @param  array<string, mixed>|null  $validated
-     */
-    public function timeZone(?array $validated = null): ?string
+    public function timeZone(): ?string
     {
-        $validated ??= $this->validated();
+        $validated = $this->validated();
 
         if (! array_key_exists('timeZone', $validated)) {
             return null;

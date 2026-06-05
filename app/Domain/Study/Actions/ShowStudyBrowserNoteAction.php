@@ -25,17 +25,18 @@ class ShowStudyBrowserNoteAction
 
         /** @var Card $firstCard */
         $firstCard = $cards->first();
+        $displayText = StudyBrowserCardDisplay::displayTextFor($firstCard);
 
         return new StudyBrowserNoteDetailResult(
             noteId: $noteId,
-            displayText: StudyBrowserCardDisplay::displayTextFor($firstCard),
+            displayText: $displayText,
             noteTypeName: $firstCard->source_notetype_name,
             sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
                 ? $firstCard->source_kind
                 : self::SOURCE_KIND_NATIVE,
             updatedAt: $cards->map(fn (Card $card) => $card->updated_at)->filter()->max()?->toJSON(),
             rawFields: $this->fieldsForCards($cards),
-            canonicalFields: $this->canonicalFieldsForCards($cards),
+            canonicalFields: $this->canonicalFieldsForCards($cards, $displayText),
             cards: $cards,
             cardStats: $cards
                 ->map(fn (Card $card): array => [
@@ -58,8 +59,10 @@ class ShowStudyBrowserNoteAction
         $query = Card::query()
             ->ownedByActiveDeck($userId);
 
-        if (ctype_digit($noteId)) {
-            $query->where('cards.source_note_id', (int) $noteId);
+        $sourceNoteId = $this->sourceNoteIdValue($noteId);
+
+        if ($sourceNoteId !== null) {
+            $query->where('cards.source_note_id', $sourceNoteId);
         } else {
             $query->whereNull('cards.source_note_id')->whereKey($noteId);
         }
@@ -132,6 +135,23 @@ class ShowStudyBrowserNoteAction
         return null;
     }
 
+    private function sourceNoteIdValue(string $noteId): ?int
+    {
+        if (! ctype_digit($noteId)) {
+            return null;
+        }
+
+        $normalized = ltrim($noteId, '0');
+        $normalized = $normalized === '' ? '0' : $normalized;
+        $max = (string) PHP_INT_MAX;
+
+        if (strlen($normalized) > strlen($max) || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
+            return null;
+        }
+
+        return (int) $normalized;
+    }
+
     /**
      * @param  EloquentCollection<int, Card>  $cards
      * @return list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>
@@ -160,13 +180,13 @@ class ShowStudyBrowserNoteAction
      * @param  EloquentCollection<int, Card>  $cards
      * @return list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>
      */
-    private function canonicalFieldsForCards(EloquentCollection $cards): array
+    private function canonicalFieldsForCards(EloquentCollection $cards, string $displayText): array
     {
         /** @var Card $firstCard */
         $firstCard = $cards->first();
 
         return [
-            $this->field('displayText', StudyBrowserCardDisplay::displayTextFor($firstCard)),
+            $this->field('displayText', $displayText),
             $this->field('noteTypeName', $firstCard->source_notetype_name),
         ];
     }

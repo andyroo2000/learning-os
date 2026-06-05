@@ -38,4 +38,22 @@ enum CardType: string
                 'Card type must be one of: '.implode(', ', self::values()).'.',
             );
     }
+
+    public static function fromFilter(self|string $cardType): self
+    {
+        if ($cardType instanceof self) {
+            return $cardType;
+        }
+
+        $normalized = strtolower(trim($cardType));
+
+        if ($normalized === '') {
+            throw new InvalidArgumentException('Card type filter must not be blank when provided.');
+        }
+
+        return self::tryFrom($normalized)
+            ?? throw new InvalidArgumentException(
+                'Card type filter must be one of: '.implode(', ', self::values()).'.',
+            );
+    }
 }

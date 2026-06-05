@@ -22,6 +22,7 @@ class ListCardsController extends Controller
                 pageSize: $request->pageSize(),
                 courseId: $request->courseId(),
                 studyStatus: $request->studyStatus(),
+                cardType: $request->cardType(),
                 q: $request->searchQuery(),
             )->withQueryString()
         );

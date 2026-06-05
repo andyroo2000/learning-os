@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\ListCardsAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
@@ -115,6 +116,47 @@ class ListCardsActionTest extends TestCase
         $this->assertSame([$reviewCard->id], collect($cards->items())->pluck('id')->all());
     }
 
+    public function test_it_filters_cards_by_card_type_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $productionCard = Card::factory()->for($deck)->create([
+            'card_type' => CardType::Production,
+        ]);
+        Card::factory()->for($deck)->create([
+            'card_type' => CardType::Recognition,
+        ]);
+        Card::factory()->for($this->deckFor(User::factory()->create()))->create([
+            'card_type' => CardType::Production,
+        ]);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            cardType: ' PRODUCTION ',
+        );
+
+        $this->assertSame([$productionCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
+    public function test_it_accepts_card_type_enums_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $clozeCard = Card::factory()->for($deck)->create([
+            'card_type' => CardType::Cloze,
+        ]);
+        Card::factory()->for($deck)->create([
+            'card_type' => CardType::Recognition,
+        ]);
+
+        $cards = app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            cardType: CardType::Cloze,
+        );
+
+        $this->assertSame([$clozeCard->id], collect($cards->items())->pluck('id')->all());
+    }
+
     public function test_it_filters_cards_by_search_query_for_direct_callers(): void
     {
         $user = User::factory()->create();
@@ -182,6 +224,19 @@ class ListCardsActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_blank_card_type_filters_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type filter must not be blank when provided.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            cardType: '   ',
+        );
+    }
+
     public function test_it_rejects_malformed_study_status_filters_for_direct_callers(): void
     {
         $user = User::factory()->create();
@@ -192,6 +247,19 @@ class ListCardsActionTest extends TestCase
         app(ListCardsAction::class)->handle(
             userId: $user->id,
             studyStatus: 'queued',
+        );
+    }
+
+    public function test_it_rejects_malformed_card_type_filters_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type filter must be one of: recognition, production, cloze.');
+
+        app(ListCardsAction::class)->handle(
+            userId: $user->id,
+            cardType: 'reverse',
         );
     }
 

@@ -23,6 +23,7 @@ class NewCardQueuePosition
         $maxPosition = Card::query()
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
+            ->whereNull('decks.deleted_at')
             ->where('cards.study_status', CardStudyStatus::New->value)
             ->max('cards.new_queue_position');
 

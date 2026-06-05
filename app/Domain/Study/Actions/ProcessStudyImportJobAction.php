@@ -5,7 +5,9 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportArchiveImporter;
 use App\Domain\Study\Support\StudyImportArchivePreviewer;
+use App\Domain\Study\Support\StudyImportArchiveReader;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +17,9 @@ use Throwable;
 class ProcessStudyImportJobAction
 {
     public function __construct(
+        private readonly StudyImportArchiveReader $archiveReader,
         private readonly StudyImportArchivePreviewer $archivePreviewer,
+        private readonly StudyImportArchiveImporter $archiveImporter,
     ) {}
 
     public function handle(string $importJobId, ?Carbon $now = null): ?StudyImportJob
@@ -63,7 +67,7 @@ class ProcessStudyImportJobAction
         }
 
         try {
-            $preview = $this->archivePreviewer->preview(
+            $archive = $this->archiveReader->read(
                 Storage::disk('study-imports'),
                 (string) $importJob->source_object_path,
             );
@@ -73,13 +77,26 @@ class ProcessStudyImportJobAction
             return $this->markFailed($importJob, StudyImportPreviewException::invalidCollectionDatabase()->getMessage(), $now);
         }
 
-        $importJob->deck_name = is_string($preview['deck_name'] ?? null)
-            ? $preview['deck_name']
-            : StudyImportJob::DEFAULT_DECK_NAME;
-        $importJob->preview_json = $preview;
-        $importJob->saveOrFail();
+        try {
+            $preview = $this->archivePreviewer->previewArchive($archive);
+        } catch (Throwable $exception) {
+            report($exception);
 
-        return $importJob;
+            return $this->markFailed($this->freshImportJob($importJob), 'Study import preview could not be prepared.', $now);
+        }
+
+        try {
+            return $this->archiveImporter->import($importJob, $archive, $preview, $now);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->markFailed($this->freshImportJob($importJob), 'Study import could not be processed.', $now);
+        }
+    }
+
+    private function freshImportJob(StudyImportJob $importJob): StudyImportJob
+    {
+        return StudyImportJob::query()->find($importJob->id) ?? $importJob;
     }
 
     private function markFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob

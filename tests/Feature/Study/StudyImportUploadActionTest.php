@@ -13,6 +13,7 @@ use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -393,7 +394,7 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Completed, $result->status);
     }
 
-    public function test_process_job_claims_pending_imports_for_processing(): void
+    public function test_process_job_imports_cards_and_marks_the_job_completed(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
         Storage::fake('study-imports');
@@ -410,10 +411,10 @@ class StudyImportUploadActionTest extends TestCase
 
         $this->assertNotNull($processed);
         $this->assertSame($importJob->id, $processed->id);
-        $this->assertSame(StudyImportStatus::Processing, $processed->status);
+        $this->assertSame(StudyImportStatus::Completed, $processed->status);
         $this->assertSame(now()->toJSON(), $processed->started_at->toJSON());
         $this->assertNull($processed->error_message);
-        $this->assertNull($processed->completed_at);
+        $this->assertSame(now()->toJSON(), $processed->completed_at->toJSON());
         $this->assertSame(StudyImportJob::DEFAULT_DECK_NAME, $processed->deck_name);
         $this->assertSame(3, $processed->preview_json['card_count']);
         $this->assertSame(2, $processed->preview_json['note_count']);
@@ -430,6 +431,76 @@ class StudyImportUploadActionTest extends TestCase
                 'card_count' => 1,
             ],
         ], $processed->preview_json['note_type_breakdown']);
+        $this->assertSame([
+            'imported_decks' => 1,
+            'imported_cards' => 3,
+            'skipped_cards' => 0,
+            'imported_review_logs' => 0,
+            'imported_media_assets' => 0,
+        ], $processed->summary_json);
+
+        $this->assertDatabaseHas('decks', [
+            'user_id' => $importJob->user_id,
+            'name' => StudyImportJob::DEFAULT_DECK_NAME,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'import_job_id' => $importJob->id,
+            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_deck_id' => 1700000000000,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 0,
+            'front_text' => '会社',
+            'back_text' => '会社 company',
+            'new_queue_position' => 1,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'import_job_id' => $importJob->id,
+            'source_card_id' => 702,
+            'front_text' => 'company',
+            'back_text' => 'company 会社',
+            'new_queue_position' => 2,
+        ]);
+        $this->assertSame(4, SyncFeedEntry::query()->count());
+    }
+
+    public function test_process_job_skips_cards_with_blank_rendered_text(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $sourceObjectPath = 'study/imports/process/blank-card.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['note_one_fields' => '会社'."\x1f"]),
+        );
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame([
+            'imported_decks' => 1,
+            'imported_cards' => 2,
+            'skipped_cards' => 1,
+            'imported_review_logs' => 0,
+            'imported_media_assets' => 0,
+        ], $processed?->summary_json);
+        $this->assertDatabaseHas('cards', [
+            'import_job_id' => $importJob->id,
+            'source_card_id' => 701,
+            'front_text' => '会社',
+        ]);
+        $this->assertDatabaseMissing('cards', [
+            'import_job_id' => $importJob->id,
+            'source_card_id' => 702,
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'import_job_id' => $importJob->id,
+            'source_card_id' => 703,
+        ]);
     }
 
     public function test_process_job_is_idempotent_for_processing_and_terminal_imports(): void

@@ -13,6 +13,8 @@ final readonly class StudyImportArchiveCard
         public int $sourceNoteTypeId,
         public string $sourceNoteTypeName,
         public int $sourceTemplateOrdinal,
+        public string $frontText,
+        public string $backText,
         public string $noteFields,
     ) {}
 

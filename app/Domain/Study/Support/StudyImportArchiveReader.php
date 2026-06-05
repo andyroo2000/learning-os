@@ -21,6 +21,10 @@ final class StudyImportArchiveReader
 
     private const ZSTD_MAGIC = "\x28\xb5\x2f\xfd";
 
+    public function __construct(
+        private readonly StudyImportArchiveTemplateRenderer $templateRenderer,
+    ) {}
+
     public function read(FilesystemAdapter $disk, string $sourceObjectPath): StudyImportArchiveRead
     {
         $archivePath = $this->copyStorageObjectToTempFile($disk, $sourceObjectPath);
@@ -55,8 +59,8 @@ final class StudyImportArchiveReader
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $deckId = $this->targetDeckId($pdo);
-            $noteTypeNames = $this->noteTypeNamesById($pdo);
-            $cards = $this->fetchTargetDeckCards($pdo, $deckId, $noteTypeNames);
+            $noteTypes = $this->noteTypesById($pdo);
+            $cards = $this->fetchTargetDeckCards($pdo, $deckId, $noteTypes);
 
             if ($cards === []) {
                 throw new StudyImportPreviewException('Deck "'.StudyImportJob::DEFAULT_DECK_NAME.'" has no cards to import.');
@@ -264,21 +268,27 @@ final class StudyImportArchiveReader
     }
 
     /**
-     * @return array<int, string>
+     * @return array<int, array{name: string, fields: list<string>, templates: array<int, array{name: string, front: string, back: string}>}>
      */
-    private function noteTypeNamesById(PDO $pdo): array
+    private function noteTypesById(PDO $pdo): array
     {
         if ($this->hasTable($pdo, 'notetypes')) {
             $rows = $this->fetchAll($pdo, 'SELECT id, name FROM notetypes');
 
             return array_reduce(
                 $rows,
-                static function (array $names, array $row): array {
+                static function (array $noteTypes, array $row): array {
                     if (isset($row['id']) && is_numeric($row['id']) && isset($row['name']) && is_string($row['name'])) {
-                        $names[(int) $row['id']] = trim(str_replace("\0", '', $row['name']));
+                        // Normalized Anki schemas split fields/templates into separate tables.
+                        // Querying them is deferred; renderer falls back to positional fields.
+                        $noteTypes[(int) $row['id']] = [
+                            'name' => trim(str_replace("\0", '', $row['name'])),
+                            'fields' => [],
+                            'templates' => [],
+                        ];
                     }
 
-                    return $names;
+                    return $noteTypes;
                 },
                 [],
             );
@@ -286,26 +296,91 @@ final class StudyImportArchiveReader
 
         $collectionRow = $this->collectionMetadata($pdo);
         $models = $this->decodeJsonObject((string) ($collectionRow['models'] ?? '{}'));
-        $names = [];
+        $noteTypes = [];
 
         foreach ($models as $model) {
             if (! is_array($model) || ! isset($model['id']) || ! is_numeric($model['id'])) {
                 continue;
             }
 
-            $names[(int) $model['id']] = isset($model['name']) && is_string($model['name'])
-                ? trim(str_replace("\0", '', $model['name']))
-                : '';
+            $noteTypes[(int) $model['id']] = [
+                'name' => isset($model['name']) && is_string($model['name'])
+                    ? trim(str_replace("\0", '', $model['name']))
+                    : '',
+                'fields' => $this->noteTypeFieldNames($model),
+                'templates' => $this->noteTypeTemplates($model),
+            ];
         }
 
-        return $names;
+        return $noteTypes;
     }
 
     /**
-     * @param  array<int, string>  $noteTypeNames
+     * @param  array<string, mixed>  $model
+     * @return list<string>
+     */
+    private function noteTypeFieldNames(array $model): array
+    {
+        $fields = $model['flds'] ?? [];
+
+        if (! is_array($fields)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            static fn (mixed $field): string => is_array($field) && isset($field['name']) && is_string($field['name'])
+                ? trim(str_replace("\0", '', $field['name']))
+                : '',
+            $fields,
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $model
+     * @return array<int, array{name: string, front: string, back: string}>
+     */
+    private function noteTypeTemplates(array $model): array
+    {
+        $templates = $model['tmpls'] ?? [];
+
+        if (! is_array($templates)) {
+            return [];
+        }
+
+        $templatesByOrdinal = [];
+
+        foreach ($templates as $index => $template) {
+            if (! is_array($template)) {
+                continue;
+            }
+
+            $ordinal = isset($template['ord']) && is_numeric($template['ord'])
+                ? (int) $template['ord']
+                : (int) $index;
+
+            $templatesByOrdinal[$ordinal] = [
+                'name' => isset($template['name']) && is_string($template['name'])
+                    ? trim(str_replace("\0", '', $template['name']))
+                    : '',
+                'front' => isset($template['qfmt']) && is_string($template['qfmt'])
+                    ? str_replace("\0", '', $template['qfmt'])
+                    : '',
+                'back' => isset($template['afmt']) && is_string($template['afmt'])
+                    ? str_replace("\0", '', $template['afmt'])
+                    : '',
+            ];
+        }
+
+        ksort($templatesByOrdinal);
+
+        return $templatesByOrdinal;
+    }
+
+    /**
+     * @param  array<int, array{name: string, fields: list<string>, templates: array<int, array{name: string, front: string, back: string}>}>  $noteTypes
      * @return list<StudyImportArchiveCard>
      */
-    private function fetchTargetDeckCards(PDO $pdo, int $deckId, array $noteTypeNames): array
+    private function fetchTargetDeckCards(PDO $pdo, int $deckId, array $noteTypes): array
     {
         $rows = $this->fetchAll(
             $pdo,
@@ -326,15 +401,29 @@ final class StudyImportArchiveReader
         );
 
         return array_map(
-            static fn (array $row): StudyImportArchiveCard => new StudyImportArchiveCard(
-                sourceCardId: (int) $row['card_id'],
-                sourceNoteId: (int) $row['note_id'],
-                sourceDeckId: (int) $row['deck_id'],
-                sourceNoteTypeId: (int) $row['note_type_id'],
-                sourceNoteTypeName: $noteTypeNames[(int) $row['note_type_id']] ?? '',
-                sourceTemplateOrdinal: (int) $row['template_ord'],
-                noteFields: is_string($row['note_fields']) ? str_replace("\0", '', $row['note_fields']) : '',
-            ),
+            function (array $row) use ($noteTypes): StudyImportArchiveCard {
+                $noteTypeId = (int) $row['note_type_id'];
+                $templateOrdinal = (int) $row['template_ord'];
+                $noteFields = is_string($row['note_fields']) ? str_replace("\0", '', $row['note_fields']) : '';
+                $noteType = $noteTypes[$noteTypeId] ?? [
+                    'name' => '',
+                    'fields' => [],
+                    'templates' => [],
+                ];
+                $renderedText = $this->templateRenderer->render($noteType, $templateOrdinal, $noteFields);
+
+                return new StudyImportArchiveCard(
+                    sourceCardId: (int) $row['card_id'],
+                    sourceNoteId: (int) $row['note_id'],
+                    sourceDeckId: (int) $row['deck_id'],
+                    sourceNoteTypeId: $noteTypeId,
+                    sourceNoteTypeName: $noteType['name'],
+                    sourceTemplateOrdinal: $templateOrdinal,
+                    frontText: $renderedText['front'],
+                    backText: $renderedText['back'],
+                    noteFields: $noteFields,
+                );
+            },
             $rows,
         );
     }

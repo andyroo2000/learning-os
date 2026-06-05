@@ -60,6 +60,7 @@ class UpdateCardStudyStatusActionTest extends TestCase
                 'course_id' => $course->id,
                 'front_text' => $card->front_text,
                 'back_text' => $card->back_text,
+                'card_type' => 'recognition',
                 'study_status' => 'suspended',
                 'new_queue_position' => null,
                 'scheduler_state' => [

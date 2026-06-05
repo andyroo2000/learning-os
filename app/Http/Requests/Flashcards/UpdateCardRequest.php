@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class UpdateCardRequest extends FormRequest
 {
@@ -22,10 +24,17 @@ class UpdateCardRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         // Trim before validation so whitespace-only input does not depend on global middleware.
-        $this->merge([
+        $normalized = [
             'front_text' => $this->trimStringInput('front_text'),
             'back_text' => $this->trimStringInput('back_text'),
-        ]);
+        ];
+
+        if (array_key_exists('card_type', $this->all())) {
+            $value = $this->input('card_type');
+            $normalized['card_type'] = is_string($value) ? strtolower(trim($value)) : $value;
+        }
+
+        $this->merge($normalized);
     }
 
     /**
@@ -36,6 +45,7 @@ class UpdateCardRequest extends FormRequest
         return [
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],
+            'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
         ];
     }
 

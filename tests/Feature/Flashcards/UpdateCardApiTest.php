@@ -4,6 +4,7 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Resources\Flashcards\CardResource;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -28,6 +29,7 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonPath('data.deck_id', $card->deck_id)
             ->assertJsonPath('data.front_text', 'arrivederci')
             ->assertJsonPath('data.back_text', 'goodbye')
+            ->assertJsonPath('data.card_type', 'recognition')
             ->assertJsonMissingPath('data.media_assets')
             ->assertJsonStructure([
                 'data' => [
@@ -36,6 +38,7 @@ class UpdateCardApiTest extends TestCase
                     'course_id',
                     'front_text',
                     'back_text',
+                    'card_type',
                     'study_status',
                     'new_queue_position',
                     'scheduler_state',
@@ -54,6 +57,7 @@ class UpdateCardApiTest extends TestCase
             'deck_id' => $card->deck_id,
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
+            'card_type' => 'recognition',
         ]);
     }
 
@@ -112,6 +116,31 @@ class UpdateCardApiTest extends TestCase
         ]);
     }
 
+    public function test_it_updates_card_type(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->putJson("/api/cards/{$card->id}", [
+                'front_text' => 'arrivederci',
+                'back_text' => 'goodbye',
+                'card_type' => ' CLOZE ',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.card_type', 'cloze');
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'card_type' => 'cloze',
+        ]);
+    }
+
     public function test_it_is_idempotent_when_text_is_unchanged(): void
     {
         $user = $this->signIn();
@@ -138,6 +167,7 @@ class UpdateCardApiTest extends TestCase
             'id' => $card->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'card_type' => 'recognition',
             'updated_at' => $timestamp,
         ]);
     }
@@ -168,6 +198,7 @@ class UpdateCardApiTest extends TestCase
             'id' => $card->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'card_type' => 'recognition',
             'updated_at' => $timestamp,
         ]);
     }
@@ -285,6 +316,92 @@ class UpdateCardApiTest extends TestCase
             'id' => $card->id,
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
+        ]);
+    }
+
+    public function test_it_rejects_blank_card_type_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->putJson("/api/cards/{$card->id}", [
+                'front_text' => 'arrivederci',
+                'back_text' => 'goodbye',
+                'card_type' => '   ',
+            ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'card_type' => 'recognition',
+        ]);
+    }
+
+    public function test_it_rejects_malformed_card_type(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'card_type' => 'reverse',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'card_type' => 'recognition',
+        ]);
+    }
+
+    public function test_it_rejects_null_card_type(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'card_type' => null,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'card_type' => 'recognition',
+        ]);
+    }
+
+    public function test_it_rejects_array_card_type(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'arrivederci',
+            'back_text' => 'goodbye',
+            'card_type' => ['cloze'],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'card_type' => 'recognition',
         ]);
     }
 

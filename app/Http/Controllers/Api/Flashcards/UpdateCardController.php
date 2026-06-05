@@ -19,6 +19,7 @@ class UpdateCardController extends Controller
         $result = $updateCard->handle($card, UpdateCardData::fromInput(
             frontText: $data['front_text'],
             backText: $data['back_text'],
+            cardType: $data['card_type'] ?? null,
         ));
 
         return CardResource::make($result->card)

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardType;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCardRequest extends FormRequest
 {
@@ -18,6 +20,14 @@ class StoreCardRequest extends FormRequest
 
             if (is_string($value)) {
                 $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        if (array_key_exists('card_type', $this->all())) {
+            $value = $this->input('card_type');
+
+            if (is_string($value)) {
+                $normalized['card_type'] = strtolower(trim($value));
             }
         }
 
@@ -43,6 +53,7 @@ class StoreCardRequest extends FormRequest
             'deck_id' => ['required', 'ulid'],
             'front_text' => ['required', 'string'],
             'back_text' => ['required', 'string'],
+            'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
         ];
     }
 }

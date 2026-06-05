@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -62,6 +63,7 @@ class UpdateCardActionTest extends TestCase
             'course_id' => $course->id,
             'front_text' => 'arrivederci',
             'back_text' => 'goodbye',
+            'card_type' => 'recognition',
             'study_status' => 'new',
             'new_queue_position' => $updatedCard->new_queue_position,
             'scheduler_state' => null,
@@ -73,6 +75,32 @@ class UpdateCardActionTest extends TestCase
             'updated_at' => $updatedCard->updated_at?->toJSON(),
             'deleted_at' => null,
         ], $entry->payload);
+    }
+
+    public function test_it_updates_card_type(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'card_type' => CardType::Recognition,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'ciao',
+                backText: 'hello',
+                cardType: ' CLOZE ',
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardType::Cloze, $result->card->card_type);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'card_type' => 'cloze',
+        ]);
+        $this->assertSame('cloze', SyncFeedEntry::query()->sole()->payload['card_type']);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -153,6 +181,27 @@ class UpdateCardActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_it_marks_unchanged_when_card_type_is_omitted(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'card_type' => CardType::Production,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'ciao',
+                backText: 'hello',
+            ),
+        );
+
+        $this->assertFalse($result->wasUpdated);
+        $this->assertSame(CardType::Production, $result->card->card_type);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_rejects_blank_front_text(): void
     {
         $card = $this->cardFor($this->signIn());
@@ -181,6 +230,40 @@ class UpdateCardActionTest extends TestCase
             UpdateCardData::fromInput(
                 frontText: 'arrivederci',
                 backText: '   ',
+            ),
+        );
+    }
+
+    public function test_it_rejects_blank_card_type_for_direct_callers(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type must not be blank when provided.');
+
+        app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'arrivederci',
+                backText: 'goodbye',
+                cardType: '   ',
+            ),
+        );
+    }
+
+    public function test_it_rejects_malformed_card_type_for_direct_callers(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type must be one of: recognition, production, cloze.');
+
+        app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: 'arrivederci',
+                backText: 'goodbye',
+                cardType: 'reverse',
             ),
         );
     }

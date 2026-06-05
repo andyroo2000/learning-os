@@ -3,6 +3,7 @@
 namespace Tests\Unit\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
@@ -77,6 +78,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
+            'card_type' => CardType::Cloze,
             'study_status' => CardStudyStatus::Review,
             'new_queue_position' => null,
             'scheduler_state' => json_encode([
@@ -101,6 +103,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
+            'card_type' => 'cloze',
             'study_status' => 'review',
             'new_queue_position' => null,
             'scheduler_state' => [
@@ -132,6 +135,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'deck_course_id' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
+            'card_type' => CardType::Production,
             'study_status' => CardStudyStatus::New,
             'new_queue_position' => 7,
             'scheduler_state' => null,
@@ -152,6 +156,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'course_id' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
+            'card_type' => 'production',
             'study_status' => 'new',
             'new_queue_position' => 7,
             'scheduler_state' => null,
@@ -174,6 +179,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'deck_course_id' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
+            'card_type' => null,
             'study_status' => null,
             'new_queue_position' => null,
             'scheduler_state' => null,
@@ -185,6 +191,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $payload = CardSyncPayload::fromCard($card);
 
         $this->assertSame('new', $payload['study_status']);
+        $this->assertSame('recognition', $payload['card_type']);
         $this->assertNull($payload['new_queue_position']);
         $this->assertNull($payload['scheduler_state']);
     }

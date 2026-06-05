@@ -42,6 +42,7 @@ class UpdateCardStudyStatusApiTest extends TestCase
                     'course_id',
                     'front_text',
                     'back_text',
+                    'card_type',
                     'study_status',
                     'new_queue_position',
                     'scheduler_state',

@@ -31,7 +31,12 @@ class UpdateCardAction
         return DB::transaction(function () use ($card, $data): UpdateCardResult {
             $card->front_text = $data->frontText;
             $card->back_text = $data->backText;
-            $wasUpdated = $card->isDirty(['front_text', 'back_text']);
+
+            if ($data->cardType !== null) {
+                $card->card_type = $data->cardType;
+            }
+
+            $wasUpdated = $card->isDirty(['front_text', 'back_text', 'card_type']);
 
             $card->saveOrFail();
 

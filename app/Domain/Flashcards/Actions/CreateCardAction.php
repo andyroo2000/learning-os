@@ -3,6 +3,7 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\CreateCardData;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
@@ -101,6 +102,7 @@ class CreateCardAction
             'deck_id' => $data->deckId,
             'front_text' => $data->frontText,
             'back_text' => $data->backText,
+            'card_type' => $data->cardType,
         ]);
 
         if ($data->id !== null) {
@@ -204,6 +206,7 @@ class CreateCardAction
             || CanonicalUlid::normalize((string) $card->deck_id) !== $data->deckId
             || trim($card->front_text ?? '') !== $data->frontText
             || trim($card->back_text ?? '') !== $data->backText
+            || ($card->card_type ?? CardType::Recognition) !== $data->cardType
         ) {
             throw CardConflictException::conflict($conflictingUserId);
         }

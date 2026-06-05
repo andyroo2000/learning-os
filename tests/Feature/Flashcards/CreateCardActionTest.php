@@ -5,6 +5,7 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -75,6 +76,7 @@ class CreateCardActionTest extends TestCase
                 'course_id' => $course->id,
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
+                'card_type' => 'recognition',
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'scheduler_state' => [
@@ -100,6 +102,28 @@ class CreateCardActionTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_it_creates_a_card_with_a_client_card_type(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'ciao',
+                backText: 'hello',
+                cardType: ' PRODUCTION ',
+            ),
+        );
+
+        $this->assertSame(CardType::Production, $result->card->card_type);
+        $this->assertDatabaseHas('cards', [
+            'id' => $result->card->id,
+            'card_type' => 'production',
+        ]);
+        $this->assertSame('production', SyncFeedEntry::query()->sole()->payload['card_type']);
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void
@@ -344,6 +368,43 @@ class CreateCardActionTest extends TestCase
         $this->assertTrue($existingCard->is($card));
         $this->assertFalse($result->wasCreated);
         $this->assertDatabaseCount('cards', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_matches_legacy_null_card_type_for_idempotent_retries(): void
+    {
+        $deck = Deck::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $existingCard = new Card;
+        $existingCard->setRawAttributes([
+            'id' => $id,
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'card_type' => null,
+            'deleted_at' => null,
+        ], sync: true);
+        $existingCard->setRelation('deck', $deck);
+
+        $resolveExistingCard = new ReflectionMethod(CreateCardAction::class, 'resolveExistingCard');
+        $resolveExistingCard->setAccessible(true);
+
+        $result = $resolveExistingCard->invoke(
+            app(CreateCardAction::class),
+            $existingCard,
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'ciao',
+                backText: 'hello',
+                cardType: CardType::Recognition,
+                id: $id,
+            ),
+        );
+
+        $this->assertSame($existingCard, $result);
+        $this->assertDatabaseCount('cards', 0);
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
@@ -678,6 +739,42 @@ class CreateCardActionTest extends TestCase
                 frontText: 'ciao',
                 backText: 'hello',
                 id: 'not-a-ulid',
+            ),
+        );
+    }
+
+    public function test_it_rejects_blank_card_type_for_direct_callers(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type must not be blank when provided.');
+
+        app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'ciao',
+                backText: 'hello',
+                cardType: '   ',
+            ),
+        );
+    }
+
+    public function test_it_rejects_malformed_card_type_for_direct_callers(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type must be one of: recognition, production, cloze.');
+
+        app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'ciao',
+                backText: 'hello',
+                cardType: 'reverse',
             ),
         );
     }

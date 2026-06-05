@@ -38,6 +38,7 @@ class CreateCardApiTest extends TestCase
                 ->assertJsonPath('data.deck_id', $deck->id)
                 ->assertJsonPath('data.front_text', 'ciao')
                 ->assertJsonPath('data.back_text', 'hello')
+                ->assertJsonPath('data.card_type', 'recognition')
                 ->assertJsonPath('data.scheduler_state.due', '2026-06-04T12:00:00.000000Z')
                 ->assertJsonPath('data.scheduler_state.state', 0)
                 ->assertJsonPath('data.scheduler_state.reps', 0)
@@ -48,6 +49,7 @@ class CreateCardApiTest extends TestCase
                         'deck_id',
                         'front_text',
                         'back_text',
+                        'card_type',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',
@@ -68,6 +70,7 @@ class CreateCardApiTest extends TestCase
                 'deck_id' => $deck->id,
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
+                'card_type' => 'recognition',
                 'study_status' => 'new',
                 'new_queue_position' => 1,
                 'due_at' => null,
@@ -162,6 +165,30 @@ class CreateCardApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_it_accepts_card_type(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', [
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'card_type' => ' PRODUCTION ',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.card_type', 'production');
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $response->json('data.id'),
+            'card_type' => 'production',
+        ]);
     }
 
     public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void
@@ -266,14 +293,16 @@ class CreateCardApiTest extends TestCase
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.deck_id', $deck->id)
             ->assertJsonPath('data.front_text', 'ciao')
-            ->assertJsonPath('data.back_text', 'hello');
+            ->assertJsonPath('data.back_text', 'hello')
+            ->assertJsonPath('data.card_type', 'recognition');
 
         $secondResponse
             ->assertOk()
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.deck_id', $deck->id)
             ->assertJsonPath('data.front_text', 'ciao')
-            ->assertJsonPath('data.back_text', 'hello');
+            ->assertJsonPath('data.back_text', 'hello')
+            ->assertJsonPath('data.card_type', 'recognition');
 
         $this->assertDatabaseCount('cards', 1);
     }
@@ -790,6 +819,84 @@ class CreateCardApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['id', 'deck_id', 'front_text', 'back_text']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_blank_card_type_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', [
+                'deck_id' => $deck->id,
+                'front_text' => 'ciao',
+                'back_text' => 'hello',
+                'card_type' => '   ',
+            ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_malformed_card_type(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'card_type' => 'reverse',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_null_card_type(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'card_type' => null,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_array_card_type(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => 'ciao',
+            'back_text' => 'hello',
+            'card_type' => ['production'],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_type']);
 
         $this->assertDatabaseCount('cards', 0);
     }

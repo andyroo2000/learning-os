@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -19,6 +20,7 @@ class ShowCardApiTest extends TestCase
         $card = $this->cardFor($user, [
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'card_type' => CardType::Cloze,
         ]);
         $card->study_status = CardStudyStatus::Review;
         $card->due_at = Carbon::parse('2026-06-05T14:15:00Z');
@@ -38,6 +40,7 @@ class ShowCardApiTest extends TestCase
                     'course_id' => null,
                     'front_text' => 'ciao',
                     'back_text' => 'hello',
+                    'card_type' => 'cloze',
                     'study_status' => 'review',
                     'new_queue_position' => null,
                     'scheduler_state' => null,

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,6 +24,7 @@ class CardTest extends TestCase
             'deck_id',
             'front_text',
             'back_text',
+            'card_type',
             'study_status',
             'due_at',
             'introduced_at',
@@ -54,13 +56,15 @@ class CardTest extends TestCase
             'deck_id' => $deck->id,
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'card_type' => 'recognition',
         ]);
     }
 
-    public function test_new_cards_default_to_new_study_status_without_schedule_dates(): void
+    public function test_new_cards_default_to_recognition_type_and_new_study_status_without_schedule_dates(): void
     {
         $card = Card::factory()->create();
 
+        $this->assertSame(CardType::Recognition, $card->card_type);
         $this->assertSame(CardStudyStatus::New, $card->study_status);
         $this->assertNull($card->due_at);
         $this->assertNull($card->introduced_at);
@@ -70,11 +74,12 @@ class CardTest extends TestCase
         $this->assertNull($card->scheduler_state);
     }
 
-    public function test_card_casts_study_state_fields(): void
+    public function test_card_casts_card_type_and_study_state_fields(): void
     {
         $dueAt = Carbon::parse('2026-06-05T14:15:00Z');
 
         $card = Card::factory()->create();
+        $card->card_type = CardType::Production;
         $card->study_status = CardStudyStatus::Review;
         $card->due_at = $dueAt;
         $card->introduced_at = Carbon::parse('2026-06-01T14:15:00Z');
@@ -89,6 +94,7 @@ class CardTest extends TestCase
         $card->save();
         $card->refresh();
 
+        $this->assertSame(CardType::Production, $card->card_type);
         $this->assertSame(CardStudyStatus::Review, $card->study_status);
         $this->assertSame($dueAt->toJSON(), $card->due_at?->toJSON());
         $this->assertSame('2026-06-01T14:15:00.000000Z', $card->introduced_at?->toJSON());

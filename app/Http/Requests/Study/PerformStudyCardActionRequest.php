@@ -46,6 +46,7 @@ class PerformStudyCardActionRequest extends FormRequest
         $cardId = $this->route('cardId');
 
         if ($user !== null && is_string($cardId)) {
+            // ConvoLab study actions target active review cards; deleted cards stay hidden instead of retry no-oping.
             $this->studyCard = Card::query()
                 ->ownedByActiveDeck((int) $user->id)
                 ->where('cards.id', CanonicalUlid::normalize($cardId))
@@ -75,9 +76,10 @@ class PerformStudyCardActionRequest extends FormRequest
             'dueAt' => [
                 'exclude_unless:action,set_due',
                 'required_if:mode,custom_date',
+                'bail',
                 'string',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value) || ! StrictIsoDateTime::matches($value)) {
+                    if (! StrictIsoDateTime::matches($value)) {
                         $fail('dueAt must be a valid ISO-8601 datetime for custom_date.');
 
                         return;
@@ -97,6 +99,7 @@ class PerformStudyCardActionRequest extends FormRequest
                 },
             ],
             'timeZone' => [
+                'exclude_unless:action,set_due',
                 'required_if:mode,tomorrow',
                 'nullable',
                 'string',

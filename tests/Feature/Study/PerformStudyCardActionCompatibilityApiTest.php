@@ -214,6 +214,25 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_it_unsuspends_a_card_and_preserves_existing_due_date(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => '2026-06-05T14:15:00Z',
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/actions", [
+            'action' => 'unsuspend',
+        ])
+            ->assertOk()
+            ->assertJsonPath('card.state.queueState', 'review')
+            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('overview.reviewCount', 1)
+            ->assertJsonPath('overview.suspendedCount', 0);
+
+        $this->assertSame('review', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
     public function test_it_returns_not_found_for_missing_unowned_or_deleted_cards_before_payload_validation(): void
     {
         $user = $this->signIn();
@@ -283,6 +302,14 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['timeZone']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => ['2026-06-05T15:30:00Z'],
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['dueAt']);
 
             $this->postJson("/api/study/cards/{$card->id}/actions", [
                 'action' => 'set_due',

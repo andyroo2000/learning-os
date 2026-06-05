@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\Flashcards\UpdateDeckController;
 use App\Http\Controllers\Api\Media\AttachMediaToCardController;
 use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
 use App\Http\Controllers\Api\Media\DetachMediaFromCardController;
+use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
 use App\Http\Controllers\Api\Media\ListCardMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListDeckMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListMediaAssetsController;
@@ -112,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}', DeleteCardController::class)->whereUlid('card');
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
+    Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class);
     Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);

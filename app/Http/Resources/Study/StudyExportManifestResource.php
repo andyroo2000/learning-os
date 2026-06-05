@@ -4,6 +4,7 @@ namespace App\Http\Resources\Study;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use LogicException;
 
 class StudyExportManifestResource extends JsonResource
 {
@@ -14,28 +15,36 @@ class StudyExportManifestResource extends JsonResource
     {
         return [
             'exported_at' => $this->resource['exported_at'],
-            'sections' => [
-                'courses' => [
-                    ...$this->resource['sections']['courses'],
-                    'path' => route('api.study.export.courses', absolute: false),
-                ],
-                'decks' => [
-                    ...$this->resource['sections']['decks'],
-                    'path' => route('api.study.export.decks', absolute: false),
-                ],
-                'cards' => [
-                    ...$this->resource['sections']['cards'],
-                    'path' => route('api.study.export.cards', absolute: false),
-                ],
-                'review_events' => [
-                    ...$this->resource['sections']['review_events'],
-                    'path' => route('api.study.export.review-events', absolute: false),
-                ],
-                'media_assets' => [
-                    ...$this->resource['sections']['media_assets'],
-                    'path' => route('api.study.export.media-assets', absolute: false),
-                ],
-            ],
+            'sections' => $this->sectionsWithPaths(),
         ];
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function sectionsWithPaths(): array
+    {
+        $sections = [];
+
+        foreach ($this->resource['sections'] as $section => $payload) {
+            $sections[$section] = [
+                ...$payload,
+                'path' => route($this->routeNameForSection($section), absolute: false),
+            ];
+        }
+
+        return $sections;
+    }
+
+    private function routeNameForSection(string $section): string
+    {
+        return match ($section) {
+            'courses' => 'api.study.export.courses',
+            'decks' => 'api.study.export.decks',
+            'cards' => 'api.study.export.cards',
+            'review_events' => 'api.study.export.review-events',
+            'media_assets' => 'api.study.export.media-assets',
+            default => throw new LogicException("Study export section [{$section}] is missing a route name."),
+        };
     }
 }

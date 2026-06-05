@@ -104,4 +104,29 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'updated_at' => '2026-05-30T12:15:00.000000Z',
         ], $payload);
     }
+
+    public function test_it_preserves_raw_legacy_rating_values(): void
+    {
+        $reviewEvent = new CardReviewEvent;
+        $reviewEvent->setRawAttributes([
+            'id' => '01jzq4tvb2sbc5ab6b0n3thhay',
+            'card_id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'card_deck_id' => null,
+            'card_course_id' => null,
+            'rating' => 'legacy-rating',
+            'reviewed_at' => null,
+            'duration_ms' => null,
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => null,
+            'created_at' => null,
+            'updated_at' => null,
+        ], sync: true);
+
+        $payload = CardReviewEventSyncPayload::fromReviewEvent($reviewEvent);
+
+        $this->assertSame('legacy-rating', $payload['rating']);
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Data;
 
+use App\Domain\Flashcards\Enums\CardType;
 use App\Support\Identifiers\CanonicalUlid;
 use LogicException;
 
@@ -12,6 +13,7 @@ final readonly class CreateCardData
         public string $deckId,
         public string $frontText,
         public string $backText,
+        public CardType $cardType,
         public ?string $id = null,
     ) {}
 
@@ -20,6 +22,7 @@ final readonly class CreateCardData
         string $deckId,
         string $frontText,
         string $backText,
+        CardType|string|null $cardType = null,
         ?string $id = null,
     ): self {
         if ($userId < 1) {
@@ -33,6 +36,7 @@ final readonly class CreateCardData
             deckId: CanonicalUlid::normalize($deckId),
             frontText: trim($frontText),
             backText: trim($backText),
+            cardType: $cardType === null ? CardType::Recognition : CardType::fromInput($cardType),
             id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }

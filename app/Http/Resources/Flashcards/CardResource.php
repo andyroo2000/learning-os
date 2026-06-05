@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Http\Resources\Media\MediaAssetResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -20,6 +21,7 @@ class CardResource extends JsonResource
             'course_id' => $this->deckCourseId(),
             'front_text' => $this->front_text,
             'back_text' => $this->back_text,
+            'card_type' => $this->card_type?->value ?? CardType::Recognition->value,
             'study_status' => $this->study_status?->value ?? CardStudyStatus::New->value,
             'new_queue_position' => $this->new_queue_position,
             'scheduler_state' => $this->scheduler_state,

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,7 @@ class CardFactory extends Factory
             'deck_id' => Deck::factory(),
             'front_text' => fake()->sentence(),
             'back_text' => fake()->sentence(),
+            'card_type' => CardType::Recognition,
         ];
     }
 }

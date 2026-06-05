@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
@@ -28,12 +29,14 @@ class ListDeckCardsApiTest extends TestCase
         $firstCard = Card::factory()->for($deck)->create([
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'card_type' => CardType::Production,
             'created_at' => now()->subDay(),
             'updated_at' => now()->subDay(),
         ]);
         $secondCard = Card::factory()->for($deck)->create([
             'front_text' => 'grazie',
             'back_text' => 'thanks',
+            'card_type' => CardType::Cloze,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -57,6 +60,7 @@ class ListDeckCardsApiTest extends TestCase
                         'course_id',
                         'front_text',
                         'back_text',
+                        'card_type',
                         'study_status',
                         'new_queue_position',
                         'scheduler_state',
@@ -78,6 +82,7 @@ class ListDeckCardsApiTest extends TestCase
                 'course_id' => null,
                 'front_text' => 'ciao',
                 'back_text' => 'hello',
+                'card_type' => 'production',
                 'study_status' => 'new',
                 'new_queue_position' => $firstCard->new_queue_position,
                 'scheduler_state' => null,
@@ -95,6 +100,7 @@ class ListDeckCardsApiTest extends TestCase
                 'course_id' => null,
                 'front_text' => 'grazie',
                 'back_text' => 'thanks',
+                'card_type' => 'cloze',
                 'study_status' => 'new',
                 'new_queue_position' => $secondCard->new_queue_position,
                 'scheduler_state' => null,

@@ -25,6 +25,7 @@ class StoreCardController extends Controller
                 deckId: $data['deck_id'],
                 frontText: $data['front_text'],
                 backText: $data['back_text'],
+                cardType: $data['card_type'] ?? null,
                 id: $data['id'] ?? null,
             ));
         } catch (CardConflictException $exception) {

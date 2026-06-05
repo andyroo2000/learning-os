@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
 use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
 use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
+use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
@@ -115,6 +116,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');
     Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
+    Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);

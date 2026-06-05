@@ -17,6 +17,7 @@ class GetStudyExportManifestAction
      *     exported_at: string,
      *     current_checkpoint: int,
      *     sections: array{
+     *         settings: array{total: int},
      *         courses: array{total: int},
      *         decks: array{total: int},
      *         cards: array{total: int},
@@ -33,6 +34,7 @@ class GetStudyExportManifestAction
             'exported_at' => $now->toJSON(),
             'current_checkpoint' => $this->currentCheckpoint($userId),
             'sections' => [
+                'settings' => ['total' => 1],
                 'courses' => ['total' => Course::query()->where('user_id', $userId)->count('id')],
                 'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
                 'cards' => ['total' => $this->activeCardCount($userId)],

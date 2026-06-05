@@ -161,6 +161,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
+    Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);
     Route::prefix('/decks/{deck}')

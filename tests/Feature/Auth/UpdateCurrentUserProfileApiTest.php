@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -98,6 +99,36 @@ class UpdateCurrentUserProfileApiTest extends TestCase
         $user->refresh();
 
         $this->assertSame('ada@example.com', $user->email);
+    }
+
+    public function test_it_normalizes_profile_fields_without_global_trim_middleware(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Ada',
+            'email' => 'ada@example.com',
+            'email_verified_at' => now(),
+        ]);
+        $token = $user->createToken('Ada iPhone')->plainTextToken;
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->withToken($token)
+            ->putJson('/api/me', [
+                'name' => ' Ada Lovelace ',
+                'email' => ' ADA.LOVELACE@example.com ',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Ada Lovelace')
+            ->assertJsonPath('data.email', 'ada.lovelace@example.com')
+            ->assertJsonPath('data.email_verified_at', null);
+
+        $user->refresh();
+
+        $this->assertSame('Ada Lovelace', $user->name);
+        $this->assertSame('ada.lovelace@example.com', $user->email);
+        $this->assertNull($user->email_verified_at);
     }
 
     public function test_it_validates_the_profile_payload(): void

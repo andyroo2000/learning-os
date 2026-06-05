@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -102,6 +103,32 @@ class RegisterMobileUserApiTest extends TestCase
 
         $this->assertSame(1, User::where('email', 'grace@example.com')->count());
         $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_it_normalizes_registration_fields_without_global_trim_middleware(): void
+    {
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/auth/register', [
+                'name' => ' Katherine Johnson ',
+                'email' => ' KATHERINE@example.com ',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'device_name' => ' Katherine iPad ',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.user.name', 'Katherine Johnson')
+            ->assertJsonPath('data.user.email', 'katherine@example.com');
+
+        $user = User::where('email', 'katherine@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('Katherine Johnson', $user->name);
+
+        $token = PersonalAccessToken::findToken($response->json('data.token'));
+        $this->assertNotNull($token);
+        $this->assertSame('Katherine iPad', $token->name);
     }
 
     public function test_it_rate_limits_registration_attempts_by_email_and_ip(): void

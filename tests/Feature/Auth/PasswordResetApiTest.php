@@ -6,6 +6,7 @@ use App\Domain\Auth\Actions\ResetUserPasswordAction;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
@@ -88,6 +89,23 @@ class PasswordResetApiTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_it_normalizes_forgot_password_email_without_global_trim_middleware(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/auth/password/forgot', [
+                'email' => ' ADA@example.com ',
+            ]);
+
+        $response->assertNoContent();
+        Notification::assertSentTo($user, ResetPassword::class);
+    }
+
     public function test_it_resets_a_password_and_revokes_existing_mobile_tokens(): void
     {
         Event::fake([PasswordResetEvent::class]);
@@ -126,6 +144,30 @@ class PasswordResetApiTest extends TestCase
                 'device_name' => 'Ada iPad',
             ])
             ->assertCreated();
+    }
+
+    public function test_it_normalizes_password_reset_email_without_global_trim_middleware(): void
+    {
+        Event::fake([PasswordResetEvent::class]);
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => 'old-password123',
+        ]);
+        $resetToken = Password::broker()->createToken($user);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/auth/password/reset', [
+                'email' => ' ADA@example.com ',
+                'token' => $resetToken,
+                'password' => 'new-password123',
+                'password_confirmation' => 'new-password123',
+            ]);
+
+        $response->assertNoContent();
+
+        $this->assertTrue(Hash::check('new-password123', $user->refresh()->password));
+        Event::assertDispatched(PasswordResetEvent::class);
     }
 
     public function test_it_rejects_invalid_reset_tokens_without_updating_the_password(): void

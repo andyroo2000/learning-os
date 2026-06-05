@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -66,6 +67,28 @@ class StoreMobileTokenApiTest extends TestCase
             'password' => 'password',
             'device_name' => ' Grace iPad ',
         ]);
+
+        $response->assertCreated();
+
+        $token = PersonalAccessToken::findToken($response->json('data.token'));
+
+        $this->assertNotNull($token);
+        $this->assertSame('Grace iPad', $token->name);
+    }
+
+    public function test_it_normalizes_email_and_device_name_without_global_trim_middleware(): void
+    {
+        User::factory()->create([
+            'email' => 'grace@example.com',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/auth/tokens', [
+                'email' => ' GRACE@example.com ',
+                'password' => 'password',
+                'device_name' => ' Grace iPad ',
+            ]);
 
         $response->assertCreated();
 

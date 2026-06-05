@@ -5,13 +5,13 @@ namespace App\Domain\Flashcards\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
-use App\Support\Pagination\CursorPagination;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -32,9 +32,9 @@ class ReorderNewCardQueueAction
     {
         $cardIds = $this->normalizeCardIds($cardIds);
 
-        if (count($cardIds) < 1 || count($cardIds) > CursorPagination::MAX_PAGE_SIZE) {
+        if (count($cardIds) < 1 || count($cardIds) > NewCardQueueLimits::PAGE_SIZE_MAX) {
             throw CardValidationException::invalidCardIds(
-                'card_ids must include between 1 and '.CursorPagination::MAX_PAGE_SIZE.' cards.',
+                'card_ids must include between 1 and '.NewCardQueueLimits::PAGE_SIZE_MAX.' cards.',
             );
         }
 

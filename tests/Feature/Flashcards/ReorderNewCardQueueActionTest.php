@@ -125,6 +125,17 @@ class ReorderNewCardQueueActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_more_than_the_convolab_queue_batch_limit(): void
+    {
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('card_ids must include between 1 and 500 cards.');
+
+        app(ReorderNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            cardIds: array_fill(0, 501, strtolower((string) str()->ulid())),
+        );
+    }
+
     public function test_it_rejects_malformed_card_ids_for_direct_callers(): void
     {
         $this->expectException(CardValidationException::class);

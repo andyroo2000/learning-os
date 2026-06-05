@@ -9,6 +9,9 @@ use Illuminate\Validation\Rule;
 
 class StoreCardRequest extends FormRequest
 {
+    // Keep aligned with the required string fields in rules(); arrays must still reach validation unchanged.
+    private const TRIMMED_INPUT_KEYS = ['front_text', 'back_text'];
+
     protected function prepareForValidation(): void
     {
         // This intentionally mirrors CreateCardData normalization before validation,
@@ -20,6 +23,14 @@ class StoreCardRequest extends FormRequest
 
             if (is_string($value)) {
                 $normalized[$key] = CanonicalUlid::normalize($value);
+            }
+        }
+
+        foreach (self::TRIMMED_INPUT_KEYS as $key) {
+            $value = $this->input($key);
+
+            if (is_string($value)) {
+                $normalized[$key] = trim($value);
             }
         }
 

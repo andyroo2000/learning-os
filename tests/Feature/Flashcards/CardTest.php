@@ -22,6 +22,13 @@ class CardTest extends TestCase
         $this->assertTrue(Schema::hasColumns('cards', [
             'id',
             'deck_id',
+            'import_job_id',
+            'source_kind',
+            'source_card_id',
+            'source_note_id',
+            'source_deck_id',
+            'source_notetype_name',
+            'source_template_ord',
             'front_text',
             'back_text',
             'card_type',
@@ -99,6 +106,10 @@ class CardTest extends TestCase
             'stability' => 0.1,
             'state' => 0,
         ];
+        $card->source_card_id = '1700000000001';
+        $card->source_note_id = '1700000000002';
+        $card->source_deck_id = '1700000000003';
+        $card->source_template_ord = '2';
         $card->save();
         $card->refresh();
 
@@ -116,14 +127,25 @@ class CardTest extends TestCase
             'stability' => 0.1,
             'state' => 0,
         ], $card->scheduler_state);
+        $this->assertSame(1700000000001, $card->source_card_id);
+        $this->assertSame(1700000000002, $card->source_note_id);
+        $this->assertSame(1700000000003, $card->source_deck_id);
+        $this->assertSame(2, $card->source_template_ord);
     }
 
-    public function test_card_study_state_is_not_mass_assignable(): void
+    public function test_server_owned_card_state_and_import_source_fields_are_not_mass_assignable(): void
     {
         $card = new Card([
             'deck_id' => strtolower((string) Str::ulid()),
             'front_text' => 'ciao',
             'back_text' => 'hello',
+            'import_job_id' => strtolower((string) Str::ulid()),
+            'source_kind' => 'anki_import',
+            'source_card_id' => 1700000000001,
+            'source_note_id' => 1700000000002,
+            'source_deck_id' => 1700000000003,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 1,
             'study_status' => CardStudyStatus::Review,
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
@@ -142,6 +164,13 @@ class CardTest extends TestCase
         $this->assertNull($card->new_queue_position);
         $this->assertNull($card->scheduler_state);
         $this->assertSame('', $card->search_text);
+        $this->assertNull($card->import_job_id);
+        $this->assertNull($card->source_kind);
+        $this->assertNull($card->source_card_id);
+        $this->assertNull($card->source_note_id);
+        $this->assertNull($card->source_deck_id);
+        $this->assertNull($card->source_notetype_name);
+        $this->assertNull($card->source_template_ord);
     }
 
     public function test_card_belongs_to_a_deck(): void

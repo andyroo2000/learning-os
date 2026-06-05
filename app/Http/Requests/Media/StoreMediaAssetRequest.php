@@ -72,6 +72,11 @@ final class StoreMediaAssetRequest extends FormRequest
         ];
     }
 
+    public function sizeBytes(): int
+    {
+        return (int) $this->validated('size_bytes');
+    }
+
     private function validMimeTypeShapeRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {

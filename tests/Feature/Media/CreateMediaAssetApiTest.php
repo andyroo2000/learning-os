@@ -85,6 +85,28 @@ class CreateMediaAssetApiTest extends TestCase
             ->assertJsonPath('data.size_bytes', MediaAsset::MAX_JSON_SAFE_SIZE_BYTES);
     }
 
+    public function test_it_casts_validated_size_bytes_before_creating_media(): void
+    {
+        $user = $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/numeric-string-size.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => '123456',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.size_bytes', 123_456);
+
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $response->json('data.id'),
+            'user_id' => $user->id,
+            'size_bytes' => 123_456,
+        ]);
+    }
+
     public function test_it_accepts_a_client_provided_ulid(): void
     {
         $user = $this->signIn();
@@ -517,6 +539,24 @@ class CreateMediaAssetApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['id']);
+
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_rejects_array_size_bytes_input(): void
+    {
+        $this->signIn();
+
+        $response = $this->postJson('/api/media-assets', [
+            'disk' => 'media',
+            'path' => 'uploads/example.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => ['123456'],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['size_bytes']);
 
         $this->assertDatabaseCount('media_assets', 0);
     }

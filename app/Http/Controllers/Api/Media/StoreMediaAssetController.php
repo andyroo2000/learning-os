@@ -24,7 +24,7 @@ final class StoreMediaAssetController extends Controller
                 disk: $data['disk'],
                 path: $data['path'],
                 mimeType: $data['mime_type'],
-                sizeBytes: $data['size_bytes'],
+                sizeBytes: $request->sizeBytes(),
                 publicUrl: $data['public_url'] ?? null,
                 checksumSha256: $data['checksum_sha256'] ?? null,
                 originalFilename: $data['original_filename'] ?? null,

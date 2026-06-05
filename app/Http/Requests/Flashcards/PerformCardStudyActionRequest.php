@@ -4,15 +4,20 @@ namespace App\Http\Requests\Flashcards;
 
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Requests\Concerns\FiltersByDeckId;
 use App\Support\DateTime\StrictIsoDateTime;
+use App\Support\Identifiers\CanonicalUlid;
 use Exception;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class PerformCardStudyActionRequest extends FormRequest
 {
+    use FiltersByDeckId;
+
     public function authorize(): bool
     {
         /** @var Card $card */
@@ -34,6 +39,8 @@ class PerformCardStudyActionRequest extends FormRequest
         if (is_string($this->input('mode'))) {
             $data['mode'] = strtolower(trim($this->input('mode')));
         }
+
+        $this->prepareDeckIdForValidation();
 
         if ($data !== []) {
             $this->merge($data);
@@ -88,7 +95,30 @@ class PerformCardStudyActionRequest extends FormRequest
                 'string',
                 'timezone',
             ],
+            'deck_id' => ['sometimes', 'filled', 'ulid'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->has('deck_id')) {
+                return;
+            }
+
+            $deckId = $validator->getData()['deck_id'] ?? null;
+
+            if (! is_string($deckId)) {
+                return;
+            }
+
+            /** @var Card $card */
+            $card = $this->route('card');
+
+            if (CanonicalUlid::normalize((string) $card->deck_id) !== $deckId) {
+                $validator->errors()->add('deck_id', "The deck_id must match the card's deck.");
+            }
+        });
     }
 
     /**

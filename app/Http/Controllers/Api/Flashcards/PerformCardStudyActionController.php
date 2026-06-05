@@ -33,6 +33,7 @@ class PerformCardStudyActionController extends Controller
             'overview' => $getStudyOverview->handle(
                 userId: (int) $request->user()->id,
                 timeZone: $data['time_zone'] ?? null,
+                deckId: $request->deckId(),
             ),
         ])
             ->response()

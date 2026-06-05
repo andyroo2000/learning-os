@@ -2,18 +2,18 @@
 
 namespace App\Http\Requests\Concerns;
 
-use App\Support\Identifiers\CanonicalUlid;
-
 trait FiltersByDeckId
 {
+    use NormalizesUlidInput;
+
     protected function prepareDeckIdForValidation(): void
     {
-        $deckId = $this->input('deck_id');
+        $input = [];
 
-        if (is_string($deckId)) {
-            $this->merge([
-                'deck_id' => CanonicalUlid::normalize($deckId),
-            ]);
+        $this->mergeNormalizedUlidInput($input, 'deck_id');
+
+        if ($input !== []) {
+            $this->merge($input);
         }
     }
 

@@ -67,6 +67,34 @@ class PerformCardStudyActionApiTest extends TestCase
         }
     }
 
+    public function test_it_returns_a_deck_scoped_overview_when_deck_id_is_provided(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $card = Card::factory()->for($deck)->create([
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+        Card::factory()->for($otherDeck)->create([
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'deck_id' => $deck->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'suspended')
+            ->assertJsonPath('data.overview.review_count', 0)
+            ->assertJsonPath('data.overview.suspended_count', 1)
+            ->assertJsonPath('data.overview.total_cards', 1);
+    }
+
     public function test_it_normalizes_action_and_mode_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
@@ -87,6 +115,35 @@ class PerformCardStudyActionApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_it_normalizes_deck_id_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $card = Card::factory()->for($deck)->create([
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+        Card::factory()->for($otherDeck)->create([
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => '  SUSPEND  ',
+            'deck_id' => '  '.strtoupper($deck->id).'  ',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.review_count', 0)
+            ->assertJsonPath('data.overview.suspended_count', 1)
+            ->assertJsonPath('data.overview.total_cards', 1);
     }
 
     public function test_it_suspends_a_card_without_requiring_set_due_mode(): void
@@ -240,5 +297,52 @@ class PerformCardStudyActionApiTest extends TestCase
             'action' => 'not-real',
             'mode' => ['tomorrow'],
         ])->assertNotFound();
+    }
+
+    public function test_deck_id_must_match_the_action_card_deck(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $otherDeck = $this->deckFor($user);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'deck_id' => $otherDeck->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    public function test_deck_id_must_be_a_valid_ulid_when_provided(): void
+    {
+        $card = $this->cardFor($this->signIn());
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'deck_id' => 'not-a-ulid',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'deck_id' => ['01J00000000000000000000000'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    public function test_deck_id_must_not_be_blank_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+
+        $card = $this->cardFor($this->signIn());
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'deck_id' => '   ',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
     }
 }

@@ -25,15 +25,6 @@ class UndoCardReviewEventAction
     public function handle(CardReviewEvent $reviewEvent): Card
     {
         return DB::transaction(function () use ($reviewEvent): Card {
-            $reviewEvent = CardReviewEvent::query()
-                ->whereKey($reviewEvent->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if ($reviewEvent === null) {
-                throw UndoCardReviewEventException::reviewEventUnavailable();
-            }
-
             $card = Card::query()
                 ->whereKey($reviewEvent->card_id)
                 ->lockForUpdate()
@@ -46,6 +37,19 @@ class UndoCardReviewEventAction
             $card->load('deck');
 
             if ($card->deck === null) {
+                throw UndoCardReviewEventException::cardUnavailable();
+            }
+
+            $reviewEvent = CardReviewEvent::query()
+                ->whereKey($reviewEvent->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($reviewEvent === null) {
+                throw UndoCardReviewEventException::reviewEventUnavailable();
+            }
+
+            if ($reviewEvent->card_id !== $card->id) {
                 throw UndoCardReviewEventException::cardUnavailable();
             }
 

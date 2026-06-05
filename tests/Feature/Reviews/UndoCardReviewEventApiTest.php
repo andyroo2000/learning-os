@@ -122,7 +122,7 @@ class UndoCardReviewEventApiTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
-    public function test_it_returns_unprocessable_when_the_undo_snapshot_is_missing(): void
+    public function test_it_returns_server_error_when_the_undo_snapshot_is_missing(): void
     {
         $user = $this->signIn();
         $reviewEvent = CardReviewEvent::factory()
@@ -138,7 +138,7 @@ class UndoCardReviewEventApiTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
-    public function test_it_returns_unprocessable_when_the_undo_snapshot_is_invalid(): void
+    public function test_it_returns_server_error_when_the_undo_snapshot_is_invalid(): void
     {
         $user = $this->signIn();
         $reviewEvent = CardReviewEvent::factory()

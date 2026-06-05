@@ -77,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/card-review-events', ListReviewEventsController::class);
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
+    // Review undo hard-deletes the event; DELETE retries for already-undone events resolve as 404.
     Route::delete('/card-review-events/{cardReviewEvent}', UndoCardReviewEventController::class)->whereUlid('cardReviewEvent');
     Route::post('/card-review-events', StoreCardReviewEventController::class);
     Route::get('/cards/due', ListDueCardsController::class);

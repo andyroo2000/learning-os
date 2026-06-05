@@ -173,12 +173,14 @@ class ListStudyBrowserAction
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
     ): Collection {
+        $baseQuery = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState);
+
         // Mirror the outer filters so the review aggregate scans only stats for visible browser cards.
-        $matchingCardIds = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+        $matchingCardIds = (clone $baseQuery)
             ->select('cards.id')
             ->toBase();
 
-        return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+        return $baseQuery
             ->leftJoinSub(
                 $this->reviewCountSubquery($matchingCardIds),
                 'review_event_stats',

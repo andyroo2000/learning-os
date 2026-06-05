@@ -185,7 +185,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $this->getJson('/api/study/browser/9001')->assertNotFound();
         $this->getJson('/api/study/browser/9002')->assertNotFound();
         $this->getJson('/api/study/browser/9003')->assertNotFound();
-        $this->getJson('/api/study/browser/does-not-exist')->assertNotFound();
+        $this->getJson('/api/study/browser/99999999')->assertNotFound();
     }
 
     public function test_it_requires_authentication(): void

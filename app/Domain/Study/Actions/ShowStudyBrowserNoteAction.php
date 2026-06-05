@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class ShowStudyBrowserNoteAction
 {
+    private const SOURCE_KIND_NATIVE = 'native';
+
     public function handle(int $userId, string $noteId): ?StudyBrowserNoteDetailResult
     {
         $cards = $this->cardsForNote($userId, $noteId);
@@ -30,7 +32,7 @@ class ShowStudyBrowserNoteAction
             noteTypeName: $firstCard->source_notetype_name,
             sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
                 ? $firstCard->source_kind
-                : 'native',
+                : self::SOURCE_KIND_NATIVE,
             updatedAt: $cards->map(fn (Card $card) => $card->updated_at)->filter()->max()?->toJSON(),
             rawFields: $this->fieldsForCards($cards),
             canonicalFields: $this->canonicalFieldsForCards($cards),

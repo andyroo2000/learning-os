@@ -451,6 +451,17 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonValidationErrors('deck_id');
     }
 
+    public function test_it_rejects_an_array_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/card-review-events?course_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('course_id');
+    }
+
     public function test_it_rejects_an_array_card_id_filter(): void
     {
         $this->signIn();
@@ -594,6 +605,48 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lowTieEvent->id)
             ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_preserves_course_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = Deck::factory()->for($course)->for($user)->create();
+        $otherDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $otherCard = Card::factory()->for($otherDeck)->create();
+        $olderEvent = CardReviewEvent::factory()->for($card)->create([
+            'reviewed_at' => now()->subMinutes(2),
+        ]);
+        $newerEvent = CardReviewEvent::factory()->for($card)->create([
+            'reviewed_at' => now()->subMinute(),
+        ]);
+        $otherCourseEvent = CardReviewEvent::factory()->for($otherCard)->create([
+            'reviewed_at' => now(),
+        ]);
+
+        $firstPage = $this->getJson("/api/card-review-events?course_id={$course->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerEvent->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderEvent->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseEvent->id,
+            ]);
     }
 
     public function test_it_preserves_card_id_filter_when_following_a_cursor(): void

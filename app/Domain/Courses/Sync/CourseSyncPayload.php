@@ -2,6 +2,7 @@
 
 namespace App\Domain\Courses\Sync;
 
+use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
 
 final class CourseSyncPayload
@@ -21,7 +22,7 @@ final class CourseSyncPayload
             'id' => $course->id,
             'title' => $course->title,
             'description' => $course->description,
-            'status' => $course->status->value,
+            'status' => $course->status?->value ?? CourseStatus::Draft->value,
             'native_language' => $course->native_language,
             'target_language' => $course->target_language,
             'created_at' => $course->created_at?->toJSON(),

@@ -54,7 +54,7 @@ class ListStudyBrowserRequest extends FormRequest
                 'string',
                 'max:1000',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value) || trim($value) === '') {
+                    if (trim($value) === '') {
                         $fail('cursor must be a non-empty string.');
 
                         return;

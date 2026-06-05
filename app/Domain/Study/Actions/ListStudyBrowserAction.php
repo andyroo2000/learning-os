@@ -52,6 +52,7 @@ class ListStudyBrowserAction
         ?string $cursor = null,
         ?int $limit = null,
     ): array {
+        $q = $this->normalizeSearchQuery($q);
         $noteType = $this->normalizeNoteTypeFilter($noteType);
         $cardType = $cardType === null ? null : CardType::fromFilter($cardType);
         $queueState = $queueState === null ? null : CardStudyStatus::fromFilter($queueState);
@@ -60,6 +61,7 @@ class ListStudyBrowserAction
         $limit = max(1, min(self::MAX_LIMIT, $limit ?? self::DEFAULT_LIMIT));
         $offset = $this->decodeOffsetCursor($cursor);
 
+        // Browser rows are note aggregates with derived counts, so this compatibility slice materializes matching cards before sorting and slicing.
         $cards = $this->cardsForBrowser(
             userId: $userId,
             q: $q,
@@ -87,6 +89,11 @@ class ListStudyBrowserAction
                 'queueStates' => $this->filterQueueStates($userId, $q, $noteType, $cardType),
             ],
         ];
+    }
+
+    private function normalizeSearchQuery(?string $q): ?string
+    {
+        return CardSearchText::normalizeQuery($q);
     }
 
     private function normalizeNoteTypeFilter(?string $noteType): ?string
@@ -252,7 +259,7 @@ class ListStudyBrowserAction
             $comparison = $this->sortValue($left, $sortField) <=> $this->sortValue($right, $sortField);
 
             if ($comparison === 0) {
-                $comparison = ((string) $left['noteId']) <=> ((string) $right['noteId']);
+                $comparison = $this->compareNoteIds($left['noteId'], $right['noteId']);
             }
 
             return $descending ? -$comparison : $comparison;
@@ -273,9 +280,21 @@ class ListStudyBrowserAction
         };
     }
 
+    private function compareNoteIds(mixed $leftNoteId, mixed $rightNoteId): int
+    {
+        $left = (string) $leftNoteId;
+        $right = (string) $rightNoteId;
+
+        if (ctype_digit($left) && ctype_digit($right)) {
+            return ((int) $left) <=> ((int) $right);
+        }
+
+        return $left <=> $right;
+    }
+
     private function noteIdFor(Card $card): string
     {
-        return $card->source_note_id === null ? $card->id : (string) $card->source_note_id;
+        return $card->source_note_id === null ? (string) $card->id : (string) $card->source_note_id;
     }
 
     private function displayTextFor(Card $card): string
@@ -326,9 +345,7 @@ class ListStudyBrowserAction
             ->distinct()
             ->orderBy('cards.card_type')
             ->pluck('cards.card_type')
-            ->map(fn (mixed $cardType): string => $cardType instanceof CardType
-                ? $cardType->value
-                : (is_string($cardType) ? $cardType : CardType::Recognition->value))
+            ->map(fn (mixed $cardType): string => $this->cardTypeFacetValue($cardType))
             ->unique()
             ->values()
             ->all();
@@ -347,12 +364,36 @@ class ListStudyBrowserAction
             ->distinct()
             ->orderBy('cards.study_status')
             ->pluck('cards.study_status')
-            ->map(fn (mixed $queueState): string => $queueState instanceof CardStudyStatus
-                ? $queueState->value
-                : (is_string($queueState) ? $queueState : CardStudyStatus::New->value))
+            ->map(fn (mixed $queueState): string => $this->queueStateFacetValue($queueState))
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function cardTypeFacetValue(mixed $cardType): string
+    {
+        if ($cardType instanceof CardType) {
+            return $cardType->value;
+        }
+
+        if (is_string($cardType)) {
+            return CardType::fromFilter($cardType)->value;
+        }
+
+        throw new InvalidArgumentException('Study browser card type facet must be a string or CardType.');
+    }
+
+    private function queueStateFacetValue(mixed $queueState): string
+    {
+        if ($queueState instanceof CardStudyStatus) {
+            return $queueState->value;
+        }
+
+        if (is_string($queueState)) {
+            return CardStudyStatus::fromFilter($queueState)->value;
+        }
+
+        throw new InvalidArgumentException('Study browser queue state facet must be a string or CardStudyStatus.');
     }
 
     private function encodeOffsetCursor(int $offset): string

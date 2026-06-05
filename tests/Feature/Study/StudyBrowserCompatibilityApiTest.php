@@ -123,26 +123,26 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
         Card::factory()->for($deck)->create([
             'front_text' => 'second tiebreak note',
-            'source_note_id' => 2102,
+            'source_note_id' => 10,
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
         Card::factory()->for($deck)->create([
             'front_text' => 'first tiebreak note',
-            'source_note_id' => 2101,
+            'source_note_id' => 9,
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
 
         $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc')
             ->assertOk()
-            ->assertJsonPath('rows.0.noteId', '2101')
-            ->assertJsonPath('rows.1.noteId', '2102');
+            ->assertJsonPath('rows.0.noteId', '9')
+            ->assertJsonPath('rows.1.noteId', '10');
 
         $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc')
             ->assertOk()
-            ->assertJsonPath('rows.0.noteId', '2102')
-            ->assertJsonPath('rows.1.noteId', '2101');
+            ->assertJsonPath('rows.0.noteId', '10')
+            ->assertJsonPath('rows.1.noteId', '9');
     }
 
     public function test_it_uses_card_ids_for_rows_without_source_note_ids(): void

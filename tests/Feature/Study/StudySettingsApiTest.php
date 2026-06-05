@@ -3,6 +3,8 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Sync\StudySettingsSyncPayload;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -90,6 +92,38 @@ class StudySettingsApiTest extends TestCase
             'user_id' => $user->id,
             'new_cards_per_day' => 12,
         ]);
+
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'domain' => StudySettingsSyncPayload::DOMAIN,
+            'resource_type' => StudySettingsSyncPayload::RESOURCE_TYPE,
+            'resource_id' => StudySettingsSyncPayload::RESOURCE_ID,
+            'operation' => SyncFeedOperation::Create->value,
+        ]);
+    }
+
+    public function test_update_writes_a_replayable_sync_feed_payload(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+
+        $this->patchJson('/api/study/settings', [
+            'new_cards_per_day' => 12,
+        ])->assertOk();
+
+        $response = $this->getJson('/api/sync/feed?domain=study&resource_type=settings&resource_id=settings');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.domain', StudySettingsSyncPayload::DOMAIN)
+            ->assertJsonPath('data.0.resource_type', StudySettingsSyncPayload::RESOURCE_TYPE)
+            ->assertJsonPath('data.0.resource_id', StudySettingsSyncPayload::RESOURCE_ID)
+            ->assertJsonPath('data.0.operation', SyncFeedOperation::Update->value)
+            ->assertJsonPath('data.0.payload.id', StudySettingsSyncPayload::RESOURCE_ID)
+            ->assertJsonPath('data.0.payload.new_cards_per_day', 12);
     }
 
     public function test_update_does_not_change_another_users_settings(): void

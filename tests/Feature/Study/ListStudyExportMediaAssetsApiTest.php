@@ -16,6 +16,11 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
         $this->getJson('/api/study/export/media-assets')->assertUnauthorized();
     }
 
+    public function test_convolab_media_export_alias_requires_authentication(): void
+    {
+        $this->getJson('/api/study/export/media')->assertUnauthorized();
+    }
+
     public function test_index_returns_media_assets_for_the_authenticated_user(): void
     {
         $user = $this->signIn();
@@ -79,5 +84,25 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_convolab_media_export_alias_returns_media_assets_for_the_authenticated_user(): void
+    {
+        $user = $this->signIn();
+        $asset = MediaAsset::factory()
+            ->for($user)
+            ->withPublicUrl('https://cdn.example.test/uploads/alias.jpg')
+            ->create([
+                'mime_type' => 'image/jpeg',
+                'original_filename' => 'alias.jpg',
+            ]);
+        MediaAsset::factory()->for(User::factory()->create())->create();
+
+        $this->getJson('/api/study/export/media')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $asset->id)
+            ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/alias.jpg')
+            ->assertJsonPath('data.0.original_filename', 'alias.jpg');
     }
 }

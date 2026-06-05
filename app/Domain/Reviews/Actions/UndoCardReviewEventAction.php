@@ -34,14 +34,22 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::reviewEventUnavailable();
             }
 
-            // Reload card/deck inside the transaction so direct callers cannot reuse stale loaded relations.
-            $reviewEvent->load(['card.deck']);
+            $card = Card::query()
+                ->whereKey($reviewEvent->card_id)
+                ->lockForUpdate()
+                ->first();
 
-            $card = $reviewEvent->card;
-
-            if ($card === null || $card->deck === null) {
+            if ($card === null) {
                 throw UndoCardReviewEventException::cardUnavailable();
             }
+
+            $card->load('deck');
+
+            if ($card->deck === null) {
+                throw UndoCardReviewEventException::cardUnavailable();
+            }
+
+            $reviewEvent->setRelation('card', $card);
 
             if ($this->hasNewerReviewEvent($reviewEvent)) {
                 throw UndoCardReviewEventException::notLatest();

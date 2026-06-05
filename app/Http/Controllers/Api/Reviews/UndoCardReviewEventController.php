@@ -38,7 +38,7 @@ class UndoCardReviewEventController extends Controller
             UndoCardReviewEventException::CARD_UNAVAILABLE => 404,
             UndoCardReviewEventException::NOT_LATEST => 409,
             UndoCardReviewEventException::MISSING_SNAPSHOT,
-            UndoCardReviewEventException::INVALID_SNAPSHOT => 422,
+            UndoCardReviewEventException::INVALID_SNAPSHOT => 500,
             default => 422,
         };
     }

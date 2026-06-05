@@ -132,7 +132,7 @@ class UndoCardReviewEventApiTest extends TestCase
             ]);
 
         $this->deleteJson("/api/card-review-events/{$reviewEvent->id}")
-            ->assertUnprocessable()
+            ->assertStatus(500)
             ->assertJsonPath('reason', 'card_review_event_missing_undo_state');
 
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
@@ -156,7 +156,7 @@ class UndoCardReviewEventApiTest extends TestCase
             ]);
 
         $this->deleteJson("/api/card-review-events/{$reviewEvent->id}")
-            ->assertUnprocessable()
+            ->assertStatus(500)
             ->assertJsonPath('reason', 'card_review_event_invalid_undo_state');
 
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);

@@ -216,6 +216,35 @@ class PerformCardStudyActionApiTest extends TestCase
             ->assertJsonPath('data.overview.suspended_count', 0);
     }
 
+    public function test_it_unsuspends_a_card_to_the_scheduler_state_status(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Suspended,
+            'due_at' => '2026-06-05T14:15:00Z',
+            'scheduler_state' => [
+                'due' => '2026-06-05T14:15:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 4,
+                'elapsed_days' => 2,
+                'scheduled_days' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 1,
+                'state' => 1,
+                'last_review' => '2026-06-01T09:15:00.000000Z',
+            ],
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'unsuspend',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'learning')
+            ->assertJsonPath('data.card.due_at', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('data.overview.learning_count', 1)
+            ->assertJsonPath('data.overview.suspended_count', 0);
+    }
+
     public function test_action_must_be_a_supported_string(): void
     {
         $card = $this->cardFor($this->signIn());

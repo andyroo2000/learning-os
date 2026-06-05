@@ -94,4 +94,38 @@ class CardSchedulerStateTest extends TestCase
         $this->assertSame('2026-06-05T14:15:00.000000Z', $state['due']);
         $this->assertSame('2026-06-01T09:15:00.000000Z', $state['last_review']);
     }
+
+    public function test_it_restores_study_status_from_scheduler_state(): void
+    {
+        $card = new Card;
+
+        foreach ([
+            0 => CardStudyStatus::New,
+            1 => CardStudyStatus::Learning,
+            2 => CardStudyStatus::Review,
+            3 => CardStudyStatus::Relearning,
+        ] as $state => $studyStatus) {
+            $card->scheduler_state = ['state' => $state];
+
+            $this->assertSame($studyStatus, CardSchedulerState::studyStatus($card));
+        }
+    }
+
+    public function test_it_uses_the_fallback_status_when_scheduler_state_is_missing_or_unknown(): void
+    {
+        $card = new Card;
+        $card->study_status = CardStudyStatus::Suspended;
+
+        $this->assertSame(
+            CardStudyStatus::Review,
+            CardSchedulerState::studyStatus($card, CardStudyStatus::Review),
+        );
+
+        $card->scheduler_state = ['state' => 99];
+
+        $this->assertSame(
+            CardStudyStatus::Learning,
+            CardSchedulerState::studyStatus($card, CardStudyStatus::Learning),
+        );
+    }
 }

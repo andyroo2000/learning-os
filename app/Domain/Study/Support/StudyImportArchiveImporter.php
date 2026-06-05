@@ -15,6 +15,9 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\OriginalFilename;
+use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -45,6 +48,7 @@ final class StudyImportArchiveImporter
             return DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy): StudyImportJob {
                 $deck = $this->createDeck($importJob, $archive, $now);
                 $importedCards = [];
+                $importedCardsBySourceCardId = [];
                 // nextForUser locks the owner row; this transaction holds that lock while
                 // imported cards receive contiguous positions.
                 $nextQueuePosition = $this->newCardQueuePosition->nextForUser($importJob->user_id);
@@ -62,12 +66,20 @@ final class StudyImportArchiveImporter
                         'card' => $card,
                         'archive_card' => $archiveCard,
                     ];
+                    $importedCardsBySourceCardId[$archiveCard->sourceCardId] = $card;
 
                     $this->recordCardSync($importJob->user_id, $card, $deck);
                 }
 
                 $mediaAssetsByFilename = $this->createMediaAssets($importJob, $mediaCopy['targets'], $now);
                 $this->attachMediaToCards($importJob->user_id, $deck, $importedCards, $mediaAssetsByFilename, $now);
+                $reviewLogCounts = $this->createReviewEvents(
+                    importJob: $importJob,
+                    deck: $deck,
+                    reviewLogs: $archive->reviewLogs,
+                    importedCardsBySourceCardId: $importedCardsBySourceCardId,
+                    now: $now,
+                );
 
                 $importJob->status = StudyImportStatus::Completed;
                 $importJob->deck_name = $this->deckName($archive);
@@ -76,7 +88,8 @@ final class StudyImportArchiveImporter
                     'imported_decks' => 1,
                     'imported_cards' => count($importedCards),
                     'skipped_cards' => count($archive->cards) - count($importableCards),
-                    'imported_review_logs' => 0,
+                    'imported_review_logs' => $reviewLogCounts['imported_count'],
+                    'skipped_review_logs' => $reviewLogCounts['skipped_count'],
                     'imported_media_assets' => count($mediaAssetsByFilename),
                     'skipped_media_assets' => $mediaCopy['skipped_count'],
                 ];
@@ -473,6 +486,126 @@ final class StudyImportArchiveImporter
             ->where('card_id', $card->id)
             ->where('media_asset_id', $mediaAsset->id)
             ->first(['created_at', 'updated_at']);
+    }
+
+    /**
+     * @param  list<StudyImportArchiveReviewLog>  $reviewLogs
+     * @param  array<int, Card>  $importedCardsBySourceCardId
+     * @return array{imported_count: int, skipped_count: int}
+     */
+    private function createReviewEvents(
+        StudyImportJob $importJob,
+        Deck $deck,
+        array $reviewLogs,
+        array $importedCardsBySourceCardId,
+        Carbon $now,
+    ): array {
+        $importedCount = 0;
+        $skippedCount = 0;
+        $seenSourceReviewIds = [];
+
+        // Preserve historical review events without replaying them into newly imported card state.
+        foreach ($reviewLogs as $reviewLog) {
+            $rating = $this->reviewRating($reviewLog);
+            $card = $importedCardsBySourceCardId[$reviewLog->sourceCardId] ?? null;
+
+            if ($rating === null || $card === null || isset($seenSourceReviewIds[$reviewLog->sourceReviewId])) {
+                $skippedCount++;
+
+                continue;
+            }
+
+            $seenSourceReviewIds[$reviewLog->sourceReviewId] = true;
+            $card->setRelation('deck', $deck);
+
+            $reviewEvent = new CardReviewEvent([
+                'card_id' => $card->id,
+                'rating' => $rating,
+                'reviewed_at' => $this->reviewedAt($reviewLog),
+                'duration_ms' => $this->durationMs($reviewLog),
+            ]);
+            $reviewEvent->import_job_id = $importJob->id;
+            $reviewEvent->source_kind = StudyImportJob::SOURCE_TYPE_ANKI_COLPKG;
+            $reviewEvent->source_review_id = $reviewLog->sourceReviewId;
+            $reviewEvent->source_card_id = $reviewLog->sourceCardId;
+            $reviewEvent->source_ease = $reviewLog->sourceEase;
+            $reviewEvent->source_interval = $reviewLog->sourceInterval;
+            $reviewEvent->source_last_interval = $reviewLog->sourceLastInterval;
+            $reviewEvent->source_factor = $reviewLog->sourceFactor;
+            $reviewEvent->source_time_ms = $this->durationMs($reviewLog);
+            $reviewEvent->source_review_type = $reviewLog->sourceReviewType;
+            $reviewEvent->raw_payload_json = $this->rawReviewLogPayload($reviewLog);
+            $reviewEvent->created_at = $now;
+            $reviewEvent->updated_at = $now;
+            $reviewEvent->saveOrFail();
+            $reviewEvent->setRelation('card', $card);
+
+            $this->recordReviewEventSync($importJob->user_id, $reviewEvent);
+            $importedCount++;
+        }
+
+        return [
+            'imported_count' => $importedCount,
+            'skipped_count' => $skippedCount,
+        ];
+    }
+
+    private function reviewRating(StudyImportArchiveReviewLog $reviewLog): ?CardReviewRating
+    {
+        return match ($reviewLog->sourceEase) {
+            1 => CardReviewRating::Again,
+            2 => CardReviewRating::Hard,
+            3 => CardReviewRating::Good,
+            4 => CardReviewRating::Easy,
+            default => null,
+        };
+    }
+
+    private function reviewedAt(StudyImportArchiveReviewLog $reviewLog): Carbon
+    {
+        $milliseconds = max(0, $reviewLog->sourceReviewId);
+        $seconds = intdiv($milliseconds, 1000);
+        $remainingMilliseconds = $milliseconds % 1000;
+
+        return Carbon::createFromTimestamp($seconds, 'UTC')->addMilliseconds($remainingMilliseconds);
+    }
+
+    private function durationMs(StudyImportArchiveReviewLog $reviewLog): ?int
+    {
+        return $reviewLog->sourceTimeMs === null || $reviewLog->sourceTimeMs < 0
+            ? null
+            : $reviewLog->sourceTimeMs;
+    }
+
+    /**
+     * @return array<string, int|null>
+     */
+    private function rawReviewLogPayload(StudyImportArchiveReviewLog $reviewLog): array
+    {
+        return [
+            'source_review_id' => $reviewLog->sourceReviewId,
+            'source_card_id' => $reviewLog->sourceCardId,
+            'source_ease' => $reviewLog->sourceEase,
+            'source_interval' => $reviewLog->sourceInterval,
+            'source_last_interval' => $reviewLog->sourceLastInterval,
+            'source_factor' => $reviewLog->sourceFactor,
+            'source_time_ms' => $reviewLog->sourceTimeMs,
+            'source_review_type' => $reviewLog->sourceReviewType,
+        ];
+    }
+
+    private function recordReviewEventSync(int $userId, CardReviewEvent $reviewEvent): void
+    {
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $userId,
+                domain: CardReviewEventSyncPayload::DOMAIN,
+                resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
+                resourceId: $reviewEvent->id,
+                operation: SyncFeedOperation::Create->value,
+                payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+            ),
+        );
     }
 
     /**

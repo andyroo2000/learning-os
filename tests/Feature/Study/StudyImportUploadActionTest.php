@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
 use App\Domain\Study\Actions\CreateStudyImportUploadSessionAction;
@@ -438,7 +439,8 @@ class StudyImportUploadActionTest extends TestCase
             'imported_decks' => 1,
             'imported_cards' => 3,
             'skipped_cards' => 0,
-            'imported_review_logs' => 0,
+            'imported_review_logs' => 2,
+            'skipped_review_logs' => 0,
             'imported_media_assets' => 2,
             'skipped_media_assets' => 0,
         ], $processed->summary_json);
@@ -496,9 +498,37 @@ class StudyImportUploadActionTest extends TestCase
             ]);
         }
 
-        $this->assertSame(10, SyncFeedEntry::query()->count());
+        $firstReviewEvent = CardReviewEvent::query()->where('source_review_id', 901)->sole();
+        $secondReviewEvent = CardReviewEvent::query()->where('source_review_id', 902)->sole();
+
+        $this->assertSame($cardIdsBySourceCardId[701], $firstReviewEvent->card_id);
+        $this->assertSame('good', $firstReviewEvent->rating->value);
+        $this->assertSame('1970-01-01T00:00:00.000000Z', $firstReviewEvent->reviewed_at->toJSON());
+        $this->assertSame(980, $firstReviewEvent->duration_ms);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $firstReviewEvent->source_kind);
+        $this->assertSame(701, $firstReviewEvent->source_card_id);
+        $this->assertSame(3, $firstReviewEvent->source_ease);
+        $this->assertSame(12, $firstReviewEvent->source_interval);
+        $this->assertSame(6, $firstReviewEvent->source_last_interval);
+        $this->assertSame(2500, $firstReviewEvent->source_factor);
+        $this->assertSame(1, $firstReviewEvent->source_review_type);
+        $this->assertSame([
+            'source_review_id' => 901,
+            'source_card_id' => 701,
+            'source_ease' => 3,
+            'source_interval' => 12,
+            'source_last_interval' => 6,
+            'source_factor' => 2500,
+            'source_time_ms' => 980,
+            'source_review_type' => 1,
+        ], $firstReviewEvent->raw_payload_json);
+        $this->assertSame($cardIdsBySourceCardId[703], $secondReviewEvent->card_id);
+        $this->assertSame('easy', $secondReviewEvent->rating->value);
+
+        $this->assertSame(12, SyncFeedEntry::query()->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
+        $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
     }
 
     public function test_process_job_skips_missing_media_content(): void
@@ -526,7 +556,8 @@ class StudyImportUploadActionTest extends TestCase
             'imported_decks' => 1,
             'imported_cards' => 3,
             'skipped_cards' => 0,
-            'imported_review_logs' => 0,
+            'imported_review_logs' => 2,
+            'skipped_review_logs' => 0,
             'imported_media_assets' => 1,
             'skipped_media_assets' => 1,
         ], $processed?->summary_json);
@@ -543,7 +574,37 @@ class StudyImportUploadActionTest extends TestCase
             'source_media_ref' => '1',
         ]);
         $this->assertDatabaseCount('card_media', 2);
-        $this->assertSame(7, SyncFeedEntry::query()->count());
+        $this->assertSame(9, SyncFeedEntry::query()->count());
+    }
+
+    public function test_process_job_skips_legacy_review_logs_without_ratings(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/legacy-review-log.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['legacy_revlog_schema' => true]),
+        );
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame([
+            'imported_decks' => 1,
+            'imported_cards' => 3,
+            'skipped_cards' => 0,
+            'imported_review_logs' => 0,
+            'skipped_review_logs' => 2,
+            'imported_media_assets' => 2,
+            'skipped_media_assets' => 0,
+        ], $processed?->summary_json);
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertSame(10, SyncFeedEntry::query()->count());
     }
 
     public function test_process_job_skips_cards_with_blank_rendered_text(): void
@@ -567,7 +628,8 @@ class StudyImportUploadActionTest extends TestCase
             'imported_decks' => 1,
             'imported_cards' => 2,
             'skipped_cards' => 1,
-            'imported_review_logs' => 0,
+            'imported_review_logs' => 2,
+            'skipped_review_logs' => 0,
             'imported_media_assets' => 0,
             'skipped_media_assets' => 0,
         ], $processed?->summary_json);

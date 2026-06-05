@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
+use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
 use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
@@ -122,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class);
     Route::get('/study/export', ShowStudyExportManifestController::class);
+    Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');
     Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');
     Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');
     Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');

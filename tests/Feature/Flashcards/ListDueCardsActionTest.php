@@ -24,6 +24,8 @@ class ListDueCardsActionTest extends TestCase
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
         $deck = $this->deckFor($user);
+        $deletedDeck = $this->deckFor($user);
+        $deletedDeck->delete();
         $firstDueCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
             'due_at' => $now->copy()->subHour(),
         ]);
@@ -43,6 +45,9 @@ class ListDueCardsActionTest extends TestCase
             'due_at' => $now->copy()->subDay(),
         ]);
         $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subDay(),
+        ]);
+        $this->cardWithStudyStatus($deletedDeck, CardStudyStatus::Review, [
             'due_at' => $now->copy()->subDay(),
         ]);
 

@@ -38,4 +38,26 @@ class CardTypeTest extends TestCase
 
         CardType::fromInput('reverse');
     }
+
+    public function test_it_normalizes_card_type_filters(): void
+    {
+        $this->assertSame(CardType::Production, CardType::fromFilter(' PRODUCTION '));
+        $this->assertSame(CardType::Production, CardType::fromFilter(CardType::Production));
+    }
+
+    public function test_it_rejects_blank_card_type_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type filter must not be blank when provided.');
+
+        CardType::fromFilter('   ');
+    }
+
+    public function test_it_rejects_malformed_card_type_filters(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card type filter must be one of: recognition, production, cloze.');
+
+        CardType::fromFilter('reverse');
+    }
 }

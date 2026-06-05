@@ -4,11 +4,13 @@ namespace App\Http\Requests\Flashcards;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
 use App\Http\Requests\Flashcards\Concerns\FiltersCardStudyStatus;
+use App\Http\Requests\Flashcards\Concerns\FiltersCardType;
 use App\Support\Identifiers\CanonicalUlid;
 
 class ListCardsRequest extends CursorPaginatedRequest
 {
     use FiltersCardStudyStatus;
+    use FiltersCardType;
 
     protected function prepareForValidation(): void
     {
@@ -28,6 +30,7 @@ class ListCardsRequest extends CursorPaginatedRequest
         }
 
         $this->prepareStudyStatusForValidation();
+        $this->prepareCardTypeForValidation();
     }
 
     /**
@@ -38,6 +41,7 @@ class ListCardsRequest extends CursorPaginatedRequest
         return parent::rules() + [
             'course_id' => ['sometimes', 'filled', 'ulid'],
             'study_status' => $this->studyStatusRules(),
+            'card_type' => $this->cardTypeRules(),
             'q' => ['sometimes', 'filled', 'string', 'max:255'],
         ];
     }

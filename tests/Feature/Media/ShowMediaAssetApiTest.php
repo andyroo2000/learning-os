@@ -35,6 +35,7 @@ class ShowMediaAssetApiTest extends TestCase
                 'data' => [
                     'id' => $mediaAsset->id,
                     'url' => 'https://cdn.example.test/uploads/front.jpg',
+                    'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
                     'mime_type' => 'image/jpeg',
                     'size_bytes' => 234_567,
                     'checksum_sha256' => str_repeat('b', 64),

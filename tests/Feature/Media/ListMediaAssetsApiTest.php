@@ -63,6 +63,7 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonPath('data.0.id', $secondMediaAsset->id)
             ->assertJsonPath('data.1.id', $firstMediaAsset->id)
             ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/second.jpg')
+            ->assertJsonPath('data.0.content_url', "/api/media-assets/{$secondMediaAsset->id}/content")
             ->assertJsonPath('data.0.mime_type', 'image/jpeg')
             ->assertJsonPath('data.0.size_bytes', 234_567)
             ->assertJsonPath('data.0.checksum_sha256', str_repeat('b', 64))
@@ -77,6 +78,7 @@ class ListMediaAssetsApiTest extends TestCase
                     '*' => [
                         'id',
                         'url',
+                        'content_url',
                         'mime_type',
                         'size_bytes',
                         'checksum_sha256',

@@ -113,7 +113,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/cards/{card}', DeleteCardController::class)->whereUlid('card');
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
-    Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class);
+    Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class)
+        ->name('api.media-assets.content');
     Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);

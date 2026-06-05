@@ -45,6 +45,7 @@ class AttachMediaToCardApiTest extends TestCase
             ->assertJsonPath('data.id', $card->id)
             ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id)
             ->assertJsonPath('data.media_assets.0.url', 'https://cdn.example.test/uploads/example.jpg')
+            ->assertJsonPath('data.media_assets.0.content_url', "/api/media-assets/{$mediaAsset->id}/content")
             ->assertJsonPath('data.media_assets.0.mime_type', 'image/jpeg')
             ->assertJsonPath('data.media_assets.0.size_bytes', 123_456)
             ->assertJsonPath('data.media_assets.0.checksum_sha256', str_repeat('a', 64))
@@ -143,7 +144,8 @@ class AttachMediaToCardApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data.media_assets')
-            ->assertJsonPath('data.media_assets.0.url', null);
+            ->assertJsonPath('data.media_assets.0.url', null)
+            ->assertJsonPath('data.media_assets.0.content_url', "/api/media-assets/{$mediaAsset->id}/content");
 
         $this->assertDatabaseCount('card_media', 1);
     }

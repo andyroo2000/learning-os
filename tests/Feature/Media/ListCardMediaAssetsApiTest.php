@@ -37,6 +37,7 @@ class ListCardMediaAssetsApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $mediaAsset->id)
             ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/example.jpg')
+            ->assertJsonPath('data.0.content_url', "/api/media-assets/{$mediaAsset->id}/content")
             ->assertJsonPath('data.0.mime_type', 'image/jpeg')
             ->assertJsonPath('data.0.size_bytes', 123_456)
             ->assertJsonPath('data.0.checksum_sha256', str_repeat('a', 64))

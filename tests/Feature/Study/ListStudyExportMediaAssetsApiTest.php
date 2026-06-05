@@ -50,12 +50,14 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $firstAsset->id)
             ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/first.jpg')
+            ->assertJsonPath('data.0.content_url', "/api/media-assets/{$firstAsset->id}/content")
             ->assertJsonPath('data.0.mime_type', 'image/jpeg')
             ->assertJsonPath('data.0.size_bytes', 123_456)
             ->assertJsonPath('data.0.checksum_sha256', str_repeat('a', 64))
             ->assertJsonPath('data.0.original_filename', 'first.jpg')
             ->assertJsonPath('data.1.id', $secondAsset->id)
             ->assertJsonPath('data.1.url', 'https://cdn.example.test/uploads/second.mp3')
+            ->assertJsonPath('data.1.content_url', "/api/media-assets/{$secondAsset->id}/content")
             ->assertJsonPath('data.1.mime_type', 'audio/mpeg')
             ->assertJsonMissingPath('data.0.disk')
             ->assertJsonMissingPath('data.0.path')
@@ -67,6 +69,7 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
                     '*' => [
                         'id',
                         'url',
+                        'content_url',
                         'mime_type',
                         'size_bytes',
                         'checksum_sha256',

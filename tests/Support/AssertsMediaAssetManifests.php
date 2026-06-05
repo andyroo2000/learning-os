@@ -10,6 +10,7 @@ trait AssertsMediaAssetManifests
     private const MEDIA_ASSET_RESOURCE_KEYS = [
         'id',
         'url',
+        'content_url',
         'mime_type',
         'size_bytes',
         'checksum_sha256',

@@ -4,10 +4,12 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Actions\GetCurrentStudyImportJobAction;
 use App\Domain\Study\Actions\ShowStudyImportJobAction;
+use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class StudyImportJobActionTest extends TestCase
@@ -68,6 +70,30 @@ class StudyImportJobActionTest extends TestCase
         StudyImportJob::factory()->failed()->for($user)->create();
 
         $this->assertNull(app(GetCurrentStudyImportJobAction::class)->handle($user->id));
+    }
+
+    public function test_current_expires_stale_processing_imports_before_lookup(): void
+    {
+        $now = Carbon::parse('2026-06-05T12:00:00Z');
+        $user = User::factory()->create();
+        $stale = StudyImportJob::factory()->processing()->for($user)->create([
+            'started_at' => $now->copy()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+        $fresh = StudyImportJob::factory()->for($user)->create([
+            'updated_at' => $now,
+        ]);
+        $otherUsersStale = StudyImportJob::factory()->processing()->for(User::factory()->create())->create([
+            'started_at' => $now->copy()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+
+        $current = app(GetCurrentStudyImportJobAction::class)->handle($user->id, $now);
+
+        $this->assertNotNull($current);
+        $this->assertSame($fresh->id, $current->id);
+        $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        $this->assertSame('Study import timed out before completion.', $stale->error_message);
+        $this->assertSame($now->toJSON(), $stale->completed_at?->toJSON());
+        $this->assertSame(StudyImportStatus::Processing, $otherUsersStale->refresh()->status);
     }
 
     public function test_show_returns_owned_import_job_and_normalizes_the_id(): void

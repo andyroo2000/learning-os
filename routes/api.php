@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
 use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
 use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
+use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
@@ -155,6 +156,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::post('/study/reviews', StoreStudyReviewController::class);
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
+    Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);
     Route::prefix('/decks/{deck}')

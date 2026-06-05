@@ -1,0 +1,235 @@
+<?php
+
+namespace Tests\Feature\Study;
+
+use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Models\StudySettings;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+class PerformStudyCardActionCompatibilityApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_requires_authentication(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->postJson("/api/study/cards/{$card->id}/actions", [
+            'action' => 'set_due',
+            'mode' => 'now',
+        ])->assertUnauthorized();
+    }
+
+    public function test_it_sets_a_custom_due_date_with_a_convolab_compatible_response(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $card = $this->cardFor($user, [
+                'front_text' => '会社',
+                'back_text' => 'company',
+                'prompt_json' => ['type' => 'text', 'text' => '会社'],
+                'answer_json' => ['type' => 'text', 'text' => 'company'],
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 1,
+                'source_note_id' => 501,
+                'source_card_id' => 701,
+                'source_deck_id' => 301,
+                'source_notetype_name' => 'Japanese',
+                'source_template_ord' => 0,
+            ]);
+
+            $response = $this->postJson('/api/study/cards/'.strtoupper($card->id).'/actions', [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => '2026-06-06T14:15:00Z',
+                'timeZone' => 'America/New_York',
+                'currentOverview' => [
+                    'newCount' => 99,
+                ],
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('card.id', $card->id)
+                ->assertJsonPath('card.noteId', '501')
+                ->assertJsonPath('card.cardType', 'recognition')
+                ->assertJsonPath('card.prompt.text', '会社')
+                ->assertJsonPath('card.answer.text', 'company')
+                ->assertJsonPath('card.state.queueState', 'review')
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000000Z')
+                ->assertJsonPath('card.state.source.noteId', '501')
+                ->assertJsonPath('card.state.source.cardId', '701')
+                ->assertJsonPath('card.state.source.deckId', '301')
+                ->assertJsonPath('card.answerAudioSource', 'missing')
+                ->assertJsonPath('overview.newCount', 0)
+                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.newCardsPerDay', 20);
+
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'study_status' => 'review',
+                'new_queue_position' => null,
+                'due_at' => '2026-06-06 14:15:00',
+            ]);
+            $this->assertDatabaseHas('sync_feed_entries', [
+                'resource_type' => 'card',
+                'resource_id' => $card->id,
+                'operation' => SyncFeedOperation::Update->value,
+            ]);
+            $this->assertSame('review', SyncFeedEntry::query()->sole()->payload['study_status']);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_normalizes_action_mode_due_at_and_timezone_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => '  SET_DUE  ',
+                'mode' => '  CUSTOM_DATE  ',
+                'dueAt' => '  2026-06-07T09:00:00Z  ',
+                'timeZone' => '  America/New_York  ',
+            ])
+                ->assertOk()
+                ->assertJsonPath('card.state.queueState', 'review')
+                ->assertJsonPath('card.state.dueAt', '2026-06-07T09:00:00.000000Z');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_performs_non_set_due_actions_without_requiring_mode(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T14:15:00Z',
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/actions", [
+            'action' => 'suspend',
+            'timeZone' => 'America/New_York',
+        ])
+            ->assertOk()
+            ->assertJsonPath('card.state.queueState', 'suspended')
+            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('overview.reviewCount', 0)
+            ->assertJsonPath('overview.suspendedCount', 1);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'study_status' => 'suspended',
+        ]);
+    }
+
+    public function test_it_returns_not_found_for_missing_unowned_or_deleted_cards_before_payload_validation(): void
+    {
+        $user = $this->signIn();
+        $otherUserCard = $this->cardFor(User::factory()->create());
+        $deletedOwnedCard = $this->cardFor($user);
+        $cardInDeletedOwnedDeck = $this->cardFor($user);
+        $deletedOwnedCard->delete();
+        $cardInDeletedOwnedDeck->deck()->firstOrFail()->delete();
+
+        $this->postJson('/api/study/cards/'.strtolower((string) str()->ulid()).'/actions', [
+            'action' => 'not-real',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->postJson("/api/study/cards/{$otherUserCard->id}/actions", [
+            'action' => 'not-real',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->postJson("/api/study/cards/{$deletedOwnedCard->id}/actions", [
+            'action' => 'not-real',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->postJson("/api/study/cards/{$cardInDeletedOwnedDeck->id}/actions", [
+            'action' => 'not-real',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_validates_camel_case_inputs(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn());
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => ['suspend'],
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['action']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'not-real',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['action']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'tomorrow',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['timeZone']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'tomorrow',
+                'timeZone' => ['America/New_York'],
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['timeZone']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => 'tomorrow',
+                'currentOverview' => 'stale',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['dueAt', 'currentOverview']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => '2037-06-05T15:30:00Z',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['dueAt']);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+}

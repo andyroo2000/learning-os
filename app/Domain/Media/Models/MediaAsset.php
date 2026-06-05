@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use InvalidArgumentException;
 
 /**
- * public_url is intentionally excluded from fillable; assign it explicitly after validation.
+ * public_url and import provenance are intentionally excluded from fillable; assign them explicitly.
  *
  * @throws InvalidArgumentException when public_url violates model invariants.
  */

@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -33,13 +34,16 @@ class ShowStudyExportManifestApiTest extends TestCase
 
             CardReviewEvent::factory()->for($card)->create();
             MediaAsset::factory()->for($user)->create();
+            $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
             Course::factory()->for($otherUser)->create();
             Card::factory()->for($this->deckFor($otherUser))->create();
             MediaAsset::factory()->for($otherUser)->create();
+            SyncFeedEntry::factory()->for($otherUser)->create();
 
             $this->getJson('/api/study/export')
                 ->assertOk()
                 ->assertJsonPath('data.exported_at', '2026-06-05T12:34:56.000000Z')
+                ->assertJsonPath('data.current_checkpoint', $currentCheckpoint->checkpoint)
                 ->assertJsonPath('data.sections.courses.total', 1)
                 ->assertJsonPath('data.sections.decks.total', 1)
                 ->assertJsonPath('data.sections.cards.total', 1)
@@ -53,6 +57,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertJsonStructure([
                     'data' => [
                         'exported_at',
+                        'current_checkpoint',
                         'sections' => [
                             'courses' => ['total', 'path'],
                             'decks' => ['total', 'path'],

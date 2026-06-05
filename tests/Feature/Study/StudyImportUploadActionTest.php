@@ -107,6 +107,30 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Pending, $result->importJob->status);
     }
 
+    public function test_create_session_expires_stale_processing_imports_before_checking_active_imports(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        $user = User::factory()->create();
+        $stale = StudyImportJob::factory()->processing()->for($user)->create([
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+        $otherUsersStale = StudyImportJob::factory()->processing()->for(User::factory()->create())->create([
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+
+        $result = app(CreateStudyImportUploadSessionAction::class)->handle(
+            userId: $user->id,
+            filename: 'fresh.colpkg',
+            contentType: null,
+        );
+
+        $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        $this->assertSame('Study import timed out before completion.', $stale->error_message);
+        $this->assertSame(now()->toJSON(), $stale->completed_at?->toJSON());
+        $this->assertSame(StudyImportStatus::Processing, $otherUsersStale->refresh()->status);
+        $this->assertSame(StudyImportStatus::Pending, $result->importJob->status);
+    }
+
     public function test_create_session_blocks_active_imports(): void
     {
         $user = User::factory()->create();

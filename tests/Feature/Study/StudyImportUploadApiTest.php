@@ -155,6 +155,26 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('reason', 'active_study_import');
     }
 
+    public function test_store_expires_stale_processing_imports_before_creating_a_new_session(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        $user = $this->signIn();
+        $stale = StudyImportJob::factory()->processing()->for($user)->create([
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+
+        $response = $this->postJson('/api/study/imports', [
+            'filename' => 'fresh.colpkg',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.import_job.status', StudyImportStatus::Pending->value);
+
+        $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        $this->assertSame('Study import timed out before completion.', $stale->error_message);
+    }
+
     public function test_upload_stores_the_import_file(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');

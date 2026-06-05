@@ -29,6 +29,8 @@ class StudyImportJob extends Model
 
     public const UPLOAD_SESSION_TTL_MINUTES = 60;
 
+    public const PROCESSING_TIMEOUT_MINUTES = 60;
+
     public const MAX_ASYNC_IMPORT_BYTES = 2_147_483_648;
 
     public const MAX_SOURCE_FILENAME_LENGTH = 255;

@@ -79,6 +79,36 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame('0', $wordMedia->sourceMediaRef);
         $this->assertSame('word.mp3', $wordMedia->sourceFilename);
         $this->assertTrue($wordMedia->hasContent);
+        $this->assertSame(11, $wordMedia->sizeBytes);
+        $this->assertSame(hash('sha256', 'media-bytes'), $wordMedia->checksumSha256);
+    }
+
+    public function test_media_content_metadata_is_nullable_when_manifest_content_is_absent(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/missing-media-content.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => 'word-audio',
+                ],
+            ]),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/missing-media-content.colpkg',
+        );
+
+        $wordMedia = $archive->mediaManifestByFilename['word.mp3'];
+        $this->assertTrue($wordMedia->hasContent);
+        $this->assertSame(10, $wordMedia->sizeBytes);
+        $this->assertSame(hash('sha256', 'word-audio'), $wordMedia->checksumSha256);
+
+        $companyMedia = $archive->mediaManifestByFilename['company.png'];
+        $this->assertFalse($companyMedia->hasContent);
+        $this->assertNull($companyMedia->sizeBytes);
+        $this->assertNull($companyMedia->checksumSha256);
     }
 
     public function test_review_log_metadata_is_nullable_when_legacy_columns_are_absent(): void

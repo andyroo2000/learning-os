@@ -15,6 +15,7 @@ class StudyExportManifestResource extends JsonResource
     {
         return [
             'exported_at' => $this->resource['exported_at'],
+            'current_checkpoint' => $this->resource['current_checkpoint'],
             'sections' => $this->sectionsWithPaths(),
         ];
     }

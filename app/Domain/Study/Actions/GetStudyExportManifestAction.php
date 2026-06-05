@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Support\Carbon;
 
 class GetStudyExportManifestAction
@@ -14,6 +15,7 @@ class GetStudyExportManifestAction
     /**
      * @return array{
      *     exported_at: string,
+     *     current_checkpoint: int,
      *     sections: array{
      *         courses: array{total: int},
      *         decks: array{total: int},
@@ -29,6 +31,7 @@ class GetStudyExportManifestAction
 
         return [
             'exported_at' => $now->toJSON(),
+            'current_checkpoint' => $this->currentCheckpoint($userId),
             'sections' => [
                 'courses' => ['total' => Course::query()->where('user_id', $userId)->count('id')],
                 'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
@@ -37,6 +40,13 @@ class GetStudyExportManifestAction
                 'media_assets' => ['total' => MediaAsset::query()->where('user_id', $userId)->count('id')],
             ],
         ];
+    }
+
+    private function currentCheckpoint(int $userId): int
+    {
+        return (int) SyncFeedEntry::query()
+            ->where('user_id', $userId)
+            ->max('checkpoint');
     }
 
     private function activeCardCount(int $userId): int

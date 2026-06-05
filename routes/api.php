@@ -54,6 +54,7 @@ use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
 use App\Http\Controllers\Api\Study\ListStudyExportImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
 use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
+use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
@@ -128,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
+    Route::get('/study/imports', ListStudyImportJobsController::class);
     Route::post('/study/imports', StoreStudyImportController::class);
     Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class);
     Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)

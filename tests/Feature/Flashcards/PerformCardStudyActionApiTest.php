@@ -53,7 +53,8 @@ class PerformCardStudyActionApiTest extends TestCase
                 ->assertJsonPath('data.card.new_queue_position', null)
                 ->assertJsonPath('data.card.due_at', '2026-06-05T14:15:00.000000Z')
                 ->assertJsonPath('data.overview.review_count', 1)
-                ->assertJsonPath('data.overview.new_count', 0);
+                ->assertJsonPath('data.overview.new_count', 0)
+                ->assertJsonMissingPath('data.overview.failed_due_count');
 
             $this->assertDatabaseHas('cards', [
                 'id' => $card->id,
@@ -92,7 +93,8 @@ class PerformCardStudyActionApiTest extends TestCase
             ->assertJsonPath('data.card.study_status', 'suspended')
             ->assertJsonPath('data.overview.review_count', 0)
             ->assertJsonPath('data.overview.suspended_count', 1)
-            ->assertJsonPath('data.overview.total_cards', 1);
+            ->assertJsonPath('data.overview.total_cards', 1)
+            ->assertJsonMissingPath('data.overview.failed_due_count');
     }
 
     public function test_it_normalizes_action_and_mode_without_global_trim_middleware(): void

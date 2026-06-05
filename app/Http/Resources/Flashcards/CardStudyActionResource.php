@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Flashcards;
 
+use App\Http\Resources\Study\StudyOverviewResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,7 +15,7 @@ class CardStudyActionResource extends JsonResource
     {
         return [
             'card' => CardResource::make($this->card),
-            'overview' => $this->overview,
+            'overview' => StudyOverviewResource::publicData($this->overview),
         ];
     }
 }

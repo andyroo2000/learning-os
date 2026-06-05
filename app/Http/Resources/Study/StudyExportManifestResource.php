@@ -4,6 +4,7 @@ namespace App\Http\Resources\Study;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use LogicException;
 
 class StudyExportManifestResource extends JsonResource
 {
@@ -14,7 +15,37 @@ class StudyExportManifestResource extends JsonResource
     {
         return [
             'exported_at' => $this->resource['exported_at'],
-            'sections' => $this->resource['sections'],
+            'sections' => $this->sectionsWithPaths(),
         ];
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function sectionsWithPaths(): array
+    {
+        $sections = [];
+
+        foreach ($this->resource['sections'] as $section => $payload) {
+            $sections[$section] = [
+                ...$payload,
+                'path' => route($this->routeNameForSection($section), absolute: false),
+            ];
+        }
+
+        return $sections;
+    }
+
+    private function routeNameForSection(string $section): string
+    {
+        // Keep this map aligned with GetStudyExportManifestAction whenever export sections change.
+        return match ($section) {
+            'courses' => 'api.study.export.courses',
+            'decks' => 'api.study.export.decks',
+            'cards' => 'api.study.export.cards',
+            'review_events' => 'api.study.export.review-events',
+            'media_assets' => 'api.study.export.media-assets',
+            default => throw new LogicException("Study export section [{$section}] is missing a route name."),
+        };
     }
 }

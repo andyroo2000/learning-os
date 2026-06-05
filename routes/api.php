@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
+use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
@@ -103,6 +104,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class);
+    Route::get('/study/export', ShowStudyExportManifestController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);

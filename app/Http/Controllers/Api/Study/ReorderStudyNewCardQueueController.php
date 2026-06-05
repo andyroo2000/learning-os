@@ -22,7 +22,7 @@ class ReorderStudyNewCardQueueController extends Controller
 
         try {
             $reorderNewCardQueue->handle(
-                userId: (int) $request->user()->id,
+                userId: $request->user()->id,
                 cardIds: $data['cardIds'],
             );
         } catch (CardValidationException $exception) {
@@ -32,7 +32,7 @@ class ReorderStudyNewCardQueueController extends Controller
         }
 
         $page = $listStudyNewCardQueue->handle(
-            userId: (int) $request->user()->id,
+            userId: $request->user()->id,
         );
 
         return response()->json([

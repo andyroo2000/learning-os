@@ -33,7 +33,6 @@ class ListStudyNewCardQueueAction
         $searchPattern = $q === null ? null : CardSearchText::likePattern($q);
         $query = Card::query()
             ->select('cards.*')
-            ->with(['deck:id,user_id,course_id'])
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
@@ -60,6 +59,7 @@ class ListStudyNewCardQueueAction
             'items' => $items,
             'total' => $total,
             'limit' => $limit,
+            // nextCursor is an integer offset, named for ConvoLab API compatibility.
             'nextCursor' => $nextOffset < $total ? (string) $nextOffset : null,
         ];
     }

@@ -14,6 +14,29 @@ class ListStudyNewCardQueueActionTest extends TestCase
     use RefreshDatabase;
     use SetsCardStudyStatus;
 
+    public function test_it_lists_new_cards_without_a_search_query_from_the_zero_offset(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cursor: 0,
+            limit: 100,
+        );
+
+        $this->assertSame(2, $page['total']);
+        $this->assertSame(100, $page['limit']);
+        $this->assertNull($page['nextCursor']);
+        $this->assertSame([$firstCard->id, $secondCard->id], $page['items']->pluck('id')->all());
+    }
+
     public function test_it_lists_searchable_new_cards_with_offset_cursor_pagination(): void
     {
         $user = User::factory()->create();

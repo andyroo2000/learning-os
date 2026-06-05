@@ -235,6 +235,63 @@ class StudyImportUploadActionTest extends TestCase
         Storage::disk('study-imports')->assertMissing($importJob->source_object_path);
     }
 
+    public function test_upload_rejects_mismatched_declared_content_size(): void
+    {
+        Storage::fake('study-imports');
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => 'study/imports/1/mismatched-size/core.colpkg',
+            'source_content_type' => 'application/zip',
+        ]);
+        $originalSizeBytes = $importJob->source_size_bytes;
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $importJob->user_id,
+                importJobId: $importJob->id,
+                contents: 'anki bytes',
+                contentType: 'application/zip',
+                contentSizeBytes: 11,
+            );
+            $this->fail('Expected mismatched declared content size to be rejected.');
+        } catch (StudyImportValidationException $exception) {
+            $this->assertSame('file', $exception->field());
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame($originalSizeBytes, $importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        Storage::disk('study-imports')->assertMissing($importJob->source_object_path);
+    }
+
+    public function test_upload_rejects_declared_content_size_over_the_limit(): void
+    {
+        Storage::fake('study-imports');
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => 'study/imports/1/declared-oversized/core.colpkg',
+            'source_content_type' => 'application/zip',
+        ]);
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $importJob->user_id,
+                importJobId: $importJob->id,
+                contents: 'anki bytes',
+                contentType: 'application/zip',
+                contentSizeBytes: StudyImportJob::MAX_ASYNC_IMPORT_BYTES + 1,
+            );
+            $this->fail('Expected oversized declared content size to be rejected.');
+        } catch (StudyImportValidationException $exception) {
+            $this->assertSame('file', $exception->field());
+            $this->assertSame(
+                'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.',
+                $exception->getMessage(),
+            );
+        }
+
+        Storage::disk('study-imports')->assertMissing($importJob->source_object_path);
+    }
+
     public function test_complete_validates_the_staged_archive_and_records_metadata(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');

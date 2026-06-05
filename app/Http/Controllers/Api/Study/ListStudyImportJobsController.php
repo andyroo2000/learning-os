@@ -22,6 +22,7 @@ class ListStudyImportJobsController extends Controller
             $listStudyImportJobs->handle(
                 userId: $user->id,
                 pageSize: $request->pageSize(),
+                status: $request->status(),
             )->withQueryString()
         );
     }

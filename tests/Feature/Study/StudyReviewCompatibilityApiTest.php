@@ -92,6 +92,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('overview.reviewCount', 1)
                 ->assertJsonPath('overview.newCardsPerDay', 20)
                 ->assertJsonPath('overview.latestImport.id', $importJob->id)
+                ->assertJsonPath('overview.latestImport.status', 'completed')
+                ->assertJsonPath('overview.latestImport.sourceType', StudyImportJob::SOURCE_TYPE_ANKI_COLPKG)
                 ->assertJsonPath('overview.latestImport.sourceFilename', 'core-2k.apkg');
 
             $reviewLogId = $response->json('reviewLogId');

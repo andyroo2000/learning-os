@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Study;
 
+use App\Domain\Study\Enums\StudyImportStatus;
+use App\Domain\Study\Models\StudyImportJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,51 +15,65 @@ class StudyOverviewCompatibilityResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'dueCount' => $this->resource['due_count'],
-            'failedCount' => $this->resource['failed_count'],
-            'newCount' => $this->resource['new_count'],
-            'newCardsPerDay' => $this->resource['new_cards_per_day'],
-            'newCardsIntroducedToday' => $this->resource['new_cards_introduced_today'],
-            'newCardsAvailableToday' => $this->resource['new_cards_available_today'],
-            'learningCount' => $this->resource['learning_count'],
-            'reviewCount' => $this->resource['review_count'],
-            'suspendedCount' => $this->resource['suspended_count'],
-            'totalCards' => $this->resource['total_cards'],
-            'latestImport' => $this->latestImport($request),
-            'nextDueAt' => $this->resource['next_due_at'] ?? null,
+            'dueCount' => $this->overviewValue('due_count'),
+            'failedCount' => $this->overviewValue('failed_count'),
+            'newCount' => $this->overviewValue('new_count'),
+            'newCardsPerDay' => $this->overviewValue('new_cards_per_day'),
+            'newCardsIntroducedToday' => $this->overviewValue('new_cards_introduced_today'),
+            'newCardsAvailableToday' => $this->overviewValue('new_cards_available_today'),
+            'learningCount' => $this->overviewValue('learning_count'),
+            'reviewCount' => $this->overviewValue('review_count'),
+            'suspendedCount' => $this->overviewValue('suspended_count'),
+            'totalCards' => $this->overviewValue('total_cards'),
+            'latestImport' => $this->latestImport(),
+            'nextDueAt' => $this->overviewValue('next_due_at'),
         ];
+    }
+
+    private function overviewValue(string $key): mixed
+    {
+        return $this->resource[$key] ?? null;
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    private function latestImport(Request $request): ?array
+    private function latestImport(): ?array
     {
-        if (($this->resource['latest_import'] ?? null) === null) {
+        $latestImport = $this->resource['latest_import'] ?? null;
+
+        if (! $latestImport instanceof StudyImportJob) {
             return null;
         }
 
-        $latestImport = StudyImportJobResource::make(
-            $this->resource['latest_import'],
-        )->resolve($request);
-
         return [
-            'id' => $latestImport['id'],
-            'status' => $latestImport['status'],
-            'sourceType' => $latestImport['source_type'],
-            'sourceFilename' => $latestImport['source_filename'],
-            'sourceContentType' => $latestImport['source_content_type'],
-            'sourceSizeBytes' => $latestImport['source_size_bytes'],
-            'deckName' => $latestImport['deck_name'],
-            'preview' => $latestImport['preview'],
-            'summary' => $latestImport['summary'],
-            'errorMessage' => $latestImport['error_message'],
-            'startedAt' => $latestImport['started_at'],
-            'uploadedAt' => $latestImport['uploaded_at'],
-            'uploadExpiresAt' => $latestImport['upload_expires_at'],
-            'completedAt' => $latestImport['completed_at'],
-            'createdAt' => $latestImport['created_at'],
-            'updatedAt' => $latestImport['updated_at'],
+            'id' => $latestImport->id,
+            'status' => $this->importStatusValue($latestImport),
+            'sourceType' => $latestImport->source_type,
+            'sourceFilename' => $latestImport->source_filename,
+            'sourceContentType' => $latestImport->source_content_type,
+            'sourceSizeBytes' => $latestImport->source_size_bytes,
+            'deckName' => $latestImport->deck_name,
+            'preview' => $latestImport->preview_json,
+            'summary' => $latestImport->summary_json,
+            'errorMessage' => $latestImport->error_message,
+            'startedAt' => $latestImport->started_at?->toJSON(),
+            'uploadedAt' => $latestImport->uploaded_at?->toJSON(),
+            'uploadExpiresAt' => $latestImport->upload_expires_at?->toJSON(),
+            'completedAt' => $latestImport->completed_at?->toJSON(),
+            'createdAt' => $latestImport->created_at?->toJSON(),
+            'updatedAt' => $latestImport->updated_at?->toJSON(),
         ];
+    }
+
+    private function importStatusValue(StudyImportJob $latestImport): ?string
+    {
+        $status = $latestImport->getAttributes()['status'] ?? null;
+
+        if ($status instanceof StudyImportStatus) {
+            return $status->value;
+        }
+
+        return $status === null ? null : (string) $status;
     }
 }

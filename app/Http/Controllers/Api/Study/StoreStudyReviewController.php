@@ -56,6 +56,7 @@ class StoreStudyReviewController extends Controller
             ], 409);
         }
 
+        // Re-fetch after the action writes scheduler state back to the card row.
         $card = $this->ownedActiveCard($card->id, $userId);
 
         if ($card === null) {

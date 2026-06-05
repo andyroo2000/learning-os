@@ -16,6 +16,7 @@ class StudyCardSummaryResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // ConvoLab exposes noteId at both the root and state.source; keep both values aligned.
             'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],

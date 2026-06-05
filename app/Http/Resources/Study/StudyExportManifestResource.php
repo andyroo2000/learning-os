@@ -41,6 +41,7 @@ class StudyExportManifestResource extends JsonResource
     {
         // Keep this map aligned with GetStudyExportManifestAction whenever export sections change.
         return match ($section) {
+            'settings' => 'api.study.export.settings',
             'courses' => 'api.study.export.courses',
             'decks' => 'api.study.export.decks',
             'cards' => 'api.study.export.cards',

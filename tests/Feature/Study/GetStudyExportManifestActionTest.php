@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyExportManifestAction;
+use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -51,6 +52,7 @@ class GetStudyExportManifestActionTest extends TestCase
         $this->assertSame('2026-06-05T12:34:56.000000Z', $manifest['exported_at']);
         $this->assertSame($currentCheckpoint->checkpoint, $manifest['current_checkpoint']);
         $this->assertSame([
+            'settings' => ['total' => 1],
             'courses' => ['total' => 1],
             'decks' => ['total' => 1],
             'cards' => ['total' => 1],
@@ -67,5 +69,18 @@ class GetStudyExportManifestActionTest extends TestCase
         $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
 
         $this->assertSame(0, $manifest['current_checkpoint']);
+    }
+
+    public function test_it_reports_settings_as_an_effective_singleton_without_materializing_defaults(): void
+    {
+        $user = User::factory()->create();
+
+        $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
+
+        $this->assertSame(['total' => 1], $manifest['sections']['settings']);
+        $this->assertDatabaseMissing('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+        ]);
     }
 }

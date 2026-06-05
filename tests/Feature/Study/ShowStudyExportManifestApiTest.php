@@ -44,11 +44,13 @@ class ShowStudyExportManifestApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('data.exported_at', '2026-06-05T12:34:56.000000Z')
                 ->assertJsonPath('data.current_checkpoint', $currentCheckpoint->checkpoint)
+                ->assertJsonPath('data.sections.settings.total', 1)
                 ->assertJsonPath('data.sections.courses.total', 1)
                 ->assertJsonPath('data.sections.decks.total', 1)
                 ->assertJsonPath('data.sections.cards.total', 1)
                 ->assertJsonPath('data.sections.review_events.total', 1)
                 ->assertJsonPath('data.sections.media_assets.total', 1)
+                ->assertJsonPath('data.sections.settings.path', '/api/study/export/settings')
                 ->assertJsonPath('data.sections.courses.path', '/api/study/export/courses')
                 ->assertJsonPath('data.sections.decks.path', '/api/study/export/decks')
                 ->assertJsonPath('data.sections.cards.path', '/api/study/export/cards')
@@ -59,6 +61,7 @@ class ShowStudyExportManifestApiTest extends TestCase
                         'exported_at',
                         'current_checkpoint',
                         'sections' => [
+                            'settings' => ['total', 'path'],
                             'courses' => ['total', 'path'],
                             'decks' => ['total', 'path'],
                             'cards' => ['total', 'path'],

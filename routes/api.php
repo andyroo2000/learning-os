@@ -58,7 +58,9 @@ use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
+use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
+use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
@@ -121,7 +123,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
+    Route::post('/study/imports', StoreStudyImportController::class);
     Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class);
+    Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
+        ->whereUlid('studyImportJobId')
+        ->name('api.study.imports.upload');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::get('/study/settings', ShowStudySettingsController::class);

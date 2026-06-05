@@ -8,8 +8,10 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Reviews\Queries\CardReviewCountsByCardQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class ListStudyBrowserAction
@@ -94,6 +96,7 @@ class ListStudyBrowserAction
         );
         $pageRows = array_slice($rows, $offset, $limit);
         $nextOffset = $offset + count($pageRows);
+        $filterOptionRows = $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState);
 
         return [
             'rows' => $pageRows,
@@ -101,9 +104,9 @@ class ListStudyBrowserAction
             'limit' => $limit,
             'nextCursor' => $nextOffset < count($rows) ? $this->encodeOffsetCursor($nextOffset) : null,
             'filterOptions' => [
-                'noteTypes' => $this->filterNoteTypes($userId, $q, $cardType, $queueState),
-                'cardTypes' => $this->filterCardTypes($userId, $q, $noteType, $queueState),
-                'queueStates' => $this->filterQueueStates($userId, $q, $noteType, $cardType),
+                'noteTypes' => $this->filterNoteTypes($filterOptionRows),
+                'cardTypes' => $this->filterCardTypes($filterOptionRows),
+                'queueStates' => $this->filterQueueStates($filterOptionRows),
             ],
         ];
     }
@@ -173,6 +176,20 @@ class ListStudyBrowserAction
         ?CardStudyStatus $queueState,
     ): Collection {
         return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+            // Keep this projection in sync with rowsFromCards(), displayTextFor(), and queueStateSummaryValue().
+            ->select([
+                'cards.id',
+                'cards.front_text',
+                'cards.card_type',
+                'cards.prompt_json',
+                'cards.answer_json',
+                'cards.study_status',
+                'cards.source_note_id',
+                'cards.source_notetype_name',
+                'cards.source_template_ord',
+                'cards.created_at',
+                'cards.updated_at',
+            ])
             ->orderBy('cards.source_note_id')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -190,8 +207,68 @@ class ListStudyBrowserAction
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
     ): Builder {
-        return Card::query()
-            ->ownedByActiveDeck($userId)
+        return $this->applyBrowserCardFilters(
+            Card::query()->ownedByActiveDeck($userId),
+            $q,
+            $noteType,
+            $cardType,
+            $queueState,
+        );
+    }
+
+    /**
+     * @return Collection<int, object{facet: string, value: string|null}>
+     */
+    private function filterOptionRows(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+    ): Collection {
+        $noteTypes = $this->filterOptionQuery($userId, $q, null, $cardType, $queueState, 'note_type', 'cards.source_notetype_name');
+        $cardTypes = $this->filterOptionQuery($userId, $q, $noteType, null, $queueState, 'card_type', 'cards.card_type');
+        $queueStates = $this->filterOptionQuery($userId, $q, $noteType, $cardType, null, 'queue_state', 'cards.study_status');
+
+        return $noteTypes
+            ->union($cardTypes)
+            ->union($queueStates)
+            ->orderBy('facet')
+            ->orderBy('value')
+            ->get();
+    }
+
+    private function filterOptionQuery(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+        string $facet,
+        string $column,
+    ): QueryBuilder {
+        if (! in_array($column, ['cards.source_notetype_name', 'cards.card_type', 'cards.study_status'], true)) {
+            throw new InvalidArgumentException('Study browser filter option column is invalid.');
+        }
+
+        // $column is a trusted literal column reference from filterOptionRows(); never pass request input here.
+        return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+            ->select(DB::raw($column.' as value'))
+            ->selectRaw('? as facet', [$facet])
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->groupBy($column)
+            ->toBase();
+    }
+
+    private function applyBrowserCardFilters(
+        Builder $query,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+    ): Builder {
+        return $query
             ->when($noteType !== null, fn ($query) => $query->where('cards.source_notetype_name', $noteType))
             ->when($cardType !== null, fn ($query) => $query->where('cards.card_type', $cardType->value))
             ->when($queueState !== null, fn ($query) => $query->where('cards.study_status', $queueState->value))
@@ -335,37 +412,27 @@ class ListStudyBrowserAction
     }
 
     /**
+     * @param  Collection<int, object{facet: string, value: string|null}>  $filterOptionRows
      * @return list<string>
      */
-    private function filterNoteTypes(
-        int $userId,
-        ?string $q,
-        ?CardType $cardType,
-        ?CardStudyStatus $queueState,
-    ): array {
-        return $this->browserCardQuery($userId, $q, null, $cardType, $queueState)
-            ->distinct()
-            ->orderBy('cards.source_notetype_name')
-            ->pluck('cards.source_notetype_name')
-            ->filter(fn (mixed $noteType): bool => is_string($noteType) && $noteType !== '')
+    private function filterNoteTypes(Collection $filterOptionRows): array
+    {
+        return $filterOptionRows
+            ->where('facet', 'note_type')
+            ->pluck('value')
             ->values()
             ->all();
     }
 
     /**
+     * @param  Collection<int, object{facet: string, value: string|null}>  $filterOptionRows
      * @return list<string>
      */
-    private function filterCardTypes(
-        int $userId,
-        ?string $q,
-        ?string $noteType,
-        ?CardStudyStatus $queueState,
-    ): array {
-        return $this->browserCardQuery($userId, $q, $noteType, null, $queueState)
-            ->distinct()
-            ->orderBy('cards.card_type')
-            ->toBase()
-            ->pluck('cards.card_type')
+    private function filterCardTypes(Collection $filterOptionRows): array
+    {
+        return $filterOptionRows
+            ->where('facet', 'card_type')
+            ->pluck('value')
             ->map(fn (mixed $cardType): ?string => $this->cardTypeFacetValue($cardType))
             ->filter()
             ->unique()
@@ -374,19 +441,14 @@ class ListStudyBrowserAction
     }
 
     /**
+     * @param  Collection<int, object{facet: string, value: string|null}>  $filterOptionRows
      * @return list<string>
      */
-    private function filterQueueStates(
-        int $userId,
-        ?string $q,
-        ?string $noteType,
-        ?CardType $cardType,
-    ): array {
-        return $this->browserCardQuery($userId, $q, $noteType, $cardType, null)
-            ->distinct()
-            ->orderBy('cards.study_status')
-            ->toBase()
-            ->pluck('cards.study_status')
+    private function filterQueueStates(Collection $filterOptionRows): array
+    {
+        return $filterOptionRows
+            ->where('facet', 'queue_state')
+            ->pluck('value')
             ->map(fn (mixed $queueState): ?string => $this->queueStateFacetValue($queueState))
             ->filter()
             ->unique()

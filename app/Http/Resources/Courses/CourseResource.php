@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Courses;
 
+use App\Domain\Courses\Enums\CourseStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,11 +17,12 @@ class CourseResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
-            'status' => $this->status->value,
+            'status' => $this->status?->value ?? CourseStatus::Draft->value,
             'native_language' => $this->native_language,
             'target_language' => $this->target_language,
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
+            'deleted_at' => $this->deleted_at?->toJSON(),
         ];
     }
 }

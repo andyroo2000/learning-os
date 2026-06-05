@@ -37,6 +37,7 @@ class ShowCourseApiTest extends TestCase
                     'target_language' => 'ja',
                     'created_at' => $course->created_at?->toJSON(),
                     'updated_at' => $course->updated_at?->toJSON(),
+                    'deleted_at' => null,
                 ],
             ]);
     }

@@ -74,4 +74,24 @@ class CourseSyncPayloadTest extends TestCase
             'deleted_at' => '2026-06-04T09:20:00.000000Z',
         ], $payload);
     }
+
+    public function test_course_payload_defaults_missing_status_to_draft(): void
+    {
+        $course = new Course;
+        $course->setRawAttributes([
+            'id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
+            'title' => 'Spanish Foundations',
+            'description' => null,
+            'status' => null,
+            'native_language' => 'en',
+            'target_language' => 'es',
+            'created_at' => Carbon::parse('2026-06-04T09:14:00Z'),
+            'updated_at' => Carbon::parse('2026-06-04T09:15:00Z'),
+            'deleted_at' => null,
+        ], sync: true);
+
+        $payload = CourseSyncPayload::fromCourse($course);
+
+        $this->assertSame(CourseStatus::Draft->value, $payload['status']);
+    }
 }

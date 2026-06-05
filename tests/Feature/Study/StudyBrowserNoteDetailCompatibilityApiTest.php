@@ -147,6 +147,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $card = Card::factory()->for($this->deckFor($user))->create([
             'front_text' => 'unsourced card',
+            'back_text' => 'unsourced answer',
             'source_note_id' => null,
             'prompt_json' => null,
             'answer_json' => null,
@@ -156,6 +157,10 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('noteId', $card->id)
             ->assertJsonPath('displayText', 'unsourced card')
+            ->assertJsonPath('rawFields.0.name', 'frontText')
+            ->assertJsonPath('rawFields.0.value', 'unsourced card')
+            ->assertJsonPath('rawFields.1.name', 'backText')
+            ->assertJsonPath('rawFields.1.value', 'unsourced answer')
             ->assertJsonPath('cards.0.id', $card->id)
             ->assertJsonPath('cards.0.noteId', null);
     }

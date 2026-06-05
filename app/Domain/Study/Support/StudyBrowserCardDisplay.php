@@ -4,7 +4,7 @@ namespace App\Domain\Study\Support;
 
 use App\Domain\Flashcards\Models\Card;
 
-class StudyBrowserCardDisplay
+final class StudyBrowserCardDisplay
 {
     private function __construct() {}
 

@@ -156,7 +156,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('studyImportJobId');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
     Route::get('/study/browser', ListStudyBrowserController::class);
-    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class);
+    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

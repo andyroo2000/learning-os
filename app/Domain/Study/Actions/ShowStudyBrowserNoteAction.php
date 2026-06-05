@@ -31,7 +31,7 @@ class ShowStudyBrowserNoteAction
             sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
                 ? $firstCard->source_kind
                 : 'native',
-            updatedAt: $cards->max(fn (Card $card) => $card->updated_at)?->toJSON(),
+            updatedAt: $cards->map(fn (Card $card) => $card->updated_at)->filter()->max()?->toJSON(),
             rawFields: $this->fieldsForCards($cards),
             canonicalFields: $this->canonicalFieldsForCards($cards),
             cards: $cards,
@@ -62,6 +62,7 @@ class ShowStudyBrowserNoteAction
             $query->whereNull('cards.source_note_id')->whereKey($noteId);
         }
 
+        // Mirror the outer filters so the review aggregate scans only stats for this user's visible note cards.
         $matchingCardIds = (clone $query)
             ->select('cards.id')
             ->toBase();
@@ -145,6 +146,7 @@ class ShowStudyBrowserNoteAction
         if ($fieldsByName === []) {
             /** @var Card $firstCard */
             $firstCard = $cards->first();
+            // The fallback path is card-scoped for native unsourced rows that have no structured payload fields.
             $fieldsByName['frontText'] = $this->field('frontText', $firstCard->front_text);
             $fieldsByName['backText'] = $this->field('backText', $firstCard->back_text);
         }

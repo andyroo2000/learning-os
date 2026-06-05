@@ -36,6 +36,18 @@ class StudyImportUploadApiTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_complete_requires_authentication(): void
+    {
+        $this->postJson('/api/study/imports/'.strtolower((string) Str::ulid()).'/complete')
+            ->assertUnauthorized();
+    }
+
+    public function test_cancel_requires_authentication(): void
+    {
+        $this->postJson('/api/study/imports/'.strtolower((string) Str::ulid()).'/cancel')
+            ->assertUnauthorized();
+    }
+
     public function test_store_creates_an_upload_session(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
@@ -218,6 +230,117 @@ class StudyImportUploadApiTest extends TestCase
         $this->putImportUpload('/api/study/imports/'.$importJob->id.'/upload', '', 'application/zip')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['file']);
+    }
+
+    public function test_complete_validates_the_uploaded_archive(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.strtoupper($importJob->id).'/complete')
+            ->assertStatus(202)
+            ->assertJsonPath('data.id', $importJob->id)
+            ->assertJsonPath('data.status', StudyImportStatus::Pending->value)
+            ->assertJsonPath('data.source_size_bytes', 15)
+            ->assertJsonPath('data.uploaded_at', now()->toJSON())
+            ->assertJsonMissingPath('data.source_object_path');
+    }
+
+    public function test_complete_hides_cross_user_import_jobs(): void
+    {
+        $this->signIn();
+        $importJob = StudyImportJob::factory()->create();
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertNotFound();
+    }
+
+    public function test_complete_rejects_unfinished_expired_and_invalid_uploads(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+
+        $unfinished = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => 'study/imports/'.$user->id.'/unfinished/core.colpkg',
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$unfinished->id.'/complete')
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'study_import_upload_not_finished');
+
+        $expiredPath = 'study/imports/'.$user->id.'/expired/core.colpkg';
+        Storage::disk('study-imports')->put($expiredPath, 'PK zipped bytes');
+        $expired = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $expiredPath,
+            'upload_expires_at' => now()->subSecond(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$expired->id.'/complete')
+            ->assertStatus(410)
+            ->assertJsonPath('reason', 'study_import_upload_expired');
+        $this->assertSame(StudyImportStatus::Failed, $expired->refresh()->status);
+        Storage::disk('study-imports')->assertMissing($expiredPath);
+
+        $invalidPath = 'study/imports/'.$user->id.'/invalid/core.colpkg';
+        Storage::disk('study-imports')->put($invalidPath, 'NO zipped bytes');
+        $invalid = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $invalidPath,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$invalid->id.'/complete')
+            ->assertStatus(400)
+            ->assertJsonPath('reason', 'invalid_study_import_archive');
+        $this->assertSame(StudyImportStatus::Failed, $invalid->refresh()->status);
+        Storage::disk('study-imports')->assertMissing($invalidPath);
+    }
+
+    public function test_cancel_marks_pending_uploads_failed(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/cancel/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $this->postJson('/api/study/imports/'.strtoupper($importJob->id).'/cancel')
+            ->assertOk()
+            ->assertJsonPath('data.id', $importJob->id)
+            ->assertJsonPath('data.status', StudyImportStatus::Failed->value)
+            ->assertJsonPath('data.error_message', 'Study import upload was cancelled.')
+            ->assertJsonPath('data.completed_at', now()->toJSON());
+
+        Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+    }
+
+    public function test_cancel_hides_cross_user_import_jobs_and_rejects_processing_imports(): void
+    {
+        $this->signIn();
+        $crossUser = StudyImportJob::factory()->create();
+
+        $this->postJson('/api/study/imports/'.$crossUser->id.'/cancel')
+            ->assertNotFound();
+
+        $user = $this->signIn();
+        $processing = StudyImportJob::factory()->processing()->for($user)->create();
+
+        $this->postJson('/api/study/imports/'.$processing->id.'/cancel')
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'study_import_processing');
     }
 
     private function putImportUpload(

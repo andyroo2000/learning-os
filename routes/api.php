@@ -45,6 +45,8 @@ use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
+use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
+use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
 use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
@@ -128,6 +130,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
         ->whereUlid('studyImportJobId')
         ->name('api.study.imports.upload');
+    Route::post('/study/imports/{studyImportJobId}/complete', CompleteStudyImportUploadController::class)
+        ->whereUlid('studyImportJobId');
+    Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
+        ->whereUlid('studyImportJobId');
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::get('/study/settings', ShowStudySettingsController::class);

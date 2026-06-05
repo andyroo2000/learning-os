@@ -8,6 +8,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -22,6 +23,10 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
 
         $this->deleteJson("/api/study/reviews/{$reviewEvent->id}")
             ->assertUnauthorized();
+
+        $this->postJson('/api/study/reviews/undo', [
+            'reviewLogId' => $reviewEvent->id,
+        ])->assertUnauthorized();
     }
 
     public function test_it_undoes_a_study_review_with_a_convolab_compatible_response(): void
@@ -88,6 +93,58 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_it_undoes_a_study_review_through_the_legacy_post_body_alias(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $card = $this->cardFor($user, [
+                'study_status' => CardStudyStatus::Learning,
+                'new_queue_position' => 4,
+                'scheduler_state' => [
+                    'state' => 1,
+                    'reps' => 2,
+                ],
+                'due_at' => '2026-05-28T09:15:00Z',
+                'introduced_at' => '2026-05-20T09:15:00Z',
+                'failed_at' => '2026-05-24T09:15:00Z',
+                'last_reviewed_at' => '2026-05-25T09:15:00Z',
+            ]);
+            $createResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $card->id,
+                'grade' => CardReviewRating::Good->value,
+            ]);
+            $reviewLogId = $createResponse->json('reviewLogId');
+
+            $response = $this->postJson('/api/study/reviews/undo', [
+                'reviewLogId' => '  '.strtoupper($reviewLogId).'  ',
+                'timeZone' => '  America/New_York  ',
+                'currentOverview' => [
+                    'reviewCount' => 1,
+                ],
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('reviewLogId', $reviewLogId)
+                ->assertJsonPath('card.id', $card->id)
+                ->assertJsonPath('card.state.queueState', 'learning')
+                ->assertJsonPath('overview.learningCount', 1)
+                ->assertJsonPath('overview.reviewCount', 0);
+
+            $this->assertDatabaseMissing('card_review_events', ['id' => $reviewLogId]);
+            $this->assertDatabaseHas('sync_feed_entries', [
+                'resource_type' => 'card_review_event',
+                'resource_id' => $reviewLogId,
+                'operation' => SyncFeedOperation::Delete->value,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_validates_compatibility_inputs(): void
     {
         $reviewEvent = $this->cardReviewEventFor($this->signIn());
@@ -105,6 +162,30 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['timeZone']);
 
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+    }
+
+    public function test_it_validates_legacy_post_body_inputs(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/reviews/undo', [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['reviewLogId']);
+
+        $this->postJson('/api/study/reviews/undo', [
+            'reviewLogId' => 'not-a-ulid',
+            'timeZone' => 'not-a-zone',
+            'currentOverview' => 'stale',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['reviewLogId', 'timeZone', 'currentOverview']);
+
+        $this->postJson('/api/study/reviews/undo', [
+            'reviewLogId' => [strtolower((string) str()->ulid())],
+            'timeZone' => ['America/New_York'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['reviewLogId', 'timeZone']);
     }
 
     public function test_it_returns_not_found_for_missing_or_unowned_review_logs(): void

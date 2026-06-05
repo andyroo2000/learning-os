@@ -69,6 +69,7 @@ use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
+use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
@@ -155,6 +156,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::post('/study/reviews', StoreStudyReviewController::class);
+    Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
     Route::get('/study/settings', ShowStudySettingsController::class);

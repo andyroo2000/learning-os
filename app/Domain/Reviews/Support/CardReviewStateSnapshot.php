@@ -42,6 +42,7 @@ final class CardReviewStateSnapshot
             return $studyStatus->value;
         }
 
+        // New cards default to "new"; tolerate legacy rows that predate that model default.
         if ($studyStatus === null || $studyStatus === '') {
             return CardStudyStatus::New->value;
         }

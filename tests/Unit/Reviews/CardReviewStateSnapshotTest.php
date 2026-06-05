@@ -10,6 +10,18 @@ use UnexpectedValueException;
 
 class CardReviewStateSnapshotTest extends TestCase
 {
+    public function test_it_snapshots_valid_raw_string_study_status_values(): void
+    {
+        $card = new Card;
+        $card->setRawAttributes([
+            'study_status' => CardStudyStatus::Review->value,
+        ], sync: true);
+
+        $snapshot = CardReviewStateSnapshot::beforeReview($card);
+
+        $this->assertSame('review', $snapshot['study_status']);
+    }
+
     public function test_it_snapshots_in_memory_enum_study_status_values(): void
     {
         $card = new Card;

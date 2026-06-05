@@ -3,18 +3,20 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Http\Requests\Api\CursorPaginatedRequest;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Http\Requests\Concerns\NormalizesUlidInput;
 
 class ListDecksRequest extends CursorPaginatedRequest
 {
+    use NormalizesUlidInput;
+
     protected function prepareForValidation(): void
     {
-        $courseId = $this->input('course_id');
+        $normalized = [];
 
-        if (is_string($courseId)) {
-            $this->merge([
-                'course_id' => CanonicalUlid::normalize($courseId),
-            ]);
+        $this->mergeNormalizedUlidInput($normalized, 'course_id');
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
         }
     }
 

@@ -174,6 +174,17 @@ class ListDecksApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
+    public function test_it_rejects_an_array_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/decks?course_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+    }
+
     public function test_it_returns_an_empty_list_when_the_user_has_no_decks(): void
     {
         $this->signIn();
@@ -254,6 +265,47 @@ class ListDecksApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lowTieDeck->id)
             ->assertJsonPath('meta.next_cursor', null);
+    }
+
+    public function test_it_preserves_course_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $olderDeck = Deck::factory()->for($course)->for($user)->create([
+            'created_at' => now()->subMinutes(2),
+            'updated_at' => now()->subMinutes(2),
+        ]);
+        $newerDeck = Deck::factory()->for($course)->for($user)->create([
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create([
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $firstPage = $this->getJson("/api/decks?course_id={$course->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerDeck->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderDeck->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseDeck->id,
+            ]);
     }
 
     public function test_it_accepts_a_custom_page_size(): void

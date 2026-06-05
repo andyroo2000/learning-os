@@ -145,6 +145,28 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('rows.1.noteId', '9');
     }
 
+    public function test_it_sorts_browser_rows_by_display_text_case_insensitively(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'banana',
+            'source_note_id' => 2202,
+            'prompt_json' => ['cueText' => 'banana'],
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'apple',
+            'source_note_id' => 2201,
+            'prompt_json' => ['cueText' => 'Apple'],
+        ]);
+
+        $this->getJson('/api/study/browser?sortField=sort_field&sortDirection=asc')
+            ->assertOk()
+            ->assertJsonPath('rows.0.displayText', 'Apple')
+            ->assertJsonPath('rows.1.displayText', 'banana');
+    }
+
     public function test_it_uses_card_ids_for_rows_without_source_note_ids(): void
     {
         $user = $this->signIn();

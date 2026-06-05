@@ -305,6 +305,7 @@ class ListStudyBrowserAction
         $promptJson = is_array($card->prompt_json) ? $card->prompt_json : [];
         $answerJson = is_array($card->answer_json) ? $card->answer_json : [];
 
+        // ConvoLab browser labels prefer each key across prompt then answer before moving to the next key.
         foreach (['cueText', 'expression', 'clozeText', 'text'] as $key) {
             $promptValue = $promptJson[$key] ?? null;
             if (is_string($promptValue) && trim($promptValue) !== '') {

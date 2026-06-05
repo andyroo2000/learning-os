@@ -21,9 +21,17 @@ class ShowStudyBrowserNoteController extends Controller
             return response()->json(['message' => 'Study note not found.'], 404);
         }
 
-        $cards = $result['cards'];
-        $result['cards'] = StudyCardSummaryResource::collection($cards)->resolve($request);
-
-        return response()->json($result);
+        return response()->json([
+            'noteId' => $result->noteId,
+            'displayText' => $result->displayText,
+            'noteTypeName' => $result->noteTypeName,
+            'sourceKind' => $result->sourceKind,
+            'updatedAt' => $result->updatedAt,
+            'rawFields' => $result->rawFields,
+            'canonicalFields' => $result->canonicalFields,
+            'cards' => StudyCardSummaryResource::collection($result->cards)->resolve($request),
+            'cardStats' => $result->cardStats,
+            'selectedCardId' => $result->selectedCardId,
+        ]);
     }
 }

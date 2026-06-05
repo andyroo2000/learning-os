@@ -3,16 +3,17 @@
 namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ShowStudyBrowserNoteAction
 {
-    /**
-     * @return array<string, mixed>|null
-     */
-    public function handle(int $userId, string $noteId): ?array
+    public function handle(int $userId, string $noteId): ?StudyBrowserNoteDetailResult
     {
         $cards = $this->cardsForNote($userId, $noteId);
 
@@ -23,18 +24,18 @@ class ShowStudyBrowserNoteAction
         /** @var Card $firstCard */
         $firstCard = $cards->first();
 
-        return [
-            'noteId' => $noteId,
-            'displayText' => StudyBrowserCardDisplay::displayTextFor($firstCard),
-            'noteTypeName' => $firstCard->source_notetype_name,
-            'sourceKind' => is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
+        return new StudyBrowserNoteDetailResult(
+            noteId: $noteId,
+            displayText: StudyBrowserCardDisplay::displayTextFor($firstCard),
+            noteTypeName: $firstCard->source_notetype_name,
+            sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
                 ? $firstCard->source_kind
                 : 'native',
-            'updatedAt' => $cards->max(fn (Card $card) => $card->updated_at)?->toJSON(),
-            'rawFields' => $this->fieldsForCards($cards),
-            'canonicalFields' => $this->canonicalFieldsForCards($cards),
-            'cards' => $cards,
-            'cardStats' => $cards
+            updatedAt: $cards->max(fn (Card $card) => $card->updated_at)?->toJSON(),
+            rawFields: $this->fieldsForCards($cards),
+            canonicalFields: $this->canonicalFieldsForCards($cards),
+            cards: $cards,
+            cardStats: $cards
                 ->map(fn (Card $card): array => [
                     'cardId' => $card->id,
                     'reviewCount' => (int) ($card->getAttribute('review_events_count') ?? 0),
@@ -42,8 +43,8 @@ class ShowStudyBrowserNoteAction
                 ])
                 ->values()
                 ->all(),
-            'selectedCardId' => $firstCard->id,
-        ];
+            selectedCardId: $firstCard->id,
+        );
     }
 
     /**
@@ -53,8 +54,13 @@ class ShowStudyBrowserNoteAction
     {
         $query = Card::query()
             ->ownedByActiveDeck($userId)
-            ->withCount('reviewEvents')
-            ->withMax('reviewEvents', 'reviewed_at')
+            ->leftJoinSub(
+                $this->reviewStatsSubquery(),
+                'review_event_stats',
+                fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
+            )
+            ->addSelect(DB::raw('coalesce(review_event_stats.review_events_count, 0) as review_events_count'))
+            ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
             ->orderBy('cards.id');
@@ -68,6 +74,15 @@ class ShowStudyBrowserNoteAction
         return $query->get();
     }
 
+    private function reviewStatsSubquery(): QueryBuilder
+    {
+        return DB::table('card_review_events')
+            ->select('card_id')
+            ->selectRaw('count(*) as review_events_count')
+            ->selectRaw('max(reviewed_at) as review_events_max_reviewed_at')
+            ->groupBy('card_id');
+    }
+
     private function lastReviewedAt(mixed $value): ?string
     {
         if ($value === null) {
@@ -78,6 +93,7 @@ class ShowStudyBrowserNoteAction
             return Carbon::instance($value)->toJSON();
         }
 
+        // Aggregate timestamp hydration differs across drivers, so normalize raw SQL strings too.
         if (is_string($value) && trim($value) !== '') {
             return Carbon::parse($value)->toJSON();
         }
@@ -91,21 +107,21 @@ class ShowStudyBrowserNoteAction
      */
     private function fieldsForCards(EloquentCollection $cards): array
     {
-        $fields = [];
+        $fieldsByName = [];
 
         foreach ($cards as $card) {
-            $this->appendPayloadFields($fields, 'prompt', $card->prompt_json);
-            $this->appendPayloadFields($fields, 'answer', $card->answer_json);
+            $this->appendPayloadFields($fieldsByName, 'prompt', $card->prompt_json);
+            $this->appendPayloadFields($fieldsByName, 'answer', $card->answer_json);
         }
 
-        if ($fields === []) {
+        if ($fieldsByName === []) {
             /** @var Card $firstCard */
             $firstCard = $cards->first();
-            $fields[] = $this->field('frontText', $firstCard->front_text);
-            $fields[] = $this->field('backText', $firstCard->back_text);
+            $fieldsByName['frontText'] = $this->field('frontText', $firstCard->front_text);
+            $fieldsByName['backText'] = $this->field('backText', $firstCard->back_text);
         }
 
-        return $fields;
+        return array_values($fieldsByName);
     }
 
     /**
@@ -124,9 +140,9 @@ class ShowStudyBrowserNoteAction
     }
 
     /**
-     * @param  list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>  $fields
+     * @param  array<string, array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>  $fieldsByName
      */
-    private function appendPayloadFields(array &$fields, string $prefix, mixed $payload): void
+    private function appendPayloadFields(array &$fieldsByName, string $prefix, mixed $payload): void
     {
         if (! is_array($payload)) {
             return;
@@ -137,7 +153,12 @@ class ShowStudyBrowserNoteAction
                 continue;
             }
 
-            $fields[] = $this->field("{$prefix}.{$key}", $value);
+            $name = "{$prefix}.{$key}";
+            $field = $this->field($name, $value);
+
+            if (! array_key_exists($name, $fieldsByName) || ($fieldsByName[$name]['value'] === null && $field['value'] !== null)) {
+                $fieldsByName[$name] = $field;
+            }
         }
     }
 

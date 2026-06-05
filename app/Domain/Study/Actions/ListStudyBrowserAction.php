@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -173,6 +174,11 @@ class ListStudyBrowserAction
         ?CardStudyStatus $queueState,
     ): Collection {
         return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+            ->leftJoinSub(
+                $this->reviewCountSubquery(),
+                'review_event_stats',
+                fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
+            )
             // Keep this projection in sync with rowsFromCards(), displayTextFor(), and queueStateSummaryValue().
             ->select([
                 'cards.id',
@@ -187,7 +193,7 @@ class ListStudyBrowserAction
                 'cards.created_at',
                 'cards.updated_at',
             ])
-            ->withCount('reviewEvents')
+            ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
             ->orderBy('cards.source_note_id')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -274,6 +280,14 @@ class ListStudyBrowserAction
                 "lower(coalesce(cards.search_text, '')) like ? escape ?",
                 [CardSearchText::likePattern($q), '\\'],
             ));
+    }
+
+    private function reviewCountSubquery(): QueryBuilder
+    {
+        return DB::table('card_review_events')
+            ->select('card_id')
+            ->selectRaw('count(*) as review_events_count')
+            ->groupBy('card_id');
     }
 
     /**

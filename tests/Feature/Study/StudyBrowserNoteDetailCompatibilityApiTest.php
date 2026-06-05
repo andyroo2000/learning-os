@@ -96,6 +96,8 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('rawFields.0.value', '会社')
             ->assertJsonPath('rawFields.1.name', 'prompt.cueReading')
             ->assertJsonPath('rawFields.1.value', 'かいしゃ')
+            ->assertJsonPath('rawFields.2.name', 'answer.meaning')
+            ->assertJsonPath('rawFields.3.name', 'answer.expression')
             ->assertJsonPath('canonicalFields.0.name', 'displayText')
             ->assertJsonPath('canonicalFields.0.value', '会社')
             ->assertJsonPath('cardStats.0.cardId', $firstCard->id)
@@ -104,7 +106,14 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('cardStats.1.cardId', $secondCard->id)
             ->assertJsonPath('cardStats.1.reviewCount', 0)
             ->assertJsonCount(2, 'cards')
+            ->assertJsonCount(4, 'rawFields')
             ->assertJsonCount(2, 'cardStats');
+
+        $this->assertSame(
+            $response->collect('rawFields')->pluck('name')->all(),
+            $response->collect('rawFields')->pluck('name')->unique()->values()->all(),
+            'Study browser note detail should expose unique raw field names.',
+        );
 
         $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_contains(strtolower($query['query']), 'from "cards"'));

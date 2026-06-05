@@ -34,6 +34,7 @@ class UndoCardReviewEventController extends Controller
     private function statusCodeFor(UndoCardReviewEventException $exception): int
     {
         return match ($exception->reason()) {
+            UndoCardReviewEventException::REVIEW_EVENT_UNAVAILABLE,
             UndoCardReviewEventException::CARD_UNAVAILABLE => 404,
             UndoCardReviewEventException::NOT_LATEST => 409,
             UndoCardReviewEventException::MISSING_SNAPSHOT,

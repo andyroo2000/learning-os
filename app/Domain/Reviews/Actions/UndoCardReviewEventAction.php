@@ -25,6 +25,15 @@ class UndoCardReviewEventAction
     public function handle(CardReviewEvent $reviewEvent): Card
     {
         return DB::transaction(function () use ($reviewEvent): Card {
+            $reviewEvent = CardReviewEvent::query()
+                ->whereKey($reviewEvent->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($reviewEvent === null) {
+                throw UndoCardReviewEventException::reviewEventUnavailable();
+            }
+
             // Reload card/deck inside the transaction so direct callers cannot reuse stale loaded relations.
             $reviewEvent->load(['card.deck']);
 
@@ -55,6 +64,7 @@ class UndoCardReviewEventAction
 
             $userId = $card->ownerUserId();
 
+            // Capture the tombstone payload before hard-deleting the review event.
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
                     userId: $userId,
@@ -66,7 +76,6 @@ class UndoCardReviewEventAction
                 ),
             );
 
-            // Capture the tombstone payload before hard-deleting the review event.
             $reviewEvent->delete();
 
             $this->recordSyncFeedEntry->handle(

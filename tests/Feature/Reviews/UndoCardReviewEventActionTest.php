@@ -135,6 +135,32 @@ class UndoCardReviewEventActionTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
+    public function test_it_rejects_stale_review_event_models_after_the_row_is_deleted(): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->create([
+            'card_state_before' => [
+                'study_status' => 'new',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+        $reviewEvent->delete();
+
+        try {
+            app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+            $this->fail('Expected unavailable review event undo exception was not thrown.');
+        } catch (UndoCardReviewEventException $exception) {
+            $this->assertSame('card_review_event_unavailable', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_rejects_review_events_without_a_card_state_snapshot(): void
     {
         $reviewEvent = CardReviewEvent::factory()->create([

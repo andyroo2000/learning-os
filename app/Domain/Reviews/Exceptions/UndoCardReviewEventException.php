@@ -8,6 +8,8 @@ final class UndoCardReviewEventException extends RuntimeException
 {
     public const CARD_UNAVAILABLE = 'card_review_event_card_unavailable';
 
+    public const REVIEW_EVENT_UNAVAILABLE = 'card_review_event_unavailable';
+
     public const NOT_LATEST = 'card_review_event_not_latest';
 
     public const MISSING_SNAPSHOT = 'card_review_event_missing_undo_state';
@@ -24,6 +26,11 @@ final class UndoCardReviewEventException extends RuntimeException
     public static function cardUnavailable(): self
     {
         return new self('Review event card is not available for undo.', self::CARD_UNAVAILABLE);
+    }
+
+    public static function reviewEventUnavailable(): self
+    {
+        return new self('Review event is not available for undo.', self::REVIEW_EVENT_UNAVAILABLE);
     }
 
     public static function notLatest(): self

@@ -28,6 +28,13 @@ class StudyImportJobMigrationTest extends TestCase
 
     private const STATUS_INDEX = 'study_import_jobs_status_idx';
 
+    public function test_study_import_jobs_migration_file_exists(): void
+    {
+        $this->assertFileExists(
+            dirname(__DIR__, 3).'/database/migrations/2026_06_05_020000_create_study_import_jobs_table.php',
+        );
+    }
+
     #[DataProvider('studyImportJobSqlProvider')]
     public function test_study_import_jobs_table_compiles_to_portable_sql(
         string $connectionClass,

@@ -122,8 +122,9 @@ class GetStudyOverviewActionTest extends TestCase
         StudySettings::factory()->for($user)->create([
             'new_cards_per_day' => 20,
         ]);
+        $nextDueAt = $now->copy()->subHour();
         $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
-            'due_at' => $now->copy()->subHour(),
+            'due_at' => $nextDueAt,
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
             'due_at' => $now->copy()->subMinutes(10),
@@ -150,12 +151,15 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['failed_count']);
         $this->assertSame(1, $overview['failed_due_count']);
         $this->assertSame(1, $overview['new_count']);
+        $this->assertSame(1, $overview['learning_count']);
+        $this->assertSame(1, $overview['review_count']);
+        $this->assertSame(1, $overview['suspended_count']);
         $this->assertSame(4, $overview['total_cards']);
+        $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
         $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));
 
         $this->assertCount(1, $cardMetricQueries, $queries->pluck('query')->implode("\n"));
-        $this->assertCount(4, $queries, $queries->pluck('query')->implode("\n"));
     }
 
     public function test_it_includes_the_latest_import_for_the_user(): void

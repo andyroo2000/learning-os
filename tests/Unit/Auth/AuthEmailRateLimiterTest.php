@@ -13,6 +13,7 @@ class AuthEmailRateLimiterTest extends TestCase
         $limiter = new AuthEmailRateLimiter;
 
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $limiter->keyFor(' ADA@example.com ', '127.0.0.1'));
+        $this->assertSame('email:ada@example.com|missing-ip', $limiter->keyFor('ada@example.com', null));
         $this->assertSame('missing-email|ip:127.0.0.1', $limiter->keyFor('', '127.0.0.1'));
         $this->assertSame('missing-email|missing-ip', $limiter->keyFor(null, null));
         $this->assertSame('missing-email|missing-ip', $limiter->keyFor(['ada@example.com'], ''));

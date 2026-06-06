@@ -67,6 +67,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
 
             $this->assertSame('会社', $card->front_text);
             $this->assertSame('会社', $card->back_text);
+            $this->assertSame('2026-06-05T14:15:00.000000Z', $card->updated_at?->toJSON());
             $this->assertSame(['cueText' => '会社', 'cueReading' => 'かいしゃ'], $card->prompt_json);
             $this->assertSame(['expression' => '会社', 'meaning' => 'company'], $card->answer_json);
             $this->assertSame('会社 会社 会社 かいしゃ 会社 company', $card->search_text);
@@ -224,6 +225,16 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['payloads']);
+
+        $this
+            ->withHeaders(['Accept' => 'application/json'])
+            ->patch("/api/study/cards/{$card->id}", [
+                'prompt' => ['cueText' => "\xB1"],
+                'answer' => ['meaning' => 'back'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payloads'])
+            ->assertJsonPath('errors.payloads.0', 'Study card payloads contain invalid content.');
     }
 
     public function test_it_accepts_payloads_at_the_maximum_depth_boundary(): void

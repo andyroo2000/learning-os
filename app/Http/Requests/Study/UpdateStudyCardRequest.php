@@ -7,6 +7,7 @@ use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
+use JsonException;
 use LogicException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -15,6 +16,7 @@ class UpdateStudyCardRequest extends FormRequest
     private const MAX_PAYLOAD_BYTES = 24 * 1024;
 
     // Maximum nested levels including the prompt/answer payload root itself.
+    // Depth 1 is the root payload array; arrays at depth 9+ are rejected.
     private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
 
     private ?Card $studyCard = null;
@@ -132,9 +134,18 @@ class UpdateStudyCardRequest extends FormRequest
             return;
         }
 
-        $serialized = json_encode(['prompt' => $prompt, 'answer' => $answer], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        try {
+            $serialized = json_encode(
+                ['prompt' => $prompt, 'answer' => $answer],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+        } catch (JsonException) {
+            $fail('payloads', 'Study card payloads contain invalid content.');
 
-        if ($serialized === false || strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
+            return;
+        }
+
+        if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
             $fail('payloads', 'Study card payloads must be '.((int) floor(self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
 
             return;

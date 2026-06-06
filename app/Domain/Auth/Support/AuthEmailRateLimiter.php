@@ -40,6 +40,9 @@ class AuthEmailRateLimiter
         return $this->perMinute($request, self::PASSWORD_RESET_TOKEN_PER_MINUTE);
     }
 
+    /**
+     * @internal Exposed for focused key-shape tests; route code should use named limiter methods.
+     */
     public function keyFor(mixed $email, ?string $ip): string
     {
         $email = is_string($email) ? Str::lower(trim($email)) : '';

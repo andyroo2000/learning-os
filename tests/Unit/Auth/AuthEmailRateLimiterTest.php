@@ -28,10 +28,19 @@ class AuthEmailRateLimiterTest extends TestCase
             'REMOTE_ADDR' => '127.0.0.1',
         ]);
 
-        $this->assertSame(6, $limiter->mobileTokens($request)->maxAttempts);
-        $this->assertSame(6, $limiter->mobileRegistrations($request)->maxAttempts);
-        $this->assertSame(6, $limiter->passwordResetLinks($request)->maxAttempts);
-        $this->assertSame(12, $limiter->passwordResetTokens($request)->maxAttempts);
-        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $limiter->mobileTokens($request)->key);
+        $mobileTokens = $limiter->mobileTokens($request);
+        $mobileRegistrations = $limiter->mobileRegistrations($request);
+        $passwordResetLinks = $limiter->passwordResetLinks($request);
+        $passwordResetTokens = $limiter->passwordResetTokens($request);
+
+        $this->assertSame(6, $mobileTokens->maxAttempts);
+        $this->assertSame(6, $mobileRegistrations->maxAttempts);
+        $this->assertSame(6, $passwordResetLinks->maxAttempts);
+        $this->assertSame(12, $passwordResetTokens->maxAttempts);
+
+        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileTokens->key);
+        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileRegistrations->key);
+        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetLinks->key);
+        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetTokens->key);
     }
 }

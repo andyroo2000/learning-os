@@ -8,13 +8,16 @@ use PHPUnit\Framework\TestCase;
 
 class StudyCardCreateRateLimiterTest extends TestCase
 {
-    public function test_it_builds_stable_user_and_network_keys(): void
+    public function test_it_builds_stable_typed_identity_keys(): void
     {
         $limiter = new StudyCardCreateRateLimiter;
 
-        $this->assertSame('42|127.0.0.1', $limiter->keyFor(42, '127.0.0.1'));
-        $this->assertSame('missing-user|unknown-ip', $limiter->keyFor(null, null));
-        $this->assertSame('user-1|unknown-ip', $limiter->keyFor('user-1', ''));
+        $this->assertSame('user:42', $limiter->keyFor(42, '127.0.0.1'));
+        $this->assertSame('user:42', $limiter->keyFor(42, '192.0.2.10'));
+        $this->assertSame('anon:unknown-ip', $limiter->keyFor(null, null));
+        $this->assertSame('anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
+        $this->assertSame('user:user-1', $limiter->keyFor('user-1', ''));
+        $this->assertSame('user:missing-user', $limiter->keyFor('missing-user', ''));
     }
 
     public function test_it_uses_120_attempts_per_minute_by_default(): void
@@ -33,6 +36,6 @@ class StudyCardCreateRateLimiterTest extends TestCase
 
         $this->assertSame(120, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
-        $this->assertSame('42|127.0.0.1', $limit->key);
+        $this->assertSame('user:42', $limit->key);
     }
 }

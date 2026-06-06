@@ -27,9 +27,12 @@ class StudyCardCreateRateLimiter
     public function keyFor(mixed $userId, ?string $ip): string
     {
         // The route requires auth; the fallback keeps the limiter safe if middleware changes.
-        $identity = $userId !== null ? (string) $userId : 'missing-user';
+        if ($userId !== null) {
+            return 'user:'.(string) $userId;
+        }
+
         $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
 
-        return $identity.'|'.$network;
+        return 'anon:'.$network;
     }
 }

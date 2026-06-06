@@ -15,4 +15,9 @@ class StudyCardDraftConflictException extends RuntimeException
     {
         return new self('Generating drafts cannot be edited yet.');
     }
+
+    public static function generatingCannotCreateCard(): self
+    {
+        return new self('Generating drafts cannot create cards yet.');
+    }
 }

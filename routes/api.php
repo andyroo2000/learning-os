@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
+use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
@@ -170,6 +171,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
     Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
     Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)->whereUlid('draftId');
+    Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     // Draft and final manual-card creation share the same user-scoped creation quota.
     Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);

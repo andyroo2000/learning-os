@@ -147,6 +147,19 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
     }
 
+    public function test_it_rejects_drafts_without_back_text(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['answerImage' => ['id' => 'image-2']],
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Card back text is required.');
+
+        app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
+    }
+
     #[DataProvider('nonPositiveUserIdProvider')]
     public function test_it_rejects_non_positive_user_ids_for_direct_callers(int $userId): void
     {

@@ -110,6 +110,11 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['id'])
             ->assertJsonPath('errors.id.0', 'Card ID must be a valid ULID.');
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", ['id' => ['not-a-ulid']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id'])
+            ->assertJsonPath('errors.id.0', 'Card ID must be a string.');
     }
 
     public function test_it_rejects_generating_drafts(): void
@@ -221,6 +226,21 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['front_text'])
             ->assertJsonPath('errors.front_text.0', 'Card front text is required.');
+    }
+
+    public function test_it_rejects_drafts_without_back_text(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['answerImage' => ['id' => 'image-2']],
+        ]);
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['back_text'])
+            ->assertJsonPath('errors.back_text.0', 'Card back text is required.');
     }
 
     public function test_it_rate_limits_draft_commits_by_user(): void

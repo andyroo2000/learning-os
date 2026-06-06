@@ -49,7 +49,7 @@ class StoreStudyCardFromDraftRequest extends FormRequest
     {
         return [
             'id.required' => 'Card ID is required.',
-            'id.string' => 'Card ID must be a valid ULID.',
+            'id.string' => 'Card ID must be a string.',
             'id.ulid' => 'Card ID must be a valid ULID.',
         ];
     }

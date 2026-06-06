@@ -28,6 +28,11 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self('study card payloads contain invalid content.', 'payloads');
     }
 
+    public static function previewAudioRoleRequiresAudio(): self
+    {
+        return new self('previewAudioRole requires previewAudio.', 'previewAudioRole');
+    }
+
     public static function payloadsTooLarge(int $maxKilobytes): self
     {
         return new self("study card payloads must be {$maxKilobytes} KB or smaller.", 'payloads');

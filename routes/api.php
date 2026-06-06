@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -79,6 +80,7 @@ use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardController;
+use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
@@ -167,6 +169,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Draft and final manual-card creation share the same user-scoped creation quota.
     Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+    Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

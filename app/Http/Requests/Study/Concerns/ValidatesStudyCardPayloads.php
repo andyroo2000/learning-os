@@ -2,20 +2,16 @@
 
 namespace App\Http\Requests\Study\Concerns;
 
+use App\Domain\Study\Enums\StudyCardImagePlacement;
+use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use Closure;
 use Illuminate\Validation\Validator;
-use JsonException;
 use LogicException;
 
 trait ValidatesStudyCardPayloads
 {
-    private const MAX_PAYLOAD_BYTES = 24 * 1024;
-
-    // Maximum nested levels including the prompt/answer payload root itself.
-    // Depth 1 is the root payload array; arrays at depth 9+ are rejected.
-    private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
-
     // Nullable so requireText:false callers still fail through frontText()/backText()
     // LogicExceptions instead of uninitialized typed-property errors.
     private ?string $frontText = null;
@@ -60,6 +56,38 @@ trait ValidatesStudyCardPayloads
             'answer.required' => 'prompt and answer payloads are required.',
             'answer.array' => 'prompt and answer payloads are required.',
         ];
+    }
+
+    protected static function studyCardImagePlacementMessage(): string
+    {
+        $values = StudyCardImagePlacement::values();
+        $last = array_pop($values);
+
+        if ($last === null) {
+            return 'imagePlacement is not supported.';
+        }
+
+        if ($values === []) {
+            return "imagePlacement must be {$last}.";
+        }
+
+        return 'imagePlacement must be '.implode(', ', $values).", or {$last}.";
+    }
+
+    protected static function studyCardMediaSourcesMessage(): string
+    {
+        $values = StudyCardDraft::MEDIA_SOURCES;
+        $last = array_pop($values);
+
+        if ($last === null) {
+            return 'draft media source is not supported.';
+        }
+
+        if ($values === []) {
+            return "draft media source must be {$last}.";
+        }
+
+        return 'draft media source must be '.implode(', ', $values).", or {$last}.";
     }
 
     /**
@@ -116,60 +144,38 @@ trait ValidatesStudyCardPayloads
             return;
         }
 
+        $serialized = StudyCardPayloadShapeValidator::serializePayloads($prompt, $answer);
+
         // Serialization runs before depth traversal so invalid or oversized payloads are rejected
         // first; this also bounds how much array width the depth check can walk. Those combined
         // failures use the synthetic payloads key because neither prompt nor answer alone failed.
-        try {
-            $serialized = json_encode(
-                ['prompt' => $prompt, 'answer' => $answer],
-                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
-            );
-        } catch (JsonException) {
+        if ($serialized === null) {
             $fail('payloads', 'study card payloads contain invalid content.');
 
             return;
         }
 
-        if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
+        if (StudyCardPayloadShapeValidator::exceedsMaxBytes($serialized)) {
             // Size is the authoritative combined-payload error when size and depth both fail.
-            $fail('payloads', 'study card payloads must be '.((int) (self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
+            $fail('payloads', 'study card payloads must be '.StudyCardPayloadShapeValidator::maxPayloadKilobytes().' KB or smaller.');
 
             return;
         }
 
-        if (self::exceedsMaxPayloadDepth($prompt)) {
-            $fail('prompt', 'prompt must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        if (StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt)) {
+            $fail('prompt', 'prompt must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
             $this->frontText = $frontText;
         } elseif ($requireText) {
             $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
-        if (self::exceedsMaxPayloadDepth($answer)) {
-            $fail('answer', 'answer must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        if (StudyCardPayloadShapeValidator::exceedsMaxDepth($answer)) {
+            $fail('answer', 'answer must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         } elseif (($backText = StudyCardPayloadText::backText($answer)) !== null) {
             $this->backText = $backText;
         } elseif ($requireText) {
             $fail('answer', 'answer must include a non-empty text field.');
         }
-    }
-
-    private static function exceedsMaxPayloadDepth(mixed $value, int $depth = 1): bool
-    {
-        if (! is_array($value)) {
-            return false;
-        }
-
-        if ($depth > self::MAX_TOTAL_PAYLOAD_DEPTH) {
-            return true;
-        }
-
-        foreach ($value as $child) {
-            if (self::exceedsMaxPayloadDepth($child, $depth + 1)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

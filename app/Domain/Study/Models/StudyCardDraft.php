@@ -33,6 +33,18 @@ class StudyCardDraft extends Model
     /** @use HasFactory<StudyCardDraftFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings;
 
+    public const MAX_IMAGE_PROMPT_LENGTH = 1000;
+
+    public const MAX_PAYLOAD_BYTES = 24 * 1024;
+
+    // Maximum nested levels including the prompt/answer payload root itself.
+    // Depth 1 is the root payload array; arrays at depth 9+ are rejected.
+    public const MAX_TOTAL_PAYLOAD_DEPTH = 8;
+
+    public const MEDIA_REF_ALLOWED_KEYS = ['id', 'filename', 'url', 'mediaKind', 'source'];
+
+    public const MEDIA_SOURCES = ['imported', 'generated', 'missing', 'imported_image', 'imported_other'];
+
     protected static function booted(): void
     {
         static::saving(function (StudyCardDraft $draft): void {

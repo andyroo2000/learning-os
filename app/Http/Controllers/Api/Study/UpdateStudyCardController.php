@@ -25,6 +25,7 @@ class UpdateStudyCardController extends Controller
             ),
         );
 
+        // UpdateCardResult always carries the card, including unchanged no-op updates.
         return response()->json(StudyCardSummaryResource::make($result->card)->resolve($request));
     }
 }

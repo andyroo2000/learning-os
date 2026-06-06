@@ -111,6 +111,30 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame('彼は学生です', $card->back_text);
     }
 
+    public function test_it_returns_the_card_summary_when_the_update_is_unchanged(): void
+    {
+        $user = $this->signIn();
+        $prompt = ['cueText' => '会社'];
+        $answer = ['meaning' => 'company'];
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'prompt_json' => $prompt,
+            'answer_json' => $answer,
+        ]);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => $prompt,
+            'answer' => $answer,
+        ])
+            ->assertOk()
+            ->assertJsonPath('id', $card->id)
+            ->assertJsonPath('prompt.cueText', '会社')
+            ->assertJsonPath('answer.meaning', 'company');
+
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
     public function test_it_normalizes_route_id_and_payload_text_without_trim_strings_middleware(): void
     {
         $user = $this->signIn();
@@ -173,7 +197,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'answer' => ['answerAudio' => ['id' => 'media']],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['payloads']);
+            ->assertJsonValidationErrors(['prompt', 'answer']);
 
         $tooDeep = 'too deep';
         for ($depth = 0; $depth < 9; $depth++) {
@@ -185,7 +209,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'answer' => ['meaning' => 'back'],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['payloads']);
+            ->assertJsonValidationErrors(['prompt']);
 
         $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => ['cueText' => str_repeat('a', 25 * 1024)],

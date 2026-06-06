@@ -14,6 +14,7 @@ class UpdateStudyCardRequest extends FormRequest
 {
     private const MAX_PAYLOAD_BYTES = 24 * 1024;
 
+    // Counts the prompt/answer payload root as level 1; nested children increase from there.
     private const MAX_PAYLOAD_DEPTH = 8;
 
     private ?Card $studyCard = null;
@@ -21,11 +22,12 @@ class UpdateStudyCardRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        $cardId = $this->route('cardId');
+        $cardId = (string) $this->route('cardId');
 
-        // Authentication middleware owns unauthenticated requests; this lookup hides missing,
-        // cross-user, deleted-card, and deleted-deck resources behind the same 404.
-        if ($user !== null && is_string($cardId)) {
+        // Authentication middleware returns 401 before the controller can run. For authenticated
+        // callers, this lookup hides missing, cross-user, deleted-card, and deleted-deck resources
+        // behind the same 404.
+        if ($user !== null) {
             $this->studyCard = Card::query()
                 ->ownedByActiveDeck((int) $user->id)
                 ->where('cards.id', CanonicalUlid::normalize($cardId))
@@ -56,7 +58,7 @@ class UpdateStudyCardRequest extends FormRequest
             function (Validator $validator): void {
                 $data = $validator->getData();
                 $this->validatePayloadShape(
-                    fn (string $message) => $validator->errors()->add('payloads', $message),
+                    fn (string $attribute, string $message) => $validator->errors()->add($attribute, $message),
                     is_array($data) ? $data : [],
                 );
             },
@@ -129,23 +131,25 @@ class UpdateStudyCardRequest extends FormRequest
         $serialized = json_encode(['prompt' => $prompt, 'answer' => $answer], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         if ($serialized === false || strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
-            $fail('Study card payloads must be '.((int) floor(self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
+            $fail('payloads', 'Study card payloads must be '.((int) floor(self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
 
             return;
         }
 
-        if (self::exceedsMaxDepth($prompt) || self::exceedsMaxDepth($answer)) {
-            $fail('Study card payloads must be '.self::MAX_PAYLOAD_DEPTH.' levels deep or fewer.');
+        if (self::exceedsMaxDepth($prompt)) {
+            $fail('prompt', 'prompt must be '.self::MAX_PAYLOAD_DEPTH.' levels deep or fewer.');
+        }
 
-            return;
+        if (self::exceedsMaxDepth($answer)) {
+            $fail('answer', 'answer must be '.self::MAX_PAYLOAD_DEPTH.' levels deep or fewer.');
         }
 
         if (StudyCardPayloadText::frontText($prompt) === null) {
-            $fail('prompt must include a non-empty text field.');
+            $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
         if (StudyCardPayloadText::backText($answer) === null) {
-            $fail('answer must include a non-empty text field.');
+            $fail('answer', 'answer must include a non-empty text field.');
         }
     }
 

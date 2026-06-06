@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
@@ -77,6 +78,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftAutosaveRateLimiter = new StudyCardDraftAutosaveRateLimiter;
         RateLimiter::for(StudyCardDraftAutosaveRateLimiter::NAME, function (Request $request) use ($studyCardDraftAutosaveRateLimiter): Limit {
             return $studyCardDraftAutosaveRateLimiter->limit($request);
+        });
+
+        $studyCardDraftDeleteRateLimiter = new StudyCardDraftDeleteRateLimiter;
+        RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($studyCardDraftDeleteRateLimiter): Limit {
+            return $studyCardDraftDeleteRateLimiter->limit($request);
         });
 
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.

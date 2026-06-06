@@ -12,7 +12,6 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\TestCase;
 
@@ -114,7 +113,7 @@ class CreateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_creates_when_the_user_draft_queue_is_full(): void
     {
         $user = User::factory()->create();
-        DB::table('study_card_drafts')->insert($this->cappedDraftRowsFor($user));
+        $this->insertCappedDraftRowsFor($user);
 
         $this->expectException(StudyCardDraftConflictException::class);
         $this->expectExceptionMessage('Draft queue is full. Delete some drafts before adding more.');

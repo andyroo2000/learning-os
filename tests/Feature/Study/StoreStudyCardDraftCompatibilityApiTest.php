@@ -13,7 +13,6 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
@@ -215,7 +214,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
     public function test_it_returns_conflict_when_the_user_draft_queue_is_full(): void
     {
         $user = $this->signIn();
-        DB::table('study_card_drafts')->insert($this->cappedDraftRowsFor($user));
+        $this->insertCappedDraftRowsFor($user);
 
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',

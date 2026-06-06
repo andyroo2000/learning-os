@@ -32,7 +32,7 @@ class CreateStudyCardDraftAction
         $draft->user_id = $data->userId;
         $draft->status = StudyManualCardDraftStatus::Generating;
         $draft->creation_kind = $data->creationKind;
-        // StudyCardDraft derives the persisted card_type from creation_kind on save.
+        $draft->card_type = $data->cardType;
         $draft->prompt_json = $data->promptJson;
         $draft->answer_json = $data->answerJson;
         $draft->image_placement = $data->imagePlacement;

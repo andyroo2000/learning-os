@@ -13,11 +13,12 @@ use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\TestCase;
 
 class CreateStudyCardDraftActionTest extends TestCase
 {
+    use BuildsStudyCardDraftRows;
     use RefreshDatabase;
 
     public function test_it_creates_a_generating_study_card_draft(): void
@@ -111,36 +112,5 @@ class CreateStudyCardDraftActionTest extends TestCase
             promptJson: ['cueText' => '犬'],
             answerJson: ['answerText' => 'dog'],
         ));
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function cappedDraftRowsFor(User $user): array
-    {
-        $now = now();
-        $rows = [];
-
-        for ($index = 0; $index < CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER; $index++) {
-            $rows[] = [
-                'id' => strtolower((string) Str::ulid()),
-                'user_id' => $user->id,
-                'status' => StudyManualCardDraftStatus::Generating->value,
-                'creation_kind' => StudyCardCreationKind::TextRecognition->value,
-                'card_type' => CardType::Recognition->value,
-                'prompt_json' => json_encode(['cueText' => '犬']),
-                'answer_json' => json_encode(['meaning' => 'dog']),
-                'image_placement' => StudyCardImagePlacement::None->value,
-                'image_prompt' => null,
-                'preview_audio_json' => null,
-                'preview_audio_role' => null,
-                'preview_image_json' => null,
-                'error_message' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        return $rows;
     }
 }

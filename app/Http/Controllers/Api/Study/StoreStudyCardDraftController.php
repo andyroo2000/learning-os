@@ -29,6 +29,7 @@ class StoreStudyCardDraftController extends Controller
                 imagePrompt: $request->imagePrompt(),
             ));
         } catch (StudyCardDraftValidationException $exception) {
+            // HTTP validation catches these first; this maps direct action guards defensively.
             throw ValidationException::withMessages([
                 $exception->field() => [$exception->getMessage()],
             ]);

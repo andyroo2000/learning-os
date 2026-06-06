@@ -3,7 +3,6 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Study\Actions\CreateStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
@@ -17,10 +16,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\TestCase;
 
 class StoreStudyCardDraftCompatibilityApiTest extends TestCase
 {
+    use BuildsStudyCardDraftRows;
     use RefreshDatabase;
 
     public function test_store_requires_authentication(): void
@@ -261,36 +262,5 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         } finally {
             $restoreStudyCardCreateLimiter();
         }
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function cappedDraftRowsFor(User $user): array
-    {
-        $now = now();
-        $rows = [];
-
-        for ($index = 0; $index < CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER; $index++) {
-            $rows[] = [
-                'id' => strtolower((string) Str::ulid()),
-                'user_id' => $user->id,
-                'status' => StudyManualCardDraftStatus::Generating->value,
-                'creation_kind' => StudyCardCreationKind::TextRecognition->value,
-                'card_type' => CardType::Recognition->value,
-                'prompt_json' => json_encode(['cueText' => '犬']),
-                'answer_json' => json_encode(['meaning' => 'dog']),
-                'image_placement' => StudyCardImagePlacement::None->value,
-                'image_prompt' => null,
-                'preview_audio_json' => null,
-                'preview_audio_role' => null,
-                'preview_image_json' => null,
-                'error_message' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        return $rows;
     }
 }

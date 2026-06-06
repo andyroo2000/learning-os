@@ -1595,6 +1595,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ],
             'resource id' => [
                 'query' => [
+                    // resource_id requires its scope companions; keep this case focused on max-length rejection.
                     'domain' => 'flashcards',
                     'resource_type' => 'card',
                     'resource_id' => str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH + 1),

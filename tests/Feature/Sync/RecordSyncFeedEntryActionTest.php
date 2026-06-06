@@ -128,6 +128,34 @@ class RecordSyncFeedEntryActionTest extends TestCase
         $this->assertNull($entry->payload);
     }
 
+    public function test_it_records_multibyte_metadata_at_the_column_limit(): void
+    {
+        $user = User::factory()->create();
+        $domain = str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH);
+        $resourceType = str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
+        $resourceId = str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
+
+        $entry = $this->recordFeedEntry(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $user->id,
+                domain: $domain,
+                resourceType: $resourceType,
+                resourceId: $resourceId,
+                operation: 'create',
+            ),
+        );
+
+        $this->assertSame($domain, $entry->domain);
+        $this->assertSame($resourceType, $entry->resource_type);
+        $this->assertSame($resourceId, $entry->resource_id);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'checkpoint' => $entry->checkpoint,
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]);
+    }
+
     public function test_it_rejects_non_positive_user_id(): void
     {
         $this->expectException(LogicException::class);

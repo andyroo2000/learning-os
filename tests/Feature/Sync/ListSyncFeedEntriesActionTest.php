@@ -879,6 +879,30 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertFalse($result->hasMore);
     }
 
+    public function test_it_accepts_multibyte_filter_values_at_the_maximum_length(): void
+    {
+        $user = User::factory()->create();
+        $domain = str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH);
+        $resourceType = str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
+        $resourceId = str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]);
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: $domain,
+            resourceType: $resourceType,
+            resourceId: $resourceId,
+        );
+
+        $this->assertSame([$entry->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+    }
+
     public function test_it_rejects_blank_operation_filters(): void
     {
         $this->expectException(InvalidArgumentException::class);

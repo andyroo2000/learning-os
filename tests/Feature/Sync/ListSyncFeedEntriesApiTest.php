@@ -1518,6 +1518,34 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_it_accepts_multibyte_filters_at_the_maximum_length(): void
+    {
+        $user = $this->signIn();
+        $domain = str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH);
+        $resourceType = str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
+        $resourceId = str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?'.http_build_query([
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.domain', $domain)
+            ->assertJsonPath('meta.resource_type', $resourceType)
+            ->assertJsonPath('meta.resource_id', $resourceId);
+    }
+
     public function test_it_rejects_array_resource_id_filters(): void
     {
         $this->signIn();

@@ -38,6 +38,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 
 - Normalize client-provided ULIDs before `ulid` validation in FormRequest `prepareForValidation()`.
 - Normalize again at action or DTO boundaries when direct callers can bypass HTTP requests. If this double normalization looks redundant, leave a short comment explaining the caller contract.
+- When a malformed client ID is expected to return no result instead of throwing, make the normalizer contract explicit with a test or a local try/catch/upfront validity check. Do not leave null-vs-exception behavior dependent on an undocumented helper assumption.
 - Preserve non-string invalid inputs. Arrays, objects, omitted optional values, and whitespace-only values should still reach validation or explicit guards in a way that produces the expected error.
 - Do not merge optional IDs as `null` when the client omitted the field. Omission and explicit null are different when validation rules or action contracts depend on presence.
 - Check adjacent client-visible IDs before pushing: `id`, `card_id`, `course_id`, nested batch IDs, route params, deck/card/media/review event fields, and list filters.
@@ -173,6 +174,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - For list endpoints, include the empty result contract in either action or API coverage: empty items array, null next cursor, and the expected total/count semantics.
 - For user-scoped cursor endpoints, test cursor reuse across users. A valid cursor produced for user A must not leak, skip into, or shape user B's result set beyond B's own scoped records.
 - Avoid duplicate cursor decoding on the HTTP path when a FormRequest already validates and parses the cursor. Prefer a typed accessor/DTO from the request if the action can accept it without weakening direct-caller validation; if the action deliberately decodes again to protect direct callers, leave a short comment so HTTP 422 vs action exception boundaries stay clear.
+- For case-insensitive ID compatibility without losing indexes, prefer precomputed exact candidates over SQL functions such as `LOWER(column)`, but assert or handle the "no preferred candidate matched" and "multiple case variants matched" paths explicitly. Fallbacks after a narrowed `whereIn` should return empty or fail loudly, not silently return the unfiltered collection.
 - Normalize collection keys consistently after pagination slicing. Even if `get()` currently returns zero-based keys, call `values()` on all paginated branches when the response contract is a JSON array.
 - When adding an index for a future keyset-paginated list, include the deterministic tiebreaker column such as `id` in the intended ordering/index plan, or explicitly defer it until the query layer lands.
 - If adding or changing a filter predicate, confirm there is an index that supports the new query shape.

@@ -43,7 +43,10 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(['meaning' => 'company'], $result->card->answer_json);
         $this->assertSame('会社', $result->card->front_text);
         $this->assertSame('company', $result->card->back_text);
-        $this->assertDatabaseHas('study_card_drafts', ['id' => $draft->id]);
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $cardId,
+        ]);
 
         $deck = Deck::query()->sole();
         $this->assertSame($user->id, $deck->user_id);
@@ -76,7 +79,38 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame($cardId, $secondResult->card->id);
         $this->assertSame(1, Card::query()->count());
         $this->assertSame(2, SyncFeedEntry::query()->count());
-        $this->assertDatabaseHas('study_card_drafts', ['id' => $draft->id]);
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $cardId,
+        ]);
+    }
+
+    public function test_it_rejects_duplicate_commits_with_a_different_card_id(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $firstCardId = strtolower((string) str()->ulid());
+
+        app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, $firstCardId);
+
+        $this->expectException(StudyCardDraftConflictException::class);
+        $this->expectExceptionMessage('Draft already created a card.');
+
+        try {
+            app(CreateStudyCardFromDraftAction::class)->handle(
+                $draft->user_id,
+                $draft->id,
+                strtolower((string) str()->ulid()),
+            );
+        } finally {
+            $this->assertSame(1, Card::query()->count());
+            $this->assertDatabaseHas('study_card_drafts', [
+                'id' => $draft->id,
+                'committed_card_id' => $firstCardId,
+            ]);
+        }
     }
 
     public function test_it_accepts_failed_drafts_after_the_user_has_corrected_the_content(): void

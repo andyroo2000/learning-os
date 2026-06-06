@@ -28,9 +28,11 @@ class CreateStudyCardFromDraftAction
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
 
+        $canonicalCardId = CanonicalUlid::normalize($cardId);
+
         // Keep the draft row locked while the final card content snapshot is derived. The draft
         // remains after commit so clients can retry with the same card ID before deleting it.
-        return DB::transaction(function () use ($userId, $draftId, $cardId): CreateCardResult {
+        return DB::transaction(function () use ($userId, $draftId, $canonicalCardId): CreateCardResult {
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
                 ->whereKey(CanonicalUlid::normalize($draftId))
@@ -45,6 +47,11 @@ class CreateStudyCardFromDraftAction
                 throw StudyCardDraftConflictException::generatingCannotCreateCard();
             }
 
+            if ($draft->committed_card_id !== null
+                && CanonicalUlid::normalize((string) $draft->committed_card_id) !== $canonicalCardId) {
+                throw StudyCardDraftConflictException::alreadyCommitted();
+            }
+
             $promptJson = $draft->prompt_json;
             $answerJson = $draft->answer_json;
 
@@ -55,7 +62,7 @@ class CreateStudyCardFromDraftAction
 
             $deck = $this->resolveManualStudyDeck->handle($userId);
 
-            return $this->createCard->handle(CreateCardData::fromInput(
+            $result = $this->createCard->handle(CreateCardData::fromInput(
                 userId: $userId,
                 deckId: $deck->id,
                 frontText: $frontText,
@@ -63,8 +70,15 @@ class CreateStudyCardFromDraftAction
                 cardType: $draft->card_type,
                 promptJson: $promptJson,
                 answerJson: $answerJson,
-                id: $cardId,
+                id: $canonicalCardId,
             ));
+
+            if ($draft->committed_card_id === null) {
+                $draft->committed_card_id = $result->card->id;
+                $draft->save();
+            }
+
+            return $result;
         });
     }
 }

@@ -56,7 +56,10 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $this->assertSame($cardId, $card->id);
         $this->assertSame(['cueText' => '会社'], $card->prompt_json);
         $this->assertSame(['meaning' => 'company'], $card->answer_json);
-        $this->assertDatabaseHas('study_card_drafts', ['id' => $draft->id]);
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $cardId,
+        ]);
     }
 
     public function test_it_normalizes_route_and_card_ids_without_trim_strings_middleware(): void
@@ -94,7 +97,35 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('id', $cardId);
 
         $this->assertSame(1, Card::query()->count());
-        $this->assertDatabaseHas('study_card_drafts', ['id' => $draft->id]);
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $cardId,
+        ]);
+    }
+
+    public function test_it_rejects_duplicate_commits_with_a_different_card_id(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $firstCardId = strtolower((string) Str::ulid());
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => $firstCardId,
+        ])->assertCreated();
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Draft already created a card.');
+
+        $this->assertSame(1, Card::query()->count());
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $firstCardId,
+        ]);
     }
 
     public function test_it_requires_a_client_card_id_for_retry_safe_commits(): void

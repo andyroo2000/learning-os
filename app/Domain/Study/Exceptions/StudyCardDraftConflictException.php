@@ -20,4 +20,9 @@ class StudyCardDraftConflictException extends RuntimeException
     {
         return new self('Generating drafts cannot create cards yet.');
     }
+
+    public static function alreadyCommitted(): self
+    {
+        return new self('Draft already created a card.');
+    }
 }

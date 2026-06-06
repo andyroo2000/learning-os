@@ -163,6 +163,16 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',
             'cardType' => 'recognition',
+            'prompt' => null,
+            'answer' => [],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['prompt'])
+            ->assertJsonPath('errors.prompt.0', 'prompt and answer payloads are required.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
             'prompt' => ['cueText' => 'front'],
             'answer' => ['meaning' => 'back'],
             'imagePrompt' => ['not' => 'a string'],

@@ -165,6 +165,22 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('cards.0.noteId', null);
     }
 
+    public function test_it_resolves_lowercase_unsourced_card_note_ids(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'unsourced card',
+            'source_note_id' => null,
+        ]);
+
+        $this
+            ->getJson('/api/study/browser/'.strtolower($card->id))
+            ->assertOk()
+            ->assertJsonPath('noteId', $card->id)
+            ->assertJsonPath('selectedCardId', $card->id)
+            ->assertJsonPath('cards.0.id', $card->id);
+    }
+
     public function test_it_returns_not_found_for_missing_deleted_or_cross_user_notes(): void
     {
         $user = $this->signIn();

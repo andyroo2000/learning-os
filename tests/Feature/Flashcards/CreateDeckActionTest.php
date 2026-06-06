@@ -60,6 +60,7 @@ class CreateDeckActionTest extends TestCase
             'course_id' => null,
             'name' => 'Italian Basics',
             'description' => null,
+            'is_manual_study_deck' => false,
             'created_at' => $deck->created_at?->toJSON(),
             'updated_at' => $deck->updated_at?->toJSON(),
             'deleted_at' => null,

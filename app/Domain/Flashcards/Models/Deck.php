@@ -17,11 +17,18 @@ use Illuminate\Support\Facades\DB;
 use LogicException;
 
 // Deck ownership and course scope are treated as immutable after creation; card/media ownership checks rely on that invariant.
-#[Fillable(['user_id', 'course_id', 'name', 'description'])]
+#[Fillable(['user_id', 'course_id', 'name', 'description', 'is_manual_study_deck'])]
 class Deck extends Model
 {
     /** @use HasFactory<DeckFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_manual_study_deck' => false,
+    ];
 
     protected static function booted(): void
     {
@@ -85,6 +92,7 @@ class Deck extends Model
     {
         return [
             'user_id' => 'integer',
+            'is_manual_study_deck' => 'boolean',
         ];
     }
 

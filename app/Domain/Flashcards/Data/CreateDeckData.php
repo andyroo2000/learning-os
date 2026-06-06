@@ -12,6 +12,7 @@ final readonly class CreateDeckData
         public ?string $description = null,
         public ?string $courseId = null,
         public ?string $id = null,
+        public bool $isManualStudyDeck = false,
     ) {}
 
     public static function fromInput(
@@ -20,6 +21,7 @@ final readonly class CreateDeckData
         ?string $description = null,
         ?string $courseId = null,
         ?string $id = null,
+        bool $isManualStudyDeck = false,
     ): self {
         return new self(
             userId: $userId,
@@ -27,6 +29,7 @@ final readonly class CreateDeckData
             description: $description === null ? null : trim($description),
             courseId: $courseId === null ? null : CanonicalUlid::normalize($courseId),
             id: $id === null ? null : CanonicalUlid::normalize($id),
+            isManualStudyDeck: $isManualStudyDeck,
         );
     }
 }

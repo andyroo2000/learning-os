@@ -72,6 +72,7 @@ class CreateDeckAction
             'course_id' => $courseId,
             'name' => $data->name,
             'description' => $description,
+            'is_manual_study_deck' => $data->isManualStudyDeck,
         ]);
 
         if ($data->id !== null) {
@@ -161,6 +162,7 @@ class CreateDeckAction
             || $deck->course_id !== $courseId
             || $deck->name !== $data->name
             || $deck->description !== $description
+            || $deck->is_manual_study_deck !== $data->isManualStudyDeck
         ) {
             throw DeckConflictException::conflict($deck);
         }

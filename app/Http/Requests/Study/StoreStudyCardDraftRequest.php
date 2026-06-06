@@ -84,6 +84,7 @@ class StoreStudyCardDraftRequest extends FormRequest
                     $payload = $data[$attribute] ?? null;
 
                     if (is_array($payload) && $payload !== [] && array_is_list($payload)) {
+                        // Match ConvoLab's shared missing/malformed payload error for compatibility.
                         $validator->errors()->add($attribute, 'prompt and answer payloads are required.');
                     }
                 }
@@ -113,6 +114,7 @@ class StoreStudyCardDraftRequest extends FormRequest
             'prompt.present' => 'prompt and answer payloads are required.',
             'answer.present' => 'prompt and answer payloads are required.',
             'creationKind.in' => 'creationKind is not supported.',
+            // ConvoLab reports unsupported cardType values and stale-client mismatches the same way.
             'cardType.in' => 'cardType must match creationKind.',
             'imagePlacement.in' => 'imagePlacement must be none, prompt, answer, or both.',
             'imagePrompt.max' => 'imagePrompt must be '.CreateStudyCardDraftData::MAX_IMAGE_PROMPT_LENGTH.' characters or fewer.',

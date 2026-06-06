@@ -80,6 +80,8 @@ final readonly class CreateStudyCardDraftData
             return null;
         }
 
+        // StoreStudyCardDraftRequest enforces the HTTP boundary; repeat the guard here
+        // so direct action callers cannot bypass the ConvoLab-compatible limit.
         if (mb_strlen($trimmed, 'UTF-8') > self::MAX_IMAGE_PROMPT_LENGTH) {
             throw StudyCardDraftValidationException::imagePromptTooLong(self::MAX_IMAGE_PROMPT_LENGTH);
         }

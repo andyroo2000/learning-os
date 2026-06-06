@@ -51,7 +51,8 @@ trait BuildsStudyCardDraftRows
     {
         $rows = $this->cappedDraftRowsFor($user);
 
-        foreach (array_chunk($rows, 90) as $chunk) {
+        // 60 rows x 15 columns leaves headroom under SQLite's 999 bind-parameter cap.
+        foreach (array_chunk($rows, 60) as $chunk) {
             DB::table('study_card_drafts')->insert($chunk);
         }
 

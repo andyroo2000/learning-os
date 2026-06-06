@@ -59,7 +59,7 @@ class UpdateStudyCardRequest extends FormRequest
                 $data = $validator->getData();
                 $this->validatePayloadShape(
                     fn (string $attribute, string $message) => $validator->errors()->add($attribute, $message),
-                    is_array($data) ? $data : [],
+                    $data,
                 );
             },
         ];
@@ -81,7 +81,7 @@ class UpdateStudyCardRequest extends FormRequest
     public function studyCard(): Card
     {
         if ($this->studyCard === null) {
-            throw new NotFoundHttpException('Study card not found.');
+            throw new LogicException('studyCard() called before authorize() resolved the card.');
         }
 
         return $this->studyCard;

@@ -864,6 +864,21 @@ class ListSyncFeedEntriesActionTest extends TestCase
         );
     }
 
+    public function test_it_accepts_filter_values_at_the_maximum_length(): void
+    {
+        $user = User::factory()->create();
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: str_repeat('a', SyncFeedEntry::MAX_DOMAIN_LENGTH),
+            resourceType: str_repeat('b', SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH),
+            resourceId: str_repeat('c', SyncFeedEntry::MAX_RESOURCE_ID_LENGTH),
+        );
+
+        $this->assertTrue($result->entries->isEmpty());
+        $this->assertFalse($result->hasMore);
+    }
+
     public function test_it_rejects_blank_operation_filters(): void
     {
         $this->expectException(InvalidArgumentException::class);

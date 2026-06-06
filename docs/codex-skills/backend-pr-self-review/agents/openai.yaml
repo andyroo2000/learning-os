@@ -1,0 +1,7 @@
+interface:
+  display_name: "Backend PR Self Review"
+  short_description: "Pre-push backend API PR checklist."
+  default_prompt: "Use $backend-pr-self-review to review my backend API PR before I push it."
+
+policy:
+  allow_implicit_invocation: true

@@ -97,6 +97,8 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 - If a query scope joins tables or changes projection, assert that selected columns and loaded models still contain the expected base model fields. Watch for `select cards.*` or join projections wiping out data needed by a caller.
 - Create-style compatibility endpoints that clients may retry need a stable client-supplied resource ID or an explicit "not retry-safe" contract. Idempotent setup work, such as resolving a default deck, does not make the final resource create idempotent by itself.
 - Commit/convert endpoints need an explicit idempotency key decision. If a draft/import/job can be committed into a target resource, decide whether retry safety is keyed by the source, the client-supplied target ID, or a persisted source-to-target mapping; test or comment what happens when the same source is committed again with a different target ID.
+- If a retry-safe commit stores the target ID back on a soft-deletable source, query with `withTrashed()` when retries after source deletion should still return the existing target. Otherwise a lost-response retry can degrade from idempotent success to 404.
+- When a source gains committed/converted state but keeps its original lifecycle status, expose the new state or target ID in list/show resources, or explicitly document that clients must discover it another way. Hidden committed state can leave clients showing stale "commit" actions.
 - If a compatibility discriminator must live on a shared model, document the boundary decision, add lookup indexes for the real query shape, and test that unrelated canonical update APIs cannot flip the discriminator accidentally.
 
 ## Upload and Header Validation
@@ -110,6 +112,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 ## Concurrency and Transaction Boundaries
 
 - Expire-then-check, claim-then-process, and active-record guards should run under the same transaction and per-user or per-resource lock pattern as the write path they protect.
+- Normalize cheap scalar inputs such as ULIDs before entering a transaction/lock when the normalization does not depend on locked state. This keeps failure paths outside the lock window and makes captured canonical values consistent.
 - For update/autosave endpoints that first resolve a model in the request and later reject mutable states in the action, review the stale-read window. If a background job can flip status between authorization and save, either lock/refresh inside the write transaction or document that the next retry safely observes the conflict.
 - Move validation that can be decided from request data plus already-authorized model state before `lockForUpdate()`. A 422 that does not need a fresh locked row should not acquire a write lock; keep locked-action checks for invariants that truly depend on the current committed row.
 - If an empty PATCH/no-op path skips the normal write transaction, review it as a separate race path. It should still re-check ownership, soft deletion, and mutable status when those outcomes are client-visible, with focused action coverage if the branch has its own query.
@@ -199,6 +202,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - Assert the throttled response status and default limit values directly when a PR changes limiter behavior or its tests.
 - If a limiter helper accepts an override such as `$perMinute` for tests, either cover the override with a focused unit assertion or keep the override local to the test so it does not look like an untested production contract.
 - Rate-limit tests should consume buckets with payloads that are valid for the behavior under test, or clearly comment why an invalid/missing payload is safe. Otherwise the throttle assertion can become coupled to validation ordering rather than limiter behavior.
+- Be deliberate about whether throttle middleware runs before validation. If malformed requests consume quota, note that choice when clients may auto-retry validation errors; if only successful writes should count, the limiter must move after validation or into the action.
 - If a test mirrors a Laravel middleware internal such as `md5($limiterName.$key)`, isolate that coupling in test support or comment the dependency so a framework upgrade fails loudly.
 
 ## Style and Maintainability Nits That Recur

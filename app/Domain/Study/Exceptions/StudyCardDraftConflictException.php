@@ -23,6 +23,6 @@ class StudyCardDraftConflictException extends RuntimeException
 
     public static function alreadyCommitted(): self
     {
-        return new self('Draft already created a card.');
+        return new self('Draft was already committed with a different card ID.');
     }
 }

@@ -123,7 +123,7 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             'id' => strtolower((string) Str::ulid()),
         ])
             ->assertConflict()
-            ->assertJsonPath('message', 'Draft already created a card.');
+            ->assertJsonPath('message', 'Draft was already committed with a different card ID.');
 
         $this->assertSame(1, Card::query()->count());
         $this->assertDatabaseHas('study_card_drafts', [

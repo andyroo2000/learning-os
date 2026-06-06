@@ -76,7 +76,8 @@ class CreateStudyCardFromDraftAction
 
             if ($draft->committed_card_id === null) {
                 $draft->committed_card_id = $result->card->id;
-                $draft->save();
+                // Draft commits are an internal retry marker; card creation emits the sync entry.
+                $draft->saveQuietly();
             }
 
             return $result;

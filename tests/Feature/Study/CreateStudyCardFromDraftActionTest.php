@@ -96,7 +96,7 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, $firstCardId);
 
         $this->expectException(StudyCardDraftConflictException::class);
-        $this->expectExceptionMessage('Draft already created a card.');
+        $this->expectExceptionMessage('Draft was already committed with a different card ID.');
 
         try {
             app(CreateStudyCardFromDraftAction::class)->handle(

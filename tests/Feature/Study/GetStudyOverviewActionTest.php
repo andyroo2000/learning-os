@@ -306,8 +306,13 @@ class GetStudyOverviewActionTest extends TestCase
         );
 
         $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(0, $overview['failed_count']);
+        $this->assertSame(0, $overview['failed_due_count']);
         $this->assertSame(0, $overview['new_count']);
         $this->assertSame(0, $overview['new_cards_available_today']);
+        $this->assertSame(0, $overview['learning_count']);
+        $this->assertSame(0, $overview['review_count']);
+        $this->assertSame(0, $overview['suspended_count']);
         $this->assertSame(0, $overview['total_cards']);
         $this->assertNull($overview['next_due_at']);
     }

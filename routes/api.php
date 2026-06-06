@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
@@ -92,13 +93,13 @@ use Illuminate\Support\Facades\Route;
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::post('/auth/register', RegisterMobileUserController::class)
-    ->middleware('throttle:mobile-registrations');
+    ->middleware('throttle:'.AuthEmailRateLimiter::MOBILE_REGISTRATIONS);
 Route::post('/auth/password/forgot', SendPasswordResetLinkController::class)
-    ->middleware('throttle:password-reset-links');
+    ->middleware('throttle:'.AuthEmailRateLimiter::PASSWORD_RESET_LINKS);
 Route::post('/auth/password/reset', ResetUserPasswordController::class)
-    ->middleware('throttle:password-reset-tokens');
+    ->middleware('throttle:'.AuthEmailRateLimiter::PASSWORD_RESET_TOKENS);
 Route::post('/auth/tokens', StoreMobileTokenController::class)
-    ->middleware('throttle:mobile-tokens');
+    ->middleware('throttle:'.AuthEmailRateLimiter::MOBILE_TOKENS);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);

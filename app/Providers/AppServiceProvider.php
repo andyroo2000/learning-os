@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -22,7 +23,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -46,28 +46,18 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Deck::class, DeckPolicy::class);
         Gate::policy(MediaAsset::class, MediaAssetPolicy::class);
 
-        RateLimiter::for('mobile-tokens', function (Request $request): Limit {
-            $email = strtolower(trim((string) $request->input('email')));
-
-            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        $authEmailRateLimiter = new AuthEmailRateLimiter;
+        RateLimiter::for(AuthEmailRateLimiter::MOBILE_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->mobileTokens($request);
         });
-
-        RateLimiter::for('mobile-registrations', function (Request $request): Limit {
-            $email = strtolower(trim((string) $request->input('email')));
-
-            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        RateLimiter::for(AuthEmailRateLimiter::MOBILE_REGISTRATIONS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->mobileRegistrations($request);
         });
-
-        RateLimiter::for('password-reset-links', function (Request $request): Limit {
-            $email = Str::lower(trim((string) $request->input('email')));
-
-            return Limit::perMinute(6)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_LINKS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->passwordResetLinks($request);
         });
-
-        RateLimiter::for('password-reset-tokens', function (Request $request): Limit {
-            $email = Str::lower(trim((string) $request->input('email')));
-
-            return Limit::perMinute(12)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
+        RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->passwordResetTokens($request);
         });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

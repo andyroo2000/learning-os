@@ -19,8 +19,10 @@ class StoreStudyCardDraftController extends Controller
         CreateStudyCardDraftAction $createStudyCardDraft,
     ): JsonResponse {
         try {
+            $userId = (int) $request->user()->getAuthIdentifier();
+
             $draft = $createStudyCardDraft->handle(CreateStudyCardDraftData::fromInput(
-                userId: (int) $request->user()->id,
+                userId: $userId,
                 creationKind: $request->creationKind(),
                 cardType: $request->cardType(),
                 promptJson: $request->promptPayload(),

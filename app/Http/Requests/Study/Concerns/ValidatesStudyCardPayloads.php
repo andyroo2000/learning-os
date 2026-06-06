@@ -16,6 +16,8 @@ trait ValidatesStudyCardPayloads
     // Depth 1 is the root payload array; arrays at depth 9+ are rejected.
     private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
 
+    // Nullable so requireText:false callers still fail through frontText()/backText()
+    // LogicExceptions instead of uninitialized typed-property errors.
     private ?string $frontText = null;
 
     private ?string $backText = null;

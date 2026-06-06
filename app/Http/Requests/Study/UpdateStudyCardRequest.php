@@ -122,6 +122,7 @@ class UpdateStudyCardRequest extends FormRequest
     }
 
     /**
+     * @param  callable(string, string): void  $fail
      * @param  array<string, mixed>  $data
      */
     private function validatePayloadShape(\Closure $fail, array $data): void
@@ -153,17 +154,13 @@ class UpdateStudyCardRequest extends FormRequest
 
         if (self::exceedsMaxDepth($prompt)) {
             $fail('prompt', 'prompt must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        } elseif (StudyCardPayloadText::frontText($prompt) === null) {
+            $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
         if (self::exceedsMaxDepth($answer)) {
             $fail('answer', 'answer must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        }
-
-        if (StudyCardPayloadText::frontText($prompt) === null) {
-            $fail('prompt', 'prompt must include a non-empty text field.');
-        }
-
-        if (StudyCardPayloadText::backText($answer) === null) {
+        } elseif (StudyCardPayloadText::backText($answer) === null) {
             $fail('answer', 'answer must include a non-empty text field.');
         }
     }

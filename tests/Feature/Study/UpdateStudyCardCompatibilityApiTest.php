@@ -201,7 +201,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['prompt', 'answer']);
 
         $tooDeep = 'too deep';
-        for ($depth = 0; $depth < 9; $depth++) {
+        for ($depth = 0; $depth < 8; $depth++) {
             $tooDeep = ['nested' => $tooDeep];
         }
 
@@ -218,6 +218,15 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['answer']);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['nested' => $tooDeep],
+            'answer' => ['meaning' => 'back'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['prompt'])
+            ->assertJsonCount(1, 'errors.prompt')
+            ->assertJsonPath('errors.prompt.0', 'prompt must be 8 levels deep or fewer.');
 
         $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => ['cueText' => str_repeat('a', 25 * 1024)],

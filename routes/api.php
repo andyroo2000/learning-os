@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -166,7 +167,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/reviews', StoreStudyReviewController::class);
     Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
-    Route::post('/study/cards', StoreStudyCardController::class)->middleware('throttle:study-card-create');
+    Route::post('/study/cards', StoreStudyCardController::class)
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
     Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)->whereUlid('cardId');

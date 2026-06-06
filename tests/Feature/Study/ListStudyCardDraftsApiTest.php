@@ -83,6 +83,7 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertJsonPath('drafts.1.imagePrompt', 'A friendly dog')
             ->assertJsonPath('drafts.1.previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('drafts.1.previewImage.id', 'image-1')
+            ->assertJsonPath('drafts.1.committedCardId', null)
             ->assertJsonMissing([
                 'id' => $otherDraft->id,
             ])
@@ -101,6 +102,7 @@ class ListStudyCardDraftsApiTest extends TestCase
                         'previewAudioRole',
                         'previewImage',
                         'errorMessage',
+                        'committedCardId',
                         'createdAt',
                         'updatedAt',
                     ],

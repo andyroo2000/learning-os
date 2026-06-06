@@ -60,6 +60,10 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             'id' => $draft->id,
             'committed_card_id' => $cardId,
         ]);
+
+        $this->getJson("/api/study/card-drafts/{$draft->id}")
+            ->assertOk()
+            ->assertJsonPath('committedCardId', $cardId);
     }
 
     public function test_it_normalizes_route_and_card_ids_without_trim_strings_middleware(): void

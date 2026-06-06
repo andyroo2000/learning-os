@@ -29,13 +29,14 @@ class CreateStudyCardFromDraftAction
         }
 
         $canonicalCardId = CanonicalUlid::normalize($cardId);
+        $canonicalDraftId = CanonicalUlid::normalize($draftId);
 
         // Keep the draft row locked while the final card content snapshot is derived. The draft
         // remains after commit so clients can retry with the same card ID before deleting it.
-        return DB::transaction(function () use ($userId, $draftId, $canonicalCardId): CreateCardResult {
+        return DB::transaction(function () use ($userId, $canonicalDraftId, $canonicalCardId): CreateCardResult {
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
-                ->whereKey(CanonicalUlid::normalize($draftId))
+                ->whereKey($canonicalDraftId)
                 ->lockForUpdate()
                 ->first();
 

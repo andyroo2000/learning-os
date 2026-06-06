@@ -96,6 +96,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 - Do not make one FormRequest class the public helper surface for another request. If store/update requests need the same message builder, enum list, or payload helper, move it to a shared trait/support class that both requests already depend on.
 - If a query scope joins tables or changes projection, assert that selected columns and loaded models still contain the expected base model fields. Watch for `select cards.*` or join projections wiping out data needed by a caller.
 - Create-style compatibility endpoints that clients may retry need a stable client-supplied resource ID or an explicit "not retry-safe" contract. Idempotent setup work, such as resolving a default deck, does not make the final resource create idempotent by itself.
+- Commit/convert endpoints need an explicit idempotency key decision. If a draft/import/job can be committed into a target resource, decide whether retry safety is keyed by the source, the client-supplied target ID, or a persisted source-to-target mapping; test or comment what happens when the same source is committed again with a different target ID.
 - If a compatibility discriminator must live on a shared model, document the boundary decision, add lookup indexes for the real query shape, and test that unrelated canonical update APIs cannot flip the discriminator accidentally.
 
 ## Upload and Header Validation
@@ -197,6 +198,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - When tests temporarily override a named limiter, isolate hit counters with a unique per-run bucket or clear the exact keys before and after. Restoring only the limiter definition is not enough because cached attempts can leak.
 - Assert the throttled response status and default limit values directly when a PR changes limiter behavior or its tests.
 - If a limiter helper accepts an override such as `$perMinute` for tests, either cover the override with a focused unit assertion or keep the override local to the test so it does not look like an untested production contract.
+- Rate-limit tests should consume buckets with payloads that are valid for the behavior under test, or clearly comment why an invalid/missing payload is safe. Otherwise the throttle assertion can become coupled to validation ordering rather than limiter behavior.
 - If a test mirrors a Laravel middleware internal such as `md5($limiterName.$key)`, isolate that coupling in test support or comment the dependency so a framework upgrade fails loudly.
 
 ## Style and Maintainability Nits That Recur

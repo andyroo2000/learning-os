@@ -14,6 +14,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -107,6 +108,18 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(['cueText' => '  company  '], $draft->prompt_json);
         $this->assertSame(['meaning' => '  会社  '], $draft->answer_json);
         $this->assertNull($draft->image_prompt);
+
+        StudyCardDraft::query()->delete();
+
+        $this
+            ->postJson('/api/study/card-drafts', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => 'front'],
+                'answer' => [],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value);
     }
 
     public function test_it_validates_card_type_payload_and_image_fields(): void
@@ -166,15 +179,22 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['prompt'])
             ->assertJsonPath('errors.prompt.0', 'prompt and answer payloads are required.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => [['meaning' => 'back']],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['answer'])
+            ->assertJsonPath('errors.answer.0', 'prompt and answer payloads are required.');
     }
 
     public function test_it_returns_conflict_when_the_user_draft_queue_is_full(): void
     {
         $user = $this->signIn();
-        StudyCardDraft::factory()
-            ->for($user)
-            ->count(CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER)
-            ->create();
+        DB::table('study_card_drafts')->insert($this->cappedDraftRowsFor($user));
 
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',
@@ -231,5 +251,36 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         } finally {
             $restoreStudyCardCreateLimiter();
         }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function cappedDraftRowsFor(User $user): array
+    {
+        $now = now();
+        $rows = [];
+
+        for ($index = 0; $index < CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER; $index++) {
+            $rows[] = [
+                'id' => strtolower((string) Str::ulid()),
+                'user_id' => $user->id,
+                'status' => StudyManualCardDraftStatus::Generating->value,
+                'creation_kind' => StudyCardCreationKind::TextRecognition->value,
+                'card_type' => CardType::Recognition->value,
+                'prompt_json' => json_encode(['cueText' => '犬']),
+                'answer_json' => json_encode(['meaning' => 'dog']),
+                'image_placement' => StudyCardImagePlacement::None->value,
+                'image_prompt' => null,
+                'preview_audio_json' => null,
+                'preview_audio_role' => null,
+                'preview_image_json' => null,
+                'error_message' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return $rows;
     }
 }

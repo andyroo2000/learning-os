@@ -10,9 +10,10 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
-use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CreateStudyCardDraftActionTest extends TestCase
@@ -98,10 +99,7 @@ class CreateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_creates_when_the_user_draft_queue_is_full(): void
     {
         $user = User::factory()->create();
-        StudyCardDraft::factory()
-            ->for($user)
-            ->count(CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER)
-            ->create();
+        DB::table('study_card_drafts')->insert($this->cappedDraftRowsFor($user));
 
         $this->expectException(StudyCardDraftConflictException::class);
         $this->expectExceptionMessage('Draft queue is full. Delete some drafts before adding more.');
@@ -113,5 +111,36 @@ class CreateStudyCardDraftActionTest extends TestCase
             promptJson: ['cueText' => '犬'],
             answerJson: ['answerText' => 'dog'],
         ));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function cappedDraftRowsFor(User $user): array
+    {
+        $now = now();
+        $rows = [];
+
+        for ($index = 0; $index < CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER; $index++) {
+            $rows[] = [
+                'id' => strtolower((string) Str::ulid()),
+                'user_id' => $user->id,
+                'status' => StudyManualCardDraftStatus::Generating->value,
+                'creation_kind' => StudyCardCreationKind::TextRecognition->value,
+                'card_type' => CardType::Recognition->value,
+                'prompt_json' => json_encode(['cueText' => '犬']),
+                'answer_json' => json_encode(['meaning' => 'dog']),
+                'image_placement' => StudyCardImagePlacement::None->value,
+                'image_prompt' => null,
+                'preview_audio_json' => null,
+                'preview_audio_role' => null,
+                'preview_image_json' => null,
+                'error_message' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return $rows;
     }
 }

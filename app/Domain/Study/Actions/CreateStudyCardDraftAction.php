@@ -18,6 +18,7 @@ class CreateStudyCardDraftAction
             throw StudyCardDraftValidationException::cardTypeMustMatchCreationKind();
         }
 
+        // StudyCardDraft is not soft-deletable today, so this counts every persisted draft.
         $existingDraftCount = StudyCardDraft::query()
             ->where('user_id', $data->userId)
             ->count();

@@ -8,12 +8,12 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Actions\ResolveManualStudyDeckAction;
+use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
-use App\Providers\AppServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,26 +145,34 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
 
     public function test_it_rate_limits_manual_card_creation_by_user(): void
     {
-        $restoreStudyCardCreateLimiter = function (): void {
-            RateLimiter::for('study-card-create', function (Request $request): Limit {
-                return AppServiceProvider::studyCardCreateRateLimit($request);
+        $limiter = new StudyCardCreateRateLimiter;
+        $clientIp = '127.0.0.1';
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+        $restoreStudyCardCreateLimiter = function () use ($limiter): void {
+            RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
             });
         };
 
-        RateLimiter::for('study-card-create', function (Request $request): Limit {
-            return AppServiceProvider::studyCardCreateRateLimit($request, 3);
+        RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+            return Limit::perMinute(3)->by(
+                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+            );
         });
 
         try {
-            $user = $this->signIn();
-
             for ($attempt = 0; $attempt < 3; $attempt++) {
                 $this
                     ->postJson('/api/study/cards', [])
                     ->assertUnprocessable();
             }
 
-            $this->signIn(User::factory()->create());
+            $this->signIn($otherUser);
 
             $this
                 ->postJson('/api/study/cards', [])

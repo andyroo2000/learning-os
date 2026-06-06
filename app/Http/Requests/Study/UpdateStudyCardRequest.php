@@ -22,6 +22,10 @@ class UpdateStudyCardRequest extends FormRequest
 
     private ?Card $studyCard = null;
 
+    private ?string $frontText = null;
+
+    private ?string $backText = null;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -126,13 +130,13 @@ class UpdateStudyCardRequest extends FormRequest
 
     public function frontText(): string
     {
-        return StudyCardPayloadText::frontText($this->promptPayload())
+        return $this->frontText ??= StudyCardPayloadText::frontText($this->promptPayload())
             ?? throw new LogicException('frontText called after validation failed to reject an invalid prompt payload.');
     }
 
     public function backText(): string
     {
-        return StudyCardPayloadText::backText($this->answerPayload())
+        return $this->backText ??= StudyCardPayloadText::backText($this->answerPayload())
             ?? throw new LogicException('backText called after validation failed to reject an invalid answer payload.');
     }
 
@@ -173,14 +177,18 @@ class UpdateStudyCardRequest extends FormRequest
 
         if (self::exceedsMaxDepth($prompt)) {
             $fail('prompt', 'prompt must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (StudyCardPayloadText::frontText($prompt) === null) {
+        } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) === null) {
             $fail('prompt', 'prompt must include a non-empty text field.');
+        } else {
+            $this->frontText = $frontText;
         }
 
         if (self::exceedsMaxDepth($answer)) {
             $fail('answer', 'answer must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (StudyCardPayloadText::backText($answer) === null) {
+        } elseif (($backText = StudyCardPayloadText::backText($answer)) === null) {
             $fail('answer', 'answer must include a non-empty text field.');
+        } else {
+            $this->backText = $backText;
         }
     }
 

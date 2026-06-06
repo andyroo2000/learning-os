@@ -201,7 +201,9 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'answer' => ['answerAudio' => ['id' => 'media']],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['prompt', 'answer']);
+            ->assertJsonValidationErrors(['prompt', 'answer'])
+            ->assertJsonPath('errors.prompt.0', 'prompt must include a non-empty text field.')
+            ->assertJsonPath('errors.answer.0', 'answer must include a non-empty text field.');
 
         $tooDeep = 'too deep';
         // Eight wraps below prompt/answer nested fields reaches depth 9 from the payload root.

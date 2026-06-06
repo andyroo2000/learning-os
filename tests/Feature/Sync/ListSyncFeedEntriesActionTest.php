@@ -805,6 +805,17 @@ class ListSyncFeedEntriesActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_domain_filters_above_the_maximum_length(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed domain must not exceed '.SyncFeedEntry::MAX_DOMAIN_LENGTH.' characters.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            domain: str_repeat('a', SyncFeedEntry::MAX_DOMAIN_LENGTH + 1),
+        );
+    }
+
     public function test_it_rejects_blank_resource_type_filters(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -813,6 +824,17 @@ class ListSyncFeedEntriesActionTest extends TestCase
         app(ListSyncFeedEntriesAction::class)->handle(
             userId: 1,
             resourceType: ' ',
+        );
+    }
+
+    public function test_it_rejects_resource_type_filters_above_the_maximum_length(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_type must not exceed '.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH.' characters.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            resourceType: str_repeat('a', SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH + 1),
         );
     }
 
@@ -827,6 +849,34 @@ class ListSyncFeedEntriesActionTest extends TestCase
             resourceType: 'card',
             resourceId: ' ',
         );
+    }
+
+    public function test_it_rejects_resource_id_filters_above_the_maximum_length(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Sync feed resource_id must not exceed '.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH.' characters.');
+
+        app(ListSyncFeedEntriesAction::class)->handle(
+            userId: 1,
+            domain: 'flashcards',
+            resourceType: 'card',
+            resourceId: str_repeat('a', SyncFeedEntry::MAX_RESOURCE_ID_LENGTH + 1),
+        );
+    }
+
+    public function test_it_accepts_filter_values_at_the_maximum_length(): void
+    {
+        $user = User::factory()->create();
+
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            domain: str_repeat('a', SyncFeedEntry::MAX_DOMAIN_LENGTH),
+            resourceType: str_repeat('b', SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH),
+            resourceId: str_repeat('c', SyncFeedEntry::MAX_RESOURCE_ID_LENGTH),
+        );
+
+        $this->assertTrue($result->entries->isEmpty());
+        $this->assertFalse($result->hasMore);
     }
 
     public function test_it_rejects_blank_operation_filters(): void

@@ -141,13 +141,14 @@ class UpdateStudyCardRequest extends FormRequest
                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
             );
         } catch (JsonException) {
-            $fail('payloads', 'Study card payloads contain invalid content.');
+            // Combined serialization/size failures use the compatibility-level payloads key.
+            $fail('payloads', 'study card payloads contain invalid content.');
 
             return;
         }
 
         if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
-            $fail('payloads', 'Study card payloads must be '.((int) floor(self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
+            $fail('payloads', 'study card payloads must be '.((int) (self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
 
             return;
         }

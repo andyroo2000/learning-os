@@ -201,6 +201,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['prompt', 'answer']);
 
         $tooDeep = 'too deep';
+        // Eight wraps below prompt/answer nested fields reaches depth 9 from the payload root.
         for ($depth = 0; $depth < 8; $depth++) {
             $tooDeep = ['nested' => $tooDeep];
         }
@@ -243,7 +244,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['payloads'])
-            ->assertJsonPath('errors.payloads.0', 'Study card payloads contain invalid content.');
+            ->assertJsonPath('errors.payloads.0', 'study card payloads contain invalid content.');
     }
 
     public function test_it_accepts_payloads_at_the_maximum_depth_boundary(): void
@@ -252,6 +253,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $card = Card::factory()->for($this->deckFor($user))->create();
 
         $maxDepth = 'at boundary';
+        // Seven wraps below prompt/answer nested fields reaches depth 8 from the payload root.
         for ($depth = 0; $depth < 7; $depth++) {
             $maxDepth = ['nested' => $maxDepth];
         }

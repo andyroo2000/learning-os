@@ -14,8 +14,8 @@ class UpdateStudyCardRequest extends FormRequest
 {
     private const MAX_PAYLOAD_BYTES = 24 * 1024;
 
-    // Counts the prompt/answer payload root as level 1; nested children increase from there.
-    private const MAX_PAYLOAD_DEPTH = 8;
+    // Maximum nested levels including the prompt/answer payload root itself.
+    private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
 
     private ?Card $studyCard = null;
 
@@ -56,6 +56,8 @@ class UpdateStudyCardRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                // Use raw validator data because after-callbacks still run when field rules fail;
+                // validatePayloadShape lets prompt/answer rules own missing or non-array errors.
                 $data = $validator->getData();
                 $this->validatePayloadShape(
                     fn (string $attribute, string $message) => $validator->errors()->add($attribute, $message),
@@ -70,6 +72,8 @@ class UpdateStudyCardRequest extends FormRequest
      */
     public function messages(): array
     {
+        // ConvoLab clients treat missing/non-array prompt or answer as one compatibility contract;
+        // the errors object still carries the concrete prompt/answer field keys.
         return [
             'prompt.required' => 'prompt and answer payloads are required.',
             'prompt.array' => 'prompt and answer payloads are required.',
@@ -106,13 +110,13 @@ class UpdateStudyCardRequest extends FormRequest
     public function frontText(): string
     {
         return StudyCardPayloadText::frontText($this->promptPayload())
-            ?? throw new LogicException('frontText called with invalid prompt payload.');
+            ?? throw new LogicException('frontText called after validation failed to reject an invalid prompt payload.');
     }
 
     public function backText(): string
     {
         return StudyCardPayloadText::backText($this->answerPayload())
-            ?? throw new LogicException('backText called with invalid answer payload.');
+            ?? throw new LogicException('backText called after validation failed to reject an invalid answer payload.');
     }
 
     /**
@@ -137,11 +141,11 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         if (self::exceedsMaxDepth($prompt)) {
-            $fail('prompt', 'prompt must be '.self::MAX_PAYLOAD_DEPTH.' levels deep or fewer.');
+            $fail('prompt', 'prompt must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         }
 
         if (self::exceedsMaxDepth($answer)) {
-            $fail('answer', 'answer must be '.self::MAX_PAYLOAD_DEPTH.' levels deep or fewer.');
+            $fail('answer', 'answer must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         }
 
         if (StudyCardPayloadText::frontText($prompt) === null) {
@@ -159,7 +163,7 @@ class UpdateStudyCardRequest extends FormRequest
             return false;
         }
 
-        if ($depth > self::MAX_PAYLOAD_DEPTH) {
+        if ($depth > self::MAX_TOTAL_PAYLOAD_DEPTH) {
             return true;
         }
 

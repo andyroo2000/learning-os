@@ -212,6 +212,13 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['prompt']);
 
         $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back', 'nested' => $tooDeep],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['answer']);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => ['cueText' => str_repeat('a', 25 * 1024)],
             'answer' => ['meaning' => 'back'],
         ])

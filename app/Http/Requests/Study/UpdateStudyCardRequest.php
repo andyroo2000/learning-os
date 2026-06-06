@@ -151,14 +151,14 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         // Serialization runs before depth traversal so invalid or oversized payloads are rejected
-        // first; this also bounds how much array width the depth check can walk.
+        // first; this also bounds how much array width the depth check can walk. Those combined
+        // failures use the synthetic payloads key because neither prompt nor answer alone failed.
         try {
             $serialized = json_encode(
                 ['prompt' => $prompt, 'answer' => $answer],
                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
             );
         } catch (JsonException) {
-            // Combined serialization/size failures use the compatibility-level payloads key.
             $fail('payloads', 'study card payloads contain invalid content.');
 
             return;

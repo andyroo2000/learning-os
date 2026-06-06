@@ -3,7 +3,9 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Models\User;
+use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
@@ -55,6 +57,29 @@ class ReorderNewCardQueueApiTest extends TestCase
         ]);
     }
 
+    public function test_it_accepts_queue_batches_above_the_cursor_page_size(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $cards = collect();
+
+        foreach (range(1, CursorPagination::MAX_PAGE_SIZE + 1) as $position) {
+            $cards->push($this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => $position,
+            ]));
+        }
+
+        $response = $this->postJson('/api/cards/new/reorder', [
+            'card_ids' => $cards->pluck('id')->all(),
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE + 1, 'data')
+            ->assertJsonPath('data.0.id', $cards->first()->id)
+            ->assertJsonPath('data.'.CursorPagination::MAX_PAGE_SIZE.'.id', $cards->last()->id);
+    }
+
     public function test_it_rejects_missing_empty_duplicate_and_malformed_card_ids(): void
     {
         $this->signIn();
@@ -79,6 +104,15 @@ class ReorderNewCardQueueApiTest extends TestCase
         $this->postJson('/api/cards/new/reorder', ['card_ids' => [['nested']]])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['card_ids.0']);
+
+        $tooManyCardIds = array_map(
+            fn (): string => strtolower((string) str()->ulid()),
+            range(1, NewCardQueueLimits::PAGE_SIZE_MAX + 1),
+        );
+
+        $this->postJson('/api/cards/new/reorder', ['card_ids' => $tooManyCardIds])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['card_ids']);
     }
 
     public function test_it_rejects_cross_user_deleted_deck_deleted_card_and_non_new_cards(): void

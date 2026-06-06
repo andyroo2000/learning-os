@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Support\Identifiers\CanonicalUlid;
-use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReorderNewCardQueueRequest extends FormRequest
@@ -35,7 +35,7 @@ class ReorderNewCardQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'card_ids' => ['required', 'array', 'min:1', 'max:'.CursorPagination::MAX_PAGE_SIZE],
+            'card_ids' => ['required', 'array', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'card_ids.*' => ['required', 'string', 'distinct', 'ulid'],
         ];
     }

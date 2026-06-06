@@ -130,6 +130,10 @@ class GetStudyOverviewActionTest extends TestCase
             'due_at' => $now->copy()->subMinutes(10),
             'failed_at' => $now->copy()->subHour(),
         ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->addHour(),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 1,
         ]);
@@ -148,13 +152,13 @@ class GetStudyOverviewActionTest extends TestCase
         DB::flushQueryLog();
 
         $this->assertSame(1, $overview['due_count']);
-        $this->assertSame(1, $overview['failed_count']);
+        $this->assertSame(2, $overview['failed_count']);
         $this->assertSame(1, $overview['failed_due_count']);
         $this->assertSame(1, $overview['new_count']);
-        $this->assertSame(1, $overview['learning_count']);
+        $this->assertSame(2, $overview['learning_count']);
         $this->assertSame(1, $overview['review_count']);
         $this->assertSame(1, $overview['suspended_count']);
-        $this->assertSame(4, $overview['total_cards']);
+        $this->assertSame(5, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
         // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.

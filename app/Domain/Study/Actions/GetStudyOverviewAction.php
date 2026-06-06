@@ -141,13 +141,13 @@ class GetStudyOverviewAction
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
             ->selectRaw(<<<SQL
                 COUNT(cards.id) AS total_cards,
-                SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END) AS due_count,
-                SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END) AS failed_due_count,
-                SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END) AS failed_count,
-                SUM(CASE WHEN cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END) AS new_count,
-                SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END) AS learning_count,
-                SUM(CASE WHEN cards.study_status = ? THEN 1 ELSE 0 END) AS review_count,
-                SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END) AS suspended_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END), 0) AS learning_count,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END), 0) AS suspended_count,
                 MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
                 // due_count

@@ -157,6 +157,7 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(4, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
+        // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.
         $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));
 
         $this->assertCount(1, $cardMetricQueries, $queries->pluck('query')->implode("\n"));

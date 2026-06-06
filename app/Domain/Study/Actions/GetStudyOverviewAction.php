@@ -136,6 +136,7 @@ class GetStudyOverviewAction
     {
         $activeDueStatuses = $this->activeDueStatuses();
         $activeDueStatusPlaceholders = implode(', ', array_fill(0, count($activeDueStatuses), '?'));
+        $nowFormatted = $now->toDateTimeString();
         $row = $this->ownedActiveCardsQuery($userId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
             ->selectRaw(<<<SQL
@@ -149,17 +150,25 @@ class GetStudyOverviewAction
                 SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END) AS suspended_count,
                 MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
+                // due_count
                 ...$activeDueStatuses,
-                $now,
+                $nowFormatted,
+                // failed_due_count
                 ...$activeDueStatuses,
-                $now,
+                $nowFormatted,
+                // failed_count
                 ...$activeDueStatuses,
+                // new_count
                 CardStudyStatus::New->value,
+                // learning_count
                 CardStudyStatus::Learning->value,
                 CardStudyStatus::Relearning->value,
+                // review_count
                 CardStudyStatus::Review->value,
+                // suspended_count
                 CardStudyStatus::Suspended->value,
                 CardStudyStatus::Buried->value,
+                // next_due_at
                 ...$activeDueStatuses,
             ])
             ->first();

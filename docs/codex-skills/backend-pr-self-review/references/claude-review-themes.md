@@ -39,6 +39,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 - Normalize client-provided ULIDs before `ulid` validation in FormRequest `prepareForValidation()`.
 - Normalize again at action or DTO boundaries when direct callers can bypass HTTP requests. If this double normalization looks redundant, leave a short comment explaining the caller contract.
 - When a malformed client ID is expected to return no result instead of throwing, make the normalizer contract explicit with a test or a local try/catch/upfront validity check. If direct action callers can pass arbitrary strings, prefer a cheap format guard before querying so non-ULID garbage does not waste a DB round-trip; if HTTP validation is the only public boundary, document that assumption.
+- For lookup/show actions with format guards, cover malformed IDs and valid-but-missing IDs as separate paths. A deleted/cross-user HTTP 404 test is useful, but it should not be the only proof that a direct valid ID with no matching row returns the intended null/not-found result.
 - Preserve non-string invalid inputs. Arrays, objects, omitted optional values, and whitespace-only values should still reach validation or explicit guards in a way that produces the expected error.
 - Do not merge optional IDs as `null` when the client omitted the field. Omission and explicit null are different when validation rules or action contracts depend on presence.
 - Check adjacent client-visible IDs before pushing: `id`, `card_id`, `course_id`, nested batch IDs, route params, deck/card/media/review event fields, and list filters.
@@ -216,7 +217,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 ## Style and Maintainability Nits That Recur
 
 - Avoid no-op `merge([])` calls or comments that describe a temporary implementation detail.
-- Remove unreachable defensive catches that make normal data look more dangerous than it is. If a `JsonException`, domain exception, or other catch exists only for impossible values through the HTTP path, either prove the direct-caller path can reach it with a focused test/comment or simplify the code.
+- Remove or annotate unreachable defensive catches, fallbacks, and branches that make normal data look more dangerous than it is. If a `JsonException`, domain exception, empty fallback, or other guard exists only for impossible values through the real query/request path, either prove the direct-caller path can reach it with a focused test/comment, make invariant violations loud, or simplify the code.
 - Do not duplicate private helper methods across sibling tests or request classes when a local helper/trait already exists.
 - Prefer static helpers for fixture/index-name builders that do not depend on instance state.
 - Remove redundant casts, `forceFill` calls, or assignments unless they protect a real invariant.

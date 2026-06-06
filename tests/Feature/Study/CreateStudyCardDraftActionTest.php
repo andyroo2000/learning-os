@@ -97,6 +97,20 @@ class CreateStudyCardDraftActionTest extends TestCase
         ));
     }
 
+    public function test_it_rejects_malformed_payload_shapes_for_direct_callers(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('prompt must be 8 levels deep or fewer.');
+
+        app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['a' => ['b' => ['c' => ['d' => ['e' => ['f' => ['g' => ['h' => ['i' => 'deep']]]]]]]]],
+            answerJson: ['meaning' => 'dog'],
+        ));
+    }
+
     public function test_it_rejects_creates_when_the_user_draft_queue_is_full(): void
     {
         $user = User::factory()->create();

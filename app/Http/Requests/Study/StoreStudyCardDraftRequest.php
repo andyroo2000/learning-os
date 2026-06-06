@@ -120,7 +120,9 @@ class StoreStudyCardDraftRequest extends FormRequest
         return [
             ...$this->studyCardPayloadMessages(),
             'prompt.present' => self::PAYLOAD_REQUIRED_MESSAGE,
+            'prompt.array' => self::PAYLOAD_REQUIRED_MESSAGE,
             'answer.present' => self::PAYLOAD_REQUIRED_MESSAGE,
+            'answer.array' => self::PAYLOAD_REQUIRED_MESSAGE,
             'creationKind.in' => 'creationKind is not supported.',
             // ConvoLab reports unsupported cardType values and stale-client mismatches the same way.
             'cardType.in' => 'cardType must match creationKind.',

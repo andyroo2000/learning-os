@@ -6,11 +6,16 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
+use JsonException;
 use LogicException;
 
 final readonly class CreateStudyCardDraftData
 {
     public const MAX_IMAGE_PROMPT_LENGTH = 1000;
+
+    private const MAX_PAYLOAD_BYTES = 24 * 1024;
+
+    private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
 
     private function __construct(
         public int $userId,
@@ -34,6 +39,8 @@ final readonly class CreateStudyCardDraftData
         if ($userId < 1) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
+
+        self::validatePayloadShape($promptJson, $answerJson);
 
         return new self(
             userId: $userId,
@@ -87,5 +94,48 @@ final readonly class CreateStudyCardDraftData
         }
 
         return $trimmed;
+    }
+
+    private static function validatePayloadShape(array $promptJson, array $answerJson): void
+    {
+        try {
+            $serialized = json_encode(
+                ['prompt' => $promptJson, 'answer' => $answerJson],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+        } catch (JsonException) {
+            throw StudyCardDraftValidationException::invalidPayloads();
+        }
+
+        if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
+            throw StudyCardDraftValidationException::payloadsTooLarge((int) (self::MAX_PAYLOAD_BYTES / 1024));
+        }
+
+        if (self::exceedsMaxPayloadDepth($promptJson)) {
+            throw StudyCardDraftValidationException::promptTooDeep(self::MAX_TOTAL_PAYLOAD_DEPTH);
+        }
+
+        if (self::exceedsMaxPayloadDepth($answerJson)) {
+            throw StudyCardDraftValidationException::answerTooDeep(self::MAX_TOTAL_PAYLOAD_DEPTH);
+        }
+    }
+
+    private static function exceedsMaxPayloadDepth(mixed $value, int $depth = 1): bool
+    {
+        if (! is_array($value)) {
+            return false;
+        }
+
+        if ($depth > self::MAX_TOTAL_PAYLOAD_DEPTH) {
+            return true;
+        }
+
+        foreach ($value as $child) {
+            if (self::exceedsMaxPayloadDepth($child, $depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

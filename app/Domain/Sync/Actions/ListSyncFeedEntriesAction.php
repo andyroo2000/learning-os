@@ -48,6 +48,10 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed resource_id must not be blank when provided.');
         }
 
+        $this->assertFilterLength('domain', $domain, SyncFeedEntry::MAX_DOMAIN_LENGTH);
+        $this->assertFilterLength('resource_type', $resourceType, SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
+        $this->assertFilterLength('resource_id', $resourceId, SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
+
         if ($operation === '') {
             throw new InvalidArgumentException('Sync feed operation must not be blank when provided.');
         }
@@ -98,5 +102,12 @@ class ListSyncFeedEntriesAction
             ->get();
 
         return ListSyncFeedEntriesResult::fromLookahead($entries, $pageSize, $currentCheckpoint);
+    }
+
+    private function assertFilterLength(string $field, ?string $value, int $maxLength): void
+    {
+        if ($value !== null && mb_strlen($value) > $maxLength) {
+            throw new InvalidArgumentException("Sync feed {$field} must not exceed {$maxLength} characters.");
+        }
     }
 }

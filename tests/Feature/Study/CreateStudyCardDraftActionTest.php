@@ -12,6 +12,8 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\TestCase;
 
@@ -110,6 +112,21 @@ class CreateStudyCardDraftActionTest extends TestCase
         ));
     }
 
+    #[DataProvider('nonPositiveUserIdProvider')]
+    public function test_it_rejects_non_positive_user_ids_for_direct_callers(int $userId): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study card draft user ID must be a positive integer.');
+
+        CreateStudyCardDraftData::fromInput(
+            userId: $userId,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['answerText' => 'dog'],
+        );
+    }
+
     public function test_it_rejects_creates_when_the_user_draft_queue_is_full(): void
     {
         $user = User::factory()->create();
@@ -125,5 +142,16 @@ class CreateStudyCardDraftActionTest extends TestCase
             promptJson: ['cueText' => '犬'],
             answerJson: ['answerText' => 'dog'],
         ));
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function nonPositiveUserIdProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative' => [-1],
+        ];
     }
 }

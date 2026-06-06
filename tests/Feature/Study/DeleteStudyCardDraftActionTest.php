@@ -10,6 +10,8 @@ use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\TestCase;
 
@@ -72,6 +74,15 @@ class DeleteStudyCardDraftActionTest extends TestCase
         ]);
     }
 
+    #[DataProvider('nonPositiveUserIdProvider')]
+    public function test_it_rejects_non_positive_user_ids_for_direct_callers(int $userId): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study card draft user ID must be a positive integer.');
+
+        app(DeleteStudyCardDraftAction::class)->handle($userId, strtolower((string) str()->ulid()));
+    }
+
     public function test_delete_relief_allows_create_after_the_full_queue_exception_is_cleared(): void
     {
         $user = User::factory()->create();
@@ -94,5 +105,16 @@ class DeleteStudyCardDraftActionTest extends TestCase
             promptJson: ['cueText' => '犬'],
             answerJson: ['meaning' => 'dog'],
         );
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function nonPositiveUserIdProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative' => [-1],
+        ];
     }
 }

@@ -9,6 +9,7 @@ use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
@@ -111,6 +112,50 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['suspended_count']);
         $this->assertSame(4, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
+    }
+
+    public function test_it_loads_overview_card_metrics_with_one_aggregate_query(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'due_at' => $now->copy()->subMinutes(10),
+            'failed_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $this->assertSame(1, $overview['due_count']);
+        $this->assertSame(1, $overview['failed_count']);
+        $this->assertSame(1, $overview['failed_due_count']);
+        $this->assertSame(1, $overview['new_count']);
+        $this->assertSame(4, $overview['total_cards']);
+
+        $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));
+
+        $this->assertCount(1, $cardMetricQueries, $queries->pluck('query')->implode("\n"));
+        $this->assertCount(4, $queries, $queries->pluck('query')->implode("\n"));
     }
 
     public function test_it_includes_the_latest_import_for_the_user(): void

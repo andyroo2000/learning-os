@@ -35,29 +35,15 @@ class GetStudyOverviewAction
         $settings = $this->getStudySettings->handle($userId);
         // The daily introduction limit is user-wide, even when overview counts are deck-scoped.
         $introducedToday = $this->countIntroducedToday($userId, $dayStart, $dayEnd);
-        $baseQuery = $this->ownedActiveCardsQuery($userId, $deckId);
-        $dueCount = (clone $baseQuery)
-            ->whereIn('cards.study_status', $this->activeDueStatuses())
-            ->where('cards.due_at', '<=', $now)
-            ->whereNull('cards.failed_at')
-            ->count('cards.id');
-        $failedDueCount = (clone $baseQuery)
-            ->whereIn('cards.study_status', $this->activeDueStatuses())
-            ->where('cards.due_at', '<=', $now)
-            ->whereNotNull('cards.failed_at')
-            ->count('cards.id');
-        $newCount = (clone $baseQuery)
-            ->where('cards.study_status', CardStudyStatus::New->value)
-            ->whereNotNull('cards.new_queue_position')
-            ->count('cards.id');
+        $cardMetrics = $this->cardMetrics($userId, $deckId, $now);
+        $dueCount = $cardMetrics['due_count'];
+        $failedDueCount = $cardMetrics['failed_due_count'];
+        $newCount = $cardMetrics['new_count'];
         $remainingNewCards = max(0, $settings->new_cards_per_day - $introducedToday);
 
         return [
             'due_count' => $dueCount,
-            'failed_count' => (clone $baseQuery)
-                ->whereIn('cards.study_status', $this->activeDueStatuses())
-                ->whereNotNull('cards.failed_at')
-                ->count('cards.id'),
+            'failed_count' => $cardMetrics['failed_count'],
             'failed_due_count' => $failedDueCount,
             'new_count' => $newCount,
             'new_cards_per_day' => $settings->new_cards_per_day,
@@ -65,24 +51,12 @@ class GetStudyOverviewAction
             'new_cards_available_today' => $dueCount > 0 || $failedDueCount > 0
                 ? 0
                 : min($newCount, $remainingNewCards),
-            'learning_count' => (clone $baseQuery)
-                ->whereIn('cards.study_status', [
-                    CardStudyStatus::Learning->value,
-                    CardStudyStatus::Relearning->value,
-                ])
-                ->count('cards.id'),
-            'review_count' => (clone $baseQuery)
-                ->where('cards.study_status', CardStudyStatus::Review->value)
-                ->count('cards.id'),
-            'suspended_count' => (clone $baseQuery)
-                ->whereIn('cards.study_status', [
-                    CardStudyStatus::Suspended->value,
-                    CardStudyStatus::Buried->value,
-                ])
-                ->count('cards.id'),
-            'total_cards' => (clone $baseQuery)->count('cards.id'),
+            'learning_count' => $cardMetrics['learning_count'],
+            'review_count' => $cardMetrics['review_count'],
+            'suspended_count' => $cardMetrics['suspended_count'],
+            'total_cards' => $cardMetrics['total_cards'],
             'latest_import' => $this->latestImport($userId),
-            'next_due_at' => $this->nextDueAt($userId, $deckId),
+            'next_due_at' => $cardMetrics['next_due_at'],
         ];
     }
 
@@ -124,17 +98,6 @@ class GetStudyOverviewAction
             ->count('cards.id');
     }
 
-    private function nextDueAt(int $userId, ?string $deckId): ?string
-    {
-        $nextDueAt = $this->ownedActiveCardsQuery($userId, $deckId)
-            ->whereIn('cards.study_status', $this->activeDueStatuses())
-            ->whereNotNull('cards.due_at')
-            ->orderBy('cards.due_at')
-            ->value('cards.due_at');
-
-        return $nextDueAt === null ? null : Carbon::parse($nextDueAt)->toJSON();
-    }
-
     private function latestImport(int $userId): ?StudyImportJob
     {
         return StudyImportJob::query()
@@ -154,6 +117,65 @@ class GetStudyOverviewAction
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
+    }
+
+    /**
+     * @return array{
+     *     due_count: int,
+     *     failed_count: int,
+     *     failed_due_count: int,
+     *     new_count: int,
+     *     learning_count: int,
+     *     review_count: int,
+     *     suspended_count: int,
+     *     total_cards: int,
+     *     next_due_at: string|null,
+     * }
+     */
+    private function cardMetrics(int $userId, ?string $deckId, Carbon $now): array
+    {
+        $activeDueStatuses = $this->activeDueStatuses();
+        $row = $this->ownedActiveCardsQuery($userId, $deckId)
+            // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
+            ->selectRaw(<<<'SQL'
+                COUNT(cards.id) AS total_cards,
+                SUM(CASE WHEN cards.study_status IN (?, ?, ?) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END) AS due_count,
+                SUM(CASE WHEN cards.study_status IN (?, ?, ?) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END) AS failed_due_count,
+                SUM(CASE WHEN cards.study_status IN (?, ?, ?) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END) AS failed_count,
+                SUM(CASE WHEN cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END) AS new_count,
+                SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END) AS learning_count,
+                SUM(CASE WHEN cards.study_status = ? THEN 1 ELSE 0 END) AS review_count,
+                SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END) AS suspended_count,
+                MIN(CASE WHEN cards.study_status IN (?, ?, ?) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
+                SQL, [
+                ...$activeDueStatuses,
+                $now,
+                ...$activeDueStatuses,
+                $now,
+                ...$activeDueStatuses,
+                CardStudyStatus::New->value,
+                CardStudyStatus::Learning->value,
+                CardStudyStatus::Relearning->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Suspended->value,
+                CardStudyStatus::Buried->value,
+                ...$activeDueStatuses,
+            ])
+            ->first();
+
+        $nextDueAt = $row?->next_due_at;
+
+        return [
+            'due_count' => (int) $row?->due_count,
+            'failed_count' => (int) $row?->failed_count,
+            'failed_due_count' => (int) $row?->failed_due_count,
+            'new_count' => (int) $row?->new_count,
+            'learning_count' => (int) $row?->learning_count,
+            'review_count' => (int) $row?->review_count,
+            'suspended_count' => (int) $row?->suspended_count,
+            'total_cards' => (int) $row?->total_cards,
+            'next_due_at' => $nextDueAt === null ? null : Carbon::parse($nextDueAt)->toJSON(),
+        ];
     }
 
     /**

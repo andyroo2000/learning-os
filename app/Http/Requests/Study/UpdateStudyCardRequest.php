@@ -5,6 +5,7 @@ namespace App\Http\Requests\Study;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Support\Identifiers\CanonicalUlid;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 use JsonException;
@@ -26,18 +27,20 @@ class UpdateStudyCardRequest extends FormRequest
         $user = $this->user();
         $cardId = (string) $this->route('cardId');
 
-        // Authentication middleware returns 401 before the controller can run. For authenticated
-        // callers, this lookup hides missing, cross-user, deleted-card, and deleted-deck resources
-        // behind the same 404.
-        if ($user !== null) {
-            $this->studyCard = Card::query()
-                ->ownedByActiveDeck((int) $user->id)
-                ->where('cards.id', CanonicalUlid::normalize($cardId))
-                ->first();
+        if ($user === null) {
+            // Authentication middleware returns 401 first; keep this request invariant explicit
+            // if the route middleware is ever changed.
+            throw new AuthenticationException;
+        }
 
-            if ($this->studyCard === null) {
-                throw new NotFoundHttpException('Study card not found.');
-            }
+        $this->studyCard = Card::query()
+            ->ownedByActiveDeck((int) $user->id)
+            ->where('cards.id', CanonicalUlid::normalize($cardId))
+            ->first();
+
+        if ($this->studyCard === null) {
+            // Hide missing, cross-user, deleted-card, and deleted-deck resources behind the same 404.
+            throw new NotFoundHttpException('Study card not found.');
         }
 
         return true;
@@ -122,7 +125,7 @@ class UpdateStudyCardRequest extends FormRequest
     }
 
     /**
-     * @param  callable(string, string): void  $fail
+     * @param  \Closure(string, string): void  $fail
      * @param  array<string, mixed>  $data
      */
     private function validatePayloadShape(\Closure $fail, array $data): void
@@ -135,6 +138,8 @@ class UpdateStudyCardRequest extends FormRequest
             return;
         }
 
+        // Serialization runs before depth traversal so invalid or oversized payloads are rejected
+        // first; this also bounds how much array width the depth check can walk.
         try {
             $serialized = json_encode(
                 ['prompt' => $prompt, 'answer' => $answer],
@@ -148,6 +153,7 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
+            // Size is the authoritative combined-payload error when size and depth both fail.
             $fail('payloads', 'study card payloads must be '.((int) (self::MAX_PAYLOAD_BYTES / 1024)).' KB or smaller.');
 
             return;

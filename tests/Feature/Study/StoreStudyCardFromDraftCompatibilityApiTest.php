@@ -228,6 +228,11 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertStatus(410)
             ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
             ->assertJsonPath('reason', 'card_deleted');
+
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => null,
+        ]);
     }
 
     public function test_it_hides_cross_user_card_id_conflicts(): void

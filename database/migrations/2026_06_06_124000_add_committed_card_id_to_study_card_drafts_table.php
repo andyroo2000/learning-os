@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::table('study_card_drafts', function (Blueprint $table): void {
             // Records the draft commit idempotency key. Card conflict/deletion semantics stay in CreateCardAction.
+            // No index: commit retries always load the draft by primary key before checking this value.
             $table->ulid('committed_card_id')->nullable();
         });
     }

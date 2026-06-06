@@ -44,7 +44,7 @@ class CreateStudyCardFromDraftAction
                 throw StudyCardDraftNotFoundException::notFound();
             }
 
-            if ($draft->status === StudyManualCardDraftStatus::Generating) {
+            if (! in_array($draft->status, [StudyManualCardDraftStatus::Ready, StudyManualCardDraftStatus::Error], true)) {
                 throw StudyCardDraftConflictException::generatingCannotCreateCard();
             }
 

@@ -56,6 +56,7 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('imagePrompt', 'A friendly dog')
             ->assertJsonPath('previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('previewImage.id', 'image-1')
+            ->assertJsonPath('committedCardId', null)
             ->assertJsonStructure([
                 'id',
                 'status',
@@ -69,6 +70,7 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewAudioRole',
                 'previewImage',
                 'errorMessage',
+                'committedCardId',
                 'createdAt',
                 'updatedAt',
             ]);

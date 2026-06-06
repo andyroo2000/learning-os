@@ -27,6 +27,7 @@ class StudyCardDraftResource extends JsonResource
             'previewAudioRole' => $this->attributeValue('preview_audio_role'),
             'previewImage' => $this->preview_image_json,
             'errorMessage' => $this->error_message,
+            'committedCardId' => $this->committed_card_id,
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),
         ];

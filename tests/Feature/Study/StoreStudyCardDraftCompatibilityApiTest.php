@@ -59,6 +59,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('previewAudioRole', null)
             ->assertJsonPath('previewImage', null)
             ->assertJsonPath('errorMessage', null)
+            ->assertJsonPath('committedCardId', null)
             ->assertJsonStructure([
                 'id',
                 'status',
@@ -72,6 +73,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewAudioRole',
                 'previewImage',
                 'errorMessage',
+                'committedCardId',
                 'createdAt',
                 'updatedAt',
             ]);

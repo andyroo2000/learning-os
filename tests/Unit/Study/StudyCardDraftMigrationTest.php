@@ -30,6 +30,10 @@ class StudyCardDraftMigrationTest extends TestCase
         $this->assertFileExists(
             dirname(__DIR__, 3).'/database/migrations/2026_06_06_123000_create_study_card_drafts_table.php',
         );
+
+        $this->assertFileExists(
+            dirname(__DIR__, 3).'/database/migrations/2026_06_06_124000_add_committed_card_id_to_study_card_drafts_table.php',
+        );
     }
 
     #[DataProvider('studyCardDraftSqlProvider')]
@@ -59,6 +63,24 @@ class StudyCardDraftMigrationTest extends TestCase
                 'Index name ['.$indexName."] exceeds PostgreSQL's identifier limit.",
             );
         }
+    }
+
+    #[DataProvider('committedCardIdSqlProvider')]
+    public function test_committed_card_id_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAlterSql,
+        array $expectedDropColumnSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $alterSql = $this->addCommittedCardIdBlueprint($connection)->toSql();
+        $dropColumnSql = $this->dropCommittedCardIdBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedAlterSql, $alterSql);
+        $this->assertSame($expectedDropColumnSql, $dropColumnSql);
     }
 
     /**
@@ -110,6 +132,45 @@ class StudyCardDraftMigrationTest extends TestCase
     }
 
     /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function committedCardIdSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                [
+                    'alter table "study_card_drafts" add column "committed_card_id" varchar',
+                ],
+                [
+                    'alter table "study_card_drafts" drop column "committed_card_id"',
+                ],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'alter table "study_card_drafts" add column "committed_card_id" char(26) null',
+                ],
+                [
+                    'alter table "study_card_drafts" drop column "committed_card_id"',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `study_card_drafts` add `committed_card_id` char(26) null',
+                ],
+                [
+                    'alter table `study_card_drafts` drop `committed_card_id`',
+                ],
+            ],
+        ];
+    }
+
+    /**
      * @param  class-string<Connection>  $connectionClass
      */
     private function connection(string $connectionClass): Connection
@@ -150,6 +211,21 @@ class StudyCardDraftMigrationTest extends TestCase
     {
         return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
             $table->dropIfExists();
+        });
+    }
+
+    private function addCommittedCardIdBlueprint(Connection $connection): Blueprint
+    {
+        // Keep this blueprint in lockstep with the follow-up migration that records draft commit retries.
+        return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
+            $table->ulid('committed_card_id')->nullable();
+        });
+    }
+
+    private function dropCommittedCardIdBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
+            $table->dropColumn('committed_card_id');
         });
     }
 

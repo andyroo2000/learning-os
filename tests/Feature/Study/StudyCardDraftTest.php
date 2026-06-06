@@ -34,6 +34,7 @@ class StudyCardDraftTest extends TestCase
             'preview_audio_role',
             'preview_image_json',
             'error_message',
+            'committed_card_id',
             'created_at',
             'updated_at',
         ]));
@@ -75,6 +76,7 @@ class StudyCardDraftTest extends TestCase
         $this->assertFalse($draft->isFillable('card_type'));
         $this->assertFalse($draft->isFillable('status'));
         $this->assertFalse($draft->isFillable('error_message'));
+        $this->assertFalse($draft->isFillable('committed_card_id'));
     }
 
     public function test_it_derives_card_type_from_creation_kind_on_create(): void

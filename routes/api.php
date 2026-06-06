@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
+use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
@@ -170,7 +171,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
     Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
     Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)->whereUlid('draftId');
-    // Draft and final manual-card creation share the same user-scoped creation quota.
+    // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.
+    Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
@@ -185,6 +189,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/reviews', StoreStudyReviewController::class);
     Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
+    // Shares the study-card creation quota with draft creation and draft commits.
     Route::post('/study/cards', StoreStudyCardController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');

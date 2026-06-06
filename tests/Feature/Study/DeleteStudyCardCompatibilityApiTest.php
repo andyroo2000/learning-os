@@ -140,6 +140,7 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
         RateLimiter::clear($userKey);
         RateLimiter::clear($otherUserKey);
 
+        // RateLimiter definitions are global; this sequential test restores the production definition in finally.
         RateLimiter::for(StudyCardDeleteRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
             return Limit::perMinute(2)->by(
                 $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),

@@ -24,9 +24,12 @@ class StudyCardDeleteRateLimiter
         );
     }
 
+    /**
+     * @internal Exposed for focused limiter tests; route code should call limit().
+     */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; the fallback keeps the limiter safe if middleware changes.
+        // The route requires auth; anonymous keys are defensive if middleware changes.
         if ($userId !== null) {
             return 'user:'.(string) $userId;
         }

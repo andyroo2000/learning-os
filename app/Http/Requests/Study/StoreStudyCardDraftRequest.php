@@ -3,9 +3,9 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
+use App\Domain\Study\Models\StudyCardDraft;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -61,7 +61,7 @@ class StoreStudyCardDraftRequest extends FormRequest
             'creationKind' => ['required', 'string', Rule::in(StudyCardCreationKind::values())],
             'cardType' => ['required', 'string', Rule::in(CardType::values())],
             'imagePlacement' => ['sometimes', 'nullable', 'string', Rule::in(StudyCardImagePlacement::values())],
-            'imagePrompt' => ['sometimes', 'nullable', 'string', 'max:'.CreateStudyCardDraftData::MAX_IMAGE_PROMPT_LENGTH],
+            'imagePrompt' => ['sometimes', 'nullable', 'string', 'max:'.StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH],
         ];
     }
 
@@ -119,8 +119,8 @@ class StoreStudyCardDraftRequest extends FormRequest
             'creationKind.in' => 'creationKind is not supported.',
             // ConvoLab reports unsupported cardType values and stale-client mismatches the same way.
             'cardType.in' => 'cardType must match creationKind.',
-            'imagePlacement.in' => self::imagePlacementMessage(),
-            'imagePrompt.max' => 'imagePrompt must be '.CreateStudyCardDraftData::MAX_IMAGE_PROMPT_LENGTH.' characters or fewer.',
+            'imagePlacement.in' => self::studyCardImagePlacementMessage(),
+            'imagePrompt.max' => 'imagePrompt must be '.StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH.' characters or fewer.',
         ];
     }
 
@@ -171,21 +171,5 @@ class StoreStudyCardDraftRequest extends FormRequest
         }
 
         return $value;
-    }
-
-    private static function imagePlacementMessage(): string
-    {
-        $values = StudyCardImagePlacement::values();
-        $last = array_pop($values);
-
-        if ($last === null) {
-            return 'imagePlacement is not supported.';
-        }
-
-        if ($values === []) {
-            return "imagePlacement must be {$last}.";
-        }
-
-        return 'imagePlacement must be '.implode(', ', $values).", or {$last}.";
     }
 }

@@ -6,15 +6,13 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
+use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use LogicException;
 
 final readonly class CreateStudyCardDraftData
 {
-    public const MAX_IMAGE_PROMPT_LENGTH = 1000;
-
-    private const MAX_PAYLOAD_BYTES = 24 * 1024;
-
-    private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
+    public const MAX_IMAGE_PROMPT_LENGTH = StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH;
 
     private function __construct(
         public int $userId,
@@ -97,44 +95,6 @@ final readonly class CreateStudyCardDraftData
 
     private static function validatePayloadShape(array $promptJson, array $answerJson): void
     {
-        $serialized = json_encode(
-            ['prompt' => $promptJson, 'answer' => $answerJson],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
-        );
-
-        if (! is_string($serialized)) {
-            throw StudyCardDraftValidationException::invalidPayloads();
-        }
-
-        if (strlen($serialized) > self::MAX_PAYLOAD_BYTES) {
-            throw StudyCardDraftValidationException::payloadsTooLarge((int) (self::MAX_PAYLOAD_BYTES / 1024));
-        }
-
-        if (self::exceedsMaxPayloadDepth($promptJson)) {
-            throw StudyCardDraftValidationException::promptTooDeep(self::MAX_TOTAL_PAYLOAD_DEPTH);
-        }
-
-        if (self::exceedsMaxPayloadDepth($answerJson)) {
-            throw StudyCardDraftValidationException::answerTooDeep(self::MAX_TOTAL_PAYLOAD_DEPTH);
-        }
-    }
-
-    private static function exceedsMaxPayloadDepth(mixed $value, int $depth = 1): bool
-    {
-        if (! is_array($value)) {
-            return false;
-        }
-
-        if ($depth > self::MAX_TOTAL_PAYLOAD_DEPTH) {
-            return true;
-        }
-
-        foreach ($value as $child) {
-            if (self::exceedsMaxPayloadDepth($child, $depth + 1)) {
-                return true;
-            }
-        }
-
-        return false;
+        StudyCardPayloadShapeValidator::assertDraftPayloadsAreValid($promptJson, $answerJson);
     }
 }

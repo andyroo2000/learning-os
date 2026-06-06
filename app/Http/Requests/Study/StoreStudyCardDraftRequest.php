@@ -7,7 +7,6 @@ use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -48,12 +47,6 @@ class StoreStudyCardDraftRequest extends FormRequest
 
     public function authorize(): bool
     {
-        if ($this->user() === null) {
-            // Authentication middleware returns 401 first; keep this request invariant explicit
-            // if the route middleware is ever changed.
-            throw new AuthenticationException;
-        }
-
         return true;
     }
 

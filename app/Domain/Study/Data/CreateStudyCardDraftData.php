@@ -6,7 +6,6 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
-use JsonException;
 use LogicException;
 
 final readonly class CreateStudyCardDraftData
@@ -98,12 +97,12 @@ final readonly class CreateStudyCardDraftData
 
     private static function validatePayloadShape(array $promptJson, array $answerJson): void
     {
-        try {
-            $serialized = json_encode(
-                ['prompt' => $promptJson, 'answer' => $answerJson],
-                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
-            );
-        } catch (JsonException) {
+        $serialized = json_encode(
+            ['prompt' => $promptJson, 'answer' => $answerJson],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        );
+
+        if (! is_string($serialized)) {
             throw StudyCardDraftValidationException::invalidPayloads();
         }
 

@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
+use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
@@ -161,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/browser', ListStudyBrowserController::class);
     // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
     Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
+    Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

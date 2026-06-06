@@ -2,6 +2,7 @@
 
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
+use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
@@ -172,6 +174,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
+    Route::delete('/study/card-drafts/{draftId}', DeleteStudyCardDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

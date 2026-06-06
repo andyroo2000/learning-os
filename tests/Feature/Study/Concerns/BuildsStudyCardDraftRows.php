@@ -8,6 +8,7 @@ use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 trait BuildsStudyCardDraftRows
@@ -38,6 +39,20 @@ trait BuildsStudyCardDraftRows
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function insertCappedDraftRowsFor(User $user): array
+    {
+        $rows = $this->cappedDraftRowsFor($user);
+
+        foreach (array_chunk($rows, 90) as $chunk) {
+            DB::table('study_card_drafts')->insert($chunk);
         }
 
         return $rows;

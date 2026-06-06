@@ -16,6 +16,8 @@ trait ValidatesStudyCardPayloads
     // Depth 1 is the root payload array; arrays at depth 9+ are rejected.
     private const MAX_TOTAL_PAYLOAD_DEPTH = 8;
 
+    // Nullable so requireText:false callers still fail through frontText()/backText()
+    // LogicExceptions instead of uninitialized typed-property errors.
     private ?string $frontText = null;
 
     private ?string $backText = null;
@@ -31,15 +33,16 @@ trait ValidatesStudyCardPayloads
         ];
     }
 
-    protected function studyCardPayloadAfterValidator(): Closure
+    protected function studyCardPayloadAfterValidator(bool $requireText = true): Closure
     {
-        return function (Validator $validator): void {
+        return function (Validator $validator) use ($requireText): void {
             // Use raw validator data because after-callbacks still run when field rules fail;
             // validateStudyCardPayloadShape lets prompt/answer rules own missing or non-array errors.
             $data = $validator->getData();
             $this->validateStudyCardPayloadShape(
                 fn (string $attribute, string $message) => $validator->errors()->add($attribute, $message),
                 $data,
+                $requireText,
             );
         };
     }
@@ -103,7 +106,7 @@ trait ValidatesStudyCardPayloads
      * @param  Closure(string, string): void  $fail
      * @param  array<string, mixed>  $data
      */
-    private function validateStudyCardPayloadShape(Closure $fail, array $data): void
+    private function validateStudyCardPayloadShape(Closure $fail, array $data, bool $requireText): void
     {
         $prompt = $data['prompt'] ?? null;
         $answer = $data['answer'] ?? null;
@@ -136,18 +139,18 @@ trait ValidatesStudyCardPayloads
 
         if (self::exceedsMaxPayloadDepth($prompt)) {
             $fail('prompt', 'prompt must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) === null) {
-            $fail('prompt', 'prompt must include a non-empty text field.');
-        } else {
+        } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
             $this->frontText = $frontText;
+        } elseif ($requireText) {
+            $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
         if (self::exceedsMaxPayloadDepth($answer)) {
             $fail('answer', 'answer must be '.self::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (($backText = StudyCardPayloadText::backText($answer)) === null) {
-            $fail('answer', 'answer must include a non-empty text field.');
-        } else {
+        } elseif (($backText = StudyCardPayloadText::backText($answer)) !== null) {
             $this->backText = $backText;
+        } elseif ($requireText) {
+            $fail('answer', 'answer must include a non-empty text field.');
         }
     }
 

@@ -73,6 +73,7 @@ use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
+use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
@@ -163,6 +164,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
     Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
     Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
+    // Draft and final manual-card creation share the same user-scoped creation quota.
+    Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
     Route::get('/study/overview', ShowStudyOverviewController::class);

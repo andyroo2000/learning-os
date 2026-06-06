@@ -174,6 +174,16 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',
             'cardType' => 'recognition',
+            'prompt' => ['cueText' => str_repeat('a', 25 * 1024)],
+            'answer' => [],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payloads'])
+            ->assertJsonPath('errors.payloads.0', 'study card payloads must be 24 KB or smaller.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
             'prompt' => ['cueText' => 'front'],
             'answer' => ['meaning' => 'back'],
             'imagePrompt' => ['not' => 'a string'],

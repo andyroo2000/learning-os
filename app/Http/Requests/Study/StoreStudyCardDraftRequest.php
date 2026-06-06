@@ -89,15 +89,21 @@ class StoreStudyCardDraftRequest extends FormRequest
                     }
                 }
 
-                $validated = $this->validated();
-                $creationKind = $validated['creationKind'] ?? null;
-                $cardType = $validated['cardType'] ?? null;
+                $creationKind = $data['creationKind'] ?? null;
+                $cardType = $data['cardType'] ?? null;
 
                 if (! is_string($creationKind) || ! is_string($cardType)) {
                     return;
                 }
 
-                if (StudyCardCreationKind::from($creationKind)->cardType()->value !== $cardType) {
+                $creationKind = StudyCardCreationKind::tryFrom($creationKind);
+                $cardType = CardType::tryFrom($cardType);
+
+                if ($creationKind === null || $cardType === null) {
+                    return;
+                }
+
+                if ($creationKind->cardType() !== $cardType) {
                     $validator->errors()->add('cardType', 'cardType must match creationKind.');
                 }
             },
@@ -143,12 +149,13 @@ class StoreStudyCardDraftRequest extends FormRequest
         return CardType::from($value);
     }
 
-    public function imagePlacement(): StudyCardImagePlacement
+    public function imagePlacement(): ?StudyCardImagePlacement
     {
-        $value = $this->validated('imagePlacement');
+        $validated = $this->validated();
+        $value = $validated['imagePlacement'] ?? null;
 
         if ($value === null) {
-            return StudyCardImagePlacement::None;
+            return null;
         }
 
         if (! is_string($value)) {

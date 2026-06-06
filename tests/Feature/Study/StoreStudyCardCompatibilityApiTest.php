@@ -12,6 +12,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -164,6 +165,50 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('reason', 'card_id_conflict');
 
         $this->assertSame(1, Card::query()->count());
+    }
+
+    public function test_it_hides_cross_user_client_provided_card_id_conflicts(): void
+    {
+        $this->signIn();
+        $id = strtolower((string) Str::ulid());
+
+        Card::factory()
+            ->for($this->deckFor(User::factory()->create()))
+            ->create(['id' => $id]);
+
+        $this->postJson('/api/study/cards', [
+            'id' => $id,
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found')
+            ->assertJsonMissingPath('reason');
+
+        $this->assertSame(1, Card::query()->count());
+    }
+
+    public function test_it_returns_gone_for_owned_deleted_client_provided_card_id_conflicts(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+        $deletedCard = $this->cardFor($user, ['id' => $id]);
+
+        $deletedCard->delete();
+
+        $this->postJson('/api/study/cards', [
+            'id' => $id,
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+        ])
+            ->assertStatus(410)
+            ->assertJsonPath('message', 'Card ID belongs to a deleted card.')
+            ->assertJsonPath('reason', 'card_deleted');
+
+        $this->assertSame(1, Card::withTrashed()->count());
+        $this->assertTrue($deletedCard->refresh()->trashed());
     }
 
     public function test_it_reuses_the_existing_default_study_deck_without_locking_the_user_row(): void

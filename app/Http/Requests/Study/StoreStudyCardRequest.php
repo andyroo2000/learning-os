@@ -114,6 +114,17 @@ class StoreStudyCardRequest extends FormRequest
         return CardType::from($cardType);
     }
 
+    public function id(): ?string
+    {
+        $id = $this->validated('id');
+
+        if ($id !== null && ! is_string($id)) {
+            throw new LogicException('id called after validation failed to reject a non-string card ID.');
+        }
+
+        return $id;
+    }
+
     private static function cardTypeMessage(): string
     {
         $values = CardType::values();

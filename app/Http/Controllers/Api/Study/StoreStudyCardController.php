@@ -26,7 +26,6 @@ class StoreStudyCardController extends Controller
         try {
             $result = DB::transaction(function () use ($request, $resolveManualStudyDeck, $createCard, $userId) {
                 $deck = $resolveManualStudyDeck->handle($userId);
-                $data = $request->validated();
 
                 return $createCard->handle(CreateCardData::fromInput(
                     userId: $userId,
@@ -36,7 +35,7 @@ class StoreStudyCardController extends Controller
                     cardType: $request->cardType(),
                     promptJson: $request->promptPayload(),
                     answerJson: $request->answerPayload(),
-                    id: $data['id'] ?? null,
+                    id: $request->id(),
                 ));
             });
         } catch (CardConflictException $exception) {

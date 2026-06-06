@@ -238,6 +238,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
 
         $this
             ->withHeaders(['Accept' => 'application/json'])
+            // Use form encoding so the invalid UTF-8 byte reaches request validation.
             ->patch("/api/study/cards/{$card->id}", [
                 'prompt' => ['cueText' => "\xB1"],
                 'answer' => ['meaning' => 'back'],

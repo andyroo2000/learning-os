@@ -9,6 +9,7 @@ use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ListSyncFeedEntriesApiTest extends TestCase
@@ -1518,6 +1519,46 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    #[DataProvider('multibyteOverlongFilterProvider')]
+    public function test_it_rejects_multibyte_filters_above_the_maximum_length(array $query, string $field): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/sync/feed?'.http_build_query($query));
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([$field]);
+    }
+
+    public function test_it_accepts_multibyte_filters_at_the_maximum_length(): void
+    {
+        $user = $this->signIn();
+        $domain = str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH);
+        $resourceType = str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
+        $resourceId = str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
+        $entry = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]);
+
+        $response = $this->getJson('/api/sync/feed?'.http_build_query([
+            'domain' => $domain,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $entry->checkpoint)
+            ->assertJsonPath('meta.domain', $domain)
+            ->assertJsonPath('meta.resource_type', $resourceType)
+            ->assertJsonPath('meta.resource_id', $resourceId);
+    }
+
     public function test_it_rejects_array_resource_id_filters(): void
     {
         $this->signIn();
@@ -1532,5 +1573,35 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson('/api/sync/feed');
 
         $response->assertUnauthorized();
+    }
+
+    /**
+     * @return array<string, array{query: array<string, string>, field: string}>
+     */
+    public static function multibyteOverlongFilterProvider(): array
+    {
+        return [
+            'domain' => [
+                'query' => [
+                    'domain' => str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH + 1),
+                ],
+                'field' => 'domain',
+            ],
+            'resource type' => [
+                'query' => [
+                    'resource_type' => str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH + 1),
+                ],
+                'field' => 'resource_type',
+            ],
+            'resource id' => [
+                'query' => [
+                    // resource_id requires valid scope companions; keep this case focused on max-length rejection.
+                    'domain' => 'x',
+                    'resource_type' => 'x',
+                    'resource_id' => str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH + 1),
+                ],
+                'field' => 'resource_id',
+            ],
+        ];
     }
 }

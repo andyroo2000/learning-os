@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RecordSyncFeedEntryActionTest extends TestCase
@@ -154,6 +155,25 @@ class RecordSyncFeedEntryActionTest extends TestCase
             'resource_type' => $resourceType,
             'resource_id' => $resourceId,
         ]);
+    }
+
+    #[DataProvider('multibyteOverlongMetadataProvider')]
+    public function test_it_rejects_multibyte_metadata_above_the_column_limit(array $overrides, string $message): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+
+        $this->recordFeedEntry(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $user->id,
+                domain: $overrides['domain'] ?? 'x',
+                resourceType: $overrides['resourceType'] ?? 'x',
+                resourceId: $overrides['resourceId'] ?? 'x',
+                operation: 'create',
+            ),
+        );
     }
 
     public function test_it_rejects_non_positive_user_id(): void
@@ -301,5 +321,32 @@ class RecordSyncFeedEntryActionTest extends TestCase
     private function recordFeedEntry(RecordSyncFeedEntryData $data): SyncFeedEntry
     {
         return app(RecordSyncFeedEntryAction::class)->handle($data);
+    }
+
+    /**
+     * @return array<string, array{overrides: array<string, string>, message: string}>
+     */
+    public static function multibyteOverlongMetadataProvider(): array
+    {
+        return [
+            'domain' => [
+                'overrides' => [
+                    'domain' => str_repeat(mb_chr(0x754C), SyncFeedEntry::MAX_DOMAIN_LENGTH + 1),
+                ],
+                'message' => 'Sync feed domain must not exceed '.SyncFeedEntry::MAX_DOMAIN_LENGTH.' characters.',
+            ],
+            'resource type' => [
+                'overrides' => [
+                    'resourceType' => str_repeat(mb_chr(0x7A2E), SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH + 1),
+                ],
+                'message' => 'Sync feed resource_type must not exceed '.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH.' characters.',
+            ],
+            'resource id' => [
+                'overrides' => [
+                    'resourceId' => str_repeat(mb_chr(0x8B58), SyncFeedEntry::MAX_RESOURCE_ID_LENGTH + 1),
+                ],
+                'message' => 'Sync feed resource_id must not exceed '.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH.' characters.',
+            ],
+        ];
     }
 }

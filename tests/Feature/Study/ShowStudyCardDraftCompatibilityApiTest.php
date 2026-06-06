@@ -93,7 +93,7 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('id', $draft->id);
     }
 
-    public function test_it_hides_missing_and_cross_user_drafts(): void
+    public function test_it_hides_cross_user_drafts_without_modifying_them(): void
     {
         $this->signIn();
         $otherDraft = StudyCardDraft::factory()->for(User::factory()->create())->create();
@@ -101,11 +101,16 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
         $this->getJson("/api/study/card-drafts/{$otherDraft->id}")
             ->assertNotFound();
 
-        $this->getJson('/api/study/card-drafts/'.strtolower((string) str()->ulid()))
-            ->assertNotFound();
-
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $otherDraft->id,
         ]);
+    }
+
+    public function test_it_hides_missing_drafts(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/card-drafts/'.strtolower((string) str()->ulid()))
+            ->assertNotFound();
     }
 }

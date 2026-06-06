@@ -22,6 +22,7 @@ final class DeckSyncPayload
             'course_id' => $deck->course_id,
             'name' => $deck->name,
             'description' => $deck->description,
+            'is_manual_study_deck' => $deck->is_manual_study_deck,
             'created_at' => $deck->created_at?->toJSON(),
             'updated_at' => $deck->updated_at?->toJSON(),
             'deleted_at' => $deck->deleted_at?->toJSON(),

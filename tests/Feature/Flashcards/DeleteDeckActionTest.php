@@ -94,6 +94,7 @@ class DeleteDeckActionTest extends TestCase
             'course_id' => null,
             'name' => $deck->name,
             'description' => $deck->description,
+            'is_manual_study_deck' => false,
             'created_at' => $deck->created_at?->toJSON(),
             'updated_at' => $deck->updated_at?->toJSON(),
             'deleted_at' => $deck->deleted_at?->toJSON(),

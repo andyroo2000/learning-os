@@ -70,6 +70,7 @@ use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
+use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
@@ -165,6 +166,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/reviews', StoreStudyReviewController::class);
     Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);
     Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
+    Route::post('/study/cards', StoreStudyCardController::class);
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
     Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)->whereUlid('cardId');

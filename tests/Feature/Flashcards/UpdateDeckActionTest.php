@@ -49,6 +49,7 @@ class UpdateDeckActionTest extends TestCase
             'course_id' => null,
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
+            'is_manual_study_deck' => false,
             'created_at' => $updatedDeck->created_at?->toJSON(),
             'updated_at' => $updatedDeck->updated_at?->toJSON(),
             'deleted_at' => null,
@@ -75,6 +76,26 @@ class UpdateDeckActionTest extends TestCase
         $this->assertSame('Italian Travel', $updatedDeck->name);
         $this->assertSame('Phrases for airport and train station practice.', $updatedDeck->description);
         $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_preserves_manual_study_deck_flag_when_updating_metadata(): void
+    {
+        $deck = $this->deckFor($this->signIn(), [
+            'is_manual_study_deck' => true,
+        ]);
+
+        $result = app(UpdateDeckAction::class)->handle(
+            $deck,
+            UpdateDeckData::fromInput(
+                name: 'Manual Study Cards',
+                description: 'Updated description.',
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertTrue($result->deck->is_manual_study_deck);
+        $this->assertTrue($deck->refresh()->is_manual_study_deck);
+        $this->assertTrue(SyncFeedEntry::query()->sole()->payload['is_manual_study_deck']);
     }
 
     public function test_it_stores_blank_description_as_null(): void

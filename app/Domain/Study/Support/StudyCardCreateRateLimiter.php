@@ -28,6 +28,7 @@ class StudyCardCreateRateLimiter
     {
         // The route requires auth; the fallback keeps the limiter safe if middleware changes.
         if ($userId !== null) {
+            // Authenticated creation quotas are intentionally user-scoped across network changes.
             return 'user:'.(string) $userId;
         }
 

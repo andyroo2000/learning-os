@@ -12,4 +12,6 @@ Before pushing, opening, or updating backend API PRs, use the local `$backend-pr
 
 When the skill applies, inspect the branch diff against `main...HEAD`, patch real gaps before pushing, and include a concise PR self-review note naming the risky categories checked and the tests or lint commands run.
 
+The repo-tracked copy of this skill lives in `docs/codex-skills/backend-pr-self-review/`. If the local skill is missing or appears stale, read that copy directly and update both the local skill and the repo copy when harvesting new Claude feedback.
+
 Keep changes small and consistent with the existing architecture: controllers handle HTTP, requests validate and normalize, actions/services own business behavior, models own persistence, and resources define response shape.

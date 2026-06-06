@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Domain\Study\Models;
+
+use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Enums\StudyCardAudioRole;
+use App\Domain\Study\Enums\StudyCardCreationKind;
+use App\Domain\Study\Enums\StudyCardImagePlacement;
+use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
+use App\Models\User;
+use Database\Factories\StudyCardDraftFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use LogicException;
+
+// Draft ownership is server-assigned; clients may edit content but not move drafts between users.
+#[Fillable([
+    'creation_kind',
+    'prompt_json',
+    'answer_json',
+    'image_placement',
+    'image_prompt',
+    'preview_audio_json',
+    'preview_audio_role',
+    'preview_image_json',
+])]
+class StudyCardDraft extends Model
+{
+    /** @use HasFactory<StudyCardDraftFactory> */
+    use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings;
+
+    protected static function booted(): void
+    {
+        static::saving(function (StudyCardDraft $draft): void {
+            $draft->deriveCardTypeFromCreationKind();
+        });
+
+        static::updating(function (StudyCardDraft $draft): void {
+            if ($draft->isDirty('user_id')) {
+                throw new LogicException('Study card draft owner cannot be changed.');
+            }
+        });
+    }
+
+    protected static function newFactory(): StudyCardDraftFactory
+    {
+        return StudyCardDraftFactory::new();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => StudyManualCardDraftStatus::class,
+            'creation_kind' => StudyCardCreationKind::class,
+            'card_type' => CardType::class,
+            'prompt_json' => 'array',
+            'answer_json' => 'array',
+            'image_placement' => StudyCardImagePlacement::class,
+            'preview_audio_json' => 'array',
+            'preview_audio_role' => StudyCardAudioRole::class,
+            'preview_image_json' => 'array',
+        ];
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    private function deriveCardTypeFromCreationKind(): void
+    {
+        if ($this->exists && ! $this->isDirty('creation_kind')) {
+            return;
+        }
+
+        if (! $this->creation_kind instanceof StudyCardCreationKind) {
+            throw new LogicException('Study card draft creation kind must be set before saving.');
+        }
+
+        $this->card_type = $this->creation_kind->cardType();
+    }
+}

@@ -34,6 +34,9 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
                 'scheduler_state' => ['state' => 2],
             ]);
 
+            $this->assertNull($card->prompt_json);
+            $this->assertNull($card->answer_json);
+
             $response = $this->patchJson("/api/study/cards/{$card->id}", [
                 'prompt' => [
                     'cueText' => '会社',

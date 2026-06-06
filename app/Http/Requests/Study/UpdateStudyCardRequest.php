@@ -101,7 +101,13 @@ class UpdateStudyCardRequest extends FormRequest
      */
     public function promptPayload(): array
     {
-        return $this->validated('prompt');
+        $payload = $this->validated('prompt');
+
+        if (! is_array($payload)) {
+            throw new LogicException('promptPayload called after validation failed to require an array prompt payload.');
+        }
+
+        return $payload;
     }
 
     /**
@@ -109,7 +115,13 @@ class UpdateStudyCardRequest extends FormRequest
      */
     public function answerPayload(): array
     {
-        return $this->validated('answer');
+        $payload = $this->validated('answer');
+
+        if (! is_array($payload)) {
+            throw new LogicException('answerPayload called after validation failed to require an array answer payload.');
+        }
+
+        return $payload;
     }
 
     public function frontText(): string

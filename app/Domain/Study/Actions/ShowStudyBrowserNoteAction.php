@@ -5,11 +5,14 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use LogicException;
 
 class ShowStudyBrowserNoteAction
 {
@@ -17,6 +20,12 @@ class ShowStudyBrowserNoteAction
 
     public function handle(int $userId, string $noteId): ?StudyBrowserNoteDetailResult
     {
+        $noteId = trim($noteId);
+
+        if ($noteId === '') {
+            return null;
+        }
+
         $cards = $this->cardsForNote($userId, $noteId);
 
         if ($cards->isEmpty()) {
@@ -28,7 +37,7 @@ class ShowStudyBrowserNoteAction
         $displayText = StudyBrowserCardDisplay::displayTextFor($firstCard);
 
         return new StudyBrowserNoteDetailResult(
-            noteId: $noteId,
+            noteId: $this->noteIdForResult($firstCard),
             displayText: $displayText,
             noteTypeName: $firstCard->source_notetype_name,
             sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
@@ -63,10 +72,28 @@ class ShowStudyBrowserNoteAction
 
         if ($sourceNoteId !== null) {
             $query->where('cards.source_note_id', $sourceNoteId);
-        } else {
-            $query->whereNull('cards.source_note_id')->whereKey($noteId);
+
+            return $this->cardsWithReviewStats($query);
         }
 
+        if (! Str::isUlid($noteId)) {
+            return new EloquentCollection;
+        }
+
+        $cardIdCandidates = $this->cardIdCandidates($noteId);
+        $query
+            ->whereNull('cards.source_note_id')
+            ->whereIn('cards.id', $cardIdCandidates);
+
+        return $this->cardsForPreferredCardId($this->cardsWithReviewStats($query), $cardIdCandidates);
+    }
+
+    /**
+     * @param  Builder<Card>  $query
+     * @return EloquentCollection<int, Card>
+     */
+    private function cardsWithReviewStats(Builder $query): EloquentCollection
+    {
         // Mirror the outer filters so the review aggregate scans only stats for this user's visible note cards.
         $matchingCardIds = (clone $query)
             ->select('cards.id')
@@ -150,6 +177,50 @@ class ShowStudyBrowserNoteAction
         }
 
         return (int) $normalized;
+    }
+
+    /**
+     * Build exact candidates instead of wrapping cards.id in LOWER(), preserving primary-key lookups on Postgres.
+     *
+     * @return list<string>
+     */
+    private function cardIdCandidates(string $noteId): array
+    {
+        // HasUlids stores server-generated IDs uppercase, while client-provided IDs are canonicalized lowercase.
+        return array_values(array_unique([
+            $noteId,
+            strtolower($noteId),
+            strtoupper($noteId),
+        ]));
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     * @param  list<string>  $cardIdCandidates
+     * @return EloquentCollection<int, Card>
+     */
+    private function cardsForPreferredCardId(EloquentCollection $cards, array $cardIdCandidates): EloquentCollection
+    {
+        if ($cards->isEmpty()) {
+            return $cards;
+        }
+
+        foreach ($cardIdCandidates as $candidate) {
+            $matchingCards = $cards
+                ->filter(fn (Card $card): bool => $card->id === $candidate)
+                ->values();
+
+            if ($matchingCards->isNotEmpty()) {
+                return $matchingCards;
+            }
+        }
+
+        throw new LogicException('Study browser card ID candidate query returned a non-candidate card.');
+    }
+
+    private function noteIdForResult(Card $card): string
+    {
+        return $card->source_note_id === null ? (string) $card->id : (string) $card->source_note_id;
     }
 
     /**

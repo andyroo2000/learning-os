@@ -67,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(12)->by(($email !== '' ? $email : 'missing-email').'|'.$request->ip());
         });
 
+        RateLimiter::for('study-card-create', function (Request $request): Limit {
+            return self::studyCardCreateRateLimit($request);
+        });
+
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.
         ResetPassword::createUrlUsing(function (CanResetPasswordContract $notifiable, string $token): string {
             $baseUrl = rtrim((string) config('app.password_reset_url'), '?&');
@@ -77,5 +81,13 @@ class AppServiceProvider extends ServiceProvider
                 'email' => $notifiable->getEmailForPasswordReset(),
             ]);
         });
+    }
+
+    public static function studyCardCreateRateLimit(Request $request, int $perMinute = 120): Limit
+    {
+        // The route requires auth; the fallback keeps the limiter safe if middleware changes.
+        $userId = $request->user()?->getAuthIdentifier();
+
+        return Limit::perMinute($perMinute)->by(($userId !== null ? (string) $userId : 'missing-user').'|'.$request->ip());
     }
 }

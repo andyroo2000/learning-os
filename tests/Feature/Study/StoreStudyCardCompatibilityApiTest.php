@@ -13,9 +13,13 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use LogicException;
 use Tests\TestCase;
@@ -137,6 +141,45 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(1, Card::query()->count());
         $this->assertSame(1, Deck::query()->count());
         $this->assertSame(2, SyncFeedEntry::query()->count());
+    }
+
+    public function test_it_rate_limits_manual_card_creation_by_user(): void
+    {
+        $restoreStudyCardCreateLimiter = function (): void {
+            RateLimiter::for('study-card-create', function (Request $request): Limit {
+                return AppServiceProvider::studyCardCreateRateLimit($request);
+            });
+        };
+
+        RateLimiter::for('study-card-create', function (Request $request): Limit {
+            return AppServiceProvider::studyCardCreateRateLimit($request, 3);
+        });
+
+        try {
+            $user = $this->signIn();
+
+            for ($attempt = 0; $attempt < 3; $attempt++) {
+                $this
+                    ->postJson('/api/study/cards', [])
+                    ->assertUnprocessable();
+            }
+
+            $this->signIn(User::factory()->create());
+
+            $this
+                ->postJson('/api/study/cards', [])
+                ->assertUnprocessable();
+
+            $this->signIn($user);
+
+            $this
+                ->postJson('/api/study/cards', [])
+                ->assertTooManyRequests();
+
+            $this->assertSame(0, Card::query()->count());
+        } finally {
+            $restoreStudyCardCreateLimiter();
+        }
     }
 
     public function test_it_rejects_client_provided_card_id_conflicts(): void

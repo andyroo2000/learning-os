@@ -461,6 +461,7 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderMediaAsset->id)
+            ->assertJsonPath('links.next', null)
             ->assertJsonMissing([
                 'id' => $otherCourseMediaAsset->id,
             ]);
@@ -508,6 +509,7 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderMediaAsset->id)
+            ->assertJsonPath('links.next', null)
             ->assertJsonMissing([
                 'id' => $otherDeckMediaAsset->id,
             ]);

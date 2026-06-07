@@ -145,7 +145,8 @@ class ProcessStudyImportJobTest extends TestCase
     private function rawEventListeners(Dispatcher $dispatcher, string $eventName): ?array
     {
         // Laravel exposes forget-all but not remove-one for event listeners; preserve
-        // Dispatcher::$listeners directly so this test does not erase app hooks.
+        // private Dispatcher::$listeners directly so this test does not erase app hooks.
+        // If Laravel renames that internal on a major upgrade, this helper should fail loudly.
         $listeners = $this->eventListenersProperty($dispatcher)->getValue($dispatcher);
 
         return is_array($listeners) && array_key_exists($eventName, $listeners)
@@ -165,6 +166,8 @@ class ProcessStudyImportJobTest extends TestCase
         $listeners = $property->getValue($dispatcher);
 
         if (! is_array($listeners)) {
+            Event::forget($eventName);
+
             return;
         }
 

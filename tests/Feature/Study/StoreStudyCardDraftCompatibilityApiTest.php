@@ -8,11 +8,13 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
@@ -35,6 +37,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
 
     public function test_it_creates_a_manual_study_card_draft(): void
     {
+        Queue::fake();
         $user = $this->signIn();
 
         $this->postJson('/api/study/card-drafts', [
@@ -82,10 +85,16 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame($user->id, $draft->user_id);
         $this->assertSame(StudyManualCardDraftStatus::Generating, $draft->status);
         $this->assertNull($draft->error_message);
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
+        );
     }
 
     public function test_it_defaults_and_normalizes_optional_fields_without_trim_strings_middleware(): void
     {
+        Queue::fake();
         $this->signIn();
 
         $this
@@ -111,6 +120,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(['meaning' => '  会社  '], $draft->answer_json);
         $this->assertNull($draft->image_prompt);
 
+        // This test intentionally posts twice: first for payload normalization, then for defaults.
         StudyCardDraft::query()->delete();
 
         $this
@@ -122,6 +132,8 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value);
+
+        Queue::assertPushed(ProcessStudyCardDraft::class, 2);
     }
 
     public function test_it_validates_card_type_payload_and_image_fields(): void
@@ -230,6 +242,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
 
     public function test_it_rate_limits_manual_card_draft_creation_by_user(): void
     {
+        Queue::fake();
         $limiter = new StudyCardCreateRateLimiter;
         $clientIp = '127.0.0.1';
         $testBucket = 'test-'.Str::ulid();
@@ -275,6 +288,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
                 ->assertTooManyRequests();
 
             $this->assertSame(4, StudyCardDraft::query()->count());
+            Queue::assertPushed(ProcessStudyCardDraft::class, 4);
         } finally {
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Actions\RetryStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
@@ -144,6 +145,52 @@ class RetryStudyCardDraftActionTest extends TestCase
         $this->expectExceptionMessage('Only errored drafts can be retried.');
 
         app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+    }
+
+    public function test_retried_drafts_can_be_completed_by_the_generation_processor(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create([
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+
+        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+
+        $processed = app(ProcessStudyCardDraftAction::class)->handle($retried->id);
+
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $processed?->refresh()->status);
+        $this->assertNull($processed?->error_message);
+    }
+
+    public function test_retried_drafts_can_fail_again_when_generation_payloads_are_invalid(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create([
+            'prompt_json' => ['cueText' => ['nested' => ['too' => ['deep' => ['for' => ['the' => ['manual' => ['draft' => ['processor']]]]]]]]],
+            'answer_json' => ['meaning' => 'company'],
+            'preview_audio_json' => [
+                'id' => 'audio-1',
+                'filename' => 'stale.mp3',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            'preview_audio_role' => StudyCardAudioRole::Answer,
+            'error_message' => 'Previous failure.',
+        ]);
+
+        app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+        $draft->refresh();
+
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $draft->status);
+        $this->assertNull($draft->preview_audio_json);
+        $this->assertNull($draft->preview_audio_role);
+        $this->assertNull($draft->error_message);
+
+        $processed = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $processed?->refresh()->status);
+        $this->assertSame('prompt must be 8 levels deep or fewer.', $processed?->error_message);
     }
 
     /**

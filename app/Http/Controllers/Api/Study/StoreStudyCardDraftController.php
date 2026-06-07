@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyCardDraftRequest;
 use App\Http\Resources\Study\StudyCardDraftResource;
 use App\Http\Support\AuthenticatedUser;
+use App\Jobs\ProcessStudyCardDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -22,15 +23,18 @@ class StoreStudyCardDraftController extends Controller
         try {
             $userId = AuthenticatedUser::id($request);
 
-            $draft = $createStudyCardDraft->handle(CreateStudyCardDraftData::fromInput(
-                userId: $userId,
-                creationKind: $request->creationKind(),
-                cardType: $request->cardType(),
-                promptJson: $request->promptPayload(),
-                answerJson: $request->answerPayload(),
-                imagePlacement: $request->imagePlacement(),
-                imagePrompt: $request->imagePrompt(),
-            ));
+            $draft = $createStudyCardDraft->handle(
+                CreateStudyCardDraftData::fromInput(
+                    userId: $userId,
+                    creationKind: $request->creationKind(),
+                    cardType: $request->cardType(),
+                    promptJson: $request->promptPayload(),
+                    answerJson: $request->answerPayload(),
+                    imagePlacement: $request->imagePlacement(),
+                    imagePrompt: $request->imagePrompt(),
+                ),
+                afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
+            );
         } catch (StudyCardDraftValidationException $exception) {
             // HTTP validation catches these first; this maps direct action guards defensively.
             throw ValidationException::withMessages([

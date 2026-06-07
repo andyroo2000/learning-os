@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use LogicException;
@@ -50,6 +51,26 @@ class ProcessStudyImportJobTest extends TestCase
             ->andReturn(null);
 
         (new ProcessStudyImportJob(strtoupper($importJobId)))->handle($processor);
+    }
+
+    public function test_action_returns_null_for_malformed_import_ids_without_querying_import_jobs(): void
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $processed = app(ProcessStudyImportJobAction::class)->handle('not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+        }
+
+        $this->assertNull($processed);
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
+            'Malformed import job IDs should return null before querying study_import_jobs.',
+        );
     }
 
     public function test_failed_marks_pending_imports_failed_and_normalizes_ids(): void

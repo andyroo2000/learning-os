@@ -9,6 +9,7 @@ use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ProcessStudyCardDraftAction
 {
@@ -19,6 +20,10 @@ class ProcessStudyCardDraftAction
     public function handle(string $draftId): ?StudyCardDraft
     {
         $canonicalDraftId = CanonicalUlid::normalize($draftId);
+
+        if (! Str::isUlid($canonicalDraftId)) {
+            return null;
+        }
 
         return DB::transaction(function () use ($canonicalDraftId): ?StudyCardDraft {
             $draft = StudyCardDraft::query()

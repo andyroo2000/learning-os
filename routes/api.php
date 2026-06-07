@@ -15,6 +15,7 @@ use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
+use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
@@ -185,7 +186,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class)
         ->middleware('throttle:'.MediaAssetRateLimiter::DELETE_NAME);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
-    Route::post('/study/session/start', StartStudySessionController::class);
+    Route::post('/study/session/start', StartStudySessionController::class)
+        ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
     Route::get('/study/export', ShowStudyExportManifestController::class);
     Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');
     Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');

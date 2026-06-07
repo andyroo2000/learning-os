@@ -8,6 +8,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportArchiveImporter;
 use App\Domain\Study\Support\StudyImportArchivePreviewer;
 use App\Domain\Study\Support\StudyImportArchiveReader;
+use App\Domain\Study\Support\StudyImportJobFailureMarker;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -45,11 +46,11 @@ class ProcessStudyImportJobAction
             }
 
             if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
-                return $this->markFailed($importJob, 'Study import upload target is missing.', $now);
+                return StudyImportJobFailureMarker::markFailed($importJob, 'Study import upload target is missing.', $now);
             }
 
             if (! Storage::disk('study-imports')->exists($importJob->source_object_path)) {
-                return $this->markFailed($importJob, 'Study import archive is missing.', $now);
+                return StudyImportJobFailureMarker::markFailed($importJob, 'Study import archive is missing.', $now);
             }
 
             $importJob->status = StudyImportStatus::Processing;
@@ -72,9 +73,13 @@ class ProcessStudyImportJobAction
                 (string) $importJob->source_object_path,
             );
         } catch (StudyImportPreviewException $exception) {
-            return $this->markFailed($importJob, $exception->getMessage(), $now);
+            return StudyImportJobFailureMarker::markFailed($importJob, $exception->getMessage(), $now);
         } catch (Throwable) {
-            return $this->markFailed($importJob, StudyImportPreviewException::invalidCollectionDatabase()->getMessage(), $now);
+            return StudyImportJobFailureMarker::markFailed(
+                $importJob,
+                StudyImportPreviewException::invalidCollectionDatabase()->getMessage(),
+                $now,
+            );
         }
 
         try {
@@ -82,7 +87,11 @@ class ProcessStudyImportJobAction
         } catch (Throwable $exception) {
             report($exception);
 
-            return $this->markFailed($this->freshImportJob($importJob), 'Study import preview could not be prepared.', $now);
+            return StudyImportJobFailureMarker::markFailed(
+                $this->freshImportJob($importJob),
+                'Study import preview could not be prepared.',
+                $now,
+            );
         }
 
         try {
@@ -90,22 +99,16 @@ class ProcessStudyImportJobAction
         } catch (Throwable $exception) {
             report($exception);
 
-            return $this->markFailed($this->freshImportJob($importJob), 'Study import could not be processed.', $now);
+            return StudyImportJobFailureMarker::markFailed(
+                $this->freshImportJob($importJob),
+                'Study import could not be processed.',
+                $now,
+            );
         }
     }
 
     private function freshImportJob(StudyImportJob $importJob): StudyImportJob
     {
         return StudyImportJob::query()->find($importJob->id) ?? $importJob;
-    }
-
-    private function markFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob
-    {
-        $importJob->status = StudyImportStatus::Failed;
-        $importJob->error_message = $message;
-        $importJob->completed_at = $now;
-        $importJob->saveOrFail();
-
-        return $importJob;
     }
 }

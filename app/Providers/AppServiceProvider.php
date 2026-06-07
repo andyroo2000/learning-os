@@ -12,6 +12,7 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
+use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
@@ -69,6 +70,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDeleteRateLimiter = new StudyCardDeleteRateLimiter;
         RateLimiter::for(StudyCardDeleteRateLimiter::NAME, function (Request $request) use ($studyCardDeleteRateLimiter): Limit {
             return $studyCardDeleteRateLimiter->limit($request);
+        });
+
+        $studyCardUpdateRateLimiter = new StudyCardUpdateRateLimiter;
+        RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($studyCardUpdateRateLimiter): Limit {
+            return $studyCardUpdateRateLimiter->limit($request);
         });
 
         $studyCardDraftAutosaveRateLimiter = new StudyCardDraftAutosaveRateLimiter;

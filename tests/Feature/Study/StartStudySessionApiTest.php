@@ -4,10 +4,16 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Models\User;
+use Closure;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -50,6 +56,46 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonPath('data.cards.0.id', $firstNewCard->id)
             ->assertJsonPath('data.cards.1.id', $secondNewCard->id)
             ->assertJsonCount(2, 'data.cards');
+    }
+
+    public function test_start_is_rate_limited_by_user_without_throttling_overview_reads(): void
+    {
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $this->withStudySessionStartRateLimitOverride(
+            [$user->id, $otherUser->id],
+            function () use ($otherUser, $user): void {
+                for ($attempt = 0; $attempt < 2; $attempt++) {
+                    $this
+                        ->postJson('/api/study/session/start', ['time_zone' => 'America/New_York'])
+                        ->assertOk()
+                        ->assertJsonPath('data.overview.total_cards', 0)
+                        ->assertJsonCount(0, 'data.cards');
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson('/api/study/session/start')
+                    ->assertOk()
+                    ->assertJsonPath('data.overview.total_cards', 0);
+
+                $this->signIn($user);
+
+                $this
+                    ->postJson('/api/study/session/start')
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson('/api/study/overview')
+                    ->assertOk()
+                    ->assertJsonPath('data.total_cards', 0);
+            },
+        );
     }
 
     public function test_start_filters_ready_cards_by_deck_id(): void
@@ -229,6 +275,41 @@ class StartStudySessionApiTest extends TestCase
                 ->assertJsonCount(1, 'data.cards');
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    /**
+     * @param  list<int|string>  $userIdsToClear
+     */
+    private function withStudySessionStartRateLimitOverride(
+        array $userIdsToClear,
+        Closure $callback,
+        int $perMinute = 2,
+        string $clientIp = '127.0.0.1',
+    ): void {
+        $limiter = new StudySessionStartRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $testRateLimitKey = fn (int|string|null $userId, ?string $ip): string => $testBucket.'|'.$limiter->keyFor($userId, $ip);
+        $previousServerVariables = $this->serverVariables;
+
+        try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudySessionStartRateLimiter::NAME, function (Request $request) use ($perMinute, $testRateLimitKey): Limit {
+                return Limit::perMinute($perMinute)->by($testRateLimitKey(
+                    $request->user()?->getAuthIdentifier(),
+                    $request->ip(),
+                ));
+            });
+
+            $callback();
+        } finally {
+            foreach ($userIdsToClear as $userId) {
+                RateLimiter::clear($testRateLimitKey($userId, $clientIp));
+            }
+
+            RateLimiter::for(StudySessionStartRateLimiter::NAME, fn (Request $request): Limit => $limiter->limit($request));
+            $this->withServerVariables($previousServerVariables);
         }
     }
 }

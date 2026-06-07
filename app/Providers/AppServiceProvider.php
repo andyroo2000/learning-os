@@ -22,6 +22,7 @@ use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
+use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
@@ -176,6 +177,11 @@ class AppServiceProvider extends ServiceProvider
         $studySettingsUpdateRateLimiter = new StudySettingsUpdateRateLimiter;
         RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($studySettingsUpdateRateLimiter): Limit {
             return $studySettingsUpdateRateLimiter->limit($request);
+        });
+
+        $studySessionStartRateLimiter = new StudySessionStartRateLimiter;
+        RateLimiter::for(StudySessionStartRateLimiter::NAME, function (Request $request) use ($studySessionStartRateLimiter): Limit {
+            return $studySessionStartRateLimiter->limit($request);
         });
 
         $newCardQueueReorderRateLimiter = new NewCardQueueReorderRateLimiter;

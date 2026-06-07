@@ -351,8 +351,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $draft = StudyCardDraft::factory()->ready()->for($user)->create();
         $otherUser = User::factory()->create();
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardDraftAutosaveLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardDraftAutosaveRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -365,13 +364,15 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         RateLimiter::clear($userKey);
         RateLimiter::clear($otherUserKey);
 
-        RateLimiter::for(StudyCardDraftAutosaveRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(2)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
-
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardDraftAutosaveRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $this
                     ->patchJson("/api/study/card-drafts/{$draft->id}", [
@@ -398,6 +399,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardDraftAutosaveLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 }

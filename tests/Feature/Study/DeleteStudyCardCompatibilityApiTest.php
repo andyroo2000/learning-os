@@ -128,7 +128,7 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
         // Pre-delete so allowed throttle attempts exercise idempotent 204s without sync writes.
         $card->delete();
         $otherCard->delete();
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardDeleteLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardDeleteRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -142,13 +142,15 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
         RateLimiter::clear($otherUserKey);
 
         // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
-        RateLimiter::for(StudyCardDeleteRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(2)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
-
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardDeleteRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $this
                     ->deleteJson("/api/study/cards/{$card->id}")
@@ -177,6 +179,7 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardDeleteLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 

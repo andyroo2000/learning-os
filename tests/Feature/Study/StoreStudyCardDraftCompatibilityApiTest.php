@@ -248,6 +248,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $testBucket = 'test-'.Str::ulid();
         $user = $this->signIn();
         $otherUser = User::factory()->create();
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardCreateLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -293,6 +294,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardCreateLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 

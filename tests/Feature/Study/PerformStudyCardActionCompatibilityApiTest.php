@@ -263,6 +263,8 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 return $limiter->limit($request);
             });
         };
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
 
         try {
             // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
@@ -311,6 +313,8 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 'payload->due_at' => '2026-06-08T14:15:00.000000Z',
             ]);
         } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
             $restoreStudyCardActionLimiter();
         }
     }

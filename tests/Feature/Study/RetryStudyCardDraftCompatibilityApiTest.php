@@ -147,8 +147,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $drafts = StudyCardDraft::factory()->failed()->for($user)->count(3)->create();
         $otherUser = User::factory()->create();
         $otherDraft = StudyCardDraft::factory()->failed()->for($otherUser)->create();
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardDraftRetryLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -162,6 +161,8 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         RateLimiter::clear($otherUserKey);
 
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
             RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
                 return Limit::perMinute(2)->by(
                     $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
@@ -187,6 +188,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardDraftRetryLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 

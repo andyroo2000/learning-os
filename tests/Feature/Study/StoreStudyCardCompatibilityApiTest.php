@@ -150,8 +150,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $testBucket = 'test-'.Str::ulid();
         $user = $this->signIn();
         $otherUser = User::factory()->create();
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardCreateLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -159,13 +158,18 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             });
         };
 
-        RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(3)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, $clientIp);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, $clientIp);
 
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(3)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 0; $attempt < 3; $attempt++) {
                 $this
                     ->postJson('/api/study/cards', [])
@@ -186,7 +190,10 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
 
             $this->assertSame(0, Card::query()->count());
         } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
             $restoreStudyCardCreateLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 

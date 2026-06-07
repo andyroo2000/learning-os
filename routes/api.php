@@ -14,6 +14,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
@@ -197,16 +198,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
     Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
     Route::get('/study/imports', ListStudyImportJobsController::class);
-    Route::post('/study/imports', StoreStudyImportController::class);
+    // Study import lifecycle writes have separate quotas so upload retries do not starve cancel/complete.
+    Route::post('/study/imports', StoreStudyImportController::class)
+        ->middleware('throttle:'.StudyImportRateLimiter::CREATE_NAME);
     Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class);
     Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class);
     Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
         ->whereUlid('studyImportJobId')
-        ->name('api.study.imports.upload');
+        ->name('api.study.imports.upload')
+        ->middleware('throttle:'.StudyImportRateLimiter::UPLOAD_NAME);
     Route::post('/study/imports/{studyImportJobId}/complete', CompleteStudyImportUploadController::class)
-        ->whereUlid('studyImportJobId');
+        ->whereUlid('studyImportJobId')
+        ->middleware('throttle:'.StudyImportRateLimiter::COMPLETE_NAME);
     Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
-        ->whereUlid('studyImportJobId');
+        ->whereUlid('studyImportJobId')
+        ->middleware('throttle:'.StudyImportRateLimiter::CANCEL_NAME);
     Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
     Route::get('/study/browser', ListStudyBrowserController::class);
     // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.

@@ -226,4 +226,31 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cardIds.0']);
     }
+
+    public function test_it_rejects_array_shaped_new_queue_cursor(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/new-queue?cursor[]=2')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor']);
+    }
+
+    public function test_it_rejects_array_shaped_new_queue_limit(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/new-queue?limit[]=2')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['limit']);
+    }
+
+    public function test_it_rejects_array_shaped_new_queue_search_query(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/new-queue?q[]=会社')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['q']);
+    }
 }

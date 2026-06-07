@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
 class PerformStudyCardActionCompatibilityApiTest extends TestCase
@@ -239,10 +240,9 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
     }
 
     /**
-     * CI runs the suite serially today; keep this marker if parallel workers start excluding global-state tests.
-     *
-     * @group no-parallel
+     * CI runs the suite serially today; keep this marker if parallel workers start honoring group exclusions.
      */
+    #[Group('no-parallel')]
     public function test_it_rate_limits_study_card_actions_by_user(): void
     {
         $limiter = new StudyCardActionRateLimiter;
@@ -263,10 +263,6 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 return $limiter->limit($request);
             });
         };
-
-        // Authenticated keys ignore IP, so these match the request-derived keys used below.
-        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
-        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
 
         try {
             // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
@@ -315,8 +311,6 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 'payload->due_at' => '2026-06-08T14:15:00.000000Z',
             ]);
         } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
             $restoreStudyCardActionLimiter();
         }
     }

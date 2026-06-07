@@ -5,7 +5,7 @@ namespace App\Domain\Study\Support;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
-class StudyCardActionRateLimiter
+final class StudyCardActionRateLimiter
 {
     public const NAME = 'study-card-action';
 

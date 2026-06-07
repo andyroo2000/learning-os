@@ -30,7 +30,7 @@ final class StudyCardActionRateLimiter
      */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; the shared fallback bucket keeps IP-less anonymous requests bounded if middleware changes.
+        // Auth normally rejects anonymous requests first; this shared fallback only bounds unexpected IP-less traffic.
         if ($userId !== null) {
             return self::NAME.':user:'.(string) $userId;
         }

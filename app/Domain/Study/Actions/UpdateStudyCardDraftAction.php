@@ -20,6 +20,7 @@ class UpdateStudyCardDraftAction
     public function handle(StudyCardDraft $draft, UpdateStudyCardDraftData $data): StudyCardDraft
     {
         if (! $data->hasAnyField()) {
+            // Empty autosaves are readbacks for debounced clients; they intentionally avoid edit-state locks.
             return StudyCardDraft::query()
                 ->whereKey($draft->id)
                 ->where('user_id', $draft->user_id)

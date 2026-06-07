@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class StudyImportJobActionTest extends TestCase
@@ -115,7 +116,43 @@ class StudyImportJobActionTest extends TestCase
         $importJob = StudyImportJob::factory()->create();
 
         $this->expectException(ModelNotFoundException::class);
+        $this->expectExceptionMessage(StudyImportJob::class);
 
         app(ShowStudyImportJobAction::class)->handle(User::factory()->create()->id, $importJob->id);
+    }
+
+    public function test_show_hides_missing_import_jobs(): void
+    {
+        $this->expectException(ModelNotFoundException::class);
+        $this->expectExceptionMessage(StudyImportJob::class);
+
+        app(ShowStudyImportJobAction::class)->handle(
+            User::factory()->create()->id,
+            strtolower((string) str()->ulid()),
+        );
+    }
+
+    public function test_show_hides_malformed_import_job_ids_without_querying_import_jobs(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->expectException(ModelNotFoundException::class);
+        $this->expectExceptionMessage(StudyImportJob::class);
+
+        try {
+            app(ShowStudyImportJobAction::class)->handle($userId, 'not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            $this->assertCount(
+                0,
+                $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
+                'Malformed import job IDs should return not-found before querying study_import_jobs.',
+            );
+        }
     }
 }

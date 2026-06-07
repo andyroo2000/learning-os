@@ -79,6 +79,24 @@ class ProcessStudyImportJobTest extends TestCase
         $this->assertSame(now()->toJSON(), $importJob->completed_at?->toJSON());
     }
 
+    public function test_failed_is_idempotent_for_terminal_imports(): void
+    {
+        Carbon::setTestNow('2026-06-07 12:00:00');
+        $importJob = StudyImportJob::factory()->create();
+        $job = new ProcessStudyImportJob($importJob->id);
+
+        $job->failed(new RuntimeException('First failure.'));
+
+        Carbon::setTestNow('2026-06-07 12:05:00');
+        $job->failed(new RuntimeException('Second failure.'));
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Failed, $importJob->status);
+        $this->assertSame(ProcessStudyImportJob::EXHAUSTED_ERROR_MESSAGE, $importJob->error_message);
+        $this->assertSame('2026-06-07T12:00:00.000000Z', $importJob->completed_at?->toJSON());
+    }
+
     public function test_failed_ignores_missing_and_terminal_imports(): void
     {
         $completed = StudyImportJob::factory()->completed()->create([

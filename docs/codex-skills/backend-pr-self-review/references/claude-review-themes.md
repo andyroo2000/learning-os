@@ -310,6 +310,8 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - Pure extractor helpers should fail loudly on impossible shapes, such as by throwing instead of returning `''` or another sentinel that can let a later `getJson()` hit the wrong path. After changing helper guard behavior, grep every caller to make sure each one still has the intended assertions.
 - If a URL extractor intentionally accepts path-only URLs or empty query strings, comment that branch and make callers that require query parameters assert the query-bearing shape before use.
 - Split tests when an added assertion exercises a different endpoint or distinct response contract from the test name's main path. Cross-endpoint sanity checks buried at the end of a long response-shape test are harder to diagnose than a focused method whose name describes the sibling contract.
+- After extracting a cross-endpoint assertion into the sibling test class, rename the new method around the endpoint and behavior it actually calls. Do not keep the old endpoint's design invariant in the test name if the test no longer exercises that endpoint.
+- When a new focused test intentionally overlaps a broader existing fixture, either merge the assertion into the broader test or add a short comment naming the narrower contract so future readers do not treat the pair as accidental duplication.
 - Prefer static helpers for fixture/index-name builders that do not depend on instance state.
 - Mark small domain support classes `final` when they are not extension points. `@internal` on one public test helper documents intent, but it does not prevent subclassing.
 - Remove redundant casts, `forceFill` calls, or assignments unless they protect a real invariant.

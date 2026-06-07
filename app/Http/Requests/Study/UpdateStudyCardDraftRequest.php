@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
+use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
@@ -58,7 +59,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
         }
 
         $this->studyCardDraft = StudyCardDraft::query()
-            ->where('user_id', (int) $user->id)
+            ->where('user_id', AuthenticatedUser::id($this))
             ->whereKey(CanonicalUlid::normalize($draftId))
             ->first();
 

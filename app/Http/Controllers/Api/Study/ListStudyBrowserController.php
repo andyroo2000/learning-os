@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\ListStudyBrowserRequest;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class ListStudyBrowserController extends Controller
@@ -12,7 +13,7 @@ class ListStudyBrowserController extends Controller
     public function __invoke(ListStudyBrowserRequest $request, ListStudyBrowserAction $listStudyBrowser): JsonResponse
     {
         return response()->json($listStudyBrowser->handle(
-            userId: (int) $request->user()->id,
+            userId: AuthenticatedUser::id($request),
             q: $request->searchQuery(),
             noteType: $request->noteType(),
             cardType: $request->cardType(),

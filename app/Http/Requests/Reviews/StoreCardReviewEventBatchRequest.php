@@ -7,6 +7,7 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -99,7 +100,7 @@ class StoreCardReviewEventBatchRequest extends FormRequest
         // Eloquent applies Card and Deck SoftDeletes scopes here.
         $visibleCardIds = Card::query()
             ->whereKey($cardIds)
-            ->whereHas('deck', fn ($query) => $query->where('user_id', $this->user()->id))
+            ->whereHas('deck', fn ($query) => $query->where('user_id', AuthenticatedUser::id($this)))
             ->pluck('id')
             ->all();
 

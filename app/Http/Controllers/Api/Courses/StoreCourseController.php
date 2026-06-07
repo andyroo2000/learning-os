@@ -8,7 +8,7 @@ use App\Domain\Courses\Exceptions\CourseConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Http\Resources\Courses\CourseResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class StoreCourseController extends Controller
@@ -16,9 +16,7 @@ class StoreCourseController extends Controller
     public function __invoke(StoreCourseRequest $request, CreateCourseAction $createCourse): JsonResponse
     {
         $data = $request->validated();
-        /** @var User $user */
-        $user = $request->user();
-        $userId = $user->id;
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = $createCourse->handle(CreateCourseData::fromInput(

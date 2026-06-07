@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyReviewRequest;
 use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Http\Resources\Study\StudyOverviewCompatibilityResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 
@@ -23,7 +24,7 @@ class StoreStudyReviewController extends Controller
     ): JsonResponse {
         $data = $request->validated();
         // currentOverview is accepted for ConvoLab request compatibility; this adapter recomputes overview below.
-        $userId = $request->user()->id;
+        $userId = AuthenticatedUser::id($request);
         $card = $this->ownedActiveCard($data['cardId'], $userId);
 
         if ($card === null) {

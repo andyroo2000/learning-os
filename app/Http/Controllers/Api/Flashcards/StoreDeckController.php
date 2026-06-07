@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Exceptions\DeckCourseNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\StoreDeckRequest;
 use App\Http\Resources\Flashcards\DeckResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class StoreDeckController extends Controller
@@ -16,7 +17,7 @@ class StoreDeckController extends Controller
     public function __invoke(StoreDeckRequest $request, CreateDeckAction $createDeck): JsonResponse
     {
         $data = $request->validated();
-        $userId = $request->user()->id;
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = $createDeck->handle(CreateDeckData::fromInput(

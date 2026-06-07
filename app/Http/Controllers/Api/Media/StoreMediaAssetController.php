@@ -9,6 +9,7 @@ use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\StoreMediaAssetRequest;
 use App\Http\Resources\Media\MediaAssetResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -17,10 +18,11 @@ final class StoreMediaAssetController extends Controller
     public function __invoke(StoreMediaAssetRequest $request, CreateMediaAssetAction $createMediaAsset): JsonResponse
     {
         $data = $request->validated();
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = $createMediaAsset->handle(CreateMediaAssetData::fromInput(
-                userId: $request->user()->id,
+                userId: $userId,
                 disk: $data['disk'],
                 path: $data['path'],
                 mimeType: $data['mime_type'],
@@ -31,7 +33,7 @@ final class StoreMediaAssetController extends Controller
                 id: $data['id'] ?? null,
             ));
         } catch (MediaAssetConflictException $exception) {
-            if ($exception->shouldBeHiddenFrom($request->user()->id)) {
+            if ($exception->shouldBeHiddenFrom($userId)) {
                 return response()->json(['message' => 'Not Found'], 404);
             }
 

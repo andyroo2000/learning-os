@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Study\Actions\DeleteStudyCardDraftAction;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -15,10 +15,9 @@ class DeleteStudyCardDraftController extends Controller
         string $draftId,
         DeleteStudyCardDraftAction $deleteStudyCardDraft,
     ): Response {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
-        $deleteStudyCardDraft->handle($user->id, $draftId);
+        $deleteStudyCardDraft->handle($userId, $draftId);
 
         return response()->noContent();
     }

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ListStudyExportMediaAssetsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Media\MediaAssetResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -15,11 +15,10 @@ class ListStudyExportMediaAssetsController extends Controller
         Request $request,
         ListStudyExportMediaAssetsAction $listStudyExportMediaAssets,
     ): AnonymousResourceCollection {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         return MediaAssetResource::collection(
-            $listStudyExportMediaAssets->handle($user->id),
+            $listStudyExportMediaAssets->handle($userId),
         );
     }
 }

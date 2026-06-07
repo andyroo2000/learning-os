@@ -10,6 +10,7 @@ use App\Domain\Study\Actions\ResolveManualStudyDeckAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyCardRequest;
 use App\Http\Resources\Study\StudyCardSummaryResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,7 @@ class StoreStudyCardController extends Controller
         ResolveManualStudyDeckAction $resolveManualStudyDeck,
         CreateCardAction $createCard,
     ): JsonResponse {
-        $userId = (int) $request->user()->id;
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = DB::transaction(function () use ($request, $resolveManualStudyDeck, $createCard, $userId) {

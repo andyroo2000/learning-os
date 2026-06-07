@@ -8,6 +8,7 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reviews\StoreCardReviewEventBatchRequest;
 use App\Http\Resources\Reviews\CardReviewEventResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -16,7 +17,7 @@ class StoreCardReviewEventBatchController extends Controller
 {
     public function __invoke(StoreCardReviewEventBatchRequest $request, ReviewCardBatchAction $reviewCards): JsonResponse
     {
-        $userId = (int) $request->user()->getKey();
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = $reviewCards->handle(

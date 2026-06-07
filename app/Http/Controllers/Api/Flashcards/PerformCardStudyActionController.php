@@ -8,6 +8,7 @@ use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\PerformCardStudyActionRequest;
 use App\Http\Resources\Flashcards\CardStudyActionResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class PerformCardStudyActionController extends Controller
@@ -31,7 +32,7 @@ class PerformCardStudyActionController extends Controller
         return CardStudyActionResource::make((object) [
             'card' => $result->card,
             'overview' => $getStudyOverview->handle(
-                userId: (int) $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 timeZone: $data['time_zone'] ?? null,
                 deckId: $request->deckId(),
             ),

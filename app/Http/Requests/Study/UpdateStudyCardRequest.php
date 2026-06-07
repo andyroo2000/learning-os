@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
+use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,7 +29,7 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         $this->studyCard = Card::query()
-            ->ownedByActiveDeck((int) $user->id)
+            ->ownedByActiveDeck(AuthenticatedUser::id($this))
             ->where('cards.id', CanonicalUlid::normalize($cardId))
             ->first();
 

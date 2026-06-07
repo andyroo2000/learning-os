@@ -6,6 +6,7 @@ use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyImportJobResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +19,7 @@ class CancelStudyImportUploadController extends Controller
     ): JsonResponse {
         try {
             $importJob = $cancelStudyImportUpload->handle(
-                userId: $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 importJobId: $studyImportJobId,
             );
         } catch (StudyImportConflictException $exception) {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\PerformStudyCardActionRequest;
 use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Http\Resources\Study\StudyOverviewCompatibilityResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class PerformStudyCardActionController extends Controller
@@ -17,7 +18,7 @@ class PerformStudyCardActionController extends Controller
         PerformCardStudyAction $performCardStudyAction,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
-        $userId = (int) $request->user()->id;
+        $userId = AuthenticatedUser::id($request);
 
         $result = $performCardStudyAction->handle(
             card: $request->studyCard(),

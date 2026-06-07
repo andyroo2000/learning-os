@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Media;
 
+use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -22,7 +23,7 @@ class DeleteMediaAssetRequest extends FormRequest
 
     public function userId(): int
     {
-        return $this->user()->id;
+        return AuthenticatedUser::id($this);
     }
 
     public function mediaAssetId(): string

@@ -175,17 +175,18 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         // Authenticated keys ignore IP, so these match the request-derived keys used below.
         $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
-        RateLimiter::clear($userKey);
-        RateLimiter::clear($otherUserKey);
-
-        // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
-        RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(2)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
 
         try {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+
+            // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
+            RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 1; $attempt <= 2; $attempt++) {
                 $this
                     ->patchJson("/api/study/cards/{$card->id}", [

@@ -170,6 +170,9 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
             $this->assertDatabaseMissing('sync_feed_entries', [
                 'user_id' => $user->id,
             ]);
+            $this->assertDatabaseMissing('sync_feed_entries', [
+                'user_id' => $otherUser->id,
+            ]);
         } finally {
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);

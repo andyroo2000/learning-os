@@ -24,7 +24,7 @@ class StudyCardDeleteRateLimiterTest extends TestCase
     public function test_it_uses_60_attempts_per_minute_by_default(): void
     {
         $limiter = new StudyCardDeleteRateLimiter;
-        $request = Request::create('/api/study/cards/'.strtolower((string) str()->ulid()), 'DELETE', [], [], [], ['REMOTE_ADDR' => '127.0.0.1']);
+        $request = Request::create('/api/study/cards/01HWZ1KCE7000000000000000', 'DELETE', [], [], [], ['REMOTE_ADDR' => '127.0.0.1']);
         $request->setUserResolver(fn () => new class
         {
             public function getAuthIdentifier(): int

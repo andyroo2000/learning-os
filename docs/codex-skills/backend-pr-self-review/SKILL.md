@@ -74,6 +74,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Server-owned fields are exposed through model mass-assignment instead of explicit action assignment or a dedicated domain method.
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
+- Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.
 - Compatibility endpoints skip canonical domain actions, leak ConvoLab field names into shared domains, or lack tests for canonical and compat response shapes.
 - Upload/header validation crosses layers incorrectly, persists caller-declared sizes instead of actual bytes, or lacks boundary tests for malformed, overflow, mismatch, and side-effect-free failure paths.

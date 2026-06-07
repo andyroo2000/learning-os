@@ -121,7 +121,6 @@ class DeleteDeckApiTest extends TestCase
 
         $this->withDeckRateLimitOverride(
             DeckRateLimiter::DELETE_NAME,
-            DeckRateLimiter::forDelete(),
             [$user->id, $otherUser->id],
             function () use ($decks, $otherDeck, $otherUser, $user): void {
                 foreach ($decks->take(2) as $deck) {

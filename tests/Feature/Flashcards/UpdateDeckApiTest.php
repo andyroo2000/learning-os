@@ -215,7 +215,6 @@ class UpdateDeckApiTest extends TestCase
 
         $this->withDeckRateLimitOverride(
             DeckRateLimiter::UPDATE_NAME,
-            DeckRateLimiter::forUpdate(),
             [$user->id, $otherUser->id],
             function () use ($deck, $otherDeck, $otherUser, $user): void {
                 foreach ([1, 2] as $attempt) {

@@ -203,7 +203,6 @@ class CreateDeckApiTest extends TestCase
 
         $this->withDeckRateLimitOverride(
             DeckRateLimiter::CREATE_NAME,
-            DeckRateLimiter::forCreate(),
             [$user->id, $otherUser->id],
             function () use ($user, $otherUser): void {
                 foreach ([1, 2] as $attempt) {

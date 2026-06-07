@@ -9,7 +9,7 @@ class StudyCardActionRateLimiter
 {
     public const NAME = 'study-card-action';
 
-    // Manual card actions may be retried by clients; match saved-card edit headroom.
+    // 120/min matches saved-card edits; manual actions have similar client retry behavior.
     private const PER_MINUTE = 120;
 
     public function limit(Request $request): Limit

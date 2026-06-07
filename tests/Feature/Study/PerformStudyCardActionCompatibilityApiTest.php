@@ -239,6 +239,8 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
     }
 
     /**
+     * CI runs the suite serially today; keep this marker if parallel workers start excluding global-state tests.
+     *
      * @group no-parallel
      */
     public function test_it_rate_limits_study_card_actions_by_user(): void

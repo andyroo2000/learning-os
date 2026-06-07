@@ -3,14 +3,21 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Reviews\Actions\ReviewCardAction;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class UndoStudyReviewCompatibilityApiTest extends TestCase
@@ -142,6 +149,74 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
             ]);
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    public function test_study_and_canonical_review_undos_share_the_same_rate_limit_bucket(): void
+    {
+        $limiter = new CardReviewEventUndoRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
+        $thirdCard = $this->cardFor($user);
+        $reviewCard = app(ReviewCardAction::class);
+
+        $firstReviewLogId = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $firstCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-06-05T15:30:00Z'),
+        ))->reviewEvent->id;
+        $secondReviewLogId = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $secondCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-06-05T15:35:00Z'),
+        ))->reviewEvent->id;
+        $thirdReviewLogId = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $thirdCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-06-05T15:40:00Z'),
+        ))->reviewEvent->id;
+
+        $restoreCardReviewEventUndoLimiter = function () use ($limiter): void {
+            RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        // Authenticated keys ignore IP, so this matches the request-derived key used below.
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+
+        try {
+            // CI runs tests serially; this override is process-global and must be restored in finally.
+            RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(1)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            $this
+                ->deleteJson("/api/card-review-events/{$firstReviewLogId}")
+                ->assertOk();
+
+            $this
+                ->postJson('/api/study/reviews/undo', [
+                    'reviewLogId' => $secondReviewLogId,
+                ])
+                ->assertTooManyRequests();
+
+            $this
+                ->deleteJson("/api/study/reviews/{$thirdReviewLogId}")
+                ->assertTooManyRequests();
+
+            $this->getJson('/api/card-review-events')->assertOk();
+
+            $this->assertDatabaseMissing('card_review_events', ['id' => $firstReviewLogId]);
+            $this->assertDatabaseHas('card_review_events', ['id' => $secondReviewLogId]);
+            $this->assertDatabaseHas('card_review_events', ['id' => $thirdReviewLogId]);
+        } finally {
+            RateLimiter::clear($userKey);
+            $restoreCardReviewEventUndoLimiter();
         }
     }
 

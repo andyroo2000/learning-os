@@ -3,12 +3,20 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Reviews\Actions\ReviewCardAction;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class UndoCardReviewEventApiTest extends TestCase
@@ -76,6 +84,77 @@ class UndoCardReviewEventApiTest extends TestCase
             ->latest('checkpoint')
             ->firstOrFail()
             ->payload['study_status']);
+    }
+
+    public function test_it_rate_limits_undo_requests(): void
+    {
+        $limiter = new CardReviewEventUndoRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+        $reviewCard = app(ReviewCardAction::class);
+
+        $firstReviewEvent = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $firstCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-05-27T09:15:00Z'),
+        ))->reviewEvent;
+        $secondReviewEvent = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $secondCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-05-27T09:20:00Z'),
+        ))->reviewEvent;
+        $otherReviewEvent = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $otherCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: Carbon::parse('2026-05-27T09:25:00Z'),
+        ))->reviewEvent;
+
+        $restoreCardReviewEventUndoLimiter = function () use ($limiter): void {
+            RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        // Authenticated keys ignore IP, so this matches the request-derived key used below.
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
+
+        try {
+            // CI runs tests serially; this override is process-global and must be restored in finally.
+            RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(1)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            $this
+                ->deleteJson("/api/card-review-events/{$firstReviewEvent->id}")
+                ->assertOk();
+
+            $this
+                ->deleteJson("/api/card-review-events/{$secondReviewEvent->id}")
+                ->assertTooManyRequests();
+
+            $this->signIn($otherUser);
+
+            $this
+                ->deleteJson("/api/card-review-events/{$otherReviewEvent->id}")
+                ->assertOk();
+
+            $this->getJson('/api/card-review-events')->assertOk();
+
+            $this->assertDatabaseMissing('card_review_events', ['id' => $firstReviewEvent->id]);
+            $this->assertDatabaseMissing('card_review_events', ['id' => $otherReviewEvent->id]);
+            $this->assertDatabaseHas('card_review_events', ['id' => $secondReviewEvent->id]);
+        } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+            $restoreCardReviewEventUndoLimiter();
+        }
     }
 
     public function test_it_rejects_undoing_a_review_that_is_not_the_latest(): void

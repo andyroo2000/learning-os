@@ -6,17 +6,24 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class StudyReviewCompatibilityApiTest extends TestCase
@@ -124,6 +131,58 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->payload['study_status']);
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    public function test_study_and_canonical_review_creates_share_the_same_rate_limit_bucket(): void
+    {
+        $limiter = new CardReviewEventCreateRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $canonicalCard = $this->cardFor($user);
+        $studyCard = $this->cardFor($user);
+
+        $restoreCardReviewEventCreateLimiter = function () use ($limiter): void {
+            RateLimiter::for(CardReviewEventCreateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        // Authenticated keys ignore IP, so this matches the request-derived key used below.
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+
+        try {
+            // CI runs tests serially; this override is process-global and must be restored in finally.
+            RateLimiter::for(CardReviewEventCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(1)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            $this
+                ->postJson('/api/card-review-events', [
+                    'card_id' => $canonicalCard->id,
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                ])
+                ->assertCreated();
+
+            $this
+                ->postJson('/api/study/reviews', [
+                    'cardId' => $studyCard->id,
+                    'grade' => 'good',
+                ])
+                ->assertTooManyRequests();
+
+            $this->getJson('/api/study/overview')->assertOk();
+
+            $this->assertSame(1, CardReviewEvent::query()->where('card_id', $canonicalCard->id)->count());
+            $this->assertDatabaseMissing('card_review_events', [
+                'card_id' => $studyCard->id,
+            ]);
+        } finally {
+            RateLimiter::clear($userKey);
+            $restoreCardReviewEventCreateLimiter();
         }
     }
 

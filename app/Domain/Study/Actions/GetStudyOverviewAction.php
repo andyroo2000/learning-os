@@ -127,7 +127,11 @@ class GetStudyOverviewAction
     private function cardMetrics(int $userId, ?string $deckId, Carbon $now, Carbon $dayStart, Carbon $dayEnd): array
     {
         $activeDueStatuses = $this->activeDueStatuses();
-        $activeDueStatusPlaceholders = implode(', ', array_fill(0, count($activeDueStatuses), '?'));
+        $learningStatuses = $this->learningStatuses();
+        $suspendedStatuses = $this->suspendedStatuses();
+        $activeDueStatusPlaceholders = $this->statusPlaceholders($activeDueStatuses, 'active due statuses');
+        $learningStatusPlaceholders = $this->statusPlaceholders($learningStatuses, 'learning statuses');
+        $suspendedStatusPlaceholders = $this->statusPlaceholders($suspendedStatuses, 'suspended statuses');
         $nowFormatted = $now->toDateTimeString();
         $dayStartFormatted = $dayStart->toDateTimeString();
         $dayEndFormatted = $dayEnd->toDateTimeString();
@@ -149,9 +153,9 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
                 COALESCE(SUM(CASE WHEN cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END), 0) AS learning_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
                 COALESCE(SUM(CASE WHEN cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END), 0) AS suspended_count,
+                COALESCE(SUM(CASE WHEN cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
                 MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
                 // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
@@ -169,13 +173,11 @@ class GetStudyOverviewAction
                 // new_count
                 CardStudyStatus::New->value,
                 // learning_count
-                CardStudyStatus::Learning->value,
-                CardStudyStatus::Relearning->value,
+                ...$learningStatuses,
                 // review_count
                 CardStudyStatus::Review->value,
                 // suspended_count
-                CardStudyStatus::Suspended->value,
-                CardStudyStatus::Buried->value,
+                ...$suspendedStatuses,
                 // next_due_at
                 ...$activeDueStatuses,
             ])
@@ -207,5 +209,41 @@ class GetStudyOverviewAction
             CardStudyStatus::Review->value,
             CardStudyStatus::Relearning->value,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function learningStatuses(): array
+    {
+        // Keep this explicit: active due statuses can include non-learning phases such as review.
+        return [
+            CardStudyStatus::Learning->value,
+            CardStudyStatus::Relearning->value,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function suspendedStatuses(): array
+    {
+        return [
+            CardStudyStatus::Suspended->value,
+            CardStudyStatus::Buried->value,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $statuses
+     */
+    private function statusPlaceholders(array $statuses, string $label): string
+    {
+        // Defensive guard for raw SQL status groups; `IN ()` would be invalid SQL.
+        if ($statuses === []) {
+            throw new InvalidArgumentException("Study overview {$label} must include at least one status.");
+        }
+
+        return implode(', ', array_fill(0, count($statuses), '?'));
     }
 }

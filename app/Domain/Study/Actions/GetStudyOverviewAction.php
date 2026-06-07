@@ -33,12 +33,11 @@ class GetStudyOverviewAction
         $resolvedTimeZone = $this->resolveTimeZone($timeZone);
         [$dayStart, $dayEnd] = $this->studyDayWindow($now, $resolvedTimeZone);
         $settings = $this->getStudySettings->handle($userId);
-        // The daily introduction limit is user-wide, even when overview counts are deck-scoped.
-        $introducedToday = $this->countIntroducedToday($userId, $dayStart, $dayEnd);
-        $cardMetrics = $this->cardMetrics($userId, $deckId, $now);
+        $cardMetrics = $this->cardMetrics($userId, $deckId, $now, $dayStart, $dayEnd);
         $dueCount = $cardMetrics['due_count'];
         $failedDueCount = $cardMetrics['failed_due_count'];
         $newCount = $cardMetrics['new_count'];
+        $introducedToday = $cardMetrics['new_cards_introduced_today'];
         $remainingNewCards = max(0, $settings->new_cards_per_day - $introducedToday);
 
         return [
@@ -90,14 +89,6 @@ class GetStudyOverviewAction
         ];
     }
 
-    private function countIntroducedToday(int $userId, Carbon $dayStart, Carbon $dayEnd): int
-    {
-        return (clone $this->ownedActiveCardsQuery($userId))
-            ->where('cards.introduced_at', '>=', $dayStart)
-            ->where('cards.introduced_at', '<', $dayEnd)
-            ->count('cards.id');
-    }
-
     private function latestImport(int $userId): ?StudyImportJob
     {
         return StudyImportJob::query()
@@ -125,6 +116,7 @@ class GetStudyOverviewAction
      *     failed_count: int,
      *     failed_due_count: int,
      *     new_count: int,
+     *     new_cards_introduced_today: int,
      *     learning_count: int,
      *     review_count: int,
      *     suspended_count: int,
@@ -132,15 +124,27 @@ class GetStudyOverviewAction
      *     next_due_at: string|null,
      * }
      */
-    private function cardMetrics(int $userId, ?string $deckId, Carbon $now): array
+    private function cardMetrics(int $userId, ?string $deckId, Carbon $now, Carbon $dayStart, Carbon $dayEnd): array
     {
         $activeDueStatuses = $this->activeDueStatuses();
         $activeDueStatusPlaceholders = implode(', ', array_fill(0, count($activeDueStatuses), '?'));
         $nowFormatted = $now->toDateTimeString();
+        $dayStartFormatted = $dayStart->toDateTimeString();
+        $dayEndFormatted = $dayEnd->toDateTimeString();
         $row = $this->ownedActiveCardsQuery($userId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
             ->selectRaw(<<<SQL
                 COUNT(cards.id) AS total_cards,
+                (
+                    SELECT COUNT(introduced_cards.id)
+                    FROM cards AS introduced_cards
+                    INNER JOIN decks AS introduced_decks ON introduced_decks.id = introduced_cards.deck_id
+                    WHERE introduced_decks.user_id = ?
+                        AND introduced_decks.deleted_at IS NULL
+                        AND introduced_cards.deleted_at IS NULL
+                        AND introduced_cards.introduced_at >= ?
+                        AND introduced_cards.introduced_at < ?
+                ) AS new_cards_introduced_today,
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
@@ -150,6 +154,10 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) THEN 1 ELSE 0 END), 0) AS suspended_count,
                 MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
+                // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
+                $userId,
+                $dayStartFormatted,
+                $dayEndFormatted,
                 // due_count
                 ...$activeDueStatuses,
                 $nowFormatted,
@@ -180,6 +188,7 @@ class GetStudyOverviewAction
             'failed_count' => (int) $row?->failed_count,
             'failed_due_count' => (int) $row?->failed_due_count,
             'new_count' => (int) $row?->new_count,
+            'new_cards_introduced_today' => (int) $row?->new_cards_introduced_today,
             'learning_count' => (int) $row?->learning_count,
             'review_count' => (int) $row?->review_count,
             'suspended_count' => (int) $row?->suspended_count,

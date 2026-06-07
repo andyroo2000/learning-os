@@ -8,6 +8,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
 
     public function test_it_autosaves_a_manual_study_card_draft(): void
     {
+        $this->travelTo(Carbon::parse('2026-06-05T14:15:00Z'));
         $user = $this->signIn();
         $draft = StudyCardDraft::factory()->ready()->for($user)->create([
             'prompt_json' => ['cueText' => '会社'],
@@ -39,6 +41,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             'image_prompt' => 'Old prompt',
             'error_message' => null,
         ]);
+
+        $this->travelTo(Carbon::parse('2026-06-05T14:16:00Z'));
 
         $this->patchJson("/api/study/card-drafts/{$draft->id}", [
             'prompt' => ['cueText' => '会議'],
@@ -73,7 +77,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('previewAudio.id', 'audio-1')
             ->assertJsonPath('previewAudioRole', StudyCardAudioRole::Prompt->value)
             ->assertJsonPath('previewImage.id', 'image-1')
-            ->assertJsonPath('errorMessage', null);
+            ->assertJsonPath('errorMessage', null)
+            ->assertJsonPath('updatedAt', '2026-06-05T14:16:00.000000Z');
 
         $draft->refresh();
         $this->assertSame(['cueText' => '会議'], $draft->prompt_json);
@@ -85,6 +90,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame('image-1', $draft->preview_image_json['id']);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $draft->status);
         $this->assertNull($draft->error_message);
+        $this->assertSame('2026-06-05T14:16:00.000000Z', $draft->updated_at?->toJSON());
     }
 
     public function test_it_normalizes_uppercase_route_draft_ids(): void

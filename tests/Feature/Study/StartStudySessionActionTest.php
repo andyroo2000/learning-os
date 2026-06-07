@@ -401,8 +401,8 @@ class StartStudySessionActionTest extends TestCase
         $card = $this->cardWithStudyStatus($deck, $status, $cardAttributes);
         $secondCard = $this->cardWithStudyStatus($deck, $status, $secondCardAttributes);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $result = app(StartStudySessionAction::class)->handle(

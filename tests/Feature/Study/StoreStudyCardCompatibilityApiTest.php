@@ -277,8 +277,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             'is_manual_study_deck' => true,
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $resolvedDeck = DB::transaction(
@@ -286,7 +286,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             );
 
             $userQueries = collect(DB::getQueryLog())
-                ->filter(fn (array $query): bool => str_contains($query['query'], 'from "users"'))
+                ->filter(fn (array $query): bool => preg_match('/\bfrom\s+(?:"users"|`users`|users)(?![a-z0-9_])/', strtolower($query['query'])) === 1)
                 ->count();
         } finally {
             DB::disableQueryLog();

@@ -236,42 +236,62 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $otherUser = User::factory()->create();
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
-
         $restoreStudyCardCreateLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
                 return $limiter->limit($request);
             });
         };
 
-        RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(3)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, $clientIp);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, $clientIp);
+        RateLimiter::clear($userKey);
+        RateLimiter::clear($otherUserKey);
 
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(3)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 0; $attempt < 3; $attempt++) {
                 $this
-                    ->postJson('/api/study/card-drafts', [])
-                    ->assertUnprocessable();
+                    ->postJson('/api/study/card-drafts', $this->draftCreatePayload('front '.$attempt))
+                    ->assertCreated();
             }
 
             $this->signIn($otherUser);
 
             $this
-                ->postJson('/api/study/card-drafts', [])
-                ->assertUnprocessable();
+                ->postJson('/api/study/card-drafts', $this->draftCreatePayload('other user'))
+                ->assertCreated();
 
             $this->signIn($user);
 
             $this
-                ->postJson('/api/study/card-drafts', [])
+                ->postJson('/api/study/card-drafts', $this->draftCreatePayload('blocked'))
                 ->assertTooManyRequests();
 
-            $this->assertSame(0, StudyCardDraft::query()->count());
+            $this->assertSame(4, StudyCardDraft::query()->count());
         } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
             $restoreStudyCardCreateLimiter();
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function draftCreatePayload(string $cueText): array
+    {
+        return [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => $cueText],
+            'answer' => ['meaning' => 'back'],
+        ];
     }
 }

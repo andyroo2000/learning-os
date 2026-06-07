@@ -42,7 +42,7 @@ class DeleteCourseApiTest extends TestCase
         $this->assertSame('course', $entry->resource_type);
         $this->assertSame($course->id, $entry->resource_id);
         $this->assertSame('delete', $entry->operation->value);
-        $this->assertNotNull($entry->payload['deleted_at']);
+        $this->assertJsonTimestamp($entry->payload['deleted_at']);
     }
 
     public function test_it_deletes_course_scoped_decks_and_cards(): void

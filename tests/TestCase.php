@@ -45,6 +45,14 @@ abstract class TestCase extends BaseTestCase
         $this->assertSame($expected, $query[$key] ?? null, "URL query parameter [{$key}] did not match: {$url}");
     }
 
+    protected function assertJsonTimestamp(mixed $value): void
+    {
+        $this->assertNotNull($value);
+        $this->assertIsString($value);
+        // Carbon::toJSON() emits UTC timestamps with exactly six fractional digits.
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $value);
+    }
+
     protected function pathAndQueryFromUrl(string $url): string
     {
         $path = parse_url($url, PHP_URL_PATH);

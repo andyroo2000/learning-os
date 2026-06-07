@@ -237,6 +237,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - Enum-cast fields in resource or sync payloads should serialize the client-facing value, but include a default or explicit guard when null legacy/raw fixtures can reach the serializer.
 - If a resource passes JSON-cast fields through directly, assert representative `prompt`/`answer` or media JSON payloads in API tests, not only surrounding scalar fields.
 - For sync feeds, check ordering, checkpoint behavior, and payload shape together; Claude often flags only one symptom of a broken invariant.
+- Sync feed entries should represent durable state changes, not every request-shaped attempt. When adding feed recording to create/update/delete/retry actions, cover transport retries, no-op same-value updates, already-deleted or already-terminal resources, and client-provided-ID create paths so `Create`, `Update`, and `Delete` entries are not duplicated. Use explicit guards such as conflict-before-record, `wasRecentlyCreated`, `isDirty()`, or an operation-specific no-op branch when that makes the invariant self-documenting.
 
 ## Rate Limiting
 

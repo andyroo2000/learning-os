@@ -81,6 +81,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Rate limiter changes lack explicit route wiring, stable key fallback coverage, default-limit coverage, and isolated test buckets or cleanup for temporary overrides. For new named limiters that must have separate quotas, verify the pinned Laravel throttle path actually namespaces counters by limiter name or add an operation prefix to the raw `Limit::by()` key; do not assume key collision or isolation without checking sibling limiters and framework behavior.
 - State-transition or active-record checks run outside the transaction/lock boundary used by the corresponding write path.
 - A controller/action moves a model into a worker-owned pending state such as `Generating` and then dispatches the worker outside the transaction/commit boundary, allowing a queue write failure to strand user-visible state.
+- A queued job owns user-visible pending state but has no final-exhaustion/`failed()` path to move the resource to an actionable error state or emit an equivalent signal.
 - An empty PATCH/no-op branch bypasses mutable-state guards, such as `Generating` or locked status, without a test or durable comment that readback is intentionally allowed.
 - Existing behavior coverage was weakened to make a new test pass.
 

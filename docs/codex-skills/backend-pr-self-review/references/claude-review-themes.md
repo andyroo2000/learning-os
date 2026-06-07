@@ -216,6 +216,7 @@ Postgres compatibility is first-class for this project. Take migration portabili
 - Assert the throttled response status and default limit values directly when a PR changes limiter behavior or its tests.
 - If a limiter helper accepts an override such as `$perMinute` for tests, either cover the override with a focused unit assertion or keep the override local to the test so it does not look like an untested production contract.
 - Rate-limit tests should consume buckets with payloads that are valid for the behavior under test, or clearly comment why an invalid/missing payload is safe. Otherwise the throttle assertion can become coupled to validation ordering rather than limiter behavior.
+- When a throttle test relies on pre-existing state to avoid side effects, such as pre-deleting records so allowed attempts are idempotent no-ops, comment that setup near the fixture mutation. Prefer actor/resource-scoped `assertDatabaseMissing` assertions over whole-table zero-count checks unless the empty table is itself the invariant.
 - Be deliberate about whether throttle middleware runs before validation. If malformed requests consume quota, note that choice when clients may auto-retry validation errors; if only successful writes should count, the limiter must move after validation or into the action.
 - If a test mirrors a Laravel middleware internal such as `md5($limiterName.$key)`, isolate that coupling in test support or comment the dependency so a framework upgrade fails loudly.
 

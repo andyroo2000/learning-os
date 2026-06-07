@@ -79,6 +79,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.
 - A worker final-exhaustion path can lose the terminal error-state write because a lower-priority sync/feed side effect runs in the same rollback boundary and can throw.
 - A `DB::afterCommit()` side effect can throw after the state commit without catch/report/recovery or an explicit "fatal side effect" comment.
+- A lifecycle path intentionally uses a different transaction/side-effect boundary than sibling paths but lacks a durable comment explaining why the asymmetry must be preserved.
 - A hard-delete sync tombstone has caller-supplied `deleted_at` semantics but leaves clients or future maintainers to infer how it relates to pre-delete `updated_at`.
 - A generic `\BackedEnum` helper returns `->value` with a `string` return type even though integer-backed enums can also satisfy the input type.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.

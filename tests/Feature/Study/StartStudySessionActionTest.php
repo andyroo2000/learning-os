@@ -411,6 +411,7 @@ class StartStudySessionActionTest extends TestCase
         $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
             && str_contains(strtolower($query['query']), 'deck_course_id'));
 
+        // Each session runs either the due-card query or the new-card query, never both.
         $this->assertCount(1, $sessionCardSelects, $queries->pluck('query')->implode("\n"));
 
         $standaloneDeckSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'decks'));

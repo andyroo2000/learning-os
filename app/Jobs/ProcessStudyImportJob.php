@@ -47,9 +47,9 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        try {
-            $importJobId = CanonicalUlid::normalize($this->importJobId);
+        $importJobId = CanonicalUlid::normalize($this->importJobId);
 
+        try {
             DB::transaction(static function () use ($importJobId): void {
                 $importJob = StudyImportJob::query()
                     ->whereKey($importJobId)

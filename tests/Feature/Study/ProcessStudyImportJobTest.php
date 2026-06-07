@@ -7,6 +7,7 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Jobs\ProcessStudyImportJob;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
@@ -107,7 +108,8 @@ class ProcessStudyImportJobTest extends TestCase
         Carbon::setTestNow('2026-06-07 12:00:00');
         $importJob = StudyImportJob::factory()->create();
         $eventName = $this->studyImportUpdatingEventName();
-        $originalListeners = $this->rawEventListeners($eventName);
+        $dispatcher = Event::getFacadeRoot();
+        $originalListeners = $this->rawEventListeners($dispatcher, $eventName);
 
         // Registered only around failed() so this test targets the terminal-write path.
         Event::listen($eventName, static function (): void {
@@ -118,7 +120,7 @@ class ProcessStudyImportJobTest extends TestCase
             (new ProcessStudyImportJob($importJob->id))
                 ->failed(new RuntimeException('Worker infrastructure failed.'));
         } finally {
-            $this->restoreRawEventListeners($eventName, $originalListeners);
+            $this->restoreRawEventListeners($dispatcher, $eventName, $originalListeners);
         }
 
         $importJob->refresh();
@@ -140,11 +142,11 @@ class ProcessStudyImportJobTest extends TestCase
     /**
      * @return array<int, mixed>|null
      */
-    private function rawEventListeners(string $eventName): ?array
+    private function rawEventListeners(Dispatcher $dispatcher, string $eventName): ?array
     {
         // Laravel exposes forget-all but not remove-one for event listeners; preserve
-        // the raw list so this test can inject one listener without erasing app hooks.
-        $listeners = $this->eventListenersProperty()->getValue(Event::getFacadeRoot());
+        // Dispatcher::$listeners directly so this test does not erase app hooks.
+        $listeners = $this->eventListenersProperty($dispatcher)->getValue($dispatcher);
 
         return is_array($listeners) && array_key_exists($eventName, $listeners)
             ? $listeners[$eventName]
@@ -154,10 +156,12 @@ class ProcessStudyImportJobTest extends TestCase
     /**
      * @param  array<int, mixed>|null  $originalListeners
      */
-    private function restoreRawEventListeners(string $eventName, ?array $originalListeners): void
-    {
-        $dispatcher = Event::getFacadeRoot();
-        $property = $this->eventListenersProperty();
+    private function restoreRawEventListeners(
+        Dispatcher $dispatcher,
+        string $eventName,
+        ?array $originalListeners,
+    ): void {
+        $property = $this->eventListenersProperty($dispatcher);
         $listeners = $property->getValue($dispatcher);
 
         if (! is_array($listeners)) {
@@ -173,9 +177,9 @@ class ProcessStudyImportJobTest extends TestCase
         $property->setValue($dispatcher, $listeners);
     }
 
-    private function eventListenersProperty(): ReflectionProperty
+    private function eventListenersProperty(Dispatcher $dispatcher): ReflectionProperty
     {
-        return new ReflectionProperty(Event::getFacadeRoot(), 'listeners');
+        return new ReflectionProperty($dispatcher, 'listeners');
     }
 
     public function test_failed_ignores_missing_and_terminal_imports(): void

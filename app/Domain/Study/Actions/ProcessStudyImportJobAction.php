@@ -99,7 +99,10 @@ class ProcessStudyImportJobAction
         return StudyImportJob::query()->find($importJob->id) ?? $importJob;
     }
 
-    private function markFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob
+    /**
+     * Callers that can race another worker must hold the import-job row lock.
+     */
+    public static function markAsFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob
     {
         $importJob->status = StudyImportStatus::Failed;
         $importJob->error_message = $message;
@@ -107,5 +110,10 @@ class ProcessStudyImportJobAction
         $importJob->saveOrFail();
 
         return $importJob;
+    }
+
+    private function markFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob
+    {
+        return self::markAsFailed($importJob, $message, $now);
     }
 }

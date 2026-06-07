@@ -82,12 +82,14 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $userId = User::factory()->create()->id;
 
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             app(DeleteStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
-        } finally {
             $queries = collect(DB::getQueryLog());
+        } finally {
             DB::disableQueryLog();
+            DB::flushQueryLog();
         }
 
         $this->assertCount(

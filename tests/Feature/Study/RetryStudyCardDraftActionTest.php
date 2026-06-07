@@ -106,15 +106,17 @@ class RetryStudyCardDraftActionTest extends TestCase
         $userId = User::factory()->create()->id;
 
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             app(RetryStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
             $this->fail('Expected malformed draft IDs to be hidden as not found.');
         } catch (StudyCardDraftNotFoundException $exception) {
             $this->assertSame('Study card draft not found.', $exception->getMessage());
-        } finally {
             $queries = collect(DB::getQueryLog());
+        } finally {
             DB::disableQueryLog();
+            DB::flushQueryLog();
         }
 
         $this->assertCount(

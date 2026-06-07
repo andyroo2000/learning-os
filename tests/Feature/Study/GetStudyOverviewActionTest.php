@@ -233,6 +233,18 @@ class GetStudyOverviewActionTest extends TestCase
         ]);
     }
 
+    public function test_it_returns_explicit_new_cards_per_day_settings_from_overview_reads(): void
+    {
+        $user = User::factory()->create();
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 5,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(5, $overview['new_cards_per_day']);
+    }
+
     public function test_due_count_excludes_failed_cards_but_ready_failed_cards_block_new_cards(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

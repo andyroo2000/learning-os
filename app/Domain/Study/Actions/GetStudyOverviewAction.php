@@ -135,6 +135,7 @@ class GetStudyOverviewAction
         $dayEndFormatted = $dayEnd->toDateTimeString();
         $row = $this->ownedActiveCardsQuery($userId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
+            // The settings MAX() subquery is a scalar singleton read; user_id is unique.
             ->selectRaw(<<<SQL
                 COUNT(cards.id) AS total_cards,
                 COALESCE((

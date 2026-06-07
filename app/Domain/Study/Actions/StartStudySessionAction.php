@@ -106,7 +106,7 @@ class StartStudySessionAction
     private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
-            // dueCards() and newCards() select decks.course_id from this join for CardResource course_id serialization.
+            // Callers may project decks.course_id as deck_course_id; removing this join breaks CardResource serialization.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')

@@ -344,6 +344,8 @@ class StartStudySessionActionTest extends TestCase
     {
         $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::New, [
             'new_queue_position' => 1,
+        ], [
+            'new_queue_position' => 2,
         ]);
     }
 
@@ -351,6 +353,8 @@ class StartStudySessionActionTest extends TestCase
     {
         $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::Review, [
             'due_at' => Carbon::parse('2026-06-04T11:30:00Z'),
+        ], [
+            'due_at' => Carbon::parse('2026-06-04T11:45:00Z'),
         ]);
     }
 
@@ -378,9 +382,13 @@ class StartStudySessionActionTest extends TestCase
 
     /**
      * @param  array<string, mixed>  $cardAttributes
+     * @param  array<string, mixed>  $secondCardAttributes
      */
-    private function assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus $status, array $cardAttributes): void
-    {
+    private function assertSessionCardCourseLookupUsesJoinedDeckCourse(
+        CardStudyStatus $status,
+        array $cardAttributes,
+        array $secondCardAttributes,
+    ): void {
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
         $course = Course::factory()->for($user)->create();
@@ -391,6 +399,7 @@ class StartStudySessionActionTest extends TestCase
             'new_cards_per_day' => 20,
         ]);
         $card = $this->cardWithStudyStatus($deck, $status, $cardAttributes);
+        $secondCard = $this->cardWithStudyStatus($deck, $status, $secondCardAttributes);
 
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -407,6 +416,8 @@ class StartStudySessionActionTest extends TestCase
 
         $this->assertSame($card->id, $payload['cards'][0]['id']);
         $this->assertSame($course->id, $payload['cards'][0]['course_id']);
+        $this->assertSame($secondCard->id, $payload['cards'][1]['id']);
+        $this->assertSame($course->id, $payload['cards'][1]['course_id']);
 
         $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
             && str_contains(strtolower($query['query']), 'deck_course_id'));

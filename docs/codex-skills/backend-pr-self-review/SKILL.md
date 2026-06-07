@@ -77,6 +77,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Server-owned fields are exposed through model mass-assignment instead of explicit action assignment or a dedicated domain method.
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.
 - A resource serializer switches from `getAttribute()`/casts to `getAttributes()` raw values without documenting the cast-bypass contract or testing every live fallback branch it keeps, such as direct string-backed enum assignment.
+- A resource helper claims a `string|null` wire contract but the focused unit test only seeds null fields without asserting null pass-through.
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
 - A sync/resource payload adds a client-visible key but only updates downstream action/API assertions, leaving the canonical payload shape unit test stale or absent.
 - A PR lists sync feed/list replay tests as verification for a new payload key but those tests do not assert the field in the replayed payload shape.

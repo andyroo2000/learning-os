@@ -335,6 +335,17 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonValidationErrors(['deck_id']);
     }
 
+    public function test_it_rejects_an_array_course_id_filter(): void
+    {
+        $this->signIn();
+
+        $response = $this->getJson('/api/media-assets?course_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+    }
+
     public function test_it_rejects_an_array_deck_id_filter(): void
     {
         $this->signIn();
@@ -403,6 +414,55 @@ class ListMediaAssetsApiTest extends TestCase
             ->assertJsonCount(0, 'data')
             ->assertJsonMissing([
                 'id' => $deletedDeckMediaAsset->id,
+            ]);
+    }
+
+    public function test_it_preserves_course_id_filter_when_following_a_cursor(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+        $courseCard = Card::factory()->for($courseDeck)->create();
+        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
+        $olderMediaAsset = MediaAsset::factory()->for($user)->create([
+            'created_at' => now()->subMinutes(2),
+            'updated_at' => now()->subMinutes(2),
+        ]);
+        $newerMediaAsset = MediaAsset::factory()->for($user)->create([
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+        $otherCourseMediaAsset = MediaAsset::factory()->for($user)->create([
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $courseCard->mediaAssets()->attach($olderMediaAsset->id);
+        $courseCard->mediaAssets()->attach($newerMediaAsset->id);
+        $otherCourseCard->mediaAssets()->attach($otherCourseMediaAsset->id);
+
+        $firstPage = $this->getJson("/api/media-assets?course_id={$course->id}&per_page=1");
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerMediaAsset->id);
+
+        $nextUrl = $firstPage->json('links.next');
+
+        $this->assertNotNull($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
+
+        $secondPage = $this->getJson($nextUrl);
+
+        $secondPage
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderMediaAsset->id)
+            ->assertJsonMissing([
+                'id' => $otherCourseMediaAsset->id,
             ]);
     }
 

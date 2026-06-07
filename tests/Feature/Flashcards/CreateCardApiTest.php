@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -13,11 +14,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
 
 class CreateCardApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyCardRateLimitOverrides;
 
     public function test_it_creates_a_card(): void
     {
@@ -126,6 +129,53 @@ class CreateCardApiTest extends TestCase
             'id' => strtolower($id),
             'deck_id' => $deck->id,
         ]);
+    }
+
+    public function test_create_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherUser = User::factory()->create();
+        $otherDeck = $this->deckFor($otherUser);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardCreateRateLimiter::NAME,
+            [$user->id, $otherUser->id],
+            function () use ($deck, $otherDeck, $otherUser, $user): void {
+                foreach ([1, 2] as $attempt) {
+                    $this
+                        ->postJson('/api/cards', $this->cardCreatePayload($deck->id, "front {$attempt}"))
+                        ->assertCreated();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson('/api/cards', $this->cardCreatePayload($otherDeck->id, 'other front'))
+                    ->assertCreated();
+
+                $this->signIn($user);
+
+                $this
+                    ->postJson('/api/cards', $this->cardCreatePayload($deck->id, 'blocked front'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson('/api/cards')
+                    ->assertOk()
+                    ->assertJsonCount(2, 'data');
+
+                $this->assertSame(2, Card::query()->whereBelongsTo($deck)->count());
+                $this->assertSame(1, Card::query()->whereBelongsTo($otherDeck)->count());
+                $this->assertDatabaseMissing('cards', [
+                    'deck_id' => $deck->id,
+                    'front_text' => 'blocked front',
+                ]);
+            },
+        );
     }
 
     public function test_it_ignores_client_provided_study_state(): void
@@ -1125,5 +1175,17 @@ class CreateCardApiTest extends TestCase
         $response->assertUnauthorized();
 
         $this->assertDatabaseCount('cards', 0);
+    }
+
+    /**
+     * @return array{deck_id: string, front_text: string, back_text: string}
+     */
+    private function cardCreatePayload(string $deckId, string $frontText): array
+    {
+        return [
+            'deck_id' => $deckId,
+            'front_text' => $frontText,
+            'back_text' => 'back '.$frontText,
+        ];
     }
 }

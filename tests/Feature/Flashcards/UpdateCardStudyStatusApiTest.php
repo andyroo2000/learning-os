@@ -4,17 +4,21 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Http\Middleware\TrimStrings;
 use App\Http\Resources\Flashcards\CardResource;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
 
 class UpdateCardStudyStatusApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyCardRateLimitOverrides;
 
     public function test_it_updates_an_owned_card_study_status(): void
     {
@@ -86,6 +90,99 @@ class UpdateCardStudyStatusApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.study_status', 'buried');
+    }
+
+    public function test_study_status_updates_are_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+        ]);
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser, [
+            'study_status' => CardStudyStatus::Review,
+        ]);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardUpdateRateLimiter::NAME,
+            [$user->id, $otherUser->id],
+            function () use ($card, $otherCard, $otherUser, $user): void {
+                foreach (['buried', 'suspended'] as $status) {
+                    $this
+                        ->patchJson("/api/cards/{$card->id}/study-status", ['study_status' => $status])
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->patchJson("/api/cards/{$otherCard->id}/study-status", ['study_status' => 'suspended'])
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $this
+                    ->patchJson("/api/cards/{$card->id}/study-status", ['study_status' => 'review'])
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$card->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.study_status', 'suspended');
+
+                $this->assertSame(CardStudyStatus::Suspended, $card->refresh()->study_status);
+                $this->assertSame(CardStudyStatus::Suspended, $otherCard->refresh()->study_status);
+                $this->assertDatabaseMissing('sync_feed_entries', [
+                    'user_id' => $user->id,
+                    'payload->study_status' => 'review',
+                ]);
+            },
+        );
+    }
+
+    public function test_text_and_study_status_updates_share_rate_limit_bucket(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => 'original front',
+            'back_text' => 'original back',
+            'study_status' => CardStudyStatus::Review,
+        ]);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardUpdateRateLimiter::NAME,
+            [$user->id],
+            function () use ($card): void {
+                $this
+                    ->putJson("/api/cards/{$card->id}", $this->cardUpdatePayload('updated front'))
+                    ->assertOk();
+
+                $this
+                    ->patchJson("/api/cards/{$card->id}/study-status", ['study_status' => 'buried'])
+                    ->assertOk();
+
+                $this
+                    ->putJson("/api/cards/{$card->id}", $this->cardUpdatePayload('blocked front'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$card->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.front_text', 'updated front')
+                    ->assertJsonPath('data.study_status', 'buried');
+
+                $card->refresh();
+
+                $this->assertSame('updated front', $card->front_text);
+                $this->assertSame(CardStudyStatus::Buried, $card->study_status);
+            },
+        );
     }
 
     public function test_new_status_resets_study_schedule(): void
@@ -296,5 +393,16 @@ class UpdateCardStudyStatusApiTest extends TestCase
             'id' => $card->id,
             'study_status' => 'review',
         ]);
+    }
+
+    /**
+     * @return array{front_text: string, back_text: string}
+     */
+    private function cardUpdatePayload(string $frontText): array
+    {
+        return [
+            'front_text' => $frontText,
+            'back_text' => 'back '.$frontText,
+        ];
     }
 }

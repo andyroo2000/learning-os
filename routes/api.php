@@ -153,11 +153,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('card')
         ->whereUlid('mediaAsset');
     Route::get('/cards', ListCardsController::class);
-    Route::post('/cards', StoreCardController::class);
-    Route::post('/cards/{card}/actions', PerformCardStudyActionController::class)->whereUlid('card');
-    Route::patch('/cards/{card}/study-status', UpdateCardStudyStatusController::class)->whereUlid('card');
-    Route::put('/cards/{card}', UpdateCardController::class)->whereUlid('card');
-    Route::delete('/cards/{card}', DeleteCardController::class)->whereUlid('card');
+    // Canonical and study card writes share quotas because they mutate the same card resources.
+    Route::post('/cards', StoreCardController::class)
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+    Route::post('/cards/{card}/actions', PerformCardStudyActionController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
+    Route::patch('/cards/{card}/study-status', UpdateCardStudyStatusController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+    Route::put('/cards/{card}', UpdateCardController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+    Route::delete('/cards/{card}', DeleteCardController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class);
     Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class)

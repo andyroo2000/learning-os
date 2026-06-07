@@ -3,15 +3,19 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Http\Resources\Flashcards\CardResource;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
 
 class UpdateCardApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyCardRateLimitOverrides;
 
     public function test_it_updates_an_owned_card(): void
     {
@@ -84,6 +88,55 @@ class UpdateCardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.front_text', 'arrivederci')
             ->assertJsonPath('data.back_text', 'goodbye');
+    }
+
+    public function test_update_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => 'original user front',
+            'back_text' => 'original user back',
+        ]);
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser, [
+            'front_text' => 'original other front',
+            'back_text' => 'original other back',
+        ]);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardUpdateRateLimiter::NAME,
+            [$user->id, $otherUser->id],
+            function () use ($card, $otherCard, $otherUser, $user): void {
+                foreach ([1, 2] as $attempt) {
+                    $this
+                        ->putJson("/api/cards/{$card->id}", $this->cardUpdatePayload("user front {$attempt}"))
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->putJson("/api/cards/{$otherCard->id}", $this->cardUpdatePayload('other front'))
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $this
+                    ->putJson("/api/cards/{$card->id}", $this->cardUpdatePayload('blocked front'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$card->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.front_text', 'user front 2');
+
+                $this->assertSame('user front 2', $card->refresh()->front_text);
+                $this->assertSame('other front', $otherCard->refresh()->front_text);
+            },
+        );
     }
 
     public function test_it_ignores_client_provided_study_state(): void
@@ -693,5 +746,16 @@ class UpdateCardApiTest extends TestCase
             'front_text' => $card->front_text,
             'back_text' => $card->back_text,
         ]);
+    }
+
+    /**
+     * @return array{front_text: string, back_text: string}
+     */
+    private function cardUpdatePayload(string $frontText): array
+    {
+        return [
+            'front_text' => $frontText,
+            'back_text' => 'back '.$frontText,
+        ];
     }
 }

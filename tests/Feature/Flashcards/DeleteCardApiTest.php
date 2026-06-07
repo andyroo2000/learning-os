@@ -5,13 +5,17 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
 
 class DeleteCardApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyCardRateLimitOverrides;
 
     public function test_it_deletes_an_owned_card(): void
     {
@@ -103,6 +107,56 @@ class DeleteCardApiTest extends TestCase
         $response = $this->deleteJson("/api/cards/{$card->id}");
 
         $response->assertNoContent();
+    }
+
+    public function test_delete_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $cards = Card::factory()->count(3)->for($this->deckFor($user))->create();
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardDeleteRateLimiter::NAME,
+            [$user->id, $otherUser->id],
+            function () use ($cards, $otherCard, $otherUser, $user): void {
+                foreach ($cards->take(2) as $card) {
+                    $this
+                        ->deleteJson("/api/cards/{$card->id}")
+                        ->assertNoContent();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->deleteJson("/api/cards/{$otherCard->id}")
+                    ->assertNoContent();
+
+                $this->signIn($user);
+
+                $blockedCard = $cards->last();
+
+                $this
+                    ->deleteJson("/api/cards/{$blockedCard->id}")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$blockedCard->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.id', $blockedCard->id);
+
+                $this->assertSoftDeleted('cards', ['id' => $cards[0]->id]);
+                $this->assertSoftDeleted('cards', ['id' => $cards[1]->id]);
+                $this->assertSoftDeleted('cards', ['id' => $otherCard->id]);
+                $this->assertDatabaseHas('cards', [
+                    'id' => $blockedCard->id,
+                    'deleted_at' => null,
+                ]);
+            },
+        );
     }
 
     public function test_it_hides_another_users_soft_deleted_card(): void

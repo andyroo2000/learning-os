@@ -30,13 +30,13 @@ class StudyCardDeleteRateLimiter
      */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; anonymous keys are defensive if middleware changes.
+        // Keep deletes in their own bucket so create/import replay cannot spend retry headroom.
         if ($userId !== null) {
-            return 'user:'.(string) $userId;
+            return self::NAME.':user:'.(string) $userId;
         }
 
         $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
 
-        return 'anon:'.$network;
+        return self::NAME.':anon:'.$network;
     }
 }

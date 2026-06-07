@@ -12,14 +12,14 @@ class StudyCardDeleteRateLimiterTest extends TestCase
     {
         $limiter = new StudyCardDeleteRateLimiter;
 
-        $this->assertSame('user:42', $limiter->keyFor(42, '127.0.0.1'));
-        $this->assertSame('user:42', $limiter->keyFor(42, '192.0.2.10'));
-        $this->assertSame('anon:unknown-ip', $limiter->keyFor(null, null));
-        $this->assertSame('anon:unknown-ip', $limiter->keyFor(null, ''));
-        $this->assertSame('anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
-        $this->assertSame('anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
-        $this->assertSame('user:user-1', $limiter->keyFor('user-1', ''));
-        $this->assertSame('user:missing-user', $limiter->keyFor('missing-user', ''));
+        $this->assertSame('study-card-delete:user:42', $limiter->keyFor(42, '127.0.0.1'));
+        $this->assertSame('study-card-delete:user:42', $limiter->keyFor(42, '192.0.2.10'));
+        $this->assertSame('study-card-delete:anon:unknown-ip', $limiter->keyFor(null, null));
+        $this->assertSame('study-card-delete:anon:unknown-ip', $limiter->keyFor(null, ''));
+        $this->assertSame('study-card-delete:anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
+        $this->assertSame('study-card-delete:anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
+        $this->assertSame('study-card-delete:user:user-1', $limiter->keyFor('user-1', ''));
+        $this->assertSame('study-card-delete:user:missing-user', $limiter->keyFor('missing-user', ''));
     }
 
     public function test_it_uses_60_attempts_per_minute_by_default(): void
@@ -38,6 +38,6 @@ class StudyCardDeleteRateLimiterTest extends TestCase
 
         $this->assertSame(60, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
-        $this->assertSame('user:42', $limit->key);
+        $this->assertSame('study-card-delete:user:42', $limit->key);
     }
 }

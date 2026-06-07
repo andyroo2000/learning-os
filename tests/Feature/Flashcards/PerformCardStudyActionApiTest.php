@@ -5,15 +5,19 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Http\Middleware\TrimStrings;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
 
 class PerformCardStudyActionApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyCardRateLimitOverrides;
 
     public function test_actions_require_authentication(): void
     {
@@ -66,6 +70,57 @@ class PerformCardStudyActionApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_actions_are_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+        ]);
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser, [
+            'study_status' => CardStudyStatus::Review,
+        ]);
+
+        $this->withStudyCardRateLimitOverride(
+            StudyCardActionRateLimiter::NAME,
+            [$user->id, $otherUser->id],
+            function () use ($card, $otherCard, $otherUser, $user): void {
+                foreach (['2026-06-06T14:15:00Z', '2026-06-07T14:15:00Z'] as $dueAt) {
+                    $this
+                        ->postJson("/api/cards/{$card->id}/actions", $this->setDuePayload($dueAt))
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson("/api/cards/{$otherCard->id}/actions", $this->setDuePayload('2026-06-06T09:00:00Z'))
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $this
+                    ->postJson("/api/cards/{$card->id}/actions", $this->setDuePayload('2026-06-08T14:15:00Z'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$card->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.due_at', '2026-06-07T14:15:00.000000Z');
+
+                $this->assertSame('2026-06-07T14:15:00.000000Z', $card->refresh()->due_at?->toJSON());
+                $this->assertSame('2026-06-06T09:00:00.000000Z', $otherCard->refresh()->due_at?->toJSON());
+                $this->assertDatabaseMissing('sync_feed_entries', [
+                    'user_id' => $user->id,
+                    'payload->due_at' => '2026-06-08T14:15:00.000000Z',
+                ]);
+            },
+        );
     }
 
     public function test_it_returns_a_deck_scoped_overview_when_deck_id_is_provided(): void
@@ -375,5 +430,17 @@ class PerformCardStudyActionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    /**
+     * @return array{action: string, mode: string, due_at: string}
+     */
+    private function setDuePayload(string $dueAt): array
+    {
+        return [
+            'action' => 'set_due',
+            'mode' => 'custom_date',
+            'due_at' => $dueAt,
+        ];
     }
 }

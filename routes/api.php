@@ -71,6 +71,7 @@ use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
+use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
@@ -198,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/session/start', StartStudySessionController::class)
         ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
     Route::get('/study/export', ShowStudyExportManifestController::class);
+    Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)->name('api.study.export.card-drafts');
     Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');
     Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');
     Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');

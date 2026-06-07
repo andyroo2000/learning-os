@@ -19,7 +19,7 @@ class StudySettingsUpdateRateLimiterTest extends TestCase
         $this->assertSame('study-settings-update:anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
         $this->assertSame('study-settings-update:anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
         $this->assertSame('study-settings-update:user:user-1', $limiter->keyFor('user-1', ''));
-        $this->assertSame('study-settings-update:user:missing-user', $limiter->keyFor('missing-user', ''));
+        $this->assertSame('study-settings-update:user:str-id', $limiter->keyFor('str-id', ''));
     }
 
     public function test_it_uses_120_attempts_per_minute_by_default(): void

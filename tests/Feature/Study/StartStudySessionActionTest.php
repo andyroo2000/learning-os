@@ -404,15 +404,17 @@ class StartStudySessionActionTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $result = app(StartStudySessionAction::class)->handle(
-            userId: $user->id,
-            now: $now,
-        );
-        $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $result = app(StartStudySessionAction::class)->handle(
+                userId: $user->id,
+                now: $now,
+            );
+            $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $this->assertSame($card->id, $payload['cards'][0]['id']);
         $this->assertSame($course->id, $payload['cards'][0]['course_id']);
@@ -422,8 +424,12 @@ class StartStudySessionActionTest extends TestCase
         $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
             && str_contains(strtolower($query['query']), 'deck_course_id'));
 
-        // Each session runs either the due-card query or the new-card query, never both.
-        $this->assertCount(1, $sessionCardSelects, $queries->pluck('query')->implode("\n"));
+        $this->assertCount(
+            1,
+            $sessionCardSelects,
+            "Expected exactly one card query because StartStudySessionAction::handle returns due OR new cards, never both.\n"
+                .$queries->pluck('query')->implode("\n"),
+        );
 
         $standaloneDeckSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'decks'));
 

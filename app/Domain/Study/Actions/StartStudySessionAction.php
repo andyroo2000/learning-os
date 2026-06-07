@@ -106,7 +106,7 @@ class StartStudySessionAction
     private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
-            // Callers may project decks.course_id as deck_course_id; removing this join breaks CardResource serialization.
+            // This join enforces ownership/soft deletes. Session card queries also project decks.course_id.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')

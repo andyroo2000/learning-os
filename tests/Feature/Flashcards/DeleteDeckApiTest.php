@@ -4,16 +4,20 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesDeckRateLimitOverrides;
 use Tests\TestCase;
 
 class DeleteDeckApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDeckRateLimitOverrides;
 
     public function test_it_deletes_an_owned_deck(): void
     {
@@ -106,6 +110,55 @@ class DeleteDeckApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_delete_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $decks = Deck::factory()->count(3)->for($user)->create();
+        $otherUser = User::factory()->create();
+        $otherDeck = Deck::factory()->for($otherUser)->create();
+
+        $this->withDeckRateLimitOverride(
+            DeckRateLimiter::DELETE_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($decks, $otherDeck, $otherUser, $user): void {
+                foreach ($decks->take(2) as $deck) {
+                    $this
+                        ->deleteJson("/api/decks/{$deck->id}")
+                        ->assertNoContent();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->deleteJson("/api/decks/{$otherDeck->id}")
+                    ->assertNoContent();
+
+                $this->signIn($user);
+
+                $blockedDeck = $decks->last();
+
+                $this
+                    ->deleteJson("/api/decks/{$blockedDeck->id}")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/decks/{$blockedDeck->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.id', $blockedDeck->id);
+
+                $this->assertSoftDeleted('decks', ['id' => $decks[0]->id]);
+                $this->assertSoftDeleted('decks', ['id' => $decks[1]->id]);
+                $this->assertDatabaseHas('decks', [
+                    'id' => $blockedDeck->id,
+                    'deleted_at' => null,
+                ]);
+            },
+        );
     }
 
     public function test_it_hides_another_users_deck(): void

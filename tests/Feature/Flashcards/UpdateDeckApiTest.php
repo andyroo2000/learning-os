@@ -3,14 +3,18 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Http\Resources\Flashcards\DeckResource;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesDeckRateLimitOverrides;
 use Tests\TestCase;
 
 class UpdateDeckApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDeckRateLimitOverrides;
 
     public function test_it_updates_an_owned_deck(): void
     {
@@ -194,6 +198,55 @@ class UpdateDeckApiTest extends TestCase
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
         ]);
+    }
+
+    public function test_update_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $deck = Deck::factory()->for($user)->create([
+            'name' => 'Original User Deck',
+            'description' => null,
+        ]);
+        $otherUser = User::factory()->create();
+        $otherDeck = Deck::factory()->for($otherUser)->create([
+            'name' => 'Original Other Deck',
+            'description' => null,
+        ]);
+
+        $this->withDeckRateLimitOverride(
+            DeckRateLimiter::UPDATE_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($deck, $otherDeck, $otherUser, $user): void {
+                foreach ([1, 2] as $attempt) {
+                    $this
+                        ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload("User Deck {$attempt}"))
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->putJson("/api/decks/{$otherDeck->id}", $this->deckUpdatePayload('Other User Deck'))
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $this
+                    ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload('Blocked User Deck'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/decks/{$deck->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.name', 'User Deck 2');
+
+                $this->assertSame('User Deck 2', $deck->refresh()->name);
+                $this->assertSame('Other User Deck', $otherDeck->refresh()->name);
+            },
+        );
     }
 
     public function test_it_rejects_blank_name(): void
@@ -449,5 +502,16 @@ class UpdateDeckApiTest extends TestCase
             'name' => $deck->name,
             'description' => $deck->description,
         ]);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function deckUpdatePayload(string $name): array
+    {
+        return [
+            'name' => $name,
+            'description' => null,
+        ];
     }
 }

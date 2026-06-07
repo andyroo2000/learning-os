@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
@@ -125,7 +126,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/card-review-events', StoreCardReviewEventController::class);
     Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/new', ListNewCardsController::class);
-    Route::post('/cards/new/reorder', ReorderNewCardQueueController::class);
+    // Canonical and ConvoLab queue reorders share one user-scoped quota for the same mutation.
+    Route::post('/cards/new/reorder', ReorderNewCardQueueController::class)
+        ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
@@ -189,7 +192,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
-    Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class);
+    // Shares the canonical new-card queue reorder quota above.
+    Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
+        ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
     Route::get('/study/overview', ShowStudyOverviewController::class);
     Route::post('/study/reviews', StoreStudyReviewController::class);
     Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);

@@ -6,6 +6,7 @@ use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
@@ -97,6 +98,11 @@ class AppServiceProvider extends ServiceProvider
         $studySettingsUpdateRateLimiter = new StudySettingsUpdateRateLimiter;
         RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($studySettingsUpdateRateLimiter): Limit {
             return $studySettingsUpdateRateLimiter->limit($request);
+        });
+
+        $newCardQueueReorderRateLimiter = new NewCardQueueReorderRateLimiter;
+        RateLimiter::for(NewCardQueueReorderRateLimiter::NAME, function (Request $request) use ($newCardQueueReorderRateLimiter): Limit {
+            return $newCardQueueReorderRateLimiter->limit($request);
         });
 
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.

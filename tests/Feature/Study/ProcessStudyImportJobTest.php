@@ -114,6 +114,17 @@ class ProcessStudyImportJobTest extends TestCase
         (new ProcessStudyImportJob($importJob->id))
             ->failed(new RuntimeException('First failure.'));
 
+        $importJob->refresh();
+        $firstCompletedAt = $importJob->completed_at;
+        $firstUpdatedAt = $importJob->updated_at;
+        $firstErrorMessage = $importJob->error_message;
+
+        $this->assertSame(StudyImportStatus::Failed, $importJob->status);
+        $this->assertSame(ProcessStudyImportJob::EXHAUSTED_ERROR_MESSAGE, $firstErrorMessage);
+        $this->assertNotNull($firstCompletedAt);
+        $this->assertNotNull($firstUpdatedAt);
+        $this->assertSame(now()->toJSON(), $firstCompletedAt->toJSON());
+
         Carbon::setTestNow('2026-06-07 12:05:00');
         (new ProcessStudyImportJob($importJob->id))
             ->failed(new RuntimeException('Second failure.'));
@@ -121,8 +132,34 @@ class ProcessStudyImportJobTest extends TestCase
         $importJob->refresh();
 
         $this->assertSame(StudyImportStatus::Failed, $importJob->status);
-        $this->assertSame(ProcessStudyImportJob::EXHAUSTED_ERROR_MESSAGE, $importJob->error_message);
-        $this->assertSame('2026-06-07T12:00:00.000000Z', $importJob->completed_at?->toJSON());
+        $this->assertSame($firstErrorMessage, $importJob->error_message);
+        $this->assertSame($firstCompletedAt->toJSON(), $importJob->completed_at?->toJSON());
+        $this->assertSame($firstUpdatedAt->toJSON(), $importJob->updated_at?->toJSON());
+    }
+
+    public function test_failed_does_not_clobber_completed_imports(): void
+    {
+        Carbon::setTestNow('2026-06-07 12:00:00');
+        $importJob = StudyImportJob::factory()->completed()->create();
+        $firstCompletedAt = $importJob->completed_at;
+        $firstUpdatedAt = $importJob->updated_at;
+
+        $this->assertNotNull($firstCompletedAt);
+        $this->assertNotNull($firstUpdatedAt);
+        $this->assertSame(StudyImportStatus::Completed, $importJob->status);
+        $this->assertNull($importJob->error_message);
+
+        // Complements the broader terminal-state guard below by pinning timestamp preservation under a later clock.
+        Carbon::setTestNow('2026-06-07 12:05:00');
+        (new ProcessStudyImportJob($importJob->id))
+            ->failed(new RuntimeException('Worker infrastructure failed after completion.'));
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Completed, $importJob->status);
+        $this->assertNull($importJob->error_message);
+        $this->assertSame($firstCompletedAt->toJSON(), $importJob->completed_at?->toJSON());
+        $this->assertSame($firstUpdatedAt->toJSON(), $importJob->updated_at?->toJSON());
     }
 
     public function test_failed_reports_and_swallows_failure_hook_write_errors(): void

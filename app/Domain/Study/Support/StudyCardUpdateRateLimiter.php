@@ -30,7 +30,7 @@ class StudyCardUpdateRateLimiter
      */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; the fallback keeps the limiter safe if middleware changes.
+        // The route requires auth; the shared fallback bucket keeps IP-less anonymous requests bounded if middleware changes.
         if ($userId !== null) {
             return self::NAME.':user:'.(string) $userId;
         }

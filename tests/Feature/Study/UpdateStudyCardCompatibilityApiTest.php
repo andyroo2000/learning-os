@@ -144,6 +144,9 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
+    /**
+     * @group no-parallel
+     */
     public function test_it_rate_limits_study_card_updates_by_user(): void
     {
         $limiter = new StudyCardUpdateRateLimiter;
@@ -169,6 +172,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             });
         };
 
+        // Authenticated keys ignore IP, so these match the request-derived keys used below.
         $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
         RateLimiter::clear($userKey);

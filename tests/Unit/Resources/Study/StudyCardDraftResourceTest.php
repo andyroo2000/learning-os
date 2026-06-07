@@ -85,6 +85,18 @@ class StudyCardDraftResourceTest extends TestCase
         StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
     }
 
+    public function test_resource_rejects_float_draft_attributes(): void
+    {
+        $resourceSubject = new StudyCardDraftResourceSubject([
+            'status' => 1.5,
+        ]);
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study card draft attribute [status] must serialize to a string or null.');
+
+        StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
+    }
+
     public function test_resource_rejects_integer_backed_enum_draft_attributes(): void
     {
         $resourceSubject = new StudyCardDraftResourceSubject([

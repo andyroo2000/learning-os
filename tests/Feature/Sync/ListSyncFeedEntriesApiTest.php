@@ -133,21 +133,15 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->assertSame('flashcards', $deleteEntry['domain']);
         $this->assertSame('card', $deleteEntry['resource_type']);
         $this->assertSame(SyncFeedOperation::Delete->value, $deleteEntry['operation']);
-        $this->assertIsString($deleteEntry['server_recorded_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['server_recorded_at']);
+        $this->assertJsonTimestamp($deleteEntry['server_recorded_at']);
         $this->assertSame($card->id, $deleteEntry['payload']['id']);
         $this->assertSame($card->deck_id, $deleteEntry['payload']['deck_id']);
         $this->assertSame($card->front_text, $deleteEntry['payload']['front_text']);
         $this->assertSame($card->back_text, $deleteEntry['payload']['back_text']);
         // Sync snapshots use Carbon::toJSON(), matching API resource timestamp serialization.
-        $this->assertIsString($deleteEntry['payload']['created_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['created_at']);
-        $this->assertNotNull($deleteEntry['payload']['updated_at']);
-        $this->assertIsString($deleteEntry['payload']['updated_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['updated_at']);
-        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
-        $this->assertIsString($deleteEntry['payload']['deleted_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['created_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['updated_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['deleted_at']);
         // This test's fresh user has no earlier feed writes; advancing by next_checkpoint must include the tombstone.
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
@@ -184,8 +178,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
 
         $deleteEntry = $response->json('data.0');
 
-        $this->assertIsString($deleteEntry['payload']['deleted_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['deleted_at']);
         // Undo also records a card update after the review-event tombstone.
         $nextCheckpoint = $response->json('meta.next_checkpoint');
         $this->assertIsInt($deleteEntry['checkpoint']);
@@ -237,9 +230,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
 
         $deleteEntry = $response->json('data.2');
 
-        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
-        $this->assertIsString($deleteEntry['payload']['deleted_at']);
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['deleted_at']);
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 
@@ -294,7 +285,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
 
         $deleteEntry = $response->json('data.3');
 
-        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
+        $this->assertJsonTimestamp($deleteEntry['payload']['deleted_at']);
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 
@@ -1672,6 +1663,12 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson('/api/sync/feed');
 
         $response->assertUnauthorized();
+    }
+
+    private function assertJsonTimestamp(mixed $value): void
+    {
+        $this->assertIsString($value);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $value);
     }
 
     /**

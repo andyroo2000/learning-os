@@ -8,11 +8,23 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use UnexpectedValueException;
 
 abstract class TestCase extends BaseTestCase
 {
+    // Subclasses overriding tearDown() must call parent::tearDown() for shared cleanup.
+    protected function tearDown(): void
+    {
+        try {
+            parent::tearDown();
+        } finally {
+            // Avoid leaking frozen clocks into later tests when teardown fails.
+            Carbon::setTestNow();
+        }
+    }
+
     protected function signIn(?User $user = null): User
     {
         $user ??= User::factory()->create();

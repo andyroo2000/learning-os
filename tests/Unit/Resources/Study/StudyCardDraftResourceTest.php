@@ -46,6 +46,8 @@ class StudyCardDraftResourceTest extends TestCase
         $this->assertSame('production', $resource['cardType']);
         $this->assertSame('prompt', $resource['imagePlacement']);
         $this->assertSame('answer', $resource['previewAudioRole']);
+        $this->assertNull($resource['errorMessage']);
+        $this->assertNull($resource['committedCardId']);
     }
 
     public function test_resource_serializes_string_backed_enum_draft_attributes(): void
@@ -85,7 +87,9 @@ class StudyCardDraftResourceTest extends TestCase
         ], sync: true);
 
         $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage('Study card draft attribute [status] must serialize to a string or null.');
+        $this->expectExceptionMessage(
+            'Study card draft attribute [status] must serialize to a string or null. Integer-backed enums are not supported.'
+        );
 
         StudyCardDraftResource::make($draft)->toArray(new Request);
     }

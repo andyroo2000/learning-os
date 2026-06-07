@@ -5,6 +5,7 @@ use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Support\CardMediaRateLimiter;
+use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
@@ -174,12 +175,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('card')
         ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
     Route::get('/media-assets', ListMediaAssetsController::class);
-    Route::post('/media-assets', StoreMediaAssetController::class);
+    Route::post('/media-assets', StoreMediaAssetController::class)
+        ->middleware('throttle:'.MediaAssetRateLimiter::CREATE_NAME);
     Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class)
         ->name('api.media-assets.content');
     Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);
     // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
-    Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class);
+    Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class)
+        ->middleware('throttle:'.MediaAssetRateLimiter::DELETE_NAME);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class);
     Route::get('/study/export', ShowStudyExportManifestController::class);

@@ -14,6 +14,7 @@ class CardMediaRateLimiterTest extends TestCase
         $this->assertSame('card-media-attach:user:42', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, 42, '192.0.2.10'));
         $this->assertSame('card-media-attach:anon:unknown-ip', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, null, null));
         $this->assertSame('card-media-attach:anon:unknown-ip', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, null, ''));
+        $this->assertSame('card-media-attach:anon:127.0.0.1', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, '', '127.0.0.1'));
         $this->assertSame('card-media-attach:anon:127.0.0.1', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, null, '127.0.0.1'));
         $this->assertSame('card-media-attach:user:0', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, 0, '127.0.0.1'));
         $this->assertSame('card-media-attach:anon:127.0.0.1', CardMediaRateLimiter::keyFor(CardMediaRateLimiter::ATTACH_NAME, false, '127.0.0.1'));

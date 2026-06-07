@@ -14,13 +14,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Tests\Feature\Media\Concerns\UsesCardMediaRateLimitOverrides;
+use Tests\Feature\Media\Concerns\UsesMediaRateLimitOverrides;
 use Tests\TestCase;
 
 class DetachMediaFromCardApiTest extends TestCase
 {
     use RefreshDatabase;
-    use UsesCardMediaRateLimitOverrides;
+    use UsesMediaRateLimitOverrides;
 
     public function test_it_detaches_media_from_a_card(): void
     {
@@ -101,7 +101,7 @@ class DetachMediaFromCardApiTest extends TestCase
         $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
         $otherCard->mediaAssets()->attach($otherMediaAsset->id);
 
-        $this->withCardMediaRateLimitOverride(
+        $this->withMediaRateLimitOverride(
             CardMediaRateLimiter::DETACH_NAME,
             [$user->id, $otherUser->id],
             function () use ($card, $mediaAssets, $otherCard, $otherMediaAsset, $otherUser, $user): void {

@@ -88,9 +88,9 @@ class ProcessStudyImportJobTest extends TestCase
     {
         Carbon::setTestNow('2026-06-07 12:00:00');
         $importJob = StudyImportJob::factory()->create();
-        $job = new ProcessStudyImportJob($importJob->id);
 
-        $job->failed(new RuntimeException('First failure.'));
+        (new ProcessStudyImportJob($importJob->id))
+            ->failed(new RuntimeException('First failure.'));
 
         Carbon::setTestNow('2026-06-07 12:05:00');
         (new ProcessStudyImportJob($importJob->id))
@@ -137,6 +137,7 @@ class ProcessStudyImportJobTest extends TestCase
 
     private function studyImportUpdatingEventName(): string
     {
+        // Keep this Laravel Eloquent event name paired with raw dispatcher listener restoration below.
         return 'eloquent.updating: '.StudyImportJob::class;
     }
 

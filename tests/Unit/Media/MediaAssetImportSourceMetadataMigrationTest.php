@@ -179,7 +179,7 @@ class MediaAssetImportSourceMetadataMigrationTest extends TestCase
             return $indexName;
         }
 
-        $migration = require dirname(__DIR__, 3).'/database/migrations/2026_06_05_032000_add_import_source_metadata_to_media_assets_table.php';
+        $migration = require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_05_032000_add_import_source_metadata_to_media_assets_table.php';
 
         return $indexName = $migration::IMPORT_JOB_INDEX;
     }
@@ -192,7 +192,7 @@ class MediaAssetImportSourceMetadataMigrationTest extends TestCase
             return $indexName;
         }
 
-        $migration = require dirname(__DIR__, 3).'/database/migrations/2026_06_05_032000_add_import_source_metadata_to_media_assets_table.php';
+        $migration = require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_05_032000_add_import_source_metadata_to_media_assets_table.php';
 
         return $indexName = $migration::IMPORT_SOURCE_MEDIA_UNIQUE;
     }

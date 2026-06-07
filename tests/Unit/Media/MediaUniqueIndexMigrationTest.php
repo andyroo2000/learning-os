@@ -244,7 +244,7 @@ class MediaUniqueIndexMigrationTest extends TestCase
             return $indexName;
         }
 
-        $migration = require dirname(__DIR__, 3).'/database/migrations/2026_05_27_181500_create_media_assets_table.php';
+        $migration = require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_05_27_181500_create_media_assets_table.php';
 
         return $indexName = $migration::DISK_PATH_UNIQUE_INDEX;
     }
@@ -257,7 +257,7 @@ class MediaUniqueIndexMigrationTest extends TestCase
             return $indexName;
         }
 
-        $migration = require dirname(__DIR__, 3).'/database/migrations/2026_05_27_182500_create_card_media_table.php';
+        $migration = require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_05_27_182500_create_card_media_table.php';
 
         return $indexName = $migration::CARD_MEDIA_PAIR_UNIQUE_INDEX;
     }

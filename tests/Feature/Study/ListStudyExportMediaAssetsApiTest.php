@@ -30,6 +30,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->for($user)
             ->withPublicUrl('https://cdn.example.test/uploads/first.jpg')
             ->create([
+                'import_job_id' => strtolower((string) str()->ulid()),
+                'source_kind' => 'anki_import',
+                'source_media_ref' => '0',
+                'source_filename' => 'first.jpg',
                 'disk' => 'media',
                 'path' => 'uploads/first.jpg',
                 'mime_type' => 'image/jpeg',
@@ -54,6 +58,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $firstAsset->id)
+            ->assertJsonPath('data.0.import_job_id', $firstAsset->import_job_id)
+            ->assertJsonPath('data.0.source_kind', 'anki_import')
+            ->assertJsonPath('data.0.source_media_ref', '0')
+            ->assertJsonPath('data.0.source_filename', 'first.jpg')
             ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/first.jpg')
             ->assertJsonPath('data.0.content_url', "/api/media-assets/{$firstAsset->id}/content")
             ->assertJsonPath('data.0.mime_type', 'image/jpeg')
@@ -61,6 +69,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->assertJsonPath('data.0.checksum_sha256', str_repeat('a', 64))
             ->assertJsonPath('data.0.original_filename', 'first.jpg')
             ->assertJsonPath('data.1.id', $secondAsset->id)
+            ->assertJsonPath('data.1.import_job_id', null)
+            ->assertJsonPath('data.1.source_kind', null)
+            ->assertJsonPath('data.1.source_media_ref', null)
+            ->assertJsonPath('data.1.source_filename', null)
             ->assertJsonPath('data.1.url', 'https://cdn.example.test/uploads/second.mp3')
             ->assertJsonPath('data.1.content_url', "/api/media-assets/{$secondAsset->id}/content")
             ->assertJsonPath('data.1.mime_type', 'audio/mpeg')
@@ -73,6 +85,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
                 'data' => [
                     '*' => [
                         'id',
+                        'import_job_id',
+                        'source_kind',
+                        'source_media_ref',
+                        'source_filename',
                         'url',
                         'content_url',
                         'mime_type',

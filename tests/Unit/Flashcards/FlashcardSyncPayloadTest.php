@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
+use App\Domain\Study\Models\StudyImportJob;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -80,6 +81,13 @@ class FlashcardSyncPayloadTest extends TestCase
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
+            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_deck_id' => 1700000000000,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 0,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'card_type' => CardType::Cloze->value,
@@ -114,6 +122,13 @@ class FlashcardSyncPayloadTest extends TestCase
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
+            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_deck_id' => 1700000000000,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 0,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'card_type' => 'cloze',
@@ -155,6 +170,13 @@ class FlashcardSyncPayloadTest extends TestCase
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'deck_course_id' => null,
+            'import_job_id' => null,
+            'source_kind' => null,
+            'source_card_id' => null,
+            'source_note_id' => null,
+            'source_deck_id' => null,
+            'source_notetype_name' => null,
+            'source_template_ord' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'card_type' => CardType::Production->value,
@@ -179,6 +201,13 @@ class FlashcardSyncPayloadTest extends TestCase
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'course_id' => null,
+            'import_job_id' => null,
+            'source_kind' => null,
+            'source_card_id' => null,
+            'source_note_id' => null,
+            'source_deck_id' => null,
+            'source_notetype_name' => null,
+            'source_template_ord' => null,
             'front_text' => 'What is ATP?',
             'back_text' => 'Cellular energy currency.',
             'card_type' => 'production',

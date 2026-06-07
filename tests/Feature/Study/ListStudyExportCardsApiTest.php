@@ -27,6 +27,13 @@ class ListStudyExportCardsApiTest extends TestCase
         $otherDeck = $this->deckFor(User::factory()->create());
 
         $firstCard = Card::factory()->for($deck)->create([
+            'import_job_id' => strtolower((string) str()->ulid()),
+            'source_kind' => 'anki_import',
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_deck_id' => 1700000000000,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 0,
             'front_text' => 'bonjour',
             'back_text' => 'hello',
             'card_type' => CardType::Recognition,
@@ -67,6 +74,13 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.0.id', $firstCard->id)
             ->assertJsonPath('data.0.deck_id', $deck->id)
             ->assertJsonPath('data.0.course_id', $deck->course_id)
+            ->assertJsonPath('data.0.import_job_id', $firstCard->import_job_id)
+            ->assertJsonPath('data.0.source_kind', 'anki_import')
+            ->assertJsonPath('data.0.source_card_id', 701)
+            ->assertJsonPath('data.0.source_note_id', 501)
+            ->assertJsonPath('data.0.source_deck_id', 1700000000000)
+            ->assertJsonPath('data.0.source_notetype_name', 'Basic')
+            ->assertJsonPath('data.0.source_template_ord', 0)
             ->assertJsonPath('data.0.front_text', 'bonjour')
             ->assertJsonPath('data.0.back_text', 'hello')
             ->assertJsonPath('data.0.card_type', CardType::Recognition->value)
@@ -76,6 +90,13 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.0.new_queue_position', 1)
             ->assertJsonPath('data.0.deleted_at', null)
             ->assertJsonPath('data.1.id', $secondCard->id)
+            ->assertJsonPath('data.1.import_job_id', null)
+            ->assertJsonPath('data.1.source_kind', null)
+            ->assertJsonPath('data.1.source_card_id', null)
+            ->assertJsonPath('data.1.source_note_id', null)
+            ->assertJsonPath('data.1.source_deck_id', null)
+            ->assertJsonPath('data.1.source_notetype_name', null)
+            ->assertJsonPath('data.1.source_template_ord', null)
             ->assertJsonPath('data.1.card_type', CardType::Production->value)
             ->assertJsonPath('data.1.study_status', CardStudyStatus::Review->value)
             ->assertJsonMissing([
@@ -93,6 +114,13 @@ class ListStudyExportCardsApiTest extends TestCase
                         'id',
                         'deck_id',
                         'course_id',
+                        'import_job_id',
+                        'source_kind',
+                        'source_card_id',
+                        'source_note_id',
+                        'source_deck_id',
+                        'source_notetype_name',
+                        'source_template_ord',
                         'front_text',
                         'back_text',
                         'card_type',

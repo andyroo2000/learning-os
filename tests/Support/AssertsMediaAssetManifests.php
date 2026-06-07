@@ -9,6 +9,10 @@ trait AssertsMediaAssetManifests
 {
     private const MEDIA_ASSET_RESOURCE_KEYS = [
         'id',
+        'import_job_id',
+        'source_kind',
+        'source_media_ref',
+        'source_filename',
         'url',
         'content_url',
         'mime_type',

@@ -666,6 +666,41 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame('easy', $secondReviewEvent->rating->value);
 
         $this->assertSame(12, SyncFeedEntry::query()->count());
+        $cardSyncEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card')
+            ->where('resource_id', $cardIdsBySourceCardId[701])
+            ->sole();
+        $mediaSyncEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'media_asset')
+            ->where('resource_id', $wordMediaAsset->id)
+            ->sole();
+        $reviewSyncEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card_review_event')
+            ->where('resource_id', $firstReviewEvent->id)
+            ->sole();
+
+        $this->assertSame($importJob->id, $cardSyncEntry->payload['import_job_id']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $cardSyncEntry->payload['source_kind']);
+        $this->assertSame(701, $cardSyncEntry->payload['source_card_id']);
+        $this->assertSame(501, $cardSyncEntry->payload['source_note_id']);
+        $this->assertSame(1700000000000, $cardSyncEntry->payload['source_deck_id']);
+        $this->assertSame('Basic', $cardSyncEntry->payload['source_notetype_name']);
+        $this->assertSame(0, $cardSyncEntry->payload['source_template_ord']);
+        $this->assertSame($importJob->id, $mediaSyncEntry->payload['import_job_id']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $mediaSyncEntry->payload['source_kind']);
+        $this->assertSame('0', $mediaSyncEntry->payload['source_media_ref']);
+        $this->assertSame('word.mp3', $mediaSyncEntry->payload['source_filename']);
+        $this->assertSame($importJob->id, $reviewSyncEntry->payload['import_job_id']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $reviewSyncEntry->payload['source_kind']);
+        $this->assertSame(901, $reviewSyncEntry->payload['source_review_id']);
+        $this->assertSame(701, $reviewSyncEntry->payload['source_card_id']);
+        $this->assertSame(3, $reviewSyncEntry->payload['source_ease']);
+        $this->assertSame(12, $reviewSyncEntry->payload['source_interval']);
+        $this->assertSame(6, $reviewSyncEntry->payload['source_last_interval']);
+        $this->assertSame(2500, $reviewSyncEntry->payload['source_factor']);
+        $this->assertSame(980, $reviewSyncEntry->payload['source_time_ms']);
+        $this->assertSame(1, $reviewSyncEntry->payload['source_review_type']);
+        $this->assertArrayNotHasKey('raw_payload_json', $reviewSyncEntry->payload);
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());

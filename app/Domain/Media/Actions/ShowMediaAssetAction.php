@@ -14,7 +14,7 @@ class ShowMediaAssetAction
         $mediaAssetId = CanonicalUlid::normalize($mediaAssetId);
 
         if (! Str::isUlid($mediaAssetId)) {
-            throw (new ModelNotFoundException)->setModel(MediaAsset::class, [$mediaAssetId]);
+            throw (new ModelNotFoundException)->setModel(MediaAsset::class);
         }
 
         return MediaAsset::findOrFail($mediaAssetId);

@@ -4,6 +4,7 @@ use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
+use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
@@ -148,10 +149,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
-    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)->whereUlid('card');
+    // Card-media relation writes have their own retry-friendly quotas separate from card content writes.
+    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.CardMediaRateLimiter::ATTACH_NAME);
     Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class)
         ->whereUlid('card')
-        ->whereUlid('mediaAsset');
+        ->whereUlid('mediaAsset')
+        ->middleware('throttle:'.CardMediaRateLimiter::DETACH_NAME);
     Route::get('/cards', ListCardsController::class);
     // Canonical and study card writes share quotas because they mutate the same card resources.
     Route::post('/cards', StoreCardController::class)

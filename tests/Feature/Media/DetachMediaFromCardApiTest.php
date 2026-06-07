@@ -7,15 +7,20 @@ use App\Domain\Media\Actions\DetachMediaFromCardAction;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Support\CardMediaRateLimiter;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Tests\Feature\Media\Concerns\UsesCardMediaRateLimitOverrides;
 use Tests\TestCase;
 
 class DetachMediaFromCardApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesCardMediaRateLimitOverrides;
 
     public function test_it_detaches_media_from_a_card(): void
     {
@@ -83,6 +88,74 @@ class DetachMediaFromCardApiTest extends TestCase
             ->assertJsonCount(0, 'data.media_assets');
 
         $this->assertDatabaseCount('card_media', 0);
+    }
+
+    public function test_detach_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAssets = MediaAsset::factory()->count(3)->for($user)->create();
+        $card->mediaAssets()->attach($mediaAssets->pluck('id')->all());
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+        $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
+        $otherCard->mediaAssets()->attach($otherMediaAsset->id);
+
+        $this->withCardMediaRateLimitOverride(
+            CardMediaRateLimiter::DETACH_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($card, $mediaAssets, $otherCard, $otherMediaAsset, $otherUser, $user): void {
+                foreach ($mediaAssets->take(2) as $mediaAsset) {
+                    $this
+                        ->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}")
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->deleteJson("/api/cards/{$otherCard->id}/media-assets/{$otherMediaAsset->id}")
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $blockedMediaAsset = $mediaAssets->last();
+
+                $this
+                    ->deleteJson("/api/cards/{$card->id}/media-assets/{$blockedMediaAsset->id}")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/cards/{$card->id}/media-assets")
+                    ->assertOk()
+                    ->assertJsonCount(1, 'data')
+                    ->assertJsonPath('data.0.id', $blockedMediaAsset->id);
+
+                $this->assertDatabaseMissing('card_media', [
+                    'card_id' => $card->id,
+                    'media_asset_id' => $mediaAssets[0]->id,
+                ]);
+                $this->assertDatabaseMissing('card_media', [
+                    'card_id' => $card->id,
+                    'media_asset_id' => $mediaAssets[1]->id,
+                ]);
+                $this->assertDatabaseMissing('card_media', [
+                    'card_id' => $otherCard->id,
+                    'media_asset_id' => $otherMediaAsset->id,
+                ]);
+                $this->assertDatabaseHas('card_media', [
+                    'card_id' => $card->id,
+                    'media_asset_id' => $blockedMediaAsset->id,
+                ]);
+                $this->assertDatabaseMissing('sync_feed_entries', [
+                    'resource_id' => CardMediaSyncPayload::resourceId($card->id, $blockedMediaAsset->id),
+                    'operation' => 'delete',
+                ]);
+            },
+        );
     }
 
     public function test_it_rejects_missing_media_asset(): void

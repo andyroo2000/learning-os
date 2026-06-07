@@ -135,7 +135,7 @@ class GetStudyOverviewAction
         $dayEndFormatted = $dayEnd->toDateTimeString();
         $row = $this->ownedActiveCardsQuery($userId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
-            // The settings MAX() subquery is a scalar singleton read; user_id is unique.
+            // The settings MAX() subquery is a scalar singleton read; study_settings_user_id_unique enforces one row per user.
             ->selectRaw(<<<SQL
                 COUNT(cards.id) AS total_cards,
                 COALESCE((
@@ -164,8 +164,7 @@ class GetStudyOverviewAction
                 SQL, [
                 $userId,
                 StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
-                // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
-                $userId,
+                $userId, // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
                 // due_count

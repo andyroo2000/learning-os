@@ -77,6 +77,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Server-owned fields are exposed through model mass-assignment instead of explicit action assignment or a dedicated domain method.
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
+- A sync/resource payload adds a client-visible key but only updates downstream action/API assertions, leaving the canonical payload shape unit test stale or absent.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.

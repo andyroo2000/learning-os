@@ -191,7 +191,7 @@ class StudyImportUploadActionTest extends TestCase
         Storage::fake('study-imports');
         $userId = User::factory()->create()->id;
 
-        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+        $queries = $this->captureQueriesForExpectedMalformedImportJobNotFound(function () use ($userId): void {
             app(UploadStudyImportFileAction::class)->handle(
                 userId: $userId,
                 importJobId: 'not-a-ulid',
@@ -199,7 +199,27 @@ class StudyImportUploadActionTest extends TestCase
                 contentType: 'application/zip',
             );
         });
+
+        $this->assertNoStudyImportJobsQueried($queries);
         $this->assertSame([], Storage::disk('study-imports')->allFiles());
+    }
+
+    public function test_upload_hides_malformed_import_job_ids_without_echoing_the_id(): void
+    {
+        Storage::fake('study-imports');
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: User::factory()->create()->id,
+                importJobId: 'not-a-ulid',
+                contents: 'anki bytes',
+                contentType: 'application/zip',
+            );
+            $this->fail('Expected malformed import job IDs to be hidden as not found.');
+        } catch (ModelNotFoundException $exception) {
+            $this->assertSame(StudyImportJob::class, $exception->getModel());
+            $this->assertSame([], $exception->getIds());
+        }
     }
 
     public function test_upload_rejects_non_pending_imports(): void
@@ -450,12 +470,28 @@ class StudyImportUploadActionTest extends TestCase
     {
         $userId = User::factory()->create()->id;
 
-        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+        $queries = $this->captureQueriesForExpectedMalformedImportJobNotFound(function () use ($userId): void {
             app(CompleteStudyImportUploadAction::class)->handle(
                 userId: $userId,
                 importJobId: 'not-a-ulid',
             );
         });
+
+        $this->assertNoStudyImportJobsQueried($queries);
+    }
+
+    public function test_complete_hides_malformed_import_job_ids_without_echoing_the_id(): void
+    {
+        try {
+            app(CompleteStudyImportUploadAction::class)->handle(
+                userId: User::factory()->create()->id,
+                importJobId: 'not-a-ulid',
+            );
+            $this->fail('Expected malformed import job IDs to be hidden as not found.');
+        } catch (ModelNotFoundException $exception) {
+            $this->assertSame(StudyImportJob::class, $exception->getModel());
+            $this->assertSame([], $exception->getIds());
+        }
     }
 
     public function test_complete_rejects_missing_expired_invalid_and_oversized_archives(): void
@@ -570,12 +606,28 @@ class StudyImportUploadActionTest extends TestCase
     {
         $userId = User::factory()->create()->id;
 
-        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+        $queries = $this->captureQueriesForExpectedMalformedImportJobNotFound(function () use ($userId): void {
             app(CancelStudyImportUploadAction::class)->handle(
                 userId: $userId,
                 importJobId: 'not-a-ulid',
             );
         });
+
+        $this->assertNoStudyImportJobsQueried($queries);
+    }
+
+    public function test_cancel_hides_malformed_import_job_ids_without_echoing_the_id(): void
+    {
+        try {
+            app(CancelStudyImportUploadAction::class)->handle(
+                userId: User::factory()->create()->id,
+                importJobId: 'not-a-ulid',
+            );
+            $this->fail('Expected malformed import job IDs to be hidden as not found.');
+        } catch (ModelNotFoundException $exception) {
+            $this->assertSame(StudyImportJob::class, $exception->getModel());
+            $this->assertSame([], $exception->getIds());
+        }
     }
 
     public function test_process_job_imports_cards_and_marks_the_job_completed(): void
@@ -933,21 +985,7 @@ class StudyImportUploadActionTest extends TestCase
     /**
      * @param  callable(): void  $callback
      */
-    private function assertMalformedImportJobIdIsHiddenWithoutQuerying(callable $callback): void
-    {
-        $queries = $this->captureQueriesForMalformedImportJobId($callback);
-
-        $this->assertCount(
-            0,
-            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
-            'Malformed import job IDs should return not-found before querying study_import_jobs.',
-        );
-    }
-
-    /**
-     * @param  callable(): void  $callback
-     */
-    private function captureQueriesForMalformedImportJobId(callable $callback): Collection
+    private function captureQueriesForExpectedMalformedImportJobNotFound(callable $callback): Collection
     {
         DB::enableQueryLog();
         DB::flushQueryLog();
@@ -955,15 +993,21 @@ class StudyImportUploadActionTest extends TestCase
         try {
             $callback();
             $this->fail('Expected malformed import job IDs to be hidden as not found.');
-        } catch (ModelNotFoundException $exception) {
-            $this->assertSame(StudyImportJob::class, $exception->getModel());
-            $this->assertSame([], $exception->getIds());
-
+        } catch (ModelNotFoundException) {
             return collect(DB::getQueryLog());
         } finally {
             DB::disableQueryLog();
             DB::flushQueryLog();
         }
+    }
+
+    private function assertNoStudyImportJobsQueried(Collection $queries): void
+    {
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
+            'Malformed import job IDs should return not-found before querying study_import_jobs.',
+        );
     }
 
     private function writeSparseStudyImportFile(string $path, int $sizeBytes): void

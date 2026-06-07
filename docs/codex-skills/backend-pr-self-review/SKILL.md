@@ -78,6 +78,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
 - A sync/resource payload adds a client-visible key but only updates downstream action/API assertions, leaving the canonical payload shape unit test stale or absent.
+- A PR lists sync feed/list replay tests as verification for a new payload key but those tests do not assert the field in the replayed payload shape.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.
@@ -85,6 +86,8 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A `DB::afterCommit()` side effect can throw after the state commit without catch/report/recovery or an explicit "fatal side effect" comment.
 - A lifecycle path intentionally uses a different transaction/side-effect boundary than sibling paths but lacks a durable comment explaining why the asymmetry must be preserved.
 - A hard-delete sync tombstone has caller-supplied `deleted_at` semantics but leaves clients or future maintainers to infer how it relates to pre-delete `updated_at`.
+- A hard-delete tombstone sync entry can commit before the actual delete fails because the feed write and delete are not in one explicit transaction, unless the action documents why the delete is infallible or why a ghost tombstone is recoverable.
+- A retry-safe hard-delete endpoint emits a tombstone only on the first delete and leaves the already-deleted retry/no-op path without an equivalent tombstone replay or documented sync-feed recovery contract.
 - A generic `\BackedEnum` helper returns `->value` with a `string` return type even though integer-backed enums can also satisfy the input type.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.
 - Compatibility endpoints skip canonical domain actions, leak ConvoLab field names into shared domains, or lack tests for canonical and compat response shapes.

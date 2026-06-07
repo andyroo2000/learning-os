@@ -145,11 +145,5 @@ class ListStudyExportCardsApiTest extends TestCase
                     ],
                 ],
             ]);
-
-        $this->getJson('/api/study/export/card-media')
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.card_id', $firstCard->id)
-            ->assertJsonPath('data.0.media_asset_id', $mediaAsset->id);
     }
 }

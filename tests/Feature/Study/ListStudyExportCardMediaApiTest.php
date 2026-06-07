@@ -25,6 +25,23 @@ class ListStudyExportCardMediaApiTest extends TestCase
         $this->getJson('/api/study/export/card-media')->assertUnauthorized();
     }
 
+    public function test_index_returns_pair_for_card_with_attached_media_asset(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        // Basic single-pair contract; the test below covers timestamps, filtering, and shape.
+        $this->getJson('/api/study/export/card-media')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.card_id', $card->id)
+            ->assertJsonPath('data.0.media_asset_id', $mediaAsset->id);
+    }
+
     public function test_index_returns_card_media_pairs_for_the_authenticated_user(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');

@@ -1669,6 +1669,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
     {
         $this->assertNotNull($value);
         $this->assertIsString($value);
+        // Carbon::toJSON() emits UTC timestamps with exactly six fractional digits.
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $value);
     }
 

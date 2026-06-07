@@ -151,7 +151,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 
 - When controllers dispatch queued jobs for a specific model/resource, decide whether duplicate jobs should be prevented with `ShouldBeUnique` or a similar unique key. A locked/idempotent action may make duplicate jobs safe, but queued duplicates still add avoidable work and lock contention; if duplicates are intentionally allowed, note why.
 - Give new jobs an explicit retry envelope when failures can leave user-visible state pending: `tries`, `backoff`, timeout, or failure handling. Relying on Laravel/global defaults is acceptable only when the PR notes the inherited behavior and the state can safely wait for the next retry or manual repair.
-- If dispatch is gated by Eloquent dirty tracking such as `wasChanged('status')`, cover the no-dispatch path with queue assertions and keep the action's return/save behavior stable enough that the controller is not guessing from stale in-memory state.
+- If dispatch is gated by Eloquent dirty tracking such as `wasChanged('status')`, cover the no-dispatch path with queue assertions and keep the action's return/save behavior stable enough that the controller is not guessing from stale in-memory state. When a controller needs to decide whether to enqueue, emit sync, or perform another side effect based on an action outcome, prefer a small domain-specific result object over inferring business outcomes from model dirty state.
 - For worker actions that no-op terminal or committed resources, test the edge state the guard names, not only the common terminal status. A `committed_card_id !== null` guard should have a committed-but-still-generating/race fixture when that state is possible.
 
 ## Existing Coverage Must Not Weaken

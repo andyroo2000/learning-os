@@ -45,7 +45,7 @@ final class CardReviewEventSyncPayload
             'scheduler_state_after' => $reviewEvent->scheduler_state_after,
             'created_at' => $reviewEvent->created_at?->toJSON(),
             'updated_at' => $reviewEvent->updated_at?->toJSON(),
-            // Review events are hard-deleted by undo, so callers supply this tombstone timestamp.
+            // Review events are hard-deleted by undo, so callers supply the undo time instead of the row's pre-delete updated_at.
             'deleted_at' => $deletedAt?->toJSON(),
         ];
     }

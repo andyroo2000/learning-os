@@ -8,6 +8,8 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -55,6 +57,12 @@ class ListStudyCardDraftsApiTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => StudyVocabVariantKind::SentenceCloze,
+            'variant_stage' => 5,
+            'variant_status' => StudyVocabVariantStatus::Locked,
+            'variant_unlocked_at' => now()->addHour(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -83,6 +91,12 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertJsonPath('drafts.1.imagePrompt', 'A friendly dog')
             ->assertJsonPath('drafts.1.previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('drafts.1.previewImage.id', 'image-1')
+            ->assertJsonPath('drafts.1.variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('drafts.1.variantSentenceId', 'sentence-1')
+            ->assertJsonPath('drafts.1.variantKind', StudyVocabVariantKind::SentenceCloze->value)
+            ->assertJsonPath('drafts.1.variantStage', 5)
+            ->assertJsonPath('drafts.1.variantStatus', StudyVocabVariantStatus::Locked->value)
+            ->assertJsonPath('drafts.1.variantUnlockedAt', $readyDraft->variant_unlocked_at->toJSON())
             ->assertJsonPath('drafts.1.committedCardId', null)
             ->assertJsonMissing([
                 'id' => $otherDraft->id,
@@ -101,6 +115,12 @@ class ListStudyCardDraftsApiTest extends TestCase
                         'previewAudio',
                         'previewAudioRole',
                         'previewImage',
+                        'variantGroupId',
+                        'variantSentenceId',
+                        'variantKind',
+                        'variantStage',
+                        'variantStatus',
+                        'variantUnlockedAt',
                         'errorMessage',
                         'committedCardId',
                         'createdAt',

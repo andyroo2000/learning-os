@@ -8,6 +8,8 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -106,6 +108,12 @@ class FlashcardSyncPayloadTest extends TestCase
                 'stability' => 0.1,
                 'state' => 0,
             ]),
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => StudyVocabVariantKind::SentenceAudioRecognition->value,
+            'variant_stage' => 1,
+            'variant_status' => StudyVocabVariantStatus::Available->value,
+            'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
             'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
@@ -147,6 +155,12 @@ class FlashcardSyncPayloadTest extends TestCase
                 'stability' => 0.1,
                 'state' => 0,
             ],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => 'sentence_audio_recognition',
+            'variant_stage' => 1,
+            'variant_status' => 'available',
+            'variant_unlocked_at' => '2026-06-04T14:15:00.000000Z',
             'due_at' => '2026-06-05T14:15:00.000000Z',
             'introduced_at' => '2026-06-01T14:15:00.000000Z',
             'failed_at' => '2026-06-02T14:15:00.000000Z',
@@ -185,6 +199,12 @@ class FlashcardSyncPayloadTest extends TestCase
             'study_status' => CardStudyStatus::New,
             'new_queue_position' => 7,
             'scheduler_state' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -216,6 +236,12 @@ class FlashcardSyncPayloadTest extends TestCase
             'study_status' => 'new',
             'new_queue_position' => 7,
             'scheduler_state' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
             'due_at' => null,
             'introduced_at' => null,
             'failed_at' => null,
@@ -242,6 +268,12 @@ class FlashcardSyncPayloadTest extends TestCase
             'study_status' => null,
             'new_queue_position' => null,
             'scheduler_state' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
             'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
             'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
             'deleted_at' => null,
@@ -254,5 +286,7 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertSame('', $payload['search_text']);
         $this->assertNull($payload['new_queue_position']);
         $this->assertNull($payload['scheduler_state']);
+        $this->assertNull($payload['variant_group_id']);
+        $this->assertNull($payload['variant_status']);
     }
 }

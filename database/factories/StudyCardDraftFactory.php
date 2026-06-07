@@ -33,6 +33,12 @@ class StudyCardDraftFactory extends Factory
             'preview_audio_json' => null,
             'preview_audio_role' => null,
             'preview_image_json' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
             'error_message' => null,
         ];
     }

@@ -9,6 +9,8 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -101,6 +103,12 @@ class CreateCardActionTest extends TestCase
                     'state' => 0,
                     'last_review' => null,
                 ],
+                'variant_group_id' => null,
+                'variant_sentence_id' => null,
+                'variant_kind' => null,
+                'variant_stage' => null,
+                'variant_status' => null,
+                'variant_unlocked_at' => null,
                 'due_at' => null,
                 'introduced_at' => null,
                 'failed_at' => null,
@@ -112,6 +120,43 @@ class CreateCardActionTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_client_id_retries_compare_variant_timestamps_at_persisted_precision(): void
+    {
+        $deck = Deck::factory()->create();
+        $cardId = strtolower((string) Str::ulid());
+        $variantUnlockedAt = Carbon::parse('2026-06-04T14:15:30.987654Z');
+
+        $data = CreateCardData::fromInput(
+            userId: $deck->user_id,
+            deckId: $deck->id,
+            frontText: 'front',
+            backText: 'back',
+            variantGroupId: 'group-1',
+            variantSentenceId: 'sentence-1',
+            variantKind: StudyVocabVariantKind::SentenceAudioRecognition,
+            variantStage: 1,
+            variantStatus: StudyVocabVariantStatus::Available,
+            variantUnlockedAt: $variantUnlockedAt,
+            id: $cardId,
+        );
+
+        $firstResult = app(CreateCardAction::class)->handle($data);
+        $secondResult = app(CreateCardAction::class)->handle($data);
+
+        $this->assertTrue($firstResult->wasCreated);
+        $this->assertFalse($secondResult->wasCreated);
+        $this->assertSame($cardId, $secondResult->card->id);
+        $this->assertSame(1, Card::query()->count());
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(StudyVocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
+        $this->assertSame(1, $entry->payload['variant_stage']);
+        $this->assertSame(StudyVocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_creates_a_card_with_a_client_card_type(): void

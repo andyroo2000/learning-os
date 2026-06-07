@@ -18,7 +18,9 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
+use Carbon\CarbonImmutable;
 use Closure;
+use DateTimeInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -107,6 +109,12 @@ class CreateCardAction
             'prompt_json' => $data->promptJson,
             'answer_json' => $data->answerJson,
         ]);
+        $card->variant_group_id = $data->variantGroupId;
+        $card->variant_sentence_id = $data->variantSentenceId;
+        $card->variant_kind = $data->variantKind;
+        $card->variant_stage = $data->variantStage;
+        $card->variant_status = $data->variantStatus;
+        $card->variant_unlocked_at = $data->variantUnlockedAt;
         $card->search_text = CardSearchText::fromContent(
             frontText: $data->frontText,
             backText: $data->backText,
@@ -218,6 +226,12 @@ class CreateCardAction
             || ($card->card_type ?? CardType::Recognition) !== $data->cardType
             || $this->canonicalJsonValue($card->prompt_json) !== $this->canonicalJsonValue($data->promptJson)
             || $this->canonicalJsonValue($card->answer_json) !== $this->canonicalJsonValue($data->answerJson)
+            || $card->variant_group_id !== $data->variantGroupId
+            || $card->variant_sentence_id !== $data->variantSentenceId
+            || $card->variant_kind !== $data->variantKind
+            || $card->variant_stage !== $data->variantStage
+            || $card->variant_status !== $data->variantStatus
+            || $card->variant_unlocked_at?->toJSON() !== $this->timestampJson($data->variantUnlockedAt)
         ) {
             throw CardConflictException::conflict($conflictingUserId);
         }
@@ -239,6 +253,11 @@ class CreateCardAction
             fn ($item) => is_array($item) ? $this->canonicalJsonValue($item) : $item,
             $value,
         );
+    }
+
+    private function timestampJson(?DateTimeInterface $value): ?string
+    {
+        return $value === null ? null : CarbonImmutable::instance($value)->toJSON();
     }
 
     private function ownerIdFor(Card $card): int

@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -42,6 +44,12 @@ class CardTest extends TestCase
             'last_reviewed_at',
             'new_queue_position',
             'scheduler_state',
+            'variant_group_id',
+            'variant_sentence_id',
+            'variant_kind',
+            'variant_stage',
+            'variant_status',
+            'variant_unlocked_at',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -110,6 +118,10 @@ class CardTest extends TestCase
         $card->source_note_id = '1700000000002';
         $card->source_deck_id = '1700000000003';
         $card->source_template_ord = '2';
+        $card->variant_kind = StudyVocabVariantKind::WordAudioRecognition;
+        $card->variant_stage = '3';
+        $card->variant_status = StudyVocabVariantStatus::Locked;
+        $card->variant_unlocked_at = Carbon::parse('2026-06-04T14:15:00Z');
         $card->save();
         $card->refresh();
 
@@ -131,6 +143,10 @@ class CardTest extends TestCase
         $this->assertSame(1700000000002, $card->source_note_id);
         $this->assertSame(1700000000003, $card->source_deck_id);
         $this->assertSame(2, $card->source_template_ord);
+        $this->assertSame(StudyVocabVariantKind::WordAudioRecognition, $card->variant_kind);
+        $this->assertSame(3, $card->variant_stage);
+        $this->assertSame(StudyVocabVariantStatus::Locked, $card->variant_status);
+        $this->assertSame('2026-06-04T14:15:00.000000Z', $card->variant_unlocked_at->toJSON());
     }
 
     public function test_server_owned_card_state_and_import_source_fields_are_not_mass_assignable(): void
@@ -153,6 +169,12 @@ class CardTest extends TestCase
             'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
             'new_queue_position' => 7,
             'scheduler_state' => ['state' => 0],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => StudyVocabVariantKind::WordTextRecognition,
+            'variant_stage' => 4,
+            'variant_status' => StudyVocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'search_text' => 'client-owned text',
         ]);
 
@@ -171,6 +193,12 @@ class CardTest extends TestCase
         $this->assertNull($card->source_deck_id);
         $this->assertNull($card->source_notetype_name);
         $this->assertNull($card->source_template_ord);
+        $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_sentence_id);
+        $this->assertNull($card->variant_kind);
+        $this->assertNull($card->variant_stage);
+        $this->assertNull($card->variant_status);
+        $this->assertNull($card->variant_unlocked_at);
     }
 
     public function test_card_belongs_to_a_deck(): void

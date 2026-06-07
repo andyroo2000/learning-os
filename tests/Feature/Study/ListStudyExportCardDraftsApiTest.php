@@ -7,6 +7,8 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +47,12 @@ class ListStudyExportCardDraftsApiTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => StudyVocabVariantKind::SentenceTextRecognition,
+            'variant_stage' => 2,
+            'variant_status' => StudyVocabVariantStatus::Available,
+            'variant_unlocked_at' => now(),
             'committed_card_id' => strtolower((string) str()->ulid()),
         ]);
         $otherDraft = StudyCardDraft::factory()->for($otherUser)->create([
@@ -69,6 +77,12 @@ class ListStudyExportCardDraftsApiTest extends TestCase
             ->assertJsonPath('data.1.imagePrompt', 'A friendly dog')
             ->assertJsonPath('data.1.previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('data.1.previewImage.id', 'image-1')
+            ->assertJsonPath('data.1.variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('data.1.variantSentenceId', 'sentence-1')
+            ->assertJsonPath('data.1.variantKind', StudyVocabVariantKind::SentenceTextRecognition->value)
+            ->assertJsonPath('data.1.variantStage', 2)
+            ->assertJsonPath('data.1.variantStatus', StudyVocabVariantStatus::Available->value)
+            ->assertJsonPath('data.1.variantUnlockedAt', $secondDraft->variant_unlocked_at->toJSON())
             ->assertJsonPath('data.1.committedCardId', $secondDraft->committed_card_id)
             ->assertJsonMissing([
                 'id' => $otherDraft->id,
@@ -87,6 +101,12 @@ class ListStudyExportCardDraftsApiTest extends TestCase
                         'previewAudio',
                         'previewAudioRole',
                         'previewImage',
+                        'variantGroupId',
+                        'variantSentenceId',
+                        'variantKind',
+                        'variantStage',
+                        'variantStatus',
+                        'variantUnlockedAt',
                         'errorMessage',
                         'committedCardId',
                         'createdAt',

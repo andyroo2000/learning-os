@@ -82,6 +82,12 @@ class CreateStudyCardFromDraftAction
                 cardType: $draft->card_type,
                 promptJson: $promptJson,
                 answerJson: $answerJson,
+                variantGroupId: $draft->variant_group_id,
+                variantSentenceId: $draft->variant_sentence_id,
+                variantKind: $draft->variant_kind,
+                variantStage: $draft->variant_stage,
+                variantStatus: $draft->variant_status,
+                variantUnlockedAt: $draft->variant_unlocked_at,
                 id: $canonicalCardId,
             ));
 

@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,6 +26,10 @@ class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
+
+    public const MAX_VARIANT_ID_LENGTH = 64;
+
+    public const MAX_VARIANT_STAGE = 65535;
 
     /**
      * @var array<string, mixed>
@@ -73,6 +79,10 @@ class Card extends Model
             'last_reviewed_at' => 'datetime',
             'new_queue_position' => 'integer',
             'scheduler_state' => 'array',
+            'variant_kind' => StudyVocabVariantKind::class,
+            'variant_stage' => 'integer',
+            'variant_status' => StudyVocabVariantStatus::class,
+            'variant_unlocked_at' => 'datetime',
         ];
     }
 

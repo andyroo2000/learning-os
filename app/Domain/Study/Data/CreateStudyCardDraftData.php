@@ -5,9 +5,13 @@ namespace App\Domain\Study\Data;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use LogicException;
 
 final readonly class CreateStudyCardDraftData
@@ -22,6 +26,12 @@ final readonly class CreateStudyCardDraftData
         public array $answerJson,
         public StudyCardImagePlacement $imagePlacement,
         public ?string $imagePrompt,
+        public ?string $variantGroupId,
+        public ?string $variantSentenceId,
+        public ?StudyVocabVariantKind $variantKind,
+        public ?int $variantStage,
+        public ?StudyVocabVariantStatus $variantStatus,
+        public ?DateTimeInterface $variantUnlockedAt,
     ) {}
 
     public static function fromInput(
@@ -32,12 +42,19 @@ final readonly class CreateStudyCardDraftData
         array $answerJson,
         StudyCardImagePlacement|string|null $imagePlacement = null,
         ?string $imagePrompt = null,
+        ?string $variantGroupId = null,
+        ?string $variantSentenceId = null,
+        StudyVocabVariantKind|string|null $variantKind = null,
+        ?int $variantStage = null,
+        StudyVocabVariantStatus|string|null $variantStatus = null,
+        ?DateTimeInterface $variantUnlockedAt = null,
     ): self {
         if ($userId < 1) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
 
         self::validatePayloadShape($promptJson, $answerJson);
+        self::validateVariantStage($variantStage);
 
         return new self(
             userId: $userId,
@@ -47,6 +64,12 @@ final readonly class CreateStudyCardDraftData
             answerJson: $answerJson,
             imagePlacement: self::imagePlacementFromInput($imagePlacement),
             imagePrompt: self::nullableTrimmedString($imagePrompt),
+            variantGroupId: self::nullableVariantId($variantGroupId),
+            variantSentenceId: self::nullableVariantId($variantSentenceId),
+            variantKind: self::variantKindFromInput($variantKind),
+            variantStage: $variantStage,
+            variantStatus: self::variantStatusFromInput($variantStatus),
+            variantUnlockedAt: self::normalizedTimestamp($variantUnlockedAt),
         );
     }
 
@@ -72,6 +95,24 @@ final readonly class CreateStudyCardDraftData
         return StudyCardImagePlacement::from(strtolower(trim($imagePlacement)));
     }
 
+    private static function variantKindFromInput(StudyVocabVariantKind|string|null $variantKind): ?StudyVocabVariantKind
+    {
+        if ($variantKind instanceof StudyVocabVariantKind || $variantKind === null) {
+            return $variantKind;
+        }
+
+        return StudyVocabVariantKind::from(strtolower(trim($variantKind)));
+    }
+
+    private static function variantStatusFromInput(StudyVocabVariantStatus|string|null $variantStatus): ?StudyVocabVariantStatus
+    {
+        if ($variantStatus instanceof StudyVocabVariantStatus || $variantStatus === null) {
+            return $variantStatus;
+        }
+
+        return StudyVocabVariantStatus::from(strtolower(trim($variantStatus)));
+    }
+
     private static function nullableTrimmedString(?string $value): ?string
     {
         if ($value === null) {
@@ -91,6 +132,37 @@ final readonly class CreateStudyCardDraftData
         }
 
         return $trimmed;
+    }
+
+    private static function nullableVariantId(?string $value): ?string
+    {
+        $trimmed = self::nullableTrimmedString($value);
+
+        if ($trimmed === null) {
+            return null;
+        }
+
+        if (mb_strlen($trimmed, 'UTF-8') > StudyCardDraft::MAX_VARIANT_ID_LENGTH) {
+            throw new LogicException('Study variant IDs must be 64 characters or fewer.');
+        }
+
+        return $trimmed;
+    }
+
+    private static function validateVariantStage(?int $variantStage): void
+    {
+        if ($variantStage === null) {
+            return;
+        }
+
+        if ($variantStage < 1 || $variantStage > StudyCardDraft::MAX_VARIANT_STAGE) {
+            throw new LogicException('Study variant stage must be between 1 and 65535.');
+        }
+    }
+
+    private static function normalizedTimestamp(?DateTimeInterface $value): ?DateTimeInterface
+    {
+        return $value === null ? null : CarbonImmutable::instance($value)->startOfSecond();
     }
 
     private static function validatePayloadShape(array $promptJson, array $answerJson): void

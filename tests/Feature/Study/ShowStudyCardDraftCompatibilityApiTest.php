@@ -7,6 +7,8 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Enums\StudyVocabVariantKind;
+use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,6 +42,12 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => StudyVocabVariantKind::WordAudioRecognition,
+            'variant_stage' => 3,
+            'variant_status' => StudyVocabVariantStatus::Locked,
+            'variant_unlocked_at' => now()->addDay(),
             'created_at' => now()->subMinute(),
             'updated_at' => now(),
         ]);
@@ -56,6 +64,12 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('imagePrompt', 'A friendly dog')
             ->assertJsonPath('previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('previewImage.id', 'image-1')
+            ->assertJsonPath('variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('variantSentenceId', 'sentence-1')
+            ->assertJsonPath('variantKind', StudyVocabVariantKind::WordAudioRecognition->value)
+            ->assertJsonPath('variantStage', 3)
+            ->assertJsonPath('variantStatus', StudyVocabVariantStatus::Locked->value)
+            ->assertJsonPath('variantUnlockedAt', $draft->variant_unlocked_at->toJSON())
             ->assertJsonPath('committedCardId', null)
             ->assertJsonStructure([
                 'id',
@@ -69,6 +83,12 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewAudio',
                 'previewAudioRole',
                 'previewImage',
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
                 'errorMessage',
                 'committedCardId',
                 'createdAt',

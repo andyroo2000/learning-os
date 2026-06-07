@@ -11,6 +11,7 @@ use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UploadStudyImportFileAction
 {
@@ -24,6 +25,11 @@ class UploadStudyImportFileAction
     ): StudyImportJob {
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
+
+        if (! Str::isUlid($importJobId)) {
+            throw (new ModelNotFoundException)->setModel(StudyImportJob::class);
+        }
+
         $contentType = $this->normalizeContentType($contentType);
         $actualContentSizeBytes = mb_strlen($contents, '8bit');
 

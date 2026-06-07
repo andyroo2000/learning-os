@@ -62,9 +62,9 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
 
                 StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, now());
             });
-        } catch (Throwable $failureHookException) {
+        } catch (Throwable $e) {
             // Laravel has already recorded the original job failure; keep this hook best-effort.
-            report($failureHookException);
+            report($e);
         }
     }
 

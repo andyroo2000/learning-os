@@ -104,6 +104,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A test freezes time with `travelTo()`, `Carbon::setTestNow()`, or similar process-global clock state without an auto-resetting closure, `travelBack()` in `finally`/`tearDown`, or another proven cleanup path.
 - A test assigns `$queries` or another assertion input only inside `finally` and consumes it after the block in a way that is hard for readers or static analysis to trust, or adds a dead fallback initializer that reads like a meaningful default.
 - A helper named like a capture/extractor utility hides exception-shape, database, or side-effect assertions that the calling test name/body does not reveal.
+- Surfacing helper assertions back into tests creates three or more copy-pasted query filters, failure messages, or side-effect assertions instead of extracting a thin, honestly named assertion helper that accepts already-captured data.
 - A test that expects an exception puts query-log, database, or side-effect assertions inside `finally`, allowing a failed assertion to replace the expected domain exception. Capture/cleanup in `finally`, then assert after catching the expected exception, or split exception and side-effect coverage into separate focused tests.
 - Base `tearDown()` clock cleanup does not choose reset-before-parent versus parent-before-reset deliberately.
 - Base `tearDown()` clock cleanup relies on subclasses calling `parent::tearDown()` without verifying or documenting that contract where future overrides will see it.

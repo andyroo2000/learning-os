@@ -13,6 +13,7 @@ use App\Jobs\ProcessStudyCardDraft;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -105,6 +106,44 @@ class ProcessStudyCardDraftJobTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
         $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $draft->error_message);
         $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_failed_callback_is_idempotent_when_called_repeatedly_for_the_same_draft(): void
+    {
+        $draft = StudyCardDraft::factory()->create();
+
+        Carbon::setTestNow(Carbon::parse('2026-06-07T12:00:00Z'));
+
+        try {
+            (new ProcessStudyCardDraft($draft->id))->failed(new RuntimeException('First infrastructure failure.'));
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $draft->refresh();
+        $firstUpdatedAt = $draft->updated_at?->toJSON();
+        $firstErrorMessage = $draft->error_message;
+        $firstEntry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
+        $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $firstErrorMessage);
+        $this->assertNotNull($firstUpdatedAt);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-07T12:05:00Z'));
+
+        try {
+            (new ProcessStudyCardDraft($draft->id))->failed(new RuntimeException('Second infrastructure failure.'));
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $draft->refresh();
+        $onlyEntry = SyncFeedEntry::query()->sole();
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
+        $this->assertSame($firstErrorMessage, $draft->error_message);
+        $this->assertSame($firstUpdatedAt, $draft->updated_at?->toJSON());
+        $this->assertTrue($firstEntry->is($onlyEntry));
     }
 
     public function test_failed_callback_does_not_touch_terminal_or_committed_drafts(): void

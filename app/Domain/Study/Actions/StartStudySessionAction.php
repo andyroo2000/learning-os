@@ -71,7 +71,7 @@ class StartStudySessionAction
     {
         return $this->ownedActiveCardsQuery($userId, $deckId)
             ->select('cards.*')
-            ->with(['deck:id,user_id,course_id'])
+            ->selectRaw('decks.course_id as deck_course_id')
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->where('cards.due_at', '<=', $now)
             ->orderBy('cards.due_at')
@@ -91,7 +91,7 @@ class StartStudySessionAction
 
         return $this->ownedActiveCardsQuery($userId, $deckId)
             ->select('cards.*')
-            ->with(['deck:id,user_id,course_id'])
+            ->selectRaw('decks.course_id as deck_course_id')
             ->where('cards.study_status', CardStudyStatus::New->value)
             ->whereNotNull('cards.new_queue_position')
             ->orderBy('cards.new_queue_position')
@@ -106,6 +106,7 @@ class StartStudySessionAction
     private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
+            // This join enforces ownership/soft deletes. Session card queries also project decks.course_id.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')

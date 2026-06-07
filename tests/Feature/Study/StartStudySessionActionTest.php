@@ -2,13 +2,16 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Domain\Study\Models\StudySettings;
+use App\Http\Resources\Study\StudySessionResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
 use Tests\Support\SetsCardStudyStatus;
@@ -337,6 +340,24 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_cards_available_today']);
     }
 
+    public function test_it_serializes_new_session_cards_without_a_separate_deck_lookup_query(): void
+    {
+        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ], [
+            'new_queue_position' => 2,
+        ]);
+    }
+
+    public function test_it_serializes_due_session_cards_without_a_separate_deck_lookup_query(): void
+    {
+        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::Review, [
+            'due_at' => Carbon::parse('2026-06-04T11:30:00Z'),
+        ], [
+            'due_at' => Carbon::parse('2026-06-04T11:45:00Z'),
+        ]);
+    }
+
     public function test_it_rejects_invalid_time_zones_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -357,6 +378,70 @@ class StartStudySessionActionTest extends TestCase
             userId: User::factory()->create()->id,
             deckId: '   ',
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $cardAttributes
+     * @param  array<string, mixed>  $secondCardAttributes
+     */
+    private function assertSessionCardCourseLookupUsesJoinedDeckCourse(
+        CardStudyStatus $status,
+        array $cardAttributes,
+        array $secondCardAttributes,
+    ): void {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, [
+            'course_id' => $course->id,
+        ]);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $card = $this->cardWithStudyStatus($deck, $status, $cardAttributes);
+        $secondCard = $this->cardWithStudyStatus($deck, $status, $secondCardAttributes);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        try {
+            $result = app(StartStudySessionAction::class)->handle(
+                userId: $user->id,
+                now: $now,
+            );
+            $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertSame($card->id, $payload['cards'][0]['id']);
+        $this->assertSame($course->id, $payload['cards'][0]['course_id']);
+        $this->assertSame($secondCard->id, $payload['cards'][1]['id']);
+        $this->assertSame($course->id, $payload['cards'][1]['course_id']);
+
+        $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
+            && str_contains(strtolower($query['query']), 'deck_course_id'));
+
+        $this->assertCount(
+            1,
+            $sessionCardSelects,
+            "Expected exactly one card query because StartStudySessionAction::handle returns due OR new cards, never both.\n"
+                .$queries->pluck('query')->implode("\n"),
+        );
+
+        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'decks'));
+
+        $this->assertCount(0, $standaloneDeckSelects, $queries->pluck('query')->implode("\n"));
+    }
+
+    private function isSelectFromTable(string $sql, string $table): bool
+    {
+        $normalizedSql = strtolower($sql);
+
+        return str_starts_with($normalizedSql, 'select')
+            && preg_match('/\bfrom\s+["`]?'.preg_quote($table, '/').'["`]?/', $normalizedSql) === 1;
     }
 
     /**

@@ -159,6 +159,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame($draft->id, $updated->id);
         $this->assertSame(StudyManualCardDraftStatus::Generating, $updated->status);
         $this->assertSame(['cueText' => '会社'], $updated->prompt_json);
+        $this->assertSame(['meaning' => 'company'], $updated->answer_json);
         $this->assertSame($originalUpdatedAt, $updated->updated_at?->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }

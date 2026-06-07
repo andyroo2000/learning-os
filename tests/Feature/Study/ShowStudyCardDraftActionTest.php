@@ -7,6 +7,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -60,6 +61,30 @@ class ShowStudyCardDraftActionTest extends TestCase
             User::factory()->create()->id,
             strtolower((string) str()->ulid()),
         );
+    }
+
+    public function test_it_hides_malformed_draft_ids_without_querying_drafts(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->expectException(StudyCardDraftNotFoundException::class);
+        $this->expectExceptionMessage('Study card draft not found.');
+
+        try {
+            app(ShowStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            $this->assertCount(
+                0,
+                $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+                'Malformed draft IDs should return not-found before querying study_card_drafts.',
+            );
+        }
     }
 
     #[DataProvider('nonPositiveUserIdProvider')]

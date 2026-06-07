@@ -33,7 +33,7 @@ class StudyCardDraftResourceTest extends TestCase
             'image_placement' => 'prompt',
             'image_prompt' => 'A friendly dog',
             'preview_audio_json' => json_encode(['id' => 'audio-1'], JSON_THROW_ON_ERROR),
-            'preview_audio_role' => 'answer',
+            'preview_audio_role' => null,
             'preview_image_json' => json_encode(['id' => 'image-1'], JSON_THROW_ON_ERROR),
             'error_message' => null,
             'committed_card_id' => null,
@@ -45,7 +45,7 @@ class StudyCardDraftResourceTest extends TestCase
         $this->assertSame('production-image', $resource['creationKind']);
         $this->assertSame('production', $resource['cardType']);
         $this->assertSame('prompt', $resource['imagePlacement']);
-        $this->assertSame('answer', $resource['previewAudioRole']);
+        $this->assertNull($resource['previewAudioRole']);
         $this->assertNull($resource['errorMessage']);
         $this->assertNull($resource['committedCardId']);
     }

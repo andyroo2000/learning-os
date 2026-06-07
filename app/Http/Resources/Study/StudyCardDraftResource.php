@@ -35,13 +35,18 @@ class StudyCardDraftResource extends JsonResource
 
     private function stringAttributeValue(string $key): ?string
     {
-        // Read the raw string enum value intentionally; enum casts still store these fields as strings.
-        // BackedEnum support only guards direct raw/in-memory assignments while preserving the string wire contract.
+        // Read raw string enum values intentionally; enum casts still store these fields as strings.
+        // Revisit this resource before adding value-transforming casts to these public wire fields.
+        // BackedEnum support only guards direct raw/in-memory assignments while preserving the string contract.
         $value = $this->resource->getAttributes()[$key] ?? null;
-        $integerBackedEnum = false;
 
         if ($value instanceof BackedEnum) {
-            $integerBackedEnum = is_int($value->value);
+            if (is_int($value->value)) {
+                throw new UnexpectedValueException(
+                    "Study card draft attribute [{$key}] must serialize to a string or null. Integer-backed enums are not supported."
+                );
+            }
+
             $value = $value->value;
         }
 
@@ -49,12 +54,6 @@ class StudyCardDraftResource extends JsonResource
             return $value;
         }
 
-        $message = "Study card draft attribute [{$key}] must serialize to a string or null.";
-
-        if ($integerBackedEnum) {
-            $message .= ' Integer-backed enums are not supported.';
-        }
-
-        throw new UnexpectedValueException($message);
+        throw new UnexpectedValueException("Study card draft attribute [{$key}] must serialize to a string or null.");
     }
 }

@@ -177,9 +177,6 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
 
         try {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
-
             // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
             RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
                 return Limit::perMinute(2)->by(

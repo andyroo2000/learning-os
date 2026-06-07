@@ -2,6 +2,8 @@
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
+use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
+use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
@@ -119,11 +121,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/courses/{course}', UpdateCourseController::class)->whereUlid('course');
     Route::delete('/courses/{course}', DeleteCourseController::class)->whereUlid('course');
     Route::get('/card-review-events', ListReviewEventsController::class);
-    Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class);
+    // Review creates, batch replay, and study create aliases share one request-based create quota.
+    // Batch payload size remains capped at 500 events by request validation.
+    Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class)
+        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
     Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
     // Review undo hard-deletes the event; DELETE retries for already-undone events resolve as 404.
-    Route::delete('/card-review-events/{cardReviewEvent}', UndoCardReviewEventController::class)->whereUlid('cardReviewEvent');
-    Route::post('/card-review-events', StoreCardReviewEventController::class);
+    Route::delete('/card-review-events/{cardReviewEvent}', UndoCardReviewEventController::class)
+        ->whereUlid('cardReviewEvent')
+        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
+    Route::post('/card-review-events', StoreCardReviewEventController::class)
+        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
     Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/new', ListNewCardsController::class);
     // Canonical and ConvoLab queue reorders share one user-scoped quota for the same mutation.
@@ -196,9 +204,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
         ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
     Route::get('/study/overview', ShowStudyOverviewController::class);
-    Route::post('/study/reviews', StoreStudyReviewController::class);
-    Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class);
-    Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)->whereUlid('reviewLogId');
+    // Shares the canonical review-create quota above.
+    Route::post('/study/reviews', StoreStudyReviewController::class)
+        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
+    // Shares the canonical review-undo quota above, separate from review creates.
+    Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class)
+        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
+    Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)
+        ->whereUlid('reviewLogId')
+        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
     // Shares the study-card creation quota with draft creation and draft commits.
     Route::post('/study/cards', StoreStudyCardController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);

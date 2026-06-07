@@ -9,6 +9,8 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
+use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
@@ -103,6 +105,16 @@ class AppServiceProvider extends ServiceProvider
         $newCardQueueReorderRateLimiter = new NewCardQueueReorderRateLimiter;
         RateLimiter::for(NewCardQueueReorderRateLimiter::NAME, function (Request $request) use ($newCardQueueReorderRateLimiter): Limit {
             return $newCardQueueReorderRateLimiter->limit($request);
+        });
+
+        $cardReviewEventCreateRateLimiter = new CardReviewEventCreateRateLimiter;
+        RateLimiter::for(CardReviewEventCreateRateLimiter::NAME, function (Request $request) use ($cardReviewEventCreateRateLimiter): Limit {
+            return $cardReviewEventCreateRateLimiter->limit($request);
+        });
+
+        $cardReviewEventUndoRateLimiter = new CardReviewEventUndoRateLimiter;
+        RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($cardReviewEventUndoRateLimiter): Limit {
+            return $cardReviewEventUndoRateLimiter->limit($request);
         });
 
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.

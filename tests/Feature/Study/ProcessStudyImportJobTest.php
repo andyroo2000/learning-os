@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
+use ReflectionProperty;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -105,9 +106,11 @@ class ProcessStudyImportJobTest extends TestCase
         Exceptions::fake();
         Carbon::setTestNow('2026-06-07 12:00:00');
         $importJob = StudyImportJob::factory()->create();
+        $eventName = $this->studyImportUpdatingEventName();
+        $originalListeners = $this->rawEventListeners($eventName);
 
         // Registered only around failed() so this test targets the terminal-write path.
-        Event::listen('eloquent.updating: '.StudyImportJob::class, static function (): void {
+        Event::listen($eventName, static function (): void {
             throw new RuntimeException('Terminal import write failed.');
         });
 
@@ -115,7 +118,7 @@ class ProcessStudyImportJobTest extends TestCase
             (new ProcessStudyImportJob($importJob->id))
                 ->failed(new RuntimeException('Worker infrastructure failed.'));
         } finally {
-            Event::forget('eloquent.updating: '.StudyImportJob::class);
+            $this->restoreRawEventListeners($eventName, $originalListeners);
         }
 
         $importJob->refresh();
@@ -127,6 +130,50 @@ class ProcessStudyImportJobTest extends TestCase
             fn (RuntimeException $exception): bool => $exception->getMessage() === 'Terminal import write failed.',
         );
         Exceptions::assertReportedCount(1);
+    }
+
+    private function studyImportUpdatingEventName(): string
+    {
+        return 'eloquent.updating: '.StudyImportJob::class;
+    }
+
+    /**
+     * @return array<int, mixed>|null
+     */
+    private function rawEventListeners(string $eventName): ?array
+    {
+        $listeners = $this->eventListenersProperty()->getValue(Event::getFacadeRoot());
+
+        return is_array($listeners) && array_key_exists($eventName, $listeners)
+            ? $listeners[$eventName]
+            : null;
+    }
+
+    /**
+     * @param  array<int, mixed>|null  $originalListeners
+     */
+    private function restoreRawEventListeners(string $eventName, ?array $originalListeners): void
+    {
+        $dispatcher = Event::getFacadeRoot();
+        $property = $this->eventListenersProperty();
+        $listeners = $property->getValue($dispatcher);
+
+        if (! is_array($listeners)) {
+            return;
+        }
+
+        if ($originalListeners === null) {
+            unset($listeners[$eventName]);
+        } else {
+            $listeners[$eventName] = $originalListeners;
+        }
+
+        $property->setValue($dispatcher, $listeners);
+    }
+
+    private function eventListenersProperty(): ReflectionProperty
+    {
+        return new ReflectionProperty(Event::getFacadeRoot(), 'listeners');
     }
 
     public function test_failed_ignores_missing_and_terminal_imports(): void

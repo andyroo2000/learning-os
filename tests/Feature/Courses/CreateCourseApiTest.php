@@ -4,10 +4,14 @@ namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Enums\CourseStatus;
 use App\Domain\Courses\Models\Course;
+use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -189,6 +193,70 @@ class CreateCourseApiTest extends TestCase
 
         $this->assertDatabaseCount('courses', 1);
         $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_create_is_rate_limited_by_user(): void
+    {
+        $testBucket = 'test-'.Str::ulid();
+        $clientIp = '127.0.0.1';
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+        $restoreCourseCreateLimiter = function (): void {
+            $limiter = CourseRateLimiter::create();
+            RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CourseRateLimiter::keyFor(CourseRateLimiter::CREATE_NAME, $userId, $ip);
+        $userKey = $testRateLimitKey($user->id, $clientIp);
+        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
+
+        try {
+            RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
+                return Limit::perMinute(2)->by($testRateLimitKey(
+                    $request->user()?->getAuthIdentifier(),
+                    $request->ip(),
+                ));
+            });
+
+            foreach ([1, 2] as $attempt) {
+                $this
+                    ->postJson('/api/courses', $this->courseCreatePayload("User Course {$attempt}"))
+                    ->assertCreated();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->postJson('/api/courses', $this->courseCreatePayload('Other User Course'))
+                ->assertCreated();
+
+            $this->signIn($user);
+
+            $this
+                ->postJson('/api/courses', $this->courseCreatePayload('Blocked User Course'))
+                ->assertTooManyRequests();
+
+            $this
+                ->getJson('/api/courses')
+                ->assertOk()
+                ->assertJsonCount(2, 'data');
+
+            $this->assertSame(2, Course::query()->where('user_id', $user->id)->count());
+            $this->assertSame(1, Course::query()->where('user_id', $otherUser->id)->count());
+            $this->assertDatabaseMissing('courses', [
+                'user_id' => $user->id,
+                'title' => 'Blocked User Course',
+            ]);
+        } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+            $restoreCourseCreateLimiter();
+        }
     }
 
     public function test_it_rejects_client_provided_ulid_conflicts(): void
@@ -399,5 +467,18 @@ class CreateCourseApiTest extends TestCase
             'user_id' => $user->id,
             'title' => 'Japanese Travel Foundations',
         ]);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function courseCreatePayload(string $title): array
+    {
+        return [
+            'title' => $title,
+            'description' => null,
+            'native_language' => 'en',
+            'target_language' => 'ja',
+        ];
     }
 }

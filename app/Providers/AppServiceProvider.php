@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Models\Course;
+use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
@@ -65,6 +66,21 @@ class AppServiceProvider extends ServiceProvider
         });
         RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->passwordResetTokens($request);
+        });
+
+        $courseCreateRateLimiter = CourseRateLimiter::create();
+        RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($courseCreateRateLimiter): Limit {
+            return $courseCreateRateLimiter->limit($request);
+        });
+
+        $courseUpdateRateLimiter = CourseRateLimiter::update();
+        RateLimiter::for(CourseRateLimiter::UPDATE_NAME, function (Request $request) use ($courseUpdateRateLimiter): Limit {
+            return $courseUpdateRateLimiter->limit($request);
+        });
+
+        $courseDeleteRateLimiter = CourseRateLimiter::delete();
+        RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($courseDeleteRateLimiter): Limit {
+            return $courseDeleteRateLimiter->limit($request);
         });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

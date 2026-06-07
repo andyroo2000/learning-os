@@ -13,6 +13,7 @@ use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class ProcessStudyImportJobAction
@@ -28,6 +29,10 @@ class ProcessStudyImportJobAction
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
         $claimedForProcessing = false;
+
+        if (! Str::isUlid($importJobId)) {
+            return null;
+        }
 
         $importJob = DB::transaction(function () use ($importJobId, $now, &$claimedForProcessing): ?StudyImportJob {
             $importJob = StudyImportJob::query()

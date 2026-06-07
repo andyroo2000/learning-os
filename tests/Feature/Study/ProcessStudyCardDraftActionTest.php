@@ -9,6 +9,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProcessStudyCardDraftActionTest extends TestCase
@@ -100,6 +101,27 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame('Still waiting for an explicit retry.', $processedError?->error_message);
         $this->assertSame($originalErroredUpdatedAt, $processedError?->updated_at?->toJSON());
         $this->assertNull(app(ProcessStudyCardDraftAction::class)->handle(strtolower((string) str()->ulid())));
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_it_returns_null_for_malformed_draft_ids_without_querying_drafts(): void
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $processed = app(ProcessStudyCardDraftAction::class)->handle('not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+        }
+
+        $this->assertNull($processed);
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+            'Malformed draft IDs should return null before querying study_card_drafts.',
+        );
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 

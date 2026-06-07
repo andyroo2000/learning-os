@@ -3,10 +3,14 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
+use App\Domain\Study\Actions\RecordStudyCardDraftSyncEntryAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
@@ -66,6 +70,41 @@ class ProcessStudyCardDraftJobTest extends TestCase
         $this->assertNull($draft->preview_audio_json);
         $this->assertNull($draft->preview_audio_role);
         $this->assertNull($draft->preview_image_json);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame($draft->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame(StudyManualCardDraftStatus::Error->value, $entry->payload['status']);
+        $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $entry->payload['error_message']);
+    }
+
+    public function test_failed_callback_persists_error_state_when_sync_recording_fails(): void
+    {
+        $draft = StudyCardDraft::factory()->create();
+
+        $this->app->bind(
+            RecordStudyCardDraftSyncEntryAction::class,
+            static fn (): RecordStudyCardDraftSyncEntryAction => new class extends RecordStudyCardDraftSyncEntryAction
+            {
+                public function __construct() {}
+
+                public function handle(
+                    StudyCardDraft $draft,
+                    SyncFeedOperation $operation,
+                    ?CarbonInterface $deletedAt = null,
+                ): SyncFeedEntry {
+                    throw new RuntimeException('Sync feed unavailable.');
+                }
+            },
+        );
+
+        (new ProcessStudyCardDraft($draft->id))->failed(new RuntimeException('Worker infrastructure failed.'));
+
+        $draft->refresh();
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
+        $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $draft->error_message);
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_failed_callback_does_not_touch_terminal_or_committed_drafts(): void
@@ -99,6 +138,7 @@ class ProcessStudyCardDraftJobTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Generating, $committedDraft->refresh()->status);
         $this->assertSame('Keep committed marker.', $committedDraft->error_message);
         $this->assertSame($originalCommittedUpdatedAt, $committedDraft->updated_at?->toJSON());
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_failed_callback_ignores_missing_drafts(): void

@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
+use App\Domain\Study\Actions\RecordStudyCardDraftSyncEntryAction;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -60,6 +62,18 @@ class ProcessStudyCardDraft implements ShouldBeUnique, ShouldQueue
             }
 
             ProcessStudyCardDraftAction::markAsFailed($draft, self::EXHAUSTED_ERROR_MESSAGE);
+            // Unlike normal lifecycle writes, exhaustion state must survive a sync outage.
+            // Record this best-effort signal after commit so sync failures cannot roll back
+            // the final error marker that lets users retry.
+            DB::afterCommit(static function () use ($draft): void {
+                // Laravel invokes failed() directly on the unserialized job, so resolve
+                // this dependency at the edge instead of serializing it with the job payload.
+                try {
+                    app(RecordStudyCardDraftSyncEntryAction::class)->handle($draft, SyncFeedOperation::Update);
+                } catch (Throwable $syncException) {
+                    report($syncException);
+                }
+            });
         });
     }
 

@@ -2,12 +2,15 @@
 
 namespace Tests\Feature\Sync;
 
+use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -196,6 +199,61 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->assertNotNull($deleteEntry['payload']['deleted_at']);
         $this->assertIsString($deleteEntry['payload']['deleted_at']);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
+    }
+
+    public function test_it_serves_study_card_draft_lifecycle_entries_written_by_api_writes(): void
+    {
+        Queue::fake();
+        $this->signIn();
+
+        $createResponse = $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+        ]);
+
+        $createResponse->assertCreated();
+
+        $draftId = $createResponse->json('id');
+
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draftId,
+        );
+
+        app(ProcessStudyCardDraftAction::class)->handle($draftId);
+
+        $this->patchJson("/api/study/card-drafts/{$draftId}", [
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog', 'reading' => 'inu'],
+        ])->assertOk();
+
+        $this->deleteJson("/api/study/card-drafts/{$draftId}")
+            ->assertNoContent();
+
+        $response = $this->getJson("/api/sync/feed?domain=study&resource_type=study_card_draft&resource_id={$draftId}");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('meta.domain', 'study')
+            ->assertJsonPath('meta.resource_type', 'study_card_draft')
+            ->assertJsonPath('meta.resource_id', $draftId)
+            ->assertJsonPath('data.0.operation', SyncFeedOperation::Create->value)
+            ->assertJsonPath('data.1.operation', SyncFeedOperation::Update->value)
+            ->assertJsonPath('data.2.operation', SyncFeedOperation::Update->value)
+            ->assertJsonPath('data.3.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('data.0.payload.status', 'generating')
+            ->assertJsonPath('data.1.payload.status', 'ready')
+            ->assertJsonPath('data.2.payload.answer_json.reading', 'inu')
+            ->assertJsonPath('data.3.payload.id', $draftId);
+
+        $deleteEntry = $response->json('data.3');
+
+        $this->assertNotNull($deleteEntry['payload']['deleted_at']);
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 

@@ -6,12 +6,17 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
 class RetryStudyCardDraftAction
 {
+    public function __construct(
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+    ) {}
+
     /**
      * @param  null|callable(string): void  $afterCommit  Called after commit; omit only when the caller will advance the draft lifecycle itself.
      */
@@ -56,6 +61,7 @@ class RetryStudyCardDraftAction
 
             $draft->resetForRetry();
             $draft->save();
+            $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
 
             $this->queueAfterCommit($draft, $afterCommit);
 

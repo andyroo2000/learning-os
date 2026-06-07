@@ -10,6 +10,8 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
@@ -50,6 +52,18 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertNull($draft->preview_audio_role);
         $this->assertNull($draft->preview_image_json);
         $this->assertNull($draft->error_message);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame('study', $entry->domain);
+        $this->assertSame('study_card_draft', $entry->resource_type);
+        $this->assertSame($draft->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame(StudyManualCardDraftStatus::Generating->value, $entry->payload['status']);
+        $this->assertSame(StudyCardCreationKind::ProductionImage->value, $entry->payload['creation_kind']);
+        $this->assertSame(CardType::Production->value, $entry->payload['card_type']);
+        $this->assertSame(['cueText' => 'company'], $entry->payload['prompt_json']);
+        $this->assertNull($entry->payload['deleted_at']);
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void

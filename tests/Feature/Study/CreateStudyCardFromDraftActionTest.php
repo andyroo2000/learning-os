@@ -55,12 +55,16 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame($deck->id, $result->card->deck_id);
 
         $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
-        $this->assertCount(2, $entries);
+        $this->assertCount(3, $entries);
         $this->assertSame('deck', $entries[0]->resource_type);
         $this->assertSame(SyncFeedOperation::Create, $entries[0]->operation);
         $this->assertSame('card', $entries[1]->resource_type);
         $this->assertSame($cardId, $entries[1]->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
+        $this->assertSame('study_card_draft', $entries[2]->resource_type);
+        $this->assertSame($draft->id, $entries[2]->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entries[2]->operation);
+        $this->assertSame($cardId, $entries[2]->payload['committed_card_id']);
     }
 
     public function test_it_is_idempotent_when_retried_with_the_same_card_id_and_draft_content(): void
@@ -78,7 +82,8 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertFalse($secondResult->wasCreated);
         $this->assertSame($cardId, $secondResult->card->id);
         $this->assertSame(1, Card::query()->count());
-        $this->assertSame(2, SyncFeedEntry::query()->count());
+        // First commit emits deck, card, and draft update entries; retry emits none.
+        $this->assertSame(3, SyncFeedEntry::query()->count());
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,
             'committed_card_id' => $cardId,

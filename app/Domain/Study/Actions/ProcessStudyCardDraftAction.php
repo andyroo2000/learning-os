@@ -6,11 +6,16 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
 
 class ProcessStudyCardDraftAction
 {
+    public function __construct(
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+    ) {}
+
     public function handle(string $draftId): ?StudyCardDraft
     {
         $canonicalDraftId = CanonicalUlid::normalize($draftId);
@@ -33,6 +38,7 @@ class ProcessStudyCardDraftAction
                 $this->validateSeedPayloads($draft);
             } catch (StudyCardDraftValidationException $exception) {
                 self::markAsFailed($draft, $exception->getMessage());
+                $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
 
                 return $draft;
             }
@@ -43,6 +49,7 @@ class ProcessStudyCardDraftAction
             $draft->status = StudyManualCardDraftStatus::Ready;
             $draft->error_message = null;
             $draft->save();
+            $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
 
             return $draft;
         });

@@ -8,10 +8,15 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 
 class UpdateStudyCardDraftAction
 {
+    public function __construct(
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+    ) {}
+
     public function handle(StudyCardDraft $draft, UpdateStudyCardDraftData $data): StudyCardDraft
     {
         if (! $data->hasAnyField()) {
@@ -77,7 +82,13 @@ class UpdateStudyCardDraftAction
                 $lockedDraft->preview_image_json = $data->previewImageJson;
             }
 
+            // Eloquent clears dirty state on save(), so capture this before persisting.
+            $shouldRecordSync = $lockedDraft->isDirty();
             $lockedDraft->save();
+
+            if ($shouldRecordSync) {
+                $this->recordStudyCardDraftSyncEntry->handle($lockedDraft, SyncFeedOperation::Update);
+            }
 
             return $lockedDraft;
         });

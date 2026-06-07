@@ -6,6 +6,8 @@ use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,6 +32,13 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame(['cueText' => '会社'], $processed?->prompt_json);
         $this->assertSame(['meaning' => 'company'], $processed?->answer_json);
         $this->assertNull($processed?->error_message);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('study_card_draft', $entry->resource_type);
+        $this->assertSame($draft->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame(StudyManualCardDraftStatus::Ready->value, $entry->payload['status']);
+        $this->assertNull($entry->payload['error_message']);
     }
 
     public function test_it_marks_invalid_generating_drafts_failed_without_leaving_stale_outputs(): void
@@ -60,6 +69,14 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertNull($processed?->preview_audio_json);
         $this->assertNull($processed?->preview_audio_role);
         $this->assertNull($processed?->preview_image_json);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame(StudyManualCardDraftStatus::Error->value, $entry->payload['status']);
+        $this->assertSame('prompt must be 8 levels deep or fewer.', $entry->payload['error_message']);
+        $this->assertNull($entry->payload['preview_audio_json']);
+        $this->assertNull($entry->payload['preview_audio_role']);
+        $this->assertNull($entry->payload['preview_image_json']);
     }
 
     public function test_it_does_not_reprocess_terminal_or_missing_drafts(): void
@@ -83,6 +100,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame('Still waiting for an explicit retry.', $processedError?->error_message);
         $this->assertSame($originalErroredUpdatedAt, $processedError?->updated_at?->toJSON());
         $this->assertNull(app(ProcessStudyCardDraftAction::class)->handle(strtolower((string) str()->ulid())));
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_does_not_process_committed_generating_drafts(): void
@@ -102,5 +120,6 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame($draft->committed_card_id, $processed?->committed_card_id);
         $this->assertSame('Keep this defensive marker.', $processed?->error_message);
         $this->assertSame($originalUpdatedAt, $processed?->updated_at?->toJSON());
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 }

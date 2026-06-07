@@ -408,16 +408,22 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame($card->id, $payload['cards'][0]['id']);
         $this->assertSame($course->id, $payload['cards'][0]['course_id']);
 
-        $sessionCardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
-            && str_contains(strtolower($query['query']), 'from "cards"')
+        $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
             && str_contains(strtolower($query['query']), 'deck_course_id'));
 
         $this->assertCount(1, $sessionCardSelects, $queries->pluck('query')->implode("\n"));
 
-        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
-            && str_contains(strtolower($query['query']), 'from "decks"'));
+        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'decks'));
 
         $this->assertCount(0, $standaloneDeckSelects, $queries->pluck('query')->implode("\n"));
+    }
+
+    private function isSelectFromTable(string $sql, string $table): bool
+    {
+        $normalizedSql = strtolower($sql);
+
+        return str_starts_with($normalizedSql, 'select')
+            && preg_match('/\bfrom\s+["`]?'.preg_quote($table, '/').'["`]?/', $normalizedSql) === 1;
     }
 
     /**

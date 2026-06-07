@@ -42,15 +42,14 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(ProcessStudyImportJobAction $processStudyImportJob): void
     {
-        $processStudyImportJob->handle($this->importJobId);
+        $processStudyImportJob->handle(CanonicalUlid::normalize($this->importJobId));
     }
 
     public function failed(Throwable $exception): void
     {
         $importJobId = CanonicalUlid::normalize($this->importJobId);
-        $now = now();
 
-        DB::transaction(static function () use ($importJobId, $now): void {
+        DB::transaction(static function () use ($importJobId): void {
             $importJob = StudyImportJob::query()
                 ->whereKey($importJobId)
                 ->lockForUpdate()
@@ -60,7 +59,7 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, $now);
+            StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, now());
         });
     }
 

@@ -44,7 +44,7 @@ class ProcessStudyImportJobTest extends TestCase
             ->with($importJobId)
             ->andReturn(null);
 
-        (new ProcessStudyImportJob($importJobId))->handle($processor);
+        (new ProcessStudyImportJob(strtoupper($importJobId)))->handle($processor);
     }
 
     public function test_failed_marks_pending_imports_failed_and_normalizes_ids(): void

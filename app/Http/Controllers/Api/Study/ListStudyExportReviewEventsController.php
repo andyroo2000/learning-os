@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ListStudyExportReviewEventsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Reviews\CardReviewEventResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -15,11 +15,10 @@ class ListStudyExportReviewEventsController extends Controller
         Request $request,
         ListStudyExportReviewEventsAction $listStudyExportReviewEvents,
     ): AnonymousResourceCollection {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         return CardReviewEventResource::collection(
-            $listStudyExportReviewEvents->handle($user->id),
+            $listStudyExportReviewEvents->handle($userId),
         );
     }
 }

@@ -6,7 +6,7 @@ use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\ListStudyNewCardQueueRequest;
 use App\Http\Resources\Study\StudyNewCardQueueItemResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class ListStudyNewCardQueueController extends Controller
@@ -15,11 +15,10 @@ class ListStudyNewCardQueueController extends Controller
         ListStudyNewCardQueueRequest $request,
         ListStudyNewCardQueueAction $listStudyNewCardQueue,
     ): JsonResponse {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         $page = $listStudyNewCardQueue->handle(
-            userId: $user->id,
+            userId: $userId,
             cursor: $request->cursor(),
             limit: $request->limit(),
             q: $request->q(),

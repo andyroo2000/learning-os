@@ -6,6 +6,7 @@ use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StartStudySessionRequest;
 use App\Http\Resources\Study\StudySessionResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class StartStudySessionController extends Controller
@@ -18,7 +19,7 @@ class StartStudySessionController extends Controller
 
         return StudySessionResource::make(
             $startStudySession->handle(
-                userId: (int) $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 timeZone: $data['time_zone'] ?? null,
                 deckId: $request->deckId(),
             ),

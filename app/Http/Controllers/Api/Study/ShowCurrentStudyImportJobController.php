@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\GetCurrentStudyImportJobAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyImportJobResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,9 +15,8 @@ class ShowCurrentStudyImportJobController extends Controller
         Request $request,
         GetCurrentStudyImportJobAction $getCurrentStudyImportJob,
     ): JsonResponse|StudyImportJobResource {
-        /** @var User $user */
-        $user = $request->user();
-        $importJob = $getCurrentStudyImportJob->handle($user->id);
+        $userId = AuthenticatedUser::id($request);
+        $importJob = $getCurrentStudyImportJob->handle($userId);
 
         if ($importJob === null) {
             return response()->json(['data' => null]);

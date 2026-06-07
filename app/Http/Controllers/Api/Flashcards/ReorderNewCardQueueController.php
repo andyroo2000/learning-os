@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\ReorderNewCardQueueRequest;
 use App\Http\Resources\Flashcards\CardResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
 
@@ -20,7 +21,7 @@ class ReorderNewCardQueueController extends Controller
 
         try {
             $cards = $reorderNewCardQueue->handle(
-                userId: (int) $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 cardIds: $data['card_ids'],
             );
         } catch (CardValidationException $exception) {

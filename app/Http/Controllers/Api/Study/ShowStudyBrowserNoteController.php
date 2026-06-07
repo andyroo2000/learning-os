@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ShowStudyBrowserNoteAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyCardSummaryResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,7 +14,7 @@ class ShowStudyBrowserNoteController extends Controller
     public function __invoke(Request $request, string $noteId, ShowStudyBrowserNoteAction $showStudyBrowserNote): JsonResponse
     {
         $result = $showStudyBrowserNote->handle(
-            userId: (int) $request->user()->id,
+            userId: AuthenticatedUser::id($request),
             noteId: $noteId,
         );
 

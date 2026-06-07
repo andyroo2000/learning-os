@@ -8,6 +8,7 @@ use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyImportRequest;
 use App\Http\Resources\Study\StudyImportJobResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -19,7 +20,7 @@ class StoreStudyImportController extends Controller
     ): JsonResponse {
         try {
             $result = $createStudyImportUploadSession->handle(
-                userId: $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 filename: $request->filename(),
                 contentType: $request->contentType(),
             );

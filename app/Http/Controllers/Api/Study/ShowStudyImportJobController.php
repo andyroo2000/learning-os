@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ShowStudyImportJobAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyImportJobResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Request;
 
 class ShowStudyImportJobController extends Controller
@@ -15,11 +15,10 @@ class ShowStudyImportJobController extends Controller
         string $studyImportJobId,
         ShowStudyImportJobAction $showStudyImportJob,
     ): StudyImportJobResource {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         return StudyImportJobResource::make(
-            $showStudyImportJob->handle($user->id, $studyImportJobId),
+            $showStudyImportJob->handle($userId, $studyImportJobId),
         );
     }
 }

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\ListStudyExportCardMediaAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyExportCardMediaResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -15,11 +15,10 @@ class ListStudyExportCardMediaController extends Controller
         Request $request,
         ListStudyExportCardMediaAction $listStudyExportCardMedia,
     ): AnonymousResourceCollection {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         return StudyExportCardMediaResource::collection(
-            $listStudyExportCardMedia->handle($user->id),
+            $listStudyExportCardMedia->handle($userId),
         );
     }
 }

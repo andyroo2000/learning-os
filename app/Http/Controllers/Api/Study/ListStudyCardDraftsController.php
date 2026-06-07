@@ -6,7 +6,7 @@ use App\Domain\Study\Actions\ListStudyCardDraftsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\ListStudyCardDraftsRequest;
 use App\Http\Resources\Study\StudyCardDraftResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class ListStudyCardDraftsController extends Controller
@@ -15,11 +15,10 @@ class ListStudyCardDraftsController extends Controller
         ListStudyCardDraftsRequest $request,
         ListStudyCardDraftsAction $listStudyCardDrafts,
     ): JsonResponse {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         $result = $listStudyCardDrafts->handle(
-            userId: $user->id,
+            userId: $userId,
             cursor: $request->cursor(),
             limit: $request->limit(),
         );

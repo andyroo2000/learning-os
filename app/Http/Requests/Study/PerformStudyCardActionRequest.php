@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Support\AuthenticatedUser;
 use App\Support\DateTime\StrictIsoDateTime;
 use App\Support\Identifiers\CanonicalUlid;
 use Exception;
@@ -48,7 +49,7 @@ class PerformStudyCardActionRequest extends FormRequest
         if ($user !== null && is_string($cardId)) {
             // ConvoLab study actions target active review cards; deleted cards stay hidden instead of retry no-oping.
             $this->studyCard = Card::query()
-                ->ownedByActiveDeck((int) $user->id)
+                ->ownedByActiveDeck(AuthenticatedUser::id($this))
                 ->where('cards.id', CanonicalUlid::normalize($cardId))
                 ->first();
 

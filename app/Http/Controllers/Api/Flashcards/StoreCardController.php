@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\StoreCardRequest;
 use App\Http\Resources\Flashcards\CardResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -17,7 +18,7 @@ class StoreCardController extends Controller
     public function __invoke(StoreCardRequest $request, CreateCardAction $createCard): JsonResponse
     {
         $data = $request->validated();
-        $userId = (int) $request->user()->id;
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $result = $createCard->handle(CreateCardData::fromInput(

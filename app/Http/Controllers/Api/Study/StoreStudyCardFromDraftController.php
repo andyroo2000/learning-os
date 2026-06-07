@@ -10,7 +10,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyCardFromDraftRequest;
 use App\Http\Resources\Study\StudyCardSummaryResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -22,11 +22,10 @@ class StoreStudyCardFromDraftController extends Controller
         string $draftId,
         CreateStudyCardFromDraftAction $createStudyCardFromDraft,
     ): JsonResponse {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         try {
-            $result = $createStudyCardFromDraft->handle($user->id, $draftId, $request->id());
+            $result = $createStudyCardFromDraft->handle($userId, $draftId, $request->id());
         } catch (StudyCardDraftNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         } catch (StudyCardDraftConflictException $exception) {
@@ -35,7 +34,7 @@ class StoreStudyCardFromDraftController extends Controller
             ], 409);
         } catch (CardConflictException $exception) {
             // Hide cross-user IDs before returning same-user deletion details.
-            if (! $exception->isOwnedBy($user->id)) {
+            if (! $exception->isOwnedBy($userId)) {
                 return response()->json([
                     'message' => 'Not Found',
                 ], 404);

@@ -6,18 +6,17 @@ use App\Domain\Flashcards\Actions\ListDecksAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\ListDecksRequest;
 use App\Http\Resources\Flashcards\DeckResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ListDecksController extends Controller
 {
     public function __invoke(ListDecksRequest $request, ListDecksAction $listDecks): AnonymousResourceCollection
     {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         return DeckResource::collection(
-            $listDecks->handle($user->id, $request->pageSize(), $request->courseId())->withQueryString()
+            $listDecks->handle($userId, $request->pageSize(), $request->courseId())->withQueryString()
         );
     }
 }

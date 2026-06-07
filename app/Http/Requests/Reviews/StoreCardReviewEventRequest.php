@@ -8,6 +8,7 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -43,7 +44,7 @@ class StoreCardReviewEventRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->user()->id;
+        $userId = AuthenticatedUser::id($this);
 
         return [
             'id' => ['nullable', 'ulid'],

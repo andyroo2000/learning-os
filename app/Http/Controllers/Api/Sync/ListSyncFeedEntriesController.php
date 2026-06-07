@@ -7,7 +7,7 @@ use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sync\ListSyncFeedEntriesRequest;
 use App\Http\Resources\Sync\SyncFeedEntryResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -17,8 +17,7 @@ class ListSyncFeedEntriesController extends Controller
         ListSyncFeedEntriesRequest $request,
         ListSyncFeedEntriesAction $listSyncFeedEntries,
     ): AnonymousResourceCollection|JsonResponse {
-        /** @var User $user */
-        $user = $request->user();
+        $userId = AuthenticatedUser::id($request);
 
         $afterCheckpoint = $request->afterCheckpoint();
         $domain = $request->domain();
@@ -29,7 +28,7 @@ class ListSyncFeedEntriesController extends Controller
 
         try {
             $result = $listSyncFeedEntries->handle(
-                userId: $user->id,
+                userId: $userId,
                 afterCheckpoint: $afterCheckpoint,
                 domain: $domain,
                 resourceType: $resourceType,

@@ -8,6 +8,7 @@ use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\ReorderStudyNewCardQueueRequest;
 use App\Http\Resources\Study\StudyNewCardQueueItemResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -19,10 +20,11 @@ class ReorderStudyNewCardQueueController extends Controller
         ListStudyNewCardQueueAction $listStudyNewCardQueue,
     ): JsonResponse {
         $data = $request->validated();
+        $userId = AuthenticatedUser::id($request);
 
         try {
             $reorderNewCardQueue->handle(
-                userId: $request->user()->id,
+                userId: $userId,
                 cardIds: $data['cardIds'],
             );
         } catch (CardValidationException $exception) {
@@ -32,7 +34,7 @@ class ReorderStudyNewCardQueueController extends Controller
         }
 
         $page = $listStudyNewCardQueue->handle(
-            userId: $request->user()->id,
+            userId: $userId,
         );
 
         return response()->json([

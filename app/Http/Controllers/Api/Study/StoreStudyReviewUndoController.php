@@ -7,6 +7,7 @@ use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Http\Controllers\Api\Study\Concerns\RespondsToStudyReviewUndo;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyReviewUndoRequest;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class StoreStudyReviewUndoController extends Controller
@@ -20,7 +21,7 @@ class StoreStudyReviewUndoController extends Controller
     ): JsonResponse {
         return $this->undoStudyReview(
             request: $request,
-            userId: (int) $request->user()->id,
+            userId: AuthenticatedUser::id($request),
             reviewLogId: $request->reviewLogId(),
             timeZone: $request->timeZone(),
             undoCardReviewEvent: $undoCardReviewEvent,

@@ -10,6 +10,7 @@ use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyImportJobResource;
+use App\Http\Support\AuthenticatedUser;
 use App\Jobs\ProcessStudyImportJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class CompleteStudyImportUploadController extends Controller
     ): JsonResponse {
         try {
             $importJob = $completeStudyImportUpload->handle(
-                userId: $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 importJobId: $studyImportJobId,
             );
         } catch (StudyImportConflictException $exception) {

@@ -9,7 +9,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\StoreStudyCardDraftRequest;
 use App\Http\Resources\Study\StudyCardDraftResource;
-use App\Models\User;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -20,11 +20,10 @@ class StoreStudyCardDraftController extends Controller
         CreateStudyCardDraftAction $createStudyCardDraft,
     ): JsonResponse {
         try {
-            /** @var User $user */
-            $user = $request->user();
+            $userId = AuthenticatedUser::id($request);
 
             $draft = $createStudyCardDraft->handle(CreateStudyCardDraftData::fromInput(
-                userId: $user->id,
+                userId: $userId,
                 creationKind: $request->creationKind(),
                 cardType: $request->cardType(),
                 promptJson: $request->promptPayload(),

@@ -6,6 +6,7 @@ use App\Domain\Study\Actions\UpdateStudySettingsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\UpdateStudySettingsRequest;
 use App\Http\Resources\Study\StudySettingsResource;
+use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 class UpdateStudySettingsController extends Controller
@@ -18,7 +19,7 @@ class UpdateStudySettingsController extends Controller
 
         return StudySettingsResource::make(
             $updateStudySettings->handle(
-                userId: (int) $request->user()->id,
+                userId: AuthenticatedUser::id($request),
                 newCardsPerDay: (int) $data['new_cards_per_day'],
             ),
         )->response()->setStatusCode(200);

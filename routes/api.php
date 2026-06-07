@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
@@ -116,11 +117,17 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
-    Route::put('/me', UpdateCurrentUserProfileController::class);
-    Route::put('/me/password', UpdateCurrentUserPasswordController::class);
+    Route::put('/me', UpdateCurrentUserProfileController::class)
+        ->middleware('throttle:'.AuthAccountRateLimiter::PROFILE_UPDATE);
+    Route::put('/me/password', UpdateCurrentUserPasswordController::class)
+        ->middleware('throttle:'.AuthAccountRateLimiter::PASSWORD_UPDATE);
     Route::get('/auth/tokens', ListAccessTokensController::class);
-    Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class);
-    Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)->whereNumber('tokenId');
+    // Current and by-id token revokes share one 30/min manual-cleanup bucket, separate from profile/password retries.
+    Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class)
+        ->middleware('throttle:'.AuthAccountRateLimiter::TOKEN_REVOKE);
+    Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)
+        ->whereNumber('tokenId')
+        ->middleware('throttle:'.AuthAccountRateLimiter::TOKEN_REVOKE);
     // Course creates, updates, and deletes below have separate buckets so create retries cannot starve destructive actions.
     Route::get('/courses', ListCoursesController::class);
     Route::post('/courses', StoreCourseController::class)

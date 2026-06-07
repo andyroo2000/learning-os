@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
@@ -71,6 +72,21 @@ class AppServiceProvider extends ServiceProvider
         });
         RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->passwordResetTokens($request);
+        });
+
+        $accountProfileUpdateRateLimiter = AuthAccountRateLimiter::forProfileUpdate();
+        RateLimiter::for(AuthAccountRateLimiter::PROFILE_UPDATE, function (Request $request) use ($accountProfileUpdateRateLimiter): Limit {
+            return $accountProfileUpdateRateLimiter->limit($request);
+        });
+
+        $accountPasswordUpdateRateLimiter = AuthAccountRateLimiter::forPasswordUpdate();
+        RateLimiter::for(AuthAccountRateLimiter::PASSWORD_UPDATE, function (Request $request) use ($accountPasswordUpdateRateLimiter): Limit {
+            return $accountPasswordUpdateRateLimiter->limit($request);
+        });
+
+        $accountTokenRevokeRateLimiter = AuthAccountRateLimiter::forTokenRevoke();
+        RateLimiter::for(AuthAccountRateLimiter::TOKEN_REVOKE, function (Request $request) use ($accountTokenRevokeRateLimiter): Limit {
+            return $accountTokenRevokeRateLimiter->limit($request);
         });
 
         $courseCreateRateLimiter = CourseRateLimiter::create();

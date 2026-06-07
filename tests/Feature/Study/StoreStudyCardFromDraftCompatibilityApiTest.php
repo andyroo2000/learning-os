@@ -66,6 +66,35 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('committedCardId', $cardId);
     }
 
+    public function test_it_creates_a_manual_study_card_from_the_convolab_create_card_alias(): void
+    {
+        $user = $this->signIn();
+        $draft = StudyCardDraft::factory()->ready()->for($user)->create([
+            'creation_kind' => StudyCardCreationKind::TextRecognition,
+            'prompt_json' => ['cueText' => '犬'],
+            'answer_json' => ['meaning' => 'dog'],
+        ]);
+        $cardId = strtolower((string) Str::ulid());
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
+            'id' => strtoupper($cardId),
+        ])
+            ->assertCreated()
+            ->assertJsonPath('id', $cardId)
+            ->assertJsonPath('cardType', CardType::Recognition->value)
+            ->assertJsonPath('prompt.cueText', '犬')
+            ->assertJsonPath('answer.meaning', 'dog');
+
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $cardId,
+        ]);
+
+        $this->getJson("/api/study/card-drafts/{$draft->id}")
+            ->assertOk()
+            ->assertJsonPath('committedCardId', $cardId);
+    }
+
     public function test_it_normalizes_route_and_card_ids_without_trim_strings_middleware(): void
     {
         $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
@@ -107,6 +136,52 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         ]);
     }
 
+    public function test_the_convolab_create_card_alias_shares_draft_commit_idempotency(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $cardId = strtolower((string) Str::ulid());
+        $payload = ['id' => $cardId];
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
+            ->assertCreated()
+            ->assertJsonPath('id', $cardId);
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+            ->assertOk()
+            ->assertJsonPath('id', $cardId);
+
+        $this->assertSame(1, Card::query()->count());
+        $this->getJson("/api/study/card-drafts/{$draft->id}")
+            ->assertOk()
+            ->assertJsonPath('committedCardId', $cardId);
+    }
+
+    public function test_draft_commit_idempotency_can_retry_from_canonical_path_to_convolab_alias(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $cardId = strtolower((string) Str::ulid());
+        $payload = ['id' => $cardId];
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+            ->assertCreated()
+            ->assertJsonPath('id', $cardId);
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
+            ->assertOk()
+            ->assertJsonPath('id', $cardId);
+
+        $this->assertSame(1, Card::query()->count());
+        $this->getJson("/api/study/card-drafts/{$draft->id}")
+            ->assertOk()
+            ->assertJsonPath('committedCardId', $cardId);
+    }
+
     public function test_it_rejects_duplicate_commits_with_a_different_card_id(): void
     {
         $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
@@ -120,6 +195,56 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         ])->assertCreated();
 
         $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Draft was already committed with a different card ID.');
+
+        $this->assertSame(1, Card::query()->count());
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $firstCardId,
+        ]);
+    }
+
+    public function test_the_convolab_create_card_alias_shares_different_card_id_conflicts(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $firstCardId = strtolower((string) Str::ulid());
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
+            'id' => $firstCardId,
+        ])->assertCreated();
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Draft was already committed with a different card ID.');
+
+        $this->assertSame(1, Card::query()->count());
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $firstCardId,
+        ]);
+    }
+
+    public function test_different_card_id_conflicts_can_retry_from_canonical_path_to_convolab_alias(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+        $firstCardId = strtolower((string) Str::ulid());
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+            'id' => $firstCardId,
+        ])->assertCreated();
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
             'id' => strtolower((string) Str::ulid()),
         ])
             ->assertConflict()
@@ -150,6 +275,16 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['id'])
             ->assertJsonPath('errors.id.0', 'Card ID must be a string.');
+    }
+
+    public function test_the_convolab_create_card_alias_requires_a_client_card_id_for_retry_safe_commits(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create();
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id'])
+            ->assertJsonPath('errors.id.0', 'Card ID is required.');
     }
 
     public function test_it_rejects_generating_drafts(): void
@@ -289,11 +424,15 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $clientIp = '127.0.0.1';
         $testBucket = 'test-'.Str::ulid();
         $user = $this->signIn();
-        $draft = StudyCardDraft::factory()->ready()->for($user)->create();
+        $drafts = StudyCardDraft::factory()->ready()->for($user)->count(3)->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
         $otherUser = User::factory()->create();
-        $otherDraft = StudyCardDraft::factory()->ready()->for($otherUser)->create();
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $otherDraft = StudyCardDraft::factory()->ready()->for($otherUser)->create([
+            'prompt_json' => ['cueText' => 'other front'],
+            'answer_json' => ['meaning' => 'other back'],
+        ]);
 
         $userKey = $testBucket.'|'.$limiter->keyFor($user->id, $clientIp);
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, $clientIp);
@@ -306,28 +445,43 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             });
         };
 
-        RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(2)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
-
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            $commitPaths = [
+                "/api/study/card-drafts/{$drafts[0]->id}/card",
+                "/api/study/card-drafts/{$drafts[1]->id}/create-card",
+            ];
+
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $this
-                    ->postJson("/api/study/card-drafts/{$draft->id}/card", [])
-                    ->assertUnprocessable();
+                    ->postJson($commitPaths[$attempt], [
+                        'id' => strtolower((string) Str::ulid()),
+                    ])
+                    ->assertCreated();
             }
 
             $this
-                ->postJson("/api/study/card-drafts/{$draft->id}/card", [])
+                ->postJson("/api/study/card-drafts/{$drafts[2]->id}/card", [
+                    'id' => strtolower((string) Str::ulid()),
+                ])
                 ->assertTooManyRequests();
+
+            $this->assertSame(2, Card::query()->count());
 
             $this->signIn($otherUser);
 
             $this
-                ->postJson("/api/study/card-drafts/{$otherDraft->id}/card", [])
-                ->assertUnprocessable();
+                ->postJson("/api/study/card-drafts/{$otherDraft->id}/card", [
+                    'id' => strtolower((string) Str::ulid()),
+                ])
+                ->assertCreated();
         } finally {
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);

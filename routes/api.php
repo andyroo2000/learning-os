@@ -234,6 +234,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+    // ConvoLab path alias; this backend still requires a client card ID for retry-safe commits.
+    Route::post('/study/card-drafts/{draftId}/create-card', StoreStudyCardFromDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)

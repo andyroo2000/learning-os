@@ -7,8 +7,13 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Jobs\ProcessStudyImportJob;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
+use LogicException;
+use ReflectionProperty;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -83,18 +88,101 @@ class ProcessStudyImportJobTest extends TestCase
     {
         Carbon::setTestNow('2026-06-07 12:00:00');
         $importJob = StudyImportJob::factory()->create();
-        $job = new ProcessStudyImportJob($importJob->id);
 
-        $job->failed(new RuntimeException('First failure.'));
+        (new ProcessStudyImportJob($importJob->id))
+            ->failed(new RuntimeException('First failure.'));
 
         Carbon::setTestNow('2026-06-07 12:05:00');
-        $job->failed(new RuntimeException('Second failure.'));
+        (new ProcessStudyImportJob($importJob->id))
+            ->failed(new RuntimeException('Second failure.'));
 
         $importJob->refresh();
 
         $this->assertSame(StudyImportStatus::Failed, $importJob->status);
         $this->assertSame(ProcessStudyImportJob::EXHAUSTED_ERROR_MESSAGE, $importJob->error_message);
         $this->assertSame('2026-06-07T12:00:00.000000Z', $importJob->completed_at?->toJSON());
+    }
+
+    public function test_failed_reports_and_swallows_failure_hook_write_errors(): void
+    {
+        Exceptions::fake();
+        Carbon::setTestNow('2026-06-07 12:00:00');
+        $importJob = StudyImportJob::factory()->create();
+        $eventName = $this->studyImportUpdatingEventName();
+        $dispatcher = Event::getFacadeRoot();
+        $originalListeners = $this->rawEventListeners($dispatcher, $eventName);
+
+        // Registered only around failed() so this test targets the terminal-write path.
+        Event::listen($eventName, static function (): void {
+            throw new RuntimeException('Terminal import write failed.');
+        });
+
+        try {
+            (new ProcessStudyImportJob($importJob->id))
+                ->failed(new RuntimeException('Worker infrastructure failed.'));
+        } finally {
+            $this->restoreRawEventListeners($dispatcher, $eventName, $originalListeners);
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Pending, $importJob->status);
+        $this->assertNull($importJob->error_message);
+        $this->assertNull($importJob->completed_at);
+        Exceptions::assertReported(
+            fn (RuntimeException $exception): bool => $exception->getMessage() === 'Terminal import write failed.',
+        );
+        Exceptions::assertReportedCount(1);
+    }
+
+    private function studyImportUpdatingEventName(): string
+    {
+        // Keep this Laravel Eloquent event name paired with raw dispatcher listener restoration below.
+        return 'eloquent.updating: '.StudyImportJob::class;
+    }
+
+    /**
+     * @return array<int, mixed>|null
+     */
+    private function rawEventListeners(Dispatcher $dispatcher, string $eventName): ?array
+    {
+        // Laravel exposes forget-all but not remove-one for event listeners; preserve
+        // private Dispatcher::$listeners directly so this test does not erase app hooks.
+        // If Laravel renames that internal on a major upgrade, this helper should fail loudly.
+        $listeners = $this->eventListenersProperty($dispatcher)->getValue($dispatcher);
+
+        return is_array($listeners) && array_key_exists($eventName, $listeners)
+            ? $listeners[$eventName]
+            : null;
+    }
+
+    /**
+     * @param  array<int, mixed>|null  $originalListeners
+     */
+    private function restoreRawEventListeners(
+        Dispatcher $dispatcher,
+        string $eventName,
+        ?array $originalListeners,
+    ): void {
+        $property = $this->eventListenersProperty($dispatcher);
+        $listeners = $property->getValue($dispatcher);
+
+        if (! is_array($listeners)) {
+            throw new LogicException('Laravel event dispatcher listeners should be stored as an array.');
+        }
+
+        if ($originalListeners === null) {
+            unset($listeners[$eventName]);
+        } else {
+            $listeners[$eventName] = $originalListeners;
+        }
+
+        $property->setValue($dispatcher, $listeners);
+    }
+
+    private function eventListenersProperty(Dispatcher $dispatcher): ReflectionProperty
+    {
+        return new ReflectionProperty($dispatcher, 'listeners');
     }
 
     public function test_failed_ignores_missing_and_terminal_imports(): void

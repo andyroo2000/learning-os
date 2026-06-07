@@ -49,18 +49,23 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
     {
         $importJobId = CanonicalUlid::normalize($this->importJobId);
 
-        DB::transaction(static function () use ($importJobId): void {
-            $importJob = StudyImportJob::query()
-                ->whereKey($importJobId)
-                ->lockForUpdate()
-                ->first();
+        try {
+            DB::transaction(static function () use ($importJobId): void {
+                $importJob = StudyImportJob::query()
+                    ->whereKey($importJobId)
+                    ->lockForUpdate()
+                    ->first();
 
-            if ($importJob === null || ! self::shouldMarkFailed($importJob)) {
-                return;
-            }
+                if ($importJob === null || ! self::shouldMarkFailed($importJob)) {
+                    return;
+                }
 
-            StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, now());
-        });
+                StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, now());
+            });
+        } catch (Throwable $e) {
+            // Laravel has already recorded the original job failure; keep this hook best-effort.
+            report($e);
+        }
     }
 
     public function uniqueId(): string

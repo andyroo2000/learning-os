@@ -31,7 +31,7 @@ class StudyImportJobMigrationTest extends TestCase
     public function test_study_import_jobs_migration_file_exists(): void
     {
         $this->assertFileExists(
-            dirname(__DIR__, 3).'/database/migrations/2026_06_05_020000_create_study_import_jobs_table.php',
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_05_020000_create_study_import_jobs_table.php',
         );
     }
 

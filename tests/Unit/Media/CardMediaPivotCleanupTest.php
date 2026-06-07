@@ -200,7 +200,7 @@ class CardMediaPivotCleanupTest extends TestCase
 
     private function cardMediaCleanupMigration(): object
     {
-        $migrationFiles = glob(dirname(__DIR__, 3).'/database/migrations/*_prune_cross_owner_card_media_pivots.php');
+        $migrationFiles = glob(LEARNING_OS_PROJECT_ROOT.'/database/migrations/*_prune_cross_owner_card_media_pivots.php');
 
         $this->assertIsArray($migrationFiles);
         $this->assertCount(1, $migrationFiles, 'Expected exactly one cleanup migration, found: '.count($migrationFiles));

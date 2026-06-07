@@ -25,7 +25,7 @@ class StudyImportJobStatusListIndexMigrationTest extends TestCase
     public function test_status_list_index_migration_file_exists(): void
     {
         $this->assertFileExists(
-            dirname(__DIR__, 3).'/database/migrations/2026_06_05_033000_add_status_list_index_to_study_import_jobs_table.php',
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_05_033000_add_status_list_index_to_study_import_jobs_table.php',
         );
     }
 

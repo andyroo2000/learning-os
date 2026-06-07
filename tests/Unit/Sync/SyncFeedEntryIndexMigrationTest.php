@@ -418,7 +418,6 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
 
     private function syncFeedIndexMigrationDirectory(): string
     {
-        // Depth 3: tests/Unit/Sync -> tests/Unit -> tests -> project root.
-        return dirname(__DIR__, 3).'/database/migrations';
+        return LEARNING_OS_PROJECT_ROOT.'/database/migrations';
     }
 }

@@ -28,11 +28,11 @@ class StudyCardDraftMigrationTest extends TestCase
     public function test_study_card_drafts_migration_file_exists(): void
     {
         $this->assertFileExists(
-            dirname(__DIR__, 3).'/database/migrations/2026_06_06_123000_create_study_card_drafts_table.php',
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_06_123000_create_study_card_drafts_table.php',
         );
 
         $this->assertFileExists(
-            dirname(__DIR__, 3).'/database/migrations/2026_06_06_124000_add_committed_card_id_to_study_card_drafts_table.php',
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_06_124000_add_committed_card_id_to_study_card_drafts_table.php',
         );
     }
 

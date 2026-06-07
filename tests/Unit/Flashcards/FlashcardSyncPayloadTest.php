@@ -8,7 +8,6 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
-use App\Domain\Study\Models\StudyImportJob;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -82,7 +81,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_kind' => 'anki_import',
             'source_card_id' => 701,
             'source_note_id' => 501,
             'source_deck_id' => 1700000000000,
@@ -123,7 +122,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
             'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_kind' => 'anki_import',
             'source_card_id' => 701,
             'source_note_id' => 501,
             'source_deck_id' => 1700000000000,

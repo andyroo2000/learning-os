@@ -4,7 +4,6 @@ namespace Tests\Unit\Media;
 
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
-use App\Domain\Study\Models\StudyImportJob;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +15,7 @@ class MediaAssetSyncPayloadTest extends TestCase
         $mediaAsset->setRawAttributes([
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
             'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_kind' => 'anki_import',
             'source_media_ref' => '0',
             'source_filename' => 'word.mp3',
             'disk' => 'media',
@@ -35,7 +34,7 @@ class MediaAssetSyncPayloadTest extends TestCase
         $expected = [
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
             'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
+            'source_kind' => 'anki_import',
             'source_media_ref' => '0',
             'source_filename' => 'word.mp3',
             'url' => 'https://cdn.example.test/uploads/example.jpg',

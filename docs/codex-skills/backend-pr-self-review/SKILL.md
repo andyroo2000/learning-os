@@ -88,8 +88,10 @@ Do not push until these are resolved or explicitly justified in the PR:
 - New destructive or retryable write endpoints omit route throttle middleware when sibling create/update routes are throttled, unless a repo-wide convention and PR note make the exemption explicit.
 - Rate limiter changes lack explicit route wiring, stable key fallback coverage, default-limit coverage, and isolated test buckets or cleanup for temporary overrides. For new named limiters that must have separate quotas, verify the pinned Laravel throttle path actually namespaces counters by limiter name or add an operation prefix to the raw `Limit::by()` key; do not assume key collision or isolation without checking sibling limiters and framework behavior.
 - State-transition or active-record checks run outside the transaction/lock boundary used by the corresponding write path.
+- A shared state-transition helper documents a lock/transaction requirement that some real call sites do not satisfy.
 - A controller/action moves a model into a worker-owned pending state such as `Generating` and then dispatches the worker outside the transaction/commit boundary, allowing a queue write failure to strand user-visible state.
 - A queued job owns user-visible pending state but has no final-exhaustion/`failed()` path to move the resource to an actionable error state or emit an equivalent signal.
+- A final-exhaustion/`failed()` path is not proven idempotent for repeated calls, including preserving existing terminal timestamps or error metadata.
 - A job lifecycle method such as `handle()` or `failed()` hides domain dependencies behind container resolution when the dependency can be declared through a framework-supported path that is safe for queued serialization.
 - A job exposes Action internals as public static transition helpers solely so the worker can bypass the container or direct dependency boundary.
 - Job lifecycle methods such as `handle()`, `uniqueId()`, and `failed()` apply different normalization contracts to the same persisted/client-visible ID.

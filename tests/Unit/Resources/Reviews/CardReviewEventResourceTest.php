@@ -3,6 +3,7 @@
 namespace Tests\Unit\Resources\Reviews;
 
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Http\Resources\Reviews\CardReviewEventResource;
 use Tests\TestCase;
 
@@ -34,7 +35,7 @@ class CardReviewEventResourceTest extends TestCase
             'card_deck_id' => null,
             'card_course_id' => null,
             'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => 'anki_import',
+            'source_kind' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
             'source_review_id' => 901,
             'source_card_id' => 701,
             'source_ease' => 3,
@@ -54,7 +55,7 @@ class CardReviewEventResourceTest extends TestCase
         $resource = CardReviewEventResource::make($reviewEvent)->resolve();
 
         $this->assertSame('01k1j8n4st9y2aqj9b43r1dz0e', $resource['import_job_id']);
-        $this->assertSame('anki_import', $resource['source_kind']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $resource['source_kind']);
         $this->assertSame(901, $resource['source_review_id']);
         $this->assertSame(701, $resource['source_card_id']);
         $this->assertSame(3, $resource['source_ease']);

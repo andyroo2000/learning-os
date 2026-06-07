@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  * Pins sync replay index DDL across the database grammars we care about.
  * The app runs SQLite today, but these fixtures make PostgreSQL drift visible before migration time.
  * Keep the resource-history fixture here too because resource_id feed filters rely on that older index.
+ * The helper blueprints below intentionally mirror the pinned migration files; update both together.
  */
 class SyncFeedEntryIndexMigrationTest extends TestCase
 {
@@ -102,6 +103,13 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                 strlen($indexName),
                 "Index name [{$indexName}] exceeds PostgreSQL's identifier limit.",
             );
+        }
+    }
+
+    public function test_sync_feed_index_migration_files_exist(): void
+    {
+        foreach ($this->syncFeedIndexMigrationPaths() as $migrationPath) {
+            $this->assertFileExists($migrationPath);
         }
     }
 
@@ -391,5 +399,26 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
             'sfe_user_domain_operation_checkpoint_idx',
             'sfe_user_domain_type_operation_checkpoint_idx',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function syncFeedIndexMigrationPaths(): array
+    {
+        $migrationDirectory = $this->syncFeedIndexMigrationDirectory();
+
+        return [
+            $migrationDirectory.'/2026_06_03_001500_create_sync_feed_entries_table.php',
+            $migrationDirectory.'/2026_06_03_012000_add_user_domain_checkpoint_index_to_sync_feed_entries_table.php',
+            $migrationDirectory.'/2026_06_04_001000_add_user_domain_resource_type_checkpoint_index_to_sync_feed_entries_table.php',
+            $migrationDirectory.'/2026_06_04_002000_add_user_operation_checkpoint_index_to_sync_feed_entries_table.php',
+        ];
+    }
+
+    private function syncFeedIndexMigrationDirectory(): string
+    {
+        // Depth 3: tests/Unit/Sync -> tests/Unit -> tests -> project root.
+        return dirname(__DIR__, 3).'/database/migrations';
     }
 }

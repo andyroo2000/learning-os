@@ -106,6 +106,7 @@ class StartStudySessionAction
     private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
     {
         return Card::query()
+            // Session card queries select decks.course_id from this join for resource serialization.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')

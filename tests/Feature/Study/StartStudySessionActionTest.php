@@ -340,44 +340,18 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_cards_available_today']);
     }
 
-    public function test_it_serializes_session_cards_without_a_separate_deck_lookup_query(): void
+    public function test_it_serializes_new_session_cards_without_a_separate_deck_lookup_query(): void
     {
-        $now = Carbon::parse('2026-06-04T12:00:00Z');
-        $user = User::factory()->create();
-        $course = Course::factory()->for($user)->create();
-        $deck = $this->deckFor($user, [
-            'course_id' => $course->id,
-        ]);
-        StudySettings::factory()->for($user)->create([
-            'new_cards_per_day' => 20,
-        ]);
-        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::New, [
             'new_queue_position' => 1,
         ]);
+    }
 
-        DB::flushQueryLog();
-        DB::enableQueryLog();
-
-        $result = app(StartStudySessionAction::class)->handle(
-            userId: $user->id,
-            now: $now,
-        );
-        $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
-
-        $this->assertSame($card->id, $payload['cards'][0]['id']);
-        $this->assertSame($course->id, $payload['cards'][0]['course_id']);
-
-        // Session starts stay at overview's settings + aggregate + latest import, plus one card query.
-        $this->assertCount(4, $queries, $queries->pluck('query')->implode("\n"));
-
-        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
-            && str_contains(strtolower($query['query']), 'from "decks"'));
-
-        $this->assertCount(0, $standaloneDeckSelects, $queries->pluck('query')->implode("\n"));
+    public function test_it_serializes_due_session_cards_without_a_separate_deck_lookup_query(): void
+    {
+        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::Review, [
+            'due_at' => Carbon::parse('2026-06-04T11:30:00Z'),
+        ]);
     }
 
     public function test_it_rejects_invalid_time_zones_for_direct_callers(): void
@@ -400,6 +374,50 @@ class StartStudySessionActionTest extends TestCase
             userId: User::factory()->create()->id,
             deckId: '   ',
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $cardAttributes
+     */
+    private function assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus $status, array $cardAttributes): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, [
+            'course_id' => $course->id,
+        ]);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $card = $this->cardWithStudyStatus($deck, $status, $cardAttributes);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+        $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $this->assertSame($card->id, $payload['cards'][0]['id']);
+        $this->assertSame($course->id, $payload['cards'][0]['course_id']);
+
+        $sessionCardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "cards"')
+            && str_contains(strtolower($query['query']), 'deck_course_id'));
+
+        $this->assertCount(1, $sessionCardSelects, $queries->pluck('query')->implode("\n"));
+
+        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "decks"'));
+
+        $this->assertCount(0, $standaloneDeckSelects, $queries->pluck('query')->implode("\n"));
     }
 
     /**

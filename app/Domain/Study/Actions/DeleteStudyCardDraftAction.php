@@ -6,6 +6,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 
 class DeleteStudyCardDraftAction
@@ -23,10 +24,16 @@ class DeleteStudyCardDraftAction
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
 
-        DB::transaction(function () use ($userId, $draftId): void {
+        $canonicalDraftId = CanonicalUlid::normalize($draftId);
+
+        if (! Str::isUlid($canonicalDraftId)) {
+            return;
+        }
+
+        DB::transaction(function () use ($userId, $canonicalDraftId): void {
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
-                ->whereKey(CanonicalUlid::normalize($draftId))
+                ->whereKey($canonicalDraftId)
                 ->lockForUpdate()
                 ->first();
 

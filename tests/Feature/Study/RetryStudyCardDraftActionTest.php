@@ -15,6 +15,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -98,6 +99,30 @@ class RetryStudyCardDraftActionTest extends TestCase
         $this->expectExceptionMessage('Study card draft not found.');
 
         app(RetryStudyCardDraftAction::class)->handle(User::factory()->create()->id, strtolower((string) str()->ulid()));
+    }
+
+    public function test_it_hides_malformed_draft_ids_without_querying_drafts(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        DB::enableQueryLog();
+
+        try {
+            app(RetryStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
+            $this->fail('Expected malformed draft IDs to be hidden as not found.');
+        } catch (StudyCardDraftNotFoundException $exception) {
+            $this->assertSame('Study card draft not found.', $exception->getMessage());
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+        }
+
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+            'Malformed draft IDs should return not-found before querying study_card_drafts.',
+        );
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_returns_generating_drafts_for_idempotent_transport_retries(): void

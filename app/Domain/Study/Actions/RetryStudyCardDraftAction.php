@@ -9,6 +9,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 
 class RetryStudyCardDraftAction
@@ -27,6 +28,10 @@ class RetryStudyCardDraftAction
         }
 
         $canonicalDraftId = CanonicalUlid::normalize($draftId);
+
+        if (! Str::isUlid($canonicalDraftId)) {
+            throw StudyCardDraftNotFoundException::notFound();
+        }
 
         // Keep the lifecycle check and server-owned output reset on the same locked row snapshot.
         return DB::transaction(function () use ($afterCommit, $userId, $canonicalDraftId): StudyCardDraft {

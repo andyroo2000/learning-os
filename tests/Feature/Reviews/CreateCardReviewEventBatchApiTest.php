@@ -985,8 +985,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $deck = $this->deckFor($user);
         $cards = Card::factory()->count(10)->for($deck)->create();
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->postJson('/api/card-review-events/batch', [

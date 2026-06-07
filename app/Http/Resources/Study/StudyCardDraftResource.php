@@ -35,8 +35,8 @@ class StudyCardDraftResource extends JsonResource
 
     private function stringAttributeValue(string $key): ?string
     {
-        // Read the raw string enum value intentionally; these fields must not use value-transforming casts.
-        // BackedEnum support is for direct in-memory assignments, and still enforces a string wire contract.
+        // Read the raw string enum value intentionally; enum casts still store these fields as strings.
+        // BackedEnum support only guards direct raw/in-memory assignments while preserving the string wire contract.
         $value = $this->resource->getAttributes()[$key] ?? null;
 
         if ($value instanceof BackedEnum) {

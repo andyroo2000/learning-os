@@ -51,6 +51,7 @@ class StudyCardDraftResourceTest extends TestCase
     public function test_resource_serializes_string_backed_enum_draft_attributes(): void
     {
         $draft = new StudyCardDraft;
+        // Simulates a direct raw assignment rather than an Eloquent enum-cast round trip.
         $draft->setRawAttributes([
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
             'status' => StringBackedStudyCardDraftResourceValue::Ready,

@@ -23,18 +23,21 @@ use PHPUnit\Framework\TestCase;
 class SyncFeedEntryIndexMigrationTest extends TestCase
 {
     #[DataProvider('initialIndexSqlProvider')]
-    public function test_initial_replay_indexes_compile_to_portable_sql(
+    public function test_initial_sync_feed_migration_sql_compiles_portably(
         string $connectionClass,
         string $grammarClass,
         array $expectedCreateSql,
+        array $expectedDropSql,
     ): void {
         $connection = $this->connection($connectionClass);
         $grammar = new $grammarClass($connection);
         $connection->setSchemaGrammar($grammar);
 
         $createSql = $this->initialReplayIndexBlueprint($connection)->toSql();
+        $dropSql = $this->dropInitialSyncFeedEntriesBlueprint($connection)->toSql();
 
         $this->assertSame($expectedCreateSql, $createSql);
+        $this->assertSame($expectedDropSql, $dropSql);
     }
 
     #[DataProvider('portableIndexSqlProvider')]
@@ -103,7 +106,7 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
     }
 
     /**
-     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>}>
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
      */
     public static function initialIndexSqlProvider(): array
     {
@@ -115,6 +118,9 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                     'create index "sync_feed_entries_user_id_checkpoint_index" on "sync_feed_entries" ("user_id", "checkpoint")',
                     'create index "sfe_resource_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "checkpoint")',
                 ],
+                [
+                    'drop table if exists "sync_feed_entries"',
+                ],
             ],
             'postgres' => [
                 PostgresConnection::class,
@@ -123,6 +129,9 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                     'create index "sync_feed_entries_user_id_checkpoint_index" on "sync_feed_entries" ("user_id", "checkpoint")',
                     'create index "sfe_resource_history_idx" on "sync_feed_entries" ("user_id", "domain", "resource_type", "resource_id", "checkpoint")',
                 ],
+                [
+                    'drop table if exists "sync_feed_entries"',
+                ],
             ],
             'mysql' => [
                 MySqlConnection::class,
@@ -130,6 +139,9 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                 [
                     'alter table `sync_feed_entries` add index `sync_feed_entries_user_id_checkpoint_index`(`user_id`, `checkpoint`)',
                     'alter table `sync_feed_entries` add index `sfe_resource_history_idx`(`user_id`, `domain`, `resource_type`, `resource_id`, `checkpoint`)',
+                ],
+                [
+                    'drop table if exists `sync_feed_entries`',
                 ],
             ],
         ];
@@ -291,6 +303,13 @@ class SyncFeedEntryIndexMigrationTest extends TestCase
                 ['user_id', 'domain', 'resource_type', 'resource_id', 'checkpoint'],
                 'sfe_resource_history_idx',
             );
+        });
+    }
+
+    private function dropInitialSyncFeedEntriesBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'sync_feed_entries', function (Blueprint $table): void {
+            $table->dropIfExists();
         });
     }
 

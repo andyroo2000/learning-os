@@ -44,10 +44,17 @@ class GetStudyOverviewActionTest extends TestCase
             'new_queue_position' => 1,
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended);
+        $softDeletedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'introduced_at' => Carbon::parse('2026-06-03T08:00:00Z'),
+            'due_at' => $now->copy()->subHour(),
+        ]);
+        $softDeletedCard->delete();
         $this->cardWithStudyStatus($deletedDeck, CardStudyStatus::Review, [
+            'introduced_at' => Carbon::parse('2026-06-03T06:00:00Z'),
             'due_at' => $now->copy()->subHour(),
         ]);
         $this->cardWithStudyStatus($this->deckFor(User::factory()->create()), CardStudyStatus::Review, [
+            'introduced_at' => Carbon::parse('2026-06-03T07:00:00Z'),
             'due_at' => $now->copy()->subHour(),
         ]);
 
@@ -160,6 +167,9 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['suspended_count']);
         $this->assertSame(5, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
+
+        // Normal overview reads stay at settings + card aggregate + latest import.
+        $this->assertCount(3, $queries, $queries->pluck('query')->implode("\n"));
 
         // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.
         $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));

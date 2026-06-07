@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Domain\Study\Actions\ProcessStudyImportJobAction;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportJobFailureMarker;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,8 +48,9 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
     public function failed(Throwable $exception): void
     {
         $importJobId = CanonicalUlid::normalize($this->importJobId);
+        $now = now();
 
-        DB::transaction(static function () use ($importJobId): void {
+        DB::transaction(static function () use ($importJobId, $now): void {
             $importJob = StudyImportJob::query()
                 ->whereKey($importJobId)
                 ->lockForUpdate()
@@ -58,7 +60,7 @@ class ProcessStudyImportJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            ProcessStudyImportJobAction::markAsFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, now());
+            StudyImportJobFailureMarker::markFailed($importJob, self::EXHAUSTED_ERROR_MESSAGE, $now);
         });
     }
 

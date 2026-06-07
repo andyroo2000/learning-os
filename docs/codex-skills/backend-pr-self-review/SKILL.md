@@ -77,6 +77,8 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.
+- A worker final-exhaustion path can lose the terminal error-state write because a lower-priority sync/feed side effect runs in the same rollback boundary and can throw.
+- A hard-delete sync tombstone has caller-supplied `deleted_at` semantics but leaves clients or future maintainers to infer how it relates to pre-delete `updated_at`.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.
 - Compatibility endpoints skip canonical domain actions, leak ConvoLab field names into shared domains, or lack tests for canonical and compat response shapes.
 - Upload/header validation crosses layers incorrectly, persists caller-declared sizes instead of actual bytes, or lacks boundary tests for malformed, overflow, mismatch, and side-effect-free failure paths.
@@ -85,7 +87,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - State-transition or active-record checks run outside the transaction/lock boundary used by the corresponding write path.
 - A controller/action moves a model into a worker-owned pending state such as `Generating` and then dispatches the worker outside the transaction/commit boundary, allowing a queue write failure to strand user-visible state.
 - A queued job owns user-visible pending state but has no final-exhaustion/`failed()` path to move the resource to an actionable error state or emit an equivalent signal.
-- A job lifecycle method such as `handle()` or `failed()` hides domain dependencies behind `app()`/service-location when the same dependency can be declared through the framework-supported injection path for that hook.
+- A job lifecycle method such as `handle()` or `failed()` hides domain dependencies behind container resolution when the dependency can be declared through a framework-supported path that is safe for queued serialization.
 - An empty PATCH/no-op branch bypasses mutable-state guards, such as `Generating` or locked status, without a test or durable comment that readback is intentionally allowed.
 - Existing behavior coverage was weakened to make a new test pass.
 

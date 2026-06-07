@@ -171,8 +171,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
 
         $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
-        RateLimiter::clear($this->throttleCacheKey($userKey));
-        RateLimiter::clear($this->throttleCacheKey($otherUserKey));
+        RateLimiter::clear($userKey);
+        RateLimiter::clear($otherUserKey);
 
         // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
         RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
@@ -218,8 +218,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
                 'payload->prompt_json->cueText' => '会社 3',
             ]);
         } finally {
-            RateLimiter::clear($this->throttleCacheKey($userKey));
-            RateLimiter::clear($this->throttleCacheKey($otherUserKey));
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
             $restoreStudyCardUpdateLimiter();
         }
     }
@@ -371,11 +371,5 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'prompt' => ['cueText' => '会社'],
             'answer' => ['meaning' => 'company'],
         ])->assertUnauthorized();
-    }
-
-    private function throttleCacheKey(string $limiterKey): string
-    {
-        // Named throttle middleware hashes the limiter name with the returned Limit key before storage.
-        return md5(StudyCardUpdateRateLimiter::NAME.$limiterKey);
     }
 }

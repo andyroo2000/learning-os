@@ -1667,6 +1667,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
 
     private function assertJsonTimestamp(mixed $value): void
     {
+        $this->assertNotNull($value);
         $this->assertIsString($value);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $value);
     }

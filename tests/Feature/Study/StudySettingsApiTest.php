@@ -13,7 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
 class StudySettingsApiTest extends TestCase
@@ -152,10 +151,6 @@ class StudySettingsApiTest extends TestCase
         ]);
     }
 
-    /**
-     * CI runs the suite serially today; keep this marker if parallel workers start honoring group exclusions.
-     */
-    #[Group('no-parallel')]
     public function test_update_is_rate_limited_by_user(): void
     {
         $limiter = new StudySettingsUpdateRateLimiter;
@@ -175,8 +170,12 @@ class StudySettingsApiTest extends TestCase
             });
         };
 
+        // Authenticated keys ignore IP, so these match the request-derived keys used below.
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
+
         try {
-            // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
+            // CI runs tests serially; this override is process-global and must be restored in finally.
             RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
                 return Limit::perMinute(2)->by(
                     $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
@@ -207,6 +206,10 @@ class StudySettingsApiTest extends TestCase
                 ])
                 ->assertTooManyRequests();
 
+            $this->getJson('/api/study/settings')
+                ->assertOk()
+                ->assertJsonPath('data.new_cards_per_day', 12);
+
             $this->assertSame(12, $settings->refresh()->new_cards_per_day);
             $this->assertSame(31, $otherSettings->refresh()->new_cards_per_day);
             $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
@@ -216,6 +219,8 @@ class StudySettingsApiTest extends TestCase
                 'payload->new_cards_per_day' => 13,
             ]);
         } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
             $restoreStudySettingsUpdateLimiter();
         }
     }

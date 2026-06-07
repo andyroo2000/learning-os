@@ -9,8 +9,8 @@ final class StudySettingsUpdateRateLimiter
 {
     public const NAME = 'study-settings-update';
 
-    // 120/min matches saved-card edits; settings updates may be retried by sync clients.
-    private const PER_MINUTE = 120;
+    // Settings updates are low-frequency; 30/min still leaves room for sync-client retries.
+    private const PER_MINUTE = 30;
 
     public function limit(Request $request): Limit
     {

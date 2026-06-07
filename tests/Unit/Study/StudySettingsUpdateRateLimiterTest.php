@@ -22,7 +22,7 @@ class StudySettingsUpdateRateLimiterTest extends TestCase
         $this->assertSame('study-settings-update:user:str-id', $limiter->keyFor('str-id', ''));
     }
 
-    public function test_it_uses_120_attempts_per_minute_by_default(): void
+    public function test_it_uses_30_attempts_per_minute_by_default(): void
     {
         $limiter = new StudySettingsUpdateRateLimiter;
         $request = Request::create('/api/study/settings', 'PATCH', [], [], [], ['REMOTE_ADDR' => '127.0.0.1']);
@@ -36,7 +36,7 @@ class StudySettingsUpdateRateLimiterTest extends TestCase
 
         $limit = $limiter->limit($request);
 
-        $this->assertSame(120, $limit->maxAttempts);
+        $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
         $this->assertSame('study-settings-update:user:42', $limit->key);
     }

@@ -86,8 +86,8 @@ class ShowStudyBrowserNoteActionTest extends TestCase
     public function test_it_returns_null_for_malformed_unsourced_note_ids(): void
     {
         $user = $this->signIn();
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, 'not-a-ulid');

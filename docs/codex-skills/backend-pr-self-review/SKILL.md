@@ -48,7 +48,7 @@ For detailed rules, read `references/claude-review-themes.md` whenever the diff 
 6. Leave a concise self-review note for the PR.
    - Mention the high-risk categories checked.
    - Mention commands run, and make sure file names/paths still match the final diff after renames or test consolidation.
-   - Call out intentionally unchanged sibling behavior only when it is relevant to review.
+   - Call out intentionally unchanged sibling behavior when it is relevant to review; cite the prior PR/test or caller constraint when a nearby action is deliberately skipped.
 
 ## Hard Stops Before Push
 
@@ -72,6 +72,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - JSON shape, size, or depth limits exist in the DTO/action but lack HTTP coverage for the client-visible validation response.
 - HTTP and DTO/action layers duplicate nontrivial validation algorithms instead of delegating to a shared pure validator/value object, especially for recursive JSON shape, size, depth, or media-reference checks.
 - A pattern was fixed for one domain while equivalent course/deck/card/media/review endpoints were left unchecked.
+- A sibling action or endpoint with the same apparent input surface is intentionally out of scope but the PR note does not cite prior coverage, caller constraints, or a concrete reason the sibling cannot receive the same bad input.
 - Schema or index work lacks Postgres portability coverage, rollback/drop SQL assertions, index-name length checks, or query-pattern column-order review.
 - Server-owned fields are exposed through model mass-assignment instead of explicit action assignment or a dedicated domain method.
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.

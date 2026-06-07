@@ -148,6 +148,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
     public function test_empty_direct_autosave_is_a_readback_for_generating_drafts(): void
     {
         $draft = StudyCardDraft::factory()->create([
+            'status' => StudyManualCardDraftStatus::Generating,
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
         ]);

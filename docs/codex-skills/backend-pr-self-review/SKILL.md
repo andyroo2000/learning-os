@@ -82,6 +82,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - State-transition or active-record checks run outside the transaction/lock boundary used by the corresponding write path.
 - A controller/action moves a model into a worker-owned pending state such as `Generating` and then dispatches the worker outside the transaction/commit boundary, allowing a queue write failure to strand user-visible state.
 - A queued job owns user-visible pending state but has no final-exhaustion/`failed()` path to move the resource to an actionable error state or emit an equivalent signal.
+- A job lifecycle method such as `handle()` or `failed()` hides domain dependencies behind `app()`/service-location when the same dependency can be declared through the framework-supported injection path for that hook.
 - An empty PATCH/no-op branch bypasses mutable-state guards, such as `Generating` or locked status, without a test or durable comment that readback is intentionally allowed.
 - Existing behavior coverage was weakened to make a new test pass.
 

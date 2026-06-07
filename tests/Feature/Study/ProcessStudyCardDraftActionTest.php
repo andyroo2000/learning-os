@@ -111,9 +111,10 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         try {
             $processed = app(ProcessStudyCardDraftAction::class)->handle('not-a-ulid');
-        } finally {
             $queries = collect(DB::getQueryLog());
+        } finally {
             DB::disableQueryLog();
+            DB::flushQueryLog();
         }
 
         $this->assertNull($processed);

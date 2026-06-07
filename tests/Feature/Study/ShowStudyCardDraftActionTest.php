@@ -67,24 +67,25 @@ class ShowStudyCardDraftActionTest extends TestCase
     {
         $userId = User::factory()->create()->id;
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
-
-        $this->expectException(StudyCardDraftNotFoundException::class);
-        $this->expectExceptionMessage('Study card draft not found.');
+        DB::flushQueryLog();
 
         try {
             app(ShowStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
-        } finally {
+            $this->fail('Expected malformed draft IDs to be hidden as not found.');
+        } catch (StudyCardDraftNotFoundException $exception) {
+            $this->assertSame('Study card draft not found.', $exception->getMessage());
             $queries = collect(DB::getQueryLog());
+        } finally {
             DB::disableQueryLog();
-
-            $this->assertCount(
-                0,
-                $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
-                'Malformed draft IDs should return not-found before querying study_card_drafts.',
-            );
+            DB::flushQueryLog();
         }
+
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+            'Malformed draft IDs should return not-found before querying study_card_drafts.',
+        );
     }
 
     #[DataProvider('nonPositiveUserIdProvider')]

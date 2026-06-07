@@ -136,6 +136,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 - Count binary payload bytes with `mb_strlen($contents, '8bit')` when file/archive content is involved.
 - Cover all load-bearing upload guards: empty content, actual bytes over max, declared size over max with small actual payload, declared/actual mismatch, malformed header, native-integer overflow with longer digit count, equal-length value just above `PHP_INT_MAX`, and success with matching declared size.
 - For failure paths, assert no DB mutation and no storage write when validation happens before persistence.
+- In upload/import action tests, call `Storage::fake()` even when the malformed-ID or validation guard is expected to fire before storage. The fake turns a future accidental storage touch into an isolated assertion failure instead of a real-disk write.
 
 ## Concurrency and Transaction Boundaries
 

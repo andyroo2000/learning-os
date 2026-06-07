@@ -4,8 +4,10 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Http\Requests\Study\UploadStudyImportFileRequest;
 use App\Jobs\ProcessStudyImportJob;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -14,11 +16,13 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
+use Tests\Feature\Study\Concerns\UsesStudyImportRateLimitOverrides;
 use Tests\TestCase;
 
 class StudyImportUploadApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesStudyImportRateLimitOverrides;
 
     protected function tearDown(): void
     {
@@ -175,6 +179,61 @@ class StudyImportUploadApiTest extends TestCase
         $this->assertSame('Study import timed out before completion.', $stale->error_message);
     }
 
+    public function test_store_is_rate_limited_by_user(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $this->withStudyImportRateLimitOverride(
+            StudyImportRateLimiter::CREATE_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($otherUser, $user): void {
+                foreach ([1, 2] as $attempt) {
+                    $response = $this
+                        ->postJson('/api/study/imports', ['filename' => "core-{$attempt}.colpkg"])
+                        ->assertCreated();
+
+                    // Let the next create exercise the throttle bucket instead of the active-import guard.
+                    StudyImportJob::query()
+                        ->whereKey($response->json('data.import_job.id'))
+                        ->update([
+                            'status' => StudyImportStatus::Failed->value,
+                            'completed_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson('/api/study/imports', ['filename' => 'other.colpkg'])
+                    ->assertCreated();
+
+                $this->signIn($user);
+
+                $this
+                    ->postJson('/api/study/imports', ['filename' => 'blocked.colpkg'])
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson('/api/study/imports')
+                    ->assertOk()
+                    ->assertJsonCount(2, 'data');
+
+                $this->assertSame(2, StudyImportJob::query()->where('user_id', $user->id)->count());
+                $this->assertSame(1, StudyImportJob::query()->where('user_id', $otherUser->id)->count());
+                $this->assertDatabaseMissing('study_import_jobs', [
+                    'user_id' => $user->id,
+                    'source_filename' => 'blocked.colpkg',
+                ]);
+            },
+        );
+    }
+
     public function test_upload_stores_the_import_file(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
@@ -201,6 +260,72 @@ class StudyImportUploadApiTest extends TestCase
         $this->assertSame($user->id, $importJob->user_id);
         Storage::disk('study-imports')->assertExists($importJob->source_object_path);
         $this->assertSame($contents, Storage::disk('study-imports')->get($importJob->source_object_path));
+    }
+
+    public function test_upload_is_rate_limited_by_user(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $importJobs = StudyImportJob::factory()->count(3)->for($user)->create([
+            'source_content_type' => 'application/zip',
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+        foreach ($importJobs as $index => $importJob) {
+            $importJob->source_object_path = "study/imports/{$user->id}/rate-upload-{$index}/core.colpkg";
+            $importJob->save();
+        }
+        $otherUser = User::factory()->create();
+        $otherImportJob = StudyImportJob::factory()->for($otherUser)->create([
+            'source_content_type' => 'application/zip',
+            'source_object_path' => "study/imports/{$otherUser->id}/rate-upload/core.colpkg",
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->withStudyImportRateLimitOverride(
+            StudyImportRateLimiter::UPLOAD_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($importJobs, $otherImportJob, $otherUser, $user): void {
+                foreach ($importJobs->take(2) as $index => $importJob) {
+                    $contents = "PK upload {$index}";
+
+                    $this
+                        ->putImportUpload("/api/study/imports/{$importJob->id}/upload", $contents, 'application/zip', strlen($contents))
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $otherContents = 'PK other upload';
+                $this
+                    ->putImportUpload("/api/study/imports/{$otherImportJob->id}/upload", $otherContents, 'application/zip', strlen($otherContents))
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $blockedImportJob = $importJobs->last();
+                $blockedContents = 'PK blocked upload';
+
+                $this
+                    ->putImportUpload("/api/study/imports/{$blockedImportJob->id}/upload", $blockedContents, 'application/zip', strlen($blockedContents))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/study/imports/{$blockedImportJob->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.source_size_bytes', null)
+                    ->assertJsonPath('data.uploaded_at', null);
+
+                $this->assertNull($blockedImportJob->refresh()->source_size_bytes);
+                $this->assertNull($blockedImportJob->uploaded_at);
+                Storage::disk('study-imports')->assertMissing($blockedImportJob->source_object_path);
+            },
+        );
     }
 
     public function test_upload_hides_cross_user_import_jobs(): void
@@ -337,6 +462,75 @@ class StudyImportUploadApiTest extends TestCase
             ProcessStudyImportJob::QUEUE_NAME,
             ProcessStudyImportJob::class,
             fn (ProcessStudyImportJob $job): bool => $job->importJobId === $importJob->id,
+        );
+    }
+
+    public function test_complete_is_rate_limited_by_user(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $importJobs = StudyImportJob::factory()->count(3)->for($user)->create([
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+        foreach ($importJobs as $index => $importJob) {
+            $importJob->source_object_path = "study/imports/{$user->id}/rate-complete-{$index}/core.colpkg";
+            $importJob->save();
+            // Complete validates the uploaded archive from storage, then records size/upload timestamps.
+            Storage::disk('study-imports')->put($importJob->source_object_path, 'PK zipped bytes');
+        }
+        $otherUser = User::factory()->create();
+        $otherImportJob = StudyImportJob::factory()->for($otherUser)->create([
+            'source_object_path' => "study/imports/{$otherUser->id}/rate-complete/core.colpkg",
+            'upload_expires_at' => now()->addHour(),
+        ]);
+        Storage::disk('study-imports')->put($otherImportJob->source_object_path, 'PK zipped bytes');
+
+        $this->withStudyImportRateLimitOverride(
+            StudyImportRateLimiter::COMPLETE_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($importJobs, $otherImportJob, $otherUser, $user): void {
+                foreach ($importJobs->take(2) as $importJob) {
+                    $this
+                        ->postJson("/api/study/imports/{$importJob->id}/complete")
+                        ->assertStatus(202)
+                        ->assertJsonPath('data.source_size_bytes', 15)
+                        ->assertJsonPath('data.uploaded_at', now()->toJSON());
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson("/api/study/imports/{$otherImportJob->id}/complete")
+                    ->assertStatus(202);
+
+                $this->signIn($user);
+
+                $blockedImportJob = $importJobs->last();
+
+                $this
+                    ->postJson("/api/study/imports/{$blockedImportJob->id}/complete")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/study/imports/{$blockedImportJob->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.source_size_bytes', null)
+                    ->assertJsonPath('data.uploaded_at', null);
+
+                $this->assertNull($blockedImportJob->refresh()->source_size_bytes);
+                $this->assertNull($blockedImportJob->uploaded_at);
+                Queue::assertNotPushed(
+                    ProcessStudyImportJob::class,
+                    fn (ProcessStudyImportJob $job): bool => $job->importJobId === $blockedImportJob->id,
+                );
+            },
         );
     }
 
@@ -490,6 +684,64 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.completed_at', now()->toJSON());
 
         Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+    }
+
+    public function test_cancel_is_rate_limited_by_user(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $importJobs = StudyImportJob::factory()->count(3)->for($user)->create();
+        foreach ($importJobs as $index => $importJob) {
+            $importJob->source_object_path = "study/imports/{$user->id}/rate-cancel-{$index}/core.colpkg";
+            $importJob->save();
+            Storage::disk('study-imports')->put($importJob->source_object_path, 'PK zipped bytes');
+        }
+        $otherUser = User::factory()->create();
+        $otherImportJob = StudyImportJob::factory()->for($otherUser)->create([
+            'source_object_path' => "study/imports/{$otherUser->id}/rate-cancel/core.colpkg",
+        ]);
+        Storage::disk('study-imports')->put($otherImportJob->source_object_path, 'PK zipped bytes');
+
+        $this->withStudyImportRateLimitOverride(
+            StudyImportRateLimiter::CANCEL_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($importJobs, $otherImportJob, $otherUser, $user): void {
+                foreach ($importJobs->take(2) as $importJob) {
+                    $this
+                        ->postJson("/api/study/imports/{$importJob->id}/cancel")
+                        ->assertOk();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->postJson("/api/study/imports/{$otherImportJob->id}/cancel")
+                    ->assertOk();
+
+                $this->signIn($user);
+
+                $blockedImportJob = $importJobs->last();
+
+                $this
+                    ->postJson("/api/study/imports/{$blockedImportJob->id}/cancel")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson("/api/study/imports/{$blockedImportJob->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.status', StudyImportStatus::Pending->value)
+                    ->assertJsonPath('data.error_message', null);
+
+                $this->assertSame(StudyImportStatus::Pending, $blockedImportJob->refresh()->status);
+                $this->assertNull($blockedImportJob->error_message);
+                $this->assertNull($blockedImportJob->completed_at);
+                Storage::disk('study-imports')->assertExists($blockedImportJob->source_object_path);
+            },
+        );
     }
 
     public function test_cancel_hides_cross_user_import_jobs_and_rejects_processing_imports(): void

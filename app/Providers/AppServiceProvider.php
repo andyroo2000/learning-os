@@ -21,6 +21,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
@@ -150,6 +151,26 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftDeleteRateLimiter = new StudyCardDraftDeleteRateLimiter;
         RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($studyCardDraftDeleteRateLimiter): Limit {
             return $studyCardDraftDeleteRateLimiter->limit($request);
+        });
+
+        $studyImportCreateRateLimiter = StudyImportRateLimiter::forCreateSession();
+        RateLimiter::for(StudyImportRateLimiter::CREATE_NAME, function (Request $request) use ($studyImportCreateRateLimiter): Limit {
+            return $studyImportCreateRateLimiter->limit($request);
+        });
+
+        $studyImportUploadRateLimiter = StudyImportRateLimiter::forUpload();
+        RateLimiter::for(StudyImportRateLimiter::UPLOAD_NAME, function (Request $request) use ($studyImportUploadRateLimiter): Limit {
+            return $studyImportUploadRateLimiter->limit($request);
+        });
+
+        $studyImportCompleteRateLimiter = StudyImportRateLimiter::forComplete();
+        RateLimiter::for(StudyImportRateLimiter::COMPLETE_NAME, function (Request $request) use ($studyImportCompleteRateLimiter): Limit {
+            return $studyImportCompleteRateLimiter->limit($request);
+        });
+
+        $studyImportCancelRateLimiter = StudyImportRateLimiter::forCancel();
+        RateLimiter::for(StudyImportRateLimiter::CANCEL_NAME, function (Request $request) use ($studyImportCancelRateLimiter): Limit {
+            return $studyImportCancelRateLimiter->limit($request);
         });
 
         $studySettingsUpdateRateLimiter = new StudySettingsUpdateRateLimiter;

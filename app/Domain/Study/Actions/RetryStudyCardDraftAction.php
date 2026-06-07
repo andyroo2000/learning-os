@@ -12,7 +12,10 @@ use LogicException;
 
 class RetryStudyCardDraftAction
 {
-    public function handle(int $userId, string $draftId): StudyCardDraft
+    /**
+     * @param  null|callable(string): void  $afterCommit  Called after commit; omit only when the caller will advance the draft lifecycle itself.
+     */
+    public function handle(int $userId, string $draftId, ?callable $afterCommit = null): StudyCardDraft
     {
         if ($userId <= 0) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
@@ -21,7 +24,7 @@ class RetryStudyCardDraftAction
         $canonicalDraftId = CanonicalUlid::normalize($draftId);
 
         // Keep the lifecycle check and server-owned output reset on the same locked row snapshot.
-        return DB::transaction(function () use ($userId, $canonicalDraftId): StudyCardDraft {
+        return DB::transaction(function () use ($afterCommit, $userId, $canonicalDraftId): StudyCardDraft {
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
                 ->whereKey($canonicalDraftId)
@@ -38,9 +41,12 @@ class RetryStudyCardDraftAction
             }
 
             // Lost-response transport retries should see the already-pending draft instead of a 409.
-            // Do not clear outputs here: once a draft is in flight, the generation worker owns them
-            // until it moves the draft to a terminal status in the same write path.
+            // Re-request processing as recovery for a dropped queue write; the unique job and terminal
+            // action guard keep duplicate enqueue attempts harmless. Do not clear outputs here:
+            // once a draft is in flight, the generation worker owns preview state.
             if ($draft->status === StudyManualCardDraftStatus::Generating) {
+                $this->queueAfterCommit($draft, $afterCommit);
+
                 return $draft;
             }
 
@@ -51,7 +57,21 @@ class RetryStudyCardDraftAction
             $draft->resetForRetry();
             $draft->save();
 
+            $this->queueAfterCommit($draft, $afterCommit);
+
             return $draft;
         });
+    }
+
+    /**
+     * @param  null|callable(string): void  $afterCommit
+     */
+    private function queueAfterCommit(StudyCardDraft $draft, ?callable $afterCommit): void
+    {
+        if ($afterCommit === null) {
+            return;
+        }
+
+        DB::afterCommit(static fn () => $afterCommit($draft->id));
     }
 }

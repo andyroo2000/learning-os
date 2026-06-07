@@ -8,6 +8,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyCardDraftResource;
 use App\Http\Support\AuthenticatedUser;
+use App\Jobs\ProcessStudyCardDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -20,7 +21,11 @@ class RetryStudyCardDraftController extends Controller
         RetryStudyCardDraftAction $retryStudyCardDraft,
     ): JsonResponse {
         try {
-            $draft = $retryStudyCardDraft->handle(AuthenticatedUser::id($request), $draftId);
+            $draft = $retryStudyCardDraft->handle(
+                AuthenticatedUser::id($request),
+                $draftId,
+                afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
+            );
         } catch (StudyCardDraftNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         } catch (StudyCardDraftConflictException $exception) {

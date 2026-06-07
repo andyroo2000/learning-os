@@ -7,10 +7,12 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
+use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -29,6 +31,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
 
     public function test_it_retries_an_owned_errored_manual_study_card_draft(): void
     {
+        Queue::fake();
         $user = $this->signIn();
         $draft = StudyCardDraft::factory()->failed()->for($user)->create([
             'prompt_json' => ['cueText' => '会社'],
@@ -71,10 +74,16 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertNull($draft->preview_audio_role);
         $this->assertNull($draft->preview_image_json);
         $this->assertNull($draft->error_message);
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
+        );
     }
 
     public function test_it_returns_generating_drafts_for_idempotent_transport_retries(): void
     {
+        Queue::fake();
         $user = $this->signIn();
         $generatingDraft = StudyCardDraft::factory()->for($user)->create();
 
@@ -82,6 +91,12 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('id', $generatingDraft->id)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value);
+
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $generatingDraft->id,
+        );
     }
 
     public function test_it_rejects_ready_drafts(): void

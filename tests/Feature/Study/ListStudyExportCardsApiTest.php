@@ -59,6 +59,9 @@ class ListStudyExportCardsApiTest extends TestCase
         $otherCard = Card::factory()->for($otherDeck)->create([
             'front_text' => 'hidden',
         ]);
+        $mediaAsset = $this->mediaAssetForCardOwner($firstCard);
+
+        $firstCard->mediaAssets()->attach($mediaAsset->id);
 
         $deletedCard->delete();
         DB::table('decks')
@@ -89,6 +92,7 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.0.study_status', CardStudyStatus::New->value)
             ->assertJsonPath('data.0.new_queue_position', 1)
             ->assertJsonPath('data.0.deleted_at', null)
+            ->assertJsonMissingPath('data.0.media_assets')
             ->assertJsonPath('data.1.id', $secondCard->id)
             ->assertJsonPath('data.1.import_job_id', null)
             ->assertJsonPath('data.1.source_kind', null)
@@ -99,6 +103,7 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.1.source_template_ord', null)
             ->assertJsonPath('data.1.card_type', CardType::Production->value)
             ->assertJsonPath('data.1.study_status', CardStudyStatus::Review->value)
+            ->assertJsonMissingPath('data.1.media_assets')
             ->assertJsonMissing([
                 'id' => $deletedCard->id,
             ])
@@ -140,5 +145,11 @@ class ListStudyExportCardsApiTest extends TestCase
                     ],
                 ],
             ]);
+
+        $this->getJson('/api/study/export/card-media')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.card_id', $firstCard->id)
+            ->assertJsonPath('data.0.media_asset_id', $mediaAsset->id);
     }
 }

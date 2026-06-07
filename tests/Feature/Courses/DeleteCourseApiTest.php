@@ -3,12 +3,16 @@
 namespace Tests\Feature\Courses;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -102,6 +106,74 @@ class DeleteCourseApiTest extends TestCase
             $this->assertDatabaseCount('sync_feed_entries', 0);
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    public function test_delete_is_rate_limited_by_user(): void
+    {
+        $testBucket = 'test-'.Str::ulid();
+        $clientIp = '127.0.0.1';
+        $user = $this->signIn();
+        $courses = Course::factory()->count(3)->for($user)->create();
+        $otherUser = User::factory()->create();
+        $otherCourse = Course::factory()->for($otherUser)->create();
+
+        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+        $restoreCourseDeleteLimiter = function (): void {
+            $limiter = CourseRateLimiter::delete();
+            RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CourseRateLimiter::keyFor(CourseRateLimiter::DELETE_NAME, $userId, $ip);
+        $userKey = $testRateLimitKey($user->id, $clientIp);
+        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
+
+        try {
+            RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
+                return Limit::perMinute(2)->by($testRateLimitKey(
+                    $request->user()?->getAuthIdentifier(),
+                    $request->ip(),
+                ));
+            });
+
+            foreach ($courses->take(2) as $course) {
+                $this
+                    ->deleteJson("/api/courses/{$course->id}")
+                    ->assertNoContent();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->deleteJson("/api/courses/{$otherCourse->id}")
+                ->assertNoContent();
+
+            $this->signIn($user);
+
+            $blockedCourse = $courses->last();
+
+            $this
+                ->deleteJson("/api/courses/{$blockedCourse->id}")
+                ->assertTooManyRequests();
+
+            $this
+                ->getJson("/api/courses/{$blockedCourse->id}")
+                ->assertOk()
+                ->assertJsonPath('data.id', $blockedCourse->id);
+
+            $this->assertSoftDeleted('courses', ['id' => $courses[0]->id]);
+            $this->assertSoftDeleted('courses', ['id' => $courses[1]->id]);
+            $this->assertDatabaseHas('courses', [
+                'id' => $blockedCourse->id,
+                'deleted_at' => null,
+            ]);
+        } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+            $restoreCourseDeleteLimiter();
         }
     }
 

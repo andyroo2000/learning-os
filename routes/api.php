@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -115,11 +116,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/tokens', ListAccessTokensController::class);
     Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class);
     Route::delete('/auth/tokens/{tokenId}', DestroyAccessTokenController::class)->whereNumber('tokenId');
+    // Course creates, updates, and deletes below have separate buckets so create retries cannot starve destructive actions.
     Route::get('/courses', ListCoursesController::class);
-    Route::post('/courses', StoreCourseController::class);
+    Route::post('/courses', StoreCourseController::class)
+        ->middleware('throttle:'.CourseRateLimiter::CREATE_NAME);
     Route::get('/courses/{course}', ShowCourseController::class)->whereUlid('course');
-    Route::put('/courses/{course}', UpdateCourseController::class)->whereUlid('course');
-    Route::delete('/courses/{course}', DeleteCourseController::class)->whereUlid('course');
+    Route::put('/courses/{course}', UpdateCourseController::class)
+        ->whereUlid('course')
+        ->middleware('throttle:'.CourseRateLimiter::UPDATE_NAME);
+    Route::delete('/courses/{course}', DeleteCourseController::class)
+        ->whereUlid('course')
+        ->middleware('throttle:'.CourseRateLimiter::DELETE_NAME);
     Route::get('/card-review-events', ListReviewEventsController::class);
     // Review creates, batch replay, and study create aliases share one request-based create quota.
     // Batch payload size remains capped at 500 events by request validation.

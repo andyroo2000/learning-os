@@ -67,6 +67,10 @@ class CreateMediaAssetActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
         $this->assertSame([
             'id' => $mediaAsset->id,
+            'import_job_id' => null,
+            'source_kind' => null,
+            'source_media_ref' => null,
+            'source_filename' => null,
             'url' => 'https://cdn.example.test/uploads/example.jpg',
             'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
             'mime_type' => 'image/jpeg',

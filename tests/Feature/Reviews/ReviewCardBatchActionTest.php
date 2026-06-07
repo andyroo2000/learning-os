@@ -126,6 +126,7 @@ class ReviewCardBatchActionTest extends TestCase
             ],
             'created_at' => $firstResult->reviewEvents[0]->created_at?->toJSON(),
             'updated_at' => $firstResult->reviewEvents[0]->updated_at?->toJSON(),
+            'deleted_at' => null,
         ], $firstEntry->payload);
         $this->assertSame($secondCard->ownerUserId(), $secondEntry->user_id);
 

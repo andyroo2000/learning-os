@@ -152,6 +152,44 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->assertSame($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 
+    public function test_it_serves_review_event_tombstone_payloads_written_by_api_undos(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $createResponse = $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => 'good',
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $createResponse->assertCreated();
+
+        $reviewEventId = $createResponse->json('data.id');
+
+        $this->deleteJson("/api/card-review-events/{$reviewEventId}")
+            ->assertOk();
+
+        $response = $this->getJson("/api/sync/feed?domain=reviews&resource_type=card_review_event&resource_id={$reviewEventId}&operation=delete");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.domain', 'reviews')
+            ->assertJsonPath('data.0.resource_type', 'card_review_event')
+            ->assertJsonPath('data.0.resource_id', $reviewEventId)
+            ->assertJsonPath('data.0.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('data.0.payload.id', $reviewEventId)
+            ->assertJsonPath('data.0.payload.card_id', $card->id);
+
+        $deleteEntry = $response->json('data.0');
+
+        $this->assertIsString($deleteEntry['payload']['deleted_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
+        // Undo also records a card update after the review-event tombstone.
+        $this->assertGreaterThanOrEqual($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
+    }
+
     public function test_it_serves_course_entries_written_by_course_api_writes(): void
     {
         $this->signIn();

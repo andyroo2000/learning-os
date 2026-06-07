@@ -90,6 +90,7 @@ class CardReviewEventSyncPayloadTest extends TestCase
             ],
             'created_at' => '2026-05-30T12:14:30.000000Z',
             'updated_at' => '2026-05-30T12:15:00.000000Z',
+            'deleted_at' => null,
         ];
 
         $this->assertSame('reviews', CardReviewEventSyncPayload::DOMAIN);
@@ -156,7 +157,37 @@ class CardReviewEventSyncPayloadTest extends TestCase
             'scheduler_state_after' => null,
             'created_at' => '2026-05-30T12:14:30.000000Z',
             'updated_at' => '2026-05-30T12:15:00.000000Z',
+            'deleted_at' => null,
         ], $payload);
+    }
+
+    public function test_it_uses_the_supplied_tombstone_timestamp_for_deleted_at(): void
+    {
+        $reviewEvent = new CardReviewEvent;
+        $reviewEvent->setRawAttributes([
+            'id' => '01jzq4tvb2sbc5ab6b0n3thhay',
+            'card_id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'card_deck_id' => null,
+            'card_course_id' => null,
+            'rating' => 'good',
+            'reviewed_at' => null,
+            'duration_ms' => null,
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
+            'card_state_before' => null,
+            'scheduler_state_before' => null,
+            'scheduler_state_after' => null,
+            'created_at' => null,
+            'updated_at' => Carbon::parse('2026-05-30T12:15:00Z'),
+        ], sync: true);
+
+        $payload = CardReviewEventSyncPayload::fromReviewEvent(
+            $reviewEvent,
+            Carbon::parse('2026-05-30T12:16:00Z'),
+        );
+
+        $this->assertSame('2026-05-30T12:16:00.000000Z', $payload['deleted_at']);
     }
 
     public function test_it_preserves_raw_legacy_rating_values(): void

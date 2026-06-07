@@ -12,7 +12,6 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
-use UnexpectedValueException;
 
 class ListMediaAssetsApiTest extends TestCase
 {
@@ -650,21 +649,5 @@ class ListMediaAssetsApiTest extends TestCase
         $response = $this->getJson('/api/media-assets');
 
         $response->assertUnauthorized();
-    }
-
-    private function pathAndQueryFromUrl(string $url): string
-    {
-        $path = parse_url($url, PHP_URL_PATH);
-        $query = parse_url($url, PHP_URL_QUERY);
-
-        if (! is_string($path)) {
-            throw new UnexpectedValueException("Could not extract path from URL: {$url}");
-        }
-
-        if (! is_string($query) || $query === '') {
-            return $path;
-        }
-
-        return "{$path}?{$query}";
     }
 }

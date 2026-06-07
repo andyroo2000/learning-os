@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Sanctum\Sanctum;
+use UnexpectedValueException;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -30,6 +31,23 @@ abstract class TestCase extends BaseTestCase
         parse_str($queryString, $query);
 
         $this->assertSame($expected, $query[$key] ?? null, "URL query parameter [{$key}] did not match: {$url}");
+    }
+
+    protected function pathAndQueryFromUrl(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || $path === '') {
+            throw new UnexpectedValueException("URL has no path: {$url}");
+        }
+
+        $queryString = parse_url($url, PHP_URL_QUERY);
+
+        if (! is_string($queryString) || $queryString === '') {
+            return $path;
+        }
+
+        return "{$path}?{$queryString}";
     }
 
     /**

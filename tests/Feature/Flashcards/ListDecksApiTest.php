@@ -297,7 +297,7 @@ class ListDecksApiTest extends TestCase
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()

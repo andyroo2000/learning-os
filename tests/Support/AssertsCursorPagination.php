@@ -34,7 +34,7 @@ trait AssertsCursorPagination
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '2');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()

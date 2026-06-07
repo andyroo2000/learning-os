@@ -644,7 +644,7 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -682,7 +682,7 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'card_id', $card->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -722,7 +722,7 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()

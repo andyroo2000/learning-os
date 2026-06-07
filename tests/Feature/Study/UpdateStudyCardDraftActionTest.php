@@ -145,6 +145,25 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
+    public function test_empty_direct_autosave_is_a_readback_for_generating_drafts(): void
+    {
+        $draft = StudyCardDraft::factory()->create([
+            'status' => StudyManualCardDraftStatus::Generating,
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+        $originalUpdatedAt = $draft->updated_at?->toJSON();
+
+        $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput());
+
+        $this->assertSame($draft->id, $updated->id);
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $updated->status);
+        $this->assertSame(['cueText' => '会社'], $updated->prompt_json);
+        $this->assertSame(['meaning' => 'company'], $updated->answer_json);
+        $this->assertSame($originalUpdatedAt, $updated->updated_at?->toJSON());
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
     public function test_it_only_updates_present_fields(): void
     {
         $draft = StudyCardDraft::factory()->failed()->create([
@@ -230,6 +249,51 @@ class UpdateStudyCardDraftActionTest extends TestCase
 
         $this->assertNull($updated->preview_audio_json);
         $this->assertNull($updated->preview_audio_role);
+    }
+
+    public function test_it_clears_nullable_optional_fields_for_direct_callers(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'image_placement' => StudyCardImagePlacement::Both,
+            'image_prompt' => 'Keep this',
+            'preview_audio_json' => [
+                'id' => 'audio-1',
+                'filename' => 'kaisha.mp3',
+                'url' => '/api/study/media/audio-1',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            'preview_audio_role' => StudyCardAudioRole::Answer,
+            'preview_image_json' => [
+                'id' => 'image-1',
+                'filename' => 'kaisha.webp',
+                'url' => '/api/study/media/image-1',
+                'mediaKind' => 'image',
+                'source' => 'generated',
+            ],
+        ]);
+
+        $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
+            hasImagePlacement: true,
+            imagePlacement: null,
+            hasImagePrompt: true,
+            imagePrompt: '   ',
+            hasPreviewAudio: true,
+            previewAudioJson: null,
+            hasPreviewAudioRole: true,
+            previewAudioRole: null,
+            hasPreviewImage: true,
+            previewImageJson: null,
+        ));
+
+        $updated->refresh();
+
+        $this->assertSame(StudyCardImagePlacement::None, $updated->image_placement);
+        $this->assertNull($updated->image_prompt);
+        $this->assertNull($updated->preview_audio_json);
+        $this->assertNull($updated->preview_audio_role);
+        $this->assertNull($updated->preview_image_json);
+        $this->assertSame(1, SyncFeedEntry::query()->count());
     }
 
     public function test_it_rejects_generating_draft_edits(): void

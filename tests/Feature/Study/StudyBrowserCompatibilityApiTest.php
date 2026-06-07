@@ -116,11 +116,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/study/browser?q=shared%20browser%20facet%20term&noteType=Japanese%20-%20Vocab&cardType=recognition');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $response = $this->getJson('/api/study/browser?q=shared%20browser%20facet%20term&noteType=Japanese%20-%20Vocab&cardType=recognition');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertOk()
@@ -169,11 +171,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/study/browser');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $response = $this->getJson('/api/study/browser');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertOk()
@@ -214,11 +218,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/study/browser?q=initial%20browser%20load');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $response = $this->getJson('/api/study/browser?q=initial%20browser%20load');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertOk()
@@ -261,11 +267,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/study/browser?q=paged%20browser%20load&limit=1');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $response = $this->getJson('/api/study/browser?q=paged%20browser%20load&limit=1');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertOk()

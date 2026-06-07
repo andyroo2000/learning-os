@@ -149,14 +149,16 @@ class GetStudyOverviewActionTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $overview = app(GetStudyOverviewAction::class)->handle(
-            userId: $user->id,
-            now: $now,
-        );
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $overview = app(GetStudyOverviewAction::class)->handle(
+                userId: $user->id,
+                now: $now,
+            );
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $this->assertSame(1, $overview['due_count']);
         $this->assertSame(2, $overview['failed_count']);

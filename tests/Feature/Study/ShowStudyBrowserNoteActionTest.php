@@ -89,11 +89,13 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, 'not-a-ulid');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, 'not-a-ulid');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $this->assertNull($result);
         $this->assertCount(

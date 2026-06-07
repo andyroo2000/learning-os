@@ -87,15 +87,17 @@ class ListStudyCardDraftsActionTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $secondPage = app(ListStudyCardDraftsAction::class)->handle(
-            userId: $user->id,
-            cursor: $firstPage['nextCursor'],
-            limit: 1,
-        );
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $secondPage = app(ListStudyCardDraftsAction::class)->handle(
+                userId: $user->id,
+                cursor: $firstPage['nextCursor'],
+                limit: 1,
+            );
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $this->assertNull($secondPage['total']);
         $this->assertFalse(

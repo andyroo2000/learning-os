@@ -811,7 +811,7 @@ class ListCardsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -852,7 +852,7 @@ class ListCardsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'study_status', 'review');
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -896,7 +896,7 @@ class ListCardsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'card_type', 'production');
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -938,7 +938,7 @@ class ListCardsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
@@ -982,7 +982,7 @@ class ListCardsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'q', 'photo');
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()

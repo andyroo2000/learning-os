@@ -109,7 +109,7 @@ class ListStudyImportJobsApiTest extends TestCase
         $this->assertNotNull($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $this->getJson($nextUrl)
+        $this->getJson($this->pathAndQueryFromUrl($nextUrl))
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderImport->id);
@@ -203,7 +203,7 @@ class ListStudyImportJobsApiTest extends TestCase
         $this->assertUrlQueryParameter($nextUrl, 'status', 'completed');
         $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
 
-        $this->getJson($nextUrl)
+        $this->getJson($this->pathAndQueryFromUrl($nextUrl))
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderImport->id)

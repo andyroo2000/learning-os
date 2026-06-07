@@ -125,6 +125,7 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
         $otherUser = User::factory()->create();
         $otherCard = $this->cardFor($otherUser);
 
+        // Pre-delete so allowed throttle attempts exercise idempotent 204s without sync writes.
         $card->delete();
         $otherCard->delete();
         $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);

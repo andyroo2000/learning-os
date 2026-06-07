@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
+use LogicException;
 use ReflectionProperty;
 use RuntimeException;
 use Tests\TestCase;
@@ -166,9 +167,7 @@ class ProcessStudyImportJobTest extends TestCase
         $listeners = $property->getValue($dispatcher);
 
         if (! is_array($listeners)) {
-            Event::forget($eventName);
-
-            return;
+            throw new LogicException('Laravel event dispatcher listeners should be stored as an array.');
         }
 
         if ($originalListeners === null) {

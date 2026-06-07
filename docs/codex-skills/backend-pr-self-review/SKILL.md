@@ -97,6 +97,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A job exposes Action internals as public static transition helpers solely so the worker can bypass the container or direct dependency boundary.
 - Job lifecycle methods such as `handle()`, `uniqueId()`, and `failed()` apply different normalization contracts to the same persisted/client-visible ID.
 - A transaction captures timestamps at a boundary that conflicts with the intended semantics, such as logical operation time versus actual locked-write time.
+- A query-log test calls `DB::enableQueryLog()` without an explicit adjacent `DB::flushQueryLog()`, assuming enabling clears stale entries from prior failed tests.
 - A test freezes time with `travelTo()`, `Carbon::setTestNow()`, or similar process-global clock state without an auto-resetting closure, `travelBack()` in `finally`/`tearDown`, or another proven cleanup path.
 - A test that expects an exception puts query-log, database, or side-effect assertions inside `finally`, allowing a failed assertion to replace the expected domain exception. Capture/cleanup in `finally`, then assert after catching the expected exception, or split exception and side-effect coverage into separate focused tests.
 - Base `tearDown()` clock cleanup does not choose reset-before-parent versus parent-before-reset deliberately.

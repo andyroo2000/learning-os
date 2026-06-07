@@ -20,6 +20,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -183,6 +184,22 @@ class StudyImportUploadActionTest extends TestCase
             contents: 'anki bytes',
             contentType: $importJob->source_content_type,
         );
+    }
+
+    public function test_upload_hides_malformed_import_job_ids_without_querying_import_jobs(): void
+    {
+        Storage::fake('study-imports');
+        $userId = User::factory()->create()->id;
+
+        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $userId,
+                importJobId: 'not-a-ulid',
+                contents: 'anki bytes',
+                contentType: 'application/zip',
+            );
+        });
+        $this->assertSame([], Storage::disk('study-imports')->allFiles());
     }
 
     public function test_upload_rejects_non_pending_imports(): void
@@ -429,6 +446,18 @@ class StudyImportUploadActionTest extends TestCase
         );
     }
 
+    public function test_complete_hides_malformed_import_job_ids_without_querying_import_jobs(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+            app(CompleteStudyImportUploadAction::class)->handle(
+                userId: $userId,
+                importJobId: 'not-a-ulid',
+            );
+        });
+    }
+
     public function test_complete_rejects_missing_expired_invalid_and_oversized_archives(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
@@ -535,6 +564,18 @@ class StudyImportUploadActionTest extends TestCase
         $result = app(CancelStudyImportUploadAction::class)->handle($completed->user_id, $completed->id);
 
         $this->assertSame(StudyImportStatus::Completed, $result->status);
+    }
+
+    public function test_cancel_hides_malformed_import_job_ids_without_querying_import_jobs(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        $this->assertMalformedImportJobIdIsHiddenWithoutQuerying(function () use ($userId): void {
+            app(CancelStudyImportUploadAction::class)->handle(
+                userId: $userId,
+                importJobId: 'not-a-ulid',
+            );
+        });
     }
 
     public function test_process_job_imports_cards_and_marks_the_job_completed(): void
@@ -887,6 +928,42 @@ class StudyImportUploadActionTest extends TestCase
     public function test_process_job_returns_null_for_missing_imports(): void
     {
         $this->assertNull(app(ProcessStudyImportJobAction::class)->handle(strtolower((string) Str::ulid())));
+    }
+
+    /**
+     * @param  callable(): void  $callback
+     */
+    private function assertMalformedImportJobIdIsHiddenWithoutQuerying(callable $callback): void
+    {
+        $queries = $this->captureQueriesForMalformedImportJobId($callback);
+
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
+            'Malformed import job IDs should return not-found before querying study_import_jobs.',
+        );
+    }
+
+    /**
+     * @param  callable(): void  $callback
+     */
+    private function captureQueriesForMalformedImportJobId(callable $callback): Collection
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $callback();
+            $this->fail('Expected malformed import job IDs to be hidden as not found.');
+        } catch (ModelNotFoundException $exception) {
+            $this->assertSame(StudyImportJob::class, $exception->getModel());
+            $this->assertSame([], $exception->getIds());
+
+            return collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
     }
 
     private function writeSparseStudyImportFile(string $path, int $sizeBytes): void

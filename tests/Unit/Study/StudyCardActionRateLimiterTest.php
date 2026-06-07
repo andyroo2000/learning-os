@@ -1,0 +1,43 @@
+<?php
+
+namespace Tests\Unit\Study;
+
+use App\Domain\Study\Support\StudyCardActionRateLimiter;
+use Illuminate\Http\Request;
+use PHPUnit\Framework\TestCase;
+
+class StudyCardActionRateLimiterTest extends TestCase
+{
+    public function test_it_builds_stable_user_and_network_keys(): void
+    {
+        $limiter = new StudyCardActionRateLimiter;
+
+        $this->assertSame('study-card-action:user:42', $limiter->keyFor(42, '127.0.0.1'));
+        $this->assertSame('study-card-action:user:42', $limiter->keyFor(42, '192.0.2.10'));
+        $this->assertSame('study-card-action:anon:unknown-ip', $limiter->keyFor(null, null));
+        $this->assertSame('study-card-action:anon:unknown-ip', $limiter->keyFor(null, ''));
+        $this->assertSame('study-card-action:anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
+        $this->assertSame('study-card-action:anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
+        $this->assertSame('study-card-action:user:user-1', $limiter->keyFor('user-1', ''));
+        $this->assertSame('study-card-action:user:missing-user', $limiter->keyFor('missing-user', ''));
+    }
+
+    public function test_it_uses_120_attempts_per_minute_by_default(): void
+    {
+        $limiter = new StudyCardActionRateLimiter;
+        $request = Request::create('/api/study/cards/01HWZ1KCE7000000000000000/actions', 'POST', [], [], [], ['REMOTE_ADDR' => '127.0.0.1']);
+        $request->setUserResolver(fn () => new class
+        {
+            public function getAuthIdentifier(): int
+            {
+                return 42;
+            }
+        });
+
+        $limit = $limiter->limit($request);
+
+        $this->assertSame(120, $limit->maxAttempts);
+        $this->assertSame(60, $limit->decaySeconds);
+        $this->assertSame('study-card-action:user:42', $limit->key);
+    }
+}

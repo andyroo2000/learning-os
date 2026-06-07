@@ -5,12 +5,18 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
 class PerformStudyCardActionCompatibilityApiTest extends TestCase
@@ -231,6 +237,82 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ->assertJsonPath('overview.suspendedCount', 0);
 
         $this->assertSame('review', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    /**
+     * CI runs the suite serially today; keep this marker if parallel workers start honoring group exclusions.
+     */
+    #[Group('no-parallel')]
+    public function test_it_rate_limits_study_card_actions_by_user(): void
+    {
+        $limiter = new StudyCardActionRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+
+        $restoreStudyCardActionLimiter = function () use ($limiter): void {
+            RateLimiter::for(StudyCardActionRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        try {
+            // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
+            RateLimiter::for(StudyCardActionRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            foreach (['2026-06-06T14:15:00Z', '2026-06-07T14:15:00Z'] as $dueAt) {
+                $this
+                    ->postJson("/api/study/cards/{$card->id}/actions", [
+                        'action' => 'set_due',
+                        'mode' => 'custom_date',
+                        'dueAt' => $dueAt,
+                    ])
+                    ->assertOk();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->postJson("/api/study/cards/{$otherCard->id}/actions", [
+                    'action' => 'set_due',
+                    'mode' => 'custom_date',
+                    'dueAt' => '2026-06-06T09:00:00Z',
+                ])
+                ->assertOk();
+
+            $this->signIn($user);
+
+            $this
+                ->postJson("/api/study/cards/{$card->id}/actions", [
+                    'action' => 'set_due',
+                    'mode' => 'custom_date',
+                    'dueAt' => '2026-06-08T14:15:00Z',
+                ])
+                ->assertTooManyRequests();
+
+            $this->assertSame('2026-06-07T14:15:00.000000Z', $card->refresh()->due_at?->toJSON());
+            $this->assertSame('2026-06-06T09:00:00.000000Z', $otherCard->refresh()->due_at?->toJSON());
+            $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
+            $this->assertSame(1, SyncFeedEntry::query()->where('user_id', $otherUser->id)->count());
+            $this->assertDatabaseMissing('sync_feed_entries', [
+                'user_id' => $user->id,
+                'payload->due_at' => '2026-06-08T14:15:00.000000Z',
+            ]);
+        } finally {
+            $restoreStudyCardActionLimiter();
+        }
     }
 
     public function test_it_returns_not_found_for_missing_unowned_or_deleted_cards_before_payload_validation(): void

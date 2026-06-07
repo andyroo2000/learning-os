@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
@@ -198,7 +199,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
         ->whereUlid('cardId')
         ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
-    Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
+    // Manual card actions can be retried independently from create/update/delete writes.
+    Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)
+        ->whereUlid('cardId')
+        ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
     // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
     Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
         ->whereUlid('cardId')

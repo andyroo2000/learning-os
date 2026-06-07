@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
@@ -75,6 +76,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardUpdateRateLimiter = new StudyCardUpdateRateLimiter;
         RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($studyCardUpdateRateLimiter): Limit {
             return $studyCardUpdateRateLimiter->limit($request);
+        });
+
+        $studyCardActionRateLimiter = new StudyCardActionRateLimiter;
+        RateLimiter::for(StudyCardActionRateLimiter::NAME, function (Request $request) use ($studyCardActionRateLimiter): Limit {
+            return $studyCardActionRateLimiter->limit($request);
         });
 
         $studyCardDraftAutosaveRateLimiter = new StudyCardDraftAutosaveRateLimiter;

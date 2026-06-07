@@ -56,7 +56,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 
 - Raw request accessors like `$this->input()`, `$this->has()`, `$this->integer()`, or `$request->query()` are used after validation where `$this->validated()` should be the source of truth.
 - Query-string integers rely on Laravel validation to cast values; cast validated values explicitly.
-- Client-provided ULIDs are accepted without pre-validation normalization in FormRequests and action/DTO boundaries that direct callers use.
+- Client-provided ULIDs are accepted without pre-validation normalization in FormRequests and action/DTO boundaries that direct callers use, or a normalizer runs before the format guard without proving it is safe for arbitrary garbage strings.
 - Normalization converts arrays, omitted optional fields, or other non-string invalid inputs into `null` or another value that hides validation errors.
 - Compatibility validation messages do not cover every rule key and input shape the request can trigger, especially null/scalar/list variants for `present`, `required`, and `array` rules.
 - The same client-visible validation message is reused for structurally different failures, such as missing paired payloads versus present-but-wrong JSON shape, without a compatibility note and tests.

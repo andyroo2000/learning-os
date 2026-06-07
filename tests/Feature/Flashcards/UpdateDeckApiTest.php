@@ -219,7 +219,7 @@ class UpdateDeckApiTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
 
         $restoreDeckUpdateLimiter = function (): void {
-            $limiter = DeckRateLimiter::update();
+            $limiter = DeckRateLimiter::forUpdate();
             RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($limiter): Limit {
                 return $limiter->limit($request);
             });

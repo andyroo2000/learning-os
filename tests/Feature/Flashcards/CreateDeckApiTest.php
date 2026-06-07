@@ -207,7 +207,7 @@ class CreateDeckApiTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
 
         $restoreDeckCreateLimiter = function (): void {
-            $limiter = DeckRateLimiter::create();
+            $limiter = DeckRateLimiter::forCreate();
             RateLimiter::for(DeckRateLimiter::CREATE_NAME, function (Request $request) use ($limiter): Limit {
                 return $limiter->limit($request);
             });

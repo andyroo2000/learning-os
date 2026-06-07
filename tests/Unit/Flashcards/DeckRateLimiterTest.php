@@ -63,9 +63,9 @@ class DeckRateLimiterTest extends TestCase
     public static function defaultLimiterProvider(): array
     {
         return [
-            'create' => [DeckRateLimiter::create(), 'POST', '/api/decks', 60, 'deck-create:user:42'],
-            'update' => [DeckRateLimiter::update(), 'PUT', '/api/decks/01HWZ1KCE7000000000000000', 60, 'deck-update:user:42'],
-            'delete' => [DeckRateLimiter::delete(), 'DELETE', '/api/decks/01HWZ1KCE7000000000000000', 30, 'deck-delete:user:42'],
+            'create' => [DeckRateLimiter::forCreate(), 'POST', '/api/decks', 60, 'deck-create:user:42'],
+            'update' => [DeckRateLimiter::forUpdate(), 'PUT', '/api/decks/01HWZ1KCE7000000000000000', 60, 'deck-update:user:42'],
+            'delete' => [DeckRateLimiter::forDelete(), 'DELETE', '/api/decks/01HWZ1KCE7000000000000000', 30, 'deck-delete:user:42'],
         ];
     }
 }

@@ -18,19 +18,19 @@ final class DeckRateLimiter
         private readonly int $perMinute,
     ) {}
 
-    public static function create(): self
+    public static function forCreate(): self
     {
         // Deck creation is retryable for offline clients; 60/min leaves room for backlog replay.
         return new self(self::CREATE_NAME, 60);
     }
 
-    public static function update(): self
+    public static function forUpdate(): self
     {
         // Deck metadata edits are manual but retryable; 60/min keeps updates separate from creates.
         return new self(self::UPDATE_NAME, 60);
     }
 
-    public static function delete(): self
+    public static function forDelete(): self
     {
         // Deck deletes are low-frequency destructive gestures; 30/min still tolerates retry loops.
         return new self(self::DELETE_NAME, 30);

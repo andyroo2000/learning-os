@@ -125,7 +125,7 @@ class DeleteDeckApiTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
 
         $restoreDeckDeleteLimiter = function (): void {
-            $limiter = DeckRateLimiter::delete();
+            $limiter = DeckRateLimiter::forDelete();
             RateLimiter::for(DeckRateLimiter::DELETE_NAME, function (Request $request) use ($limiter): Limit {
                 return $limiter->limit($request);
             });

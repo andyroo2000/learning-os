@@ -41,7 +41,7 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
         $this->assertSame($draft->id, $entry->payload['id']);
         $this->assertSame($draft->status->value, $entry->payload['status']);
-        $this->assertNotNull($entry->payload['deleted_at']);
+        $this->assertJsonTimestamp($entry->payload['deleted_at']);
     }
 
     public function test_it_normalizes_uppercase_draft_ids_for_direct_callers(): void

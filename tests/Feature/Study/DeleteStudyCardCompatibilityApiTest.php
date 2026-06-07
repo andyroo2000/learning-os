@@ -54,7 +54,7 @@ class DeleteStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
         $this->assertSame($card->id, $entry->payload['id']);
         $this->assertSame($card->deck_id, $entry->payload['deck_id']);
-        $this->assertNotNull($entry->payload['deleted_at']);
+        $this->assertJsonTimestamp($entry->payload['deleted_at']);
     }
 
     public function test_it_is_idempotent_for_owned_soft_deleted_study_cards(): void

@@ -8,6 +8,8 @@ use App\Domain\Study\Actions\DeleteStudyCardDraftAction;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
@@ -29,6 +31,16 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $this->assertDatabaseMissing('study_card_drafts', [
             'id' => $draft->id,
         ]);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame($draft->user_id, $entry->user_id);
+        $this->assertSame('study', $entry->domain);
+        $this->assertSame('study_card_draft', $entry->resource_type);
+        $this->assertSame($draft->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertSame($draft->id, $entry->payload['id']);
+        $this->assertSame($draft->status->value, $entry->payload['status']);
+        $this->assertNotNull($entry->payload['deleted_at']);
     }
 
     public function test_it_normalizes_uppercase_draft_ids_for_direct_callers(): void
@@ -52,6 +64,7 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $otherDraft->id,
         ]);
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_noops_missing_drafts(): void
@@ -60,6 +73,7 @@ class DeleteStudyCardDraftActionTest extends TestCase
         app(DeleteStudyCardDraftAction::class)->handle($user->id, strtolower((string) str()->ulid()));
 
         $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_noops_already_deleted_drafts(): void

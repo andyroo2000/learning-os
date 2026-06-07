@@ -11,6 +11,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadText;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -20,6 +21,7 @@ class CreateStudyCardFromDraftAction
     public function __construct(
         private readonly ResolveManualStudyDeckAction $resolveManualStudyDeck,
         private readonly CreateCardAction $createCard,
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
     ) {}
 
     public function handle(int $userId, string $draftId, string $cardId): CreateCardResult
@@ -76,8 +78,9 @@ class CreateStudyCardFromDraftAction
 
             if ($draft->committed_card_id === null) {
                 $draft->committed_card_id = $result->card->id;
-                // Draft commits are an internal retry marker; card creation emits the sync entry.
+                // Draft commits remain retry markers; card creation and draft state each emit sync entries.
                 $draft->saveQuietly();
+                $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
             }
 
             return $result;

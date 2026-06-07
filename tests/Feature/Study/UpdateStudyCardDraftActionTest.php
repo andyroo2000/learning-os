@@ -11,6 +11,8 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -67,6 +69,17 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('image-1', $updated->preview_image_json['id']);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $updated->status);
         $this->assertSame('Old error.', $updated->error_message);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('study', $entry->domain);
+        $this->assertSame('study_card_draft', $entry->resource_type);
+        $this->assertSame($draft->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+        $this->assertSame(['cueText' => '会議'], $entry->payload['prompt_json']);
+        $this->assertSame('A quiet meeting room', $entry->payload['image_prompt']);
+        $this->assertSame('audio-1', $entry->payload['preview_audio_json']['id']);
+        $this->assertSame(StudyCardAudioRole::Prompt->value, $entry->payload['preview_audio_role']);
+        $this->assertNull($entry->payload['committed_card_id']);
     }
 
     public function test_it_ignores_values_for_omitted_fields_in_direct_data(): void
@@ -107,6 +120,29 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('Keep this', $updated->image_prompt);
         $this->assertSame('keep.mp3', $updated->preview_audio_json['filename']);
         $this->assertSame('keep.webp', $updated->preview_image_json['filename']);
+    }
+
+    public function test_it_does_not_record_sync_entries_for_noop_resubmits(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
+            'image_placement' => StudyCardImagePlacement::Both,
+            'image_prompt' => 'Keep this',
+        ]);
+
+        app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
+            hasPrompt: true,
+            promptJson: ['cueText' => '会社'],
+            hasAnswer: true,
+            answerJson: ['expression' => '会社', 'meaning' => 'company'],
+            hasImagePlacement: true,
+            imagePlacement: StudyCardImagePlacement::Both,
+            hasImagePrompt: true,
+            imagePrompt: 'Keep this',
+        ));
+
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_only_updates_present_fields(): void

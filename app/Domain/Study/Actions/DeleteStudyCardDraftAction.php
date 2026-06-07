@@ -3,12 +3,17 @@
 namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
 class DeleteStudyCardDraftAction
 {
+    public function __construct(
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+    ) {}
+
     /**
      * Hard-delete owned transient draft rows; retries for gone or unowned IDs are no-op successes.
      */
@@ -29,7 +34,9 @@ class DeleteStudyCardDraftAction
                 return;
             }
 
+            $deletedAt = now();
             $draft->delete();
+            $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Delete, $deletedAt);
         });
     }
 }

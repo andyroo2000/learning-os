@@ -7,11 +7,16 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 
 class CreateStudyCardDraftAction
 {
     public const MAX_DRAFTS_PER_USER = 2000;
+
+    public function __construct(
+        private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+    ) {}
 
     /**
      * @param  null|callable(string): void  $afterCommit  Called after commit; omit only when the caller will advance the draft lifecycle itself.
@@ -47,6 +52,10 @@ class CreateStudyCardDraftAction
             $draft->preview_image_json = null;
             $draft->error_message = null;
             $draft->save();
+
+            // Create callers do not provide draft IDs, so reaching this point always means
+            // a new sync resource was persisted rather than an existing draft retry.
+            $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Create);
 
             if ($afterCommit !== null) {
                 DB::afterCommit(static fn () => $afterCommit($draft->id));

@@ -61,6 +61,7 @@ This reference summarizes recurring Claude feedback from recent `learning-os` ba
 ## Layer and Domain Coverage
 
 - If a request and action both accept the same value, test both the HTTP path and direct action path.
+- Keep direct action regressions co-located with the action's focused test class when one exists. Adjacent API, upload, or controller tests can still cover the HTTP contract, but they should not be the only place proving an action-level malformed-ID, guard-ordering, or side-effect-free invariant; mirror sibling action test placement so future changes find the relevant coverage quickly.
 - When a pattern changes in one domain, inspect sibling domains before pushing: courses, decks, flashcards/cards, media assets, review events, sync feeds, and auth/user isolation.
 - For list filters, include happy path, malformed ULID, blank/whitespace, cross-user isolation, pagination query preservation, and any deleted-resource behavior relevant to the endpoint.
 - For batch payloads, preserve item indexes and non-array item behavior so validation errors point to paths such as `events.0.id`.

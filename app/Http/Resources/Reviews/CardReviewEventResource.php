@@ -28,7 +28,6 @@ class CardReviewEventResource extends JsonResource
             'source_factor' => $this->source_factor,
             'source_time_ms' => $this->source_time_ms,
             'source_review_type' => $this->source_review_type,
-            'raw_payload_json' => $this->raw_payload_json,
             'rating' => $this->ratingValue(),
             'reviewed_at' => $this->reviewed_at?->toJSON(),
             'duration_ms' => $this->duration_ms,

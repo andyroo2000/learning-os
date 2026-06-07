@@ -696,7 +696,11 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(701, $reviewSyncEntry->payload['source_card_id']);
         $this->assertSame(3, $reviewSyncEntry->payload['source_ease']);
         $this->assertSame(12, $reviewSyncEntry->payload['source_interval']);
-        $this->assertSame(901, $reviewSyncEntry->payload['raw_payload_json']['source_review_id']);
+        $this->assertSame(6, $reviewSyncEntry->payload['source_last_interval']);
+        $this->assertSame(2500, $reviewSyncEntry->payload['source_factor']);
+        $this->assertSame(980, $reviewSyncEntry->payload['source_time_ms']);
+        $this->assertSame(1, $reviewSyncEntry->payload['source_review_type']);
+        $this->assertArrayNotHasKey('raw_payload_json', $reviewSyncEntry->payload);
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());

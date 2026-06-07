@@ -91,7 +91,7 @@ class ListStudyExportReviewEventsApiTest extends TestCase
             ->assertJsonPath('data.0.source_factor', 2500)
             ->assertJsonPath('data.0.source_time_ms', 1200)
             ->assertJsonPath('data.0.source_review_type', 1)
-            ->assertJsonPath('data.0.raw_payload_json.source_review_id', 901)
+            ->assertJsonMissingPath('data.0.raw_payload_json')
             ->assertJsonPath('data.0.rating', CardReviewRating::Hard->value)
             ->assertJsonPath('data.0.reviewed_at', $firstEvent->reviewed_at->toJSON())
             ->assertJsonPath('data.0.duration_ms', 1200)
@@ -99,6 +99,17 @@ class ListStudyExportReviewEventsApiTest extends TestCase
             ->assertJsonPath('data.0.device_id', 'device-a')
             ->assertJsonPath('data.0.client_created_at', $firstEvent->client_created_at->toJSON())
             ->assertJsonPath('data.1.id', $secondEvent->id)
+            ->assertJsonPath('data.1.import_job_id', null)
+            ->assertJsonPath('data.1.source_kind', null)
+            ->assertJsonPath('data.1.source_review_id', null)
+            ->assertJsonPath('data.1.source_card_id', null)
+            ->assertJsonPath('data.1.source_ease', null)
+            ->assertJsonPath('data.1.source_interval', null)
+            ->assertJsonPath('data.1.source_last_interval', null)
+            ->assertJsonPath('data.1.source_factor', null)
+            ->assertJsonPath('data.1.source_time_ms', null)
+            ->assertJsonPath('data.1.source_review_type', null)
+            ->assertJsonMissingPath('data.1.raw_payload_json')
             ->assertJsonPath('data.1.rating', CardReviewRating::Good->value)
             ->assertJsonMissing([
                 'id' => $deletedCardEvent->id,
@@ -126,7 +137,6 @@ class ListStudyExportReviewEventsApiTest extends TestCase
                         'source_factor',
                         'source_time_ms',
                         'source_review_type',
-                        'raw_payload_json',
                         'rating',
                         'reviewed_at',
                         'duration_ms',

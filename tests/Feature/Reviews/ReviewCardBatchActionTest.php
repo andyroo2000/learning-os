@@ -96,7 +96,6 @@ class ReviewCardBatchActionTest extends TestCase
             'source_factor' => null,
             'source_time_ms' => null,
             'source_review_type' => null,
-            'raw_payload_json' => null,
             'rating' => CardReviewRating::Good->value,
             'reviewed_at' => $firstResult->reviewEvents[0]->reviewed_at?->toJSON(),
             'duration_ms' => 1250,

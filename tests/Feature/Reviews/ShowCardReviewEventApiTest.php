@@ -53,7 +53,6 @@ class ShowCardReviewEventApiTest extends TestCase
                     'source_factor' => null,
                     'source_time_ms' => null,
                     'source_review_type' => null,
-                    'raw_payload_json' => null,
                     'rating' => CardReviewRating::Hard->value,
                     'reviewed_at' => $reviewEvent->reviewed_at->toJSON(),
                     'duration_ms' => 980,

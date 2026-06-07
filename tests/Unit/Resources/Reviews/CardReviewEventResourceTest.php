@@ -63,9 +63,6 @@ class CardReviewEventResourceTest extends TestCase
         $this->assertSame(2500, $resource['source_factor']);
         $this->assertSame(980, $resource['source_time_ms']);
         $this->assertSame(1, $resource['source_review_type']);
-        $this->assertSame([
-            'source_review_id' => 901,
-            'source_card_id' => 701,
-        ], $resource['raw_payload_json']);
+        $this->assertArrayNotHasKey('raw_payload_json', $resource);
     }
 }

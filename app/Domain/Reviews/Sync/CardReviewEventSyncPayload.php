@@ -33,7 +33,6 @@ final class CardReviewEventSyncPayload
             'source_factor' => $reviewEvent->source_factor,
             'source_time_ms' => $reviewEvent->source_time_ms,
             'source_review_type' => $reviewEvent->source_review_type,
-            'raw_payload_json' => $reviewEvent->raw_payload_json,
             'rating' => self::ratingValue($reviewEvent),
             'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
             'duration_ms' => $reviewEvent->duration_ms,

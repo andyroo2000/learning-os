@@ -90,6 +90,13 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.0.new_queue_position', 1)
             ->assertJsonPath('data.0.deleted_at', null)
             ->assertJsonPath('data.1.id', $secondCard->id)
+            ->assertJsonPath('data.1.import_job_id', null)
+            ->assertJsonPath('data.1.source_kind', null)
+            ->assertJsonPath('data.1.source_card_id', null)
+            ->assertJsonPath('data.1.source_note_id', null)
+            ->assertJsonPath('data.1.source_deck_id', null)
+            ->assertJsonPath('data.1.source_notetype_name', null)
+            ->assertJsonPath('data.1.source_template_ord', null)
             ->assertJsonPath('data.1.card_type', CardType::Production->value)
             ->assertJsonPath('data.1.study_status', CardStudyStatus::Review->value)
             ->assertJsonMissing([

@@ -45,6 +45,13 @@ class StudyCardDraft extends Model
 
     public const MEDIA_SOURCES = ['imported', 'generated', 'missing', 'imported_image', 'imported_other'];
 
+    private const GENERATION_OUTPUT_ATTRIBUTES = [
+        'preview_audio_json',
+        'preview_audio_role',
+        'preview_image_json',
+        'error_message',
+    ];
+
     protected static function booted(): void
     {
         static::saving(function (StudyCardDraft $draft): void {
@@ -87,6 +94,21 @@ class StudyCardDraft extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function resetForRetry(): void
+    {
+        // This storage slice matches draft creation: the generation worker/pickup path owns
+        // fulfillment later, while retry owns the durable pending state and stale output reset.
+        $this->status = StudyManualCardDraftStatus::Generating;
+        $this->resetGenerationOutput();
+    }
+
+    private function resetGenerationOutput(): void
+    {
+        foreach (self::GENERATION_OUTPUT_ATTRIBUTES as $attribute) {
+            $this->{$attribute} = null;
+        }
     }
 
     private function deriveCardTypeFromCreationKind(): void

@@ -1,0 +1,177 @@
+<?php
+
+namespace Tests\Feature\Study;
+
+use App\Domain\Study\Actions\RetryStudyCardDraftAction;
+use App\Domain\Study\Enums\StudyCardAudioRole;
+use App\Domain\Study\Enums\StudyCardCreationKind;
+use App\Domain\Study\Enums\StudyCardImagePlacement;
+use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
+use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
+use App\Domain\Study\Models\StudyCardDraft;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\TestCase;
+
+class RetryStudyCardDraftActionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_retries_an_errored_manual_study_card_draft(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create([
+            'creation_kind' => StudyCardCreationKind::ProductionImage,
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
+            'image_placement' => StudyCardImagePlacement::Both,
+            'image_prompt' => 'A company office',
+            'preview_audio_json' => [
+                'id' => 'audio-1',
+                'filename' => 'kaisha.mp3',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            'preview_audio_role' => StudyCardAudioRole::Prompt,
+            'preview_image_json' => [
+                'id' => 'image-1',
+                'filename' => 'kaisha.webp',
+                'mediaKind' => 'image',
+                'source' => 'generated',
+            ],
+            'error_message' => 'Generation failed.',
+        ]);
+
+        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, strtoupper($draft->id));
+
+        $retried->refresh();
+
+        $this->assertSame($draft->id, $retried->id);
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->status);
+        $this->assertSame(StudyCardCreationKind::ProductionImage, $retried->creation_kind);
+        $this->assertSame(['cueText' => '会社'], $retried->prompt_json);
+        $this->assertSame(['expression' => '会社', 'meaning' => 'company'], $retried->answer_json);
+        $this->assertSame(StudyCardImagePlacement::Both, $retried->image_placement);
+        $this->assertSame('A company office', $retried->image_prompt);
+        $this->assertNull($retried->preview_audio_json);
+        $this->assertNull($retried->preview_audio_role);
+        $this->assertNull($retried->preview_image_json);
+        $this->assertNull($retried->error_message);
+    }
+
+    #[DataProvider('nonPositiveUserIdProvider')]
+    public function test_it_rejects_non_positive_user_ids_for_direct_callers(int $userId): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study card draft user ID must be a positive integer.');
+
+        app(RetryStudyCardDraftAction::class)->handle($userId, strtolower((string) str()->ulid()));
+    }
+
+    public function test_it_hides_cross_user_drafts(): void
+    {
+        $otherDraft = StudyCardDraft::factory()->failed()->create();
+
+        $this->expectException(StudyCardDraftNotFoundException::class);
+        $this->expectExceptionMessage('Study card draft not found.');
+
+        app(RetryStudyCardDraftAction::class)->handle(User::factory()->create()->id, $otherDraft->id);
+    }
+
+    public function test_it_hides_missing_drafts(): void
+    {
+        $this->expectException(StudyCardDraftNotFoundException::class);
+        $this->expectExceptionMessage('Study card draft not found.');
+
+        app(RetryStudyCardDraftAction::class)->handle(User::factory()->create()->id, strtolower((string) str()->ulid()));
+    }
+
+    public function test_it_returns_generating_drafts_for_idempotent_transport_retries(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->for($user)->create();
+        $originalUpdatedAt = $draft->updated_at?->toJSON();
+
+        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+
+        $retried->refresh();
+
+        $this->assertSame($draft->id, $retried->id);
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->status);
+        $this->assertSame($originalUpdatedAt, $retried->updated_at?->toJSON());
+    }
+
+    #[DataProvider('nonRetryableStatusProvider')]
+    public function test_it_rejects_non_retryable_drafts(StudyManualCardDraftStatus $status): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->for($user)->create([
+            'status' => $status,
+        ]);
+
+        $this->expectException(StudyCardDraftConflictException::class);
+        $this->expectExceptionMessage('Only errored drafts can be retried.');
+
+        app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+    }
+
+    public function test_it_rejects_committed_drafts(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create([
+            'committed_card_id' => strtolower((string) str()->ulid()),
+        ]);
+
+        $this->expectException(StudyCardDraftConflictException::class);
+        $this->expectExceptionMessage('Committed drafts cannot be retried.');
+
+        app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+    }
+
+    public function test_it_reads_current_db_status_not_creation_time_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create();
+
+        StudyCardDraft::query()
+            ->whereKey($draft->id)
+            ->update(['status' => StudyManualCardDraftStatus::Ready->value]);
+
+        $this->expectException(StudyCardDraftConflictException::class);
+        $this->expectExceptionMessage('Only errored drafts can be retried.');
+
+        app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function nonPositiveUserIdProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative' => [-1],
+        ];
+    }
+
+    /**
+     * @return array<string, array{StudyManualCardDraftStatus}>
+     */
+    public static function nonRetryableStatusProvider(): array
+    {
+        $statuses = [];
+
+        foreach (StudyManualCardDraftStatus::cases() as $status) {
+            if (in_array($status, [StudyManualCardDraftStatus::Error, StudyManualCardDraftStatus::Generating], true)) {
+                continue;
+            }
+
+            $statuses[$status->value] = [$status];
+        }
+
+        return $statuses;
+    }
+}

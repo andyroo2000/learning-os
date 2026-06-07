@@ -14,6 +14,7 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
@@ -81,6 +82,7 @@ use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
+use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
@@ -237,6 +239,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
+    // Manual generation retries use their own 30/min user bucket so create/autosave retries cannot starve them.
+    Route::post('/study/card-drafts/{draftId}/retry', RetryStudyCardDraftController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardDraftRetryRateLimiter::NAME);
     Route::delete('/study/card-drafts/{draftId}', DeleteStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);

@@ -16,15 +16,15 @@ class StudyCardDraftResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'status' => $this->attributeValue('status'),
-            'creationKind' => $this->attributeValue('creation_kind'),
-            'cardType' => $this->attributeValue('card_type'),
+            'status' => $this->stringAttributeValue('status'),
+            'creationKind' => $this->stringAttributeValue('creation_kind'),
+            'cardType' => $this->stringAttributeValue('card_type'),
             'prompt' => $this->prompt_json,
             'answer' => $this->answer_json,
-            'imagePlacement' => $this->attributeValue('image_placement'),
+            'imagePlacement' => $this->stringAttributeValue('image_placement'),
             'imagePrompt' => $this->image_prompt,
             'previewAudio' => $this->preview_audio_json,
-            'previewAudioRole' => $this->attributeValue('preview_audio_role'),
+            'previewAudioRole' => $this->stringAttributeValue('preview_audio_role'),
             'previewImage' => $this->preview_image_json,
             'errorMessage' => $this->error_message,
             'committedCardId' => $this->committed_card_id,
@@ -33,23 +33,25 @@ class StudyCardDraftResource extends JsonResource
         ];
     }
 
-    private function attributeValue(string $key): ?string
+    private function stringAttributeValue(string $key): ?string
     {
-        // Preserve Eloquent enum casts while serializing the public scalar value.
+        // These public fields have a string wire contract; BackedEnum casts must stay string-backed.
         $value = $this->resource->getAttribute($key);
 
         if ($value instanceof BackedEnum) {
-            return (string) $value->value;
+            if (is_int($value->value)) {
+                throw new UnexpectedValueException(
+                    "Study card draft attribute [{$key}] must serialize to a string or null. Integer-backed enums are not supported."
+                );
+            }
+
+            $value = $value->value;
         }
 
-        if ($value === null) {
-            return null;
+        if ($value === null || is_string($value)) {
+            return $value;
         }
 
-        if (! is_scalar($value)) {
-            throw new UnexpectedValueException("Study card draft attribute [{$key}] must serialize to a scalar value.");
-        }
-
-        return (string) $value;
+        throw new UnexpectedValueException("Study card draft attribute [{$key}] must serialize to a string or null.");
     }
 }

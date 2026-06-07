@@ -187,7 +187,7 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $this->assertIsString($deleteEntry['payload']['deleted_at']);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/', $deleteEntry['payload']['deleted_at']);
         // Undo also records a card update after the review-event tombstone.
-        $this->assertGreaterThanOrEqual($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
+        $this->assertGreaterThan($deleteEntry['checkpoint'], $response->json('meta.next_checkpoint'));
     }
 
     public function test_it_serves_course_entries_written_by_course_api_writes(): void

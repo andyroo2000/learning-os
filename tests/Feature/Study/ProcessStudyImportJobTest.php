@@ -9,6 +9,8 @@ use App\Jobs\ProcessStudyImportJob;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -88,13 +90,42 @@ class ProcessStudyImportJobTest extends TestCase
         $job->failed(new RuntimeException('First failure.'));
 
         Carbon::setTestNow('2026-06-07 12:05:00');
-        $job->failed(new RuntimeException('Second failure.'));
+        (new ProcessStudyImportJob($importJob->id))
+            ->failed(new RuntimeException('Second failure.'));
 
         $importJob->refresh();
 
         $this->assertSame(StudyImportStatus::Failed, $importJob->status);
         $this->assertSame(ProcessStudyImportJob::EXHAUSTED_ERROR_MESSAGE, $importJob->error_message);
         $this->assertSame('2026-06-07T12:00:00.000000Z', $importJob->completed_at?->toJSON());
+    }
+
+    public function test_failed_reports_and_swallows_failure_hook_write_errors(): void
+    {
+        Exceptions::fake();
+        Carbon::setTestNow('2026-06-07 12:00:00');
+        $importJob = StudyImportJob::factory()->create();
+
+        Event::listen('eloquent.updating: '.StudyImportJob::class, static function (): void {
+            throw new RuntimeException('Terminal import write failed.');
+        });
+
+        try {
+            (new ProcessStudyImportJob($importJob->id))
+                ->failed(new RuntimeException('Worker infrastructure failed.'));
+        } finally {
+            Event::forget('eloquent.updating: '.StudyImportJob::class);
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Pending, $importJob->status);
+        $this->assertNull($importJob->error_message);
+        $this->assertNull($importJob->completed_at);
+        Exceptions::assertReported(
+            fn (RuntimeException $exception): bool => $exception->getMessage() === 'Terminal import write failed.',
+        );
+        Exceptions::assertReportedCount(1);
     }
 
     public function test_failed_ignores_missing_and_terminal_imports(): void

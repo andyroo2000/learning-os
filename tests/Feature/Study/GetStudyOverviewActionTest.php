@@ -170,13 +170,17 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(5, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
-        // Normal overview reads stay at settings + card aggregate + latest import.
-        $this->assertCount(3, $queries, $queries->pluck('query')->implode("\n"));
+        // Normal overview reads stay at card aggregate + latest import; settings are read as an effective singleton.
+        $this->assertCount(2, $queries, $queries->pluck('query')->implode("\n"));
 
         // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.
         $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));
 
         $this->assertCount(1, $cardMetricQueries, $queries->pluck('query')->implode("\n"));
+
+        $settingsQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'study_settings'));
+
+        $this->assertCount(1, $settingsQueries, $queries->pluck('query')->implode("\n"));
     }
 
     public function test_it_includes_the_latest_import_for_the_user(): void
@@ -213,6 +217,20 @@ class GetStudyOverviewActionTest extends TestCase
         $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id);
 
         $this->assertNull($overview['latest_import']);
+    }
+
+    public function test_it_uses_default_settings_without_materializing_them_on_overview_reads(): void
+    {
+        $user = User::factory()->create();
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $overview['new_cards_per_day']);
+        $this->assertSame(0, $overview['new_cards_available_today']);
+        $this->assertDatabaseMissing('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+        ]);
     }
 
     public function test_due_count_excludes_failed_cards_but_ready_failed_cards_block_new_cards(): void

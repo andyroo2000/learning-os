@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
@@ -193,7 +194,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Shares the study-card creation quota with draft creation and draft commits.
     Route::post('/study/cards', StoreStudyCardController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)->whereUlid('cardId');
+    Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
+        ->whereUlid('cardId')
+        ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
     Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)->whereUlid('cardId');
     Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');

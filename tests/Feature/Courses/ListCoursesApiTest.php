@@ -171,8 +171,13 @@ class ListCoursesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newerReadyCourse->id)
-            ->assertJsonPath('links.next', fn (string $url): bool => str_contains($url, 'status=ready'));
+            ->assertJsonPath('data.0.id', $newerReadyCourse->id);
+
+        $nextUrl = $response->json('links.next');
+
+        $this->assertIsString($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'status', 'ready');
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
     }
 
     public function test_it_trims_status_filters(): void
@@ -309,9 +314,14 @@ class ListCoursesApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newerCourse->id)
-            ->assertJsonPath('links.next', fn (string $url): bool => str_contains($url, 'native_language=en')
-                && str_contains($url, 'target_language=ja'));
+            ->assertJsonPath('data.0.id', $newerCourse->id);
+
+        $nextUrl = $response->json('links.next');
+
+        $this->assertIsString($nextUrl);
+        $this->assertUrlQueryParameter($nextUrl, 'native_language', 'en');
+        $this->assertUrlQueryParameter($nextUrl, 'target_language', 'ja');
+        $this->assertUrlQueryParameter($nextUrl, 'per_page', '1');
     }
 
     public function test_it_trims_language_filters(): void

@@ -71,8 +71,8 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             'reviewed_at' => $latestReviewAt,
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->getJson('/api/study/browser/501');

@@ -113,8 +113,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'search_text' => 'shared browser facet term',
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->getJson('/api/study/browser?q=shared%20browser%20facet%20term&noteType=Japanese%20-%20Vocab&cardType=recognition');
@@ -168,8 +168,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'source_notetype_name' => 'Alpha',
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->getJson('/api/study/browser');
@@ -215,8 +215,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'search_text' => 'initial browser load',
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->getJson('/api/study/browser?q=initial%20browser%20load');
@@ -264,8 +264,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'created_at' => now(),
         ]);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $response = $this->getJson('/api/study/browser?q=paged%20browser%20load&limit=1');

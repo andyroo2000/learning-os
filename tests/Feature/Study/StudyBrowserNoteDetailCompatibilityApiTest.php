@@ -74,11 +74,13 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/study/browser/501');
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
-        DB::flushQueryLog();
+        try {
+            $response = $this->getJson('/api/study/browser/501');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertOk()

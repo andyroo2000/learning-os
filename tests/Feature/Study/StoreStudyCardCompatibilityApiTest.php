@@ -270,17 +270,21 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             'is_manual_study_deck' => true,
         ]);
 
+        DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $resolvedDeck = DB::transaction(
-            fn (): Deck => app(ResolveManualStudyDeckAction::class)->handle($user->id),
-        );
+        try {
+            $resolvedDeck = DB::transaction(
+                fn (): Deck => app(ResolveManualStudyDeckAction::class)->handle($user->id),
+            );
 
-        $userQueries = collect(DB::getQueryLog())
-            ->filter(fn (array $query): bool => str_contains($query['query'], 'from "users"'))
-            ->count();
-
-        DB::disableQueryLog();
+            $userQueries = collect(DB::getQueryLog())
+                ->filter(fn (array $query): bool => str_contains($query['query'], 'from "users"'))
+                ->count();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $this->assertSame($deck->id, $resolvedDeck->id);
         $this->assertSame(0, $userQueries);

@@ -988,22 +988,25 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->postJson('/api/card-review-events/batch', [
-            'events' => $cards
-                ->values()
-                ->map(fn (Card $card, int $index): array => [
-                    'card_id' => $card->id,
-                    'rating' => CardReviewRating::Good->value,
-                    'reviewed_at' => '2026-05-27T09:15:00Z',
-                    'client_event_id' => "event-{$index}",
-                    'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:14:00Z',
-                ])
-                ->all(),
-        ]);
-
-        $queries = collect(DB::getQueryLog());
-        DB::disableQueryLog();
+        try {
+            $response = $this->postJson('/api/card-review-events/batch', [
+                'events' => $cards
+                    ->values()
+                    ->map(fn (Card $card, int $index): array => [
+                        'card_id' => $card->id,
+                        'rating' => CardReviewRating::Good->value,
+                        'reviewed_at' => '2026-05-27T09:15:00Z',
+                        'client_event_id' => "event-{$index}",
+                        'device_id' => 'device-abc',
+                        'client_created_at' => '2026-05-27T09:14:00Z',
+                    ])
+                    ->all(),
+            ]);
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
 
         $response
             ->assertCreated()

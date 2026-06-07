@@ -106,6 +106,7 @@ class ProcessStudyImportJobTest extends TestCase
         Carbon::setTestNow('2026-06-07 12:00:00');
         $importJob = StudyImportJob::factory()->create();
 
+        // Registered only around failed() so this test targets the terminal-write path.
         Event::listen('eloquent.updating: '.StudyImportJob::class, static function (): void {
             throw new RuntimeException('Terminal import write failed.');
         });

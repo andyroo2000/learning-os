@@ -84,8 +84,8 @@ class ListStudyCardDraftsActionTest extends TestCase
         $firstPage = app(ListStudyCardDraftsAction::class)->handle($user->id, limit: 1);
         $this->assertSame(2, $firstPage['total']);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $secondPage = app(ListStudyCardDraftsAction::class)->handle(

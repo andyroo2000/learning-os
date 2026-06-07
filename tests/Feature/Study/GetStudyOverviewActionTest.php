@@ -146,8 +146,8 @@ class GetStudyOverviewActionTest extends TestCase
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended);
 
-        DB::flushQueryLog();
         DB::enableQueryLog();
+        DB::flushQueryLog();
 
         try {
             $overview = app(GetStudyOverviewAction::class)->handle(

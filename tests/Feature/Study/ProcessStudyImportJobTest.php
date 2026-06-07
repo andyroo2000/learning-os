@@ -60,9 +60,10 @@ class ProcessStudyImportJobTest extends TestCase
 
         try {
             $processed = app(ProcessStudyImportJobAction::class)->handle('not-a-ulid');
-        } finally {
             $queries = collect(DB::getQueryLog());
+        } finally {
             DB::disableQueryLog();
+            DB::flushQueryLog();
         }
 
         $this->assertNull($processed);

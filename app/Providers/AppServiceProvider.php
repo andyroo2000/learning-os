@@ -21,6 +21,7 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
@@ -168,6 +169,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftDeleteRateLimiter = new StudyCardDraftDeleteRateLimiter;
         RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($studyCardDraftDeleteRateLimiter): Limit {
             return $studyCardDraftDeleteRateLimiter->limit($request);
+        });
+
+        $studyCardDraftRetryRateLimiter = new StudyCardDraftRetryRateLimiter;
+        RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($studyCardDraftRetryRateLimiter): Limit {
+            return $studyCardDraftRetryRateLimiter->limit($request);
         });
 
         $studyImportCreateRateLimiter = StudyImportRateLimiter::forCreateSession();

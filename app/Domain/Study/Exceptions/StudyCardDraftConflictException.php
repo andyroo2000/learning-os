@@ -25,4 +25,14 @@ class StudyCardDraftConflictException extends RuntimeException
     {
         return new self('Draft was already committed with a different card ID.');
     }
+
+    public static function committedCannotRetry(): self
+    {
+        return new self('Committed drafts cannot be retried.');
+    }
+
+    public static function onlyErroredDraftsCanRetry(): self
+    {
+        return new self('Only errored drafts can be retried.');
+    }
 }

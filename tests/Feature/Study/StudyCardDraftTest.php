@@ -120,6 +120,34 @@ class StudyCardDraftTest extends TestCase
         $this->assertFalse($draft->wasChanged('card_type'));
     }
 
+    public function test_it_resets_for_retry_and_clears_generation_output(): void
+    {
+        $draft = StudyCardDraft::factory()->failed()->create([
+            'preview_audio_json' => [
+                'id' => 'audio-1',
+                'filename' => 'inu.mp3',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            'preview_audio_role' => StudyCardAudioRole::Prompt,
+            'preview_image_json' => [
+                'id' => 'image-1',
+                'filename' => 'inu.webp',
+                'mediaKind' => 'image',
+                'source' => 'generated',
+            ],
+            'error_message' => 'Generation failed.',
+        ]);
+
+        $draft->resetForRetry();
+
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $draft->status);
+        $this->assertNull($draft->preview_audio_json);
+        $this->assertNull($draft->preview_audio_role);
+        $this->assertNull($draft->preview_image_json);
+        $this->assertNull($draft->error_message);
+    }
+
     public function test_it_prevents_owner_mutation(): void
     {
         $draft = StudyCardDraft::factory()->create();

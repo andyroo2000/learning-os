@@ -45,6 +45,17 @@ class AuthenticatedUserTest extends TestCase
         AuthenticatedUser::id($request);
     }
 
+    public function test_it_rejects_missing_authenticated_users(): void
+    {
+        $request = Request::create('/api/study/overview');
+        $request->setUserResolver(fn () => null);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Authenticated request user must be an application user.');
+
+        AuthenticatedUser::id($request);
+    }
+
     public function test_it_rejects_application_users_without_a_synced_raw_id(): void
     {
         $user = new User;
@@ -60,7 +71,7 @@ class AuthenticatedUserTest extends TestCase
     }
 
     #[DataProvider('invalidUserIdProvider')]
-    public function test_it_rejects_invalid_application_user_ids(int|string $userId): void
+    public function test_it_rejects_invalid_application_user_ids(mixed $userId): void
     {
         $user = new User;
         $user->setRawAttributes(['id' => $userId], sync: true);
@@ -75,7 +86,7 @@ class AuthenticatedUserTest extends TestCase
     }
 
     /**
-     * @return array<string, array{int|string}>
+     * @return array<string, array{mixed}>
      */
     public static function invalidUserIdProvider(): array
     {
@@ -85,6 +96,8 @@ class AuthenticatedUserTest extends TestCase
             'negative integer' => [-1],
             'negative string' => ['-1'],
             'decimal string' => ['1.5'],
+            'float' => [42.0],
+            'boolean true' => [true],
             'prefixed string' => ['3abc'],
             'empty string' => [''],
         ];

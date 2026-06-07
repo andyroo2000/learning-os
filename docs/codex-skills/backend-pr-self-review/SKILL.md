@@ -47,7 +47,7 @@ For detailed rules, read `references/claude-review-themes.md` whenever the diff 
 
 6. Leave a concise self-review note for the PR.
    - Mention the high-risk categories checked.
-   - Mention commands run.
+   - Mention commands run, and make sure file names/paths still match the final diff after renames or test consolidation.
    - Call out intentionally unchanged sibling behavior only when it is relevant to review.
 
 ## Hard Stops Before Push

@@ -52,45 +52,87 @@ class StudyCardDraftResourceTest extends TestCase
 
     public function test_resource_serializes_string_backed_enum_draft_attributes(): void
     {
-        $draft = new StudyCardDraft;
-        // Simulates a direct raw assignment rather than an Eloquent enum-cast round trip.
-        $draft->setRawAttributes([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+        $resourceSubject = new StudyCardDraftResourceSubject([
             'status' => StringBackedStudyCardDraftResourceValue::Ready,
-        ], sync: true);
+        ]);
 
-        $resource = StudyCardDraftResource::make($draft)->toArray(new Request);
+        $resource = StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
 
         $this->assertSame('ready', $resource['status']);
     }
 
     public function test_resource_rejects_non_string_scalar_draft_attributes(): void
     {
-        $draft = new StudyCardDraft;
-        $draft->setRawAttributes([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+        $resourceSubject = new StudyCardDraftResourceSubject([
             'status' => false,
-        ], sync: true);
+        ]);
 
         $this->expectException(UnexpectedValueException::class);
         $this->expectExceptionMessage('Study card draft attribute [status] must serialize to a string or null.');
 
-        StudyCardDraftResource::make($draft)->toArray(new Request);
+        StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
+    }
+
+    public function test_resource_rejects_plain_integer_draft_attributes(): void
+    {
+        $resourceSubject = new StudyCardDraftResourceSubject([
+            'status' => 1,
+        ]);
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study card draft attribute [status] must serialize to a string or null.');
+
+        StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
     }
 
     public function test_resource_rejects_integer_backed_enum_draft_attributes(): void
     {
-        $draft = new StudyCardDraft;
-        $draft->setRawAttributes([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+        $resourceSubject = new StudyCardDraftResourceSubject([
             'status' => IntegerBackedStudyCardDraftResourceValue::Legacy,
-        ], sync: true);
+        ]);
 
         $this->expectException(UnexpectedValueException::class);
         $this->expectExceptionMessage(
             'Study card draft attribute [status] must serialize to a string or null. Integer-backed enums are not supported.'
         );
 
-        StudyCardDraftResource::make($draft)->toArray(new Request);
+        StudyCardDraftResource::make($resourceSubject)->toArray(new Request);
+    }
+}
+
+final class StudyCardDraftResourceSubject
+{
+    public string $id = '01jzq4nny5xbnzw14q1g68b2yt';
+
+    /** @var array<string, mixed>|null */
+    public ?array $prompt_json = null;
+
+    /** @var array<string, mixed>|null */
+    public ?array $answer_json = null;
+
+    public ?string $image_prompt = null;
+
+    /** @var array<string, mixed>|null */
+    public ?array $preview_audio_json = null;
+
+    /** @var array<string, mixed>|null */
+    public ?array $preview_image_json = null;
+
+    public ?string $error_message = null;
+
+    public ?string $committed_card_id = null;
+
+    public mixed $created_at = null;
+
+    public mixed $updated_at = null;
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function __construct(private readonly array $attributes) {}
+
+    public function getAttribute(string $key): mixed
+    {
+        return $this->attributes[$key] ?? null;
     }
 }

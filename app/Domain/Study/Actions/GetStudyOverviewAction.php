@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Models\StudySettings;
 use App\Support\Identifiers\CanonicalUlid;
 use DateTimeZone;
 use Exception;
@@ -14,10 +15,6 @@ use InvalidArgumentException;
 
 class GetStudyOverviewAction
 {
-    public function __construct(
-        private readonly GetStudySettingsAction $getStudySettings,
-    ) {}
-
     /**
      * @return array<string, mixed>
      */
@@ -32,20 +29,20 @@ class GetStudyOverviewAction
 
         $resolvedTimeZone = $this->resolveTimeZone($timeZone);
         [$dayStart, $dayEnd] = $this->studyDayWindow($now, $resolvedTimeZone);
-        $settings = $this->getStudySettings->handle($userId);
         $cardMetrics = $this->cardMetrics($userId, $deckId, $now, $dayStart, $dayEnd);
         $dueCount = $cardMetrics['due_count'];
         $failedDueCount = $cardMetrics['failed_due_count'];
         $newCount = $cardMetrics['new_count'];
         $introducedToday = $cardMetrics['new_cards_introduced_today'];
-        $remainingNewCards = max(0, $settings->new_cards_per_day - $introducedToday);
+        $newCardsPerDay = $cardMetrics['new_cards_per_day'];
+        $remainingNewCards = max(0, $newCardsPerDay - $introducedToday);
 
         return [
             'due_count' => $dueCount,
             'failed_count' => $cardMetrics['failed_count'],
             'failed_due_count' => $failedDueCount,
             'new_count' => $newCount,
-            'new_cards_per_day' => $settings->new_cards_per_day,
+            'new_cards_per_day' => $newCardsPerDay,
             'new_cards_introduced_today' => $introducedToday,
             'new_cards_available_today' => $dueCount > 0 || $failedDueCount > 0
                 ? 0
@@ -116,6 +113,7 @@ class GetStudyOverviewAction
      *     failed_count: int,
      *     failed_due_count: int,
      *     new_count: int,
+     *     new_cards_per_day: int,
      *     new_cards_introduced_today: int,
      *     learning_count: int,
      *     review_count: int,
@@ -137,8 +135,14 @@ class GetStudyOverviewAction
         $dayEndFormatted = $dayEnd->toDateTimeString();
         $row = $this->ownedActiveCardsQuery($userId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
+            // The settings MAX() subquery is a scalar singleton read; study_settings_user_id_unique enforces one row per user.
             ->selectRaw(<<<SQL
                 COUNT(cards.id) AS total_cards,
+                COALESCE((
+                    SELECT MAX(study_settings.new_cards_per_day)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS new_cards_per_day,
                 (
                     SELECT COUNT(introduced_cards.id)
                     FROM cards AS introduced_cards
@@ -158,8 +162,9 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
                 MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
-                // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
                 $userId,
+                StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+                $userId, // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
                 // due_count
@@ -190,6 +195,7 @@ class GetStudyOverviewAction
             'failed_count' => (int) $row?->failed_count,
             'failed_due_count' => (int) $row?->failed_due_count,
             'new_count' => (int) $row?->new_count,
+            'new_cards_per_day' => (int) $row?->new_cards_per_day,
             'new_cards_introduced_today' => (int) $row?->new_cards_introduced_today,
             'learning_count' => (int) $row?->learning_count,
             'review_count' => (int) $row?->review_count,

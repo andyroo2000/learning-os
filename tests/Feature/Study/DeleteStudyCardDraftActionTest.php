@@ -12,6 +12,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
@@ -72,6 +73,28 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $user = User::factory()->create();
         app(DeleteStudyCardDraftAction::class)->handle($user->id, strtolower((string) str()->ulid()));
 
+        $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_it_noops_malformed_draft_ids_without_querying_drafts(): void
+    {
+        $userId = User::factory()->create()->id;
+
+        DB::enableQueryLog();
+
+        try {
+            app(DeleteStudyCardDraftAction::class)->handle($userId, 'not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+        }
+
+        $this->assertCount(
+            0,
+            $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+            'Malformed draft IDs should no-op before querying study_card_drafts.',
+        );
         $this->assertDatabaseCount('study_card_drafts', 0);
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }

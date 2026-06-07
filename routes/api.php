@@ -7,6 +7,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -209,7 +210,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
     Route::get('/study/settings', ShowStudySettingsController::class);
-    Route::patch('/study/settings', UpdateStudySettingsController::class);
+    // Settings sync can retry updates; keep that quota separate from card writes.
+    Route::patch('/study/settings', UpdateStudySettingsController::class)
+        ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')
         ->group(function (): void {

@@ -14,6 +14,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
@@ -91,6 +92,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftDeleteRateLimiter = new StudyCardDraftDeleteRateLimiter;
         RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($studyCardDraftDeleteRateLimiter): Limit {
             return $studyCardDraftDeleteRateLimiter->limit($request);
+        });
+
+        $studySettingsUpdateRateLimiter = new StudySettingsUpdateRateLimiter;
+        RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($studySettingsUpdateRateLimiter): Limit {
+            return $studySettingsUpdateRateLimiter->limit($request);
         });
 
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.

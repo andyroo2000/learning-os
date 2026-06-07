@@ -3,9 +3,17 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Sync\StudySettingsSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
 class StudySettingsApiTest extends TestCase
@@ -142,6 +150,74 @@ class StudySettingsApiTest extends TestCase
             'user_id' => $user->id,
             'new_cards_per_day' => 12,
         ]);
+    }
+
+    /**
+     * CI runs the suite serially today; keep this marker if parallel workers start honoring group exclusions.
+     */
+    #[Group('no-parallel')]
+    public function test_update_is_rate_limited_by_user(): void
+    {
+        $limiter = new StudySettingsUpdateRateLimiter;
+        $testBucket = 'test-'.Str::ulid();
+        $user = $this->signIn();
+        $settings = StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $otherUser = User::factory()->create();
+        $otherSettings = StudySettings::factory()->for($otherUser)->create([
+            'new_cards_per_day' => 40,
+        ]);
+
+        $restoreStudySettingsUpdateLimiter = function () use ($limiter): void {
+            RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        try {
+            // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
+            RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
+            foreach ([11, 12] as $newCardsPerDay) {
+                $this
+                    ->patchJson('/api/study/settings', [
+                        'new_cards_per_day' => $newCardsPerDay,
+                    ])
+                    ->assertOk();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->patchJson('/api/study/settings', [
+                    'new_cards_per_day' => 31,
+                ])
+                ->assertOk();
+
+            $this->signIn($user);
+
+            $this
+                ->patchJson('/api/study/settings', [
+                    'new_cards_per_day' => 13,
+                ])
+                ->assertTooManyRequests();
+
+            $this->assertSame(12, $settings->refresh()->new_cards_per_day);
+            $this->assertSame(31, $otherSettings->refresh()->new_cards_per_day);
+            $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
+            $this->assertSame(1, SyncFeedEntry::query()->where('user_id', $otherUser->id)->count());
+            $this->assertDatabaseMissing('sync_feed_entries', [
+                'user_id' => $user->id,
+                'payload->new_cards_per_day' => 13,
+            ]);
+        } finally {
+            $restoreStudySettingsUpdateLimiter();
+        }
     }
 
     public function test_update_rejects_missing_malformed_and_out_of_range_values(): void

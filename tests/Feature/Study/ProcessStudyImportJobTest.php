@@ -142,6 +142,8 @@ class ProcessStudyImportJobTest extends TestCase
      */
     private function rawEventListeners(string $eventName): ?array
     {
+        // Laravel exposes forget-all but not remove-one for event listeners; preserve
+        // the raw list so this test can inject one listener without erasing app hooks.
         $listeners = $this->eventListenersProperty()->getValue(Event::getFacadeRoot());
 
         return is_array($listeners) && array_key_exists($eventName, $listeners)

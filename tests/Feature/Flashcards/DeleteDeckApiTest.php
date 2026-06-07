@@ -131,7 +131,7 @@ class DeleteDeckApiTest extends TestCase
             });
         };
 
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::DELETE_NAME, $userId, $ip);
+        $testRateLimitKey = static fn (int|string|null $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::DELETE_NAME, $userId, $ip);
         $userKey = $testRateLimitKey($user->id, $clientIp);
         $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
 
@@ -161,7 +161,10 @@ class DeleteDeckApiTest extends TestCase
 
             $this
                 ->deleteJson("/api/decks/{$blockedDeck->id}")
-                ->assertTooManyRequests();
+                ->assertTooManyRequests()
+                ->assertHeader('X-RateLimit-Limit', '2')
+                ->assertHeader('X-RateLimit-Remaining', '0')
+                ->assertHeader('Retry-After');
 
             $this
                 ->getJson("/api/decks/{$blockedDeck->id}")

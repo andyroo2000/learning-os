@@ -225,7 +225,7 @@ class UpdateDeckApiTest extends TestCase
             });
         };
 
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::UPDATE_NAME, $userId, $ip);
+        $testRateLimitKey = static fn (int|string|null $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::UPDATE_NAME, $userId, $ip);
         $userKey = $testRateLimitKey($user->id, $clientIp);
         $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
 
@@ -253,7 +253,10 @@ class UpdateDeckApiTest extends TestCase
 
             $this
                 ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload('Blocked User Deck'))
-                ->assertTooManyRequests();
+                ->assertTooManyRequests()
+                ->assertHeader('X-RateLimit-Limit', '2')
+                ->assertHeader('X-RateLimit-Remaining', '0')
+                ->assertHeader('Retry-After');
 
             $this
                 ->getJson("/api/decks/{$deck->id}")

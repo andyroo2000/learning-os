@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 class DeckRateLimiterTest extends TestCase
 {
     #[DataProvider('keyProvider')]
-    public function test_it_builds_stable_user_and_network_keys(string $limiterName, mixed $userId, ?string $ip, string $expected): void
+    public function test_it_builds_stable_user_and_network_keys(string $limiterName, int|string|null $userId, ?string $ip, string $expected): void
     {
         $this->assertSame($expected, DeckRateLimiter::keyFor($limiterName, $userId, $ip));
     }
@@ -40,7 +40,7 @@ class DeckRateLimiterTest extends TestCase
     }
 
     /**
-     * @return array<string, array{string, mixed, string|null, string}>
+     * @return array<string, array{string, int|string|null, string|null, string}>
      */
     public static function keyProvider(): array
     {

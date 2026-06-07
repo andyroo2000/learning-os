@@ -41,7 +41,7 @@ final class DeckRateLimiter
         return Limit::perMinute($this->perMinute)->by($this->key($request));
     }
 
-    public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
+    public static function keyFor(string $limiterName, int|string|null $userId, ?string $ip): string
     {
         // Auth normally rejects anonymous requests first; this fallback bounds unexpected IP-less traffic.
         if ($userId !== null) {

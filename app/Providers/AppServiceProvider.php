@@ -84,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
             return $courseDeleteRateLimiter->limit($request);
         });
 
+        // Very large offline deck-create backlogs can still throttle before idempotent de-dupe.
         $deckCreateRateLimiter = DeckRateLimiter::create();
         RateLimiter::for(DeckRateLimiter::CREATE_NAME, function (Request $request) use ($deckCreateRateLimiter): Limit {
             return $deckCreateRateLimiter->limit($request);

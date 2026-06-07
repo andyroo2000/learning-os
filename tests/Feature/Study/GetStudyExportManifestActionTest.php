@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyExportManifestAction;
+use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -34,6 +35,7 @@ class GetStudyExportManifestActionTest extends TestCase
         CardReviewEvent::factory()->for($activeCard)->create();
         CardReviewEvent::factory()->for($deletedCard)->create();
         CardReviewEvent::factory()->for($deletedDeckCard)->create();
+        StudyCardDraft::factory()->for($user)->create();
         StudyImportJob::factory()->for($user)->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
         $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
@@ -43,6 +45,7 @@ class GetStudyExportManifestActionTest extends TestCase
         $deletedDeckCard->mediaAssets()->attach($mediaAsset->id);
         $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
         SyncFeedEntry::factory()->for($otherUser)->create();
+        StudyCardDraft::factory()->for($otherUser)->create();
         StudyImportJob::factory()->for($otherUser)->create();
         Course::factory()->for($otherUser)->create();
         Card::factory()->for($this->deckFor($otherUser))->create();
@@ -63,6 +66,7 @@ class GetStudyExportManifestActionTest extends TestCase
             'courses' => ['total' => 1],
             'decks' => ['total' => 1],
             'cards' => ['total' => 1],
+            'card_drafts' => ['total' => 1],
             'card_media' => ['total' => 1],
             'review_events' => ['total' => 1],
             'imports' => ['total' => 1],

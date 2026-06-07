@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Queries\StudyExportCardMediaQuery;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -25,6 +26,7 @@ class GetStudyExportManifestAction
      *         courses: array{total: int},
      *         decks: array{total: int},
      *         cards: array{total: int},
+     *         card_drafts: array{total: int},
      *         card_media: array{total: int},
      *         review_events: array{total: int},
      *         imports: array{total: int},
@@ -44,6 +46,7 @@ class GetStudyExportManifestAction
                 'courses' => ['total' => Course::query()->where('user_id', $userId)->count('id')],
                 'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
                 'cards' => ['total' => $this->activeCardCount($userId)],
+                'card_drafts' => ['total' => StudyCardDraft::query()->where('user_id', $userId)->count('id')],
                 'card_media' => ['total' => $this->cardMediaQuery->count($userId)],
                 'review_events' => ['total' => $this->activeReviewEventCount($userId)],
                 'imports' => ['total' => StudyImportJob::query()->where('user_id', $userId)->count('id')],

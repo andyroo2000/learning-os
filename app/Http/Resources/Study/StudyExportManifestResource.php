@@ -45,6 +45,7 @@ class StudyExportManifestResource extends JsonResource
             'courses' => 'api.study.export.courses',
             'decks' => 'api.study.export.decks',
             'cards' => 'api.study.export.cards',
+            'card_drafts' => 'api.study.export.card-drafts',
             'card_media' => 'api.study.export.card-media',
             'review_events' => 'api.study.export.review-events',
             'imports' => 'api.study.export.imports',

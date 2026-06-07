@@ -253,7 +253,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.DeckRateLimiter::DELETE_NAME);
         });
     Route::get('/decks', ListDecksController::class);
-    // Deck creation has its own retryable write bucket, separate from update/delete.
+    // Deck creation has its own retryable write bucket; idempotent de-dupe runs inside the action.
     Route::post('/decks', StoreDeckController::class)
         ->middleware('throttle:'.DeckRateLimiter::CREATE_NAME);
 });

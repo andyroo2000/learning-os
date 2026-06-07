@@ -6,16 +6,15 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Http\Resources\Flashcards\DeckResource;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Feature\Flashcards\Concerns\UsesDeckRateLimitOverrides;
 use Tests\TestCase;
 
 class UpdateDeckApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDeckRateLimitOverrides;
 
     public function test_it_updates_an_owned_deck(): void
     {
@@ -203,8 +202,6 @@ class UpdateDeckApiTest extends TestCase
 
     public function test_update_is_rate_limited_by_user(): void
     {
-        $testBucket = 'test-'.Str::ulid();
-        $clientIp = '127.0.0.1';
         $user = $this->signIn();
         $deck = Deck::factory()->for($user)->create([
             'name' => 'Original User Deck',
@@ -216,60 +213,41 @@ class UpdateDeckApiTest extends TestCase
             'description' => null,
         ]);
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $this->withDeckRateLimitOverride(
+            DeckRateLimiter::UPDATE_NAME,
+            DeckRateLimiter::forUpdate(),
+            [$user->id, $otherUser->id],
+            function () use ($deck, $otherDeck, $otherUser, $user): void {
+                foreach ([1, 2] as $attempt) {
+                    $this
+                        ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload("User Deck {$attempt}"))
+                        ->assertOk();
+                }
 
-        $restoreDeckUpdateLimiter = function (): void {
-            $limiter = DeckRateLimiter::forUpdate();
-            RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($limiter): Limit {
-                return $limiter->limit($request);
-            });
-        };
+                $this->signIn($otherUser);
 
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::UPDATE_NAME, $userId, $ip);
-        $userKey = $testRateLimitKey($user->id, $clientIp);
-        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
-
-        try {
-            RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
-                return Limit::perMinute(2)->by($testRateLimitKey(
-                    $request->user()?->getAuthIdentifier(),
-                    $request->ip(),
-                ));
-            });
-
-            foreach ([1, 2] as $attempt) {
                 $this
-                    ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload("User Deck {$attempt}"))
+                    ->putJson("/api/decks/{$otherDeck->id}", $this->deckUpdatePayload('Other User Deck'))
                     ->assertOk();
-            }
 
-            $this->signIn($otherUser);
+                $this->signIn($user);
 
-            $this
-                ->putJson("/api/decks/{$otherDeck->id}", $this->deckUpdatePayload('Other User Deck'))
-                ->assertOk();
+                $this
+                    ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload('Blocked User Deck'))
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
 
-            $this->signIn($user);
+                $this
+                    ->getJson("/api/decks/{$deck->id}")
+                    ->assertOk()
+                    ->assertJsonPath('data.name', 'User Deck 2');
 
-            $this
-                ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload('Blocked User Deck'))
-                ->assertTooManyRequests()
-                ->assertHeader('X-RateLimit-Limit', '2')
-                ->assertHeader('X-RateLimit-Remaining', '0')
-                ->assertHeader('Retry-After');
-
-            $this
-                ->getJson("/api/decks/{$deck->id}")
-                ->assertOk()
-                ->assertJsonPath('data.name', 'User Deck 2');
-
-            $this->assertSame('User Deck 2', $deck->refresh()->name);
-            $this->assertSame('Other User Deck', $otherDeck->refresh()->name);
-        } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
-            $restoreDeckUpdateLimiter();
-        }
+                $this->assertSame('User Deck 2', $deck->refresh()->name);
+                $this->assertSame('Other User Deck', $otherDeck->refresh()->name);
+            },
+        );
     }
 
     public function test_it_rejects_blank_name(): void

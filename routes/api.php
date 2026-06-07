@@ -5,6 +5,7 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
+use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -198,7 +199,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('cardId')
         ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)->whereUlid('cardId');
-    Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)->whereUlid('cardId');
+    // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
+    Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
+        ->whereUlid('cardId')
+        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
     Route::get('/study/settings', ShowStudySettingsController::class);
     Route::patch('/study/settings', UpdateStudySettingsController::class);

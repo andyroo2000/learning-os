@@ -25,10 +25,11 @@ trait UsesDeckRateLimitOverrides
         $testBucket = 'test-'.Str::ulid();
         $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor($limiterName, $userId, $ip);
         $defaultLimiter = $this->defaultDeckRateLimiter($limiterName);
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
             RateLimiter::for($limiterName, function (Request $request) use ($perMinute, $testRateLimitKey): Limit {
                 return Limit::perMinute($perMinute)->by($testRateLimitKey(
                     $request->user()?->getAuthIdentifier(),
@@ -45,6 +46,8 @@ trait UsesDeckRateLimitOverrides
             RateLimiter::for($limiterName, function (Request $request) use ($defaultLimiter): Limit {
                 return $defaultLimiter->limit($request);
             });
+
+            $this->serverVariables = $previousServerVariables;
         }
     }
 

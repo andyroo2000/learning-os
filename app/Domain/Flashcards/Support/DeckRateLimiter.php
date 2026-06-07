@@ -70,10 +70,6 @@ final class DeckRateLimiter
             return (string) $userId;
         }
 
-        if (is_object($userId) && method_exists($userId, '__toString')) {
-            return (string) $userId;
-        }
-
         return null;
     }
 }

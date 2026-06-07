@@ -452,16 +452,19 @@ class ListMediaAssetsApiTest extends TestCase
 
         $nextUrl = $firstPage->json('links.next');
 
-        $this->assertNotNull($nextUrl);
+        $this->assertIsString($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderMediaAsset->id)
             ->assertJsonPath('links.next', null)
+            ->assertJsonMissing([
+                'id' => $newerMediaAsset->id,
+            ])
             ->assertJsonMissing([
                 'id' => $otherCourseMediaAsset->id,
             ]);
@@ -500,16 +503,19 @@ class ListMediaAssetsApiTest extends TestCase
 
         $nextUrl = $firstPage->json('links.next');
 
-        $this->assertNotNull($nextUrl);
+        $this->assertIsString($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
 
-        $secondPage = $this->getJson($nextUrl);
+        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
 
         $secondPage
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $olderMediaAsset->id)
             ->assertJsonPath('links.next', null)
+            ->assertJsonMissing([
+                'id' => $newerMediaAsset->id,
+            ])
             ->assertJsonMissing([
                 'id' => $otherDeckMediaAsset->id,
             ]);
@@ -635,5 +641,16 @@ class ListMediaAssetsApiTest extends TestCase
         $response = $this->getJson('/api/media-assets');
 
         $response->assertUnauthorized();
+    }
+
+    private function pathAndQueryFromUrl(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        $query = parse_url($url, PHP_URL_QUERY);
+
+        $this->assertIsString($path);
+        $this->assertIsString($query);
+
+        return "{$path}?{$query}";
     }
 }

@@ -14,4 +14,6 @@ When the skill applies, inspect the branch diff against `main...HEAD`, patch rea
 
 The repo-tracked copy of this skill lives in `docs/codex-skills/backend-pr-self-review/`. If the local skill is missing or appears stale, read that copy directly and update both the local skill and the repo copy when harvesting new Claude feedback.
 
+When harvesting Claude feedback into repo skills, keep the guidance scannable: prefer a new short bullet or named clause for each distinct lesson instead of appending multiple clauses to an already-long bullet. If Claude flags discoverability or long bullets, refactor the nearby guidance while preserving concrete examples.
+
 Keep changes small and consistent with the existing architecture: controllers handle HTTP, requests validate and normalize, actions/services own business behavior, models own persistence, and resources define response shape.

@@ -3,8 +3,13 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Http\Resources\Flashcards\DeckResource;
+use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -194,6 +199,74 @@ class UpdateDeckApiTest extends TestCase
             'name' => 'Italian Travel',
             'description' => 'Phrases for airport and train station practice.',
         ]);
+    }
+
+    public function test_update_is_rate_limited_by_user(): void
+    {
+        $testBucket = 'test-'.Str::ulid();
+        $clientIp = '127.0.0.1';
+        $user = $this->signIn();
+        $deck = Deck::factory()->for($user)->create([
+            'name' => 'Original User Deck',
+            'description' => null,
+        ]);
+        $otherUser = User::factory()->create();
+        $otherDeck = Deck::factory()->for($otherUser)->create([
+            'name' => 'Original Other Deck',
+            'description' => null,
+        ]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+        $restoreDeckUpdateLimiter = function (): void {
+            $limiter = DeckRateLimiter::update();
+            RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::UPDATE_NAME, $userId, $ip);
+        $userKey = $testRateLimitKey($user->id, $clientIp);
+        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
+
+        try {
+            RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
+                return Limit::perMinute(2)->by($testRateLimitKey(
+                    $request->user()?->getAuthIdentifier(),
+                    $request->ip(),
+                ));
+            });
+
+            foreach ([1, 2] as $attempt) {
+                $this
+                    ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload("User Deck {$attempt}"))
+                    ->assertOk();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->putJson("/api/decks/{$otherDeck->id}", $this->deckUpdatePayload('Other User Deck'))
+                ->assertOk();
+
+            $this->signIn($user);
+
+            $this
+                ->putJson("/api/decks/{$deck->id}", $this->deckUpdatePayload('Blocked User Deck'))
+                ->assertTooManyRequests();
+
+            $this
+                ->getJson("/api/decks/{$deck->id}")
+                ->assertOk()
+                ->assertJsonPath('data.name', 'User Deck 2');
+
+            $this->assertSame('User Deck 2', $deck->refresh()->name);
+            $this->assertSame('Other User Deck', $otherDeck->refresh()->name);
+        } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+            $restoreDeckUpdateLimiter();
+        }
     }
 
     public function test_it_rejects_blank_name(): void
@@ -449,5 +522,16 @@ class UpdateDeckApiTest extends TestCase
             'name' => $deck->name,
             'description' => $deck->description,
         ]);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function deckUpdatePayload(string $name): array
+    {
+        return [
+            'name' => $name,
+            'description' => null,
+        ];
     }
 }

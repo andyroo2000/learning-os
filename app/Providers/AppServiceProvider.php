@@ -7,6 +7,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -81,6 +82,21 @@ class AppServiceProvider extends ServiceProvider
         $courseDeleteRateLimiter = CourseRateLimiter::delete();
         RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($courseDeleteRateLimiter): Limit {
             return $courseDeleteRateLimiter->limit($request);
+        });
+
+        $deckCreateRateLimiter = DeckRateLimiter::create();
+        RateLimiter::for(DeckRateLimiter::CREATE_NAME, function (Request $request) use ($deckCreateRateLimiter): Limit {
+            return $deckCreateRateLimiter->limit($request);
+        });
+
+        $deckUpdateRateLimiter = DeckRateLimiter::update();
+        RateLimiter::for(DeckRateLimiter::UPDATE_NAME, function (Request $request) use ($deckUpdateRateLimiter): Limit {
+            return $deckUpdateRateLimiter->limit($request);
+        });
+
+        $deckDeleteRateLimiter = DeckRateLimiter::delete();
+        RateLimiter::for(DeckRateLimiter::DELETE_NAME, function (Request $request) use ($deckDeleteRateLimiter): Limit {
+            return $deckDeleteRateLimiter->limit($request);
         });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

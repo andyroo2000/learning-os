@@ -4,11 +4,15 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -191,6 +195,70 @@ class CreateDeckApiTest extends TestCase
             ->assertJsonPath('data.description', 'Foundational Italian review cards.');
 
         $this->assertDatabaseCount('decks', 1);
+    }
+
+    public function test_create_is_rate_limited_by_user(): void
+    {
+        $testBucket = 'test-'.Str::ulid();
+        $clientIp = '127.0.0.1';
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+
+        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+        $restoreDeckCreateLimiter = function (): void {
+            $limiter = DeckRateLimiter::create();
+            RateLimiter::for(DeckRateLimiter::CREATE_NAME, function (Request $request) use ($limiter): Limit {
+                return $limiter->limit($request);
+            });
+        };
+
+        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::CREATE_NAME, $userId, $ip);
+        $userKey = $testRateLimitKey($user->id, $clientIp);
+        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
+
+        try {
+            RateLimiter::for(DeckRateLimiter::CREATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
+                return Limit::perMinute(2)->by($testRateLimitKey(
+                    $request->user()?->getAuthIdentifier(),
+                    $request->ip(),
+                ));
+            });
+
+            foreach ([1, 2] as $attempt) {
+                $this
+                    ->postJson('/api/decks', $this->deckCreatePayload("User Deck {$attempt}"))
+                    ->assertCreated();
+            }
+
+            $this->signIn($otherUser);
+
+            $this
+                ->postJson('/api/decks', $this->deckCreatePayload('Other User Deck'))
+                ->assertCreated();
+
+            $this->signIn($user);
+
+            $this
+                ->postJson('/api/decks', $this->deckCreatePayload('Blocked User Deck'))
+                ->assertTooManyRequests();
+
+            $this
+                ->getJson('/api/decks')
+                ->assertOk()
+                ->assertJsonCount(2, 'data');
+
+            $this->assertSame(2, Deck::query()->where('user_id', $user->id)->count());
+            $this->assertSame(1, Deck::query()->where('user_id', $otherUser->id)->count());
+            $this->assertDatabaseMissing('decks', [
+                'user_id' => $user->id,
+                'name' => 'Blocked User Deck',
+            ]);
+        } finally {
+            RateLimiter::clear($userKey);
+            RateLimiter::clear($otherUserKey);
+            $restoreDeckCreateLimiter();
+        }
     }
 
     public function test_it_normalizes_description_before_matching_idempotent_retries(): void
@@ -497,5 +565,16 @@ class CreateDeckApiTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Italian Basics',
         ]);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function deckCreatePayload(string $name): array
+    {
+        return [
+            'name' => $name,
+            'description' => null,
+        ];
     }
 }

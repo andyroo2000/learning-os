@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
+use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -239,15 +240,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Settings sync can retry updates; keep that quota separate from card writes.
     Route::patch('/study/settings', UpdateStudySettingsController::class)
         ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
+    // Deck updates and deletes use separate buckets from deck creation so replay pressure cannot starve deletes.
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')
         ->group(function (): void {
             Route::get('/', ShowDeckController::class);
             Route::get('/media-assets', ListDeckMediaAssetsController::class);
             Route::get('/cards', ListDeckCardsController::class);
-            Route::put('/', UpdateDeckController::class);
-            Route::delete('/', DeleteDeckController::class);
+            Route::put('/', UpdateDeckController::class)
+                ->middleware('throttle:'.DeckRateLimiter::UPDATE_NAME);
+            Route::delete('/', DeleteDeckController::class)
+                ->middleware('throttle:'.DeckRateLimiter::DELETE_NAME);
         });
     Route::get('/decks', ListDecksController::class);
-    Route::post('/decks', StoreDeckController::class);
+    // Deck creation has its own retryable write bucket, separate from update/delete.
+    Route::post('/decks', StoreDeckController::class)
+        ->middleware('throttle:'.DeckRateLimiter::CREATE_NAME);
 });

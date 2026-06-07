@@ -16,6 +16,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -171,6 +172,65 @@ class CreateStudyCardFromDraftActionTest extends TestCase
             strtolower((string) str()->ulid()),
             strtolower((string) str()->ulid()),
         );
+    }
+
+    public function test_it_hides_malformed_draft_ids_without_querying_drafts(): void
+    {
+        $userId = User::factory()->create()->id;
+        $cardId = strtolower((string) str()->ulid());
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->expectException(StudyCardDraftNotFoundException::class);
+        $this->expectExceptionMessage('Study card draft not found.');
+
+        try {
+            app(CreateStudyCardFromDraftAction::class)->handle($userId, 'not-a-ulid', $cardId);
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            $this->assertCount(
+                0,
+                $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+                'Malformed draft IDs should return not-found before querying study_card_drafts.',
+            );
+            $this->assertSame(0, Card::query()->count());
+            $this->assertSame(0, Deck::query()->count());
+            $this->assertSame(0, SyncFeedEntry::query()->count());
+        }
+    }
+
+    public function test_it_rejects_malformed_card_ids_without_querying_drafts_or_writing_side_effects(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'prompt_json' => ['cueText' => 'front'],
+            'answer_json' => ['meaning' => 'back'],
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Card ID must be a valid ULID.');
+
+        try {
+            app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, 'not-a-ulid');
+        } finally {
+            $queries = collect(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            $this->assertCount(
+                0,
+                $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_card_drafts')),
+                'Malformed card IDs should be rejected before querying study_card_drafts.',
+            );
+            $this->assertSame(0, Card::query()->count());
+            $this->assertSame(0, Deck::query()->count());
+            $this->assertSame(0, SyncFeedEntry::query()->count());
+            $this->assertNull($draft->refresh()->committed_card_id);
+        }
     }
 
     public function test_it_rejects_drafts_without_card_text(): void

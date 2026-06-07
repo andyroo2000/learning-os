@@ -14,6 +14,7 @@ use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 
 class CreateStudyCardFromDraftAction
@@ -32,6 +33,14 @@ class CreateStudyCardFromDraftAction
 
         $canonicalCardId = CanonicalUlid::normalize($cardId);
         $canonicalDraftId = CanonicalUlid::normalize($draftId);
+
+        if (! Str::isUlid($canonicalDraftId)) {
+            throw StudyCardDraftNotFoundException::notFound();
+        }
+
+        if (! Str::isUlid($canonicalCardId)) {
+            throw CardValidationException::invalidCardId();
+        }
 
         // Keep the draft row locked while the final card content snapshot is derived. The draft
         // remains after commit so clients can retry with the same card ID before deleting it.

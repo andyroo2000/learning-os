@@ -79,6 +79,13 @@ class UndoCardReviewEventApiTest extends TestCase
             'resource_id' => $reviewEventId,
             'operation' => SyncFeedOperation::Delete->value,
         ]);
+        $deleteEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card_review_event')
+            ->where('resource_id', $reviewEventId)
+            ->where('operation', SyncFeedOperation::Delete->value)
+            ->sole();
+        $this->assertNotNull($deleteEntry->payload['deleted_at']);
+        $this->assertIsString($deleteEntry->payload['deleted_at']);
         $this->assertSame('learning', SyncFeedEntry::query()
             ->where('resource_type', 'card')
             ->latest('checkpoint')

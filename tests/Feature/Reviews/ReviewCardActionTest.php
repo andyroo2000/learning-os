@@ -138,6 +138,7 @@ class ReviewCardActionTest extends TestCase
             ],
             'created_at' => $reviewEvent->created_at?->toJSON(),
             'updated_at' => $reviewEvent->updated_at?->toJSON(),
+            'deleted_at' => null,
         ], $entry->payload);
 
         $cardEntry = SyncFeedEntry::query()

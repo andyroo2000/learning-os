@@ -72,6 +72,7 @@ class UndoCardReviewEventAction
             $card->saveOrFail();
 
             $userId = $card->ownerUserId();
+            $deletedAt = now();
 
             // Capture the tombstone payload before hard-deleting the review event.
             $this->recordSyncFeedEntry->handle(
@@ -81,7 +82,7 @@ class UndoCardReviewEventAction
                     resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
                     resourceId: $reviewEvent->id,
                     operation: SyncFeedOperation::Delete->value,
-                    payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+                    payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent, $deletedAt),
                 ),
             );
 

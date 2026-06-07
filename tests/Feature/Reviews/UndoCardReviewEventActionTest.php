@@ -13,6 +13,7 @@ use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class UndoCardReviewEventActionTest extends TestCase
@@ -35,8 +36,15 @@ class UndoCardReviewEventActionTest extends TestCase
         ]);
 
         $reviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00Z')->reviewEvent;
+        $deletedAt = Carbon::parse('2026-05-27T10:00:00Z');
 
-        $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+        Carbon::setTestNow($deletedAt);
+
+        try {
+            $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+        } finally {
+            Carbon::setTestNow();
+        }
 
         $this->assertSame($card->id, $restoredCard->id);
         $this->assertSame(CardStudyStatus::Learning, $restoredCard->study_status);
@@ -58,6 +66,7 @@ class UndoCardReviewEventActionTest extends TestCase
 
         $this->assertSame($reviewEvent->id, $deleteEntry->resource_id);
         $this->assertSame($reviewEvent->id, $deleteEntry->payload['id']);
+        $this->assertSame($deletedAt->toJSON(), $deleteEntry->payload['deleted_at']);
 
         $latestCardEntry = SyncFeedEntry::query()
             ->where('resource_type', 'card')

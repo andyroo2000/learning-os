@@ -4,6 +4,7 @@ namespace App\Domain\Reviews\Sync;
 
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use Carbon\CarbonInterface;
 
 final class CardReviewEventSyncPayload
 {
@@ -16,7 +17,7 @@ final class CardReviewEventSyncPayload
     /**
      * @return array<string, mixed>
      */
-    public static function fromReviewEvent(CardReviewEvent $reviewEvent): array
+    public static function fromReviewEvent(CardReviewEvent $reviewEvent, ?CarbonInterface $deletedAt = null): array
     {
         return [
             'id' => $reviewEvent->id,
@@ -44,6 +45,8 @@ final class CardReviewEventSyncPayload
             'scheduler_state_after' => $reviewEvent->scheduler_state_after,
             'created_at' => $reviewEvent->created_at?->toJSON(),
             'updated_at' => $reviewEvent->updated_at?->toJSON(),
+            // Review events are hard-deleted by undo, so callers supply this tombstone timestamp.
+            'deleted_at' => $deletedAt?->toJSON(),
         ];
     }
 

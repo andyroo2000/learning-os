@@ -2,13 +2,16 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Domain\Study\Models\StudySettings;
+use App\Http\Resources\Study\StudySessionResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
 use Tests\Support\SetsCardStudyStatus;
@@ -335,6 +338,46 @@ class StartStudySessionActionTest extends TestCase
         $this->assertCount(StartStudySessionAction::READY_CARD_LIMIT, $result->cards);
         $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_count']);
         $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_cards_available_today']);
+    }
+
+    public function test_it_serializes_session_cards_without_a_separate_deck_lookup_query(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, [
+            'course_id' => $course->id,
+        ]);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+        $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
+
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        $this->assertSame($card->id, $payload['cards'][0]['id']);
+        $this->assertSame($course->id, $payload['cards'][0]['course_id']);
+
+        // Session starts stay at overview's settings + aggregate + latest import, plus one card query.
+        $this->assertCount(4, $queries, $queries->pluck('query')->implode("\n"));
+
+        $standaloneDeckSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "decks"'));
+
+        $this->assertCount(0, $standaloneDeckSelects, $queries->pluck('query')->implode("\n"));
     }
 
     public function test_it_rejects_invalid_time_zones_for_direct_callers(): void

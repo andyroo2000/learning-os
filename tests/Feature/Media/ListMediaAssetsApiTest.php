@@ -12,6 +12,7 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\AssertsCursorPagination;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class ListMediaAssetsApiTest extends TestCase
 {
@@ -455,7 +456,11 @@ class ListMediaAssetsApiTest extends TestCase
         $this->assertIsString($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
 
-        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
+        $nextPath = $this->pathAndQueryFromUrl($nextUrl);
+
+        $this->assertStringStartsWith('/api/media-assets?', $nextPath);
+
+        $secondPage = $this->getJson($nextPath);
 
         $secondPage
             ->assertOk()
@@ -506,7 +511,11 @@ class ListMediaAssetsApiTest extends TestCase
         $this->assertIsString($nextUrl);
         $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
 
-        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
+        $nextPath = $this->pathAndQueryFromUrl($nextUrl);
+
+        $this->assertStringStartsWith('/api/media-assets?', $nextPath);
+
+        $secondPage = $this->getJson($nextPath);
 
         $secondPage
             ->assertOk()
@@ -648,8 +657,13 @@ class ListMediaAssetsApiTest extends TestCase
         $path = parse_url($url, PHP_URL_PATH);
         $query = parse_url($url, PHP_URL_QUERY);
 
-        $this->assertIsString($path);
-        $this->assertIsString($query);
+        if (! is_string($path)) {
+            throw new UnexpectedValueException("Could not extract path from URL: {$url}");
+        }
+
+        if (! is_string($query) || $query === '') {
+            return $path;
+        }
 
         return "{$path}?{$query}";
     }

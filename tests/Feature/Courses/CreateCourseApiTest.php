@@ -7,17 +7,16 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Feature\Courses\Concerns\UsesCourseRateLimitOverrides;
 use Tests\TestCase;
 
 class CreateCourseApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesCourseRateLimitOverrides;
 
     public function test_it_creates_a_course(): void
     {
@@ -197,32 +196,10 @@ class CreateCourseApiTest extends TestCase
 
     public function test_create_is_rate_limited_by_user(): void
     {
-        $testBucket = 'test-'.Str::ulid();
-        $clientIp = '127.0.0.1';
         $user = $this->signIn();
         $otherUser = User::factory()->create();
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
-
-        $restoreCourseCreateLimiter = function (): void {
-            $limiter = CourseRateLimiter::create();
-            RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($limiter): Limit {
-                return $limiter->limit($request);
-            });
-        };
-
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CourseRateLimiter::keyFor(CourseRateLimiter::CREATE_NAME, $userId, $ip);
-        $userKey = $testRateLimitKey($user->id, $clientIp);
-        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
-
-        try {
-            RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
-                return Limit::perMinute(2)->by($testRateLimitKey(
-                    $request->user()?->getAuthIdentifier(),
-                    $request->ip(),
-                ));
-            });
-
+        $this->withCourseRateLimitOverride(CourseRateLimiter::CREATE_NAME, [$user->id, $otherUser->id], function () use ($user, $otherUser): void {
             foreach ([1, 2] as $attempt) {
                 $this
                     ->postJson('/api/courses', $this->courseCreatePayload("User Course {$attempt}"))
@@ -252,11 +229,7 @@ class CreateCourseApiTest extends TestCase
                 'user_id' => $user->id,
                 'title' => 'Blocked User Course',
             ]);
-        } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
-            $restoreCourseCreateLimiter();
-        }
+        });
     }
 
     public function test_it_rejects_client_provided_ulid_conflicts(): void

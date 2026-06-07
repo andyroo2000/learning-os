@@ -79,8 +79,7 @@ class DeleteStudyCardDraftCompatibilityApiTest extends TestCase
         $testBucket = 'test-'.Str::ulid();
         $user = $this->signIn();
         $otherUser = User::factory()->create();
-
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+        $previousServerVariables = $this->serverVariables;
 
         $restoreStudyCardDraftDeleteLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
@@ -93,13 +92,15 @@ class DeleteStudyCardDraftCompatibilityApiTest extends TestCase
         RateLimiter::clear($userKey);
         RateLimiter::clear($otherUserKey);
 
-        RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
-            return Limit::perMinute(2)->by(
-                $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
-            );
-        });
-
         try {
+            $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
+
+            RateLimiter::for(StudyCardDraftDeleteRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
+                return Limit::perMinute(2)->by(
+                    $testBucket.'|'.$limiter->keyFor($request->user()?->getAuthIdentifier(), $request->ip()),
+                );
+            });
+
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $this
                     ->deleteJson('/api/study/card-drafts/'.strtolower((string) Str::ulid()))
@@ -119,6 +120,7 @@ class DeleteStudyCardDraftCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardDraftDeleteLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 }

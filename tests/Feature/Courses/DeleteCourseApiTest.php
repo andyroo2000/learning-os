@@ -8,17 +8,16 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Feature\Courses\Concerns\UsesCourseRateLimitOverrides;
 use Tests\TestCase;
 
 class DeleteCourseApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesCourseRateLimitOverrides;
 
     public function test_it_deletes_an_owned_course(): void
     {
@@ -111,34 +110,12 @@ class DeleteCourseApiTest extends TestCase
 
     public function test_delete_is_rate_limited_by_user(): void
     {
-        $testBucket = 'test-'.Str::ulid();
-        $clientIp = '127.0.0.1';
         $user = $this->signIn();
         $courses = Course::factory()->count(3)->for($user)->create();
         $otherUser = User::factory()->create();
         $otherCourse = Course::factory()->for($otherUser)->create();
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
-
-        $restoreCourseDeleteLimiter = function (): void {
-            $limiter = CourseRateLimiter::delete();
-            RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($limiter): Limit {
-                return $limiter->limit($request);
-            });
-        };
-
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CourseRateLimiter::keyFor(CourseRateLimiter::DELETE_NAME, $userId, $ip);
-        $userKey = $testRateLimitKey($user->id, $clientIp);
-        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
-
-        try {
-            RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
-                return Limit::perMinute(2)->by($testRateLimitKey(
-                    $request->user()?->getAuthIdentifier(),
-                    $request->ip(),
-                ));
-            });
-
+        $this->withCourseRateLimitOverride(CourseRateLimiter::DELETE_NAME, [$user->id, $otherUser->id], function () use ($user, $courses, $otherUser, $otherCourse): void {
             foreach ($courses->take(2) as $course) {
                 $this
                     ->deleteJson("/api/courses/{$course->id}")
@@ -170,11 +147,7 @@ class DeleteCourseApiTest extends TestCase
                 'id' => $blockedCourse->id,
                 'deleted_at' => null,
             ]);
-        } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
-            $restoreCourseDeleteLimiter();
-        }
+        });
     }
 
     public function test_it_hides_another_users_course(): void

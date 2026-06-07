@@ -433,6 +433,7 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             'prompt_json' => ['cueText' => 'other front'],
             'answer_json' => ['meaning' => 'other back'],
         ]);
+        $previousServerVariables = $this->serverVariables;
 
         $userKey = $testBucket.'|'.$limiter->keyFor($user->id, $clientIp);
         $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, $clientIp);
@@ -486,6 +487,7 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             RateLimiter::clear($userKey);
             RateLimiter::clear($otherUserKey);
             $restoreStudyCardCreateLimiter();
+            $this->withServerVariables($previousServerVariables);
         }
     }
 }

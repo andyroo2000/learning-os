@@ -8,17 +8,16 @@ use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Http\Requests\Courses\StoreCourseRequest;
 use App\Http\Resources\Courses\CourseResource;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Feature\Courses\Concerns\UsesCourseRateLimitOverrides;
 use Tests\TestCase;
 
 class UpdateCourseApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesCourseRateLimitOverrides;
 
     public function test_it_updates_an_owned_course(): void
     {
@@ -173,8 +172,6 @@ class UpdateCourseApiTest extends TestCase
 
     public function test_update_is_rate_limited_by_user(): void
     {
-        $testBucket = 'test-'.Str::ulid();
-        $clientIp = '127.0.0.1';
         $user = $this->signIn();
         $course = Course::factory()->for($user)->create([
             'title' => 'Original User Course',
@@ -186,27 +183,7 @@ class UpdateCourseApiTest extends TestCase
             'description' => null,
         ]);
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
-
-        $restoreCourseUpdateLimiter = function (): void {
-            $limiter = CourseRateLimiter::update();
-            RateLimiter::for(CourseRateLimiter::UPDATE_NAME, function (Request $request) use ($limiter): Limit {
-                return $limiter->limit($request);
-            });
-        };
-
-        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CourseRateLimiter::keyFor(CourseRateLimiter::UPDATE_NAME, $userId, $ip);
-        $userKey = $testRateLimitKey($user->id, $clientIp);
-        $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
-
-        try {
-            RateLimiter::for(CourseRateLimiter::UPDATE_NAME, function (Request $request) use ($testRateLimitKey): Limit {
-                return Limit::perMinute(2)->by($testRateLimitKey(
-                    $request->user()?->getAuthIdentifier(),
-                    $request->ip(),
-                ));
-            });
-
+        $this->withCourseRateLimitOverride(CourseRateLimiter::UPDATE_NAME, [$user->id, $otherUser->id], function () use ($user, $course, $otherUser, $otherCourse): void {
             foreach ([1, 2] as $attempt) {
                 $this
                     ->putJson("/api/courses/{$course->id}", $this->courseUpdatePayload("User Course {$attempt}"))
@@ -232,11 +209,7 @@ class UpdateCourseApiTest extends TestCase
 
             $this->assertSame('User Course 2', $course->refresh()->title);
             $this->assertSame('Other User Course', $otherCourse->refresh()->title);
-        } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
-            $restoreCourseUpdateLimiter();
-        }
+        });
     }
 
     public function test_it_rejects_invalid_input(): void

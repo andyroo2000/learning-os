@@ -12,14 +12,16 @@ final class AuthenticatedUser
     {
         $user = $request->user();
 
+        // Auth middleware should have already resolved the application user; any other
+        // value here is a route wiring error, not another authentication challenge.
         if (! $user instanceof User) {
             throw new LogicException('Authenticated request user must be an application user.');
         }
 
         $userId = $user->getRawOriginal($user->getKeyName());
 
-        if ($userId === null && $user->getAttribute($user->getKeyName()) !== null) {
-            $userId = $user->getAttribute($user->getKeyName());
+        if ($userId === null) {
+            throw new LogicException('Authenticated user ID must be set.');
         }
 
         if (is_string($userId) && ! ctype_digit($userId)) {

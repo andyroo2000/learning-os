@@ -14,8 +14,11 @@ class AuthenticatedUserTest extends TestCase
 {
     public function test_it_resolves_the_authenticated_application_user_id(): void
     {
+        $user = new User;
+        $user->setRawAttributes(['id' => 42], sync: true);
+
         $request = Request::create('/api/study/overview');
-        $request->setUserResolver(fn () => User::factory()->make(['id' => 42]));
+        $request->setUserResolver(fn () => $user);
 
         $this->assertSame(42, AuthenticatedUser::id($request));
     }
@@ -42,8 +45,22 @@ class AuthenticatedUserTest extends TestCase
         AuthenticatedUser::id($request);
     }
 
+    public function test_it_rejects_application_users_without_a_synced_raw_id(): void
+    {
+        $user = new User;
+        $user->setAttribute('id', 42);
+
+        $request = Request::create('/api/study/overview');
+        $request->setUserResolver(fn () => $user);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Authenticated user ID must be set.');
+
+        AuthenticatedUser::id($request);
+    }
+
     #[DataProvider('invalidUserIdProvider')]
-    public function test_it_rejects_invalid_application_user_ids(int|string|null $userId): void
+    public function test_it_rejects_invalid_application_user_ids(int|string $userId): void
     {
         $user = new User;
         $user->setRawAttributes(['id' => $userId], sync: true);
@@ -58,12 +75,11 @@ class AuthenticatedUserTest extends TestCase
     }
 
     /**
-     * @return array<string, array{int|string|null}>
+     * @return array<string, array{int|string}>
      */
     public static function invalidUserIdProvider(): array
     {
         return [
-            'missing' => [null],
             'zero integer' => [0],
             'zero string' => ['0'],
             'negative integer' => [-1],

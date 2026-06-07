@@ -88,6 +88,8 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A hard-delete sync tombstone has caller-supplied `deleted_at` semantics but leaves clients or future maintainers to infer how it relates to pre-delete `updated_at`.
 - A hard-delete tombstone sync entry can commit before the actual delete fails because the feed write and delete are not in one explicit transaction, unless the action documents why the delete is infallible or why a ghost tombstone is recoverable.
 - A retry-safe hard-delete endpoint emits a tombstone only on the first delete and leaves the already-deleted retry/no-op path without an equivalent tombstone replay or documented sync-feed recovery contract.
+- Sibling API/sync tests assert the same client-visible timestamp field with different accepted formats or precision, leaving the real wire-format contract ambiguous.
+- A sync checkpoint ordering test uses equality-tolerant assertions when a downstream entry is expected to be strictly later, allowing a missing write to pass.
 - A generic `\BackedEnum` helper returns `->value` with a `string` return type even though integer-backed enums can also satisfy the input type.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.
 - Compatibility endpoints skip canonical domain actions, leak ConvoLab field names into shared domains, or lack tests for canonical and compat response shapes.

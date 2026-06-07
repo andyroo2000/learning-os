@@ -3,6 +3,7 @@
 namespace Tests\Feature\Media\Concerns;
 
 use App\Domain\Media\Support\CardMediaRateLimiter;
+use App\Domain\Media\Support\MediaAssetRateLimiter;
 use Closure;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -10,12 +11,12 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-trait UsesCardMediaRateLimitOverrides
+trait UsesMediaRateLimitOverrides
 {
     /**
      * @param  list<int|string>  $userIdsToClear
      */
-    protected function withCardMediaRateLimitOverride(
+    protected function withMediaRateLimitOverride(
         string $limiterName,
         array $userIdsToClear,
         Closure $callback,
@@ -23,7 +24,7 @@ trait UsesCardMediaRateLimitOverrides
         string $clientIp = '127.0.0.1',
     ): void {
         $testBucket = 'test-'.Str::ulid();
-        $testRateLimitKey = fn (mixed $userId, ?string $ip): string => $testBucket.'|'.CardMediaRateLimiter::keyFor($limiterName, $userId, $ip);
+        $testRateLimitKey = fn (mixed $userId, ?string $ip): string => $testBucket.'|'.$this->mediaRateLimitKeyFor($limiterName, $userId, $ip);
         $previousServerVariables = $this->serverVariables;
 
         try {
@@ -42,17 +43,30 @@ trait UsesCardMediaRateLimitOverrides
                 RateLimiter::clear($testRateLimitKey($userId, $clientIp));
             }
 
-            $this->restoreCardMediaRateLimiter($limiterName);
+            $this->restoreMediaRateLimiter($limiterName);
             $this->serverVariables = $previousServerVariables;
         }
     }
 
-    private function restoreCardMediaRateLimiter(string $limiterName): void
+    private function mediaRateLimitKeyFor(string $limiterName, mixed $userId, ?string $ip): string
+    {
+        return match ($limiterName) {
+            CardMediaRateLimiter::ATTACH_NAME,
+            CardMediaRateLimiter::DETACH_NAME => CardMediaRateLimiter::keyFor($limiterName, $userId, $ip),
+            MediaAssetRateLimiter::CREATE_NAME,
+            MediaAssetRateLimiter::DELETE_NAME => MediaAssetRateLimiter::keyFor($limiterName, $userId, $ip),
+            default => throw new InvalidArgumentException("Unknown media rate limiter [{$limiterName}]."),
+        };
+    }
+
+    private function restoreMediaRateLimiter(string $limiterName): void
     {
         $limiter = match ($limiterName) {
             CardMediaRateLimiter::ATTACH_NAME => CardMediaRateLimiter::forAttach(),
             CardMediaRateLimiter::DETACH_NAME => CardMediaRateLimiter::forDetach(),
-            default => throw new InvalidArgumentException("Unknown card media rate limiter [{$limiterName}]."),
+            MediaAssetRateLimiter::CREATE_NAME => MediaAssetRateLimiter::forCreate(),
+            MediaAssetRateLimiter::DELETE_NAME => MediaAssetRateLimiter::forDelete(),
+            default => throw new InvalidArgumentException("Unknown media rate limiter [{$limiterName}]."),
         };
 
         RateLimiter::for($limiterName, fn (Request $request): Limit => $limiter->limit($request));

@@ -3,13 +3,18 @@
 namespace Tests\Feature\Media;
 
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Support\MediaAssetRateLimiter;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Feature\Media\Concerns\UsesMediaRateLimitOverrides;
 use Tests\TestCase;
 
 class DeleteMediaAssetApiTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesMediaRateLimitOverrides;
 
     public function test_it_deletes_a_media_asset_and_its_card_attachments(): void
     {
@@ -66,6 +71,61 @@ class DeleteMediaAssetApiTest extends TestCase
         $response = $this->deleteJson('/api/media-assets/not-a-valid-id');
 
         $response->assertNoContent();
+    }
+
+    public function test_delete_is_rate_limited_by_user(): void
+    {
+        $user = $this->signIn();
+        $mediaAssets = MediaAsset::factory()->count(3)->for($user)->create();
+        $otherUser = User::factory()->create();
+        $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
+
+        $this->withMediaRateLimitOverride(
+            MediaAssetRateLimiter::DELETE_NAME,
+            [$user->id, $otherUser->id],
+            function () use ($mediaAssets, $otherMediaAsset, $otherUser, $user): void {
+                foreach ($mediaAssets->take(2) as $mediaAsset) {
+                    $this
+                        ->deleteJson("/api/media-assets/{$mediaAsset->id}")
+                        ->assertNoContent();
+                }
+
+                $this->signIn($otherUser);
+
+                $this
+                    ->deleteJson("/api/media-assets/{$otherMediaAsset->id}")
+                    ->assertNoContent();
+
+                $this->signIn($user);
+
+                $blockedMediaAsset = $mediaAssets->last();
+
+                $this
+                    ->deleteJson("/api/media-assets/{$blockedMediaAsset->id}")
+                    ->assertTooManyRequests()
+                    ->assertHeader('X-RateLimit-Limit', '2')
+                    ->assertHeader('X-RateLimit-Remaining', '0')
+                    ->assertHeader('Retry-After');
+
+                $this
+                    ->getJson('/api/media-assets')
+                    ->assertOk()
+                    ->assertJsonCount(1, 'data')
+                    ->assertJsonPath('data.0.id', $blockedMediaAsset->id);
+
+                $this->assertDatabaseMissing('media_assets', ['id' => $mediaAssets[0]->id]);
+                $this->assertDatabaseMissing('media_assets', ['id' => $mediaAssets[1]->id]);
+                $this->assertDatabaseMissing('media_assets', ['id' => $otherMediaAsset->id]);
+                $this->assertDatabaseHas('media_assets', [
+                    'id' => $blockedMediaAsset->id,
+                    'user_id' => $user->id,
+                ]);
+                $this->assertDatabaseMissing('sync_feed_entries', [
+                    'resource_type' => MediaAssetSyncPayload::RESOURCE_TYPE,
+                    'resource_id' => $blockedMediaAsset->id,
+                ]);
+            },
+        );
     }
 
     public function test_it_does_not_delete_another_users_media_asset(): void

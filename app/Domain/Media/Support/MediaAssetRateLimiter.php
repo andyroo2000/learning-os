@@ -5,27 +5,27 @@ namespace App\Domain\Media\Support;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
-final class CardMediaRateLimiter
+final class MediaAssetRateLimiter
 {
-    public const ATTACH_NAME = 'card-media-attach';
+    public const CREATE_NAME = 'media-asset-create';
 
-    public const DETACH_NAME = 'card-media-detach';
+    public const DELETE_NAME = 'media-asset-delete';
 
     private function __construct(
         private readonly string $name,
         private readonly int $perMinute,
     ) {}
 
-    public static function forAttach(): self
+    public static function forCreate(): self
     {
-        // Attach replay is idempotent; 60/min allows mobile backlog repair without sharing card-write buckets.
-        return new self(self::ATTACH_NAME, 60);
+        // Metadata creates may replay with client IDs after reconnect; keep this separate from card writes.
+        return new self(self::CREATE_NAME, 60);
     }
 
-    public static function forDetach(): self
+    public static function forDelete(): self
     {
-        // Detach is also retry-safe and low-frequency, so keep a separate roomy relation-write bucket.
-        return new self(self::DETACH_NAME, 60);
+        // Deletes are idempotent no-ops for missing assets, but still bound retry storms separately.
+        return new self(self::DELETE_NAME, 60);
     }
 
     public function limit(Request $request): Limit
@@ -33,6 +33,9 @@ final class CardMediaRateLimiter
         return Limit::perMinute($this->perMinute)->by($this->key($request));
     }
 
+    /**
+     * @internal Exposed for focused limiter tests; route code should call limit().
+     */
     public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
     {
         // Auth normally rejects anonymous requests first; this fallback bounds unexpected IP-less traffic.

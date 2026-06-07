@@ -11,6 +11,7 @@ use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Support\CardMediaRateLimiter;
+use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -109,6 +110,16 @@ class AppServiceProvider extends ServiceProvider
         $cardMediaDetachRateLimiter = CardMediaRateLimiter::forDetach();
         RateLimiter::for(CardMediaRateLimiter::DETACH_NAME, function (Request $request) use ($cardMediaDetachRateLimiter): Limit {
             return $cardMediaDetachRateLimiter->limit($request);
+        });
+
+        $mediaAssetCreateRateLimiter = MediaAssetRateLimiter::forCreate();
+        RateLimiter::for(MediaAssetRateLimiter::CREATE_NAME, function (Request $request) use ($mediaAssetCreateRateLimiter): Limit {
+            return $mediaAssetCreateRateLimiter->limit($request);
+        });
+
+        $mediaAssetDeleteRateLimiter = MediaAssetRateLimiter::forDelete();
+        RateLimiter::for(MediaAssetRateLimiter::DELETE_NAME, function (Request $request) use ($mediaAssetDeleteRateLimiter): Limit {
+            return $mediaAssetDeleteRateLimiter->limit($request);
         });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

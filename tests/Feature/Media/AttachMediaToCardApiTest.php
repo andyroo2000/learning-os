@@ -17,13 +17,13 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Tests\Feature\Media\Concerns\UsesCardMediaRateLimitOverrides;
+use Tests\Feature\Media\Concerns\UsesMediaRateLimitOverrides;
 use Tests\TestCase;
 
 class AttachMediaToCardApiTest extends TestCase
 {
     use RefreshDatabase;
-    use UsesCardMediaRateLimitOverrides;
+    use UsesMediaRateLimitOverrides;
 
     public function test_it_attaches_media_to_a_card(): void
     {
@@ -198,7 +198,7 @@ class AttachMediaToCardApiTest extends TestCase
         $otherCard = $this->cardFor($otherUser);
         $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
 
-        $this->withCardMediaRateLimitOverride(
+        $this->withMediaRateLimitOverride(
             CardMediaRateLimiter::ATTACH_NAME,
             [$user->id, $otherUser->id],
             function () use ($card, $mediaAssets, $otherCard, $otherMediaAsset, $otherUser, $user): void {

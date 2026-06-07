@@ -131,7 +131,7 @@ class DeleteDeckApiTest extends TestCase
             });
         };
 
-        $testRateLimitKey = static fn (int|string|null $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::DELETE_NAME, $userId, $ip);
+        $testRateLimitKey = static fn (mixed $userId, ?string $ip): string => $testBucket.'|'.DeckRateLimiter::keyFor(DeckRateLimiter::DELETE_NAME, $userId, $ip);
         $userKey = $testRateLimitKey($user->id, $clientIp);
         $otherUserKey = $testRateLimitKey($otherUser->id, $clientIp);
 

@@ -41,11 +41,13 @@ final class DeckRateLimiter
         return Limit::perMinute($this->perMinute)->by($this->key($request));
     }
 
-    public static function keyFor(string $limiterName, int|string|null $userId, ?string $ip): string
+    public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
     {
         // Auth normally rejects anonymous requests first; this fallback bounds unexpected IP-less traffic.
-        if ($userId !== null) {
-            return $limiterName.':user:'.(string) $userId;
+        $normalizedUserId = self::normalizeUserId($userId);
+
+        if ($normalizedUserId !== null) {
+            return $limiterName.':user:'.$normalizedUserId;
         }
 
         $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
@@ -60,5 +62,18 @@ final class DeckRateLimiter
             $request->user()?->getAuthIdentifier(),
             $request->ip(),
         );
+    }
+
+    private static function normalizeUserId(mixed $userId): ?string
+    {
+        if (is_int($userId) || is_string($userId)) {
+            return (string) $userId;
+        }
+
+        if (is_object($userId) && method_exists($userId, '__toString')) {
+            return (string) $userId;
+        }
+
+        return null;
     }
 }

@@ -10,6 +10,7 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -98,6 +99,16 @@ class AppServiceProvider extends ServiceProvider
         $deckDeleteRateLimiter = DeckRateLimiter::forDelete();
         RateLimiter::for(DeckRateLimiter::DELETE_NAME, function (Request $request) use ($deckDeleteRateLimiter): Limit {
             return $deckDeleteRateLimiter->limit($request);
+        });
+
+        $cardMediaAttachRateLimiter = CardMediaRateLimiter::forAttach();
+        RateLimiter::for(CardMediaRateLimiter::ATTACH_NAME, function (Request $request) use ($cardMediaAttachRateLimiter): Limit {
+            return $cardMediaAttachRateLimiter->limit($request);
+        });
+
+        $cardMediaDetachRateLimiter = CardMediaRateLimiter::forDetach();
+        RateLimiter::for(CardMediaRateLimiter::DETACH_NAME, function (Request $request) use ($cardMediaDetachRateLimiter): Limit {
+            return $cardMediaDetachRateLimiter->limit($request);
         });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

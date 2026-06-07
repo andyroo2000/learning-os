@@ -12,9 +12,9 @@ class StudyCardUpdateRateLimiter
     // Saved-card edits can be retried or autosaved by clients, so match the draft autosave headroom.
     private const PER_MINUTE = 120;
 
-    public function limit(Request $request, int $perMinute = self::PER_MINUTE): Limit
+    public function limit(Request $request): Limit
     {
-        return Limit::perMinute($perMinute)->by($this->key($request));
+        return Limit::perMinute(self::PER_MINUTE)->by($this->key($request));
     }
 
     private function key(Request $request): string
@@ -32,11 +32,11 @@ class StudyCardUpdateRateLimiter
     {
         // The route requires auth; the fallback keeps the limiter safe if middleware changes.
         if ($userId !== null) {
-            return 'user:'.(string) $userId;
+            return self::NAME.':user:'.(string) $userId;
         }
 
         $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
 
-        return 'anon:'.$network;
+        return self::NAME.':anon:'.$network;
     }
 }

@@ -147,7 +147,6 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
     public function test_it_rate_limits_study_card_updates_by_user(): void
     {
         $limiter = new StudyCardUpdateRateLimiter;
-        $clientIp = '127.0.0.1';
         $testBucket = 'test-'.Str::ulid();
         $user = $this->signIn();
         $card = $this->cardFor($user, [
@@ -164,18 +163,16 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'answer_json' => ['meaning' => 'school'],
         ]);
 
-        $this->withServerVariables(['REMOTE_ADDR' => $clientIp]);
-
         $restoreStudyCardUpdateLimiter = function () use ($limiter): void {
             RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter): Limit {
                 return $limiter->limit($request);
             });
         };
 
-        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, $clientIp);
-        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, $clientIp);
-        RateLimiter::clear($userKey);
-        RateLimiter::clear($otherUserKey);
+        $userKey = $testBucket.'|'.$limiter->keyFor($user->id, null);
+        $otherUserKey = $testBucket.'|'.$limiter->keyFor($otherUser->id, null);
+        RateLimiter::clear($this->throttleCacheKey($userKey));
+        RateLimiter::clear($this->throttleCacheKey($otherUserKey));
 
         // RateLimiter definitions are process-global; keep this sequential test out of parallel workers.
         RateLimiter::for(StudyCardUpdateRateLimiter::NAME, function (Request $request) use ($limiter, $testBucket): Limit {
@@ -185,14 +182,12 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         });
 
         try {
-            $payload = [
-                'prompt' => ['cueText' => '会社'],
-                'answer' => ['meaning' => 'company'],
-            ];
-
-            for ($attempt = 0; $attempt < 2; $attempt++) {
+            for ($attempt = 1; $attempt <= 2; $attempt++) {
                 $this
-                    ->patchJson("/api/study/cards/{$card->id}", $payload)
+                    ->patchJson("/api/study/cards/{$card->id}", [
+                        'prompt' => ['cueText' => "会社 {$attempt}"],
+                        'answer' => ['meaning' => "company {$attempt}"],
+                    ])
                     ->assertOk();
             }
 
@@ -200,26 +195,31 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
 
             $this
                 ->patchJson("/api/study/cards/{$otherCard->id}", [
-                    'prompt' => ['cueText' => '学校'],
-                    'answer' => ['meaning' => 'school'],
+                    'prompt' => ['cueText' => '学校 1'],
+                    'answer' => ['meaning' => 'school 1'],
                 ])
                 ->assertOk();
 
             $this->signIn($user);
 
             $this
-                ->patchJson("/api/study/cards/{$card->id}", $payload)
+                ->patchJson("/api/study/cards/{$card->id}", [
+                    'prompt' => ['cueText' => '会社 3'],
+                    'answer' => ['meaning' => 'company 3'],
+                ])
                 ->assertTooManyRequests();
 
+            $this->assertSame('会社 2', $card->refresh()->front_text);
+            $this->assertSame('学校 1', $otherCard->refresh()->front_text);
+            $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
+            $this->assertSame(1, SyncFeedEntry::query()->where('user_id', $otherUser->id)->count());
             $this->assertDatabaseMissing('sync_feed_entries', [
                 'user_id' => $user->id,
-            ]);
-            $this->assertDatabaseMissing('sync_feed_entries', [
-                'user_id' => $otherUser->id,
+                'payload->prompt_json->cueText' => '会社 3',
             ]);
         } finally {
-            RateLimiter::clear($userKey);
-            RateLimiter::clear($otherUserKey);
+            RateLimiter::clear($this->throttleCacheKey($userKey));
+            RateLimiter::clear($this->throttleCacheKey($otherUserKey));
             $restoreStudyCardUpdateLimiter();
         }
     }
@@ -371,5 +371,11 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'prompt' => ['cueText' => '会社'],
             'answer' => ['meaning' => 'company'],
         ])->assertUnauthorized();
+    }
+
+    private function throttleCacheKey(string $limiterKey): string
+    {
+        // Named throttle middleware hashes the limiter name with the returned Limit key before storage.
+        return md5(StudyCardUpdateRateLimiter::NAME.$limiterKey);
     }
 }

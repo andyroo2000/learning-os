@@ -23,6 +23,10 @@ final class MediaAssetSyncPayload
         // public_url is persisted create metadata; expose it as client-facing url, not storage-derived internals.
         return [
             'id' => $mediaAsset->id,
+            'import_job_id' => $mediaAsset->import_job_id,
+            'source_kind' => $mediaAsset->source_kind,
+            'source_media_ref' => $mediaAsset->source_media_ref,
+            'source_filename' => $mediaAsset->source_filename,
             'url' => $mediaAsset->public_url,
             'content_url' => MediaAssetContentUrl::path($mediaAsset),
             'mime_type' => $mediaAsset->mime_type,

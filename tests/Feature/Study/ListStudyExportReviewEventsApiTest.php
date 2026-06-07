@@ -34,6 +34,20 @@ class ListStudyExportReviewEventsApiTest extends TestCase
         $otherCard = $this->cardFor(User::factory()->create());
 
         $firstEvent = CardReviewEvent::factory()->for($card)->create([
+            'import_job_id' => strtolower((string) str()->ulid()),
+            'source_kind' => 'anki_import',
+            'source_review_id' => 901,
+            'source_card_id' => 701,
+            'source_ease' => 2,
+            'source_interval' => 12,
+            'source_last_interval' => 6,
+            'source_factor' => 2500,
+            'source_time_ms' => 1200,
+            'source_review_type' => 1,
+            'raw_payload_json' => [
+                'source_review_id' => 901,
+                'source_card_id' => 701,
+            ],
             'rating' => CardReviewRating::Hard,
             'reviewed_at' => now()->subHour(),
             'duration_ms' => 1200,
@@ -67,6 +81,17 @@ class ListStudyExportReviewEventsApiTest extends TestCase
             ->assertJsonPath('data.0.card_id', $card->id)
             ->assertJsonPath('data.0.deck_id', $card->deck_id)
             ->assertJsonPath('data.0.course_id', $card->deckCourseId())
+            ->assertJsonPath('data.0.import_job_id', $firstEvent->import_job_id)
+            ->assertJsonPath('data.0.source_kind', 'anki_import')
+            ->assertJsonPath('data.0.source_review_id', 901)
+            ->assertJsonPath('data.0.source_card_id', 701)
+            ->assertJsonPath('data.0.source_ease', 2)
+            ->assertJsonPath('data.0.source_interval', 12)
+            ->assertJsonPath('data.0.source_last_interval', 6)
+            ->assertJsonPath('data.0.source_factor', 2500)
+            ->assertJsonPath('data.0.source_time_ms', 1200)
+            ->assertJsonPath('data.0.source_review_type', 1)
+            ->assertJsonPath('data.0.raw_payload_json.source_review_id', 901)
             ->assertJsonPath('data.0.rating', CardReviewRating::Hard->value)
             ->assertJsonPath('data.0.reviewed_at', $firstEvent->reviewed_at->toJSON())
             ->assertJsonPath('data.0.duration_ms', 1200)
@@ -91,6 +116,17 @@ class ListStudyExportReviewEventsApiTest extends TestCase
                         'card_id',
                         'deck_id',
                         'course_id',
+                        'import_job_id',
+                        'source_kind',
+                        'source_review_id',
+                        'source_card_id',
+                        'source_ease',
+                        'source_interval',
+                        'source_last_interval',
+                        'source_factor',
+                        'source_time_ms',
+                        'source_review_type',
+                        'raw_payload_json',
                         'rating',
                         'reviewed_at',
                         'duration_ms',

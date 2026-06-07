@@ -14,6 +14,10 @@ class MediaAssetSyncPayloadTest extends TestCase
         $mediaAsset = new MediaAsset;
         $mediaAsset->setRawAttributes([
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
+            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+            'source_kind' => 'anki_import',
+            'source_media_ref' => '0',
+            'source_filename' => 'word.mp3',
             'disk' => 'media',
             'path' => 'uploads/example.jpg',
             'public_url' => 'https://cdn.example.test/uploads/example.jpg',
@@ -29,6 +33,10 @@ class MediaAssetSyncPayloadTest extends TestCase
 
         $expected = [
             'id' => '01jzk7k5g9e1k8z6w3b4n9y2pa',
+            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+            'source_kind' => 'anki_import',
+            'source_media_ref' => '0',
+            'source_filename' => 'word.mp3',
             'url' => 'https://cdn.example.test/uploads/example.jpg',
             'content_url' => '/api/media-assets/01jzk7k5g9e1k8z6w3b4n9y2pa/content',
             'mime_type' => 'image/jpeg',

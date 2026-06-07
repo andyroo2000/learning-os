@@ -74,4 +74,32 @@ class FlashcardResourceTest extends TestCase
         );
         $this->assertNull(CardResource::make($card)->resolve()['new_queue_position']);
     }
+
+    public function test_card_resource_serializes_import_source_metadata(): void
+    {
+        $card = new Card;
+        $card->setRawAttributes([
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+            'source_kind' => 'anki_import',
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_deck_id' => 1700000000000,
+            'source_notetype_name' => 'Basic',
+            'source_template_ord' => 0,
+            'front_text' => '会社',
+            'back_text' => 'company',
+        ], sync: true);
+
+        $resource = CardResource::make($card)->resolve();
+
+        $this->assertSame('01k1j8n4st9y2aqj9b43r1dz0e', $resource['import_job_id']);
+        $this->assertSame('anki_import', $resource['source_kind']);
+        $this->assertSame(701, $resource['source_card_id']);
+        $this->assertSame(501, $resource['source_note_id']);
+        $this->assertSame(1700000000000, $resource['source_deck_id']);
+        $this->assertSame('Basic', $resource['source_notetype_name']);
+        $this->assertSame(0, $resource['source_template_ord']);
+    }
 }

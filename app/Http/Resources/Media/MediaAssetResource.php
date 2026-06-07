@@ -15,6 +15,10 @@ class MediaAssetResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'import_job_id' => $this->import_job_id,
+            'source_kind' => $this->source_kind,
+            'source_media_ref' => $this->source_media_ref,
+            'source_filename' => $this->source_filename,
             'url' => $this->public_url,
             'content_url' => MediaAssetContentUrl::path($this->resource),
             'mime_type' => $this->mime_type,

@@ -30,6 +30,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->for($user)
             ->withPublicUrl('https://cdn.example.test/uploads/first.jpg')
             ->create([
+                'import_job_id' => strtolower((string) str()->ulid()),
+                'source_kind' => 'anki_import',
+                'source_media_ref' => '0',
+                'source_filename' => 'first.jpg',
                 'disk' => 'media',
                 'path' => 'uploads/first.jpg',
                 'mime_type' => 'image/jpeg',
@@ -54,6 +58,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $firstAsset->id)
+            ->assertJsonPath('data.0.import_job_id', $firstAsset->import_job_id)
+            ->assertJsonPath('data.0.source_kind', 'anki_import')
+            ->assertJsonPath('data.0.source_media_ref', '0')
+            ->assertJsonPath('data.0.source_filename', 'first.jpg')
             ->assertJsonPath('data.0.url', 'https://cdn.example.test/uploads/first.jpg')
             ->assertJsonPath('data.0.content_url', "/api/media-assets/{$firstAsset->id}/content")
             ->assertJsonPath('data.0.mime_type', 'image/jpeg')
@@ -73,6 +81,10 @@ class ListStudyExportMediaAssetsApiTest extends TestCase
                 'data' => [
                     '*' => [
                         'id',
+                        'import_job_id',
+                        'source_kind',
+                        'source_media_ref',
+                        'source_filename',
                         'url',
                         'content_url',
                         'mime_type',

@@ -63,6 +63,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A shared validation trait adds a relaxed/optional mode but leaves typed cached properties or accessors with an implicit uninitialized-property failure path.
 - Request-owned trimming/lowercasing lacks tests with `withoutMiddleware(TrimStrings::class)`, or new tests replaced a stronger full-middleware-stack test.
 - A request-level fix lacks corresponding direct action tests when the action has a direct caller contract.
+- A direct action regression test is placed only in an adjacent API/upload/controller test file instead of the action's own focused test class, making the guard hard to find when the action changes.
 - Partial-update DTO `has*`/presence flags do not short-circuit validation or normalization for fields the caller explicitly marked as untouched.
 - Partial-update DTOs allow `hasField: true` with `null` for fields that HTTP validation treats as required/non-null when present, causing direct callers to silently clear or default persisted state.
 - FormRequest `after()` cross-field checks infer a sibling field is valid from raw presence/non-null input without checking the sibling field's validation errors.

@@ -13,6 +13,11 @@ enum IntegerBackedStudyCardDraftResourceValue: int
     case Legacy = 1;
 }
 
+enum StringBackedStudyCardDraftResourceValue: string
+{
+    case Ready = 'ready';
+}
+
 class StudyCardDraftResourceTest extends TestCase
 {
     public function test_resource_serializes_string_draft_attributes_from_raw_values(): void
@@ -41,6 +46,19 @@ class StudyCardDraftResourceTest extends TestCase
         $this->assertSame('production', $resource['cardType']);
         $this->assertSame('prompt', $resource['imagePlacement']);
         $this->assertSame('answer', $resource['previewAudioRole']);
+    }
+
+    public function test_resource_serializes_string_backed_enum_draft_attributes(): void
+    {
+        $draft = new StudyCardDraft;
+        $draft->setRawAttributes([
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'status' => StringBackedStudyCardDraftResourceValue::Ready,
+        ], sync: true);
+
+        $resource = StudyCardDraftResource::make($draft)->toArray(new Request);
+
+        $this->assertSame('ready', $resource['status']);
     }
 
     public function test_resource_rejects_non_string_scalar_draft_attributes(): void

@@ -35,7 +35,8 @@ class StudyCardDraftResource extends JsonResource
 
     private function stringAttributeValue(string $key): ?string
     {
-        // These draft API fields are string enums; reject other scalars instead of silently changing the JSON contract.
+        // Read the raw string enum value intentionally; these fields must not use value-transforming casts.
+        // BackedEnum support is for direct in-memory assignments, and still enforces a string wire contract.
         $value = $this->resource->getAttributes()[$key] ?? null;
 
         if ($value instanceof BackedEnum) {

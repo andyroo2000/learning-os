@@ -95,6 +95,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
 - A sync/resource payload adds a client-visible key but only updates downstream action/API assertions, leaving the canonical payload shape unit test stale or absent.
 - A PR lists sync feed/list replay tests as verification for a new payload key but those tests do not assert the field in the replayed payload shape.
+- A canonical model-to-payload comparison replaces the only fixed expected-value assertion for a transformation, allowing the model and feed to be wrong in the same way.
 - A sync feed assertion checks only one payload field, or identifies entries by array position/checkpoint order when stable business keys such as `user_id`, `operation`, or the full `domain`/`resource_type`/`resource_id` tuple are available.
 - A payload comparison uses `assertSame()` or `assertEquals()` without matching the actual cast shape and contract: arrays/scalars can use strict equality when key order/type are intentional, fresh value-object instances need structural equality or a documented identity/memoization contract, and `assertEquals()` needs type-sensitive spot coverage for numeric-string-prone fields.
 - A multi-entry sync-feed test asserts `user_id`/ownership for one entry but not sibling entries written by the same action.

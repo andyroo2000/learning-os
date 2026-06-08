@@ -4,12 +4,14 @@ namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\UndoCardReviewEventAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,23 +61,25 @@ class UndoCardReviewEventActionTest extends TestCase
         $this->assertSame('2026-05-25T09:15:00.000000Z', $restoredCard->last_reviewed_at?->toJSON());
         $this->assertDatabaseMissing('card_review_events', ['id' => $reviewEvent->id]);
 
+        $restoredCard->refresh()->load('deck');
+        $reviewEvent->setRelation('card', $restoredCard);
+
         $deleteEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card_review_event')
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $reviewEvent->id)
             ->where('operation', SyncFeedOperation::Delete->value)
             ->sole();
 
-        $this->assertSame($reviewEvent->id, $deleteEntry->resource_id);
-        $this->assertSame($reviewEvent->id, $deleteEntry->payload['id']);
-        $this->assertSame($deletedAt->toJSON(), $deleteEntry->payload['deleted_at']);
+        $this->assertEquals(CardReviewEventSyncPayload::fromReviewEvent($reviewEvent, $deletedAt), $deleteEntry->payload);
 
         $latestCardEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card')
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $restoredCard->id)
             ->latest('checkpoint')
             ->firstOrFail();
 
         $this->assertSame(SyncFeedOperation::Update, $latestCardEntry->operation);
-        $this->assertSame('learning', $latestCardEntry->payload['study_status']);
-        $this->assertSame(4, $latestCardEntry->payload['new_queue_position']);
+        $this->assertEquals(CardSyncPayload::fromCard($restoredCard), $latestCardEntry->payload);
     }
 
     public function test_it_rejects_undoing_a_review_that_is_not_the_latest_for_the_card(): void

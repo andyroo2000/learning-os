@@ -186,6 +186,18 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             $offsetRequest->validateResolved();
 
             $this->assertSame('2026-06-04T08:45:30.000000Z', $offsetRequest->variantUnlockedAt()?->toJSON());
+
+            $fractionalNaiveRequest = StoreStudyCardDraftRequest::create('/api/study/card-drafts', 'POST', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantUnlockedAt' => '2026-06-04T14:15:30.987654',
+            ]);
+            $fractionalNaiveRequest->setContainer($this->app)->setRedirector($this->app['redirect']);
+            $fractionalNaiveRequest->validateResolved();
+
+            $this->assertSame('2026-06-04T14:15:30.987654Z', $fractionalNaiveRequest->variantUnlockedAt()?->toJSON());
         } finally {
             date_default_timezone_set($previousTimezone);
         }

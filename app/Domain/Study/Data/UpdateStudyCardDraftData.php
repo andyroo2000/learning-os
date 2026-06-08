@@ -7,6 +7,10 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
+use DateTimeInterface;
 
 final readonly class UpdateStudyCardDraftData
 {
@@ -25,6 +29,18 @@ final readonly class UpdateStudyCardDraftData
         public ?StudyCardAudioRole $previewAudioRole,
         public bool $hasPreviewImage,
         public ?array $previewImageJson,
+        public bool $hasVariantGroupId,
+        public ?string $variantGroupId,
+        public bool $hasVariantSentenceId,
+        public ?string $variantSentenceId,
+        public bool $hasVariantKind,
+        public ?VocabVariantKind $variantKind,
+        public bool $hasVariantStage,
+        public ?int $variantStage,
+        public bool $hasVariantStatus,
+        public ?VocabVariantStatus $variantStatus,
+        public bool $hasVariantUnlockedAt,
+        public ?DateTimeInterface $variantUnlockedAt,
     ) {}
 
     public static function fromInput(
@@ -42,6 +58,18 @@ final readonly class UpdateStudyCardDraftData
         StudyCardAudioRole|string|null $previewAudioRole = null,
         bool $hasPreviewImage = false,
         ?array $previewImageJson = null,
+        bool $hasVariantGroupId = false,
+        ?string $variantGroupId = null,
+        bool $hasVariantSentenceId = false,
+        ?string $variantSentenceId = null,
+        bool $hasVariantKind = false,
+        VocabVariantKind|string|null $variantKind = null,
+        bool $hasVariantStage = false,
+        ?int $variantStage = null,
+        bool $hasVariantStatus = false,
+        VocabVariantStatus|string|null $variantStatus = null,
+        bool $hasVariantUnlockedAt = false,
+        ?DateTimeInterface $variantUnlockedAt = null,
     ): self {
         if ($hasPrompt !== $hasAnswer) {
             throw StudyCardDraftValidationException::invalidPayloads();
@@ -63,6 +91,13 @@ final readonly class UpdateStudyCardDraftData
             self::validateNullableMediaRef($previewImageJson, 'image');
         }
 
+        if ($hasVariantStage) {
+            VocabVariantMetadataInput::assertValidStage(
+                $variantStage,
+                'Study variant stage must be between 1 and 65535.',
+            );
+        }
+
         return new self(
             hasPrompt: $hasPrompt,
             promptJson: $promptJson,
@@ -78,6 +113,24 @@ final readonly class UpdateStudyCardDraftData
             previewAudioRole: $hasPreviewAudioRole ? self::previewAudioRoleFromInput($previewAudioRole) : null,
             hasPreviewImage: $hasPreviewImage,
             previewImageJson: $hasPreviewImage ? $previewImageJson : null,
+            hasVariantGroupId: $hasVariantGroupId,
+            variantGroupId: $hasVariantGroupId ? VocabVariantMetadataInput::nullableId(
+                $variantGroupId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ) : null,
+            hasVariantSentenceId: $hasVariantSentenceId,
+            variantSentenceId: $hasVariantSentenceId ? VocabVariantMetadataInput::nullableId(
+                $variantSentenceId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ) : null,
+            hasVariantKind: $hasVariantKind,
+            variantKind: $hasVariantKind ? VocabVariantMetadataInput::kindFromInput($variantKind) : null,
+            hasVariantStage: $hasVariantStage,
+            variantStage: $hasVariantStage ? $variantStage : null,
+            hasVariantStatus: $hasVariantStatus,
+            variantStatus: $hasVariantStatus ? VocabVariantMetadataInput::statusFromInput($variantStatus) : null,
+            hasVariantUnlockedAt: $hasVariantUnlockedAt,
+            variantUnlockedAt: $hasVariantUnlockedAt ? VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt) : null,
         );
     }
 
@@ -89,7 +142,13 @@ final readonly class UpdateStudyCardDraftData
             || $this->hasImagePrompt
             || $this->hasPreviewAudio
             || $this->hasPreviewAudioRole
-            || $this->hasPreviewImage;
+            || $this->hasPreviewImage
+            || $this->hasVariantGroupId
+            || $this->hasVariantSentenceId
+            || $this->hasVariantKind
+            || $this->hasVariantStage
+            || $this->hasVariantStatus
+            || $this->hasVariantUnlockedAt;
     }
 
     private static function imagePlacementFromInput(StudyCardImagePlacement|string|null $imagePlacement): StudyCardImagePlacement

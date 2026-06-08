@@ -47,7 +47,7 @@ final class VocabVariantMetadataInput
 
     public static function normalizedTimestamp(?DateTimeInterface $value): ?DateTimeInterface
     {
-        return $value === null ? null : CarbonImmutable::instance($value)->startOfSecond();
+        return $value === null ? null : CarbonImmutable::instance($value)->utc()->startOfSecond();
     }
 
     public static function kindFromInput(VocabVariantKind|string|null $variantKind): ?VocabVariantKind

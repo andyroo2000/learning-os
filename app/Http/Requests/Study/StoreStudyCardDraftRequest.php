@@ -6,12 +6,8 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Vocabulary\Enums\VocabVariantKind;
-use App\Domain\Vocabulary\Enums\VocabVariantStatus;
-use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
-use Carbon\CarbonImmutable;
-use DateTimeInterface;
+use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -20,6 +16,7 @@ use LogicException;
 class StoreStudyCardDraftRequest extends FormRequest
 {
     use ValidatesStudyCardPayloads;
+    use ValidatesVocabVariantMetadata;
 
     private const PAYLOAD_REQUIRED_MESSAGE = 'prompt and answer payloads are required.';
 
@@ -36,31 +33,16 @@ class StoreStudyCardDraftRequest extends FormRequest
             }
         }
 
-        foreach (['variantKind', 'variantStatus'] as $key) {
-            if (! array_key_exists($key, $this->all())) {
-                continue;
-            }
-
-            $value = $this->input($key);
+        if (array_key_exists('imagePrompt', $this->all())) {
+            $value = $this->input('imagePrompt');
 
             if (is_string($value)) {
                 $trimmed = trim($value);
-                $normalized[$key] = $trimmed === '' ? null : strtolower($trimmed);
+                $normalized['imagePrompt'] = $trimmed === '' ? null : $trimmed;
             }
         }
 
-        foreach (['imagePrompt', 'variantGroupId', 'variantSentenceId', 'variantStage', 'variantUnlockedAt'] as $key) {
-            if (! array_key_exists($key, $this->all())) {
-                continue;
-            }
-
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $trimmed = trim($value);
-                $normalized[$key] = $trimmed === '' ? null : $trimmed;
-            }
-        }
+        $this->normalizeVariantMetadataForValidation($normalized);
 
         if ($normalized !== []) {
             $this->merge($normalized);
@@ -84,17 +66,7 @@ class StoreStudyCardDraftRequest extends FormRequest
             'cardType' => ['required', 'string', Rule::in(CardType::values())],
             'imagePlacement' => ['sometimes', 'nullable', 'string', Rule::in(StudyCardImagePlacement::values())],
             'imagePrompt' => ['sometimes', 'nullable', 'string', 'max:'.StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH],
-            'variantGroupId' => ['sometimes', 'nullable', 'string', 'max:'.VocabVariantMetadataInput::MAX_ID_LENGTH],
-            'variantSentenceId' => ['sometimes', 'nullable', 'string', 'max:'.VocabVariantMetadataInput::MAX_ID_LENGTH],
-            'variantKind' => ['sometimes', 'nullable', 'string', Rule::in(VocabVariantKind::values())],
-            'variantStage' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.VocabVariantMetadataInput::MAX_STAGE],
-            'variantStatus' => ['sometimes', 'nullable', 'string', Rule::in(VocabVariantStatus::values())],
-            'variantUnlockedAt' => [
-                'sometimes',
-                'nullable',
-                'string',
-                'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z,Y-m-d\TH:i:s',
-            ],
+            ...$this->variantMetadataRules(),
         ];
     }
 
@@ -154,19 +126,7 @@ class StoreStudyCardDraftRequest extends FormRequest
             'cardType.in' => 'cardType must match creationKind.',
             'imagePlacement.in' => self::studyCardImagePlacementMessage(),
             'imagePrompt.max' => 'imagePrompt must be '.StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH.' characters or fewer.',
-            'variantGroupId.string' => 'variantGroupId must be a string.',
-            'variantGroupId.max' => 'variantGroupId must be '.VocabVariantMetadataInput::MAX_ID_LENGTH.' characters or fewer.',
-            'variantSentenceId.string' => 'variantSentenceId must be a string.',
-            'variantSentenceId.max' => 'variantSentenceId must be '.VocabVariantMetadataInput::MAX_ID_LENGTH.' characters or fewer.',
-            'variantKind.string' => 'variantKind must be a string.',
-            'variantKind.in' => 'variantKind is not supported.',
-            'variantStage.integer' => 'variantStage must be an integer.',
-            'variantStage.min' => 'variantStage must be between 1 and '.VocabVariantMetadataInput::MAX_STAGE.'.',
-            'variantStage.max' => 'variantStage must be between 1 and '.VocabVariantMetadataInput::MAX_STAGE.'.',
-            'variantStatus.string' => 'variantStatus must be a string.',
-            'variantStatus.in' => 'variantStatus is not supported.',
-            'variantUnlockedAt.string' => 'variantUnlockedAt must be a string.',
-            'variantUnlockedAt.date_format' => 'variantUnlockedAt must be a valid timestamp.',
+            ...$this->variantMetadataMessages(),
         ];
     }
 
@@ -211,70 +171,5 @@ class StoreStudyCardDraftRequest extends FormRequest
     public function imagePrompt(): ?string
     {
         return $this->nullableString('imagePrompt');
-    }
-
-    public function variantGroupId(): ?string
-    {
-        return $this->nullableString('variantGroupId');
-    }
-
-    public function variantSentenceId(): ?string
-    {
-        return $this->nullableString('variantSentenceId');
-    }
-
-    public function variantKind(): ?VocabVariantKind
-    {
-        $value = $this->nullableString('variantKind');
-
-        return $value === null ? null : VocabVariantKind::from($value);
-    }
-
-    public function variantStage(): ?int
-    {
-        $value = $this->validated('variantStage');
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_int($value) && ! (is_string($value) && ctype_digit($value))) {
-            throw new LogicException('variantStage called after validation failed to reject a non-integer value.');
-        }
-
-        return (int) $value;
-    }
-
-    public function variantStatus(): ?VocabVariantStatus
-    {
-        $value = $this->nullableString('variantStatus');
-
-        return $value === null ? null : VocabVariantStatus::from($value);
-    }
-
-    public function variantUnlockedAt(): ?DateTimeInterface
-    {
-        $value = $this->validated('variantUnlockedAt');
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_string($value)) {
-            throw new LogicException('variantUnlockedAt called after validation failed to reject a non-string value.');
-        }
-
-        return CarbonImmutable::parse($value, 'UTC')->utc();
-    }
-
-    private function nullableString(string $key): ?string
-    {
-        $value = $this->validated($key);
-
-        if ($value !== null && ! is_string($value)) {
-            throw new LogicException("{$key} called after validation failed to reject a non-string value.");
-        }
-
-        return $value;
     }
 }

@@ -7,6 +7,9 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -119,6 +122,12 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             'preview_audio_json' => ['id' => 'old-audio', 'filename' => 'old.mp3', 'mediaKind' => 'audio', 'source' => 'generated'],
             'preview_audio_role' => StudyCardAudioRole::Answer,
             'preview_image_json' => ['id' => 'old-image', 'filename' => 'old.webp', 'mediaKind' => 'image', 'source' => 'generated'],
+            'variant_group_id' => 'old-group',
+            'variant_sentence_id' => 'old-sentence',
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
         $this
@@ -131,6 +140,12 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewAudio' => null,
                 'previewAudioRole' => null,
                 'previewImage' => null,
+                'variantGroupId' => ' vocab-group-1 ',
+                'variantSentenceId' => ' sentence-1 ',
+                'variantKind' => ' SENTENCE_CLOZE ',
+                'variantStage' => ' 3 ',
+                'variantStatus' => ' AVAILABLE ',
+                'variantUnlockedAt' => '2026-06-04T14:15:30+05:30',
             ])
             ->assertOk()
             ->assertJsonPath('prompt.cueText', '  company  ')
@@ -139,22 +154,60 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('imagePrompt', null)
             ->assertJsonPath('previewAudio', null)
             ->assertJsonPath('previewAudioRole', null)
-            ->assertJsonPath('previewImage', null);
+            ->assertJsonPath('previewImage', null)
+            ->assertJsonPath('variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('variantSentenceId', 'sentence-1')
+            ->assertJsonPath('variantKind', VocabVariantKind::SentenceCloze->value)
+            ->assertJsonPath('variantStage', 3)
+            ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
+            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
 
         $draft->refresh();
         $this->assertNull($draft->image_prompt);
         $this->assertNull($draft->preview_audio_json);
         $this->assertNull($draft->preview_audio_role);
         $this->assertNull($draft->preview_image_json);
+        $this->assertSame('vocab-group-1', $draft->variant_group_id);
+        $this->assertSame('sentence-1', $draft->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $draft->variant_kind);
+        $this->assertSame(3, $draft->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $draft->variant_unlocked_at?->toJSON());
+
+        $entry = SyncFeedEntry::query()->latest('id')->firstOrFail();
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
+        $this->assertSame(3, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
 
         $this
             ->patchJson("/api/study/card-drafts/{$draft->id}", [
                 'imagePlacement' => null,
+                'variantGroupId' => null,
+                'variantSentenceId' => null,
+                'variantKind' => null,
+                'variantStage' => null,
+                'variantStatus' => null,
+                'variantUnlockedAt' => null,
             ])
             ->assertOk()
-            ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value);
+            ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value)
+            ->assertJsonPath('variantGroupId', null)
+            ->assertJsonPath('variantSentenceId', null)
+            ->assertJsonPath('variantKind', null)
+            ->assertJsonPath('variantStage', null)
+            ->assertJsonPath('variantStatus', null)
+            ->assertJsonPath('variantUnlockedAt', null);
 
         $this->assertSame(StudyCardImagePlacement::None, $draft->refresh()->image_placement);
+        $this->assertNull($draft->variant_group_id);
+        $this->assertNull($draft->variant_sentence_id);
+        $this->assertNull($draft->variant_kind);
+        $this->assertNull($draft->variant_stage);
+        $this->assertNull($draft->variant_status);
+        $this->assertNull($draft->variant_unlocked_at);
     }
 
     public function test_it_only_updates_present_fields(): void
@@ -165,6 +218,12 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
             'image_placement' => StudyCardImagePlacement::Both,
             'image_prompt' => 'Keep this',
+            'variant_group_id' => 'keep-group',
+            'variant_sentence_id' => 'keep-sentence',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
         $this->patchJson("/api/study/card-drafts/{$draft->id}", [
@@ -174,11 +233,23 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('answer.meaning', 'business')
             ->assertJsonPath('imagePlacement', StudyCardImagePlacement::Both->value)
-            ->assertJsonPath('imagePrompt', 'Keep this');
+            ->assertJsonPath('imagePrompt', 'Keep this')
+            ->assertJsonPath('variantGroupId', 'keep-group')
+            ->assertJsonPath('variantSentenceId', 'keep-sentence')
+            ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
+            ->assertJsonPath('variantStage', 2)
+            ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
+            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z');
 
         $draft->refresh();
         $this->assertSame(['expression' => '会社', 'meaning' => 'business'], $draft->answer_json);
         $this->assertSame('Keep this', $draft->image_prompt);
+        $this->assertSame('keep-group', $draft->variant_group_id);
+        $this->assertSame('keep-sentence', $draft->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
+        $this->assertSame(2, $draft->variant_stage);
+        $this->assertSame(VocabVariantStatus::Locked->value, $draft->variant_status);
+        $this->assertSame('2026-06-05T14:15:00.000000Z', $draft->variant_unlocked_at?->toJSON());
     }
 
     public function test_empty_autosave_is_a_noop_and_returns_the_current_draft(): void
@@ -348,6 +419,30 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewImage.mediaKind' => ['draft.previewImage.mediaKind must be image.'],
                 'previewImage.source' => ['draft media source must be imported, generated, missing, imported_image, or imported_other.'],
             ]);
+
+        $this->patchJson("/api/study/card-drafts/{$draft->id}", [
+            'variantGroupId' => str_repeat('a', 65),
+            'variantSentenceId' => ['sentence-1'],
+            'variantKind' => 'sentence-audio-recognition',
+            'variantStage' => 0,
+            'variantStatus' => ['available'],
+            'variantUnlockedAt' => 'yesterday',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
+            ])
+            ->assertJsonPath('errors.variantGroupId.0', 'variantGroupId must be 64 characters or fewer.')
+            ->assertJsonPath('errors.variantSentenceId.0', 'variantSentenceId must be a string.')
+            ->assertJsonPath('errors.variantKind.0', 'variantKind is not supported.')
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.')
+            ->assertJsonPath('errors.variantStatus.0', 'variantStatus must be a string.')
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
     }
 
     public function test_it_rate_limits_manual_card_draft_autosaves_by_user(): void

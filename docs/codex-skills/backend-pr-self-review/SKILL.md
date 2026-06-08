@@ -72,6 +72,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A request-level fix lacks corresponding direct action tests when the action has a direct caller contract.
 - A direct action regression test is placed only in an adjacent API/upload/controller test file instead of the action's own focused test class, making the guard hard to find when the action changes.
 - A direct-caller range/default normalizer adds only rejection tests and does not prove valid lower/upper boundaries, `null` or omitted default behavior, and low/high invalid boundaries where the HTTP layer enforces the same contract.
+- A boundary-acceptance test infers persistence only from return values or side-effect counts, or covers only update when the same boundary value has a distinct create/first-write branch.
 - Partial-update DTO `has*`/presence flags do not short-circuit validation or normalization for fields the caller explicitly marked as untouched.
 - Partial-update DTOs allow `hasField: true` with `null` for fields that HTTP validation treats as required/non-null when present, causing direct callers to silently clear or default persisted state.
 - A sparse-update/no-op test omits newly added optional fields, especially casted timestamps or paired metadata fields that can be dirty-tracked differently from plain strings.

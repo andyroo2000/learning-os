@@ -13,6 +13,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use LogicException;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -93,6 +94,34 @@ class StudySettingsActionTest extends TestCase
         $this->assertSame(StudySettingsSyncPayload::fromSettings($updated), $entry->payload);
     }
 
+    public function test_update_accepts_supported_range_boundaries(): void
+    {
+        $lowerSettings = StudySettings::factory()->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $upperSettings = StudySettings::factory()->create([
+            'new_cards_per_day' => 20,
+        ]);
+
+        $lowerUpdated = app(UpdateStudySettingsAction::class)->handle($lowerSettings->user_id, 0);
+        $upperUpdated = app(UpdateStudySettingsAction::class)->handle(
+            $upperSettings->user_id,
+            StudySettings::MAX_NEW_CARDS_PER_DAY,
+        );
+
+        $this->assertSame(0, $lowerUpdated->new_cards_per_day);
+        $this->assertSame(StudySettings::MAX_NEW_CARDS_PER_DAY, $upperUpdated->new_cards_per_day);
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $lowerSettings->user_id,
+            'new_cards_per_day' => 0,
+        ]);
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $upperSettings->user_id,
+            'new_cards_per_day' => StudySettings::MAX_NEW_CARDS_PER_DAY,
+        ]);
+        $this->assertSame(2, SyncFeedEntry::query()->count());
+    }
+
     public function test_update_does_not_record_sync_feed_entry_when_settings_are_unchanged(): void
     {
         $settings = StudySettings::factory()->create([
@@ -147,9 +176,32 @@ class StudySettingsActionTest extends TestCase
 
     public function test_update_rejects_values_outside_the_supported_range(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('new_cards_per_day must be an integer between 0 and 1000.');
+        $expectedMessage = 'new_cards_per_day must be an integer between 0 and '
+            .StudySettings::MAX_NEW_CARDS_PER_DAY.'.';
 
-        app(UpdateStudySettingsAction::class)->handle(User::factory()->create()->id, 1001);
+        foreach ([-1, StudySettings::MAX_NEW_CARDS_PER_DAY + 1] as $newCardsPerDay) {
+            try {
+                app(UpdateStudySettingsAction::class)->handle(PHP_INT_MAX, $newCardsPerDay);
+                $this->fail("Expected [{$newCardsPerDay}] to be rejected.");
+            } catch (InvalidArgumentException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+
+        $this->assertDatabaseCount('study_settings', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_update_rejects_missing_settings_owner_without_creating_orphan_settings(): void
+    {
+        try {
+            app(UpdateStudySettingsAction::class)->handle(999, 12);
+            $this->fail('Expected missing settings owner to be rejected.');
+        } catch (LogicException $exception) {
+            $this->assertSame('Study settings owner could not be locked.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('study_settings', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 }

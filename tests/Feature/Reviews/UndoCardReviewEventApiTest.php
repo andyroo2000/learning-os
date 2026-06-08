@@ -3,11 +3,13 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -53,6 +55,7 @@ class UndoCardReviewEventApiTest extends TestCase
             'reviewed_at' => '2026-05-27T09:15:00Z',
         ]);
         $reviewEventId = $createResponse->json('data.id');
+        $reviewEvent = CardReviewEvent::query()->findOrFail($reviewEventId);
 
         $response = $this->deleteJson("/api/card-review-events/{$reviewEventId}");
 
@@ -74,24 +77,30 @@ class UndoCardReviewEventApiTest extends TestCase
             'due_at' => '2026-05-28 09:15:00',
         ]);
 
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'resource_type' => 'card_review_event',
-            'resource_id' => $reviewEventId,
-            'operation' => SyncFeedOperation::Delete->value,
-        ]);
+        $card->refresh()->load('deck');
+        $reviewEvent->setRelation('card', $card);
+
         $deleteEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card_review_event')
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
             ->where('resource_id', $reviewEventId)
             ->where('operation', SyncFeedOperation::Delete->value)
             ->sole();
         $deletedAt = $deleteEntry->payload['deleted_at'] ?? null;
         $this->assertIsString($deletedAt);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $deletedAt);
-        $this->assertSame('learning', SyncFeedEntry::query()
-            ->where('resource_type', 'card')
+        $this->assertEquals(
+            CardReviewEventSyncPayload::fromReviewEvent($reviewEvent, Carbon::parse($deletedAt)),
+            $deleteEntry->payload
+        );
+
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
             ->latest('checkpoint')
-            ->firstOrFail()
-            ->payload['study_status']);
+            ->firstOrFail();
+
+        $this->assertSame(SyncFeedOperation::Update, $cardEntry->operation);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_it_rate_limits_undo_requests(): void

@@ -56,6 +56,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 
 - Raw request accessors like `$this->input()`, `$this->has()`, `$this->integer()`, or `$request->query()` are used after validation where `$this->validated()` should be the source of truth.
 - Query-string integers rely on Laravel validation to cast values; cast validated values explicitly.
+- Client-visible timestamp request fields rely on Laravel's permissive `date` rule without a `string` guard, strict accepted formats, or tests for integer/relative-string rejection when clients are expected to send ISO-like timestamps.
 - Client-provided ULIDs are accepted without pre-validation normalization in FormRequests and action/DTO boundaries that direct callers use, or a normalizer runs before the format guard without proving it is safe for arbitrary garbage strings.
 - A malformed-ID guard is buried in a private lookup helper while the public action method can run other logic before reaching it, unless that pre-helper path is proven side-effect free and intentionally differs from sibling actions.
 - Normalization converts arrays, omitted optional fields, or other non-string invalid inputs into `null` or another value that hides validation errors.
@@ -64,6 +65,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - The same client-visible validation message is reused for structurally different failures, such as missing paired payloads versus present-but-wrong JSON shape, without a compatibility note and tests.
 - A shared validation trait adds a relaxed/optional mode but leaves typed cached properties or accessors with an implicit uninitialized-property failure path.
 - Request-owned trimming/lowercasing lacks tests with `withoutMiddleware(TrimStrings::class)`, or new tests replaced a stronger full-middleware-stack test.
+- Request timestamp parsing depends on the PHP/server timezone for timezone-naive input, fails to convert explicit offsets back to UTC before persistence, or lacks tests covering both cases.
 - A request-level fix lacks corresponding direct action tests when the action has a direct caller contract.
 - A direct action regression test is placed only in an adjacent API/upload/controller test file instead of the action's own focused test class, making the guard hard to find when the action changes.
 - Partial-update DTO `has*`/presence flags do not short-circuit validation or normalization for fields the caller explicitly marked as untouched.

@@ -261,6 +261,10 @@ class CreateStudyCardDraftActionTest extends TestCase
                 ['variantGroupId' => str_repeat('a', 65)],
                 'Study variant IDs must be 64 characters or fewer.',
             ],
+            'oversized variant sentence id' => [
+                ['variantSentenceId' => str_repeat('a', 65)],
+                'Study variant IDs must be 64 characters or fewer.',
+            ],
             'malformed variant kind' => [
                 ['variantKind' => 'not-a-kind'],
                 'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze.',

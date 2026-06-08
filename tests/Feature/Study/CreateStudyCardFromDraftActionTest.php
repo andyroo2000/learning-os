@@ -55,6 +55,7 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $result->card->variant_kind);
         $this->assertSame(2, $result->card->variant_stage);
         $this->assertSame(VocabVariantStatus::Available->value, $result->card->variant_status);
+        // The draft factory and committed card both store this timestamp at database second precision.
         $this->assertSame($draft->variant_unlocked_at->toJSON(), $result->card->variant_unlocked_at->toJSON());
         $this->assertSame('会社', $result->card->front_text);
         $this->assertSame('company', $result->card->back_text);

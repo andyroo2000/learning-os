@@ -8,6 +8,10 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Http\Requests\Study\StoreStudyCardDraftRequest;
 use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -104,6 +108,89 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         );
     }
 
+    public function test_it_creates_a_manual_study_card_draft_with_variant_metadata(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/card-drafts', [
+                'creationKind' => ' text-recognition ',
+                'cardType' => ' recognition ',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantGroupId' => ' vocab-group-1 ',
+                'variantSentenceId' => ' sentence-1 ',
+                'variantKind' => ' SENTENCE_AUDIO_RECOGNITION ',
+                'variantStage' => ' 2 ',
+                'variantStatus' => ' AVAILABLE ',
+                'variantUnlockedAt' => '2026-06-04T14:15:30.987654Z',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('variantSentenceId', 'sentence-1')
+            ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
+            ->assertJsonPath('variantStage', 2)
+            ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
+            // The storage column is second-precision, so fractional input is normalized away.
+            ->assertJsonPath('variantUnlockedAt', '2026-06-04T14:15:30.000000Z');
+
+        $draft = StudyCardDraft::query()->sole();
+        $this->assertSame($user->id, $draft->user_id);
+        $this->assertSame('vocab-group-1', $draft->variant_group_id);
+        $this->assertSame('sentence-1', $draft->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
+        $this->assertSame(2, $draft->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
+        $this->assertSame('2026-06-04T14:15:30.000000Z', $draft->variant_unlocked_at?->toJSON());
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
+        $this->assertSame(2, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
+
+        Queue::assertPushed(ProcessStudyCardDraft::class);
+    }
+
+    public function test_request_treats_timezone_naive_variant_unlock_timestamps_as_utc(): void
+    {
+        $previousTimezone = date_default_timezone_get();
+
+        try {
+            date_default_timezone_set('America/New_York');
+
+            $request = StoreStudyCardDraftRequest::create('/api/study/card-drafts', 'POST', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantUnlockedAt' => '2026-06-04T14:15:30',
+            ]);
+            $request->setContainer($this->app)->setRedirector($this->app['redirect']);
+            $request->validateResolved();
+
+            $this->assertSame('2026-06-04T14:15:30.000000Z', $request->variantUnlockedAt()?->toJSON());
+
+            $offsetRequest = StoreStudyCardDraftRequest::create('/api/study/card-drafts', 'POST', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantUnlockedAt' => '2026-06-04T14:15:30+05:30',
+            ]);
+            $offsetRequest->setContainer($this->app)->setRedirector($this->app['redirect']);
+            $offsetRequest->validateResolved();
+
+            $this->assertSame('2026-06-04T08:45:30.000000Z', $offsetRequest->variantUnlockedAt()?->toJSON());
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+    }
+
     public function test_it_defaults_and_normalizes_optional_fields_without_trim_strings_middleware(): void
     {
         Queue::fake();
@@ -118,6 +205,12 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
                 'answer' => ['meaning' => '  会社  '],
                 'imagePlacement' => null,
                 'imagePrompt' => '   ',
+                'variantGroupId' => '   ',
+                'variantSentenceId' => "\t",
+                'variantKind' => '   ',
+                'variantStage' => null,
+                'variantStatus' => "\n",
+                'variantUnlockedAt' => '   ',
             ])
             ->assertCreated()
             ->assertJsonPath('creationKind', StudyCardCreationKind::ProductionImage->value)
@@ -125,12 +218,24 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('prompt.cueText', '  company  ')
             ->assertJsonPath('answer.meaning', '  会社  ')
             ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value)
-            ->assertJsonPath('imagePrompt', null);
+            ->assertJsonPath('imagePrompt', null)
+            ->assertJsonPath('variantGroupId', null)
+            ->assertJsonPath('variantSentenceId', null)
+            ->assertJsonPath('variantKind', null)
+            ->assertJsonPath('variantStage', null)
+            ->assertJsonPath('variantStatus', null)
+            ->assertJsonPath('variantUnlockedAt', null);
 
         $draft = StudyCardDraft::query()->sole();
         $this->assertSame(['cueText' => '  company  '], $draft->prompt_json);
         $this->assertSame(['meaning' => '  会社  '], $draft->answer_json);
         $this->assertNull($draft->image_prompt);
+        $this->assertNull($draft->variant_group_id);
+        $this->assertNull($draft->variant_sentence_id);
+        $this->assertNull($draft->variant_kind);
+        $this->assertNull($draft->variant_stage);
+        $this->assertNull($draft->variant_status);
+        $this->assertNull($draft->variant_unlocked_at);
 
         // This test intentionally posts twice: first for payload normalization, then for defaults.
         StudyCardDraft::query()->delete();
@@ -235,6 +340,84 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['answer'])
             ->assertJsonPath('errors.answer.0', 'prompt and answer payloads are required.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+            'variantGroupId' => str_repeat('a', 65),
+            'variantSentenceId' => str_repeat('b', 65),
+            'variantKind' => 'sentence-audio-recognition',
+            'variantStage' => 0,
+            'variantStatus' => 'unknown',
+            'variantUnlockedAt' => 'not-a-date',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
+            ])
+            ->assertJsonPath('errors.variantGroupId.0', 'variantGroupId must be 64 characters or fewer.')
+            ->assertJsonPath('errors.variantSentenceId.0', 'variantSentenceId must be 64 characters or fewer.')
+            ->assertJsonPath('errors.variantKind.0', 'variantKind is not supported.')
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.')
+            ->assertJsonPath('errors.variantStatus.0', 'variantStatus is not supported.')
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+            'variantGroupId' => ['vocab-group-1'],
+            'variantSentenceId' => ['sentence-1'],
+            'variantKind' => ['sentence_cloze'],
+            'variantStage' => ['2'],
+            'variantStatus' => ['available'],
+            'variantUnlockedAt' => ['2026-06-04T14:15:30Z'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
+            ])
+            ->assertJsonPath('errors.variantGroupId.0', 'variantGroupId must be a string.')
+            ->assertJsonPath('errors.variantSentenceId.0', 'variantSentenceId must be a string.')
+            ->assertJsonPath('errors.variantKind.0', 'variantKind must be a string.')
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be an integer.')
+            ->assertJsonPath('errors.variantStatus.0', 'variantStatus must be a string.')
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a string.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+            'variantUnlockedAt' => 1234567890,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantUnlockedAt'])
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a string.');
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => 'front'],
+            'answer' => ['meaning' => 'back'],
+            'variantUnlockedAt' => 'yesterday',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantUnlockedAt'])
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
     }
 
     public function test_it_returns_conflict_when_the_user_draft_queue_is_full(): void

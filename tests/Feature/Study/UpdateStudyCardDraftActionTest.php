@@ -11,6 +11,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -96,17 +97,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('study_card_draft', $entry->resource_type);
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(['cueText' => '会議'], $entry->payload['prompt_json']);
-        $this->assertSame('A quiet meeting room', $entry->payload['image_prompt']);
-        $this->assertSame('audio-1', $entry->payload['preview_audio_json']['id']);
-        $this->assertSame(StudyCardAudioRole::Prompt->value, $entry->payload['preview_audio_role']);
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
-        $this->assertSame(3, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
-        $this->assertNull($entry->payload['committed_card_id']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($updated), $entry->payload);
     }
 
     public function test_it_ignores_values_for_omitted_fields_in_direct_data(): void
@@ -388,12 +379,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertNull($updated->variant_unlocked_at);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_stage']);
-        $this->assertNull($entry->payload['variant_status']);
-        $this->assertNull($entry->payload['variant_unlocked_at']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($updated), $entry->payload);
     }
 
     public function test_it_rejects_generating_draft_edits(): void

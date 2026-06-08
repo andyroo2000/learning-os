@@ -9,6 +9,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Enums\StudyVocabVariantKind;
 use App\Domain\Study\Enums\StudyVocabVariantStatus;
+use App\Domain\Study\Support\StudyVocabVariantMetadataInput;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
 use Database\Factories\StudyCardDraftFactory;
@@ -37,9 +38,9 @@ class StudyCardDraft extends Model
 
     public const MAX_IMAGE_PROMPT_LENGTH = 1000;
 
-    public const MAX_VARIANT_ID_LENGTH = 64;
+    public const MAX_VARIANT_ID_LENGTH = StudyVocabVariantMetadataInput::MAX_ID_LENGTH;
 
-    public const MAX_VARIANT_STAGE = 65535;
+    public const MAX_VARIANT_STAGE = StudyVocabVariantMetadataInput::MAX_STAGE;
 
     public const MAX_PAYLOAD_BYTES = 24 * 1024;
 

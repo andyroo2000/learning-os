@@ -10,7 +10,7 @@ use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
-use Carbon\CarbonImmutable;
+use App\Domain\Study\Support\StudyVocabVariantMetadataInput;
 use DateTimeInterface;
 use LogicException;
 
@@ -54,7 +54,10 @@ final readonly class CreateStudyCardDraftData
         }
 
         self::validatePayloadShape($promptJson, $answerJson);
-        self::validateVariantStage($variantStage);
+        StudyVocabVariantMetadataInput::assertValidStage(
+            $variantStage,
+            'Study variant stage must be between 1 and 65535.',
+        );
 
         return new self(
             userId: $userId,
@@ -64,12 +67,18 @@ final readonly class CreateStudyCardDraftData
             answerJson: $answerJson,
             imagePlacement: self::imagePlacementFromInput($imagePlacement),
             imagePrompt: self::nullableTrimmedString($imagePrompt),
-            variantGroupId: self::nullableVariantId($variantGroupId),
-            variantSentenceId: self::nullableVariantId($variantSentenceId),
-            variantKind: self::variantKindFromInput($variantKind),
+            variantGroupId: StudyVocabVariantMetadataInput::nullableId(
+                $variantGroupId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ),
+            variantSentenceId: StudyVocabVariantMetadataInput::nullableId(
+                $variantSentenceId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ),
+            variantKind: StudyVocabVariantMetadataInput::kindFromInput($variantKind),
             variantStage: $variantStage,
-            variantStatus: self::variantStatusFromInput($variantStatus),
-            variantUnlockedAt: self::normalizedTimestamp($variantUnlockedAt),
+            variantStatus: StudyVocabVariantMetadataInput::statusFromInput($variantStatus),
+            variantUnlockedAt: StudyVocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
         );
     }
 
@@ -95,24 +104,6 @@ final readonly class CreateStudyCardDraftData
         return StudyCardImagePlacement::from(strtolower(trim($imagePlacement)));
     }
 
-    private static function variantKindFromInput(StudyVocabVariantKind|string|null $variantKind): ?StudyVocabVariantKind
-    {
-        if ($variantKind instanceof StudyVocabVariantKind || $variantKind === null) {
-            return $variantKind;
-        }
-
-        return StudyVocabVariantKind::from(strtolower(trim($variantKind)));
-    }
-
-    private static function variantStatusFromInput(StudyVocabVariantStatus|string|null $variantStatus): ?StudyVocabVariantStatus
-    {
-        if ($variantStatus instanceof StudyVocabVariantStatus || $variantStatus === null) {
-            return $variantStatus;
-        }
-
-        return StudyVocabVariantStatus::from(strtolower(trim($variantStatus)));
-    }
-
     private static function nullableTrimmedString(?string $value): ?string
     {
         if ($value === null) {
@@ -132,37 +123,6 @@ final readonly class CreateStudyCardDraftData
         }
 
         return $trimmed;
-    }
-
-    private static function nullableVariantId(?string $value): ?string
-    {
-        $trimmed = self::nullableTrimmedString($value);
-
-        if ($trimmed === null) {
-            return null;
-        }
-
-        if (mb_strlen($trimmed, 'UTF-8') > StudyCardDraft::MAX_VARIANT_ID_LENGTH) {
-            throw new LogicException('Study variant IDs must be 64 characters or fewer.');
-        }
-
-        return $trimmed;
-    }
-
-    private static function validateVariantStage(?int $variantStage): void
-    {
-        if ($variantStage === null) {
-            return;
-        }
-
-        if ($variantStage < 1 || $variantStage > StudyCardDraft::MAX_VARIANT_STAGE) {
-            throw new LogicException('Study variant stage must be between 1 and 65535.');
-        }
-    }
-
-    private static function normalizedTimestamp(?DateTimeInterface $value): ?DateTimeInterface
-    {
-        return $value === null ? null : CarbonImmutable::instance($value)->startOfSecond();
     }
 
     private static function validatePayloadShape(array $promptJson, array $answerJson): void

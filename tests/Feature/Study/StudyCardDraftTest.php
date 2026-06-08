@@ -94,7 +94,11 @@ class StudyCardDraftTest extends TestCase
         $this->assertFalse($draft->isFillable('error_message'));
         $this->assertFalse($draft->isFillable('committed_card_id'));
         $this->assertFalse($draft->isFillable('variant_group_id'));
+        $this->assertFalse($draft->isFillable('variant_sentence_id'));
+        $this->assertFalse($draft->isFillable('variant_kind'));
+        $this->assertFalse($draft->isFillable('variant_stage'));
         $this->assertFalse($draft->isFillable('variant_status'));
+        $this->assertFalse($draft->isFillable('variant_unlocked_at'));
     }
 
     public function test_it_derives_card_type_from_creation_kind_on_create(): void

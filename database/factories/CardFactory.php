@@ -43,6 +43,12 @@ class CardFactory extends Factory
             'front_text' => fake()->sentence(),
             'back_text' => fake()->sentence(),
             'card_type' => CardType::Recognition,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
         ];
     }
 }

@@ -8,6 +8,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Enums\StudyVocabVariantKind;
 use App\Domain\Study\Enums\StudyVocabVariantStatus;
+use App\Domain\Study\Support\StudyVocabVariantMetadataInput;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -27,9 +28,9 @@ class Card extends Model
     /** @use HasFactory<CardFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
-    public const MAX_VARIANT_ID_LENGTH = 64;
+    public const MAX_VARIANT_ID_LENGTH = StudyVocabVariantMetadataInput::MAX_ID_LENGTH;
 
-    public const MAX_VARIANT_STAGE = 65535;
+    public const MAX_VARIANT_STAGE = StudyVocabVariantMetadataInput::MAX_STAGE;
 
     /**
      * @var array<string, mixed>

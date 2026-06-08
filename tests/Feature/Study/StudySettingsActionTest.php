@@ -104,6 +104,7 @@ class StudySettingsActionTest extends TestCase
             ->where('user_id', $upperUser->id)
             ->sole();
 
+        // Both expected and stored payloads are arrays, so strict comparison pins the wire shape.
         $this->assertSame(SyncFeedOperation::Create, $lowerEntry->operation);
         $this->assertSame(StudySettingsSyncPayload::fromSettings($lowerSettings), $lowerEntry->payload);
         $this->assertSame(SyncFeedOperation::Create, $upperEntry->operation);
@@ -156,7 +157,20 @@ class StudySettingsActionTest extends TestCase
             'user_id' => $upperSettings->user_id,
             'new_cards_per_day' => StudySettings::MAX_NEW_CARDS_PER_DAY,
         ]);
-        $this->assertSame(2, SyncFeedEntry::query()->count());
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+
+        $lowerEntry = SyncFeedEntry::query()
+            ->where('user_id', $lowerSettings->user_id)
+            ->sole();
+        $upperEntry = SyncFeedEntry::query()
+            ->where('user_id', $upperSettings->user_id)
+            ->sole();
+
+        // Both expected and stored payloads are arrays, so strict comparison pins the wire shape.
+        $this->assertSame(SyncFeedOperation::Update, $lowerEntry->operation);
+        $this->assertSame(StudySettingsSyncPayload::fromSettings($lowerUpdated), $lowerEntry->payload);
+        $this->assertSame(SyncFeedOperation::Update, $upperEntry->operation);
+        $this->assertSame(StudySettingsSyncPayload::fromSettings($upperUpdated), $upperEntry->payload);
     }
 
     public function test_update_does_not_record_sync_feed_entry_when_settings_are_unchanged(): void

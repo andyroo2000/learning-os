@@ -100,6 +100,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - An expected sync/resource payload is built from a stale in-memory model, from a model missing relations that the payload builder traverses, or without proving explicit override parameters such as tombstone `deletedAt` win over stale model fields.
 - A sync feed test fetches the "latest" entry by an assumed `id` or default ordering instead of the real feed ordering column, such as `checkpoint`, or a stable business-key lookup.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
+- A broad sync-feed count/no-extra-entry assertion is replaced with a scoped `sole()` lookup without preserving the negative assertion that sibling resource entries were not emitted on no-op or older-state paths.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.
 - A worker final-exhaustion path can lose the terminal error-state write because a lower-priority sync/feed side effect runs in the same rollback boundary and can throw.

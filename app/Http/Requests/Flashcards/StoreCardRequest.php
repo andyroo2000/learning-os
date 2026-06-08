@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardType;
+use App\Http\Requests\Flashcards\Concerns\ValidatesCardVariantMetadata;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreCardRequest extends FormRequest
 {
+    use ValidatesCardVariantMetadata;
+
     // Keep aligned with the required string fields in rules(); arrays must still reach validation unchanged.
     private const TRIMMED_INPUT_KEYS = ['front_text', 'back_text'];
 
@@ -42,6 +45,8 @@ class StoreCardRequest extends FormRequest
             }
         }
 
+        $this->mergeNormalizedCardVariantMetadataForValidation($normalized);
+
         if ($normalized !== []) {
             $this->merge($normalized);
         }
@@ -67,6 +72,7 @@ class StoreCardRequest extends FormRequest
             'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
             'prompt_json' => ['sometimes', 'nullable', 'array'],
             'answer_json' => ['sometimes', 'nullable', 'array'],
+            ...$this->cardVariantMetadataRules(),
         ];
     }
 }

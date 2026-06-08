@@ -131,6 +131,7 @@ class UpdateCardAction
 
     private function timestampJson(?DateTimeInterface $timestamp): ?string
     {
+        // Cards persist review timestamps at second precision, so variant metadata compares the same way.
         return $timestamp === null ? null : CarbonImmutable::instance($timestamp)->utc()->startOfSecond()->toJSON();
     }
 

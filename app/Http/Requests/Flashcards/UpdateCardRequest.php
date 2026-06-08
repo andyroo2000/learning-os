@@ -4,12 +4,15 @@ namespace App\Http\Requests\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Requests\Flashcards\Concerns\ValidatesCardVariantMetadata;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class UpdateCardRequest extends FormRequest
 {
+    use ValidatesCardVariantMetadata;
+
     public function authorize(): bool
     {
         /** @var Card $card */
@@ -34,6 +37,8 @@ class UpdateCardRequest extends FormRequest
             $normalized['card_type'] = is_string($value) ? strtolower(trim($value)) : $value;
         }
 
+        $this->mergeNormalizedCardVariantMetadataForValidation($normalized);
+
         $this->merge($normalized);
     }
 
@@ -48,6 +53,7 @@ class UpdateCardRequest extends FormRequest
             'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
             'prompt_json' => ['sometimes', 'nullable', 'array'],
             'answer_json' => ['sometimes', 'nullable', 'array'],
+            ...$this->cardVariantMetadataRules(),
         ];
     }
 

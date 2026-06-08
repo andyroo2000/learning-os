@@ -4,15 +4,16 @@ namespace App\Domain\Vocabulary\Support;
 
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Support\VariantMetadataLimits;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use LogicException;
 
 final class VocabVariantMetadataInput
 {
-    public const MAX_ID_LENGTH = 64;
+    public const MAX_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
 
-    public const MAX_STAGE = 65535;
+    public const MAX_STAGE = VariantMetadataLimits::MAX_STAGE;
 
     public static function nullableId(?string $value, string $exceptionMessage): ?string
     {
@@ -57,7 +58,12 @@ final class VocabVariantMetadataInput
 
         $normalized = strtolower(trim($variantKind));
 
-        return $normalized === '' ? null : VocabVariantKind::from($normalized);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return VocabVariantKind::tryFrom($normalized)
+            ?? throw new LogicException('Variant kind must be one of: '.implode(', ', VocabVariantKind::values()).'.');
     }
 
     public static function statusFromInput(VocabVariantStatus|string|null $variantStatus): ?VocabVariantStatus
@@ -68,6 +74,11 @@ final class VocabVariantMetadataInput
 
         $normalized = strtolower(trim($variantStatus));
 
-        return $normalized === '' ? null : VocabVariantStatus::from($normalized);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return VocabVariantStatus::tryFrom($normalized)
+            ?? throw new LogicException('Variant status must be one of: '.implode(', ', VocabVariantStatus::values()).'.');
     }
 }

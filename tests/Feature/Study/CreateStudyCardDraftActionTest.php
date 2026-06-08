@@ -108,9 +108,9 @@ class CreateStudyCardDraftActionTest extends TestCase
 
         $this->assertSame('vocab-group-1', $draft->variant_group_id);
         $this->assertSame('sentence-1', $draft->variant_sentence_id);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
         $this->assertSame(1, $draft->variant_stage);
-        $this->assertSame(VocabVariantStatus::Available, $draft->variant_status);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
         $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
@@ -260,6 +260,14 @@ class CreateStudyCardDraftActionTest extends TestCase
             'oversized variant group id' => [
                 ['variantGroupId' => str_repeat('a', 65)],
                 'Study variant IDs must be 64 characters or fewer.',
+            ],
+            'malformed variant kind' => [
+                ['variantKind' => 'not-a-kind'],
+                'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze.',
+            ],
+            'malformed variant status' => [
+                ['variantStatus' => 'unknown'],
+                'Variant status must be one of: available, locked.',
             ],
             'zero variant stage' => [
                 ['variantStage' => 0],

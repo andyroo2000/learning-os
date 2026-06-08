@@ -111,9 +111,9 @@ class CreateCardAction
         ]);
         $card->variant_group_id = $data->variantGroupId;
         $card->variant_sentence_id = $data->variantSentenceId;
-        $card->variant_kind = $data->variantKind;
+        $card->variant_kind = $data->variantKind?->value;
         $card->variant_stage = $data->variantStage;
-        $card->variant_status = $data->variantStatus;
+        $card->variant_status = $data->variantStatus?->value;
         $card->variant_unlocked_at = $data->variantUnlockedAt;
         $card->search_text = CardSearchText::fromContent(
             frontText: $data->frontText,
@@ -228,9 +228,9 @@ class CreateCardAction
             || $this->canonicalJsonValue($card->answer_json) !== $this->canonicalJsonValue($data->answerJson)
             || $card->variant_group_id !== $data->variantGroupId
             || $card->variant_sentence_id !== $data->variantSentenceId
-            || $card->variant_kind !== $data->variantKind
+            || $card->variant_kind !== $data->variantKind?->value
             || $card->variant_stage !== $data->variantStage
-            || $card->variant_status !== $data->variantStatus
+            || $card->variant_status !== $data->variantStatus?->value
             || $card->variant_unlocked_at?->toJSON() !== $this->timestampJson($data->variantUnlockedAt)
         ) {
             throw CardConflictException::conflict($conflictingUserId);

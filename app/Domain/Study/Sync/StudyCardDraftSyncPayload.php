@@ -46,8 +46,8 @@ final class StudyCardDraftSyncPayload
         ];
     }
 
-    private static function enumValue(?BackedEnum $value): string|int|null
+    private static function enumValue(BackedEnum|string|int|null $value): string|int|null
     {
-        return $value?->value;
+        return $value instanceof BackedEnum ? $value->value : $value;
     }
 }

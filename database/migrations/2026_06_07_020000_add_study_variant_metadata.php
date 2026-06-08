@@ -29,6 +29,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Roll back in reverse order of up(), even though these columns do not have FKs.
         Schema::table('cards', function (Blueprint $table): void {
             $table->dropColumn([
                 'variant_group_id',

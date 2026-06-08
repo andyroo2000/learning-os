@@ -6,10 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
-use App\Domain\Vocabulary\Enums\VocabVariantKind;
-use App\Domain\Vocabulary\Enums\VocabVariantStatus;
-use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
+use App\Support\VariantMetadataLimits;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,9 +26,9 @@ class Card extends Model
     /** @use HasFactory<CardFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
-    public const MAX_VARIANT_ID_LENGTH = VocabVariantMetadataInput::MAX_ID_LENGTH;
+    public const MAX_VARIANT_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
 
-    public const MAX_VARIANT_STAGE = VocabVariantMetadataInput::MAX_STAGE;
+    public const MAX_VARIANT_STAGE = VariantMetadataLimits::MAX_STAGE;
 
     /**
      * @var array<string, mixed>
@@ -80,9 +78,7 @@ class Card extends Model
             'last_reviewed_at' => 'datetime',
             'new_queue_position' => 'integer',
             'scheduler_state' => 'array',
-            'variant_kind' => VocabVariantKind::class,
             'variant_stage' => 'integer',
-            'variant_status' => VocabVariantStatus::class,
             'variant_unlocked_at' => 'datetime',
         ];
     }

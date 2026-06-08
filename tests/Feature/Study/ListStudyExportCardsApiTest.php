@@ -45,9 +45,9 @@ class ListStudyExportCardsApiTest extends TestCase
             'new_queue_position' => 1,
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
             'variant_stage' => 1,
-            'variant_status' => VocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available->value,
             'variant_unlocked_at' => now(),
         ]);
         $secondCard = Card::factory()->for($deck)->create([

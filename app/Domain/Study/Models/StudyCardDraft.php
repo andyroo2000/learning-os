@@ -7,11 +7,9 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Vocabulary\Enums\VocabVariantKind;
-use App\Domain\Vocabulary\Enums\VocabVariantStatus;
-use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Models\User;
+use App\Support\VariantMetadataLimits;
 use Database\Factories\StudyCardDraftFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -38,9 +36,9 @@ class StudyCardDraft extends Model
 
     public const MAX_IMAGE_PROMPT_LENGTH = 1000;
 
-    public const MAX_VARIANT_ID_LENGTH = VocabVariantMetadataInput::MAX_ID_LENGTH;
+    public const MAX_VARIANT_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
 
-    public const MAX_VARIANT_STAGE = VocabVariantMetadataInput::MAX_STAGE;
+    public const MAX_VARIANT_STAGE = VariantMetadataLimits::MAX_STAGE;
 
     public const MAX_PAYLOAD_BYTES = 24 * 1024;
 
@@ -92,9 +90,7 @@ class StudyCardDraft extends Model
             'preview_audio_json' => 'array',
             'preview_audio_role' => StudyCardAudioRole::class,
             'preview_image_json' => 'array',
-            'variant_kind' => VocabVariantKind::class,
             'variant_stage' => 'integer',
-            'variant_status' => VocabVariantStatus::class,
             'variant_unlocked_at' => 'datetime',
         ];
     }

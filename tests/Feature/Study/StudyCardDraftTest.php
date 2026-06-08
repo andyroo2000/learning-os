@@ -62,9 +62,9 @@ class StudyCardDraftTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
-            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
             'variant_stage' => 1,
-            'variant_status' => VocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available->value,
             'variant_unlocked_at' => now(),
         ]);
 
@@ -78,9 +78,9 @@ class StudyCardDraftTest extends TestCase
         $this->assertSame(StudyCardImagePlacement::Prompt, $draft->image_placement);
         $this->assertSame(StudyCardAudioRole::Answer, $draft->preview_audio_role);
         $this->assertSame('image-1', $draft->preview_image_json['id']);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
         $this->assertSame(1, $draft->variant_stage);
-        $this->assertSame(VocabVariantStatus::Available, $draft->variant_status);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
         $this->assertNotNull($draft->variant_unlocked_at);
     }
 

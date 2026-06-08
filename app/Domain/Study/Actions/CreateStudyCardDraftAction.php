@@ -52,9 +52,9 @@ class CreateStudyCardDraftAction
             $draft->preview_image_json = null;
             $draft->variant_group_id = $data->variantGroupId;
             $draft->variant_sentence_id = $data->variantSentenceId;
-            $draft->variant_kind = $data->variantKind;
+            $draft->variant_kind = $data->variantKind?->value;
             $draft->variant_stage = $data->variantStage;
-            $draft->variant_status = $data->variantStatus;
+            $draft->variant_status = $data->variantStatus?->value;
             $draft->variant_unlocked_at = $data->variantUnlockedAt;
             $draft->error_message = null;
             $draft->save();

@@ -5,6 +5,7 @@ namespace App\Http\Resources\Flashcards;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Http\Resources\Media\MediaAssetResource;
+use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,9 +38,9 @@ class CardResource extends JsonResource
             'scheduler_state' => $this->scheduler_state,
             'variant_group_id' => $this->variant_group_id,
             'variant_sentence_id' => $this->variant_sentence_id,
-            'variant_kind' => $this->variant_kind?->value,
+            'variant_kind' => $this->scalarValue($this->variant_kind),
             'variant_stage' => $this->variant_stage,
-            'variant_status' => $this->variant_status?->value,
+            'variant_status' => $this->scalarValue($this->variant_status),
             'variant_unlocked_at' => $this->variant_unlocked_at?->toJSON(),
             'due_at' => $this->due_at?->toJSON(),
             'introduced_at' => $this->introduced_at?->toJSON(),
@@ -51,5 +52,10 @@ class CardResource extends JsonResource
             'updated_at' => $this->updated_at?->toJSON(),
             'deleted_at' => $this->deleted_at?->toJSON(),
         ];
+    }
+
+    private function scalarValue(BackedEnum|string|int|null $value): string|int|null
+    {
+        return $value instanceof BackedEnum ? $value->value : $value;
     }
 }

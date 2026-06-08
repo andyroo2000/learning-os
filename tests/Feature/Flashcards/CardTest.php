@@ -118,9 +118,9 @@ class CardTest extends TestCase
         $card->source_note_id = '1700000000002';
         $card->source_deck_id = '1700000000003';
         $card->source_template_ord = '2';
-        $card->variant_kind = VocabVariantKind::WordAudioRecognition;
+        $card->variant_kind = VocabVariantKind::WordAudioRecognition->value;
         $card->variant_stage = '3';
-        $card->variant_status = VocabVariantStatus::Locked;
+        $card->variant_status = VocabVariantStatus::Locked->value;
         $card->variant_unlocked_at = Carbon::parse('2026-06-04T14:15:00Z');
         $card->save();
         $card->refresh();
@@ -143,9 +143,9 @@ class CardTest extends TestCase
         $this->assertSame(1700000000002, $card->source_note_id);
         $this->assertSame(1700000000003, $card->source_deck_id);
         $this->assertSame(2, $card->source_template_ord);
-        $this->assertSame(VocabVariantKind::WordAudioRecognition, $card->variant_kind);
+        $this->assertSame(VocabVariantKind::WordAudioRecognition->value, $card->variant_kind);
         $this->assertSame(3, $card->variant_stage);
-        $this->assertSame(VocabVariantStatus::Locked, $card->variant_status);
+        $this->assertSame(VocabVariantStatus::Locked->value, $card->variant_status);
         $this->assertSame('2026-06-04T14:15:00.000000Z', $card->variant_unlocked_at->toJSON());
     }
 
@@ -171,9 +171,9 @@ class CardTest extends TestCase
             'scheduler_state' => ['state' => 0],
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => VocabVariantKind::WordTextRecognition,
+            'variant_kind' => VocabVariantKind::WordTextRecognition->value,
             'variant_stage' => 4,
-            'variant_status' => VocabVariantStatus::Locked,
+            'variant_status' => VocabVariantStatus::Locked->value,
             'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'search_text' => 'client-owned text',
         ]);

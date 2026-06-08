@@ -973,6 +973,14 @@ class CreateCardActionTest extends TestCase
                 ['variantGroupId' => str_repeat('a', 65)],
                 'Card variant IDs must be 64 characters or fewer.',
             ],
+            'malformed variant kind' => [
+                ['variantKind' => 'not-a-kind'],
+                'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze.',
+            ],
+            'malformed variant status' => [
+                ['variantStatus' => 'unknown'],
+                'Variant status must be one of: available, locked.',
+            ],
             'negative variant stage' => [
                 ['variantStage' => -1],
                 'Card variant stage must be between 1 and 65535.',

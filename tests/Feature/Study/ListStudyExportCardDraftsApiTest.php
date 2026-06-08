@@ -49,9 +49,9 @@ class ListStudyExportCardDraftsApiTest extends TestCase
             ],
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition->value,
             'variant_stage' => 2,
-            'variant_status' => VocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available->value,
             'variant_unlocked_at' => now(),
             'committed_card_id' => strtolower((string) str()->ulid()),
         ]);

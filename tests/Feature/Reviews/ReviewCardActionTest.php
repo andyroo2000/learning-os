@@ -7,12 +7,14 @@ use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -85,77 +87,30 @@ class ReviewCardActionTest extends TestCase
         ]);
 
         $entry = SyncFeedEntry::query()
-            ->where('resource_type', 'card_review_event')
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $reviewEvent->id)
             ->sole();
 
         $this->assertSame($card->ownerUserId(), $entry->user_id);
-        $this->assertSame('reviews', $entry->domain);
-        $this->assertSame('card_review_event', $entry->resource_type);
+        $this->assertSame(CardReviewEventSyncPayload::DOMAIN, $entry->domain);
+        $this->assertSame(CardReviewEventSyncPayload::RESOURCE_TYPE, $entry->resource_type);
         $this->assertSame($reviewEvent->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame([
-            'id' => $reviewEvent->id,
-            'card_id' => $card->id,
-            'deck_id' => $deck->id,
-            'course_id' => $course->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_review_id' => null,
-            'source_card_id' => null,
-            'source_ease' => null,
-            'source_interval' => null,
-            'source_last_interval' => null,
-            'source_factor' => null,
-            'source_time_ms' => null,
-            'source_review_type' => null,
-            'rating' => 'good',
-            'reviewed_at' => $reviewEvent->reviewed_at?->toJSON(),
-            'duration_ms' => 1250,
-            'client_event_id' => null,
-            'device_id' => null,
-            'client_created_at' => null,
-            'card_state_before' => [
-                'study_status' => 'new',
-                'new_queue_position' => null,
-                'scheduler_state' => null,
-                'due_at' => null,
-                'introduced_at' => null,
-                'failed_at' => null,
-                'last_reviewed_at' => null,
-            ],
-            'scheduler_state_before' => null,
-            'scheduler_state_after' => [
-                'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
-                'stability' => 0.1,
-                'difficulty' => 5,
-                'elapsed_days' => 0,
-                'scheduled_days' => 3,
-                'learning_steps' => 0,
-                'reps' => 1,
-                'lapses' => 0,
-                'state' => 2,
-                'last_review' => $reviewedAt->toJSON(),
-            ],
-            'created_at' => $reviewEvent->created_at?->toJSON(),
-            'updated_at' => $reviewEvent->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+        $this->assertSame(CardReviewEventSyncPayload::fromReviewEvent($reviewEvent), $entry->payload);
 
         $cardEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card')
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
             ->sole();
 
-        $card->refresh();
+        $card->refresh()->load('deck');
 
         $this->assertSame($card->ownerUserId(), $cardEntry->user_id);
-        $this->assertSame('flashcards', $cardEntry->domain);
-        $this->assertSame('card', $cardEntry->resource_type);
+        $this->assertSame(CardSyncPayload::DOMAIN, $cardEntry->domain);
+        $this->assertSame(CardSyncPayload::RESOURCE_TYPE, $cardEntry->resource_type);
         $this->assertSame($card->id, $cardEntry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $cardEntry->operation);
-        $this->assertSame('review', $cardEntry->payload['study_status']);
-        $this->assertNull($cardEntry->payload['new_queue_position']);
-        $this->assertSame($reviewedAt->toJSON(), $cardEntry->payload['introduced_at']);
-        $this->assertSame($reviewedAt->toJSON(), $cardEntry->payload['last_reviewed_at']);
+        $this->assertSame(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_created_reviews_update_card_study_state(): void
@@ -283,7 +238,7 @@ class ReviewCardActionTest extends TestCase
             'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ]);
 
-        $this->reviewCard(
+        $result = $this->reviewCard(
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'again',
@@ -298,10 +253,17 @@ class ReviewCardActionTest extends TestCase
         $this->assertNull($card->failed_at);
         $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertDatabaseCount('card_review_events', 1);
-        $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'resource_type' => 'card_review_event',
+        $this->assertDatabaseMissing('sync_feed_entries', [
+            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
         ]);
+
+        $entry = SyncFeedEntry::query()
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $result->reviewEvent->id)
+            ->sole();
+
+        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
+        $this->assertSame(CardReviewEventSyncPayload::fromReviewEvent($result->reviewEvent), $entry->payload);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -326,13 +288,15 @@ class ReviewCardActionTest extends TestCase
             'id' => $id,
             'card_id' => $card->id,
         ]);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'user_id' => $card->ownerUserId(),
-            'domain' => 'reviews',
-            'resource_type' => 'card_review_event',
-            'resource_id' => $id,
-            'operation' => 'create',
-        ]);
+        $entry = SyncFeedEntry::query()
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $id)
+            ->where('operation', SyncFeedOperation::Create->value)
+            ->sole();
+
+        $this->assertSame($card->ownerUserId(), $entry->user_id);
+        $this->assertSame(CardReviewEventSyncPayload::DOMAIN, $entry->domain);
+        $this->assertSame(CardReviewEventSyncPayload::fromReviewEvent($result->reviewEvent), $entry->payload);
     }
 
     public function test_it_returns_existing_review_event_for_provided_ulid_retries(): void

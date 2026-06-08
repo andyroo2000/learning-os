@@ -4,6 +4,8 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,15 +49,7 @@ class SetCardDueActionTest extends TestCase
             'last_review' => null,
         ], $result->card->scheduler_state);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame($card->id, $entry->resource_id);
-        $this->assertSame('review', $entry->payload['study_status']);
-        $this->assertSame('2026-06-05T14:15:00.000000Z', $entry->payload['due_at']);
-        $this->assertNull($entry->payload['new_queue_position']);
-        $this->assertSame($result->card->scheduler_state, $entry->payload['scheduler_state']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_tomorrow_mode_sets_due_at_to_9am_in_the_requested_timezone(): void
@@ -77,6 +71,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertSame('2026-06-05T13:00:00.000000Z', $result->card->due_at?->toJSON());
         $this->assertSame('2026-06-05T13:00:00.000000Z', $result->card->scheduler_state['due']);
         $this->assertSame(2, $result->card->scheduler_state['state']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_it_restores_suspended_cards_to_the_scheduler_state_status(): void
@@ -108,7 +103,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Learning, $result->card->study_status);
         $this->assertSame(1, $result->card->scheduler_state['state']);
-        $this->assertSame('learning', SyncFeedEntry::query()->sole()->payload['study_status']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_it_restores_buried_cards_to_the_scheduler_state_status(): void
@@ -140,7 +135,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Relearning, $result->card->study_status);
         $this->assertSame(3, $result->card->scheduler_state['state']);
-        $this->assertSame('relearning', SyncFeedEntry::query()->sole()->payload['study_status']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_set_due_promotes_suspended_new_scheduler_state_to_review(): void
@@ -171,6 +166,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
         $this->assertSame(2, $result->card->scheduler_state['state']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_now_mode_uses_the_current_time(): void
@@ -191,6 +187,7 @@ class SetCardDueActionTest extends TestCase
         $this->assertSame($now->toJSON(), $result->card->due_at?->toJSON());
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
         $this->assertSame($now->toJSON(), $result->card->scheduler_state['due']);
+        $this->assertCardSyncPayloadRecorded($result->card);
     }
 
     public function test_it_is_idempotent_when_due_state_is_unchanged(): void
@@ -273,5 +270,22 @@ class SetCardDueActionTest extends TestCase
             dueAt: '2037-06-04T12:00:00Z',
             now: Carbon::parse('2026-06-04T12:00:00Z'),
         );
+    }
+
+    private function assertCardSyncPayloadRecorded(Card $card): void
+    {
+        // CardSyncPayload reads deck course data, so load the relation before building the expected array.
+        $card->load('deck');
+
+        $entry = SyncFeedEntry::query()
+            ->where('domain', CardSyncPayload::DOMAIN)
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->where('operation', SyncFeedOperation::Update->value)
+            ->sole();
+
+        $this->assertSame($card->ownerUserId(), $entry->user_id);
+        // SyncFeedEntry casts payload JSON to array, matching CardSyncPayload::fromCard().
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 }

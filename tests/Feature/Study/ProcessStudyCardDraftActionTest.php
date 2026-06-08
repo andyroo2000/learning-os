@@ -6,6 +6,7 @@ use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,6 +29,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         $processed?->refresh();
 
+        $this->assertNotNull($processed);
         $this->assertSame($draft->id, $processed?->id);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $processed?->status);
         $this->assertSame(['cueText' => '会社'], $processed?->prompt_json);
@@ -38,8 +40,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame('study_card_draft', $entry->resource_type);
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyManualCardDraftStatus::Ready->value, $entry->payload['status']);
-        $this->assertNull($entry->payload['error_message']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($processed), $entry->payload);
     }
 
     public function test_it_marks_invalid_generating_drafts_failed_without_leaving_stale_outputs(): void
@@ -65,6 +66,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         $processed?->refresh();
 
+        $this->assertNotNull($processed);
         $this->assertSame(StudyManualCardDraftStatus::Error, $processed?->status);
         $this->assertSame('prompt must be 8 levels deep or fewer.', $processed?->error_message);
         $this->assertNull($processed?->preview_audio_json);
@@ -73,11 +75,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyManualCardDraftStatus::Error->value, $entry->payload['status']);
-        $this->assertSame('prompt must be 8 levels deep or fewer.', $entry->payload['error_message']);
-        $this->assertNull($entry->payload['preview_audio_json']);
-        $this->assertNull($entry->payload['preview_audio_role']);
-        $this->assertNull($entry->payload['preview_image_json']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($processed), $entry->payload);
     }
 
     public function test_it_does_not_reprocess_terminal_or_missing_drafts(): void

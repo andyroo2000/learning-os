@@ -7,6 +7,7 @@ use App\Domain\Study\Actions\RecordStudyCardDraftSyncEntryAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
@@ -64,7 +65,7 @@ class ProcessStudyCardDraftJobTest extends TestCase
 
         (new ProcessStudyCardDraft($draft->id))->failed(new RuntimeException('Worker infrastructure failed.'));
 
-        $draft->refresh();
+        $draft = $draft->refresh();
 
         $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
         $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $draft->error_message);
@@ -75,8 +76,7 @@ class ProcessStudyCardDraftJobTest extends TestCase
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyManualCardDraftStatus::Error->value, $entry->payload['status']);
-        $this->assertSame(ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE, $entry->payload['error_message']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     public function test_failed_callback_persists_error_state_when_sync_recording_fails(): void

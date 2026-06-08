@@ -8,10 +8,12 @@ use App\Domain\Study\Actions\DeleteStudyCardDraftAction;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -26,8 +28,11 @@ class DeleteStudyCardDraftActionTest extends TestCase
     public function test_it_deletes_an_owned_study_card_draft(): void
     {
         $draft = StudyCardDraft::factory()->ready()->create();
+        $deletedAt = Carbon::parse('2026-06-08T08:15:00Z');
 
-        app(DeleteStudyCardDraftAction::class)->handle($draft->user_id, $draft->id);
+        $this->travelTo($deletedAt, function () use ($draft): void {
+            app(DeleteStudyCardDraftAction::class)->handle($draft->user_id, $draft->id);
+        });
 
         $this->assertDatabaseMissing('study_card_drafts', [
             'id' => $draft->id,
@@ -39,9 +44,8 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $this->assertSame('study_card_draft', $entry->resource_type);
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame($draft->id, $entry->payload['id']);
-        $this->assertSame($draft->status->value, $entry->payload['status']);
-        $this->assertJsonTimestamp($entry->payload['deleted_at']);
+        // Draft rows are hard-deleted; the tombstone keeps pre-delete fields plus the delete time.
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft, $deletedAt), $entry->payload);
     }
 
     public function test_it_normalizes_uppercase_draft_ids_for_direct_callers(): void

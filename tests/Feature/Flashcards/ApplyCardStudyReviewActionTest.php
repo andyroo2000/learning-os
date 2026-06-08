@@ -5,7 +5,9 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -49,13 +51,7 @@ class ApplyCardStudyReviewActionTest extends TestCase
             'state' => 1,
             'last_review' => '2026-05-27T09:15:00.000000Z',
         ], $card->scheduler_state);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'domain' => 'flashcards',
-            'resource_type' => 'card',
-            'resource_id' => $card->id,
-            'operation' => 'update',
-        ]);
-        $this->assertSame($card->scheduler_state, SyncFeedEntry::query()->sole()->payload['scheduler_state']);
+        $this->assertCardSyncPayloadRecorded($card);
     }
 
     public function test_it_keeps_hard_reviews_on_review_cards_in_review(): void
@@ -66,7 +62,7 @@ class ApplyCardStudyReviewActionTest extends TestCase
         ]);
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
 
-        app(ApplyCardStudyReviewAction::class)->handle(
+        $updated = app(ApplyCardStudyReviewAction::class)->handle(
             card: $card,
             rating: CardReviewRating::Hard,
             reviewedAt: $reviewedAt,
@@ -74,11 +70,13 @@ class ApplyCardStudyReviewActionTest extends TestCase
 
         $card->refresh();
 
+        $this->assertTrue($updated);
         $this->assertSame(CardStudyStatus::Review, $card->study_status);
         $this->assertSame('2026-05-20T09:15:00.000000Z', $card->introduced_at?->toJSON());
         $this->assertSame($reviewedAt->copy()->addDay()->toJSON(), $card->due_at?->toJSON());
         $this->assertSame(2, $card->scheduler_state['state']);
         $this->assertSame(1, $card->scheduler_state['scheduled_days']);
+        $this->assertCardSyncPayloadRecorded($card);
     }
 
     public function test_it_skips_reviews_older_than_the_current_card_state(): void
@@ -127,5 +125,20 @@ class ApplyCardStudyReviewActionTest extends TestCase
         $this->assertNull($card->failed_at);
         $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    private function assertCardSyncPayloadRecorded(Card $card): void
+    {
+        $card->load('deck');
+
+        $entry = SyncFeedEntry::query()
+            ->where('domain', CardSyncPayload::DOMAIN)
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->where('operation', SyncFeedOperation::Update->value)
+            ->sole();
+
+        $this->assertSame($card->ownerUserId(), $entry->user_id);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 }

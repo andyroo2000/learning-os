@@ -13,6 +13,8 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -83,6 +85,124 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
         $this->assertSame(['cueText' => '会社', 'cueReading' => 'かいしゃ'], $entries[1]->payload['prompt_json']);
         $this->assertSame(['expression' => '会社', 'meaning' => 'company'], $entries[1]->payload['answer_json']);
+    }
+
+    public function test_it_creates_a_manual_study_card_with_variant_metadata(): void
+    {
+        $user = $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/cards', [
+                'creationKind' => ' text-recognition ',
+                'cardType' => ' retired-client-value ',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantGroupId' => ' vocab-group-1 ',
+                'variantSentenceId' => ' sentence-1 ',
+                'variantKind' => ' SENTENCE_AUDIO_RECOGNITION ',
+                'variantStage' => ' 2 ',
+                'variantStatus' => ' AVAILABLE ',
+                'variantUnlockedAt' => '2026-06-04T14:15:30.987654+05:30',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('cardType', CardType::Recognition->value)
+            ->assertJsonPath('variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('variantSentenceId', 'sentence-1')
+            ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
+            ->assertJsonPath('variantStage', 2)
+            ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
+            // The storage column is second-precision, so fractional input is normalized away.
+            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
+
+        $card = Card::query()->sole();
+        $this->assertSame($user->id, $card->ownerUserId());
+        $this->assertSame('vocab-group-1', $card->variant_group_id);
+        $this->assertSame('sentence-1', $card->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $card->variant_kind);
+        $this->assertSame(2, $card->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $card->variant_status);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
+
+        $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
+        $this->assertCount(2, $entries);
+        $this->assertSame('card', $entries[1]->resource_type);
+        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entries[1]->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entries[1]->payload['variant_kind']);
+        $this->assertSame(2, $entries[1]->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entries[1]->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_treats_blank_manual_card_variant_metadata_as_absent(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/cards', [
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantGroupId' => '   ',
+                'variantSentenceId' => "\t",
+                'variantKind' => '   ',
+                'variantStage' => null,
+                'variantStatus' => "\n",
+                'variantUnlockedAt' => '   ',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('variantGroupId', null)
+            ->assertJsonPath('variantSentenceId', null)
+            ->assertJsonPath('variantKind', null)
+            ->assertJsonPath('variantStage', null)
+            ->assertJsonPath('variantStatus', null)
+            ->assertJsonPath('variantUnlockedAt', null);
+
+        $card = Card::query()->sole();
+        $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_sentence_id);
+        $this->assertNull($card->variant_kind);
+        $this->assertNull($card->variant_stage);
+        $this->assertNull($card->variant_status);
+        $this->assertNull($card->variant_unlocked_at);
+    }
+
+    public function test_it_accepts_partial_manual_card_variant_metadata(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/cards', [
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'variantGroupId' => 'vocab-group-1',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('variantGroupId', 'vocab-group-1')
+            ->assertJsonPath('variantSentenceId', null)
+            ->assertJsonPath('variantKind', null)
+            ->assertJsonPath('variantStage', null)
+            ->assertJsonPath('variantStatus', null)
+            ->assertJsonPath('variantUnlockedAt', null);
+
+        $card = Card::query()->sole();
+        $this->assertSame('vocab-group-1', $card->variant_group_id);
+        $this->assertNull($card->variant_sentence_id);
+        $this->assertNull($card->variant_kind);
+        $this->assertNull($card->variant_stage);
+        $this->assertNull($card->variant_status);
+        $this->assertNull($card->variant_unlocked_at);
+
+        $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
+        $this->assertCount(2, $entries);
+        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
+        $this->assertNull($entries[1]->payload['variant_sentence_id']);
+        $this->assertNull($entries[1]->payload['variant_kind']);
+        $this->assertNull($entries[1]->payload['variant_stage']);
+        $this->assertNull($entries[1]->payload['variant_status']);
+        $this->assertNull($entries[1]->payload['variant_unlocked_at']);
     }
 
     public function test_it_reuses_the_existing_default_study_deck(): void
@@ -504,6 +624,68 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['payloads']);
+    }
+
+    public function test_it_validates_manual_card_variant_metadata(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/cards', [
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'variantGroupId' => str_repeat('a', 65),
+            'variantSentenceId' => ['sentence-1'],
+            'variantKind' => 'sentence-audio-recognition',
+            'variantStage' => 0,
+            'variantStatus' => ['available'],
+            'variantUnlockedAt' => 'yesterday',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
+            ])
+            ->assertJsonPath('errors.variantGroupId.0', 'variantGroupId must be 64 characters or fewer.')
+            ->assertJsonPath('errors.variantSentenceId.0', 'variantSentenceId must be a string.')
+            ->assertJsonPath('errors.variantKind.0', 'variantKind is not supported.')
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.')
+            ->assertJsonPath('errors.variantStatus.0', 'variantStatus must be a string.')
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+
+        $this->postJson('/api/study/cards', [
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'variantUnlockedAt' => 1234567890,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantUnlockedAt'])
+            ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a string.');
+
+        $this->postJson('/api/study/cards', [
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'variantSentenceId' => str_repeat('b', 65),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantSentenceId'])
+            ->assertJsonPath('errors.variantSentenceId.0', 'variantSentenceId must be 64 characters or fewer.');
+
+        $this->postJson('/api/study/cards', [
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'variantStage' => 65536,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantStage'])
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.');
     }
 
     public function test_it_requires_authentication(): void

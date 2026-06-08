@@ -97,7 +97,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantGroupId(): ?string
     {
-        return $this->nullableString('variantGroupId');
+        return $this->nullableValidatedStringValue('variantGroupId');
     }
 
     public function hasVariantSentenceId(): bool
@@ -107,7 +107,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantSentenceId(): ?string
     {
-        return $this->nullableString('variantSentenceId');
+        return $this->nullableValidatedStringValue('variantSentenceId');
     }
 
     public function hasVariantKind(): bool
@@ -117,7 +117,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantKind(): ?VocabVariantKind
     {
-        $value = $this->nullableString('variantKind');
+        $value = $this->nullableValidatedStringValue('variantKind');
 
         return $value === null ? null : VocabVariantKind::from($value);
     }
@@ -149,7 +149,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantStatus(): ?VocabVariantStatus
     {
-        $value = $this->nullableString('variantStatus');
+        $value = $this->nullableValidatedStringValue('variantStatus');
 
         return $value === null ? null : VocabVariantStatus::from($value);
     }
@@ -174,7 +174,7 @@ trait ValidatesVocabVariantMetadata
         return CarbonImmutable::parse($value, 'UTC')->utc();
     }
 
-    protected function nullableString(string $key): ?string
+    protected function nullableValidatedStringValue(string $key): ?string
     {
         $value = $this->validated($key);
 

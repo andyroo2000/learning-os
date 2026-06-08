@@ -4,8 +4,10 @@ namespace App\Http\Resources\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
+use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use UnexpectedValueException;
 
 class StudyCardSummaryResource extends JsonResource
 {
@@ -54,6 +56,12 @@ class StudyCardSummaryResource extends JsonResource
                 ],
                 'rawFsrs' => null,
             ],
+            'variantGroupId' => $this->variant_group_id,
+            'variantSentenceId' => $this->variant_sentence_id,
+            'variantKind' => $this->stringAttributeValue('variant_kind'),
+            'variantStage' => $this->variant_stage,
+            'variantStatus' => $this->stringAttributeValue('variant_status'),
+            'variantUnlockedAt' => $this->variant_unlocked_at?->toJSON(),
             // Laravel cards do not track generated/imported audio roles yet; expose the safe ConvoLab sentinel.
             'answerAudioSource' => self::ANSWER_AUDIO_SOURCE_MISSING,
             'createdAt' => $this->created_at?->toJSON(),
@@ -64,5 +72,27 @@ class StudyCardSummaryResource extends JsonResource
     private function noteIdString(): ?string
     {
         return $this->source_note_id === null ? null : (string) $this->source_note_id;
+    }
+
+    private function stringAttributeValue(string $key): ?string
+    {
+        // These public fields have a string wire contract; BackedEnum casts must stay string-backed.
+        $value = $this->resource->getAttribute($key);
+
+        if ($value instanceof BackedEnum) {
+            if (is_int($value->value)) {
+                throw new UnexpectedValueException(
+                    "Study card attribute [{$key}] must serialize to a string or null. Integer-backed enums are not supported."
+                );
+            }
+
+            $value = $value->value;
+        }
+
+        if ($value === null || is_string($value)) {
+            return $value;
+        }
+
+        throw new UnexpectedValueException("Study card attribute [{$key}] must serialize to a string or null.");
     }
 }

@@ -36,6 +36,12 @@ class StoreStudyCardController extends Controller
                     cardType: $request->cardType(),
                     promptJson: $request->promptPayload(),
                     answerJson: $request->answerPayload(),
+                    variantGroupId: $request->variantGroupId(),
+                    variantSentenceId: $request->variantSentenceId(),
+                    variantKind: $request->variantKind(),
+                    variantStage: $request->variantStage(),
+                    variantStatus: $request->variantStatus(),
+                    variantUnlockedAt: $request->variantUnlockedAt(),
                     id: $request->id(),
                 ));
             });

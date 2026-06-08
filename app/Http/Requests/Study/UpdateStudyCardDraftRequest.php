@@ -228,7 +228,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     public function imagePrompt(): ?string
     {
-        return $this->nullableString('imagePrompt');
+        return $this->nullableValidatedStringValue('imagePrompt');
     }
 
     public function hasPreviewAudio(): bool

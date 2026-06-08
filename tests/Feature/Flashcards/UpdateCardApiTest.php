@@ -3,6 +3,7 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -299,12 +300,7 @@ class UpdateCardApiTest extends TestCase
         $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
-        $this->assertSame(3, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_clears_variant_metadata(): void
@@ -352,12 +348,7 @@ class UpdateCardApiTest extends TestCase
         $this->assertNull($card->variant_unlocked_at);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_stage']);
-        $this->assertNull($entry->payload['variant_status']);
-        $this->assertNull($entry->payload['variant_unlocked_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_preserves_structured_content_when_omitted(): void

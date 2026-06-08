@@ -64,12 +64,14 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Compatibility validation messages do not cover every rule key and input shape the request can trigger, especially null/scalar/list variants for `present`, `required`, and `array` rules.
 - The same client-visible validation message is reused for structurally different failures, such as missing paired payloads versus present-but-wrong JSON shape, without a compatibility note and tests.
 - A shared validation trait adds a relaxed/optional mode but leaves typed cached properties or accessors with an implicit uninitialized-property failure path.
+- A shared trait/helper uses PHP language features that are not checked against `composer.json` and the CI runtime, especially newer trait visibility/constant syntax.
 - Request-owned trimming/lowercasing lacks tests with `withoutMiddleware(TrimStrings::class)`, or new tests replaced a stronger full-middleware-stack test.
 - Request timestamp parsing depends on the PHP/server timezone for timezone-naive input, fails to convert explicit offsets back to UTC before persistence, or lacks tests covering both cases.
 - A request-level fix lacks corresponding direct action tests when the action has a direct caller contract.
 - A direct action regression test is placed only in an adjacent API/upload/controller test file instead of the action's own focused test class, making the guard hard to find when the action changes.
 - Partial-update DTO `has*`/presence flags do not short-circuit validation or normalization for fields the caller explicitly marked as untouched.
 - Partial-update DTOs allow `hasField: true` with `null` for fields that HTTP validation treats as required/non-null when present, causing direct callers to silently clear or default persisted state.
+- A sparse-update/no-op test omits newly added optional fields, especially casted timestamps or paired metadata fields that can be dirty-tracked differently from plain strings.
 - FormRequest `after()` cross-field checks infer a sibling field is valid from raw presence/non-null input without checking the sibling field's validation errors.
 - JSON shape, size, or depth limits exist only in the FormRequest while the DTO/action accepts the same arrays from direct callers.
 - JSON shape, size, or depth limits exist in the DTO/action but lack HTTP coverage for the client-visible validation response.

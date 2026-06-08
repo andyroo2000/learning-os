@@ -11,6 +11,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -68,10 +69,7 @@ class RetryStudyCardDraftActionTest extends TestCase
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyManualCardDraftStatus::Generating->value, $entry->payload['status']);
-        $this->assertNull($entry->payload['preview_audio_json']);
-        $this->assertNull($entry->payload['preview_audio_role']);
-        $this->assertNull($entry->payload['error_message']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($retried), $entry->payload);
     }
 
     #[DataProvider('nonPositiveUserIdProvider')]

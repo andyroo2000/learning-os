@@ -10,6 +10,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -62,11 +63,7 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertSame('study_card_draft', $entry->resource_type);
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame(StudyManualCardDraftStatus::Generating->value, $entry->payload['status']);
-        $this->assertSame(StudyCardCreationKind::ProductionImage->value, $entry->payload['creation_kind']);
-        $this->assertSame(CardType::Production->value, $entry->payload['card_type']);
-        $this->assertSame(['cueText' => 'company'], $entry->payload['prompt_json']);
-        $this->assertNull($entry->payload['deleted_at']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void
@@ -115,12 +112,7 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
-        $this->assertSame(1, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame($expectedUnlockedAt, $entry->payload['variant_unlocked_at']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void

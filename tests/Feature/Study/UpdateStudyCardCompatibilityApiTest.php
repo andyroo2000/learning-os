@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -89,8 +90,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             $this->assertSame('card', $entry->resource_type);
             $this->assertSame($card->id, $entry->resource_id);
             $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-            $this->assertSame(['cueText' => '会社', 'cueReading' => 'かいしゃ'], $entry->payload['prompt_json']);
-            $this->assertSame(['expression' => '会社', 'meaning' => 'company'], $entry->payload['answer_json']);
+            $this->assertSame(CardSyncPayload::fromCard($card), $entry->payload);
         } finally {
             Carbon::setTestNow();
         }
@@ -171,12 +171,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
-        $this->assertSame(3, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertSame(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_clears_variant_metadata(): void
@@ -224,12 +219,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertNull($card->variant_unlocked_at);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_stage']);
-        $this->assertNull($entry->payload['variant_status']);
-        $this->assertNull($entry->payload['variant_unlocked_at']);
+        $this->assertSame(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_returns_the_card_summary_when_the_update_is_unchanged(): void

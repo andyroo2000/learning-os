@@ -12,7 +12,7 @@ use LogicException;
 
 trait ValidatesCardVariantMetadata
 {
-    private const VARIANT_UNLOCKED_AT_FORMAT_RULE = 'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z,Y-m-d\TH:i:s.u,Y-m-d\TH:i:s';
+    private const VARIANT_UNLOCKED_AT_FORMAT_RULE = 'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z';
 
     /**
      * @param  array<string, mixed>  $normalized
@@ -73,7 +73,7 @@ trait ValidatesCardVariantMetadata
 
     public function variantGroupId(): ?string
     {
-        return $this->nullableValidatedStringValue('variant_group_id');
+        return $this->nullableValidatedCardVariantString('variant_group_id');
     }
 
     public function hasVariantSentenceId(): bool
@@ -83,7 +83,7 @@ trait ValidatesCardVariantMetadata
 
     public function variantSentenceId(): ?string
     {
-        return $this->nullableValidatedStringValue('variant_sentence_id');
+        return $this->nullableValidatedCardVariantString('variant_sentence_id');
     }
 
     public function hasVariantKind(): bool
@@ -93,7 +93,7 @@ trait ValidatesCardVariantMetadata
 
     public function variantKind(): ?VocabVariantKind
     {
-        $value = $this->nullableValidatedStringValue('variant_kind');
+        $value = $this->nullableValidatedCardVariantString('variant_kind');
 
         return $value === null ? null : VocabVariantKind::from($value);
     }
@@ -125,7 +125,7 @@ trait ValidatesCardVariantMetadata
 
     public function variantStatus(): ?VocabVariantStatus
     {
-        $value = $this->nullableValidatedStringValue('variant_status');
+        $value = $this->nullableValidatedCardVariantString('variant_status');
 
         return $value === null ? null : VocabVariantStatus::from($value);
     }
@@ -150,7 +150,7 @@ trait ValidatesCardVariantMetadata
         return CarbonImmutable::parse($value, 'UTC')->utc();
     }
 
-    protected function nullableValidatedStringValue(string $key): ?string
+    private function nullableValidatedCardVariantString(string $key): ?string
     {
         $value = $this->validated($key);
 

@@ -1225,6 +1225,15 @@ class CreateCardApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['variant_unlocked_at']);
 
+        $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_unlocked_at' => '2026-06-04T14:15:30',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variant_unlocked_at']);
+
         $this->assertDatabaseCount('cards', 0);
     }
 

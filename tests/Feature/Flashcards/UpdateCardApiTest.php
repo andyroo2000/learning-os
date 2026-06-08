@@ -481,6 +481,7 @@ class UpdateCardApiTest extends TestCase
 
         $card->refresh();
 
+        // UpdateCardAction compares variant_unlocked_at at persisted second precision.
         $response
             ->assertOk()
             ->assertJsonPath('data.updated_at', CardResource::make($card)->resolve()['updated_at'])
@@ -755,6 +756,14 @@ class UpdateCardApiTest extends TestCase
             'front_text' => '犬',
             'back_text' => 'dog',
             'variant_unlocked_at' => 1234567890,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variant_unlocked_at']);
+
+        $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_unlocked_at' => '2026-06-04T14:15:30',
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['variant_unlocked_at']);

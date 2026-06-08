@@ -100,7 +100,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A payload comparison uses `assertSame()` or `assertEquals()` without matching the actual cast shape and contract: arrays/scalars can use strict equality when key order/type are intentional, fresh value-object instances need structural equality or a documented identity/memoization contract, and `assertEquals()` needs type-sensitive spot coverage for numeric-string-prone fields.
 - A multi-entry sync-feed test asserts `user_id`/ownership for one entry but not sibling entries written by the same action.
 - An expected sync/resource payload is built from a stale in-memory model, from a model missing relations or relation scopes that the payload builder traverses, or without proving explicit override parameters such as tombstone `deletedAt` win over stale model fields.
-- A sync feed test fetches the "latest" entry by an assumed `id` or default ordering instead of the real feed ordering column, such as `checkpoint`, or a stable business-key lookup.
+- A sync feed test fetches or compares the "latest" entry by an assumed `id`/default ordering instead of the real feed ordering column or key, such as `checkpoint`/`getKey()`, or a stable business-key lookup.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A broad sync-feed count/no-extra-entry assertion is replaced with a scoped `sole()` lookup without preserving the negative assertion that sibling resource entries were not emitted on no-op or older-state paths.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.

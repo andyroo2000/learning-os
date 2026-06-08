@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Actions\DeleteDeckAction;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Actions\ResolveManualStudyDeckAction;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -80,11 +81,9 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame('deck', $entries[0]->resource_type);
         $this->assertSame($deck->id, $entries[0]->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entries[0]->operation);
-        $this->assertSame('card', $entries[1]->resource_type);
-        $this->assertSame($card->id, $entries[1]->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
-        $this->assertSame(['cueText' => '会社', 'cueReading' => 'かいしゃ'], $entries[1]->payload['prompt_json']);
-        $this->assertSame(['expression' => '会社', 'meaning' => 'company'], $entries[1]->payload['answer_json']);
+        $cardEntry = $this->cardSyncEntryFor($card);
+        $this->assertSame(SyncFeedOperation::Create, $cardEntry->operation);
+        $this->assertSame(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_it_creates_a_manual_study_card_with_variant_metadata(): void
@@ -126,13 +125,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
 
         $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
         $this->assertCount(2, $entries);
-        $this->assertSame('card', $entries[1]->resource_type);
-        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entries[1]->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entries[1]->payload['variant_kind']);
-        $this->assertSame(2, $entries[1]->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
-        $this->assertSame('2026-06-04T08:45:30.000000Z', $entries[1]->payload['variant_unlocked_at']);
+        $cardEntry = $this->cardSyncEntryFor($card);
+        $this->assertSame(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_it_accepts_unsigned_string_variant_stage_without_trim_strings_middleware(): void
@@ -155,7 +149,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
 
         $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
         $this->assertCount(2, $entries);
-        $this->assertSame(2, $entries[1]->payload['variant_stage']);
+        $cardEntry = $this->cardSyncEntryFor($card);
+        $this->assertSame(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_it_treats_blank_manual_card_variant_metadata_as_absent(): void
@@ -220,12 +215,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
 
         $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
         $this->assertCount(2, $entries);
-        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
-        $this->assertNull($entries[1]->payload['variant_sentence_id']);
-        $this->assertNull($entries[1]->payload['variant_kind']);
-        $this->assertNull($entries[1]->payload['variant_stage']);
-        $this->assertNull($entries[1]->payload['variant_status']);
-        $this->assertNull($entries[1]->payload['variant_unlocked_at']);
+        $cardEntry = $this->cardSyncEntryFor($card);
+        $this->assertSame(CardSyncPayload::fromCard($card), $cardEntry->payload);
     }
 
     public function test_it_reuses_the_existing_default_study_deck(): void
@@ -730,5 +721,13 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             'prompt' => ['cueText' => '会社'],
             'answer' => ['meaning' => 'company'],
         ])->assertUnauthorized();
+    }
+
+    private function cardSyncEntryFor(Card $card): SyncFeedEntry
+    {
+        return SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
     }
 }

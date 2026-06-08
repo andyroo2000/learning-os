@@ -61,7 +61,7 @@ class ListStudyBrowserAction
         $queueState = $queueState === null ? null : CardStudyStatus::fromFilter($queueState);
         $sortField = $this->normalizeSortField($sortField);
         $sortDirection = $this->normalizeSortDirection($sortDirection);
-        $limit = max(1, min(self::MAX_LIMIT, $limit ?? self::DEFAULT_LIMIT));
+        $limit = $this->normalizeLimit($limit);
         $offset = $this->decodeOffsetCursor($cursor);
 
         // Browser rows are note aggregates with derived counts, so this compatibility slice materializes matching cards before sorting and slicing.
@@ -163,6 +163,19 @@ class ListStudyBrowserAction
         }
 
         return $sortDirection;
+    }
+
+    private function normalizeLimit(?int $limit): int
+    {
+        if ($limit === null) {
+            return self::DEFAULT_LIMIT;
+        }
+
+        if ($limit < 1 || $limit > self::MAX_LIMIT) {
+            throw new InvalidArgumentException('limit must be an integer between 1 and '.self::MAX_LIMIT.'.');
+        }
+
+        return $limit;
     }
 
     /**

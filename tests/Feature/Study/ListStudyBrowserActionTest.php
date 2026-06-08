@@ -154,6 +154,65 @@ class ListStudyBrowserActionTest extends TestCase
         );
     }
 
+    public function test_it_uses_the_default_limit_for_direct_callers_when_limit_is_absent(): void
+    {
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+        );
+
+        $this->assertSame(ListStudyBrowserAction::DEFAULT_LIMIT, $result['limit']);
+    }
+
+    public function test_it_accepts_boundary_limits_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+
+        $minimum = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            limit: 1,
+        );
+        $maximum = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            limit: ListStudyBrowserAction::MAX_LIMIT,
+        );
+
+        $this->assertSame(1, $minimum['limit']);
+        $this->assertSame(ListStudyBrowserAction::MAX_LIMIT, $maximum['limit']);
+    }
+
+    public function test_it_rejects_invalid_limits_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            limit: 0,
+        );
+    }
+
+    public function test_it_rejects_negative_limits_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            limit: -1,
+        );
+    }
+
+    public function test_it_rejects_over_max_limits_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            limit: ListStudyBrowserAction::MAX_LIMIT + 1,
+        );
+    }
+
     public function test_it_rejects_invalid_direct_cursors(): void
     {
         $this->expectException(InvalidArgumentException::class);

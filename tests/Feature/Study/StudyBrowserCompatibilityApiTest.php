@@ -513,9 +513,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
         $this
             ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/study/browser?q=%20%E4%BC%9A%E7%A4%BE%20&cardType=%20RECOGNITION%20&queueState=%20REVIEW%20&sortField=%20CREATED_ON%20&sortDirection=%20DESC%20')
+            ->getJson('/api/study/browser?q=%20%E4%BC%9A%E7%A4%BE%20&cardType=%20RECOGNITION%20&queueState=%20REVIEW%20&sortField=%20CREATED_ON%20&sortDirection=%20DESC%20&limit=%20%2B1%20')
             ->assertOk()
             ->assertJsonPath('total', 1)
+            ->assertJsonPath('limit', 1)
             ->assertJsonPath('rows.0.noteId', '3001');
     }
 
@@ -547,6 +548,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $this->getJson('/api/study/browser?limit=0')
             ->assertJsonValidationErrors(['limit']);
         $this->getJson('/api/study/browser?limit=101')
+            ->assertJsonValidationErrors(['limit']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?limit=%20-1%20')
             ->assertJsonValidationErrors(['limit']);
         $this->getJson('/api/study/browser?limit=abc')
             ->assertJsonValidationErrors(['limit']);

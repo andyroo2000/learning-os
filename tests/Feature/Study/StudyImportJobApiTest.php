@@ -112,7 +112,8 @@ class StudyImportJobApiTest extends TestCase
 
         $this->getJson('/api/study/imports/current')
             ->assertOk()
-            ->assertJsonPath('data', null);
+            ->assertJsonPath('data', null)
+            ->assertJsonFragment(['data' => null]);
     }
 
     public function test_current_expires_stale_processing_imports_before_returning_active_import(): void

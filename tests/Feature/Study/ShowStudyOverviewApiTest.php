@@ -50,6 +50,7 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('data.new_cards_introduced_today', 1)
                 ->assertJsonPath('data.new_cards_available_today', 1)
                 ->assertJsonPath('data.latest_import', null)
+                ->assertJsonFragment(['latest_import' => null])
                 ->assertJsonPath('data.total_cards', 3);
         } finally {
             Carbon::setTestNow();

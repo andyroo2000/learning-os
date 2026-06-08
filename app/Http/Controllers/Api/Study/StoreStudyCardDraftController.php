@@ -32,6 +32,12 @@ class StoreStudyCardDraftController extends Controller
                     answerJson: $request->answerPayload(),
                     imagePlacement: $request->imagePlacement(),
                     imagePrompt: $request->imagePrompt(),
+                    variantGroupId: $request->variantGroupId(),
+                    variantSentenceId: $request->variantSentenceId(),
+                    variantKind: $request->variantKind(),
+                    variantStage: $request->variantStage(),
+                    variantStatus: $request->variantStatus(),
+                    variantUnlockedAt: $request->variantUnlockedAt(),
                 ),
                 afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
             );

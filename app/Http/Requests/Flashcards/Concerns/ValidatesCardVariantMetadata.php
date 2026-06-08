@@ -149,7 +149,7 @@ trait ValidatesCardVariantMetadata
             throw new LogicException('variant_unlocked_at called after validation failed to reject a non-string value.');
         }
 
-        return CarbonImmutable::parse($value, 'UTC')->utc();
+        return CarbonImmutable::parse($value)->utc();
     }
 
     private function nullableValidatedCardVariantString(string $key): ?string

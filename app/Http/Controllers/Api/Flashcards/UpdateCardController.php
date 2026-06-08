@@ -24,6 +24,7 @@ class UpdateCardController extends Controller
             promptJson: $data['prompt_json'] ?? null,
             hasAnswerJson: array_key_exists('answer_json', $data),
             answerJson: $data['answer_json'] ?? null,
+            // Variant accessors apply presence checks, enum coercion, and UTC normalization.
             hasVariantGroupId: $request->hasVariantGroupId(),
             variantGroupId: $request->variantGroupId(),
             hasVariantSentenceId: $request->hasVariantSentenceId(),

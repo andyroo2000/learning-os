@@ -319,7 +319,7 @@ class CreateCardApiTest extends TestCase
             'variant_kind' => ' SENTENCE_CLOZE ',
             'variant_stage' => ' +3 ',
             'variant_status' => ' AVAILABLE ',
-            'variant_unlocked_at' => '2026-06-04T14:15:30+05:30',
+            'variant_unlocked_at' => '2026-06-04T14:15:30.123456+05:30',
         ];
 
         $firstResponse = $this

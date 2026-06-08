@@ -13,6 +13,9 @@ use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -56,6 +59,18 @@ class UpdateStudyCardDraftActionTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            hasVariantGroupId: true,
+            variantGroupId: ' vocab-group-1 ',
+            hasVariantSentenceId: true,
+            variantSentenceId: ' sentence-1 ',
+            hasVariantKind: true,
+            variantKind: ' SENTENCE_CLOZE ',
+            hasVariantStage: true,
+            variantStage: 3,
+            hasVariantStatus: true,
+            variantStatus: ' AVAILABLE ',
+            hasVariantUnlockedAt: true,
+            variantUnlockedAt: Carbon::parse('2026-06-04T14:15:30.987654+05:30'),
         ));
 
         $updated->refresh();
@@ -67,6 +82,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('audio-1', $updated->preview_audio_json['id']);
         $this->assertSame(StudyCardAudioRole::Prompt, $updated->preview_audio_role);
         $this->assertSame('image-1', $updated->preview_image_json['id']);
+        $this->assertSame('vocab-group-1', $updated->variant_group_id);
+        $this->assertSame('sentence-1', $updated->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $updated->variant_kind);
+        $this->assertSame(3, $updated->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $updated->variant_status);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $updated->variant_unlocked_at?->toJSON());
         $this->assertSame(StudyManualCardDraftStatus::Ready, $updated->status);
         $this->assertSame('Old error.', $updated->error_message);
 
@@ -79,6 +100,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('A quiet meeting room', $entry->payload['image_prompt']);
         $this->assertSame('audio-1', $entry->payload['preview_audio_json']['id']);
         $this->assertSame(StudyCardAudioRole::Prompt->value, $entry->payload['preview_audio_role']);
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
+        $this->assertSame(3, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
         $this->assertNull($entry->payload['committed_card_id']);
     }
 
@@ -96,6 +123,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            'variant_group_id' => 'keep-group',
+            'variant_sentence_id' => 'keep-sentence',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
         $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
@@ -113,6 +146,18 @@ class UpdateStudyCardDraftActionTest extends TestCase
                 'mediaKind' => 'audio',
                 'source' => 'external',
             ],
+            hasVariantGroupId: false,
+            variantGroupId: str_repeat('a', 65),
+            hasVariantSentenceId: false,
+            variantSentenceId: str_repeat('b', 65),
+            hasVariantKind: false,
+            variantKind: 'not-a-kind',
+            hasVariantStage: false,
+            variantStage: 0,
+            hasVariantStatus: false,
+            variantStatus: 'not-a-status',
+            hasVariantUnlockedAt: false,
+            variantUnlockedAt: Carbon::parse('2026-06-05T14:15:00Z'),
         ));
 
         $updated->refresh();
@@ -120,6 +165,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('Keep this', $updated->image_prompt);
         $this->assertSame('keep.mp3', $updated->preview_audio_json['filename']);
         $this->assertSame('keep.webp', $updated->preview_image_json['filename']);
+        $this->assertSame('keep-group', $updated->variant_group_id);
+        $this->assertSame('keep-sentence', $updated->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $updated->variant_kind);
+        $this->assertSame(2, $updated->variant_stage);
+        $this->assertSame(VocabVariantStatus::Locked->value, $updated->variant_status);
+        $this->assertSame('2026-06-05T14:15:00.000000Z', $updated->variant_unlocked_at?->toJSON());
     }
 
     public function test_it_does_not_record_sync_entries_for_noop_resubmits(): void
@@ -129,6 +180,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
             'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
             'image_placement' => StudyCardImagePlacement::Both,
             'image_prompt' => 'Keep this',
+            'variant_group_id' => 'keep-group',
+            'variant_sentence_id' => 'keep-sentence',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
         app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
@@ -140,6 +197,18 @@ class UpdateStudyCardDraftActionTest extends TestCase
             imagePlacement: StudyCardImagePlacement::Both,
             hasImagePrompt: true,
             imagePrompt: 'Keep this',
+            hasVariantGroupId: true,
+            variantGroupId: 'keep-group',
+            hasVariantSentenceId: true,
+            variantSentenceId: 'keep-sentence',
+            hasVariantKind: true,
+            variantKind: VocabVariantKind::SentenceAudioRecognition,
+            hasVariantStage: true,
+            variantStage: 2,
+            hasVariantStatus: true,
+            variantStatus: VocabVariantStatus::Locked,
+            hasVariantUnlockedAt: true,
+            variantUnlockedAt: Carbon::parse('2026-06-05T14:15:00Z'),
         ));
 
         $this->assertSame(0, SyncFeedEntry::query()->count());
@@ -256,6 +325,12 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $draft = StudyCardDraft::factory()->ready()->create([
             'image_placement' => StudyCardImagePlacement::Both,
             'image_prompt' => 'Keep this',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'preview_audio_json' => [
                 'id' => 'audio-1',
                 'filename' => 'kaisha.mp3',
@@ -284,6 +359,18 @@ class UpdateStudyCardDraftActionTest extends TestCase
             previewAudioRole: null,
             hasPreviewImage: true,
             previewImageJson: null,
+            hasVariantGroupId: true,
+            variantGroupId: '   ',
+            hasVariantSentenceId: true,
+            variantSentenceId: null,
+            hasVariantKind: true,
+            variantKind: null,
+            hasVariantStage: true,
+            variantStage: null,
+            hasVariantStatus: true,
+            variantStatus: null,
+            hasVariantUnlockedAt: true,
+            variantUnlockedAt: null,
         ));
 
         $updated->refresh();
@@ -293,7 +380,20 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertNull($updated->preview_audio_json);
         $this->assertNull($updated->preview_audio_role);
         $this->assertNull($updated->preview_image_json);
-        $this->assertSame(1, SyncFeedEntry::query()->count());
+        $this->assertNull($updated->variant_group_id);
+        $this->assertNull($updated->variant_sentence_id);
+        $this->assertNull($updated->variant_kind);
+        $this->assertNull($updated->variant_stage);
+        $this->assertNull($updated->variant_status);
+        $this->assertNull($updated->variant_unlocked_at);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_sentence_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_stage']);
+        $this->assertNull($entry->payload['variant_status']);
+        $this->assertNull($entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_rejects_generating_draft_edits(): void
@@ -389,6 +489,61 @@ class UpdateStudyCardDraftActionTest extends TestCase
         UpdateStudyCardDraftData::fromInput(
             hasImagePrompt: true,
             imagePrompt: str_repeat('a', 1001),
+        );
+    }
+
+    public function test_it_rejects_oversized_variant_ids_for_direct_callers(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Study variant IDs must be 64 characters or fewer.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasVariantGroupId: true,
+            variantGroupId: str_repeat('a', 65),
+        );
+    }
+
+    public function test_it_rejects_oversized_variant_sentence_ids_for_direct_callers(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Study variant IDs must be 64 characters or fewer.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasVariantSentenceId: true,
+            variantSentenceId: str_repeat('b', 65),
+        );
+    }
+
+    public function test_it_rejects_invalid_variant_stage_for_direct_callers(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Study variant stage must be between 1 and 65535.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasVariantStage: true,
+            variantStage: 0,
+        );
+    }
+
+    public function test_it_rejects_invalid_variant_enums_for_direct_callers(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Variant kind must be one of:');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasVariantKind: true,
+            variantKind: 'sentence-audio-recognition',
+        );
+    }
+
+    public function test_it_rejects_invalid_variant_status_for_direct_callers(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Variant status must be one of:');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasVariantStatus: true,
+            variantStatus: 'not-a-status',
         );
     }
 

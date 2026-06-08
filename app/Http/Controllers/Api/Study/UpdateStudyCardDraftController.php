@@ -39,6 +39,18 @@ class UpdateStudyCardDraftController extends Controller
                 previewAudioRole: $request->previewAudioRole(),
                 hasPreviewImage: $request->hasPreviewImage(),
                 previewImageJson: $request->previewImage(),
+                hasVariantGroupId: $request->hasVariantGroupId(),
+                variantGroupId: $request->variantGroupId(),
+                hasVariantSentenceId: $request->hasVariantSentenceId(),
+                variantSentenceId: $request->variantSentenceId(),
+                hasVariantKind: $request->hasVariantKind(),
+                variantKind: $request->variantKind(),
+                hasVariantStage: $request->hasVariantStage(),
+                variantStage: $request->variantStage(),
+                hasVariantStatus: $request->hasVariantStatus(),
+                variantStatus: $request->variantStatus(),
+                hasVariantUnlockedAt: $request->hasVariantUnlockedAt(),
+                variantUnlockedAt: $request->variantUnlockedAt(),
             ));
         } catch (StudyCardDraftValidationException $exception) {
             throw ValidationException::withMessages([

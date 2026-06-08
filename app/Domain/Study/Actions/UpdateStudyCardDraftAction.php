@@ -83,6 +83,30 @@ class UpdateStudyCardDraftAction
                 $lockedDraft->preview_image_json = $data->previewImageJson;
             }
 
+            if ($data->hasVariantGroupId) {
+                $lockedDraft->variant_group_id = $data->variantGroupId;
+            }
+
+            if ($data->hasVariantSentenceId) {
+                $lockedDraft->variant_sentence_id = $data->variantSentenceId;
+            }
+
+            if ($data->hasVariantKind) {
+                $lockedDraft->variant_kind = $data->variantKind?->value;
+            }
+
+            if ($data->hasVariantStage) {
+                $lockedDraft->variant_stage = $data->variantStage;
+            }
+
+            if ($data->hasVariantStatus) {
+                $lockedDraft->variant_status = $data->variantStatus?->value;
+            }
+
+            if ($data->hasVariantUnlockedAt) {
+                $lockedDraft->variant_unlocked_at = $data->variantUnlockedAt;
+            }
+
             // Eloquent clears dirty state on save(), so capture this before persisting.
             $shouldRecordSync = $lockedDraft->isDirty();
             $lockedDraft->save();

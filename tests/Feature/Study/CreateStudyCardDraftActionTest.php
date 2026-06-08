@@ -15,6 +15,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -87,8 +88,8 @@ class CreateStudyCardDraftActionTest extends TestCase
 
     public function test_it_persists_variant_metadata_for_direct_callers(): void
     {
-        $unlockedAt = now()->setMicrosecond(987654);
-        $expectedUnlockedAt = $unlockedAt->copy()->startOfSecond()->toJSON();
+        $unlockedAt = Carbon::parse('2026-06-04T14:15:30.987654+05:30');
+        $expectedUnlockedAt = '2026-06-04T08:45:30.000000Z';
 
         $draft = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
             userId: User::factory()->create()->id,

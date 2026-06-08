@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
+use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
@@ -18,6 +19,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class UpdateStudyCardDraftRequest extends FormRequest
 {
     use ValidatesStudyCardPayloads;
+    use ValidatesVocabVariantMetadata;
 
     private const PAYLOAD_REQUIRED_MESSAGE = 'prompt and answer payloads are required.';
 
@@ -43,6 +45,8 @@ class UpdateStudyCardDraftRequest extends FormRequest
                 $normalized['imagePrompt'] = $trimmed === '' ? null : $trimmed;
             }
         }
+
+        $this->normalizeVariantMetadataForValidation($normalized);
 
         if ($normalized !== []) {
             $this->merge($normalized);
@@ -93,6 +97,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
             'previewImage.url' => ['sometimes', 'nullable', 'string'],
             'previewImage.mediaKind' => ['required_with:previewImage', 'string', Rule::in(['image'])],
             'previewImage.source' => ['required_with:previewImage', 'string', Rule::in(StudyCardDraft::MEDIA_SOURCES)],
+            ...$this->variantMetadataRules(),
         ];
     }
 
@@ -172,6 +177,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
             'previewImage.mediaKind.in' => 'draft.previewImage.mediaKind must be image.',
             'previewImage.source.required_with' => self::studyCardMediaSourcesMessage(),
             'previewImage.source.in' => self::studyCardMediaSourcesMessage(),
+            ...$this->variantMetadataMessages(),
         ];
     }
 
@@ -222,13 +228,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     public function imagePrompt(): ?string
     {
-        $value = $this->validated('imagePrompt');
-
-        if ($value !== null && ! is_string($value)) {
-            throw new LogicException('imagePrompt called after validation failed to reject a non-string value.');
-        }
-
-        return $value;
+        return $this->nullableString('imagePrompt');
     }
 
     public function hasPreviewAudio(): bool

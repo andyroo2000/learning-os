@@ -23,7 +23,7 @@ class UpdateStudyCardRequest extends FormRequest
     {
         $normalized = [];
 
-        $this->normalizeVariantMetadataForValidation($normalized);
+        $this->mergeNormalizedVocabVariantMetadataForValidation($normalized);
 
         if ($normalized !== []) {
             $this->merge($normalized);

@@ -146,7 +146,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
                 'variantGroupId' => ' vocab-group-1 ',
                 'variantSentenceId' => ' sentence-1 ',
                 'variantKind' => ' SENTENCE_CLOZE ',
-                'variantStage' => ' 3 ',
+                'variantStage' => ' +3 ',
                 'variantStatus' => ' AVAILABLE ',
                 'variantUnlockedAt' => '2026-06-04T14:15:30+05:30',
             ])
@@ -302,7 +302,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
                 'variantGroupId' => ' keep-group ',
                 'variantSentenceId' => ' keep-sentence ',
                 'variantKind' => ' SENTENCE_AUDIO_RECOGNITION ',
-                'variantStage' => ' 2 ',
+                'variantStage' => ' +2 ',
                 'variantStatus' => ' LOCKED ',
                 'variantUnlockedAt' => '2026-06-05T14:15:00.987654Z',
             ])

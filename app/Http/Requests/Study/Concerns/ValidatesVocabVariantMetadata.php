@@ -12,12 +12,12 @@ use LogicException;
 
 trait ValidatesVocabVariantMetadata
 {
-    private const VARIANT_UNLOCKED_AT_FORMAT_RULE = 'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z,Y-m-d\TH:i:s.u,Y-m-d\TH:i:s';
+    private const VARIANT_UNLOCKED_AT_FORMATS = 'Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z,Y-m-d\TH:i:s.u,Y-m-d\TH:i:s';
 
     /**
      * @param  array<string, mixed>  $normalized
      */
-    protected function normalizeVariantMetadataForValidation(array &$normalized): void
+    protected function mergeNormalizedVocabVariantMetadataForValidation(array &$normalized): void
     {
         foreach (['variantKind', 'variantStatus'] as $key) {
             if (! array_key_exists($key, $this->all())) {
@@ -32,9 +32,23 @@ trait ValidatesVocabVariantMetadata
             }
         }
 
-        // These fields are scalar strings at the wire boundary, except variantStage,
-        // which trims the same way before Laravel's integer rule accepts digit strings.
-        foreach (['variantGroupId', 'variantSentenceId', 'variantStage', 'variantUnlockedAt'] as $key) {
+        if (array_key_exists('variantStage', $this->all())) {
+            $value = $this->input('variantStage');
+
+            if (is_string($value)) {
+                $trimmed = trim($value);
+                // Laravel's integer rule accepts signed integer strings such as "+3"; normalize the same way.
+                $integer = filter_var($trimmed, FILTER_VALIDATE_INT);
+
+                if ($trimmed === '') {
+                    $normalized['variantStage'] = null;
+                } elseif ($integer !== false) {
+                    $normalized['variantStage'] = $integer;
+                }
+            }
+        }
+
+        foreach (['variantGroupId', 'variantSentenceId', 'variantUnlockedAt'] as $key) {
             if (! array_key_exists($key, $this->all())) {
                 continue;
             }
@@ -63,7 +77,8 @@ trait ValidatesVocabVariantMetadata
                 'sometimes',
                 'nullable',
                 'string',
-                self::VARIANT_UNLOCKED_AT_FORMAT_RULE,
+                // date_format accepts comma-separated alternatives; bare formats stay for ConvoLab compatibility.
+                'date_format:'.self::VARIANT_UNLOCKED_AT_FORMATS,
             ],
         ];
     }
@@ -97,7 +112,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantGroupId(): ?string
     {
-        return $this->nullableValidatedStringValue('variantGroupId');
+        return $this->nullableValidatedStudyStringValue('variantGroupId');
     }
 
     public function hasVariantSentenceId(): bool
@@ -107,7 +122,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantSentenceId(): ?string
     {
-        return $this->nullableValidatedStringValue('variantSentenceId');
+        return $this->nullableValidatedStudyStringValue('variantSentenceId');
     }
 
     public function hasVariantKind(): bool
@@ -117,7 +132,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantKind(): ?VocabVariantKind
     {
-        $value = $this->nullableValidatedStringValue('variantKind');
+        $value = $this->nullableValidatedStudyStringValue('variantKind');
 
         return $value === null ? null : VocabVariantKind::from($value);
     }
@@ -135,11 +150,11 @@ trait ValidatesVocabVariantMetadata
             return null;
         }
 
-        if (! is_int($value) && ! (is_string($value) && ctype_digit($value))) {
+        if (! is_int($value)) {
             throw new LogicException('variantStage called after validation failed to reject a non-integer value.');
         }
 
-        return (int) $value;
+        return $value;
     }
 
     public function hasVariantStatus(): bool
@@ -149,7 +164,7 @@ trait ValidatesVocabVariantMetadata
 
     public function variantStatus(): ?VocabVariantStatus
     {
-        $value = $this->nullableValidatedStringValue('variantStatus');
+        $value = $this->nullableValidatedStudyStringValue('variantStatus');
 
         return $value === null ? null : VocabVariantStatus::from($value);
     }
@@ -171,10 +186,11 @@ trait ValidatesVocabVariantMetadata
             throw new LogicException('variantUnlockedAt called after validation failed to reject a non-string value.');
         }
 
+        // Bare ConvoLab-compatible timestamps are interpreted as UTC instead of the PHP default timezone.
         return CarbonImmutable::parse($value, 'UTC')->utc();
     }
 
-    protected function nullableValidatedStringValue(string $key): ?string
+    protected function nullableValidatedStudyStringValue(string $key): ?string
     {
         $value = $this->validated($key);
 

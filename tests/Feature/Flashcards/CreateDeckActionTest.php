@@ -19,10 +19,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use Tests\Support\AssertsDeckSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateDeckActionTest extends TestCase
 {
+    use AssertsDeckSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_creates_a_deck_with_a_name(): void
@@ -48,23 +50,13 @@ class CreateDeckActionTest extends TestCase
             'description' => null,
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('deck', $entry->resource_type);
-        $this->assertSame($deck->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame([
-            'id' => $deck->id,
-            'course_id' => null,
-            'name' => 'Italian Basics',
-            'description' => null,
-            'is_manual_study_deck' => false,
-            'created_at' => $deck->created_at?->toJSON(),
-            'updated_at' => $deck->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+        $entry = $this->assertDeckSyncPayloadRecorded($deck, SyncFeedOperation::Create);
+
+        $this->assertNull($entry->payload['course_id']);
+        $this->assertSame('Italian Basics', $entry->payload['name']);
+        $this->assertFalse($entry->payload['is_manual_study_deck']);
     }
 
     public function test_it_creates_a_deck_for_an_owned_course(): void
@@ -90,7 +82,9 @@ class CreateDeckActionTest extends TestCase
             'name' => 'Italian Basics',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertDeckSyncPayloadRecorded($deck, SyncFeedOperation::Create);
 
         $this->assertSame($course->id, $entry->payload['course_id']);
     }

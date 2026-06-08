@@ -73,6 +73,43 @@ class StudySettingsActionTest extends TestCase
         $this->assertSame(StudySettingsSyncPayload::fromSettings($settings), $entry->payload);
     }
 
+    public function test_update_creates_settings_at_supported_range_boundaries(): void
+    {
+        $lowerUser = User::factory()->create();
+        $upperUser = User::factory()->create();
+
+        $lowerSettings = app(UpdateStudySettingsAction::class)->handle($lowerUser->id, 0);
+        $upperSettings = app(UpdateStudySettingsAction::class)->handle(
+            $upperUser->id,
+            StudySettings::MAX_NEW_CARDS_PER_DAY,
+        );
+
+        $this->assertSame(0, $lowerSettings->new_cards_per_day);
+        $this->assertSame(StudySettings::MAX_NEW_CARDS_PER_DAY, $upperSettings->new_cards_per_day);
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $lowerUser->id,
+            'new_cards_per_day' => 0,
+        ]);
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $upperUser->id,
+            'new_cards_per_day' => StudySettings::MAX_NEW_CARDS_PER_DAY,
+        ]);
+
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+
+        $lowerEntry = SyncFeedEntry::query()
+            ->where('user_id', $lowerUser->id)
+            ->sole();
+        $upperEntry = SyncFeedEntry::query()
+            ->where('user_id', $upperUser->id)
+            ->sole();
+
+        $this->assertSame(SyncFeedOperation::Create, $lowerEntry->operation);
+        $this->assertSame(StudySettingsSyncPayload::fromSettings($lowerSettings), $lowerEntry->payload);
+        $this->assertSame(SyncFeedOperation::Create, $upperEntry->operation);
+        $this->assertSame(StudySettingsSyncPayload::fromSettings($upperSettings), $upperEntry->payload);
+    }
+
     public function test_update_changes_existing_settings_and_records_sync_feed_entry(): void
     {
         $settings = StudySettings::factory()->create([

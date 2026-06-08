@@ -9,13 +9,13 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Actions\CreateStudyCardFromDraftAction;
 use App\Domain\Study\Actions\ResolveManualStudyDeckAction;
 use App\Domain\Study\Enums\StudyCardCreationKind;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -36,9 +36,9 @@ class CreateStudyCardFromDraftActionTest extends TestCase
             'answer_json' => ['meaning' => 'company'],
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::SentenceTextRecognition,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
             'variant_stage' => 2,
-            'variant_status' => StudyVocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available,
             'variant_unlocked_at' => now(),
         ]);
         $cardId = strtolower((string) str()->ulid());
@@ -52,9 +52,9 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(['meaning' => 'company'], $result->card->answer_json);
         $this->assertSame('vocab-group-1', $result->card->variant_group_id);
         $this->assertSame('sentence-1', $result->card->variant_sentence_id);
-        $this->assertSame(StudyVocabVariantKind::SentenceTextRecognition, $result->card->variant_kind);
+        $this->assertSame(VocabVariantKind::SentenceTextRecognition, $result->card->variant_kind);
         $this->assertSame(2, $result->card->variant_stage);
-        $this->assertSame(StudyVocabVariantStatus::Available, $result->card->variant_status);
+        $this->assertSame(VocabVariantStatus::Available, $result->card->variant_status);
         $this->assertSame($draft->variant_unlocked_at->toJSON(), $result->card->variant_unlocked_at->toJSON());
         $this->assertSame('会社', $result->card->front_text);
         $this->assertSame('company', $result->card->back_text);
@@ -78,9 +78,9 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
         $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
         $this->assertSame('sentence-1', $entries[1]->payload['variant_sentence_id']);
-        $this->assertSame(StudyVocabVariantKind::SentenceTextRecognition->value, $entries[1]->payload['variant_kind']);
+        $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $entries[1]->payload['variant_kind']);
         $this->assertSame(2, $entries[1]->payload['variant_stage']);
-        $this->assertSame(StudyVocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
         $this->assertSame($draft->variant_unlocked_at->toJSON(), $entries[1]->payload['variant_unlocked_at']);
         $this->assertSame('study_card_draft', $entries[2]->resource_type);
         $this->assertSame($draft->id, $entries[2]->resource_id);

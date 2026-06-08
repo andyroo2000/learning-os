@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Domain\Study\Support;
+namespace App\Domain\Vocabulary\Support;
 
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use LogicException;
 
-final class StudyVocabVariantMetadataInput
+final class VocabVariantMetadataInput
 {
     public const MAX_ID_LENGTH = 64;
 
@@ -49,21 +49,25 @@ final class StudyVocabVariantMetadataInput
         return $value === null ? null : CarbonImmutable::instance($value)->startOfSecond();
     }
 
-    public static function kindFromInput(StudyVocabVariantKind|string|null $variantKind): ?StudyVocabVariantKind
+    public static function kindFromInput(VocabVariantKind|string|null $variantKind): ?VocabVariantKind
     {
-        if ($variantKind instanceof StudyVocabVariantKind || $variantKind === null) {
+        if ($variantKind instanceof VocabVariantKind || $variantKind === null) {
             return $variantKind;
         }
 
-        return StudyVocabVariantKind::from(strtolower(trim($variantKind)));
+        $normalized = strtolower(trim($variantKind));
+
+        return $normalized === '' ? null : VocabVariantKind::from($normalized);
     }
 
-    public static function statusFromInput(StudyVocabVariantStatus|string|null $variantStatus): ?StudyVocabVariantStatus
+    public static function statusFromInput(VocabVariantStatus|string|null $variantStatus): ?VocabVariantStatus
     {
-        if ($variantStatus instanceof StudyVocabVariantStatus || $variantStatus === null) {
+        if ($variantStatus instanceof VocabVariantStatus || $variantStatus === null) {
             return $variantStatus;
         }
 
-        return StudyVocabVariantStatus::from(strtolower(trim($variantStatus)));
+        $normalized = strtolower(trim($variantStatus));
+
+        return $normalized === '' ? null : VocabVariantStatus::from($normalized);
     }
 }

@@ -7,9 +7,9 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -62,9 +62,9 @@ class StudyCardDraftTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
-            'variant_kind' => StudyVocabVariantKind::SentenceAudioRecognition,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
             'variant_stage' => 1,
-            'variant_status' => StudyVocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available,
             'variant_unlocked_at' => now(),
         ]);
 
@@ -78,9 +78,9 @@ class StudyCardDraftTest extends TestCase
         $this->assertSame(StudyCardImagePlacement::Prompt, $draft->image_placement);
         $this->assertSame(StudyCardAudioRole::Answer, $draft->preview_audio_role);
         $this->assertSame('image-1', $draft->preview_image_json['id']);
-        $this->assertSame(StudyVocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
         $this->assertSame(1, $draft->variant_stage);
-        $this->assertSame(StudyVocabVariantStatus::Available, $draft->variant_status);
+        $this->assertSame(VocabVariantStatus::Available, $draft->variant_status);
         $this->assertNotNull($draft->variant_unlocked_at);
     }
 

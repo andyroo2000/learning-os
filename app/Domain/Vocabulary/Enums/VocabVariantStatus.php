@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domain\Study\Enums;
+namespace App\Domain\Vocabulary\Enums;
 
-enum StudyVocabVariantStatus: string
+enum VocabVariantStatus: string
 {
     case Available = 'available';
     case Locked = 'locked';

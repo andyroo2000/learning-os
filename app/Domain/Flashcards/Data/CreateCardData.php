@@ -3,9 +3,9 @@
 namespace App\Domain\Flashcards\Data;
 
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
-use App\Domain\Study\Support\StudyVocabVariantMetadataInput;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use LogicException;
@@ -22,9 +22,9 @@ final readonly class CreateCardData
         public ?array $answerJson,
         public ?string $variantGroupId,
         public ?string $variantSentenceId,
-        public ?StudyVocabVariantKind $variantKind,
+        public ?VocabVariantKind $variantKind,
         public ?int $variantStage,
-        public ?StudyVocabVariantStatus $variantStatus,
+        public ?VocabVariantStatus $variantStatus,
         public ?DateTimeInterface $variantUnlockedAt,
         public ?string $id = null,
     ) {}
@@ -39,9 +39,9 @@ final readonly class CreateCardData
         ?array $answerJson = null,
         ?string $variantGroupId = null,
         ?string $variantSentenceId = null,
-        StudyVocabVariantKind|string|null $variantKind = null,
+        VocabVariantKind|string|null $variantKind = null,
         ?int $variantStage = null,
-        StudyVocabVariantStatus|string|null $variantStatus = null,
+        VocabVariantStatus|string|null $variantStatus = null,
         ?DateTimeInterface $variantUnlockedAt = null,
         ?string $id = null,
     ): self {
@@ -49,7 +49,7 @@ final readonly class CreateCardData
             throw new LogicException('Card user ID must be a positive integer.');
         }
 
-        StudyVocabVariantMetadataInput::assertValidStage(
+        VocabVariantMetadataInput::assertValidStage(
             $variantStage,
             'Card variant stage must be between 1 and 65535.',
         );
@@ -64,18 +64,18 @@ final readonly class CreateCardData
             cardType: $cardType === null ? CardType::Recognition : CardType::fromInput($cardType),
             promptJson: $promptJson,
             answerJson: $answerJson,
-            variantGroupId: StudyVocabVariantMetadataInput::nullableId(
+            variantGroupId: VocabVariantMetadataInput::nullableId(
                 $variantGroupId,
                 'Card variant IDs must be 64 characters or fewer.',
             ),
-            variantSentenceId: StudyVocabVariantMetadataInput::nullableId(
+            variantSentenceId: VocabVariantMetadataInput::nullableId(
                 $variantSentenceId,
                 'Card variant IDs must be 64 characters or fewer.',
             ),
-            variantKind: StudyVocabVariantMetadataInput::kindFromInput($variantKind),
+            variantKind: VocabVariantMetadataInput::kindFromInput($variantKind),
             variantStage: $variantStage,
-            variantStatus: StudyVocabVariantMetadataInput::statusFromInput($variantStatus),
-            variantUnlockedAt: StudyVocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
+            variantStatus: VocabVariantMetadataInput::statusFromInput($variantStatus),
+            variantUnlockedAt: VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
             id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }

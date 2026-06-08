@@ -7,10 +7,10 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -39,9 +39,9 @@ class StudyCardDraftSyncPayloadTest extends TestCase
             'preview_image_json' => null,
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::SentenceCloze->value,
+            'variant_kind' => VocabVariantKind::SentenceCloze->value,
             'variant_stage' => 5,
-            'variant_status' => StudyVocabVariantStatus::Locked->value,
+            'variant_status' => VocabVariantStatus::Locked->value,
             'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'error_message' => null,
             'committed_card_id' => '01ktt2q9z5vfpxsqgc3mwrdh36',

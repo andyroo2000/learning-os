@@ -5,8 +5,8 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -45,9 +45,9 @@ class ListStudyExportCardsApiTest extends TestCase
             'new_queue_position' => 1,
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::SentenceAudioRecognition,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
             'variant_stage' => 1,
-            'variant_status' => StudyVocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available,
             'variant_unlocked_at' => now(),
         ]);
         $secondCard = Card::factory()->for($deck)->create([
@@ -101,9 +101,9 @@ class ListStudyExportCardsApiTest extends TestCase
             ->assertJsonPath('data.0.new_queue_position', 1)
             ->assertJsonPath('data.0.variant_group_id', 'vocab-group-1')
             ->assertJsonPath('data.0.variant_sentence_id', 'sentence-1')
-            ->assertJsonPath('data.0.variant_kind', StudyVocabVariantKind::SentenceAudioRecognition->value)
+            ->assertJsonPath('data.0.variant_kind', VocabVariantKind::SentenceAudioRecognition->value)
             ->assertJsonPath('data.0.variant_stage', 1)
-            ->assertJsonPath('data.0.variant_status', StudyVocabVariantStatus::Available->value)
+            ->assertJsonPath('data.0.variant_status', VocabVariantStatus::Available->value)
             ->assertJsonPath('data.0.variant_unlocked_at', $firstCard->variant_unlocked_at->toJSON())
             ->assertJsonPath('data.0.deleted_at', null)
             ->assertJsonMissingPath('data.0.media_assets')

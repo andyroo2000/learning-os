@@ -7,9 +7,9 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -49,9 +49,9 @@ class ListStudyExportCardDraftsApiTest extends TestCase
             ],
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::SentenceTextRecognition,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
             'variant_stage' => 2,
-            'variant_status' => StudyVocabVariantStatus::Available,
+            'variant_status' => VocabVariantStatus::Available,
             'variant_unlocked_at' => now(),
             'committed_card_id' => strtolower((string) str()->ulid()),
         ]);
@@ -79,9 +79,9 @@ class ListStudyExportCardDraftsApiTest extends TestCase
             ->assertJsonPath('data.1.previewImage.id', 'image-1')
             ->assertJsonPath('data.1.variantGroupId', 'vocab-group-1')
             ->assertJsonPath('data.1.variantSentenceId', 'sentence-1')
-            ->assertJsonPath('data.1.variantKind', StudyVocabVariantKind::SentenceTextRecognition->value)
+            ->assertJsonPath('data.1.variantKind', VocabVariantKind::SentenceTextRecognition->value)
             ->assertJsonPath('data.1.variantStage', 2)
-            ->assertJsonPath('data.1.variantStatus', StudyVocabVariantStatus::Available->value)
+            ->assertJsonPath('data.1.variantStatus', VocabVariantStatus::Available->value)
             ->assertJsonPath('data.1.variantUnlockedAt', $secondDraft->variant_unlocked_at->toJSON())
             ->assertJsonPath('data.1.committedCardId', $secondDraft->committed_card_id)
             ->assertJsonMissing([

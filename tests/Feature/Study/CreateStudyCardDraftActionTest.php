@@ -8,12 +8,12 @@ use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
@@ -108,18 +108,46 @@ class CreateStudyCardDraftActionTest extends TestCase
 
         $this->assertSame('vocab-group-1', $draft->variant_group_id);
         $this->assertSame('sentence-1', $draft->variant_sentence_id);
-        $this->assertSame(StudyVocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition, $draft->variant_kind);
         $this->assertSame(1, $draft->variant_stage);
-        $this->assertSame(StudyVocabVariantStatus::Available, $draft->variant_status);
+        $this->assertSame(VocabVariantStatus::Available, $draft->variant_status);
         $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
         $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(StudyVocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
         $this->assertSame(1, $entry->payload['variant_stage']);
-        $this->assertSame(StudyVocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
         $this->assertSame($expectedUnlockedAt, $entry->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
+    {
+        $draft = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            variantGroupId: '   ',
+            variantSentenceId: "\t",
+            variantKind: '   ',
+            variantStatus: "\n",
+        ));
+
+        $draft->refresh();
+
+        $this->assertNull($draft->variant_group_id);
+        $this->assertNull($draft->variant_sentence_id);
+        $this->assertNull($draft->variant_kind);
+        $this->assertNull($draft->variant_status);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_sentence_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_status']);
     }
 
     #[DataProvider('invalidVariantMetadataProvider')]
@@ -235,6 +263,10 @@ class CreateStudyCardDraftActionTest extends TestCase
             ],
             'zero variant stage' => [
                 ['variantStage' => 0],
+                'Study variant stage must be between 1 and 65535.',
+            ],
+            'negative variant stage' => [
+                ['variantStage' => -1],
                 'Study variant stage must be between 1 and 65535.',
             ],
             'oversized variant stage' => [

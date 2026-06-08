@@ -8,8 +8,8 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -110,9 +110,9 @@ class FlashcardSyncPayloadTest extends TestCase
             ]),
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::SentenceAudioRecognition->value,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
             'variant_stage' => 1,
-            'variant_status' => StudyVocabVariantStatus::Available->value,
+            'variant_status' => VocabVariantStatus::Available->value,
             'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),

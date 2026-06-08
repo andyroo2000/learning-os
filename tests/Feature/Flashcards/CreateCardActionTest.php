@@ -9,12 +9,12 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use RuntimeException;
 use Tests\TestCase;
@@ -135,9 +136,9 @@ class CreateCardActionTest extends TestCase
             backText: 'back',
             variantGroupId: 'group-1',
             variantSentenceId: 'sentence-1',
-            variantKind: StudyVocabVariantKind::SentenceAudioRecognition,
+            variantKind: VocabVariantKind::SentenceAudioRecognition,
             variantStage: 1,
-            variantStatus: StudyVocabVariantStatus::Available,
+            variantStatus: VocabVariantStatus::Available,
             variantUnlockedAt: $variantUnlockedAt,
             id: $cardId,
         );
@@ -153,10 +154,57 @@ class CreateCardActionTest extends TestCase
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame('group-1', $entry->payload['variant_group_id']);
         $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(StudyVocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
         $this->assertSame(1, $entry->payload['variant_stage']);
-        $this->assertSame(StudyVocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
         $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'front',
+                backText: 'back',
+                variantGroupId: '   ',
+                variantSentenceId: "\t",
+                variantKind: '   ',
+                variantStatus: "\n",
+            ),
+        );
+
+        $card = $result->card->refresh();
+
+        $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_sentence_id);
+        $this->assertNull($card->variant_kind);
+        $this->assertNull($card->variant_status);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_sentence_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_status']);
+    }
+
+    #[DataProvider('invalidVariantMetadataProvider')]
+    public function test_it_rejects_invalid_variant_metadata_for_direct_callers(array $overrides, string $message): void
+    {
+        $deck = Deck::factory()->create();
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage($message);
+
+        CreateCardData::fromInput(...array_merge([
+            'userId' => $deck->user_id,
+            'deckId' => $deck->id,
+            'frontText' => 'front',
+            'backText' => 'back',
+        ], $overrides));
     }
 
     public function test_it_creates_a_card_with_a_client_card_type(): void
@@ -913,5 +961,30 @@ class CreateCardActionTest extends TestCase
                 cardType: 'reverse',
             ),
         );
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, string}>
+     */
+    public static function invalidVariantMetadataProvider(): array
+    {
+        return [
+            'oversized variant group id' => [
+                ['variantGroupId' => str_repeat('a', 65)],
+                'Card variant IDs must be 64 characters or fewer.',
+            ],
+            'negative variant stage' => [
+                ['variantStage' => -1],
+                'Card variant stage must be between 1 and 65535.',
+            ],
+            'zero variant stage' => [
+                ['variantStage' => 0],
+                'Card variant stage must be between 1 and 65535.',
+            ],
+            'oversized variant stage' => [
+                ['variantStage' => 65536],
+                'Card variant stage must be between 1 and 65535.',
+            ],
+        ];
     }
 }

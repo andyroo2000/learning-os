@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domain\Study\Enums;
+namespace App\Domain\Vocabulary\Enums;
 
-enum StudyVocabVariantKind: string
+enum VocabVariantKind: string
 {
     case SentenceAudioRecognition = 'sentence_audio_recognition';
     case SentenceTextRecognition = 'sentence_text_recognition';

@@ -6,10 +6,10 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Enums\StudyCardCreationKind;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -41,9 +41,9 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             'answer_json' => ['meaning' => 'company'],
             'variant_group_id' => 'vocab-group-1',
             'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => StudyVocabVariantKind::WordTextRecognition,
+            'variant_kind' => VocabVariantKind::WordTextRecognition,
             'variant_stage' => 4,
-            'variant_status' => StudyVocabVariantStatus::Locked,
+            'variant_status' => VocabVariantStatus::Locked,
             'variant_unlocked_at' => null,
         ]);
         $cardId = strtolower((string) Str::ulid());
@@ -66,9 +66,9 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $this->assertSame(['meaning' => 'company'], $card->answer_json);
         $this->assertSame('vocab-group-1', $card->variant_group_id);
         $this->assertSame('sentence-1', $card->variant_sentence_id);
-        $this->assertSame(StudyVocabVariantKind::WordTextRecognition, $card->variant_kind);
+        $this->assertSame(VocabVariantKind::WordTextRecognition, $card->variant_kind);
         $this->assertSame(4, $card->variant_stage);
-        $this->assertSame(StudyVocabVariantStatus::Locked, $card->variant_status);
+        $this->assertSame(VocabVariantStatus::Locked, $card->variant_status);
         $this->assertNull($card->variant_unlocked_at);
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,

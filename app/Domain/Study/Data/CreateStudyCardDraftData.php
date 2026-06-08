@@ -5,12 +5,12 @@ namespace App\Domain\Study\Data;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
-use App\Domain\Study\Enums\StudyVocabVariantKind;
-use App\Domain\Study\Enums\StudyVocabVariantStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
-use App\Domain\Study\Support\StudyVocabVariantMetadataInput;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use DateTimeInterface;
 use LogicException;
 
@@ -28,9 +28,9 @@ final readonly class CreateStudyCardDraftData
         public ?string $imagePrompt,
         public ?string $variantGroupId,
         public ?string $variantSentenceId,
-        public ?StudyVocabVariantKind $variantKind,
+        public ?VocabVariantKind $variantKind,
         public ?int $variantStage,
-        public ?StudyVocabVariantStatus $variantStatus,
+        public ?VocabVariantStatus $variantStatus,
         public ?DateTimeInterface $variantUnlockedAt,
     ) {}
 
@@ -44,9 +44,9 @@ final readonly class CreateStudyCardDraftData
         ?string $imagePrompt = null,
         ?string $variantGroupId = null,
         ?string $variantSentenceId = null,
-        StudyVocabVariantKind|string|null $variantKind = null,
+        VocabVariantKind|string|null $variantKind = null,
         ?int $variantStage = null,
-        StudyVocabVariantStatus|string|null $variantStatus = null,
+        VocabVariantStatus|string|null $variantStatus = null,
         ?DateTimeInterface $variantUnlockedAt = null,
     ): self {
         if ($userId < 1) {
@@ -54,7 +54,7 @@ final readonly class CreateStudyCardDraftData
         }
 
         self::validatePayloadShape($promptJson, $answerJson);
-        StudyVocabVariantMetadataInput::assertValidStage(
+        VocabVariantMetadataInput::assertValidStage(
             $variantStage,
             'Study variant stage must be between 1 and 65535.',
         );
@@ -67,18 +67,18 @@ final readonly class CreateStudyCardDraftData
             answerJson: $answerJson,
             imagePlacement: self::imagePlacementFromInput($imagePlacement),
             imagePrompt: self::nullableTrimmedString($imagePrompt),
-            variantGroupId: StudyVocabVariantMetadataInput::nullableId(
+            variantGroupId: VocabVariantMetadataInput::nullableId(
                 $variantGroupId,
                 'Study variant IDs must be 64 characters or fewer.',
             ),
-            variantSentenceId: StudyVocabVariantMetadataInput::nullableId(
+            variantSentenceId: VocabVariantMetadataInput::nullableId(
                 $variantSentenceId,
                 'Study variant IDs must be 64 characters or fewer.',
             ),
-            variantKind: StudyVocabVariantMetadataInput::kindFromInput($variantKind),
+            variantKind: VocabVariantMetadataInput::kindFromInput($variantKind),
             variantStage: $variantStage,
-            variantStatus: StudyVocabVariantMetadataInput::statusFromInput($variantStatus),
-            variantUnlockedAt: StudyVocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
+            variantStatus: VocabVariantMetadataInput::statusFromInput($variantStatus),
+            variantUnlockedAt: VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
         );
     }
 

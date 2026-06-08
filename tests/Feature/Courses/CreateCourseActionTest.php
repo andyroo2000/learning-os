@@ -18,10 +18,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use Tests\Support\AssertsCourseSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateCourseActionTest extends TestCase
 {
+    use AssertsCourseSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_creates_a_draft_course_and_records_sync_feed_entry(): void
@@ -53,24 +55,8 @@ class CreateCourseActionTest extends TestCase
             'target_language' => 'ja',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('courses', $entry->domain);
-        $this->assertSame('course', $entry->resource_type);
-        $this->assertSame($course->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame([
-            'id' => $course->id,
-            'title' => 'Japanese Travel Foundations',
-            'description' => 'Audio-first course for common travel scenarios.',
-            'status' => 'draft',
-            'native_language' => 'en',
-            'target_language' => 'ja',
-            'created_at' => $course->created_at?->toJSON(),
-            'updated_at' => $course->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertCourseSyncPayloadRecorded($course, SyncFeedOperation::Create);
     }
 
     public function test_it_uses_a_provided_ulid_and_normalizes_inputs(): void

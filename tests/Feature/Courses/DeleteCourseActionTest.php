@@ -15,10 +15,12 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use RuntimeException;
+use Tests\Support\AssertsCourseSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteCourseActionTest extends TestCase
 {
+    use AssertsCourseSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_soft_deletes_a_course_and_records_sync_feed_entry(): void
@@ -38,15 +40,9 @@ class DeleteCourseActionTest extends TestCase
             'id' => $course->id,
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
         $this->assertNotNull($course->deleted_at);
-        $this->assertSame($course->user_id, $entry->user_id);
-        $this->assertSame(CourseSyncPayload::DOMAIN, $entry->domain);
-        $this->assertSame(CourseSyncPayload::RESOURCE_TYPE, $entry->resource_type);
-        $this->assertSame($course->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame(CourseSyncPayload::fromCourse($course), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertCourseSyncPayloadRecorded($course, SyncFeedOperation::Delete);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void

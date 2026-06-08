@@ -122,22 +122,22 @@ class CreateStudyCardFromDraftActionTest extends TestCase
 
         app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, $firstCardId);
 
-        $this->expectException(StudyCardDraftConflictException::class);
-        $this->expectExceptionMessage('Draft was already committed with a different card ID.');
-
         try {
             app(CreateStudyCardFromDraftAction::class)->handle(
                 $draft->user_id,
                 $draft->id,
                 strtolower((string) str()->ulid()),
             );
-        } finally {
-            $this->assertSame(1, Card::query()->count());
-            $this->assertDatabaseHas('study_card_drafts', [
-                'id' => $draft->id,
-                'committed_card_id' => $firstCardId,
-            ]);
+            $this->fail('Expected a different card ID retry to be rejected.');
+        } catch (StudyCardDraftConflictException $exception) {
+            $this->assertSame('Draft was already committed with a different card ID.', $exception->getMessage());
         }
+
+        $this->assertSame(1, Card::query()->count());
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'committed_card_id' => $firstCardId,
+        ]);
     }
 
     public function test_it_accepts_failed_drafts_after_the_user_has_corrected_the_content(): void
@@ -172,15 +172,15 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $user = User::factory()->create();
         $otherDraft = StudyCardDraft::factory()->ready()->create();
 
-        $this->expectException(StudyCardDraftNotFoundException::class);
-        $this->expectExceptionMessage('Study card draft not found.');
-
         try {
             app(CreateStudyCardFromDraftAction::class)->handle($user->id, $otherDraft->id, strtolower((string) str()->ulid()));
-        } finally {
-            $this->assertSame(0, Card::query()->count());
-            $this->assertDatabaseHas('study_card_drafts', ['id' => $otherDraft->id]);
+            $this->fail('Expected cross-user drafts to be hidden.');
+        } catch (StudyCardDraftNotFoundException $exception) {
+            $this->assertSame('Study card draft not found.', $exception->getMessage());
         }
+
+        $this->assertSame(0, Card::query()->count());
+        $this->assertDatabaseHas('study_card_drafts', ['id' => $otherDraft->id]);
     }
 
     public function test_it_hides_missing_drafts(): void

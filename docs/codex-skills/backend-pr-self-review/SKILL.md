@@ -57,6 +57,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Raw request accessors like `$this->input()`, `$this->has()`, `$this->integer()`, or `$request->query()` are used after validation where `$this->validated()` should be the source of truth.
 - Query-string integers rely on Laravel validation to cast values; cast validated values explicitly.
 - Request accessors use stricter coercion than Laravel validation allowed, such as `ctype_digit()` after the `integer` rule, allowing a validation-passing value like `+3` to turn into a server error.
+- Integer-like request normalization broadens the accepted domain, such as switching from `ctype_digit()` to `FILTER_VALIDATE_INT`, without proving whether signed, negative, padded, and unsigned strings are each accepted or rejected according to the domain rule.
 - Client-visible timestamp request fields rely on Laravel's permissive `date` rule without a `string` guard, strict accepted formats, or tests for integer/relative-string rejection when clients are expected to send ISO-like timestamps.
 - Client-provided ULIDs are accepted without pre-validation normalization in FormRequests and action/DTO boundaries that direct callers use, or a normalizer runs before the format guard without proving it is safe for arbitrary garbage strings.
 - A malformed-ID guard is buried in a private lookup helper while the public action method can run other logic before reaching it, unless that pre-helper path is proven side-effect free and intentionally differs from sibling actions.

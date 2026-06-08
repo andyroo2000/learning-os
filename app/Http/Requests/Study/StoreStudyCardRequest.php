@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
+use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,6 +14,7 @@ use LogicException;
 class StoreStudyCardRequest extends FormRequest
 {
     use ValidatesStudyCardPayloads;
+    use ValidatesVocabVariantMetadata;
 
     private const CREATION_KIND_TO_CARD_TYPE = [
         'text-recognition' => CardType::Recognition,
@@ -43,6 +45,8 @@ class StoreStudyCardRequest extends FormRequest
             }
         }
 
+        $this->normalizeVariantMetadataForValidation($normalized);
+
         if ($normalized !== []) {
             $this->merge($normalized);
         }
@@ -70,6 +74,7 @@ class StoreStudyCardRequest extends FormRequest
             'creationKind' => ['sometimes', 'required', 'string', Rule::in(array_keys(self::CREATION_KIND_TO_CARD_TYPE))],
             // Legacy callers send cardType; when creationKind is present, it owns the persisted card type.
             'cardType' => ['exclude_with:creationKind', 'required_without:creationKind', 'string', Rule::in(CardType::values())],
+            ...$this->variantMetadataRules(),
         ];
     }
 
@@ -88,6 +93,7 @@ class StoreStudyCardRequest extends FormRequest
             'cardType.required_without' => self::cardTypeMessage(),
             'cardType.in' => self::cardTypeMessage(),
             'creationKind.in' => 'creationKind is not supported.',
+            ...$this->variantMetadataMessages(),
         ];
     }
 

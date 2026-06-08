@@ -170,6 +170,6 @@ class StoreStudyCardDraftRequest extends FormRequest
 
     public function imagePrompt(): ?string
     {
-        return $this->nullableString('imagePrompt');
+        return $this->nullableValidatedStringValue('imagePrompt');
     }
 }

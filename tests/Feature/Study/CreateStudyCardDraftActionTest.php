@@ -59,11 +59,11 @@ class CreateStudyCardDraftActionTest extends TestCase
 
         $entry = SyncFeedEntry::query()->sole();
         $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('study', $entry->domain);
-        $this->assertSame('study_card_draft', $entry->resource_type);
+        $this->assertSame(StudyCardDraftSyncPayload::DOMAIN, $entry->domain);
+        $this->assertSame(StudyCardDraftSyncPayload::RESOURCE_TYPE, $entry->resource_type);
         $this->assertSame($draft->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void
@@ -112,7 +112,7 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
@@ -137,10 +137,7 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertNull($draft->variant_status);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_status']);
+        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
     }
 
     #[DataProvider('invalidVariantMetadataProvider')]

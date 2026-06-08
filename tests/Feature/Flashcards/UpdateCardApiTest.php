@@ -4,10 +4,14 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Http\Resources\Flashcards\CardResource;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Tests\Feature\Flashcards\Concerns\UsesStudyCardRateLimitOverrides;
 use Tests\TestCase;
@@ -254,6 +258,108 @@ class UpdateCardApiTest extends TestCase
         $this->assertNull($card->answer_json);
     }
 
+    public function test_it_updates_variant_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => '会社',
+            'back_text' => 'company',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->putJson("/api/cards/{$card->id}", [
+                'front_text' => '  会社  ',
+                'back_text' => '  company  ',
+                'variant_group_id' => ' vocab-group-1 ',
+                'variant_sentence_id' => ' sentence-1 ',
+                'variant_kind' => ' SENTENCE_CLOZE ',
+                'variant_stage' => ' 3 ',
+                'variant_status' => ' AVAILABLE ',
+                'variant_unlocked_at' => '2026-06-04T14:15:30+05:30',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.front_text', '会社')
+            ->assertJsonPath('data.back_text', 'company')
+            ->assertJsonPath('data.variant_group_id', 'vocab-group-1')
+            ->assertJsonPath('data.variant_sentence_id', 'sentence-1')
+            ->assertJsonPath('data.variant_kind', VocabVariantKind::SentenceCloze->value)
+            ->assertJsonPath('data.variant_stage', 3)
+            ->assertJsonPath('data.variant_status', VocabVariantStatus::Available->value)
+            ->assertJsonPath('data.variant_unlocked_at', '2026-06-04T08:45:30.000000Z');
+
+        $card->refresh();
+        $this->assertSame('vocab-group-1', $card->variant_group_id);
+        $this->assertSame('sentence-1', $card->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $card->variant_kind);
+        $this->assertSame(3, $card->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $card->variant_status);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
+        $this->assertSame(3, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_clears_variant_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'old-group',
+            'variant_sentence_id' => 'old-sentence',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->putJson("/api/cards/{$card->id}", [
+                'front_text' => '会社',
+                'back_text' => 'company',
+                'variant_group_id' => '   ',
+                'variant_sentence_id' => "\t",
+                'variant_kind' => null,
+                'variant_stage' => null,
+                'variant_status' => null,
+                'variant_unlocked_at' => null,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.variant_group_id', null)
+            ->assertJsonPath('data.variant_sentence_id', null)
+            ->assertJsonPath('data.variant_kind', null)
+            ->assertJsonPath('data.variant_stage', null)
+            ->assertJsonPath('data.variant_status', null)
+            ->assertJsonPath('data.variant_unlocked_at', null);
+
+        $card->refresh();
+        $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_sentence_id);
+        $this->assertNull($card->variant_kind);
+        $this->assertNull($card->variant_stage);
+        $this->assertNull($card->variant_status);
+        $this->assertNull($card->variant_unlocked_at);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_sentence_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_stage']);
+        $this->assertNull($entry->payload['variant_status']);
+        $this->assertNull($entry->payload['variant_unlocked_at']);
+    }
+
     public function test_it_preserves_structured_content_when_omitted(): void
     {
         $user = $this->signIn();
@@ -340,6 +446,51 @@ class UpdateCardApiTest extends TestCase
             'card_type' => 'recognition',
             'updated_at' => $timestamp,
         ]);
+    }
+
+    public function test_it_is_idempotent_when_variant_metadata_matches_existing_values(): void
+    {
+        $user = $this->signIn();
+        $timestamp = now()->subDay()->startOfSecond();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'keep-group',
+            'variant_sentence_id' => 'keep-sentence',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+        $card->refresh();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->putJson("/api/cards/{$card->id}", [
+                'front_text' => '会社',
+                'back_text' => 'company',
+                'variant_group_id' => ' keep-group ',
+                'variant_sentence_id' => ' keep-sentence ',
+                'variant_kind' => ' SENTENCE_AUDIO_RECOGNITION ',
+                'variant_stage' => ' 2 ',
+                'variant_status' => ' LOCKED ',
+                'variant_unlocked_at' => '2026-06-05T14:15:00.987654Z',
+            ]);
+
+        $card->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.updated_at', CardResource::make($card)->resolve()['updated_at'])
+            ->assertJsonPath('data.variant_unlocked_at', '2026-06-05T14:15:00.000000Z');
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'updated_at' => $timestamp,
+        ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_updates_timestamp_when_text_changes(): void
@@ -564,6 +715,54 @@ class UpdateCardApiTest extends TestCase
             'id' => $card->id,
             'prompt_json' => null,
             'answer_json' => null,
+        ]);
+    }
+
+    public function test_it_rejects_invalid_variant_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_group_id' => str_repeat('a', 65),
+            'variant_sentence_id' => ['sentence-1'],
+            'variant_kind' => 'sentence-audio-recognition',
+            'variant_stage' => 0,
+            'variant_status' => ['available'],
+            'variant_unlocked_at' => 'yesterday',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variant_group_id',
+                'variant_sentence_id',
+                'variant_kind',
+                'variant_stage',
+                'variant_status',
+                'variant_unlocked_at',
+            ]);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+        ]);
+
+        $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_unlocked_at' => 1234567890,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variant_unlocked_at']);
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
         ]);
     }
 

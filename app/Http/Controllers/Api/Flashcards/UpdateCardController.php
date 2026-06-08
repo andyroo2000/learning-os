@@ -24,6 +24,18 @@ class UpdateCardController extends Controller
             promptJson: $data['prompt_json'] ?? null,
             hasAnswerJson: array_key_exists('answer_json', $data),
             answerJson: $data['answer_json'] ?? null,
+            hasVariantGroupId: $request->hasVariantGroupId(),
+            variantGroupId: $request->variantGroupId(),
+            hasVariantSentenceId: $request->hasVariantSentenceId(),
+            variantSentenceId: $request->variantSentenceId(),
+            hasVariantKind: $request->hasVariantKind(),
+            variantKind: $request->variantKind(),
+            hasVariantStage: $request->hasVariantStage(),
+            variantStage: $request->variantStage(),
+            hasVariantStatus: $request->hasVariantStatus(),
+            variantStatus: $request->variantStatus(),
+            hasVariantUnlockedAt: $request->hasVariantUnlockedAt(),
+            variantUnlockedAt: $request->variantUnlockedAt(),
         ));
 
         return CardResource::make($result->card)

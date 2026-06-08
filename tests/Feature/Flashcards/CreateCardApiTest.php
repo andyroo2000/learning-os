@@ -8,6 +8,9 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -300,6 +303,67 @@ class CreateCardApiTest extends TestCase
         $this->assertNull($card->answer_json);
     }
 
+    public function test_it_creates_a_card_with_variant_metadata(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        $payload = [
+            'id' => strtoupper($id),
+            'deck_id' => $deck->id,
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => ' vocab-group-1 ',
+            'variant_sentence_id' => ' sentence-1 ',
+            'variant_kind' => ' SENTENCE_CLOZE ',
+            'variant_stage' => ' 3 ',
+            'variant_status' => ' AVAILABLE ',
+            'variant_unlocked_at' => '2026-06-04T14:15:30+05:30',
+        ];
+
+        $firstResponse = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', $payload);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.variant_group_id', 'vocab-group-1')
+            ->assertJsonPath('data.variant_sentence_id', 'sentence-1')
+            ->assertJsonPath('data.variant_kind', VocabVariantKind::SentenceCloze->value)
+            ->assertJsonPath('data.variant_stage', 3)
+            ->assertJsonPath('data.variant_status', VocabVariantStatus::Available->value)
+            ->assertJsonPath('data.variant_unlocked_at', '2026-06-04T08:45:30.000000Z');
+
+        $secondResponse = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/cards', $payload);
+
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.variant_group_id', 'vocab-group-1')
+            ->assertJsonPath('data.variant_unlocked_at', '2026-06-04T08:45:30.000000Z');
+
+        $card = Card::query()->findOrFail($id);
+        $this->assertSame('vocab-group-1', $card->variant_group_id);
+        $this->assertSame('sentence-1', $card->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $card->variant_kind);
+        $this->assertSame(3, $card->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $card->variant_status);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
+        $this->assertSame(3, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertDatabaseCount('cards', 1);
+    }
+
     public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();
@@ -465,6 +529,49 @@ class CreateCardApiTest extends TestCase
             ->assertJsonPath('message', 'Card ID already exists with different metadata.')
             ->assertJsonPath('reason', 'card_id_conflict');
 
+        $this->assertDatabaseCount('cards', 1);
+    }
+
+    public function test_it_rejects_client_provided_ulid_variant_metadata_conflicts(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $id = strtolower((string) Str::ulid());
+
+        Card::factory()->for($deck)->create([
+            'id' => $id,
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::SentenceCloze,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Available,
+            'variant_unlocked_at' => '2026-06-04T08:45:30.000000Z',
+        ]);
+
+        $response = $this->postJson('/api/cards', [
+            'id' => $id,
+            'deck_id' => $deck->id,
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-2',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::SentenceCloze->value,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => '2026-06-04T08:45:30.000000Z',
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_id_conflict');
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $id,
+            'variant_group_id' => 'vocab-group-1',
+        ]);
         $this->assertDatabaseCount('cards', 1);
     }
 
@@ -1075,6 +1182,48 @@ class CreateCardApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['prompt_json', 'answer_json']);
+
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_it_rejects_invalid_variant_metadata(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_group_id' => str_repeat('a', 65),
+            'variant_sentence_id' => ['sentence-1'],
+            'variant_kind' => 'sentence-audio-recognition',
+            'variant_stage' => 0,
+            'variant_status' => ['available'],
+            'variant_unlocked_at' => 'yesterday',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'variant_group_id',
+                'variant_sentence_id',
+                'variant_kind',
+                'variant_stage',
+                'variant_status',
+                'variant_unlocked_at',
+            ]);
+
+        $this->assertDatabaseCount('cards', 0);
+
+        $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => '犬',
+            'back_text' => 'dog',
+            'variant_unlocked_at' => 1234567890,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variant_unlocked_at']);
 
         $this->assertDatabaseCount('cards', 0);
     }

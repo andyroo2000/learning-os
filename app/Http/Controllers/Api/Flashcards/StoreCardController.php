@@ -29,6 +29,12 @@ class StoreCardController extends Controller
                 cardType: $data['card_type'] ?? null,
                 promptJson: $data['prompt_json'] ?? null,
                 answerJson: $data['answer_json'] ?? null,
+                variantGroupId: $request->variantGroupId(),
+                variantSentenceId: $request->variantSentenceId(),
+                variantKind: $request->variantKind(),
+                variantStage: $request->variantStage(),
+                variantStatus: $request->variantStatus(),
+                variantUnlockedAt: $request->variantUnlockedAt(),
                 id: $data['id'] ?? null,
             ));
         } catch (CardConflictException $exception) {

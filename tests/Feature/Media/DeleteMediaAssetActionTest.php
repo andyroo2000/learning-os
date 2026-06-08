@@ -9,12 +9,14 @@ use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
@@ -39,28 +41,7 @@ class DeleteMediaAssetActionTest extends TestCase
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('media', $entry->domain);
-        $this->assertSame('media_asset', $entry->resource_type);
-        $this->assertSame($mediaAsset->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame([
-            'id' => $mediaAsset->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_media_ref' => null,
-            'source_filename' => null,
-            'url' => $mediaAsset->public_url,
-            'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
-            'mime_type' => $mediaAsset->mime_type,
-            'size_bytes' => $mediaAsset->size_bytes,
-            'checksum_sha256' => $mediaAsset->checksum_sha256,
-            'original_filename' => $mediaAsset->original_filename,
-            'created_at' => $mediaAsset->created_at?->toJSON(),
-            'updated_at' => $mediaAsset->updated_at?->toJSON(),
-        ], $entry->payload);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void
@@ -127,39 +108,28 @@ class DeleteMediaAssetActionTest extends TestCase
         ]);
         $this->assertDatabaseHas('cards', ['id' => $secondCard->id]);
 
-        $entries = SyncFeedEntry::query()
-            ->orderBy('checkpoint')
-            ->get();
         $cardsByReplayOrder = collect([$firstCard, $secondCard])
             ->sortBy('id')
             ->values();
 
-        $this->assertCount(3, $entries);
+        $this->assertDatabaseCount('sync_feed_entries', 3);
 
-        foreach ($cardsByReplayOrder as $index => $card) {
-            $entry = $entries[$index];
+        $cardEntries = $cardsByReplayOrder->map(function (Card $card) use ($course, $mediaAsset, $pivotsByCardId): SyncFeedEntry {
             $pivot = $pivotsByCardId->get($card->id);
 
-            $this->assertSame($user->id, $entry->user_id);
-            $this->assertSame('media', $entry->domain);
-            $this->assertSame('card_media', $entry->resource_type);
-            $this->assertSame("{$card->id}:{$mediaAsset->id}", $entry->resource_id);
-            $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-            $this->assertSame([
-                'card_id' => $card->id,
-                'media_asset_id' => $mediaAsset->id,
-                'deck_id' => $card->deck_id,
-                'course_id' => $course->id,
-                'created_at' => $pivot?->created_at?->toJSON(),
-                'updated_at' => $pivot?->updated_at?->toJSON(),
-            ], $entry->payload);
-        }
+            return $this->assertCardMediaSyncPayloadRecorded(
+                userId: $mediaAsset->user_id,
+                card: $card,
+                mediaAsset: $mediaAsset,
+                courseId: $course->id,
+                createdAt: $pivot?->created_at,
+                updatedAt: $pivot?->updated_at,
+            );
+        });
 
-        $assetEntry = $entries->last();
-
-        $this->assertSame('media_asset', $assetEntry->resource_type);
-        $this->assertSame($mediaAsset->id, $assetEntry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $assetEntry->operation);
+        $assetEntry = $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertLessThan($cardEntries->get(1)->checkpoint, $cardEntries->get(0)->checkpoint);
+        $this->assertLessThan($assetEntry->checkpoint, $cardEntries->get(1)->checkpoint);
     }
 
     public function test_it_normalizes_media_asset_id_before_deleting(): void
@@ -176,10 +146,8 @@ class DeleteMediaAssetActionTest extends TestCase
             'id' => $mediaAsset->id,
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($mediaAsset->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_rolls_back_media_asset_delete_when_card_media_feed_recording_fails(): void
@@ -240,11 +208,8 @@ class DeleteMediaAssetActionTest extends TestCase
             'media_asset_id' => $mediaAsset->id,
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('media_asset', $entry->resource_type);
-        $this->assertSame($mediaAsset->id, $entry->resource_id);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_is_idempotent_when_media_asset_is_missing(): void
@@ -274,5 +239,48 @@ class DeleteMediaAssetActionTest extends TestCase
             'id' => $mediaAsset->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    private function assertMediaAssetSyncPayloadRecorded(MediaAsset $mediaAsset): SyncFeedEntry
+    {
+        $entry = SyncFeedEntry::query()
+            ->where('domain', MediaAssetSyncPayload::DOMAIN)
+            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $mediaAsset->id)
+            ->where('operation', SyncFeedOperation::Delete->value)
+            ->sole();
+
+        $this->assertSame($mediaAsset->user_id, $entry->user_id);
+        $this->assertEquals(MediaAssetSyncPayload::fromMediaAsset($mediaAsset), $entry->payload);
+
+        return $entry;
+    }
+
+    private function assertCardMediaSyncPayloadRecorded(
+        int|string $userId,
+        Card $card,
+        MediaAsset $mediaAsset,
+        ?string $courseId,
+        Carbon|string|null $createdAt,
+        Carbon|string|null $updatedAt,
+    ): SyncFeedEntry {
+        $entry = SyncFeedEntry::query()
+            ->where('domain', CardMediaSyncPayload::DOMAIN)
+            ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', CardMediaSyncPayload::resourceId($card->id, $mediaAsset->id))
+            ->where('operation', SyncFeedOperation::Delete->value)
+            ->sole();
+
+        $this->assertSame($userId, $entry->user_id);
+        $this->assertEquals(CardMediaSyncPayload::fromPivot(
+            cardId: $card->id,
+            mediaAssetId: $mediaAsset->id,
+            deckId: $card->deck_id,
+            courseId: $courseId,
+            createdAt: $createdAt,
+            updatedAt: $updatedAt,
+        ), $entry->payload);
+
+        return $entry;
     }
 }

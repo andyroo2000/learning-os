@@ -7,6 +7,7 @@ use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -58,28 +59,8 @@ class CreateMediaAssetActionTest extends TestCase
             'original_filename' => 'example.jpg',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame('media', $entry->domain);
-        $this->assertSame('media_asset', $entry->resource_type);
-        $this->assertSame($mediaAsset->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame([
-            'id' => $mediaAsset->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_media_ref' => null,
-            'source_filename' => null,
-            'url' => 'https://cdn.example.test/uploads/example.jpg',
-            'content_url' => "/api/media-assets/{$mediaAsset->id}/content",
-            'mime_type' => 'image/jpeg',
-            'size_bytes' => 123_456,
-            'checksum_sha256' => str_repeat('a', 64),
-            'original_filename' => 'example.jpg',
-            'created_at' => $mediaAsset->created_at?->toJSON(),
-            'updated_at' => $mediaAsset->updated_at?->toJSON(),
-        ], $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -106,13 +87,8 @@ class CreateMediaAssetActionTest extends TestCase
             'id' => strtolower($id),
             'user_id' => $user->id,
         ]);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'user_id' => $user->id,
-            'domain' => 'media',
-            'resource_type' => 'media_asset',
-            'resource_id' => strtolower($id),
-            'operation' => 'create',
-        ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_normalizes_padded_provided_ulids_for_direct_callers(): void
@@ -139,11 +115,8 @@ class CreateMediaAssetActionTest extends TestCase
             'id' => strtolower($id),
             'user_id' => $user->id,
         ]);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'user_id' => $user->id,
-            'resource_id' => strtolower($id),
-            'operation' => 'create',
-        ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void
@@ -1312,5 +1285,20 @@ class CreateMediaAssetActionTest extends TestCase
                 id: 'not-a-ulid',
             ),
         );
+    }
+
+    private function assertMediaAssetSyncPayloadRecorded(MediaAsset $mediaAsset): SyncFeedEntry
+    {
+        $entry = SyncFeedEntry::query()
+            ->where('domain', MediaAssetSyncPayload::DOMAIN)
+            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $mediaAsset->id)
+            ->where('operation', SyncFeedOperation::Create->value)
+            ->sole();
+
+        $this->assertSame($mediaAsset->user_id, $entry->user_id);
+        $this->assertEquals(MediaAssetSyncPayload::fromMediaAsset($mediaAsset), $entry->payload);
+
+        return $entry;
     }
 }

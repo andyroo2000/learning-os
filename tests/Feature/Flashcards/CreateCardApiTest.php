@@ -317,7 +317,7 @@ class CreateCardApiTest extends TestCase
             'variant_group_id' => ' vocab-group-1 ',
             'variant_sentence_id' => ' sentence-1 ',
             'variant_kind' => ' SENTENCE_CLOZE ',
-            'variant_stage' => ' 3 ',
+            'variant_stage' => ' +3 ',
             'variant_status' => ' AVAILABLE ',
             'variant_unlocked_at' => '2026-06-04T14:15:30+05:30',
         ];

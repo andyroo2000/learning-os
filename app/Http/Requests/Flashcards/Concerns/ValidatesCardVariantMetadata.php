@@ -12,7 +12,7 @@ use LogicException;
 
 trait ValidatesCardVariantMetadata
 {
-    private const VARIANT_UNLOCKED_AT_FORMAT_RULE = 'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z';
+    private const VARIANT_UNLOCKED_AT_FORMATS = 'Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z';
 
     /**
      * @param  array<string, mixed>  $normalized
@@ -61,7 +61,7 @@ trait ValidatesCardVariantMetadata
                 'sometimes',
                 'nullable',
                 'string',
-                self::VARIANT_UNLOCKED_AT_FORMAT_RULE,
+                'date_format:'.self::VARIANT_UNLOCKED_AT_FORMATS,
             ],
         ];
     }
@@ -111,11 +111,13 @@ trait ValidatesCardVariantMetadata
             return null;
         }
 
-        if (! is_int($value) && ! (is_string($value) && ctype_digit($value))) {
+        $integer = filter_var($value, FILTER_VALIDATE_INT);
+
+        if ($integer === false) {
             throw new LogicException('variant_stage called after validation failed to reject a non-integer value.');
         }
 
-        return (int) $value;
+        return $integer;
     }
 
     public function hasVariantStatus(): bool

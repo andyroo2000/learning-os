@@ -3,9 +3,12 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -35,6 +38,44 @@ class ListStudyNewCardQueueActionTest extends TestCase
         $this->assertSame(100, $page['limit']);
         $this->assertNull($page['nextCursor']);
         $this->assertSame([$firstCard->id, $secondCard->id], $page['items']->pluck('id')->all());
+    }
+
+    public function test_it_uses_default_cursor_and_limit_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(NewCardQueueLimits::PAGE_SIZE_DEFAULT, $page['limit']);
+        $this->assertNull($page['nextCursor']);
+        $this->assertSame([$card->id], $page['items']->pluck('id')->all());
+    }
+
+    public function test_it_accepts_boundary_limits_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $minimum = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            limit: 1,
+        );
+        $maximum = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            limit: NewCardQueueLimits::PAGE_SIZE_MAX,
+        );
+
+        $this->assertSame(1, $minimum['limit']);
+        $this->assertSame(NewCardQueueLimits::PAGE_SIZE_MAX, $maximum['limit']);
+        $this->assertSame([$card->id], $minimum['items']->pluck('id')->all());
+        $this->assertSame([$card->id], $maximum['items']->pluck('id')->all());
     }
 
     public function test_it_lists_searchable_new_cards_with_offset_cursor_pagination(): void
@@ -93,5 +134,51 @@ class ListStudyNewCardQueueActionTest extends TestCase
         $this->assertSame(3, $secondPage['total']);
         $this->assertNull($secondPage['nextCursor']);
         $this->assertSame([$legacyNullPositionCard->id], $secondPage['items']->pluck('id')->all());
+    }
+
+    public function test_it_rejects_negative_cursors_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('cursor must be a non-negative integer.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            cursor: -1,
+        );
+    }
+
+    #[DataProvider('invalidLimitProvider')]
+    public function test_it_rejects_invalid_limits_for_direct_callers(int $limit): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be an integer between 1 and '.NewCardQueueLimits::PAGE_SIZE_MAX.'.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            limit: $limit,
+        );
+    }
+
+    public function test_it_rejects_blank_search_queries_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card search query filter must not be blank when provided.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            q: '   ',
+        );
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function invalidLimitProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative' => [-1],
+            'over max' => [NewCardQueueLimits::PAGE_SIZE_MAX + 1],
+        ];
     }
 }

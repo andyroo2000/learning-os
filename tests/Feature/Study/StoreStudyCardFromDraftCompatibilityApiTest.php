@@ -8,6 +8,8 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -37,6 +39,12 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             'creation_kind' => StudyCardCreationKind::ProductionText,
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::WordTextRecognition->value,
+            'variant_stage' => 4,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_unlocked_at' => null,
         ]);
         $cardId = strtolower((string) Str::ulid());
 
@@ -56,6 +64,12 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $this->assertSame($cardId, $card->id);
         $this->assertSame(['cueText' => '会社'], $card->prompt_json);
         $this->assertSame(['meaning' => 'company'], $card->answer_json);
+        $this->assertSame('vocab-group-1', $card->variant_group_id);
+        $this->assertSame('sentence-1', $card->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::WordTextRecognition->value, $card->variant_kind);
+        $this->assertSame(4, $card->variant_stage);
+        $this->assertSame(VocabVariantStatus::Locked->value, $card->variant_status);
+        $this->assertNull($card->variant_unlocked_at);
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,
             'committed_card_id' => $cardId,

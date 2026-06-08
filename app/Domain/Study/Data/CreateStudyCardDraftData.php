@@ -8,6 +8,10 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
+use DateTimeInterface;
 use LogicException;
 
 final readonly class CreateStudyCardDraftData
@@ -22,6 +26,12 @@ final readonly class CreateStudyCardDraftData
         public array $answerJson,
         public StudyCardImagePlacement $imagePlacement,
         public ?string $imagePrompt,
+        public ?string $variantGroupId,
+        public ?string $variantSentenceId,
+        public ?VocabVariantKind $variantKind,
+        public ?int $variantStage,
+        public ?VocabVariantStatus $variantStatus,
+        public ?DateTimeInterface $variantUnlockedAt,
     ) {}
 
     public static function fromInput(
@@ -32,12 +42,22 @@ final readonly class CreateStudyCardDraftData
         array $answerJson,
         StudyCardImagePlacement|string|null $imagePlacement = null,
         ?string $imagePrompt = null,
+        ?string $variantGroupId = null,
+        ?string $variantSentenceId = null,
+        VocabVariantKind|string|null $variantKind = null,
+        ?int $variantStage = null,
+        VocabVariantStatus|string|null $variantStatus = null,
+        ?DateTimeInterface $variantUnlockedAt = null,
     ): self {
         if ($userId < 1) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
 
         self::validatePayloadShape($promptJson, $answerJson);
+        VocabVariantMetadataInput::assertValidStage(
+            $variantStage,
+            'Study variant stage must be between 1 and 65535.',
+        );
 
         return new self(
             userId: $userId,
@@ -47,6 +67,18 @@ final readonly class CreateStudyCardDraftData
             answerJson: $answerJson,
             imagePlacement: self::imagePlacementFromInput($imagePlacement),
             imagePrompt: self::nullableTrimmedString($imagePrompt),
+            variantGroupId: VocabVariantMetadataInput::nullableId(
+                $variantGroupId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ),
+            variantSentenceId: VocabVariantMetadataInput::nullableId(
+                $variantSentenceId,
+                'Study variant IDs must be 64 characters or fewer.',
+            ),
+            variantKind: VocabVariantMetadataInput::kindFromInput($variantKind),
+            variantStage: $variantStage,
+            variantStatus: VocabVariantMetadataInput::statusFromInput($variantStatus),
+            variantUnlockedAt: VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
         );
     }
 

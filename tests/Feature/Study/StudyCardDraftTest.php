@@ -8,6 +8,8 @@ use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -33,6 +35,12 @@ class StudyCardDraftTest extends TestCase
             'preview_audio_json',
             'preview_audio_role',
             'preview_image_json',
+            'variant_group_id',
+            'variant_sentence_id',
+            'variant_kind',
+            'variant_stage',
+            'variant_status',
+            'variant_unlocked_at',
             'error_message',
             'committed_card_id',
             'created_at',
@@ -54,6 +62,10 @@ class StudyCardDraftTest extends TestCase
                 'mediaKind' => 'image',
                 'source' => 'generated',
             ],
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => now(),
         ]);
 
         $draft->refresh();
@@ -66,6 +78,10 @@ class StudyCardDraftTest extends TestCase
         $this->assertSame(StudyCardImagePlacement::Prompt, $draft->image_placement);
         $this->assertSame(StudyCardAudioRole::Answer, $draft->preview_audio_role);
         $this->assertSame('image-1', $draft->preview_image_json['id']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
+        $this->assertSame(1, $draft->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
+        $this->assertNotNull($draft->variant_unlocked_at);
     }
 
     public function test_process_owned_fields_are_not_mass_assignable(): void
@@ -77,6 +93,12 @@ class StudyCardDraftTest extends TestCase
         $this->assertFalse($draft->isFillable('status'));
         $this->assertFalse($draft->isFillable('error_message'));
         $this->assertFalse($draft->isFillable('committed_card_id'));
+        $this->assertFalse($draft->isFillable('variant_group_id'));
+        $this->assertFalse($draft->isFillable('variant_sentence_id'));
+        $this->assertFalse($draft->isFillable('variant_kind'));
+        $this->assertFalse($draft->isFillable('variant_stage'));
+        $this->assertFalse($draft->isFillable('variant_status'));
+        $this->assertFalse($draft->isFillable('variant_unlocked_at'));
     }
 
     public function test_it_derives_card_type_from_creation_kind_on_create(): void

@@ -61,6 +61,12 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('previewAudio', null)
             ->assertJsonPath('previewAudioRole', null)
             ->assertJsonPath('previewImage', null)
+            ->assertJsonPath('variantGroupId', null)
+            ->assertJsonPath('variantSentenceId', null)
+            ->assertJsonPath('variantKind', null)
+            ->assertJsonPath('variantStage', null)
+            ->assertJsonPath('variantStatus', null)
+            ->assertJsonPath('variantUnlockedAt', null)
             ->assertJsonPath('errorMessage', null)
             ->assertJsonPath('committedCardId', null)
             ->assertJsonStructure([
@@ -75,6 +81,12 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
                 'previewAudio',
                 'previewAudioRole',
                 'previewImage',
+                'variantGroupId',
+                'variantSentenceId',
+                'variantKind',
+                'variantStage',
+                'variantStatus',
+                'variantUnlockedAt',
                 'errorMessage',
                 'committedCardId',
                 'createdAt',

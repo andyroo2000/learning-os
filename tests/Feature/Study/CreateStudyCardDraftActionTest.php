@@ -12,6 +12,8 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
@@ -81,6 +83,86 @@ class CreateStudyCardDraftActionTest extends TestCase
 
         $this->assertSame(StudyCardImagePlacement::None, $draft->refresh()->image_placement);
         $this->assertNull($draft->image_prompt);
+    }
+
+    public function test_it_persists_variant_metadata_for_direct_callers(): void
+    {
+        $unlockedAt = now()->setMicrosecond(987654);
+        $expectedUnlockedAt = $unlockedAt->copy()->startOfSecond()->toJSON();
+
+        $draft = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            variantGroupId: ' vocab-group-1 ',
+            variantSentenceId: ' sentence-1 ',
+            variantKind: ' SENTENCE_AUDIO_RECOGNITION ',
+            variantStage: 1,
+            variantStatus: ' AVAILABLE ',
+            variantUnlockedAt: $unlockedAt,
+        ));
+
+        $draft->refresh();
+
+        $this->assertSame('vocab-group-1', $draft->variant_group_id);
+        $this->assertSame('sentence-1', $draft->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $draft->variant_kind);
+        $this->assertSame(1, $draft->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
+        $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
+        $this->assertSame(1, $entry->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
+        $this->assertSame($expectedUnlockedAt, $entry->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
+    {
+        $draft = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            variantGroupId: '   ',
+            variantSentenceId: "\t",
+            variantKind: '   ',
+            variantStatus: "\n",
+        ));
+
+        $draft->refresh();
+
+        $this->assertNull($draft->variant_group_id);
+        $this->assertNull($draft->variant_sentence_id);
+        $this->assertNull($draft->variant_kind);
+        $this->assertNull($draft->variant_status);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_sentence_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_status']);
+    }
+
+    #[DataProvider('invalidVariantMetadataProvider')]
+    public function test_it_rejects_invalid_variant_metadata_for_direct_callers(array $overrides, string $message): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage($message);
+
+        CreateStudyCardDraftData::fromInput(...array_merge([
+            'userId' => User::factory()->create()->id,
+            'creationKind' => StudyCardCreationKind::TextRecognition,
+            'cardType' => CardType::Recognition,
+            'promptJson' => ['cueText' => '犬'],
+            'answerJson' => ['meaning' => 'dog'],
+        ], $overrides));
     }
 
     public function test_it_rejects_card_type_mismatches_for_direct_callers(): void
@@ -166,6 +248,43 @@ class CreateStudyCardDraftActionTest extends TestCase
         return [
             'zero' => [0],
             'negative' => [-1],
+        ];
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, string}>
+     */
+    public static function invalidVariantMetadataProvider(): array
+    {
+        return [
+            'oversized variant group id' => [
+                ['variantGroupId' => str_repeat('a', 65)],
+                'Study variant IDs must be 64 characters or fewer.',
+            ],
+            'oversized variant sentence id' => [
+                ['variantSentenceId' => str_repeat('a', 65)],
+                'Study variant IDs must be 64 characters or fewer.',
+            ],
+            'malformed variant kind' => [
+                ['variantKind' => 'not-a-kind'],
+                'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze.',
+            ],
+            'malformed variant status' => [
+                ['variantStatus' => 'unknown'],
+                'Variant status must be one of: available, locked.',
+            ],
+            'zero variant stage' => [
+                ['variantStage' => 0],
+                'Study variant stage must be between 1 and 65535.',
+            ],
+            'negative variant stage' => [
+                ['variantStage' => -1],
+                'Study variant stage must be between 1 and 65535.',
+            ],
+            'oversized variant stage' => [
+                ['variantStage' => 65536],
+                'Study variant stage must be between 1 and 65535.',
+            ],
         ];
     }
 }

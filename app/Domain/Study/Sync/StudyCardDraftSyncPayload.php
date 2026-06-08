@@ -31,6 +31,12 @@ final class StudyCardDraftSyncPayload
             'preview_audio_json' => $draft->preview_audio_json,
             'preview_audio_role' => self::enumValue($draft->preview_audio_role),
             'preview_image_json' => $draft->preview_image_json,
+            'variant_group_id' => $draft->variant_group_id,
+            'variant_sentence_id' => $draft->variant_sentence_id,
+            'variant_kind' => self::enumValue($draft->variant_kind),
+            'variant_stage' => $draft->variant_stage,
+            'variant_status' => self::enumValue($draft->variant_status),
+            'variant_unlocked_at' => $draft->variant_unlocked_at?->toJSON(),
             'error_message' => $draft->error_message,
             'committed_card_id' => $draft->committed_card_id,
             'created_at' => $draft->created_at?->toJSON(),
@@ -40,8 +46,8 @@ final class StudyCardDraftSyncPayload
         ];
     }
 
-    private static function enumValue(?BackedEnum $value): string|int|null
+    private static function enumValue(BackedEnum|string|int|null $value): string|int|null
     {
-        return $value?->value;
+        return $value instanceof BackedEnum ? $value->value : $value;
     }
 }

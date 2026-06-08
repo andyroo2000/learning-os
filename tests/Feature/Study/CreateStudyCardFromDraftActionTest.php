@@ -14,6 +14,8 @@ use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,12 @@ class CreateStudyCardFromDraftActionTest extends TestCase
             'creation_kind' => StudyCardCreationKind::ProductionText,
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition->value,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => now(),
         ]);
         $cardId = strtolower((string) str()->ulid());
 
@@ -42,6 +50,13 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(CardType::Production, $result->card->card_type);
         $this->assertSame(['cueText' => '会社'], $result->card->prompt_json);
         $this->assertSame(['meaning' => 'company'], $result->card->answer_json);
+        $this->assertSame('vocab-group-1', $result->card->variant_group_id);
+        $this->assertSame('sentence-1', $result->card->variant_sentence_id);
+        $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $result->card->variant_kind);
+        $this->assertSame(2, $result->card->variant_stage);
+        $this->assertSame(VocabVariantStatus::Available->value, $result->card->variant_status);
+        // The draft factory and committed card both store this timestamp at database second precision.
+        $this->assertSame($draft->variant_unlocked_at->toJSON(), $result->card->variant_unlocked_at->toJSON());
         $this->assertSame('会社', $result->card->front_text);
         $this->assertSame('company', $result->card->back_text);
         $this->assertDatabaseHas('study_card_drafts', [
@@ -62,6 +77,12 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame('card', $entries[1]->resource_type);
         $this->assertSame($cardId, $entries[1]->resource_id);
         $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
+        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
+        $this->assertSame('sentence-1', $entries[1]->payload['variant_sentence_id']);
+        $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $entries[1]->payload['variant_kind']);
+        $this->assertSame(2, $entries[1]->payload['variant_stage']);
+        $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
+        $this->assertSame($draft->variant_unlocked_at->toJSON(), $entries[1]->payload['variant_unlocked_at']);
         $this->assertSame('study_card_draft', $entries[2]->resource_type);
         $this->assertSame($draft->id, $entries[2]->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entries[2]->operation);

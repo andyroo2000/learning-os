@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Sync;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
+use BackedEnum;
 
 final class CardSyncPayload
 {
@@ -39,6 +40,12 @@ final class CardSyncPayload
             'study_status' => $card->study_status?->value ?? CardStudyStatus::New->value,
             'new_queue_position' => $card->new_queue_position,
             'scheduler_state' => $card->scheduler_state,
+            'variant_group_id' => $card->variant_group_id,
+            'variant_sentence_id' => $card->variant_sentence_id,
+            'variant_kind' => self::scalarValue($card->variant_kind),
+            'variant_stage' => $card->variant_stage,
+            'variant_status' => self::scalarValue($card->variant_status),
+            'variant_unlocked_at' => $card->variant_unlocked_at?->toJSON(),
             'due_at' => $card->due_at?->toJSON(),
             'introduced_at' => $card->introduced_at?->toJSON(),
             'failed_at' => $card->failed_at?->toJSON(),
@@ -47,5 +54,10 @@ final class CardSyncPayload
             'updated_at' => $card->updated_at?->toJSON(),
             'deleted_at' => $card->deleted_at?->toJSON(),
         ];
+    }
+
+    private static function scalarValue(BackedEnum|string|int|null $value): string|int|null
+    {
+        return $value instanceof BackedEnum ? $value->value : $value;
     }
 }

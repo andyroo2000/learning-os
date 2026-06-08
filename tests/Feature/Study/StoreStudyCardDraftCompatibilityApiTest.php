@@ -8,6 +8,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -146,12 +147,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame('2026-06-04T14:15:30.000000Z', $draft->variant_unlocked_at?->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
-        $this->assertSame(2, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
 
         Queue::assertPushed(ProcessStudyCardDraft::class);
     }
@@ -177,7 +173,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(2, $draft->variant_stage);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame(2, $entry->payload['variant_stage']);
+        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
 
         Queue::assertPushed(ProcessStudyCardDraft::class);
     }

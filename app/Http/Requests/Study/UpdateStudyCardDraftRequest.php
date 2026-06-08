@@ -46,7 +46,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
             }
         }
 
-        $this->normalizeVariantMetadataForValidation($normalized);
+        $this->mergeNormalizedVocabVariantMetadataForValidation($normalized);
 
         if ($normalized !== []) {
             $this->merge($normalized);
@@ -228,7 +228,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     public function imagePrompt(): ?string
     {
-        return $this->nullableValidatedStringValue('imagePrompt');
+        return $this->nullableValidatedStudyStringValue('imagePrompt');
     }
 
     public function hasPreviewAudio(): bool

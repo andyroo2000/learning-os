@@ -45,7 +45,7 @@ class StoreStudyCardRequest extends FormRequest
             }
         }
 
-        $this->normalizeVariantMetadataForValidation($normalized);
+        $this->mergeNormalizedVocabVariantMetadataForValidation($normalized);
 
         if ($normalized !== []) {
             $this->merge($normalized);

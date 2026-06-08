@@ -143,7 +143,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
                 'variantGroupId' => ' vocab-group-1 ',
                 'variantSentenceId' => ' sentence-1 ',
                 'variantKind' => ' SENTENCE_CLOZE ',
-                'variantStage' => ' 3 ',
+                'variantStage' => ' +3 ',
                 'variantStatus' => ' AVAILABLE ',
                 'variantUnlockedAt' => '2026-06-04T14:15:30+05:30',
             ])

@@ -123,7 +123,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
                 'variantGroupId' => ' vocab-group-1 ',
                 'variantSentenceId' => ' sentence-1 ',
                 'variantKind' => ' SENTENCE_AUDIO_RECOGNITION ',
-                'variantStage' => ' 2 ',
+                'variantStage' => ' +2 ',
                 'variantStatus' => ' AVAILABLE ',
                 'variantUnlockedAt' => '2026-06-04T14:15:30.987654Z',
             ])
@@ -152,6 +152,32 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(2, $entry->payload['variant_stage']);
         $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
         $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
+
+        Queue::assertPushed(ProcessStudyCardDraft::class);
+    }
+
+    public function test_it_accepts_unsigned_string_variant_stage_without_trim_strings_middleware(): void
+    {
+        Queue::fake();
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/card-drafts', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantStage' => ' 2 ',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('variantStage', 2);
+
+        $draft = StudyCardDraft::query()->sole();
+        $this->assertSame(2, $draft->variant_stage);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertSame(2, $entry->payload['variant_stage']);
 
         Queue::assertPushed(ProcessStudyCardDraft::class);
     }

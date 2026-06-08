@@ -101,7 +101,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
                 'variantGroupId' => ' vocab-group-1 ',
                 'variantSentenceId' => ' sentence-1 ',
                 'variantKind' => ' SENTENCE_AUDIO_RECOGNITION ',
-                'variantStage' => ' 2 ',
+                'variantStage' => ' +2 ',
                 'variantStatus' => ' AVAILABLE ',
                 'variantUnlockedAt' => '2026-06-04T14:15:30.987654+05:30',
             ])
@@ -133,6 +133,29 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(2, $entries[1]->payload['variant_stage']);
         $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
         $this->assertSame('2026-06-04T08:45:30.000000Z', $entries[1]->payload['variant_unlocked_at']);
+    }
+
+    public function test_it_accepts_unsigned_string_variant_stage_without_trim_strings_middleware(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/cards', [
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantStage' => ' 2 ',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('variantStage', 2);
+
+        $card = Card::query()->sole();
+        $this->assertSame(2, $card->variant_stage);
+
+        $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
+        $this->assertCount(2, $entries);
+        $this->assertSame(2, $entries[1]->payload['variant_stage']);
     }
 
     public function test_it_treats_blank_manual_card_variant_metadata_as_absent(): void
@@ -683,6 +706,18 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             'answer' => ['meaning' => 'dog'],
             'variantStage' => 65536,
         ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variantStage'])
+            ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.');
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/cards', [
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantStage' => ' -1 ',
+            ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['variantStage'])
             ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.');

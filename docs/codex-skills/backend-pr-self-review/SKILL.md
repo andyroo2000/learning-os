@@ -59,6 +59,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Client-provided ULIDs are accepted without pre-validation normalization in FormRequests and action/DTO boundaries that direct callers use, or a normalizer runs before the format guard without proving it is safe for arbitrary garbage strings.
 - A malformed-ID guard is buried in a private lookup helper while the public action method can run other logic before reaching it, unless that pre-helper path is proven side-effect free and intentionally differs from sibling actions.
 - Normalization converts arrays, omitted optional fields, or other non-string invalid inputs into `null` or another value that hides validation errors.
+- A direct-caller enum/string normalizer lets blanks or unrecognized values escape as raw `ValueError`/engine exceptions instead of the documented domain exception, or lacks tests that explicitly document that boundary.
 - Compatibility validation messages do not cover every rule key and input shape the request can trigger, especially null/scalar/list variants for `present`, `required`, and `array` rules.
 - The same client-visible validation message is reused for structurally different failures, such as missing paired payloads versus present-but-wrong JSON shape, without a compatibility note and tests.
 - A shared validation trait adds a relaxed/optional mode but leaves typed cached properties or accessors with an implicit uninitialized-property failure path.
@@ -71,10 +72,12 @@ Do not push until these are resolved or explicitly justified in the PR:
 - JSON shape, size, or depth limits exist only in the FormRequest while the DTO/action accepts the same arrays from direct callers.
 - JSON shape, size, or depth limits exist in the DTO/action but lack HTTP coverage for the client-visible validation response.
 - HTTP and DTO/action layers duplicate nontrivial validation algorithms instead of delegating to a shared pure validator/value object, especially for recursive JSON shape, size, depth, or media-reference checks.
+- Sibling DTOs/actions/models duplicate a new bundle of nontrivial normalization helpers or shared limits instead of centralizing the contract in support code or explicitly justifying the temporary duplication.
 - A pattern was fixed for one domain while equivalent course/deck/card/media/review endpoints were left unchecked.
 - A sibling action or endpoint with the same apparent input surface is intentionally out of scope but the PR note does not cite prior coverage, caller constraints, or a concrete reason the sibling cannot receive the same bad input.
 - Schema or index work lacks Postgres portability coverage, rollback/drop SQL assertions, index-name length checks, or query-pattern column-order review.
 - Server-owned fields are exposed through model mass-assignment instead of explicit action assignment or a dedicated domain method.
+- New server-owned or process-owned metadata fields have mass-assignment/fillability tests for only a subset of the added fields, leaving sibling fields or sibling models unproven.
 - Enum-cast fields are serialized with assumptions that null legacy/raw rows can never happen, unless the database constraint and tests prove that invariant.
 - A resource serializer switches from `getAttribute()`/casts to `getAttributes()` raw values without documenting the cast-bypass contract or testing every live fallback branch it keeps, such as direct string-backed enum assignment.
 - A raw-attribute resource helper depends on fields not gaining casts but neither names the protected fields near the helper nor asserts the model cast map excludes them.
@@ -96,6 +99,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A generic `\BackedEnum` helper returns `->value` with a `string` return type even though integer-backed enums can also satisfy the input type.
 - Commit/convert endpoints do not define whether idempotency is keyed by the source, the client-provided target ID, or both, allowing the same source object to be committed multiple times with different IDs without a test/comment.
 - Compatibility endpoints skip canonical domain actions, leak ConvoLab field names into shared domains, or lack tests for canonical and compat response shapes.
+- Shared storage or cross-product domains import product-specific enum/support types for opaque metadata without a deliberate boundary note, neutral support type, or scalar-storage interpretation strategy.
 - Upload/header validation crosses layers incorrectly, persists caller-declared sizes instead of actual bytes, or lacks boundary tests for malformed, overflow, mismatch, and side-effect-free failure paths.
 - Upload or import action error-path tests omit `Storage::fake()` because today's guard should run before storage access, leaving future regressions free to touch the real disk.
 - New destructive or retryable write endpoints omit route throttle middleware when sibling create/update routes are throttled, unless a repo-wide convention and PR note make the exemption explicit.

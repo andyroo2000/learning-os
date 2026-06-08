@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -43,7 +44,7 @@ class UpdateCardActionTest extends TestCase
                 backText: 'goodbye',
             ),
         );
-        $updatedCard = $result->card;
+        $updatedCard = $result->card->refresh();
 
         $this->assertTrue($result->wasUpdated);
         $this->assertSame($card->id, $updatedCard->id);
@@ -57,45 +58,12 @@ class UpdateCardActionTest extends TestCase
 
         $entry = SyncFeedEntry::query()->sole();
 
-        $this->assertSame($card->deck->user_id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('card', $entry->resource_type);
-        $this->assertSame($card->id, $entry->resource_id);
+        $this->assertSame($updatedCard->deck->user_id, $entry->user_id);
+        $this->assertSame(CardSyncPayload::DOMAIN, $entry->domain);
+        $this->assertSame(CardSyncPayload::RESOURCE_TYPE, $entry->resource_type);
+        $this->assertSame($updatedCard->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame([
-            'id' => $card->id,
-            'deck_id' => $card->deck_id,
-            'course_id' => $course->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_card_id' => null,
-            'source_note_id' => null,
-            'source_deck_id' => null,
-            'source_notetype_name' => null,
-            'source_template_ord' => null,
-            'front_text' => 'arrivederci',
-            'back_text' => 'goodbye',
-            'card_type' => 'recognition',
-            'prompt_json' => null,
-            'answer_json' => null,
-            'search_text' => 'arrivederci goodbye',
-            'study_status' => 'new',
-            'new_queue_position' => $updatedCard->new_queue_position,
-            'scheduler_state' => null,
-            'variant_group_id' => null,
-            'variant_sentence_id' => null,
-            'variant_kind' => null,
-            'variant_stage' => null,
-            'variant_status' => null,
-            'variant_unlocked_at' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-            'created_at' => $updatedCard->created_at?->toJSON(),
-            'updated_at' => $updatedCard->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+        $this->assertEquals(CardSyncPayload::fromCard($updatedCard), $entry->payload);
     }
 
     public function test_it_updates_card_type(): void
@@ -121,7 +89,7 @@ class UpdateCardActionTest extends TestCase
             'id' => $card->id,
             'card_type' => 'cloze',
         ]);
-        $this->assertSame('cloze', SyncFeedEntry::query()->sole()->payload['card_type']);
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_updates_structured_content(): void
@@ -151,14 +119,7 @@ class UpdateCardActionTest extends TestCase
             $result->card->search_text,
         );
 
-        $payload = SyncFeedEntry::query()->sole()->payload;
-
-        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
-        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
-        $this->assertSame(
-            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
-            $payload['search_text'],
-        );
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_updates_variant_metadata_for_direct_callers(): void
@@ -201,12 +162,7 @@ class UpdateCardActionTest extends TestCase
         $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceCloze->value, $entry->payload['variant_kind']);
-        $this->assertSame(3, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_clears_variant_metadata_for_direct_callers(): void
@@ -254,12 +210,7 @@ class UpdateCardActionTest extends TestCase
         $this->assertNull($card->variant_unlocked_at);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_stage']);
-        $this->assertNull($entry->payload['variant_status']);
-        $this->assertNull($entry->payload['variant_unlocked_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     public function test_it_clears_structured_content_when_explicit_nulls_are_provided(): void
@@ -287,9 +238,7 @@ class UpdateCardActionTest extends TestCase
         $this->assertNull($result->card->prompt_json);
         $this->assertNull($result->card->answer_json);
         $this->assertSame('What is ATP? Cellular energy currency.', $result->card->search_text);
-        $this->assertNull(SyncFeedEntry::query()->sole()->payload['prompt_json']);
-        $this->assertNull(SyncFeedEntry::query()->sole()->payload['answer_json']);
-        $this->assertSame('What is ATP? Cellular energy currency.', SyncFeedEntry::query()->sole()->payload['search_text']);
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -415,7 +364,7 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertTrue($result->wasUpdated);
         $this->assertSame('arrivederci goodbye', $result->card->search_text);
-        $this->assertSame('arrivederci goodbye', SyncFeedEntry::query()->sole()->payload['search_text']);
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_marks_unchanged_when_card_type_is_omitted(): void

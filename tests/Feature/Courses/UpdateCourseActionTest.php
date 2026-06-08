@@ -5,15 +5,15 @@ namespace Tests\Feature\Courses;
 use App\Domain\Courses\Actions\UpdateCourseAction;
 use App\Domain\Courses\Data\UpdateCourseData;
 use App\Domain\Courses\Models\Course;
-use App\Domain\Courses\Sync\CourseSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use Tests\Support\AssertsCourseSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateCourseActionTest extends TestCase
 {
+    use AssertsCourseSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_updates_course_metadata_and_records_sync_feed_entry(): void
@@ -45,14 +45,8 @@ class UpdateCourseActionTest extends TestCase
             'target_language' => 'ja',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
-
-        $this->assertSame($course->user_id, $entry->user_id);
-        $this->assertSame(CourseSyncPayload::DOMAIN, $entry->domain);
-        $this->assertSame(CourseSyncPayload::RESOURCE_TYPE, $entry->resource_type);
-        $this->assertSame($course->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(CourseSyncPayload::fromCourse($updatedCourse), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertCourseSyncPayloadRecorded($updatedCourse, SyncFeedOperation::Update);
     }
 
     public function test_it_trims_text_inputs(): void

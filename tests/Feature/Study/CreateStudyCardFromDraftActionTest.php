@@ -6,12 +6,15 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Flashcards\Sync\DeckSyncPayload;
 use App\Domain\Study\Actions\CreateStudyCardFromDraftAction;
 use App\Domain\Study\Actions\ResolveManualStudyDeckAction;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -70,23 +73,22 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertTrue($deck->is_manual_study_deck);
         $this->assertSame($deck->id, $result->card->deck_id);
 
-        $entries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
-        $this->assertCount(3, $entries);
-        $this->assertSame('deck', $entries[0]->resource_type);
-        $this->assertSame(SyncFeedOperation::Create, $entries[0]->operation);
-        $this->assertSame('card', $entries[1]->resource_type);
-        $this->assertSame($cardId, $entries[1]->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entries[1]->operation);
-        $this->assertSame('vocab-group-1', $entries[1]->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entries[1]->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $entries[1]->payload['variant_kind']);
-        $this->assertSame(2, $entries[1]->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entries[1]->payload['variant_status']);
-        $this->assertSame($draft->variant_unlocked_at->toJSON(), $entries[1]->payload['variant_unlocked_at']);
-        $this->assertSame('study_card_draft', $entries[2]->resource_type);
-        $this->assertSame($draft->id, $entries[2]->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entries[2]->operation);
-        $this->assertSame($cardId, $entries[2]->payload['committed_card_id']);
+        $committedCard = $result->card->refresh();
+        $committedDraft = $draft->refresh();
+
+        $this->assertSame(3, SyncFeedEntry::query()->count());
+
+        $deckEntry = $this->syncEntryFor(DeckSyncPayload::RESOURCE_TYPE, $deck->id);
+        $this->assertSame(SyncFeedOperation::Create, $deckEntry->operation);
+        $this->assertEquals(DeckSyncPayload::fromDeck($deck), $deckEntry->payload);
+
+        $cardEntry = $this->syncEntryFor(CardSyncPayload::RESOURCE_TYPE, $cardId);
+        $this->assertSame(SyncFeedOperation::Create, $cardEntry->operation);
+        $this->assertEquals(CardSyncPayload::fromCard($committedCard), $cardEntry->payload);
+
+        $draftEntry = $this->syncEntryFor(StudyCardDraftSyncPayload::RESOURCE_TYPE, $draft->id);
+        $this->assertSame(SyncFeedOperation::Update, $draftEntry->operation);
+        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($committedDraft), $draftEntry->payload);
     }
 
     public function test_it_is_idempotent_when_retried_with_the_same_card_id_and_draft_content(): void
@@ -304,5 +306,13 @@ class CreateStudyCardFromDraftActionTest extends TestCase
             'zero' => [0],
             'negative' => [-1],
         ];
+    }
+
+    private function syncEntryFor(string $resourceType, string|int $resourceId): SyncFeedEntry
+    {
+        return SyncFeedEntry::query()
+            ->where('resource_type', $resourceType)
+            ->where('resource_id', $resourceId)
+            ->sole();
     }
 }

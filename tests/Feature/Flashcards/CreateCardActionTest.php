@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -53,7 +54,7 @@ class CreateCardActionTest extends TestCase
                 ),
             );
 
-            $card = $result->card;
+            $card = $result->card->refresh();
 
             $this->assertTrue($result->wasCreated);
             $this->assertTrue(Str::isUlid($card->id));
@@ -69,55 +70,11 @@ class CreateCardActionTest extends TestCase
             $entry = SyncFeedEntry::query()->sole();
 
             $this->assertSame($deck->user_id, $entry->user_id);
-            $this->assertSame('flashcards', $entry->domain);
-            $this->assertSame('card', $entry->resource_type);
+            $this->assertSame(CardSyncPayload::DOMAIN, $entry->domain);
+            $this->assertSame(CardSyncPayload::RESOURCE_TYPE, $entry->resource_type);
             $this->assertSame($card->id, $entry->resource_id);
             $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-            $this->assertSame([
-                'id' => $card->id,
-                'deck_id' => $deck->id,
-                'course_id' => $course->id,
-                'import_job_id' => null,
-                'source_kind' => null,
-                'source_card_id' => null,
-                'source_note_id' => null,
-                'source_deck_id' => null,
-                'source_notetype_name' => null,
-                'source_template_ord' => null,
-                'front_text' => 'ciao',
-                'back_text' => 'hello',
-                'card_type' => 'recognition',
-                'prompt_json' => null,
-                'answer_json' => null,
-                'search_text' => 'ciao hello',
-                'study_status' => 'new',
-                'new_queue_position' => 1,
-                'scheduler_state' => [
-                    'due' => '2026-06-04T12:00:00.000000Z',
-                    'stability' => 0.1,
-                    'difficulty' => 5,
-                    'elapsed_days' => 0,
-                    'scheduled_days' => 0,
-                    'learning_steps' => 0,
-                    'reps' => 0,
-                    'lapses' => 0,
-                    'state' => 0,
-                    'last_review' => null,
-                ],
-                'variant_group_id' => null,
-                'variant_sentence_id' => null,
-                'variant_kind' => null,
-                'variant_stage' => null,
-                'variant_status' => null,
-                'variant_unlocked_at' => null,
-                'due_at' => null,
-                'introduced_at' => null,
-                'failed_at' => null,
-                'last_reviewed_at' => null,
-                'created_at' => $card->created_at?->toJSON(),
-                'updated_at' => $card->updated_at?->toJSON(),
-                'deleted_at' => null,
-            ], $entry->payload);
+            $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
         } finally {
             Carbon::setTestNow();
         }
@@ -152,12 +109,7 @@ class CreateCardActionTest extends TestCase
         $this->assertSame(1, Card::query()->count());
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('group-1', $entry->payload['variant_group_id']);
-        $this->assertSame('sentence-1', $entry->payload['variant_sentence_id']);
-        $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $entry->payload['variant_kind']);
-        $this->assertSame(1, $entry->payload['variant_stage']);
-        $this->assertSame(VocabVariantStatus::Available->value, $entry->payload['variant_status']);
-        $this->assertSame('2026-06-04T14:15:30.000000Z', $entry->payload['variant_unlocked_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($firstResult->card->refresh()), $entry->payload);
     }
 
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
@@ -185,10 +137,7 @@ class CreateCardActionTest extends TestCase
         $this->assertNull($card->variant_status);
 
         $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_group_id']);
-        $this->assertNull($entry->payload['variant_sentence_id']);
-        $this->assertNull($entry->payload['variant_kind']);
-        $this->assertNull($entry->payload['variant_status']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
     #[DataProvider('invalidVariantMetadataProvider')]
@@ -226,7 +175,7 @@ class CreateCardActionTest extends TestCase
             'id' => $result->card->id,
             'card_type' => 'production',
         ]);
-        $this->assertSame('production', SyncFeedEntry::query()->sole()->payload['card_type']);
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_creates_a_card_with_structured_content(): void
@@ -257,14 +206,7 @@ class CreateCardActionTest extends TestCase
             'search_text' => 'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
         ]);
 
-        $payload = SyncFeedEntry::query()->sole()->payload;
-
-        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $payload['prompt_json']);
-        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $payload['answer_json']);
-        $this->assertSame(
-            'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
-            $payload['search_text'],
-        );
+        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void

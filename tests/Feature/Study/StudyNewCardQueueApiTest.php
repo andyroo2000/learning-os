@@ -112,6 +112,28 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('items.0.id', $thirdCard->id);
     }
 
+    public function test_it_accepts_signed_query_integers_without_trim_strings_middleware(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?cursor=%20%2B1%20&limit=%20%2B1%20')
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('limit', 1)
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('items.0.id', $secondCard->id);
+    }
+
     public function test_it_reorders_with_camel_case_card_ids_and_returns_the_default_queue_page(): void
     {
         $user = $this->signIn();

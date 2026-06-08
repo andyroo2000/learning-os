@@ -7,11 +7,13 @@ use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -69,79 +71,46 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 4);
 
         $firstEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card_review_event')
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
             ->where('resource_id', $firstResult->reviewEvents[0]->id)
             ->sole();
         $secondEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'card_review_event')
+            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
             ->where('resource_id', $firstResult->reviewEvents[1]->id)
             ->sole();
 
         $this->assertSame($firstCard->ownerUserId(), $firstEntry->user_id);
-        $this->assertSame('reviews', $firstEntry->domain);
-        $this->assertSame('card_review_event', $firstEntry->resource_type);
+        $this->assertSame(CardReviewEventSyncPayload::DOMAIN, $firstEntry->domain);
+        $this->assertSame(CardReviewEventSyncPayload::RESOURCE_TYPE, $firstEntry->resource_type);
         $this->assertSame(SyncFeedOperation::Create, $firstEntry->operation);
-        $this->assertSame([
-            'id' => $firstResult->reviewEvents[0]->id,
-            'card_id' => $firstCard->id,
-            'deck_id' => $deck->id,
-            'course_id' => $course->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_review_id' => null,
-            'source_card_id' => null,
-            'source_ease' => null,
-            'source_interval' => null,
-            'source_last_interval' => null,
-            'source_factor' => null,
-            'source_time_ms' => null,
-            'source_review_type' => null,
-            'rating' => CardReviewRating::Good->value,
-            'reviewed_at' => $firstResult->reviewEvents[0]->reviewed_at?->toJSON(),
-            'duration_ms' => 1250,
-            'client_event_id' => 'event-123',
-            'device_id' => 'device-abc',
-            'client_created_at' => $firstResult->reviewEvents[0]->client_created_at?->toJSON(),
-            'card_state_before' => [
-                'study_status' => 'new',
-                'new_queue_position' => null,
-                'scheduler_state' => null,
-                'due_at' => null,
-                'introduced_at' => null,
-                'failed_at' => null,
-                'last_reviewed_at' => null,
-            ],
-            'scheduler_state_before' => null,
-            'scheduler_state_after' => [
-                'due' => '2026-05-30T09:15:00.000000Z',
-                'stability' => 0.1,
-                'difficulty' => 5,
-                'elapsed_days' => 0,
-                'scheduled_days' => 3,
-                'learning_steps' => 0,
-                'reps' => 1,
-                'lapses' => 0,
-                'state' => 2,
-                'last_review' => '2026-05-27T09:15:00.000000Z',
-            ],
-            'created_at' => $firstResult->reviewEvents[0]->created_at?->toJSON(),
-            'updated_at' => $firstResult->reviewEvents[0]->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $firstEntry->payload);
-        $this->assertSame($secondCard->ownerUserId(), $secondEntry->user_id);
+        $this->assertEquals(CardReviewEventSyncPayload::fromReviewEvent($firstResult->reviewEvents[0]), $firstEntry->payload);
 
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'domain' => 'flashcards',
-            'resource_type' => 'card',
-            'resource_id' => $firstCard->id,
-            'operation' => 'update',
-        ]);
-        $this->assertDatabaseHas('sync_feed_entries', [
-            'domain' => 'flashcards',
-            'resource_type' => 'card',
-            'resource_id' => $secondCard->id,
-            'operation' => 'update',
-        ]);
+        $this->assertSame($secondCard->ownerUserId(), $secondEntry->user_id);
+        $this->assertSame(CardReviewEventSyncPayload::DOMAIN, $secondEntry->domain);
+        $this->assertSame(CardReviewEventSyncPayload::RESOURCE_TYPE, $secondEntry->resource_type);
+        $this->assertSame(SyncFeedOperation::Create, $secondEntry->operation);
+        $this->assertEquals(CardReviewEventSyncPayload::fromReviewEvent($firstResult->reviewEvents[1]), $secondEntry->payload);
+
+        $firstCard->refresh()->load('deck');
+        $secondCard->refresh()->load('deck');
+
+        $firstCardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $firstCard->id)
+            ->where('operation', SyncFeedOperation::Update->value)
+            ->sole();
+        $secondCardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $secondCard->id)
+            ->where('operation', SyncFeedOperation::Update->value)
+            ->sole();
+
+        $this->assertSame($firstCard->ownerUserId(), $firstCardEntry->user_id);
+        $this->assertSame(CardSyncPayload::DOMAIN, $firstCardEntry->domain);
+        $this->assertEquals(CardSyncPayload::fromCard($firstCard), $firstCardEntry->payload);
+        $this->assertSame($secondCard->ownerUserId(), $secondCardEntry->user_id);
+        $this->assertSame(CardSyncPayload::DOMAIN, $secondCardEntry->domain);
+        $this->assertEquals(CardSyncPayload::fromCard($secondCard), $secondCardEntry->payload);
     }
 
     public function test_created_batch_reviews_update_card_study_state_in_review_order(): void

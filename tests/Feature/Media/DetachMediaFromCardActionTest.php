@@ -9,6 +9,7 @@ use App\Domain\Media\Actions\DetachMediaFromCardAction;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -49,22 +50,24 @@ class DetachMediaFromCardActionTest extends TestCase
             'media_asset_id' => $mediaAsset->id,
         ]);
         $this->assertTrue($card->fresh()->updated_at->isAfter($timestamp));
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $entry = SyncFeedEntry::query()
+            ->where('domain', CardMediaSyncPayload::DOMAIN)
+            ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', CardMediaSyncPayload::resourceId($card->id, $mediaAsset->id))
+            ->where('operation', SyncFeedOperation::Delete->value)
+            ->sole();
 
         $this->assertSame($card->ownerUserId(), $entry->user_id);
-        $this->assertSame('media', $entry->domain);
-        $this->assertSame('card_media', $entry->resource_type);
-        $this->assertSame("{$card->id}:{$mediaAsset->id}", $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame([
-            'card_id' => $card->id,
-            'media_asset_id' => $mediaAsset->id,
-            'deck_id' => $deck->id,
-            'course_id' => $course->id,
-            'created_at' => $pivot?->created_at?->toJSON(),
-            'updated_at' => $pivot?->updated_at?->toJSON(),
-        ], $entry->payload);
+        $this->assertEquals(CardMediaSyncPayload::fromPivot(
+            cardId: $card->id,
+            mediaAssetId: $mediaAsset->id,
+            deckId: $deck->id,
+            courseId: $course->id,
+            createdAt: $pivot?->created_at,
+            updatedAt: $pivot?->updated_at,
+        ), $entry->payload);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void

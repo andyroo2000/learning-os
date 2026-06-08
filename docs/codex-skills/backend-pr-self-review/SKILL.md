@@ -97,6 +97,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - A PR lists sync feed/list replay tests as verification for a new payload key but those tests do not assert the field in the replayed payload shape.
 - A sync feed assertion checks only one payload field, or identifies entries by array position/checkpoint order when stable business keys such as `user_id` or `resource_id` are available.
 - A payload comparison uses `assertSame()` or `assertEquals()` without matching the actual cast shape: arrays/scalars can use strict equality, but fresh value-object instances need structural equality or a documented identity/memoization contract.
+- An expected sync/resource payload is built from a stale in-memory model after the action/job changed persisted status, error fields, deletion timestamps, generated outputs, or other fields the payload builder reads.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.

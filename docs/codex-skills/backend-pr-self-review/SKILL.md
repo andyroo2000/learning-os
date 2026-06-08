@@ -95,6 +95,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Sync/offline behavior changed without checking idempotent retry, cross-user isolation, deleted-resource behavior, and resource payload shape.
 - A sync/resource payload adds a client-visible key but only updates downstream action/API assertions, leaving the canonical payload shape unit test stale or absent.
 - A PR lists sync feed/list replay tests as verification for a new payload key but those tests do not assert the field in the replayed payload shape.
+- A sync feed assertion checks only one payload field, or identifies entries by array position/checkpoint order when stable business keys such as `user_id` or `resource_id` are available.
 - Sync feed recording is added without proving no-op resubmits and transport retries do not duplicate create/update/delete entries.
 - A new side effect is asserted on one happy path or single no-op test while existing provider-backed terminal/missing/no-op cases lack assertions that the side effect stays absent.
 - Sync feed writes happen inside the model-state transaction without deciding whether feed insert failures should roll back the model mutation or be deferred/handled as recoverable side effects.

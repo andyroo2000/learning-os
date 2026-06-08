@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -11,6 +12,7 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
+use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
@@ -119,16 +121,26 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 'introduced_at' => '2026-06-05 15:30:00',
                 'due_at' => '2026-06-08 15:30:00',
             ]);
-            $this->assertDatabaseHas('sync_feed_entries', [
-                'resource_type' => 'card_review_event',
-                'resource_id' => $reviewLogId,
-                'operation' => SyncFeedOperation::Create->value,
-            ]);
-            $this->assertSame('review', SyncFeedEntry::query()
-                ->where('resource_type', 'card')
+
+            $card->refresh()->load('deck');
+            $reviewEvent = CardReviewEvent::query()->findOrFail($reviewLogId);
+            $reviewEvent->setRelation('card', $card);
+
+            $reviewEntry = SyncFeedEntry::query()
+                ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
+                ->where('resource_id', $reviewLogId)
+                ->where('operation', SyncFeedOperation::Create->value)
+                ->sole();
+            $this->assertEquals(CardReviewEventSyncPayload::fromReviewEvent($reviewEvent), $reviewEntry->payload);
+
+            $cardEntry = SyncFeedEntry::query()
+                ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+                ->where('resource_id', $card->id)
                 ->latest('checkpoint')
-                ->firstOrFail()
-                ->payload['study_status']);
+                ->firstOrFail();
+
+            $this->assertSame(SyncFeedOperation::Update, $cardEntry->operation);
+            $this->assertEquals(CardSyncPayload::fromCard($card), $cardEntry->payload);
         } finally {
             Carbon::setTestNow();
         }

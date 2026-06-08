@@ -12,10 +12,12 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use RuntimeException;
+use Tests\Support\AssertsDeckSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteDeckActionTest extends TestCase
 {
+    use AssertsDeckSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_soft_deletes_a_deck_and_its_cards(): void
@@ -95,23 +97,11 @@ class DeleteDeckActionTest extends TestCase
             ], $entry->payload);
         }
 
-        $entry = $entries->last();
+        $entry = $this->assertDeckSyncPayloadRecorded($deck, SyncFeedOperation::Delete);
 
-        $this->assertSame($deck->user_id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('deck', $entry->resource_type);
-        $this->assertSame($deck->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame([
-            'id' => $deck->id,
-            'course_id' => null,
-            'name' => $deck->name,
-            'description' => $deck->description,
-            'is_manual_study_deck' => false,
-            'created_at' => $deck->created_at?->toJSON(),
-            'updated_at' => $deck->updated_at?->toJSON(),
-            'deleted_at' => $deck->deleted_at?->toJSON(),
-        ], $entry->payload);
+        // The deck tombstone must replay after child card tombstones.
+        $this->assertSame($entries->last()->getKey(), $entry->getKey());
+        $this->assertFalse($entry->payload['is_manual_study_deck']);
     }
 
     public function test_it_soft_deletes_an_empty_deck(): void
@@ -126,6 +116,8 @@ class DeleteDeckActionTest extends TestCase
             'id' => $deck->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $this->assertDeckSyncPayloadRecorded($deck, SyncFeedOperation::Delete);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void

@@ -5,13 +5,14 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\UpdateDeckAction;
 use App\Domain\Flashcards\Data\UpdateDeckData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use Tests\Support\AssertsDeckSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateDeckActionTest extends TestCase
 {
+    use AssertsDeckSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_updates_deck_metadata(): void
@@ -37,23 +38,13 @@ class UpdateDeckActionTest extends TestCase
             'description' => 'Phrases for airport and train station practice.',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertSame($deck->user_id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('deck', $entry->resource_type);
-        $this->assertSame($deck->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame([
-            'id' => $deck->id,
-            'course_id' => null,
-            'name' => 'Italian Travel',
-            'description' => 'Phrases for airport and train station practice.',
-            'is_manual_study_deck' => false,
-            'created_at' => $updatedDeck->created_at?->toJSON(),
-            'updated_at' => $updatedDeck->updated_at?->toJSON(),
-            'deleted_at' => null,
-        ], $entry->payload);
+        $entry = $this->assertDeckSyncPayloadRecorded($updatedDeck, SyncFeedOperation::Update);
+
+        $this->assertSame('Italian Travel', $entry->payload['name']);
+        $this->assertSame('Phrases for airport and train station practice.', $entry->payload['description']);
+        $this->assertFalse($entry->payload['is_manual_study_deck']);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -95,7 +86,11 @@ class UpdateDeckActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertTrue($result->deck->is_manual_study_deck);
         $this->assertTrue($deck->refresh()->is_manual_study_deck);
-        $this->assertTrue(SyncFeedEntry::query()->sole()->payload['is_manual_study_deck']);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertDeckSyncPayloadRecorded($result->deck, SyncFeedOperation::Update);
+
+        $this->assertTrue($entry->payload['is_manual_study_deck']);
     }
 
     public function test_it_stores_blank_description_as_null(): void

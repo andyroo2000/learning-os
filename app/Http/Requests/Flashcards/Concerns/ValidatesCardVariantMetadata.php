@@ -32,7 +32,22 @@ trait ValidatesCardVariantMetadata
             }
         }
 
-        foreach (['variant_group_id', 'variant_sentence_id', 'variant_stage', 'variant_unlocked_at'] as $key) {
+        if (array_key_exists('variant_stage', $this->all())) {
+            $value = $this->input('variant_stage');
+
+            if (is_string($value)) {
+                $trimmed = trim($value);
+                $integer = filter_var($trimmed, FILTER_VALIDATE_INT);
+
+                if ($trimmed === '') {
+                    $normalized['variant_stage'] = null;
+                } elseif ($integer !== false) {
+                    $normalized['variant_stage'] = $integer;
+                }
+            }
+        }
+
+        foreach (['variant_group_id', 'variant_sentence_id', 'variant_unlocked_at'] as $key) {
             if (! array_key_exists($key, $this->all())) {
                 continue;
             }
@@ -61,6 +76,7 @@ trait ValidatesCardVariantMetadata
                 'sometimes',
                 'nullable',
                 'string',
+                // date_format accepts comma-separated alternatives; each format is tried in order.
                 'date_format:'.self::VARIANT_UNLOCKED_AT_FORMATS,
             ],
         ];
@@ -111,13 +127,11 @@ trait ValidatesCardVariantMetadata
             return null;
         }
 
-        $integer = filter_var($value, FILTER_VALIDATE_INT);
-
-        if ($integer === false) {
+        if (! is_int($value)) {
             throw new LogicException('variant_stage called after validation failed to reject a non-integer value.');
         }
 
-        return $integer;
+        return $value;
     }
 
     public function hasVariantStatus(): bool

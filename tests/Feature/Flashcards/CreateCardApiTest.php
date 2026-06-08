@@ -364,6 +364,23 @@ class CreateCardApiTest extends TestCase
         $this->assertDatabaseCount('cards', 1);
     }
 
+    public function test_it_normalizes_utc_offset_variant_unlocked_at(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $response = $this->postJson('/api/cards', [
+            'deck_id' => $deck->id,
+            'front_text' => '時間',
+            'back_text' => 'time',
+            'variant_unlocked_at' => '2026-06-04T08:45:30+00:00',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.variant_unlocked_at', '2026-06-04T08:45:30.000000Z');
+    }
+
     public function test_it_normalizes_padded_uppercase_client_ulids_without_global_trim_middleware(): void
     {
         $user = $this->signIn();

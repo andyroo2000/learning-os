@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
+use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
@@ -14,8 +15,20 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class UpdateStudyCardRequest extends FormRequest
 {
     use ValidatesStudyCardPayloads;
+    use ValidatesVocabVariantMetadata;
 
     private ?Card $studyCard = null;
+
+    protected function prepareForValidation(): void
+    {
+        $normalized = [];
+
+        $this->normalizeVariantMetadataForValidation($normalized);
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
+    }
 
     public function authorize(): bool
     {
@@ -46,7 +59,10 @@ class UpdateStudyCardRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->studyCardPayloadRules();
+        return [
+            ...$this->studyCardPayloadRules(),
+            ...$this->variantMetadataRules(),
+        ];
     }
 
     public function after(): array
@@ -59,7 +75,10 @@ class UpdateStudyCardRequest extends FormRequest
      */
     public function messages(): array
     {
-        return $this->studyCardPayloadMessages();
+        return [
+            ...$this->studyCardPayloadMessages(),
+            ...$this->variantMetadataMessages(),
+        ];
     }
 
     public function studyCard(): Card

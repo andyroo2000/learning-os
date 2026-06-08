@@ -72,6 +72,7 @@ Do not push until these are resolved or explicitly justified in the PR:
 - Partial-update DTO `has*`/presence flags do not short-circuit validation or normalization for fields the caller explicitly marked as untouched.
 - Partial-update DTOs allow `hasField: true` with `null` for fields that HTTP validation treats as required/non-null when present, causing direct callers to silently clear or default persisted state.
 - A sparse-update/no-op test omits newly added optional fields, especially casted timestamps or paired metadata fields that can be dirty-tracked differently from plain strings.
+- A sparse update relies on Eloquent dirty tracking for newly assigned casted, enum-like, timestamp, or nullable numeric fields without either explicit pre-assignment equality guards or a documented/tested cast contract.
 - FormRequest `after()` cross-field checks infer a sibling field is valid from raw presence/non-null input without checking the sibling field's validation errors.
 - JSON shape, size, or depth limits exist only in the FormRequest while the DTO/action accepts the same arrays from direct callers.
 - JSON shape, size, or depth limits exist in the DTO/action but lack HTTP coverage for the client-visible validation response.

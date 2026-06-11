@@ -1068,6 +1068,15 @@ class ListCardsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/cards');
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/cards');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/cards');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/cards');
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->getJson('/api/cards');

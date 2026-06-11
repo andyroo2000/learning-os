@@ -15,6 +15,8 @@ class ListCardsRequest extends CursorPaginatedRequest
 
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
         $searchQuery = $this->input('q');
 
@@ -81,5 +83,10 @@ class ListCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['q'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['created_at', 'id'];
     }
 }

@@ -808,6 +808,15 @@ class ListReviewEventsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/card-review-events');
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/card-review-events');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/card-review-events');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/card-review-events');
+    }
+
     public function test_it_requires_authentication(): void
     {
         $response = $this->getJson('/api/card-review-events');

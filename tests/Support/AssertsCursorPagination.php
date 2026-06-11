@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Pagination\Cursor;
 
 /**
  * Helpers for authenticated cursor-paginated API requests.
@@ -113,6 +114,38 @@ trait AssertsCursorPagination
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors('per_page');
+    }
+
+    protected function assertCursorEndpointRejectsMalformedCursor(string $uri): void
+    {
+        $this->assertAuthenticated();
+
+        $this->getJson($this->cursorPaginationUrl($uri, ['cursor' => 'not-a-cursor']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('cursor');
+    }
+
+    protected function assertCursorEndpointRejectsArrayCursor(string $uri): void
+    {
+        $this->assertAuthenticated();
+
+        // Build this manually so the query stays in the unindexed array form: cursor[]=abc.
+        $separator = str_contains($uri, '?') ? '&' : '?';
+
+        $this->getJson($uri.$separator.'cursor[]=abc')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('cursor');
+    }
+
+    protected function assertCursorEndpointRejectsParameterlessCursor(string $uri): void
+    {
+        $this->assertAuthenticated();
+
+        $cursor = (new Cursor([]))->encode();
+
+        $this->getJson($this->cursorPaginationUrl($uri, ['cursor' => $cursor]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('cursor');
     }
 
     /**

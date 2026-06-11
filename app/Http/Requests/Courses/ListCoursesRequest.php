@@ -78,4 +78,9 @@ class ListCoursesRequest extends CursorPaginatedRequest
 
         return $validated['target_language'];
     }
+
+    protected function cursorParameters(): array
+    {
+        return ['updated_at', 'id'];
+    }
 }

@@ -377,4 +377,13 @@ class ListNewCardsApiTest extends TestCase
 
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/cards/new');
     }
+
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/cards/new');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/cards/new');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/cards/new');
+    }
 }

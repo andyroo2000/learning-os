@@ -487,6 +487,15 @@ class ListCoursesApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/courses');
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/courses');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/courses');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/courses');
+    }
+
     public function test_it_rejects_invalid_status_filters(): void
     {
         $this->signIn();

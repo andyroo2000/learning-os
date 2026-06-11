@@ -9,6 +9,8 @@ class ListDueCardsRequest extends CursorPaginatedRequest
 {
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
 
         foreach (['course_id', 'deck_id'] as $key) {
@@ -55,5 +57,10 @@ class ListDueCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['deck_id'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['cards.due_at', 'cards.id'];
     }
 }

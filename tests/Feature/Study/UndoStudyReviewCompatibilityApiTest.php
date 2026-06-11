@@ -344,6 +344,37 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
     }
 
+    public function test_it_returns_server_error_when_the_undo_snapshot_is_invalid(): void
+    {
+        $user = $this->signIn();
+
+        foreach ([
+            'not-a-date',
+            '2026-02-31T09:15:00Z',
+            '2026-05-28T09:15:00-13:00',
+        ] as $dueAt) {
+            $reviewEvent = CardReviewEvent::factory()
+                ->for($this->cardFor($user))
+                ->create([
+                    'card_state_before' => [
+                        'study_status' => 'new',
+                        'new_queue_position' => null,
+                        'scheduler_state' => null,
+                        'due_at' => $dueAt,
+                        'introduced_at' => null,
+                        'failed_at' => null,
+                        'last_reviewed_at' => null,
+                    ],
+                ]);
+
+            $this->deleteJson("/api/study/reviews/{$reviewEvent->id}")
+                ->assertStatus(500)
+                ->assertJsonPath('reason', 'card_review_event_invalid_undo_state');
+
+            $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+        }
+    }
+
     private function assertReviewUndoSyncPayloads(CardReviewEvent $reviewEvent, Card $card): void
     {
         $card->refresh()->load('deck');

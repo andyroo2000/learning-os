@@ -11,10 +11,10 @@ use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Support\DateTime\StrictIsoDateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class UndoCardReviewEventAction
 {
@@ -186,14 +186,12 @@ class UndoCardReviewEventAction
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/', $value)) {
+        $timestamp = StrictIsoDateTime::parseOrNull($value);
+
+        if ($timestamp === null) {
             throw UndoCardReviewEventException::invalidSnapshot($key);
         }
 
-        try {
-            return Carbon::parse($value);
-        } catch (Throwable) {
-            throw UndoCardReviewEventException::invalidSnapshot($key);
-        }
+        return $timestamp;
     }
 }

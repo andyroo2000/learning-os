@@ -4,6 +4,7 @@ namespace Tests\Unit\Media;
 
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class CardMediaSyncPayloadTest extends TestCase
@@ -66,5 +67,17 @@ class CardMediaSyncPayloadTest extends TestCase
 
         $this->assertSame('2026-05-29T11:14:00.000000Z', $payload['created_at']);
         $this->assertSame('2026-05-29T11:15:00.000000Z', $payload['updated_at']);
+    }
+
+    public function test_it_rejects_invalid_timestamp_strings(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card media timestamp must be a valid server timestamp.');
+
+        CardMediaSyncPayload::fromPivot(
+            cardId: '01jzq4nny5xbnzw14q1g68b2yt',
+            mediaAssetId: '01jzq4rqm0psp2zk6426fx85m9',
+            updatedAt: 'tomorrow',
+        );
     }
 }

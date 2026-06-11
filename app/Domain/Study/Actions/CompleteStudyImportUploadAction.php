@@ -29,6 +29,7 @@ class CompleteStudyImportUploadAction
     ): StudyImportUploadCompletionResult {
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
+        // Failure states are deferred so the transaction commits the row update before callers see the domain error.
         $deferredException = null;
 
         if (! Str::isUlid($importJobId)) {
@@ -44,6 +45,7 @@ class CompleteStudyImportUploadAction
 
             if ($importJob->upload_completed_at !== null) {
                 // Let client retries recover if the original queue dispatch failed after the marker committed.
+                // Duplicate retry dispatches are deduplicated by ProcessStudyImportJob's ShouldBeUnique contract.
                 return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: true);
             }
 

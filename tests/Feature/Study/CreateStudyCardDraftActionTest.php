@@ -178,6 +178,64 @@ class CreateStudyCardDraftActionTest extends TestCase
         ));
     }
 
+    public function test_it_rejects_invalid_creation_kinds_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('creationKind must be one of: '.implode(', ', StudyCardCreationKind::values()).'.');
+
+        CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: 'not-a-kind',
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+        );
+    }
+
+    public function test_it_rejects_blank_creation_kinds_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('creationKind must be one of: '.implode(', ', StudyCardCreationKind::values()).'.');
+
+        CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: '   ',
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+        );
+    }
+
+    public function test_it_rejects_invalid_image_placements_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.');
+
+        CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            imagePlacement: 'sideways',
+        );
+    }
+
+    public function test_it_rejects_blank_image_placements_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.');
+
+        CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            imagePlacement: '   ',
+        );
+    }
+
     public function test_it_rejects_oversized_image_prompts_for_direct_callers(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);

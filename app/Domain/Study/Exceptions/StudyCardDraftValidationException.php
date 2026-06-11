@@ -2,6 +2,9 @@
 
 namespace App\Domain\Study\Exceptions;
 
+use App\Domain\Study\Enums\StudyCardAudioRole;
+use App\Domain\Study\Enums\StudyCardCreationKind;
+use App\Domain\Study\Enums\StudyCardImagePlacement;
 use RuntimeException;
 
 class StudyCardDraftValidationException extends RuntimeException
@@ -23,9 +26,24 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self("imagePrompt must be {$maxLength} characters or fewer.", 'imagePrompt');
     }
 
+    public static function invalidCreationKind(): self
+    {
+        return new self('creationKind must be one of: '.implode(', ', StudyCardCreationKind::values()).'.', 'creationKind');
+    }
+
+    public static function invalidImagePlacement(): self
+    {
+        return new self('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.', 'imagePlacement');
+    }
+
     public static function invalidPayloads(): self
     {
         return new self('study card payloads contain invalid content.', 'payloads');
+    }
+
+    public static function invalidPreviewAudioRole(): self
+    {
+        return new self('previewAudioRole must be one of: '.implode(', ', StudyCardAudioRole::values()).'.', 'previewAudioRole');
     }
 
     public static function previewAudioRoleRequiresAudio(): self

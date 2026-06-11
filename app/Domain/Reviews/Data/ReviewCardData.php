@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Data;
 
+use App\Support\DateTime\StrictIsoDateTime;
 use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
@@ -35,13 +36,30 @@ final readonly class ReviewCardData
         return new self(
             cardId: CanonicalUlid::normalize($cardId),
             rating: trim($rating),
-            reviewedAt: Carbon::parse($reviewedAt),
+            reviewedAt: self::normalizeTimestamp($reviewedAt, 'reviewed_at'),
             durationMs: self::normalizeDurationMs($durationMs),
             id: $id === null ? null : CanonicalUlid::normalize($id),
             clientEventId: blank($clientEventId) ? null : trim($clientEventId),
             deviceId: blank($deviceId) ? null : trim($deviceId),
-            clientCreatedAt: blank($clientCreatedAt) ? null : Carbon::parse($clientCreatedAt),
+            clientCreatedAt: blank($clientCreatedAt) ? null : self::normalizeTimestamp($clientCreatedAt, 'client_created_at'),
         );
+    }
+
+    private static function normalizeTimestamp(DateTimeInterface|string $timestamp, string $field): Carbon
+    {
+        if ($timestamp instanceof DateTimeInterface) {
+            // Object callers already provide a parsed instant; string callers must use the client wire format.
+            return Carbon::parse($timestamp)->setTimezone('UTC');
+        }
+
+        $normalized = trim($timestamp);
+        $parsed = StrictIsoDateTime::parseOrNull($normalized);
+
+        if ($parsed === null) {
+            throw new InvalidArgumentException("{$field} must be a valid ISO-8601 datetime.");
+        }
+
+        return $parsed;
     }
 
     private static function normalizeDurationMs(int|string|null $durationMs): ?int

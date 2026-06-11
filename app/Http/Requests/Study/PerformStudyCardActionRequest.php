@@ -4,17 +4,17 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Http\Support\AuthenticatedUser;
-use App\Support\DateTime\StrictIsoDateTime;
 use App\Support\Identifiers\CanonicalUlid;
-use Exception;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PerformStudyCardActionRequest extends FormRequest
 {
+    use ValidatesStrictIsoDateTime;
+
     private ?Card $studyCard = null;
 
     protected function prepareForValidation(): void
@@ -80,15 +80,9 @@ class PerformStudyCardActionRequest extends FormRequest
                 'bail',
                 'string',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! StrictIsoDateTime::matches($value)) {
-                        $fail('dueAt must be a valid ISO-8601 datetime for custom_date.');
+                    $dueAt = $this->parseStrictIsoDateTimeForValidation($value);
 
-                        return;
-                    }
-
-                    try {
-                        $dueAt = Carbon::parse($value);
-                    } catch (Exception) {
+                    if ($dueAt === null) {
                         $fail('dueAt must be a valid ISO-8601 datetime for custom_date.');
 
                         return;
@@ -120,7 +114,6 @@ class PerformStudyCardActionRequest extends FormRequest
             'action.in' => 'action must be suspend, unsuspend, forget, or set_due.',
             'mode.in' => 'mode must be now, tomorrow, or custom_date for set_due.',
             'mode.required_if' => 'mode must be now, tomorrow, or custom_date for set_due.',
-            'dueAt.date' => 'dueAt must be a valid ISO-8601 datetime for custom_date.',
             'dueAt.required_if' => 'dueAt must be a valid ISO-8601 datetime for custom_date.',
             'timeZone.required_if' => 'timeZone must be a valid IANA timezone for tomorrow.',
             'timeZone.timezone' => 'timeZone must be a valid IANA timezone for tomorrow.',

@@ -72,6 +72,33 @@ class PerformCardStudyActionApiTest extends TestCase
         }
     }
 
+    public function test_custom_due_date_with_explicit_offset_is_stored_as_utc(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-04T12:00:00Z',
+            ]);
+
+            $this->postJson("/api/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'due_at' => '2026-06-05T10:15:00-04:00',
+            ])
+                ->assertOk()
+                ->assertJsonPath('data.card.due_at', '2026-06-05T14:15:00.000000Z');
+
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'due_at' => '2026-06-05 14:15:00',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_actions_are_rate_limited_by_user(): void
     {
         $user = $this->signIn();
@@ -169,6 +196,30 @@ class PerformCardStudyActionApiTest extends TestCase
             ])
                 ->assertOk()
                 ->assertJsonPath('data.card.due_at', '2026-06-04T12:00:00.000000Z');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_normalizes_due_at_and_timezone_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $this->postJson("/api/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'due_at' => '  2026-06-07T09:00:00Z  ',
+                'time_zone' => '  America/New_York  ',
+            ])
+                ->assertOk()
+                ->assertJsonPath('data.card.due_at', '2026-06-07T09:00:00.000000Z');
         } finally {
             Carbon::setTestNow();
         }
@@ -356,6 +407,22 @@ class PerformCardStudyActionApiTest extends TestCase
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'due_at' => ['2026-06-05T14:15:00Z'],
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['due_at']);
+
+            $this->postJson("/api/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'due_at' => 1780668900,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['due_at']);
+
+            $this->postJson("/api/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'due_at' => '2026-06-05T14:15:00',
             ])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['due_at']);

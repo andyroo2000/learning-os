@@ -275,7 +275,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'easy',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 id: $id,
             ),
         );
@@ -378,7 +378,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: CardReviewRating::Easy->value,
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 id: $id,
             ),
         );
@@ -400,7 +400,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: CardReviewRating::Good->value,
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                     id: $id,
                 ),
             );
@@ -429,7 +429,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: CardReviewRating::Good->value,
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                     id: $id,
                 ),
             );
@@ -491,7 +491,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: CardReviewRating::Good->value,
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                     id: $id,
                 ),
             );
@@ -526,7 +526,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: 'easy',
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                     id: $id,
                 ),
             );
@@ -564,7 +564,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: 'easy',
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                     id: $id,
                 ),
             );
@@ -588,7 +588,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
                 clientCreatedAt: $clientCreatedAt,
@@ -617,10 +617,10 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: strtoupper($card->id),
                 rating: '  good  ',
-                reviewedAt: '  2026-05-27 09:15:00  ',
+                reviewedAt: '  2026-05-27T09:15:00Z  ',
                 clientEventId: '  event-123  ',
                 deviceId: '  device-abc  ',
-                clientCreatedAt: '  2026-05-27 09:14:00  ',
+                clientCreatedAt: '  2026-05-27T09:14:00Z  ',
             ),
         );
         $reviewEvent = $result->reviewEvent;
@@ -650,10 +650,10 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27 09:14:00',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
             ),
         );
 
@@ -661,10 +661,10 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'easy',
-                reviewedAt: '2026-05-27 09:20:00',
+                reviewedAt: '2026-05-27T09:20:00Z',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27 09:19:00',
+                clientCreatedAt: '2026-05-27T09:19:00Z',
             ),
         );
         $firstReviewEvent = $firstResult->reviewEvent;
@@ -748,7 +748,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: "  {$card->id}  ",
                 rating: '  hard  ',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
             ),
         );
         $reviewEvent = $result->reviewEvent;
@@ -756,6 +756,37 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($result->wasCreated);
         $this->assertSame($card->id, $reviewEvent->card_id);
         $this->assertSame(CardReviewRating::Hard, $reviewEvent->rating);
+    }
+
+    public function test_it_rejects_timezone_naive_timestamp_strings_for_direct_callers(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('reviewed_at must be a valid ISO-8601 datetime.');
+
+        ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00',
+        );
+    }
+
+    public function test_it_rejects_timezone_naive_client_created_timestamp_strings_for_direct_callers(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('client_created_at must be a valid ISO-8601 datetime.');
+
+        ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00',
+        );
     }
 
     public function test_it_accepts_each_supported_rating(): void
@@ -767,7 +798,7 @@ class ReviewCardActionTest extends TestCase
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: $rating->value,
-                    reviewedAt: '2026-05-27 09:15:00',
+                    reviewedAt: '2026-05-27T09:15:00Z',
                 ),
             );
             $reviewEvent = $result->reviewEvent;
@@ -786,7 +817,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: 'not-a-ulid',
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
             ),
         );
     }
@@ -800,7 +831,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: strtolower((string) Str::ulid()),
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
             ),
         );
     }
@@ -816,7 +847,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: '   ',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
             ),
         );
     }
@@ -832,7 +863,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'medium',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
             ),
         );
     }
@@ -847,7 +878,7 @@ class ReviewCardActionTest extends TestCase
         ReviewCardData::fromInput(
             cardId: $card->id,
             rating: 'good',
-            reviewedAt: '2026-05-27 09:15:00',
+            reviewedAt: '2026-05-27T09:15:00Z',
             durationMs: '-1',
         );
     }
@@ -863,7 +894,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 clientEventId: 'event-123',
             ),
         );
@@ -880,7 +911,7 @@ class ReviewCardActionTest extends TestCase
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
-                reviewedAt: '2026-05-27 09:15:00',
+                reviewedAt: '2026-05-27T09:15:00Z',
                 id: 'not-a-ulid',
             ),
         );

@@ -52,6 +52,30 @@ class SetCardDueActionTest extends TestCase
         $this->assertCardSyncPayloadRecorded($result->card);
     }
 
+    public function test_custom_due_date_with_explicit_offset_is_normalized_to_utc_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-04T12:00:00Z',
+        ]);
+
+        $result = app(SetCardDueAction::class)->handle(
+            card: $card,
+            mode: 'custom_date',
+            dueAt: '2026-06-05T10:15:00-04:00',
+            now: Carbon::parse('2026-06-04T12:00:00Z'),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame('2026-06-05T14:15:00.000000Z', $result->card->due_at?->toJSON());
+        $this->assertSame('2026-06-05T14:15:00.000000Z', $result->card->scheduler_state['due']);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'due_at' => '2026-06-05 14:15:00',
+        ]);
+    }
+
     public function test_tomorrow_mode_sets_due_at_to_9am_in_the_requested_timezone(): void
     {
         $card = $this->cardFor($this->signIn(), [
@@ -256,6 +280,18 @@ class SetCardDueActionTest extends TestCase
             card: $this->cardFor($this->signIn()),
             mode: 'custom_date',
             dueAt: 'tomorrow',
+        );
+    }
+
+    public function test_it_rejects_timezone_naive_custom_due_dates_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('due_at must be a valid ISO-8601 datetime for custom_date.');
+
+        app(SetCardDueAction::class)->handle(
+            card: $this->cardFor($this->signIn()),
+            mode: 'custom_date',
+            dueAt: '2026-06-05T14:15:00',
         );
     }
 

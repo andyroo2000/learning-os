@@ -13,6 +13,8 @@ final class StudyImportConflictException extends RuntimeException
 
     private const UPLOAD_NOT_FINISHED_MESSAGE = 'Upload has not finished yet. Please wait for the file upload to complete.';
 
+    private const UPLOAD_ALREADY_COMPLETED_MESSAGE = 'Study import upload has already been completed.';
+
     private const PROCESSING_CANNOT_BE_CANCELLED_MESSAGE = 'Study import is already processing and cannot be cancelled.';
 
     private const ACTIVE_IMPORT_REASON = 'active_study_import';
@@ -20,6 +22,8 @@ final class StudyImportConflictException extends RuntimeException
     private const NOT_PENDING_REASON = 'study_import_not_pending';
 
     private const UPLOAD_NOT_FINISHED_REASON = 'study_import_upload_not_finished';
+
+    private const UPLOAD_ALREADY_COMPLETED_REASON = 'study_import_upload_completed';
 
     private const PROCESSING_CANNOT_BE_CANCELLED_REASON = 'study_import_processing';
 
@@ -44,6 +48,11 @@ final class StudyImportConflictException extends RuntimeException
     public static function uploadNotFinished(StudyImportJob $importJob): self
     {
         return new self(self::UPLOAD_NOT_FINISHED_MESSAGE, self::UPLOAD_NOT_FINISHED_REASON, $importJob);
+    }
+
+    public static function uploadAlreadyCompleted(StudyImportJob $importJob): self
+    {
+        return new self(self::UPLOAD_ALREADY_COMPLETED_MESSAGE, self::UPLOAD_ALREADY_COMPLETED_REASON, $importJob);
     }
 
     public static function processingCannotBeCancelled(StudyImportJob $importJob): self

@@ -73,6 +73,7 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.import_job.source_content_type', 'application/zip')
             ->assertJsonPath('data.import_job.source_size_bytes', null)
             ->assertJsonPath('data.import_job.uploaded_at', null)
+            ->assertJsonPath('data.import_job.upload_completed_at', null)
             ->assertJsonPath('data.import_job.upload_expires_at', now()->addMinutes(StudyImportJob::UPLOAD_SESSION_TTL_MINUTES)->toJSON())
             ->assertJsonPath('data.upload.method', 'PUT')
             ->assertJsonPath('data.upload.headers.Content-Type', 'application/zip')
@@ -254,6 +255,7 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.id', $importJobId)
             ->assertJsonPath('data.source_size_bytes', strlen($contents))
             ->assertJsonPath('data.uploaded_at', now()->toJSON())
+            ->assertJsonPath('data.upload_completed_at', null)
             ->assertJsonMissingPath('data.source_object_path');
 
         $importJob = StudyImportJob::query()->findOrFail($importJobId);
@@ -368,6 +370,29 @@ class StudyImportUploadApiTest extends TestCase
         $this->assertSame(StudyImportStatus::Failed, $expired->refresh()->status);
     }
 
+    public function test_upload_rejects_already_completed_uploads_without_overwriting_the_archive(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/completed-upload/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK original bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_content_type' => 'application/zip',
+            'uploaded_at' => now()->subMinute(),
+            'upload_completed_at' => now()->subMinute(),
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->putImportUpload('/api/study/imports/'.$importJob->id.'/upload', 'PK replacement bytes', 'application/zip')
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'study_import_upload_completed');
+
+        $this->assertSame('PK original bytes', Storage::disk('study-imports')->get($sourceObjectPath));
+        $this->assertSame(now()->subMinute()->toJSON(), $importJob->refresh()->upload_completed_at?->toJSON());
+    }
+
     public function test_upload_rejects_empty_uploads(): void
     {
         $user = $this->signIn();
@@ -456,6 +481,7 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.status', StudyImportStatus::Pending->value)
             ->assertJsonPath('data.source_size_bytes', 15)
             ->assertJsonPath('data.uploaded_at', now()->toJSON())
+            ->assertJsonPath('data.upload_completed_at', now()->toJSON())
             ->assertJsonMissingPath('data.source_object_path');
 
         Queue::assertPushedOn(
@@ -463,6 +489,37 @@ class StudyImportUploadApiTest extends TestCase
             ProcessStudyImportJob::class,
             fn (ProcessStudyImportJob $job): bool => $job->importJobId === $importJob->id,
         );
+    }
+
+    public function test_complete_retry_preserves_the_completion_marker_without_duplicate_queue_work(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete-idempotent/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_completed_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertStatus(202)
+            ->assertJsonPath('data.upload_completed_at', now()->toJSON());
+
+        Carbon::setTestNow('2026-06-05 12:01:00');
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertStatus(202)
+            ->assertJsonPath('data.upload_completed_at', '2026-06-05T12:00:00.000000Z');
+
+        // The duplicate dispatch is suppressed by ProcessStudyImportJob's ShouldBeUnique cache lock.
+        Queue::assertPushed(ProcessStudyImportJob::class, 1);
+        $this->assertSame('2026-06-05T12:00:00.000000Z', $importJob->refresh()->upload_completed_at?->toJSON());
     }
 
     public function test_complete_is_rate_limited_by_user(): void

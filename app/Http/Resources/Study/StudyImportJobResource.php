@@ -26,6 +26,7 @@ class StudyImportJobResource extends JsonResource
             'error_message' => $this->error_message,
             'started_at' => $this->started_at?->toJSON(),
             'uploaded_at' => $this->uploaded_at?->toJSON(),
+            'upload_completed_at' => $this->upload_completed_at?->toJSON(),
             'upload_expires_at' => $this->upload_expires_at?->toJSON(),
             'completed_at' => $this->completed_at?->toJSON(),
             'created_at' => $this->created_at?->toJSON(),

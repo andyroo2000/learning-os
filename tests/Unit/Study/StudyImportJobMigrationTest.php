@@ -35,6 +35,13 @@ class StudyImportJobMigrationTest extends TestCase
         );
     }
 
+    public function test_upload_completion_marker_migration_file_exists(): void
+    {
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_11_120000_add_upload_completed_at_to_study_import_jobs_table.php',
+        );
+    }
+
     #[DataProvider('studyImportJobSqlProvider')]
     public function test_study_import_jobs_table_compiles_to_portable_sql(
         string $connectionClass,
@@ -50,6 +57,24 @@ class StudyImportJobMigrationTest extends TestCase
         $dropSql = $this->dropStudyImportJobsBlueprint($connection)->toSql();
 
         $this->assertSame($expectedCreateSql, $createSql);
+        $this->assertSame($expectedDropSql, $dropSql);
+    }
+
+    #[DataProvider('uploadCompletionMarkerSqlProvider')]
+    public function test_upload_completion_marker_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAddSql,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $addSql = $this->addUploadCompletionMarkerBlueprint($connection)->toSql();
+        $dropSql = $this->dropUploadCompletionMarkerBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedAddSql, $addSql);
         $this->assertSame($expectedDropSql, $dropSql);
     }
 
@@ -119,6 +144,45 @@ class StudyImportJobMigrationTest extends TestCase
     }
 
     /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function uploadCompletionMarkerSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                [
+                    'alter table "study_import_jobs" add column "upload_completed_at" datetime',
+                ],
+                [
+                    'alter table "study_import_jobs" drop column "upload_completed_at"',
+                ],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'alter table "study_import_jobs" add column "upload_completed_at" timestamp(0) without time zone null',
+                ],
+                [
+                    'alter table "study_import_jobs" drop column "upload_completed_at"',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `study_import_jobs` add `upload_completed_at` timestamp null',
+                ],
+                [
+                    'alter table `study_import_jobs` drop `upload_completed_at`',
+                ],
+            ],
+        ];
+    }
+
+    /**
      * @param  class-string<Connection>  $connectionClass
      */
     private function connection(string $connectionClass): Connection
@@ -162,6 +226,20 @@ class StudyImportJobMigrationTest extends TestCase
     {
         return new Blueprint($connection, 'study_import_jobs', function (Blueprint $table): void {
             $table->dropIfExists();
+        });
+    }
+
+    private function addUploadCompletionMarkerBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'study_import_jobs', function (Blueprint $table): void {
+            $table->timestamp('upload_completed_at')->nullable();
+        });
+    }
+
+    private function dropUploadCompletionMarkerBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'study_import_jobs', function (Blueprint $table): void {
+            $table->dropColumn('upload_completed_at');
         });
     }
 

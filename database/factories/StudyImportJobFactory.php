@@ -33,6 +33,7 @@ class StudyImportJobFactory extends Factory
             'error_message' => null,
             'started_at' => null,
             'uploaded_at' => null,
+            'upload_completed_at' => null,
             'upload_expires_at' => null,
             'completed_at' => null,
         ];
@@ -52,6 +53,18 @@ class StudyImportJobFactory extends Factory
             'status' => StudyImportStatus::Completed,
             'completed_at' => now(),
         ]);
+    }
+
+    public function uploadCompleted(): static
+    {
+        return $this->state(function (): array {
+            $uploadedAt = now();
+
+            return [
+                'uploaded_at' => $uploadedAt,
+                'upload_completed_at' => $uploadedAt,
+            ];
+        });
     }
 
     public function failed(): static

@@ -10,6 +10,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -25,6 +26,7 @@ class UploadStudyImportFileAction
     ): StudyImportJob {
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
+        $deferredException = null;
 
         if (! Str::isUlid($importJobId)) {
             throw (new ModelNotFoundException)->setModel(StudyImportJob::class);
@@ -49,38 +51,55 @@ class UploadStudyImportFileAction
             throw new StudyImportValidationException('file', 'Study import upload content length does not match the file bytes received.');
         }
 
-        $importJob = StudyImportJob::query()
-            ->where('user_id', $userId)
-            ->whereKey($importJobId)
-            ->first()
-            ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
+        $importJob = DB::transaction(function () use ($userId, $importJobId, $contentType, $contents, $actualContentSizeBytes, $now, &$deferredException): StudyImportJob {
+            $importJob = StudyImportJob::query()
+                ->where('user_id', $userId)
+                ->whereKey($importJobId)
+                ->lockForUpdate()
+                ->first()
+                ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
 
-        if ($importJob->status !== StudyImportStatus::Pending) {
-            throw StudyImportConflictException::notPending($importJob);
-        }
+            if ($importJob->status !== StudyImportStatus::Pending) {
+                throw StudyImportConflictException::notPending($importJob);
+            }
 
-        if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
-            $importJob->status = StudyImportStatus::Failed;
-            $importJob->error_message = 'Study import upload session has expired.';
-            $importJob->completed_at = $now;
+            if ($importJob->upload_completed_at !== null) {
+                throw StudyImportConflictException::uploadAlreadyCompleted($importJob);
+            }
+
+            if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
+                $importJob->status = StudyImportStatus::Failed;
+                $importJob->error_message = 'Study import upload session has expired.';
+                $importJob->completed_at = $now;
+                $importJob->saveOrFail();
+                $deferredException = new StudyImportUploadExpiredException;
+
+                return $importJob;
+            }
+
+            if ($importJob->source_content_type !== $contentType) {
+                throw new StudyImportValidationException('content_type', 'Study import upload content type does not match the upload session.');
+            }
+
+            if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
+                throw new StudyImportValidationException('file', 'Study import upload target is missing.');
+            }
+
+            // Keep the write under the row lock so completion cannot validate while the object is being replaced.
+            // This can hold the per-import lock during a large upload, up to MAX_ASYNC_IMPORT_BYTES.
+            // If that becomes too slow for the storage backend, move the write before this transaction.
+            Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
+
+            $importJob->source_size_bytes = $actualContentSizeBytes;
+            $importJob->uploaded_at = $now;
             $importJob->saveOrFail();
 
-            throw new StudyImportUploadExpiredException;
+            return $importJob;
+        });
+
+        if ($deferredException !== null) {
+            throw $deferredException;
         }
-
-        if ($importJob->source_content_type !== $contentType) {
-            throw new StudyImportValidationException('content_type', 'Study import upload content type does not match the upload session.');
-        }
-
-        if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
-            throw new StudyImportValidationException('file', 'Study import upload target is missing.');
-        }
-
-        Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
-
-        $importJob->source_size_bytes = $actualContentSizeBytes;
-        $importJob->uploaded_at = $now;
-        $importJob->saveOrFail();
 
         return $importJob;
     }

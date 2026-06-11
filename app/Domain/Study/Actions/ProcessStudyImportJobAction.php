@@ -54,6 +54,10 @@ class ProcessStudyImportJobAction
                 return StudyImportJobFailureMarker::markFailed($importJob, 'Study import upload target is missing.', $now);
             }
 
+            if ($importJob->upload_completed_at === null) {
+                return StudyImportJobFailureMarker::markFailed($importJob, 'Study import upload has not been completed.', $now);
+            }
+
             if (! Storage::disk('study-imports')->exists($importJob->source_object_path)) {
                 return StudyImportJobFailureMarker::markFailed($importJob, 'Study import archive is missing.', $now);
             }

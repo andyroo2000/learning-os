@@ -368,17 +368,48 @@ class StudyImportUploadActionTest extends TestCase
             'upload_expires_at' => now()->addHour(),
         ]);
 
-        $completedUpload = app(CompleteStudyImportUploadAction::class)->handle(
+        $result = app(CompleteStudyImportUploadAction::class)->handle(
             userId: $user->id,
             importJobId: '  '.strtoupper($importJob->id).'  ',
         );
+        $completedUpload = $result->importJob;
 
+        $this->assertTrue($result->shouldDispatchImport);
         $this->assertSame($importJob->id, $completedUpload->id);
         $this->assertSame(StudyImportStatus::Pending, $completedUpload->status);
         $this->assertSame(15, $completedUpload->source_size_bytes);
         $this->assertSame(now()->toJSON(), $completedUpload->uploaded_at->toJSON());
+        $this->assertSame(now()->toJSON(), $completedUpload->upload_completed_at->toJSON());
         $this->assertNull($completedUpload->error_message);
         Storage::disk('study-imports')->assertExists($sourceObjectPath);
+    }
+
+    public function test_complete_returns_already_completed_uploads_without_revalidating_storage(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete-idempotent/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'mutated bytes after first completion');
+        $firstCompletedAt = now()->subMinute();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_size_bytes' => 15,
+            'uploaded_at' => $firstCompletedAt,
+            'upload_completed_at' => $firstCompletedAt,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $result = app(CompleteStudyImportUploadAction::class)->handle(
+            userId: $user->id,
+            importJobId: $importJob->id,
+        );
+
+        $this->assertTrue($result->shouldDispatchImport);
+        $this->assertSame($importJob->id, $result->importJob->id);
+        $this->assertSame(15, $result->importJob->source_size_bytes);
+        $this->assertSame($firstCompletedAt->toJSON(), $result->importJob->uploaded_at?->toJSON());
+        $this->assertSame($firstCompletedAt->toJSON(), $result->importJob->upload_completed_at?->toJSON());
     }
 
     public function test_complete_returns_non_pending_imports_without_revalidating_storage(): void
@@ -387,11 +418,13 @@ class StudyImportUploadActionTest extends TestCase
             'source_object_path' => 'study/imports/missing/completed.colpkg',
         ]);
 
-        $completedUpload = app(CompleteStudyImportUploadAction::class)->handle(
+        $result = app(CompleteStudyImportUploadAction::class)->handle(
             userId: $importJob->user_id,
             importJobId: $importJob->id,
         );
+        $completedUpload = $result->importJob;
 
+        $this->assertFalse($result->shouldDispatchImport);
         $this->assertSame($importJob->id, $completedUpload->id);
         $this->assertSame(StudyImportStatus::Completed, $completedUpload->status);
     }
@@ -415,11 +448,13 @@ class StudyImportUploadActionTest extends TestCase
             'upload_expires_at' => now()->addHour(),
         ]);
 
-        $completedUpload = app(CompleteStudyImportUploadAction::class)->handle(
+        $result = app(CompleteStudyImportUploadAction::class)->handle(
             userId: $user->id,
             importJobId: $importJob->id,
         );
+        $completedUpload = $result->importJob;
 
+        $this->assertTrue($result->shouldDispatchImport);
         $this->assertSame($importJob->id, $completedUpload->id);
         $this->assertSame(StudyImportStatus::Pending, $completedUpload->status);
         $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
@@ -637,7 +672,7 @@ class StudyImportUploadActionTest extends TestCase
         Storage::fake('media');
         $sourceObjectPath = 'study/imports/process/core.colpkg';
         Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
-        $importJob = StudyImportJob::factory()->create([
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
             'error_message' => 'previous warning',
             'completed_at' => now()->subHour(),
@@ -813,7 +848,7 @@ class StudyImportUploadActionTest extends TestCase
                 ],
             ]),
         );
-        $importJob = StudyImportJob::factory()->create([
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
 
@@ -855,7 +890,7 @@ class StudyImportUploadActionTest extends TestCase
             $sourceObjectPath,
             $this->buildStudyImportArchiveBytes(['legacy_revlog_schema' => true]),
         );
-        $importJob = StudyImportJob::factory()->create([
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
 
@@ -885,7 +920,7 @@ class StudyImportUploadActionTest extends TestCase
             $sourceObjectPath,
             $this->buildStudyImportArchiveBytes(['note_one_fields' => '会社'."\x1f"]),
         );
-        $importJob = StudyImportJob::factory()->create([
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
 
@@ -942,7 +977,7 @@ class StudyImportUploadActionTest extends TestCase
         $missingTarget = StudyImportJob::factory()->create([
             'source_object_path' => null,
         ]);
-        $missingArchive = StudyImportJob::factory()->create([
+        $missingArchive = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => 'study/imports/missing/archive.colpkg',
         ]);
 
@@ -957,6 +992,28 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(now()->toJSON(), $missingArchiveResult?->completed_at->toJSON());
     }
 
+    public function test_process_job_marks_uncompleted_uploads_failed_without_importing(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/uncompleted.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
+        $importJob = StudyImportJob::factory()->create([
+            'source_object_path' => $sourceObjectPath,
+            'uploaded_at' => now()->subMinute(),
+            'upload_completed_at' => null,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame('Study import upload has not been completed.', $processed?->error_message);
+        $this->assertSame(now()->toJSON(), $processed?->completed_at->toJSON());
+        $this->assertDatabaseCount('cards', 0);
+        Storage::disk('study-imports')->assertExists($sourceObjectPath);
+    }
+
     public function test_process_job_marks_unparseable_archives_failed(): void
     {
         Carbon::setTestNow('2026-06-05 12:00:00');
@@ -966,7 +1023,7 @@ class StudyImportUploadActionTest extends TestCase
             $sourceObjectPath,
             $this->buildStudyImportZipBytes(['collection.anki21' => 'not a sqlite database']),
         );
-        $importJob = StudyImportJob::factory()->create([
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
 

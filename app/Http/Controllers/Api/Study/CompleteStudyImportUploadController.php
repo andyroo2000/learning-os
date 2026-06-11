@@ -24,10 +24,11 @@ class CompleteStudyImportUploadController extends Controller
         CompleteStudyImportUploadAction $completeStudyImportUpload,
     ): JsonResponse {
         try {
-            $importJob = $completeStudyImportUpload->handle(
+            $result = $completeStudyImportUpload->handle(
                 userId: AuthenticatedUser::id($request),
                 importJobId: $studyImportJobId,
             );
+            $importJob = $result->importJob;
         } catch (StudyImportConflictException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),
@@ -49,7 +50,8 @@ class CompleteStudyImportUploadController extends Controller
             ]);
         }
 
-        if ($importJob->status === StudyImportStatus::Pending) {
+        if ($result->shouldDispatchImport) {
+            // Completion retries intentionally redispatch; ProcessStudyImportJob is ShouldBeUnique.
             ProcessStudyImportJob::dispatch($importJob->id);
         }
 

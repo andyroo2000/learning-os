@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CompleteStudyImportUploadAction
 {
@@ -45,7 +46,7 @@ class CompleteStudyImportUploadAction
 
             if ($importJob->upload_completed_at !== null) {
                 // Let client retries recover if the original queue dispatch failed after the marker committed.
-                // Duplicate retry dispatches are deduplicated by ProcessStudyImportJob's ShouldBeUnique contract.
+                // ShouldBeUnique deduplicates queued retries; the processor guards terminal states after pickup.
                 return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: true);
             }
 
@@ -138,8 +139,11 @@ class CompleteStudyImportUploadAction
         $importJob->saveOrFail();
 
         if ($importJob->source_object_path !== null && $importJob->source_object_path !== '') {
-            // Best-effort cleanup: a storage failure rolls back the row update so retry can observe the same state.
-            Storage::disk('study-imports')->delete($importJob->source_object_path);
+            try {
+                Storage::disk('study-imports')->delete($importJob->source_object_path);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
     }
 

@@ -14,7 +14,6 @@ use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -24,10 +23,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateStudyCardFromDraftActionTest extends TestCase
 {
+    use AssertsStudyCardDraftSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_creates_a_manual_study_card_from_an_owned_ready_draft(): void
@@ -76,7 +77,7 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $committedCard = $result->card->refresh();
         $committedDraft = $draft->refresh();
 
-        $this->assertSame(3, SyncFeedEntry::query()->count());
+        $this->assertDatabaseCount('sync_feed_entries', 3);
 
         $deckEntry = $this->syncEntryFor(DeckSyncPayload::RESOURCE_TYPE, $deck->id);
         $this->assertSame(SyncFeedOperation::Create, $deckEntry->operation);
@@ -86,9 +87,9 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame(SyncFeedOperation::Create, $cardEntry->operation);
         $this->assertEquals(CardSyncPayload::fromCard($committedCard), $cardEntry->payload);
 
-        $draftEntry = $this->syncEntryFor(StudyCardDraftSyncPayload::RESOURCE_TYPE, $draft->id);
-        $this->assertSame(SyncFeedOperation::Update, $draftEntry->operation);
-        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($committedDraft), $draftEntry->payload);
+        $draftEntry = $this->assertStudyCardDraftSyncPayloadRecorded($committedDraft, SyncFeedOperation::Update);
+
+        $this->assertSame($cardId, $draftEntry->payload['committed_card_id']);
     }
 
     public function test_it_is_idempotent_when_retried_with_the_same_card_id_and_draft_content(): void

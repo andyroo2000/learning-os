@@ -6,25 +6,31 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
-use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 trait AssertsCardReviewEventSyncFeedEntries
 {
-    protected function assertCardReviewEventDeleteSyncPayloadRecorded(CardReviewEvent $reviewEvent): SyncFeedEntry
-    {
+    protected function assertCardReviewEventDeleteSyncPayloadRecorded(
+        CardReviewEvent $reviewEvent,
+        ?CarbonInterface $expectedDeletedAt = null,
+    ): SyncFeedEntry {
         $entry = $this->syncFeedEntryForReviewEvent($reviewEvent, SyncFeedOperation::Delete);
         $deletedAt = $entry->payload['deleted_at'] ?? null;
 
         $this->assertIsString($deletedAt);
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $deletedAt);
 
+        if ($expectedDeletedAt !== null) {
+            $this->assertSame($expectedDeletedAt->toJSON(), $deletedAt);
+        }
+
         $this->assertCardReviewEventSyncEntryMatchesPayload(
             $entry,
             $reviewEvent,
             SyncFeedOperation::Delete,
-            Carbon::parse($deletedAt),
+            $expectedDeletedAt ?? Carbon::parse($deletedAt),
         );
 
         return $entry;

@@ -897,7 +897,38 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonMissingPath('data');
     }
 
-    public function test_it_returns_a_domain_scoped_stale_checkpoint_response(): void
+    public function test_it_returns_a_scoped_stale_checkpoint_response_when_the_bookmark_is_before_the_user_feed_window(): void
+    {
+        $user = $this->signIn();
+        $pruned = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $afterCheckpoint = $pruned->checkpoint;
+
+        $pruned->delete();
+
+        $oldest = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        $response = $this->getJson("/api/sync/feed?domain=flashcards&resource_type=card&resource_id=card-1&operation=delete&after_checkpoint={$afterCheckpoint}");
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertJsonPath('meta.after_checkpoint', $afterCheckpoint)
+            ->assertJsonPath('meta.oldest_available_checkpoint', $oldest->checkpoint)
+            ->assertJsonPath('meta.domain', 'flashcards')
+            ->assertJsonPath('meta.resource_type', 'card')
+            ->assertJsonPath('meta.resource_id', 'card-1')
+            ->assertJsonPath('meta.operation', SyncFeedOperation::Delete->value)
+            ->assertJsonPath('meta.required_action', 'full_resync')
+            ->assertJsonMissingPath('data');
+    }
+
+    public function test_domain_filtered_replay_reports_global_high_water_after_the_last_matching_entry(): void
     {
         $user = $this->signIn();
         $media = SyncFeedEntry::factory()->create([
@@ -910,23 +941,29 @@ class ListSyncFeedEntriesApiTest extends TestCase
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);
+        $globalHighWater = SyncFeedEntry::factory()->create([
+            'checkpoint' => 6,
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
 
         $response = $this->getJson("/api/sync/feed?domain=flashcards&after_checkpoint={$media->checkpoint}");
 
         $response
-            ->assertConflict()
-            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $oldestFlashcard->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $media->checkpoint)
-            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestFlashcard->checkpoint)
             ->assertJsonPath('meta.domain', 'flashcards')
             ->assertJsonPath('meta.resource_type', null)
             ->assertJsonPath('meta.resource_id', null)
             ->assertJsonPath('meta.operation', null)
-            ->assertJsonPath('meta.required_action', 'full_resync')
-            ->assertJsonMissingPath('data');
+            ->assertJsonPath('meta.current_checkpoint', $globalHighWater->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $globalHighWater->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
-    public function test_it_returns_an_operation_scoped_stale_checkpoint_response(): void
+    public function test_it_allows_operation_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = $this->signIn();
         $update = SyncFeedEntry::factory()->create([
@@ -943,19 +980,20 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson("/api/sync/feed?operation=delete&after_checkpoint={$update->checkpoint}");
 
         $response
-            ->assertConflict()
-            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $oldestDelete->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $update->checkpoint)
-            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestDelete->checkpoint)
             ->assertJsonPath('meta.domain', null)
             ->assertJsonPath('meta.resource_type', null)
             ->assertJsonPath('meta.resource_id', null)
             ->assertJsonPath('meta.operation', SyncFeedOperation::Delete->value)
-            ->assertJsonPath('meta.required_action', 'full_resync')
-            ->assertJsonMissingPath('data');
+            ->assertJsonPath('meta.current_checkpoint', $oldestDelete->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $oldestDelete->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
-    public function test_it_returns_a_resource_type_scoped_stale_checkpoint_response(): void
+    public function test_it_allows_resource_type_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = $this->signIn();
         $deck = SyncFeedEntry::factory()->create([
@@ -974,18 +1012,19 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson("/api/sync/feed?domain=flashcards&resource_type=card&after_checkpoint={$deck->checkpoint}");
 
         $response
-            ->assertConflict()
-            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $oldestCard->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $deck->checkpoint)
-            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestCard->checkpoint)
             ->assertJsonPath('meta.domain', 'flashcards')
             ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.resource_id', null)
-            ->assertJsonPath('meta.required_action', 'full_resync')
-            ->assertJsonMissingPath('data');
+            ->assertJsonPath('meta.current_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
-    public function test_it_returns_a_resource_type_only_scoped_stale_checkpoint_response(): void
+    public function test_it_allows_resource_type_only_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = $this->signIn();
         $deck = SyncFeedEntry::factory()->create([
@@ -1004,18 +1043,19 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson("/api/sync/feed?resource_type=card&after_checkpoint={$deck->checkpoint}");
 
         $response
-            ->assertConflict()
-            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $oldestCard->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $deck->checkpoint)
-            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestCard->checkpoint)
             ->assertJsonPath('meta.domain', null)
             ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.resource_id', null)
-            ->assertJsonPath('meta.required_action', 'full_resync')
-            ->assertJsonMissingPath('data');
+            ->assertJsonPath('meta.current_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $oldestCard->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
-    public function test_it_returns_a_resource_id_scoped_stale_checkpoint_response(): void
+    public function test_it_allows_resource_id_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = $this->signIn();
         $otherCard = SyncFeedEntry::factory()->create([
@@ -1036,15 +1076,16 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson("/api/sync/feed?domain=flashcards&resource_type=card&resource_id=card-1&after_checkpoint={$otherCard->checkpoint}");
 
         $response
-            ->assertConflict()
-            ->assertJsonPath('reason', 'stale_sync_checkpoint')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $oldestTarget->checkpoint)
             ->assertJsonPath('meta.after_checkpoint', $otherCard->checkpoint)
-            ->assertJsonPath('meta.oldest_available_checkpoint', $oldestTarget->checkpoint)
             ->assertJsonPath('meta.domain', 'flashcards')
             ->assertJsonPath('meta.resource_type', 'card')
             ->assertJsonPath('meta.resource_id', 'card-1')
-            ->assertJsonPath('meta.required_action', 'full_resync')
-            ->assertJsonMissingPath('data');
+            ->assertJsonPath('meta.current_checkpoint', $oldestTarget->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $oldestTarget->checkpoint)
+            ->assertJsonPath('meta.has_more', false);
     }
 
     public function test_it_returns_an_empty_page_when_the_filtered_domain_has_no_entries(): void

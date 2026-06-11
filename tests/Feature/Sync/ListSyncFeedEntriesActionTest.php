@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
@@ -357,7 +358,44 @@ class ListSyncFeedEntriesActionTest extends TestCase
         }
     }
 
-    public function test_it_rejects_stale_checkpoints_against_the_domain_filtered_feed_window(): void
+    public function test_it_rejects_stale_checkpoints_before_the_user_feed_window_with_filter_context(): void
+    {
+        $user = User::factory()->create();
+        $pruned = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $afterCheckpoint = $pruned->checkpoint;
+
+        $pruned->delete();
+
+        $oldest = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+            'resource_id' => 'card-1',
+            'operation' => SyncFeedOperation::Delete,
+        ]);
+
+        try {
+            app(ListSyncFeedEntriesAction::class)->handle(
+                userId: $user->id,
+                afterCheckpoint: $afterCheckpoint,
+                domain: 'flashcards',
+                resourceType: 'card',
+                resourceId: 'card-1',
+                operation: SyncFeedOperation::Delete->value,
+            );
+
+            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
+        } catch (StaleSyncFeedCheckpointException $exception) {
+            $this->assertSame($afterCheckpoint, $exception->afterCheckpoint());
+            $this->assertSame($oldest->checkpoint, $exception->oldestAvailableCheckpoint());
+            $this->assertSame('flashcards', $exception->domain());
+            $this->assertSame('card', $exception->resourceType());
+            $this->assertSame('card-1', $exception->resourceId());
+            $this->assertSame(SyncFeedOperation::Delete->value, $exception->operation());
+        }
+    }
+
+    public function test_domain_filtered_replay_reports_global_high_water_after_the_last_matching_entry(): void
     {
         $user = User::factory()->create();
         $media = SyncFeedEntry::factory()->create([
@@ -370,31 +408,25 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'user_id' => $user->id,
             'domain' => 'flashcards',
         ]);
+        $globalHighWater = SyncFeedEntry::factory()->create([
+            'checkpoint' => 6,
+            'user_id' => $user->id,
+            'domain' => 'media',
+        ]);
 
-        $this->assertTrue(
-            $media->checkpoint < $oldestFlashcard->checkpoint,
-            'The media checkpoint must predate the oldest flashcard checkpoint for this stale-domain test.',
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $media->checkpoint,
+            domain: 'flashcards',
         );
 
-        try {
-            app(ListSyncFeedEntriesAction::class)->handle(
-                userId: $user->id,
-                afterCheckpoint: $media->checkpoint,
-                domain: 'flashcards',
-            );
-
-            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
-        } catch (StaleSyncFeedCheckpointException $exception) {
-            $this->assertSame($media->checkpoint, $exception->afterCheckpoint());
-            $this->assertSame($oldestFlashcard->checkpoint, $exception->oldestAvailableCheckpoint());
-            $this->assertSame('flashcards', $exception->domain());
-            $this->assertNull($exception->resourceType());
-            $this->assertNull($exception->resourceId());
-            $this->assertNull($exception->operation());
-        }
+        $this->assertSame([$oldestFlashcard->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+        $this->assertSame($globalHighWater->checkpoint, $result->currentCheckpoint);
+        $this->assertSame($globalHighWater->checkpoint, $result->nextCheckpoint($media->checkpoint));
     }
 
-    public function test_it_rejects_stale_checkpoints_against_the_operation_filtered_feed_window(): void
+    public function test_it_allows_operation_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = User::factory()->create();
         $update = SyncFeedEntry::factory()->create([
@@ -408,25 +440,18 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'operation' => SyncFeedOperation::Delete,
         ]);
 
-        try {
-            app(ListSyncFeedEntriesAction::class)->handle(
-                userId: $user->id,
-                afterCheckpoint: $update->checkpoint,
-                operation: SyncFeedOperation::Delete->value,
-            );
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $update->checkpoint,
+            operation: SyncFeedOperation::Delete->value,
+        );
 
-            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
-        } catch (StaleSyncFeedCheckpointException $exception) {
-            $this->assertSame($update->checkpoint, $exception->afterCheckpoint());
-            $this->assertSame($oldestDelete->checkpoint, $exception->oldestAvailableCheckpoint());
-            $this->assertNull($exception->domain());
-            $this->assertNull($exception->resourceType());
-            $this->assertNull($exception->resourceId());
-            $this->assertSame(SyncFeedOperation::Delete->value, $exception->operation());
-        }
+        $this->assertSame([$oldestDelete->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+        $this->assertSame($oldestDelete->checkpoint, $result->nextCheckpoint($update->checkpoint));
     }
 
-    public function test_it_rejects_stale_checkpoints_against_the_resource_type_filtered_feed_window(): void
+    public function test_it_allows_resource_type_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = User::factory()->create();
         $deck = SyncFeedEntry::factory()->create([
@@ -442,25 +467,19 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'resource_type' => 'card',
         ]);
 
-        try {
-            app(ListSyncFeedEntriesAction::class)->handle(
-                userId: $user->id,
-                afterCheckpoint: $deck->checkpoint,
-                domain: 'flashcards',
-                resourceType: 'card',
-            );
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $deck->checkpoint,
+            domain: 'flashcards',
+            resourceType: 'card',
+        );
 
-            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
-        } catch (StaleSyncFeedCheckpointException $exception) {
-            $this->assertSame($deck->checkpoint, $exception->afterCheckpoint());
-            $this->assertSame($oldestCard->checkpoint, $exception->oldestAvailableCheckpoint());
-            $this->assertSame('flashcards', $exception->domain());
-            $this->assertSame('card', $exception->resourceType());
-            $this->assertNull($exception->resourceId());
-        }
+        $this->assertSame([$oldestCard->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+        $this->assertSame($oldestCard->checkpoint, $result->nextCheckpoint($deck->checkpoint));
     }
 
-    public function test_it_rejects_stale_checkpoints_against_the_resource_type_only_filtered_feed_window(): void
+    public function test_it_allows_resource_type_only_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = User::factory()->create();
         $deck = SyncFeedEntry::factory()->create([
@@ -476,24 +495,18 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'resource_type' => 'card',
         ]);
 
-        try {
-            app(ListSyncFeedEntriesAction::class)->handle(
-                userId: $user->id,
-                afterCheckpoint: $deck->checkpoint,
-                resourceType: 'card',
-            );
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $deck->checkpoint,
+            resourceType: 'card',
+        );
 
-            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
-        } catch (StaleSyncFeedCheckpointException $exception) {
-            $this->assertSame($deck->checkpoint, $exception->afterCheckpoint());
-            $this->assertSame($oldestCard->checkpoint, $exception->oldestAvailableCheckpoint());
-            $this->assertNull($exception->domain());
-            $this->assertSame('card', $exception->resourceType());
-            $this->assertNull($exception->resourceId());
-        }
+        $this->assertSame([$oldestCard->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+        $this->assertSame($oldestCard->checkpoint, $result->nextCheckpoint($deck->checkpoint));
     }
 
-    public function test_it_rejects_stale_checkpoints_against_the_resource_id_filtered_feed_window(): void
+    public function test_it_allows_resource_id_filtered_replay_from_a_global_checkpoint_before_the_first_matching_entry(): void
     {
         $user = User::factory()->create();
         $otherCard = SyncFeedEntry::factory()->create([
@@ -511,23 +524,17 @@ class ListSyncFeedEntriesActionTest extends TestCase
             'resource_id' => 'card-1',
         ]);
 
-        try {
-            app(ListSyncFeedEntriesAction::class)->handle(
-                userId: $user->id,
-                afterCheckpoint: $otherCard->checkpoint,
-                domain: 'flashcards',
-                resourceType: 'card',
-                resourceId: 'card-1',
-            );
+        $result = app(ListSyncFeedEntriesAction::class)->handle(
+            userId: $user->id,
+            afterCheckpoint: $otherCard->checkpoint,
+            domain: 'flashcards',
+            resourceType: 'card',
+            resourceId: 'card-1',
+        );
 
-            $this->fail('Expected StaleSyncFeedCheckpointException was not thrown.');
-        } catch (StaleSyncFeedCheckpointException $exception) {
-            $this->assertSame($otherCard->checkpoint, $exception->afterCheckpoint());
-            $this->assertSame($oldestTarget->checkpoint, $exception->oldestAvailableCheckpoint());
-            $this->assertSame('flashcards', $exception->domain());
-            $this->assertSame('card', $exception->resourceType());
-            $this->assertSame('card-1', $exception->resourceId());
-        }
+        $this->assertSame([$oldestTarget->checkpoint], $result->entries->pluck('checkpoint')->all());
+        $this->assertFalse($result->hasMore);
+        $this->assertSame($oldestTarget->checkpoint, $result->nextCheckpoint($otherCard->checkpoint));
     }
 
     public function test_it_allows_checkpoints_equal_to_the_oldest_available_entry(): void
@@ -584,6 +591,64 @@ class ListSyncFeedEntriesActionTest extends TestCase
         $this->assertFalse($result->hasMore);
         $this->assertSame($media->checkpoint, $result->currentCheckpoint);
         $this->assertSame($media->checkpoint, $result->nextCheckpoint($media->checkpoint));
+    }
+
+    public function test_filtered_replay_uses_one_checkpoint_window_query(): void
+    {
+        $user = User::factory()->create();
+        SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'media',
+            'resource_type' => 'media_asset',
+        ]);
+        $firstCard = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+        $secondCard = SyncFeedEntry::factory()->create([
+            'user_id' => $user->id,
+            'domain' => 'flashcards',
+            'resource_type' => 'card',
+        ]);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $result = app(ListSyncFeedEntriesAction::class)->handle(
+                userId: $user->id,
+                domain: 'flashcards',
+                resourceType: 'card',
+                pageSize: CursorPageSize::fromPerPage(2),
+            );
+
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $syncFeedQueries = $queries->filter(
+            fn (array $query): bool => str_contains((string) $query['query'], 'sync_feed_entries')
+        )->values();
+
+        $this->assertSame([
+            $firstCard->checkpoint,
+            $secondCard->checkpoint,
+        ], $result->entries->pluck('checkpoint')->all());
+        $checkpointWindowQueries = $syncFeedQueries->filter(function (array $query): bool {
+            $sql = strtolower((string) $query['query']);
+
+            return str_contains($sql, 'min(checkpoint)')
+                && str_contains($sql, 'max(checkpoint)');
+        })->values();
+
+        $this->assertCount(
+            1,
+            $checkpointWindowQueries,
+            'Filtered sync replay should use one min/max checkpoint query.',
+        );
     }
 
     public function test_it_caps_the_page_size(): void

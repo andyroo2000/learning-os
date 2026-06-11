@@ -61,8 +61,15 @@ class UndoCardReviewEventApiTest extends TestCase
             $card->refresh()->load('deck'),
             SyncFeedOperation::Update,
         );
+        $deletedAt = Carbon::parse('2026-05-27T10:00:00Z');
 
-        $response = $this->deleteJson("/api/card-review-events/{$reviewEventId}");
+        Carbon::setTestNow($deletedAt);
+
+        try {
+            $response = $this->deleteJson("/api/card-review-events/{$reviewEventId}");
+        } finally {
+            Carbon::setTestNow();
+        }
 
         $response
             ->assertOk()
@@ -85,7 +92,7 @@ class UndoCardReviewEventApiTest extends TestCase
         $card->refresh()->load('deck');
         $reviewEvent->setRelation('card', $card);
 
-        $this->assertCardReviewEventDeleteSyncPayloadRecorded($reviewEvent);
+        $this->assertCardReviewEventDeleteSyncPayloadRecorded($reviewEvent, $deletedAt);
         $this->assertCardSyncPayloadRecorded(
             $card,
             SyncFeedOperation::Update,

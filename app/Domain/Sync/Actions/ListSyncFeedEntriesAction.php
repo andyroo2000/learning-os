@@ -68,6 +68,7 @@ class ListSyncFeedEntriesAction
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
+        // Keep this query filter-free after user scope; stale checks and high-water metadata use the global feed window.
         $userFeedQuery = SyncFeedEntry::query()
             ->where('user_id', $userId);
 
@@ -77,16 +78,25 @@ class ListSyncFeedEntriesAction
             ->when($resourceId !== null, fn ($query) => $query->where('resource_id', $resourceId))
             ->when($operation !== null, fn ($query) => $query->where('operation', $operation));
 
-        $currentCheckpoint = (int) (clone $userFeedQuery)->max('checkpoint');
+        $checkpointWindow = (clone $userFeedQuery)
+            ->selectRaw('MIN(checkpoint) as oldest_checkpoint, MAX(checkpoint) as current_checkpoint')
+            ->first();
+
+        // Aggregate first() returns a row; oldest/current are null only when the user's feed is empty.
+        $oldestAvailableCheckpoint = $checkpointWindow->oldest_checkpoint === null
+            ? null
+            : (int) $checkpointWindow->oldest_checkpoint;
+        $currentCheckpoint = $checkpointWindow->current_checkpoint === null
+            ? 0
+            : (int) $checkpointWindow->current_checkpoint;
 
         if ($afterCheckpoint > 0) {
-            // Each filter context has its own retained window while still advancing against the full feed high-water mark.
-            $oldestAvailableCheckpoint = (clone $baseQuery)->min('checkpoint');
-
-            if ($oldestAvailableCheckpoint !== null && $afterCheckpoint < (int) $oldestAvailableCheckpoint) {
+            // Staleness is a retained-feed property, not a filtered-view property. A client can safely
+            // replay a filtered slice from any checkpoint that still falls inside the user's global window.
+            if ($oldestAvailableCheckpoint !== null && $afterCheckpoint < $oldestAvailableCheckpoint) {
                 throw StaleSyncFeedCheckpointException::forCheckpoint(
                     afterCheckpoint: $afterCheckpoint,
-                    oldestAvailableCheckpoint: (int) $oldestAvailableCheckpoint,
+                    oldestAvailableCheckpoint: $oldestAvailableCheckpoint,
                     domain: $domain,
                     resourceType: $resourceType,
                     resourceId: $resourceId,

@@ -162,14 +162,33 @@ trait BuildsStudyImportArchives
             return;
         }
 
+        $reviewLogs = $options['review_logs'] ?? [
+            ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1],
+            ['id' => 1700000000456, 'cid' => 703, 'ease' => 4, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1],
+        ];
+
         if ($options['legacy_revlog_schema'] ?? false) {
             $statement = $pdo->prepare('INSERT INTO revlog (id, cid) VALUES (:id, :cid)');
-            $statement->execute(['id' => 901, 'cid' => 701]);
-            $statement->execute(['id' => 902, 'cid' => 703]);
+            foreach ($reviewLogs as $reviewLog) {
+                $statement->execute([
+                    'id' => $reviewLog['id'],
+                    'cid' => $reviewLog['cid'],
+                ]);
+            }
         } else {
             $statement = $pdo->prepare('INSERT INTO revlog (id, cid, ease, ivl, lastIvl, factor, time, type) VALUES (:id, :cid, :ease, :ivl, :lastIvl, :factor, :time, :type)');
-            $statement->execute(['id' => 901, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1]);
-            $statement->execute(['id' => 902, 'cid' => 703, 'ease' => 4, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1]);
+            foreach ($reviewLogs as $reviewLog) {
+                $statement->execute([
+                    'id' => $reviewLog['id'],
+                    'cid' => $reviewLog['cid'],
+                    'ease' => $reviewLog['ease'],
+                    'ivl' => $reviewLog['ivl'],
+                    'lastIvl' => $reviewLog['lastIvl'],
+                    'factor' => $reviewLog['factor'],
+                    'time' => $reviewLog['time'],
+                    'type' => $reviewLog['type'],
+                ]);
+            }
         }
     }
 

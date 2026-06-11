@@ -515,13 +515,21 @@ final class StudyImportArchiveImporter
                 continue;
             }
 
+            $reviewedAt = $this->reviewedAt($reviewLog);
+
+            if ($reviewedAt === null) {
+                $skippedCount++;
+
+                continue;
+            }
+
             $seenSourceReviewIds[$reviewLog->sourceReviewId] = true;
             $card->setRelation('deck', $deck);
 
             $reviewEvent = new CardReviewEvent([
                 'card_id' => $card->id,
                 'rating' => $rating,
-                'reviewed_at' => $this->reviewedAt($reviewLog),
+                'reviewed_at' => $reviewedAt,
                 'duration_ms' => $this->durationMs($reviewLog),
             ]);
             $reviewEvent->import_job_id = $importJob->id;
@@ -561,9 +569,13 @@ final class StudyImportArchiveImporter
         };
     }
 
-    private function reviewedAt(StudyImportArchiveReviewLog $reviewLog): Carbon
+    private function reviewedAt(StudyImportArchiveReviewLog $reviewLog): ?Carbon
     {
-        $milliseconds = max(0, $reviewLog->sourceReviewId);
+        if ($reviewLog->sourceReviewId <= 0) {
+            return null;
+        }
+
+        $milliseconds = $reviewLog->sourceReviewId;
         $seconds = intdiv($milliseconds, 1000);
         $remainingMilliseconds = $milliseconds % 1000;
 

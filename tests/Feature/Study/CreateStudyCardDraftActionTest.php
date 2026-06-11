@@ -195,7 +195,7 @@ class CreateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_invalid_image_placements_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);
-        $this->expectExceptionMessage('imagePlacement must be none, prompt, answer, or both.');
+        $this->expectExceptionMessage('imagePlacement must be one of: none, prompt, answer, both.');
 
         CreateStudyCardDraftData::fromInput(
             userId: User::factory()->create()->id,

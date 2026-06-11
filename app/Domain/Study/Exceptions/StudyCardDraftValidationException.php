@@ -2,6 +2,9 @@
 
 namespace App\Domain\Study\Exceptions;
 
+use App\Domain\Study\Enums\StudyCardAudioRole;
+use App\Domain\Study\Enums\StudyCardCreationKind;
+use App\Domain\Study\Enums\StudyCardImagePlacement;
 use RuntimeException;
 
 class StudyCardDraftValidationException extends RuntimeException
@@ -20,12 +23,12 @@ class StudyCardDraftValidationException extends RuntimeException
 
     public static function invalidCreationKind(): self
     {
-        return new self('creationKind must be one of: text-recognition, audio-recognition, production-text, production-image, cloze.', 'creationKind');
+        return new self('creationKind must be one of: '.implode(', ', StudyCardCreationKind::values()).'.', 'creationKind');
     }
 
     public static function invalidImagePlacement(): self
     {
-        return new self('imagePlacement must be none, prompt, answer, or both.', 'imagePlacement');
+        return new self('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.', 'imagePlacement');
     }
 
     public static function imagePromptTooLong(int $maxLength): self
@@ -45,7 +48,7 @@ class StudyCardDraftValidationException extends RuntimeException
 
     public static function invalidPreviewAudioRole(): self
     {
-        return new self('previewAudioRole must be prompt or answer.', 'previewAudioRole');
+        return new self('previewAudioRole must be one of: '.implode(', ', StudyCardAudioRole::values()).'.', 'previewAudioRole');
     }
 
     public static function payloadsTooLarge(int $maxKilobytes): self

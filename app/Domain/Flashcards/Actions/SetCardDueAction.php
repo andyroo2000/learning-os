@@ -127,13 +127,13 @@ class SetCardDueAction
 
     private function customDueAt(?string $dueAt, Carbon $now): Carbon
     {
-        if ($dueAt === null || ! StrictIsoDateTime::matches($dueAt)) {
+        if ($dueAt === null) {
             throw new InvalidArgumentException('due_at must be a valid ISO-8601 datetime for custom_date.');
         }
 
-        try {
-            $resolvedDueAt = Carbon::parse($dueAt);
-        } catch (Exception) {
+        $resolvedDueAt = StrictIsoDateTime::parseOrNull($dueAt);
+
+        if ($resolvedDueAt === null) {
             throw new InvalidArgumentException('due_at must be a valid ISO-8601 datetime for custom_date.');
         }
 

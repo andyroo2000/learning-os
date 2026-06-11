@@ -115,6 +115,32 @@ class CreateCardReviewEventApiTest extends TestCase
         ]);
     }
 
+    public function test_it_stores_review_timestamps_with_explicit_offsets_as_utc(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $response = $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T05:15:00-04:00',
+            'client_event_id' => 'event-offset-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T05:14:00-04:00',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z')
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.000000Z');
+
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $response->json('data.id'),
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+    }
+
     public function test_it_rate_limits_review_event_writes_by_user(): void
     {
         $limiter = new CardReviewEventCreateRateLimiter;
@@ -762,6 +788,40 @@ class CreateCardReviewEventApiTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['id', 'card_id', 'rating', 'reviewed_at', 'duration_ms', 'client_created_at']);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
+    public function test_it_rejects_non_strict_review_timestamps(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        foreach (['2026-05-27T09:15:00', 'tomorrow', 1780668900, ['2026-05-27T09:15:00Z']] as $reviewedAt) {
+            $this->postJson('/api/card-review-events', [
+                'card_id' => $card->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => $reviewedAt,
+                'client_event_id' => 'event-123',
+                'device_id' => 'device-abc',
+                'client_created_at' => '2026-05-27T09:14:00Z',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['reviewed_at']);
+        }
+
+        foreach (['2026-05-27T09:14:00', 'tomorrow', 1780668840, ['2026-05-27T09:14:00Z']] as $clientCreatedAt) {
+            $this->postJson('/api/card-review-events', [
+                'card_id' => $card->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => '2026-05-27T09:15:00Z',
+                'client_event_id' => 'event-123',
+                'device_id' => 'device-abc',
+                'client_created_at' => $clientCreatedAt,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['client_created_at']);
+        }
 
         $this->assertDatabaseCount('card_review_events', 0);
     }

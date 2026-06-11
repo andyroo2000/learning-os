@@ -100,6 +100,33 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_custom_due_date_with_explicit_offset_is_stored_as_utc(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $card = $this->cardFor($this->signIn(), [
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => '2026-06-05T12:00:00Z',
+            ]);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => '2026-06-06T10:15:00-04:00',
+            ])
+                ->assertOk()
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000000Z');
+
+            $this->assertDatabaseHas('cards', [
+                'id' => $card->id,
+                'due_at' => '2026-06-06 14:15:00',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_normalizes_action_mode_due_at_and_timezone_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
@@ -405,6 +432,22 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['dueAt', 'currentOverview']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => 1780668900,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['dueAt']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'custom_date',
+                'dueAt' => '2026-06-05T15:30:00',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['dueAt']);
 
             $this->postJson("/api/study/cards/{$card->id}/actions", [
                 'action' => 'set_due',

@@ -5,11 +5,9 @@ namespace App\Http\Requests\Flashcards;
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Requests\Concerns\FiltersByDeckId;
-use App\Support\DateTime\StrictIsoDateTime;
+use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Support\Identifiers\CanonicalUlid;
-use Exception;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -17,6 +15,7 @@ use Illuminate\Validation\Validator;
 class PerformCardStudyActionRequest extends FormRequest
 {
     use FiltersByDeckId;
+    use ValidatesStrictIsoDateTime;
 
     public function authorize(): bool
     {
@@ -38,6 +37,12 @@ class PerformCardStudyActionRequest extends FormRequest
 
         if (is_string($this->input('mode'))) {
             $data['mode'] = strtolower(trim($this->input('mode')));
+        }
+
+        foreach (['due_at', 'time_zone'] as $key) {
+            if (is_string($this->input($key))) {
+                $data[$key] = trim($this->input($key));
+            }
         }
 
         $this->prepareDeckIdForValidation();
@@ -67,18 +72,12 @@ class PerformCardStudyActionRequest extends FormRequest
             'due_at' => [
                 'exclude_unless:mode,custom_date',
                 'required_if:mode,custom_date',
+                'bail',
                 'string',
-                'date',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value) || ! StrictIsoDateTime::matches($value)) {
-                        $fail('due_at must be a valid ISO-8601 datetime for custom_date.');
+                    $dueAt = $this->parseStrictIsoDateTimeForValidation($value);
 
-                        return;
-                    }
-
-                    try {
-                        $dueAt = Carbon::parse($value);
-                    } catch (Exception) {
+                    if ($dueAt === null) {
                         $fail('due_at must be a valid ISO-8601 datetime for custom_date.');
 
                         return;
@@ -130,7 +129,6 @@ class PerformCardStudyActionRequest extends FormRequest
             'action.in' => 'action must be set_due, suspend, unsuspend, or forget.',
             'mode.in' => 'mode must be now, tomorrow, or custom_date for set_due.',
             'mode.required_if' => 'mode must be now, tomorrow, or custom_date for set_due.',
-            'due_at.date' => 'due_at must be a valid ISO-8601 datetime for custom_date.',
             'due_at.required_if' => 'due_at must be a valid ISO-8601 datetime for custom_date.',
             'time_zone.required_if' => 'time_zone must be a valid IANA timezone for tomorrow.',
             'time_zone.timezone' => 'time_zone must be a valid IANA timezone for tomorrow.',

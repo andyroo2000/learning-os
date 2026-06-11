@@ -7,6 +7,7 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
+use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 class StoreCardReviewEventBatchRequest extends FormRequest
 {
     use NormalizesUlidInput;
+    use ValidatesStrictIsoDateTime;
 
     public function authorize(): bool
     {
@@ -67,11 +69,21 @@ class StoreCardReviewEventBatchRequest extends FormRequest
             'events.*.id' => ['nullable', 'ulid'],
             'events.*.card_id' => ['required', 'ulid'],
             'events.*.rating' => ['required', Rule::enum(CardReviewRating::class)],
-            'events.*.reviewed_at' => ['required', 'date'],
+            'events.*.reviewed_at' => [
+                'required',
+                'bail',
+                'string',
+                $this->strictIsoDateTimeRule('reviewed_at must be a valid ISO-8601 datetime.'),
+            ],
             'events.*.duration_ms' => ['nullable', 'integer', 'min:0', 'max:'.ReviewCardData::MAX_DURATION_MS],
             'events.*.client_event_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH],
             'events.*.device_id' => ['required', 'string', 'max:'.SyncMetadata::MAX_DEVICE_ID_LENGTH],
-            'events.*.client_created_at' => ['required', 'date'],
+            'events.*.client_created_at' => [
+                'required',
+                'bail',
+                'string',
+                $this->strictIsoDateTimeRule('client_created_at must be a valid ISO-8601 datetime.'),
+            ],
         ];
     }
 

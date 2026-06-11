@@ -6,12 +6,14 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
+use App\Support\DateTime\ServerTimestamp;
 use App\Support\Identifiers\CanonicalUlid;
 use DateTimeZone;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use UnexpectedValueException;
 
 class GetStudyOverviewAction
 {
@@ -188,7 +190,7 @@ class GetStudyOverviewAction
             ])
             ->first();
 
-        $nextDueAt = $row?->next_due_at;
+        $nextDueAt = $this->aggregateTimestamp($row?->next_due_at, 'next_due_at');
 
         return [
             'due_count' => (int) $row?->due_count,
@@ -201,8 +203,18 @@ class GetStudyOverviewAction
             'review_count' => (int) $row?->review_count,
             'suspended_count' => (int) $row?->suspended_count,
             'total_cards' => (int) $row?->total_cards,
-            'next_due_at' => $nextDueAt === null ? null : Carbon::parse($nextDueAt)->toJSON(),
+            'next_due_at' => $nextDueAt,
         ];
+    }
+
+    private function aggregateTimestamp(mixed $value, string $label): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return ServerTimestamp::toJson($value)
+            ?? throw new UnexpectedValueException("Study overview {$label} aggregate is not a valid timestamp.");
     }
 
     /**

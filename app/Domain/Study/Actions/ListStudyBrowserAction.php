@@ -7,13 +7,14 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
+use App\Support\DateTime\ServerTimestamp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use UnexpectedValueException;
 
 class ListStudyBrowserAction
 {
@@ -353,8 +354,6 @@ class ListStudyBrowserAction
             ->map(function (Collection $group, string $noteId): array {
                 /** @var Card $firstCard */
                 $firstCard = $group->first();
-                $createdAt = $group->min(fn (Card $card) => $card->created_at?->getTimestamp()) ?? 0;
-                $updatedAt = $group->max(fn (Card $card) => $card->updated_at?->getTimestamp()) ?? 0;
                 $queueSummary = [];
                 $reviewCount = 0;
 
@@ -373,12 +372,34 @@ class ListStudyBrowserAction
                     'cardCount' => $group->count(),
                     'reviewCount' => $reviewCount,
                     'queueSummary' => $queueSummary,
-                    'createdAt' => Carbon::createFromTimestamp($createdAt)->toJSON(),
-                    'updatedAt' => Carbon::createFromTimestamp($updatedAt)->toJSON(),
+                    'createdAt' => $this->groupTimestamp($group, 'created_at', latest: false),
+                    'updatedAt' => $this->groupTimestamp($group, 'updated_at', latest: true),
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  Collection<int, Card>  $group
+     */
+    private function groupTimestamp(Collection $group, string $attribute, bool $latest): string
+    {
+        if (! in_array($attribute, ['created_at', 'updated_at'], true)) {
+            throw new InvalidArgumentException('Study browser timestamp attribute is invalid.');
+        }
+
+        $timestamps = $group
+            ->map(fn (Card $card): ?string => ServerTimestamp::toJson($card->getAttribute($attribute)))
+            ->filter()
+            ->sort()
+            ->values();
+
+        $timestamp = $latest ? $timestamps->last() : $timestamps->first();
+
+        return is_string($timestamp)
+            ? $timestamp
+            : throw new UnexpectedValueException("Study browser {$attribute} timestamp is missing or invalid.");
     }
 
     /**

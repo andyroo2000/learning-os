@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -21,6 +22,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
+        $firstCreatedAt = Carbon::parse('2026-06-01T09:15:00Z');
+        $firstUpdatedAt = Carbon::parse('2026-06-04T09:15:00Z');
+        $secondCreatedAt = Carbon::parse('2026-06-02T09:15:00Z');
+        $secondUpdatedAt = Carbon::parse('2026-06-04T10:15:00Z');
         $firstCard = Card::factory()->for($deck)->create([
             'front_text' => '会社',
             'back_text' => 'company',
@@ -31,8 +36,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'source_template_ord' => 0,
             'prompt_json' => ['cueText' => '会社'],
             'search_text' => '会社 company',
-            'created_at' => now()->subDays(2),
-            'updated_at' => now()->subHour(),
+            'created_at' => $firstCreatedAt,
+            'updated_at' => $firstUpdatedAt,
         ]);
         $secondCard = Card::factory()->for($deck)->create([
             'front_text' => '会社 production',
@@ -43,8 +48,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'source_notetype_name' => 'Japanese - Vocab',
             'source_template_ord' => 1,
             'search_text' => '会社 production company',
-            'created_at' => now()->subDay(),
-            'updated_at' => now()->subMinutes(30),
+            'created_at' => $secondCreatedAt,
+            'updated_at' => $secondUpdatedAt,
         ]);
         Card::factory()->for($deck)->create([
             'front_text' => '水',
@@ -77,6 +82,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('rows.0.reviewCount', 3)
             ->assertJsonPath('rows.0.queueSummary.new', 1)
             ->assertJsonPath('rows.0.queueSummary.review', 1)
+            ->assertJsonPath('rows.0.createdAt', $firstCreatedAt->toJSON())
+            ->assertJsonPath('rows.0.updatedAt', $secondUpdatedAt->toJSON())
             ->assertJsonPath('filterOptions.noteTypes.0', 'Japanese - Vocab')
             ->assertJsonPath('filterOptions.cardTypes', ['production', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['new', 'review']);

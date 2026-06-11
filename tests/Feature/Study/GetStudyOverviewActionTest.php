@@ -183,6 +183,25 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertCount(1, $settingsQueries, $queries->pluck('query')->implode("\n"));
     }
 
+    public function test_it_normalizes_database_timestamp_strings_from_overview_aggregates(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+
+        DB::table('cards')
+            ->where('id', $card->id)
+            ->update(['due_at' => '2026-06-04 11:00:00']);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame('2026-06-04T11:00:00.000000Z', $overview['next_due_at']);
+    }
+
     public function test_it_includes_the_latest_import_for_the_user(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

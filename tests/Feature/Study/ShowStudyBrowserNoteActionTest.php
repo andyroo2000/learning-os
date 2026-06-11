@@ -3,8 +3,10 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\ShowStudyBrowserNoteAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -81,6 +83,27 @@ class ShowStudyBrowserNoteActionTest extends TestCase
 
         $this->assertNotNull($result);
         $this->assertSame('7001', $result->noteId);
+    }
+
+    public function test_it_normalizes_database_timestamp_strings_from_review_aggregates(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'aggregate detail card',
+            'source_note_id' => 7002,
+        ]);
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T10:00:00Z'),
+        ]);
+
+        DB::table('card_review_events')
+            ->where('id', $reviewEvent->id)
+            ->update(['reviewed_at' => '2026-06-04 11:00:00']);
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7002');
+
+        $this->assertNotNull($result);
+        $this->assertSame('2026-06-04T11:00:00.000000Z', $result->cardStats[0]['lastReviewedAt']);
     }
 
     public function test_it_returns_null_for_malformed_unsourced_note_ids(): void

@@ -8,8 +8,11 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class ListStudyBrowserActionTest extends TestCase
 {
@@ -84,6 +87,53 @@ class ListStudyBrowserActionTest extends TestCase
         );
 
         $this->assertSame(['4051', '4052'], collect($result['rows'])->pluck('noteId')->all());
+    }
+
+    public function test_it_uses_group_timestamp_boundaries_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'older created card',
+            'source_note_id' => 4053,
+            'created_at' => Carbon::parse('2026-06-01T09:15:00Z'),
+            'updated_at' => Carbon::parse('2026-06-02T09:15:00Z'),
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'newer updated card',
+            'source_note_id' => 4053,
+            'created_at' => Carbon::parse('2026-06-03T09:15:00Z'),
+            'updated_at' => Carbon::parse('2026-06-04T09:15:00Z'),
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            sortField: 'created_on',
+            sortDirection: 'asc',
+        );
+
+        $this->assertSame('4053', $result['rows'][0]['noteId']);
+        $this->assertSame('2026-06-01T09:15:00.000000Z', $result['rows'][0]['createdAt']);
+        $this->assertSame('2026-06-04T09:15:00.000000Z', $result['rows'][0]['updatedAt']);
+    }
+
+    public function test_it_rejects_rows_without_created_timestamps_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $card = Card::factory()->for($deck)->create([
+            'front_text' => 'missing timestamp card',
+            'source_note_id' => 4054,
+        ]);
+        DB::table('cards')
+            ->where('id', $card->id)
+            ->update(['created_at' => null]);
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study browser created_at timestamp is missing or invalid.');
+
+        app(ListStudyBrowserAction::class)->handle(userId: $user->id);
     }
 
     public function test_it_treats_search_wildcards_as_literals_for_direct_callers(): void

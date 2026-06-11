@@ -5,14 +5,15 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
+use App\Support\DateTime\ServerTimestamp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
+use UnexpectedValueException;
 
 class ShowStudyBrowserNoteAction
 {
@@ -150,13 +151,9 @@ class ShowStudyBrowserNoteAction
             return null;
         }
 
-        if ($value instanceof \DateTimeInterface) {
-            return Carbon::instance($value)->toJSON();
-        }
-
-        // Aggregate timestamp hydration differs across drivers, so normalize raw SQL strings too.
-        if (is_string($value) && trim($value) !== '') {
-            return Carbon::parse($value)->toJSON();
+        if ($value instanceof \DateTimeInterface || is_string($value)) {
+            return ServerTimestamp::toJson($value)
+                ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
         }
 
         return null;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Http\Requests\Concerns\NormalizesStringInputs;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,21 +11,11 @@ use Illuminate\Validation\Validator;
 
 abstract class CursorPaginatedRequest extends FormRequest
 {
+    use NormalizesStringInputs;
+
     protected function prepareForValidation(): void
     {
-        $normalized = [];
-
-        foreach (['cursor', 'per_page'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $normalized[$key] = trim($value);
-            }
-        }
-
-        if ($normalized !== []) {
-            $this->merge($normalized);
-        }
+        $this->mergeNormalizedStringInputs(['cursor', 'per_page']);
     }
 
     public function authorize(): bool

@@ -9,28 +9,17 @@ use Illuminate\Validation\Rule;
 
 class ListCoursesRequest extends CursorPaginatedRequest
 {
-    private const NORMALIZED_INPUT_KEYS = ['status', 'native_language', 'target_language'];
+    private const NORMALIZED_LANGUAGE_INPUT_KEYS = ['native_language', 'target_language'];
 
     protected function prepareForValidation(): void
     {
         parent::prepareForValidation();
+        $this->mergeNormalizedStringInputs(['status'], ['status']);
 
-        $input = [];
-
-        foreach (self::NORMALIZED_INPUT_KEYS as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $input[$key] = match ($key) {
-                    'status' => mb_strtolower(trim($value)),
-                    'native_language', 'target_language' => CourseLanguage::normalize($value),
-                };
-            }
-        }
-
-        if ($input !== []) {
-            $this->merge($input);
-        }
+        $this->mergeStringInputsUsing(
+            self::NORMALIZED_LANGUAGE_INPUT_KEYS,
+            fn (string $value, string $_key): string => CourseLanguage::normalize($value),
+        );
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Sync;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Support\SyncFeedMetadata;
+use App\Http\Requests\Concerns\NormalizesStringInputs;
 use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Http\FormRequest;
@@ -12,39 +13,16 @@ use Illuminate\Validation\Rule;
 
 class ListSyncFeedEntriesRequest extends FormRequest
 {
+    use NormalizesStringInputs;
+
     protected function prepareForValidation(): void
     {
-        $domain = $this->input('domain');
+        $this->mergeNormalizedStringInputs(['after_checkpoint', 'per_page']);
 
-        if (is_string($domain)) {
-            $this->merge([
-                'domain' => SyncFeedMetadata::normalize($domain),
-            ]);
-        }
-
-        $resourceType = $this->input('resource_type');
-
-        if (is_string($resourceType)) {
-            $this->merge([
-                'resource_type' => SyncFeedMetadata::normalize($resourceType),
-            ]);
-        }
-
-        $resourceId = $this->input('resource_id');
-
-        if (is_string($resourceId)) {
-            $this->merge([
-                'resource_id' => SyncFeedMetadata::normalize($resourceId),
-            ]);
-        }
-
-        $operation = $this->input('operation');
-
-        if (is_string($operation)) {
-            $this->merge([
-                'operation' => SyncFeedMetadata::normalize($operation),
-            ]);
-        }
+        $this->mergeStringInputsUsing(
+            ['domain', 'resource_type', 'resource_id', 'operation'],
+            fn (string $value, string $_key): string => SyncFeedMetadata::normalize($value),
+        );
     }
 
     public function authorize(): bool
@@ -58,13 +36,13 @@ class ListSyncFeedEntriesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'after_checkpoint' => ['sometimes', 'integer', 'min:0'],
+            'after_checkpoint' => ['sometimes', 'filled', 'integer', 'min:0'],
             // resource_id is only unique inside its domain/type scope; keep those filters optional otherwise.
             'domain' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_DOMAIN_LENGTH],
             'resource_type' => ['required_with:resource_id', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH],
             'resource_id' => ['sometimes', 'filled', 'string', 'max:'.SyncFeedEntry::MAX_RESOURCE_ID_LENGTH],
             'operation' => ['sometimes', 'filled', 'string', Rule::in(SyncFeedOperation::values())],
-            'per_page' => ['sometimes', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.CursorPagination::MAX_PAGE_SIZE],
+            'per_page' => ['sometimes', 'filled', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.CursorPagination::MAX_PAGE_SIZE],
         ];
     }
 

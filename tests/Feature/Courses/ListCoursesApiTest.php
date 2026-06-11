@@ -212,6 +212,32 @@ class ListCoursesApiTest extends TestCase
             ->assertJsonPath('data.0.id', $readyCourse->id);
     }
 
+    public function test_it_normalizes_page_size_and_status_filter_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $olderReadyCourse = Course::factory()->ready()->for($user)->create([
+            'updated_at' => now()->subMinute(),
+        ]);
+        $newerReadyCourse = Course::factory()->ready()->for($user)->create([
+            'updated_at' => now(),
+        ]);
+
+        Course::factory()->draft()->for($user)->create();
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/courses?status=%20READY%20&per_page=%20%2B1%20');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newerReadyCourse->id)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonMissing([
+                'id' => $olderReadyCourse->id,
+            ]);
+    }
+
     public function test_it_filters_courses_by_native_language(): void
     {
         $user = $this->signIn();

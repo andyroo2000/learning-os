@@ -8,7 +8,6 @@ use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
-use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -21,10 +20,12 @@ use InvalidArgumentException;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateCardActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_updates_card_text(): void
@@ -56,14 +57,13 @@ class UpdateCardActionTest extends TestCase
             'back_text' => 'goodbye',
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertSame($updatedCard->deck->user_id, $entry->user_id);
-        $this->assertSame(CardSyncPayload::DOMAIN, $entry->domain);
-        $this->assertSame(CardSyncPayload::RESOURCE_TYPE, $entry->resource_type);
-        $this->assertSame($updatedCard->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertEquals(CardSyncPayload::fromCard($updatedCard), $entry->payload);
+        $entry = $this->assertCardSyncPayloadRecorded($updatedCard, SyncFeedOperation::Update);
+
+        $this->assertSame($course->id, $entry->payload['course_id']);
+        $this->assertSame('arrivederci', $entry->payload['front_text']);
+        $this->assertSame('goodbye', $entry->payload['back_text']);
     }
 
     public function test_it_updates_card_type(): void
@@ -89,7 +89,11 @@ class UpdateCardActionTest extends TestCase
             'id' => $card->id,
             'card_type' => 'cloze',
         ]);
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Update);
+
+        $this->assertSame('cloze', $entry->payload['card_type']);
     }
 
     public function test_it_updates_structured_content(): void
@@ -119,7 +123,12 @@ class UpdateCardActionTest extends TestCase
             $result->card->search_text,
         );
 
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Update);
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $entry->payload['prompt_json']);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $entry->payload['answer_json']);
     }
 
     public function test_it_updates_variant_metadata_for_direct_callers(): void
@@ -161,8 +170,13 @@ class UpdateCardActionTest extends TestCase
         $this->assertSame(VocabVariantStatus::Available->value, $card->variant_status);
         $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($card, SyncFeedOperation::Update);
+
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence_cloze', $entry->payload['variant_kind']);
+        $this->assertSame('2026-06-04T08:45:30.000000Z', $entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_clears_variant_metadata_for_direct_callers(): void
@@ -209,8 +223,13 @@ class UpdateCardActionTest extends TestCase
         $this->assertNull($card->variant_status);
         $this->assertNull($card->variant_unlocked_at);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($card, SyncFeedOperation::Update);
+
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_kind']);
+        $this->assertNull($entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_clears_structured_content_when_explicit_nulls_are_provided(): void
@@ -238,7 +257,12 @@ class UpdateCardActionTest extends TestCase
         $this->assertNull($result->card->prompt_json);
         $this->assertNull($result->card->answer_json);
         $this->assertSame('What is ATP? Cellular energy currency.', $result->card->search_text);
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Update);
+
+        $this->assertNull($entry->payload['prompt_json']);
+        $this->assertNull($entry->payload['answer_json']);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -364,7 +388,11 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertTrue($result->wasUpdated);
         $this->assertSame('arrivederci goodbye', $result->card->search_text);
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Update);
+
+        $this->assertSame('arrivederci goodbye', $entry->payload['search_text']);
     }
 
     public function test_it_marks_unchanged_when_card_type_is_omitted(): void

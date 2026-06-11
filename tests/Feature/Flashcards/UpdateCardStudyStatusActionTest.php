@@ -15,10 +15,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use RuntimeException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateCardStudyStatusActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_updates_card_study_status_and_records_a_sync_entry(): void
@@ -47,58 +49,26 @@ class UpdateCardStudyStatusActionTest extends TestCase
             $this->assertSame(CardStudyStatus::Suspended, $updatedCard->study_status);
             $this->assertSame($dueAt->toJSON(), $updatedCard->due_at?->toJSON());
 
-            $entry = SyncFeedEntry::query()->sole();
+            $this->assertDatabaseCount('sync_feed_entries', 1);
 
-            $this->assertSame($user->id, $entry->user_id);
-            $this->assertSame('flashcards', $entry->domain);
-            $this->assertSame('card', $entry->resource_type);
-            $this->assertSame($card->id, $entry->resource_id);
-            $this->assertSame(SyncFeedOperation::Update, $entry->operation);
+            $entry = $this->assertCardSyncPayloadRecorded($updatedCard, SyncFeedOperation::Update);
+
+            $this->assertSame($course->id, $entry->payload['course_id']);
+            $this->assertSame('suspended', $entry->payload['study_status']);
+            $this->assertNull($entry->payload['new_queue_position']);
             $this->assertSame([
-                'id' => $card->id,
-                'deck_id' => $deck->id,
-                'course_id' => $course->id,
-                'import_job_id' => null,
-                'source_kind' => null,
-                'source_card_id' => null,
-                'source_note_id' => null,
-                'source_deck_id' => null,
-                'source_notetype_name' => null,
-                'source_template_ord' => null,
-                'front_text' => $card->front_text,
-                'back_text' => $card->back_text,
-                'card_type' => 'recognition',
-                'prompt_json' => null,
-                'answer_json' => null,
-                'search_text' => $card->search_text,
-                'study_status' => 'suspended',
-                'new_queue_position' => null,
-                'scheduler_state' => [
-                    'due' => '2026-06-05T14:15:00.000000Z',
-                    'stability' => 0.1,
-                    'difficulty' => 5,
-                    'elapsed_days' => 0,
-                    'scheduled_days' => 1,
-                    'learning_steps' => 0,
-                    'reps' => 0,
-                    'lapses' => 0,
-                    'state' => 2,
-                    'last_review' => null,
-                ],
-                'variant_group_id' => null,
-                'variant_sentence_id' => null,
-                'variant_kind' => null,
-                'variant_stage' => null,
-                'variant_status' => null,
-                'variant_unlocked_at' => null,
-                'due_at' => $dueAt->toJSON(),
-                'introduced_at' => $updatedCard->introduced_at?->toJSON(),
-                'failed_at' => null,
-                'last_reviewed_at' => $updatedCard->last_reviewed_at?->toJSON(),
-                'created_at' => $updatedCard->created_at?->toJSON(),
-                'updated_at' => $updatedCard->updated_at?->toJSON(),
-                'deleted_at' => null,
-            ], $entry->payload);
+                'due' => '2026-06-05T14:15:00.000000Z',
+                'stability' => 0.1,
+                'difficulty' => 5,
+                'elapsed_days' => 0,
+                'scheduled_days' => 1,
+                'learning_steps' => 0,
+                'reps' => 0,
+                'lapses' => 0,
+                'state' => 2,
+                'last_review' => null,
+            ], $entry->payload['scheduler_state']);
+            $this->assertSame($dueAt->toJSON(), $entry->payload['due_at']);
         } finally {
             Carbon::setTestNow();
         }
@@ -174,7 +144,11 @@ class UpdateCardStudyStatusActionTest extends TestCase
             'study_status' => 'suspended',
             'new_queue_position' => null,
         ]);
-        $this->assertNull(SyncFeedEntry::query()->sole()->payload['new_queue_position']);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card, SyncFeedOperation::Update);
+
+        $this->assertNull($entry->payload['new_queue_position']);
     }
 
     public function test_it_is_idempotent_when_status_is_unchanged(): void

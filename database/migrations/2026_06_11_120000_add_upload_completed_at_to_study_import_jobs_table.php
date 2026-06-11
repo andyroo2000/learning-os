@@ -13,6 +13,8 @@ return new class extends Migration
             $table->timestamp('upload_completed_at')->nullable();
         });
 
+        // Backfill every uploaded row so pending/processing queue retries survive the deploy.
+        // Terminal rows are harmless because the processor already guards terminal statuses.
         DB::table('study_import_jobs')
             ->whereNotNull('uploaded_at')
             ->whereNull('upload_completed_at')

@@ -51,6 +51,7 @@ class CompleteStudyImportUploadController extends Controller
         }
 
         if ($result->shouldDispatchImport) {
+            // Completion retries intentionally redispatch; ProcessStudyImportJob is ShouldBeUnique.
             ProcessStudyImportJob::dispatch($importJob->id);
         }
 

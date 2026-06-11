@@ -86,7 +86,8 @@ class UploadStudyImportFileAction
             }
 
             // Keep the write under the row lock so completion cannot validate while the object is being replaced.
-            // This accepts per-import lock contention during slow large uploads to preserve a strict queue boundary.
+            // This can hold the per-import lock during a large upload, up to MAX_ASYNC_IMPORT_BYTES.
+            // If that becomes too slow for the storage backend, move the write before this transaction.
             Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
 
             $importJob->source_size_bytes = $actualContentSizeBytes;

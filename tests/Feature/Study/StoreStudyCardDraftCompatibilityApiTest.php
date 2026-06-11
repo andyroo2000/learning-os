@@ -452,6 +452,23 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['variantUnlockedAt'])
             ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+
+        foreach ([
+            '2026-02-31T14:15:30',
+            '2026-06-04T14:15:30+15:00',
+            '2026-06-04T14:15:30-13:00',
+        ] as $variantUnlockedAt) {
+            $this->postJson('/api/study/card-drafts', [
+                'creationKind' => 'text-recognition',
+                'cardType' => 'recognition',
+                'prompt' => ['cueText' => 'front'],
+                'answer' => ['meaning' => 'back'],
+                'variantUnlockedAt' => $variantUnlockedAt,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['variantUnlockedAt'])
+                ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+        }
     }
 
     public function test_it_returns_conflict_when_the_user_draft_queue_is_full(): void

@@ -544,6 +544,21 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['variantUnlockedAt'])
             ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a string.');
 
+        foreach ([
+            '2026-02-31T14:15:30',
+            '2026-06-04T14:15:30+15:00',
+            '2026-06-04T14:15:30-13:00',
+        ] as $variantUnlockedAt) {
+            $this->patchJson("/api/study/cards/{$card->id}", [
+                'prompt' => ['cueText' => '犬'],
+                'answer' => ['meaning' => 'dog'],
+                'variantUnlockedAt' => $variantUnlockedAt,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['variantUnlockedAt'])
+                ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+        }
+
         $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => ['cueText' => '犬'],
             'answer' => ['meaning' => 'dog'],

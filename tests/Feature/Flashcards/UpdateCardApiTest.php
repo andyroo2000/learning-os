@@ -788,6 +788,20 @@ class UpdateCardApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['variant_unlocked_at']);
 
+        foreach ([
+            '2026-02-31T14:15:30Z',
+            '2026-06-04T14:15:30+15:00',
+            '2026-06-04T14:15:30-13:00',
+        ] as $variantUnlockedAt) {
+            $this->putJson("/api/cards/{$card->id}", [
+                'front_text' => '犬',
+                'back_text' => 'dog',
+                'variant_unlocked_at' => $variantUnlockedAt,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['variant_unlocked_at']);
+        }
+
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,
             'front_text' => $card->front_text,

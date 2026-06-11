@@ -442,6 +442,19 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('errors.variantStage.0', 'variantStage must be between 1 and 65535.')
             ->assertJsonPath('errors.variantStatus.0', 'variantStatus must be a string.')
             ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+
+        foreach ([
+            '2026-02-31T14:15:30',
+            '2026-06-04T14:15:30+15:00',
+            '2026-06-04T14:15:30-13:00',
+        ] as $variantUnlockedAt) {
+            $this->patchJson("/api/study/card-drafts/{$draft->id}", [
+                'variantUnlockedAt' => $variantUnlockedAt,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['variantUnlockedAt'])
+                ->assertJsonPath('errors.variantUnlockedAt.0', 'variantUnlockedAt must be a valid timestamp.');
+        }
     }
 
     public function test_it_rate_limits_manual_card_draft_autosaves_by_user(): void

@@ -385,17 +385,11 @@ class ListStudyBrowserAction
      */
     private function groupTimestamp(Collection $group, string $attribute, bool $latest): string
     {
-        if (! in_array($attribute, ['created_at', 'updated_at'], true)) {
-            throw new InvalidArgumentException('Study browser timestamp attribute is invalid.');
-        }
-
         $timestamps = $group
             ->map(fn (Card $card): ?string => ServerTimestamp::toJson($card->getAttribute($attribute)))
-            ->filter()
-            ->sort()
-            ->values();
+            ->filter();
 
-        $timestamp = $latest ? $timestamps->last() : $timestamps->first();
+        $timestamp = $latest ? $timestamps->max() : $timestamps->min();
 
         return is_string($timestamp)
             ? $timestamp

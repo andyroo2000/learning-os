@@ -488,7 +488,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_invalid_image_placements_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);
-        $this->expectExceptionMessage('imagePlacement must be one of: none, prompt, answer, both.');
+        $this->expectExceptionMessage('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.');
 
         UpdateStudyCardDraftData::fromInput(
             hasImagePlacement: true,
@@ -499,7 +499,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_blank_image_placements_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);
-        $this->expectExceptionMessage('imagePlacement must be one of: none, prompt, answer, both.');
+        $this->expectExceptionMessage('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.');
 
         UpdateStudyCardDraftData::fromInput(
             hasImagePlacement: true,
@@ -510,7 +510,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_invalid_preview_audio_roles_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);
-        $this->expectExceptionMessage('previewAudioRole must be one of: prompt, answer.');
+        $this->expectExceptionMessage('previewAudioRole must be one of: '.implode(', ', StudyCardAudioRole::values()).'.');
 
         UpdateStudyCardDraftData::fromInput(
             hasPreviewAudioRole: true,
@@ -521,7 +521,7 @@ class UpdateStudyCardDraftActionTest extends TestCase
     public function test_it_rejects_blank_preview_audio_roles_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);
-        $this->expectExceptionMessage('previewAudioRole must be one of: prompt, answer.');
+        $this->expectExceptionMessage('previewAudioRole must be one of: '.implode(', ', StudyCardAudioRole::values()).'.');
 
         UpdateStudyCardDraftData::fromInput(
             hasPreviewAudioRole: true,

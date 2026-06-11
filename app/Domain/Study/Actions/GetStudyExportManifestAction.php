@@ -2,21 +2,12 @@
 
 namespace App\Domain\Study\Actions;
 
-use App\Domain\Courses\Models\Course;
-use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Models\Deck;
-use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Reviews\Models\CardReviewEvent;
-use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Models\StudyImportJob;
-use App\Domain\Study\Queries\StudyExportCardMediaQuery;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use LogicException;
 
 class GetStudyExportManifestAction
 {
-    public function __construct(private readonly StudyExportCardMediaQuery $cardMediaQuery) {}
-
     /**
      * @return array{
      *     exported_at: string,
@@ -37,49 +28,95 @@ class GetStudyExportManifestAction
     public function handle(int $userId, ?Carbon $now = null): array
     {
         $now ??= now();
+        $metrics = $this->exportMetrics($userId);
 
         return [
             'exported_at' => $now->toJSON(),
-            'current_checkpoint' => $this->currentCheckpoint($userId),
+            'current_checkpoint' => $metrics['current_checkpoint'],
             'sections' => [
                 'settings' => ['total' => 1],
-                'courses' => ['total' => Course::query()->where('user_id', $userId)->count('id')],
-                'decks' => ['total' => Deck::query()->where('user_id', $userId)->count('id')],
-                'cards' => ['total' => $this->activeCardCount($userId)],
-                'card_drafts' => ['total' => StudyCardDraft::query()->where('user_id', $userId)->count('id')],
-                'card_media' => ['total' => $this->cardMediaQuery->count($userId)],
-                'review_events' => ['total' => $this->activeReviewEventCount($userId)],
-                'imports' => ['total' => StudyImportJob::query()->where('user_id', $userId)->count('id')],
-                'media_assets' => ['total' => MediaAsset::query()->where('user_id', $userId)->count('id')],
+                'courses' => ['total' => $metrics['courses_total']],
+                'decks' => ['total' => $metrics['decks_total']],
+                'cards' => ['total' => $metrics['cards_total']],
+                'card_drafts' => ['total' => $metrics['card_drafts_total']],
+                'card_media' => ['total' => $metrics['card_media_total']],
+                'review_events' => ['total' => $metrics['review_events_total']],
+                'imports' => ['total' => $metrics['imports_total']],
+                'media_assets' => ['total' => $metrics['media_assets_total']],
             ],
         ];
     }
 
-    private function currentCheckpoint(int $userId): int
+    /**
+     * @return array{
+     *     current_checkpoint: int,
+     *     courses_total: int,
+     *     decks_total: int,
+     *     cards_total: int,
+     *     card_drafts_total: int,
+     *     card_media_total: int,
+     *     review_events_total: int,
+     *     imports_total: int,
+     *     media_assets_total: int,
+     * }
+     */
+    private function exportMetrics(int $userId): array
     {
-        return (int) SyncFeedEntry::query()
-            ->where('user_id', $userId)
-            ->max('checkpoint');
-    }
+        // Scalar subqueries keep the manifest as one portable snapshot read across SQLite, MySQL, and Postgres.
+        // The outer no-FROM SELECT returns one row in all three supported engines.
+        // Only courses, decks, and cards have soft-delete filters; the other exported tables are hard-deleted today.
+        $sql = <<<'SQL'
+                COALESCE((SELECT MAX(sync_feed_entries.checkpoint) FROM sync_feed_entries WHERE sync_feed_entries.user_id = ?), 0) AS current_checkpoint,
+                (SELECT COUNT(courses.id) FROM courses WHERE courses.user_id = ? AND courses.deleted_at IS NULL) AS courses_total,
+                (SELECT COUNT(decks.id) FROM decks WHERE decks.user_id = ? AND decks.deleted_at IS NULL) AS decks_total,
+                (
+                    SELECT COUNT(cards.id)
+                    FROM cards
+                    INNER JOIN decks ON decks.id = cards.deck_id
+                    WHERE decks.user_id = ?
+                        AND cards.deleted_at IS NULL
+                        AND decks.deleted_at IS NULL
+                ) AS cards_total,
+                (SELECT COUNT(study_card_drafts.id) FROM study_card_drafts WHERE study_card_drafts.user_id = ?) AS card_drafts_total,
+                (
+                    SELECT COUNT(*)
+                    FROM card_media
+                    INNER JOIN cards ON cards.id = card_media.card_id
+                    INNER JOIN decks ON decks.id = cards.deck_id
+                    INNER JOIN media_assets ON media_assets.id = card_media.media_asset_id
+                    WHERE decks.user_id = ?
+                        AND media_assets.user_id = ?
+                        AND cards.deleted_at IS NULL
+                        AND decks.deleted_at IS NULL
+                ) AS card_media_total,
+                (
+                    SELECT COUNT(card_review_events.id)
+                    FROM card_review_events
+                    INNER JOIN cards ON cards.id = card_review_events.card_id
+                    INNER JOIN decks ON decks.id = cards.deck_id
+                    WHERE decks.user_id = ?
+                        AND cards.deleted_at IS NULL
+                        AND decks.deleted_at IS NULL
+                ) AS review_events_total,
+                (SELECT COUNT(study_import_jobs.id) FROM study_import_jobs WHERE study_import_jobs.user_id = ?) AS imports_total,
+                (SELECT COUNT(media_assets.id) FROM media_assets WHERE media_assets.user_id = ?) AS media_assets_total
+                SQL;
 
-    private function activeCardCount(int $userId): int
-    {
-        return Card::query()
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->whereNull('cards.deleted_at')
-            ->whereNull('decks.deleted_at')
-            ->count('cards.id');
-    }
+        // One user binding per ? placeholder above.
+        $row = DB::query()
+            ->selectRaw($sql, array_fill(0, 10, $userId))
+            ->first() ?? throw new LogicException('Study export metrics query returned no row.');
 
-    private function activeReviewEventCount(int $userId): int
-    {
-        return CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->whereNull('cards.deleted_at')
-            ->whereNull('decks.deleted_at')
-            ->count('card_review_events.id');
+        return [
+            'current_checkpoint' => (int) $row->current_checkpoint,
+            'courses_total' => (int) $row->courses_total,
+            'decks_total' => (int) $row->decks_total,
+            'cards_total' => (int) $row->cards_total,
+            'card_drafts_total' => (int) $row->card_drafts_total,
+            'card_media_total' => (int) $row->card_media_total,
+            'review_events_total' => (int) $row->review_events_total,
+            'imports_total' => (int) $row->imports_total,
+            'media_assets_total' => (int) $row->media_assets_total,
+        ];
     }
 }

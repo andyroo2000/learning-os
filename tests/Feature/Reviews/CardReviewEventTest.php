@@ -43,6 +43,10 @@ class CardReviewEventTest extends TestCase
             'created_at',
             'updated_at',
         ]));
+        $this->assertFalse(
+            Schema::hasColumn('card_review_events', 'deleted_at'),
+            'Review events are hard-deleted; export manifest counts intentionally have no review-event deleted_at filter.',
+        );
     }
 
     public function test_review_event_can_be_created_with_a_card(): void

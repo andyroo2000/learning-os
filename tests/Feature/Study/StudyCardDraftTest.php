@@ -46,6 +46,10 @@ class StudyCardDraftTest extends TestCase
             'created_at',
             'updated_at',
         ]));
+        $this->assertFalse(
+            Schema::hasColumn('study_card_drafts', 'deleted_at'),
+            'Study card drafts are hard-deleted; export manifest counts intentionally have no draft deleted_at filter.',
+        );
     }
 
     public function test_it_casts_draft_fields(): void

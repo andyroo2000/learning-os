@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 use Tests\TestCase;
 
@@ -15,6 +16,11 @@ class StudyImportJobTest extends TestCase
 
     public function test_study_import_jobs_table_has_expected_columns(): void
     {
+        $this->assertFalse(
+            Schema::hasColumn('study_import_jobs', 'deleted_at'),
+            'Study import jobs are hard-deleted; export manifest counts intentionally have no import deleted_at filter.',
+        );
+
         $this->assertDatabaseMissing('study_import_jobs', [
             'id' => 'missing',
         ]);

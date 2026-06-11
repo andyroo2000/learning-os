@@ -7,6 +7,14 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyExportManifestAction;
+use App\Domain\Study\Actions\ListStudyExportCardDraftsAction;
+use App\Domain\Study\Actions\ListStudyExportCardMediaAction;
+use App\Domain\Study\Actions\ListStudyExportCardsAction;
+use App\Domain\Study\Actions\ListStudyExportCoursesAction;
+use App\Domain\Study\Actions\ListStudyExportDecksAction;
+use App\Domain\Study\Actions\ListStudyExportImportJobsAction;
+use App\Domain\Study\Actions\ListStudyExportMediaAssetsAction;
+use App\Domain\Study\Actions\ListStudyExportReviewEventsAction;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
@@ -14,6 +22,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class GetStudyExportManifestActionTest extends TestCase
@@ -95,5 +104,122 @@ class GetStudyExportManifestActionTest extends TestCase
             'user_id' => $user->id,
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
         ]);
+    }
+
+    public function test_manifest_totals_match_current_export_section_actions(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deletedCourse = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $deletedDeck = $this->deckFor($user);
+        $activeCard = Card::factory()->for($deck)->create();
+        $deletedCard = Card::factory()->for($deck)->create();
+        $cardInDeletedDeck = Card::factory()->for($deletedDeck)->create();
+        $otherCard = $this->cardFor($otherUser);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $deletedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $otherUserMediaAsset = MediaAsset::factory()->for($otherUser)->create();
+
+        CardReviewEvent::factory()->for($activeCard)->count(2)->create();
+        CardReviewEvent::factory()->for($deletedCard)->create();
+        CardReviewEvent::factory()->for($cardInDeletedDeck)->create();
+        CardReviewEvent::factory()->for($otherCard)->create();
+        StudyCardDraft::factory()->for($user)->count(2)->create();
+        StudyCardDraft::factory()->for($otherUser)->create();
+        StudyImportJob::factory()->for($user)->count(2)->create();
+        StudyImportJob::factory()->for($otherUser)->create();
+        MediaAsset::factory()->for($user)->create();
+        MediaAsset::factory()->for($otherUser)->create();
+        $activeCard->mediaAssets()->attach($mediaAsset->id);
+        // Hard-deleting the asset leaves an orphaned pivot; the inner join should exclude it.
+        $activeCard->mediaAssets()->attach($deletedMediaAsset->id);
+        $activeCard->mediaAssets()->attach($otherUserMediaAsset->id);
+        $deletedCard->mediaAssets()->attach($mediaAsset->id);
+        $cardInDeletedDeck->mediaAssets()->attach($mediaAsset->id);
+        $otherCard->mediaAssets()->attach($mediaAsset->id);
+
+        $deletedCourse->delete();
+        $deletedMediaAsset->delete();
+        $deletedCard->delete();
+        $deletedDeck->delete();
+
+        $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
+
+        $this->assertSame(1, $manifest['sections']['settings']['total']);
+        $this->assertSame(
+            app(ListStudyExportCoursesAction::class)->handle($user->id)->count(),
+            $manifest['sections']['courses']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportDecksAction::class)->handle($user->id)->count(),
+            $manifest['sections']['decks']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportCardsAction::class)->handle($user->id)->count(),
+            $manifest['sections']['cards']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportCardDraftsAction::class)->handle($user->id)->count(),
+            $manifest['sections']['card_drafts']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportCardMediaAction::class)->handle($user->id)->count(),
+            $manifest['sections']['card_media']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportReviewEventsAction::class)->handle($user->id)->count(),
+            $manifest['sections']['review_events']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportImportJobsAction::class)->handle($user->id)->count(),
+            $manifest['sections']['imports']['total'],
+        );
+        $this->assertSame(
+            app(ListStudyExportMediaAssetsAction::class)->handle($user->id)->count(),
+            $manifest['sections']['media_assets']['total'],
+        );
+    }
+
+    public function test_it_loads_export_counts_with_one_manifest_query(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $card = Card::factory()->for($deck)->create();
+        CardReviewEvent::factory()->for($card)->create();
+        StudyCardDraft::factory()->for($user)->create();
+        StudyImportJob::factory()->for($user)->create();
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $deletedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $card->mediaAssets()->attach($mediaAsset->id);
+        $card->mediaAssets()->attach($deletedMediaAsset->id);
+        $deletedMediaAsset->delete();
+        SyncFeedEntry::factory()->for($user)->create();
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertSame(1, $manifest['sections']['courses']['total']);
+        $this->assertSame(1, $manifest['sections']['decks']['total']);
+        $this->assertSame(1, $manifest['sections']['cards']['total']);
+        $this->assertSame(1, $manifest['sections']['card_drafts']['total']);
+        $this->assertSame(1, $manifest['sections']['card_media']['total']);
+        $this->assertSame(1, $manifest['sections']['review_events']['total']);
+        $this->assertSame(1, $manifest['sections']['imports']['total']);
+        $this->assertSame(1, $manifest['sections']['media_assets']['total']);
+
+        $this->assertCount(1, $queries, $queries->pluck('query')->implode("\n"));
+        $this->assertStringContainsString('SELECT COUNT(courses.id)', $queries->first()['query']);
+        $this->assertStringContainsString('SELECT COUNT(*)', $queries->first()['query']);
     }
 }

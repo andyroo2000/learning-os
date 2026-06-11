@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -67,7 +68,7 @@ class StudySettingsApiTest extends TestCase
             ->assertJsonPath('data.new_cards_per_day', 12);
     }
 
-    public function test_show_creates_default_settings_when_missing(): void
+    public function test_show_returns_default_settings_without_materializing_them_when_missing(): void
     {
         $user = $this->signIn();
 
@@ -75,12 +76,45 @@ class StudySettingsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY);
+            ->assertJsonStructure([
+                'data' => [
+                    'new_cards_per_day',
+                    'created_at',
+                    'updated_at',
+                ],
+            ])
+            ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY)
+            ->assertJsonPath('data.created_at', null)
+            ->assertJsonPath('data.updated_at', null);
 
-        $this->assertDatabaseHas('study_settings', [
+        $this->assertDatabaseMissing('study_settings', [
             'user_id' => $user->id,
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
         ]);
+    }
+
+    public function test_show_missing_settings_uses_a_single_settings_lookup(): void
+    {
+        $this->signIn();
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $this->getJson('/api/study/settings')
+                ->assertOk()
+                ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY);
+
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $settingsQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'study_settings'));
+
+        $this->assertCount(1, $settingsQueries, $queries->pluck('query')->implode("\n"));
+        $this->assertDatabaseCount('study_settings', 0);
     }
 
     public function test_update_changes_settings(): void

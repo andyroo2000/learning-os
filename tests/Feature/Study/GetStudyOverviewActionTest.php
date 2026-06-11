@@ -215,6 +215,17 @@ class GetStudyOverviewActionTest extends TestCase
         $method->invoke($action, 'tomorrow', 'next_due_at');
     }
 
+    public function test_it_rejects_unexpected_overview_aggregate_timestamp_types(): void
+    {
+        $action = app(GetStudyOverviewAction::class);
+        $method = new ReflectionMethod($action, 'aggregateTimestamp');
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study overview next_due_at aggregate has an unexpected timestamp type.');
+
+        $method->invoke($action, 123, 'next_due_at');
+    }
+
     public function test_it_includes_the_latest_import_for_the_user(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

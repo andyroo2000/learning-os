@@ -8,6 +8,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Support\DateTime\ServerTimestamp;
 use App\Support\Identifiers\CanonicalUlid;
+use DateTimeInterface;
 use DateTimeZone;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -211,6 +212,10 @@ class GetStudyOverviewAction
     {
         if ($value === null) {
             return null;
+        }
+
+        if (! $value instanceof DateTimeInterface && ! is_string($value)) {
+            throw new UnexpectedValueException("Study overview {$label} aggregate has an unexpected timestamp type.");
         }
 
         return ServerTimestamp::toJson($value)

@@ -560,6 +560,11 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/browser?limit=%20-1%20')
             ->assertJsonValidationErrors(['limit']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?limit=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['limit']);
         $this->getJson('/api/study/browser?limit=abc')
             ->assertJsonValidationErrors(['limit']);
         $this->getJson('/api/study/browser?limit[]=25')

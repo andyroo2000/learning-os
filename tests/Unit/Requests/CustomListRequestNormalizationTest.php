@@ -155,6 +155,20 @@ class CustomListRequestNormalizationTest extends TestCase
         }
     }
 
+    public function test_study_browser_request_rejects_blank_numeric_inputs_after_trimming(): void
+    {
+        $request = $this->requestWithValidator(new ListStudyBrowserRequest, [
+            'limit' => ' ',
+        ]);
+
+        try {
+            $request->validated();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertValidationErrorKeys(['limit'], $exception);
+        }
+    }
+
     public function test_study_card_drafts_request_normalizes_query_inputs(): void
     {
         $cursor = $this->studyCardDraftCursor();
@@ -180,6 +194,20 @@ class CustomListRequestNormalizationTest extends TestCase
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
             $this->assertValidationErrorKeys(['cursor', 'limit'], $exception);
+        }
+    }
+
+    public function test_study_card_drafts_request_rejects_blank_numeric_inputs_after_trimming(): void
+    {
+        $request = $this->requestWithValidator(new ListStudyCardDraftsRequest, [
+            'limit' => ' ',
+        ]);
+
+        try {
+            $request->validated();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertValidationErrorKeys(['limit'], $exception);
         }
     }
 
@@ -209,6 +237,21 @@ class CustomListRequestNormalizationTest extends TestCase
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
             $this->assertValidationErrorKeys(['cursor', 'limit', 'q'], $exception);
+        }
+    }
+
+    public function test_study_new_card_queue_request_rejects_blank_numeric_inputs_after_trimming(): void
+    {
+        $request = $this->requestWithValidator(new ListStudyNewCardQueueRequest, [
+            'cursor' => ' ',
+            'limit' => ' ',
+        ]);
+
+        try {
+            $request->validated();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertValidationErrorKeys(['cursor', 'limit'], $exception);
         }
     }
 

@@ -235,8 +235,18 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->getJson('/api/study/new-queue?cursor=-1')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cursor']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?cursor=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor']);
 
         $this->getJson('/api/study/new-queue?limit=501')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['limit']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?limit=%20')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit']);
 

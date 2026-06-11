@@ -366,6 +366,13 @@ class ListDueCardsApiTest extends TestCase
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/cards/due');
     }
 
+    public function test_it_rejects_a_blank_page_size_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware('/api/cards/due');
+    }
+
     public function test_it_rejects_invalid_cursor_values(): void
     {
         $this->signIn();

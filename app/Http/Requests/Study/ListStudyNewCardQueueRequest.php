@@ -26,8 +26,8 @@ class ListStudyNewCardQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cursor' => ['sometimes', 'integer', 'min:0'],
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
+            'cursor' => ['sometimes', 'filled', 'integer', 'min:0'],
+            'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'q' => ['sometimes', 'nullable', 'string', 'max:200'],
         ];
     }

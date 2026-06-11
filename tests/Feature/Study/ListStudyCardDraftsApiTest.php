@@ -229,6 +229,12 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit']);
 
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/card-drafts?limit=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['limit']);
+
         $this->getJson('/api/study/card-drafts?cursor=not-a-cursor')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cursor']);

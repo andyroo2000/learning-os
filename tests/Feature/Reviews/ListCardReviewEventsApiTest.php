@@ -259,6 +259,14 @@ class ListCardReviewEventsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize("/api/cards/{$card->id}/review-events");
     }
 
+    public function test_it_rejects_a_blank_page_size_without_global_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware("/api/cards/{$card->id}/review-events");
+    }
+
     public function test_it_rejects_invalid_cursor_values(): void
     {
         $user = $this->signIn();

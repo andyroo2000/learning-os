@@ -60,6 +60,23 @@ class CursorPaginatedRequestTest extends TestCase
         $request->pageSize();
     }
 
+    #[DataProvider('cursorPaginatedRequestClasses')]
+    public function test_cursor_paginated_requests_reject_blank_page_sizes_after_trimming(string $requestClass, array $_cursorParameters): void
+    {
+        $request = new $requestClass;
+        $request->merge(['per_page' => ' ']);
+
+        $this->runPrepareForValidation($request);
+        $request->setValidator($this->validatorFor($request));
+
+        try {
+            $request->pageSize();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('per_page', $exception->errors());
+        }
+    }
+
     public function test_it_accepts_valid_laravel_cursor_tokens(): void
     {
         $cursor = (new Cursor(['id' => '01ktt2q9z5vfpxsqgc3mwrdh35']))->encode();

@@ -5,15 +5,12 @@ namespace App\Http\Requests\Study\Concerns;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
-use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Validation\Rule;
 use LogicException;
 
 trait ValidatesVocabVariantMetadata
 {
-    private const VARIANT_UNLOCKED_AT_FORMATS = 'Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP,Y-m-d\TH:i:s.u\Z,Y-m-d\TH:i:s\Z,Y-m-d\TH:i:s.u,Y-m-d\TH:i:s';
-
     /**
      * @param  array<string, mixed>  $normalized
      */
@@ -77,8 +74,11 @@ trait ValidatesVocabVariantMetadata
                 'sometimes',
                 'nullable',
                 'string',
-                // date_format accepts comma-separated alternatives; bare formats stay for ConvoLab compatibility.
-                'date_format:'.self::VARIANT_UNLOCKED_AT_FORMATS,
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value) || VocabVariantMetadataInput::compatibilityUnlockedAtTimestamp($value) === null) {
+                        $fail('variantUnlockedAt must be a valid timestamp.');
+                    }
+                },
             ],
         ];
     }
@@ -101,7 +101,6 @@ trait ValidatesVocabVariantMetadata
             'variantStatus.string' => 'variantStatus must be a string.',
             'variantStatus.in' => 'variantStatus is not supported.',
             'variantUnlockedAt.string' => 'variantUnlockedAt must be a string.',
-            'variantUnlockedAt.date_format' => 'variantUnlockedAt must be a valid timestamp.',
         ];
     }
 
@@ -186,8 +185,13 @@ trait ValidatesVocabVariantMetadata
             throw new LogicException('variantUnlockedAt called after validation failed to reject a non-string value.');
         }
 
-        // Bare ConvoLab-compatible timestamps are interpreted as UTC instead of the PHP default timezone.
-        return CarbonImmutable::parse($value, 'UTC')->utc();
+        $timestamp = VocabVariantMetadataInput::compatibilityUnlockedAtTimestamp($value);
+
+        if ($timestamp === null) {
+            throw new LogicException('variantUnlockedAt called after validation failed to reject an invalid timestamp.');
+        }
+
+        return $timestamp;
     }
 
     protected function nullableValidatedStudyStringValue(string $key): ?string

@@ -85,6 +85,7 @@ class UploadStudyImportFileAction
                 throw new StudyImportValidationException('file', 'Study import upload target is missing.');
             }
 
+            // Keep the write under the row lock so completion cannot validate while the object is being replaced.
             Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
 
             $importJob->source_size_bytes = $actualContentSizeBytes;

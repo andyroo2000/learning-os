@@ -70,6 +70,7 @@ class CompleteStudyImportUploadAction
 
             $disk = Storage::disk('study-imports');
 
+            // Keep storage validation under the row lock so uploads cannot overwrite the object mid-completion.
             if (! $disk->exists($importJob->source_object_path)) {
                 throw StudyImportConflictException::uploadNotFinished($importJob);
             }

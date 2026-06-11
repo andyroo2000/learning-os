@@ -3,26 +3,16 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
+use App\Http\Requests\Concerns\NormalizesStringInputs;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ListStudyNewCardQueueRequest extends FormRequest
 {
+    use NormalizesStringInputs;
+
     protected function prepareForValidation(): void
     {
-        $normalized = [];
-
-        foreach (['cursor', 'limit', 'q'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $value = trim($value);
-                $normalized[$key] = $value === '' && $key === 'q' ? null : $value;
-            }
-        }
-
-        if ($normalized !== []) {
-            $this->merge($normalized);
-        }
+        $this->mergeNormalizedStringInputs(['cursor', 'limit', 'q'], blankToNull: ['q']);
     }
 
     public function authorize(): bool

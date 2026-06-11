@@ -5,11 +5,14 @@ namespace App\Http\Requests\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
+use App\Http\Requests\Concerns\NormalizesStringInputs;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ListStudyBrowserRequest extends FormRequest
 {
+    use NormalizesStringInputs;
+
     public function authorize(): bool
     {
         return true;
@@ -17,25 +20,10 @@ class ListStudyBrowserRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $normalized = [];
-
-        foreach (['q', 'noteType', 'cursor', 'cardType', 'queueState', 'sortField', 'sortDirection'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $normalized[$key] = trim($value);
-            }
-        }
-
-        foreach (['cardType', 'queueState', 'sortField', 'sortDirection'] as $key) {
-            if (isset($normalized[$key])) {
-                $normalized[$key] = strtolower($normalized[$key]);
-            }
-        }
-
-        if ($normalized !== []) {
-            $this->merge($normalized);
-        }
+        $this->mergeNormalizedStringInputs(
+            ['q', 'noteType', 'cursor', 'cardType', 'queueState', 'sortField', 'sortDirection', 'limit'],
+            ['cardType', 'queueState', 'sortField', 'sortDirection'],
+        );
     }
 
     /**

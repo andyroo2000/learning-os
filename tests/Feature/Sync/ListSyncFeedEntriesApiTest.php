@@ -851,6 +851,28 @@ class ListSyncFeedEntriesApiTest extends TestCase
             ->assertJsonPath('data.0.checkpoint', $delete->checkpoint);
     }
 
+    public function test_it_trims_pagination_inputs_without_trim_strings_middleware(): void
+    {
+        $user = $this->signIn();
+        $before = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $first = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+        $second = SyncFeedEntry::factory()->create(['user_id' => $user->id]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson("/api/sync/feed?after_checkpoint=%20{$before->checkpoint}%20&per_page=%20%2B1%20");
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.checkpoint', $first->checkpoint)
+            ->assertJsonPath('meta.after_checkpoint', $before->checkpoint)
+            ->assertJsonPath('meta.current_checkpoint', $second->checkpoint)
+            ->assertJsonPath('meta.next_checkpoint', $first->checkpoint)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.has_more', true);
+    }
+
     public function test_it_returns_a_stale_checkpoint_response_when_the_bookmark_is_before_the_user_feed_window(): void
     {
         $user = $this->signIn();
@@ -1458,6 +1480,23 @@ class ListSyncFeedEntriesApiTest extends TestCase
         $response = $this->getJson('/api/sync/feed?after_checkpoint=abc');
 
         $response->assertUnprocessable();
+    }
+
+    public function test_it_rejects_blank_pagination_inputs_without_trim_strings_middleware(): void
+    {
+        $this->signIn();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?after_checkpoint=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['after_checkpoint']);
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/sync/feed?per_page=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['per_page']);
     }
 
     public function test_it_rejects_array_checkpoints(): void

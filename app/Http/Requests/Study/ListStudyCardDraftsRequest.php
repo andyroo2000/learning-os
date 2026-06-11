@@ -4,28 +4,19 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Study\Actions\ListStudyCardDraftsAction;
 use App\Domain\Study\Support\StudyCardDraftCursor;
+use App\Http\Requests\Concerns\NormalizesStringInputs;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 
 class ListStudyCardDraftsRequest extends FormRequest
 {
+    use NormalizesStringInputs;
+
     protected function prepareForValidation(): void
     {
-        $normalized = [];
-
-        // Normalize here because some compatibility callers/tests do not rely on global TrimStrings middleware.
-        foreach (['cursor', 'limit'] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $normalized[$key] = trim($value);
-            }
-        }
-
-        if ($normalized !== []) {
-            $this->merge($normalized);
-        }
+        // Compatibility callers may bypass the global TrimStrings middleware.
+        $this->mergeNormalizedStringInputs(['cursor', 'limit']);
     }
 
     public function authorize(): bool
@@ -51,7 +42,12 @@ class ListStudyCardDraftsRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                $cursor = $this->validated('cursor');
+                if ($validator->errors()->has('cursor')) {
+                    return;
+                }
+
+                // validated() throws when sibling fields have errors; decode only after cursor's own rules pass.
+                $cursor = $this->input('cursor');
 
                 if (! is_string($cursor)) {
                     return;

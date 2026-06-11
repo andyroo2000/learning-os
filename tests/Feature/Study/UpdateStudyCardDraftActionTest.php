@@ -485,6 +485,39 @@ class UpdateStudyCardDraftActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_invalid_image_placements_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('imagePlacement must be none, prompt, answer, or both.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasImagePlacement: true,
+            imagePlacement: 'sideways',
+        );
+    }
+
+    public function test_it_rejects_invalid_preview_audio_roles_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('previewAudioRole must be prompt or answer.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasPreviewAudioRole: true,
+            previewAudioRole: 'front',
+        );
+    }
+
+    public function test_it_rejects_blank_preview_audio_roles_for_direct_callers_with_domain_validation(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('previewAudioRole must be prompt or answer.');
+
+        UpdateStudyCardDraftData::fromInput(
+            hasPreviewAudioRole: true,
+            previewAudioRole: '   ',
+        );
+    }
+
     public function test_it_rejects_oversized_variant_ids_for_direct_callers(): void
     {
         $this->expectException(\LogicException::class);

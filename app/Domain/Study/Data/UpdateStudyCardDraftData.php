@@ -162,7 +162,8 @@ final readonly class UpdateStudyCardDraftData
             return StudyCardImagePlacement::None;
         }
 
-        return StudyCardImagePlacement::from(strtolower(trim($imagePlacement)));
+        return StudyCardImagePlacement::tryFrom(strtolower(trim($imagePlacement)))
+            ?? throw StudyCardDraftValidationException::invalidImagePlacement();
     }
 
     private static function previewAudioRoleFromInput(StudyCardAudioRole|string|null $previewAudioRole): ?StudyCardAudioRole
@@ -175,7 +176,8 @@ final readonly class UpdateStudyCardDraftData
             return null;
         }
 
-        return StudyCardAudioRole::from(strtolower(trim($previewAudioRole)));
+        return StudyCardAudioRole::tryFrom(strtolower(trim($previewAudioRole)))
+            ?? throw StudyCardDraftValidationException::invalidPreviewAudioRole();
     }
 
     private static function nullableTrimmedString(?string $value): ?string

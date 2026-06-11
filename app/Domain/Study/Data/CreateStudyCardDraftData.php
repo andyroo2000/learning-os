@@ -88,7 +88,8 @@ final readonly class CreateStudyCardDraftData
             return $creationKind;
         }
 
-        return StudyCardCreationKind::from(strtolower(trim($creationKind)));
+        return StudyCardCreationKind::tryFrom(strtolower(trim($creationKind)))
+            ?? throw StudyCardDraftValidationException::invalidCreationKind();
     }
 
     private static function imagePlacementFromInput(StudyCardImagePlacement|string|null $imagePlacement): StudyCardImagePlacement
@@ -101,7 +102,8 @@ final readonly class CreateStudyCardDraftData
             return StudyCardImagePlacement::None;
         }
 
-        return StudyCardImagePlacement::from(strtolower(trim($imagePlacement)));
+        return StudyCardImagePlacement::tryFrom(strtolower(trim($imagePlacement)))
+            ?? throw StudyCardDraftValidationException::invalidImagePlacement();
     }
 
     private static function nullableTrimmedString(?string $value): ?string

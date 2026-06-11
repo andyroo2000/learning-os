@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support\DateTime;
 
 use App\Support\DateTime\ServerTimestamp;
+use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,14 @@ class ServerTimestampTest extends TestCase
         $this->assertSame(
             '2026-05-29T11:14:00.000000Z',
             ServerTimestamp::toJson(Carbon::parse('2026-05-29T11:14:00Z')),
+        );
+    }
+
+    public function test_it_serializes_native_datetime_values(): void
+    {
+        $this->assertSame(
+            '2026-05-29T11:14:00.000000Z',
+            ServerTimestamp::toJson(new DateTimeImmutable('2026-05-29T11:14:00Z')),
         );
     }
 

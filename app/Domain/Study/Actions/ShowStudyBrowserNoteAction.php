@@ -156,7 +156,7 @@ class ShowStudyBrowserNoteAction
                 ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
         }
 
-        return null;
+        throw new UnexpectedValueException('Study browser review aggregate has an unexpected timestamp type.');
     }
 
     private function sourceNoteIdValue(string $noteId): ?int

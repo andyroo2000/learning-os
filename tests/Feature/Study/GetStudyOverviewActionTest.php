@@ -11,8 +11,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use ReflectionMethod;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class GetStudyOverviewActionTest extends TestCase
 {
@@ -200,6 +202,17 @@ class GetStudyOverviewActionTest extends TestCase
         );
 
         $this->assertSame('2026-06-04T11:00:00.000000Z', $overview['next_due_at']);
+    }
+
+    public function test_it_rejects_invalid_overview_aggregate_timestamps(): void
+    {
+        $action = app(GetStudyOverviewAction::class);
+        $method = new ReflectionMethod($action, 'aggregateTimestamp');
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study overview next_due_at aggregate is not a valid timestamp.');
+
+        $method->invoke($action, 'tomorrow', 'next_due_at');
     }
 
     public function test_it_includes_the_latest_import_for_the_user(): void

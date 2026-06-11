@@ -3,6 +3,7 @@
 namespace App\Support\DateTime;
 
 use Carbon\CarbonInterface;
+use DateTimeInterface;
 use Illuminate\Support\Carbon;
 
 class ServerTimestamp
@@ -19,7 +20,7 @@ class ServerTimestamp
         return self::databaseTimestampOrNull($trimmed);
     }
 
-    public static function toJson(CarbonInterface|string|null $value): ?string
+    public static function toJson(DateTimeInterface|string|null $value): ?string
     {
         if ($value === null) {
             return null;
@@ -27,6 +28,10 @@ class ServerTimestamp
 
         if ($value instanceof CarbonInterface) {
             return $value->toJSON();
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return Carbon::instance($value)->toJSON();
         }
 
         return self::parseOrNull($value)?->toJSON();

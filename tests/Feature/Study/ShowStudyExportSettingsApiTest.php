@@ -36,15 +36,24 @@ class ShowStudyExportSettingsApiTest extends TestCase
             ->assertJsonPath('data.updated_at', $settings->updated_at?->toJSON());
     }
 
-    public function test_show_materializes_default_settings_when_missing(): void
+    public function test_show_returns_default_settings_without_materializing_them_when_missing(): void
     {
         $user = $this->signIn();
 
         $this->getJson('/api/study/export/settings')
             ->assertOk()
-            ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY);
+            ->assertJsonStructure([
+                'data' => [
+                    'new_cards_per_day',
+                    'created_at',
+                    'updated_at',
+                ],
+            ])
+            ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY)
+            ->assertJsonPath('data.created_at', null)
+            ->assertJsonPath('data.updated_at', null);
 
-        $this->assertDatabaseHas('study_settings', [
+        $this->assertDatabaseMissing('study_settings', [
             'user_id' => $user->id,
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
         ]);

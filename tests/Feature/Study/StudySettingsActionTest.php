@@ -21,17 +21,34 @@ class StudySettingsActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_get_creates_default_settings_once(): void
+    public function test_get_returns_unsaved_default_settings_when_missing(): void
     {
         $user = User::factory()->create();
 
-        $first = app(GetStudySettingsAction::class)->handle($user->id);
-        $second = app(GetStudySettingsAction::class)->handle($user->id);
+        $settings = app(GetStudySettingsAction::class)->handle($user->id);
 
-        $this->assertTrue($first->is($second));
-        $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $first->new_cards_per_day);
-        $this->assertDatabaseCount('study_settings', 1);
+        $this->assertFalse($settings->exists);
+        $this->assertSame($user->id, $settings->user_id);
+        $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $settings->new_cards_per_day);
+        $this->assertNull($settings->created_at);
+        $this->assertNull($settings->updated_at);
+        $this->assertDatabaseCount('study_settings', 0);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_get_returns_existing_settings_for_the_user(): void
+    {
+        StudySettings::factory()->create([
+            'new_cards_per_day' => 32,
+        ]);
+        $settings = StudySettings::factory()->create([
+            'new_cards_per_day' => 12,
+        ]);
+
+        $result = app(GetStudySettingsAction::class)->handle($settings->user_id);
+
+        $this->assertTrue($settings->is($result));
+        $this->assertSame(12, $result->new_cards_per_day);
     }
 
     public function test_update_creates_settings_when_missing(): void

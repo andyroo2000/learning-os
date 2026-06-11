@@ -34,6 +34,10 @@ class MediaAssetTest extends TestCase
             'created_at',
             'updated_at',
         ]));
+        $this->assertFalse(
+            Schema::hasColumn('media_assets', 'deleted_at'),
+            'Media assets are hard-deleted; export card-media counts intentionally have no media deleted_at filter.',
+        );
     }
 
     public function test_media_assets_table_has_user_created_id_index(): void

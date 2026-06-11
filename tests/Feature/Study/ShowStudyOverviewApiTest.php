@@ -49,6 +49,7 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('data.new_cards_per_day', 2)
                 ->assertJsonPath('data.new_cards_introduced_today', 1)
                 ->assertJsonPath('data.new_cards_available_today', 1)
+                ->assertJsonPath('data.next_due_at', '2026-06-05T00:00:00.000000Z')
                 ->assertJsonPath('data.latest_import', null)
                 ->assertJsonFragment(['latest_import' => null])
                 ->assertJsonPath('data.total_cards', 3);

@@ -923,9 +923,13 @@ class StudyImportUploadActionTest extends TestCase
                 'media_entries' => [],
                 'note_one_fields' => '会社'."\x1f",
                 'review_logs' => [
+                    // Invalid source review timestamp: skipped instead of coerced to epoch.
                     ['id' => -1, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1],
+                    // Valid review row with an invalid duration: imported, with duration fields normalized to null.
                     ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => -20, 'type' => 1],
+                    // Card 702 is present in the archive but skipped because its rendered text is blank.
                     ['id' => 1700000000456, 'cid' => 702, 'ease' => 4, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1],
+                    // Unsupported rating: skipped.
                     ['id' => 1700000000789, 'cid' => 703, 'ease' => 9, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1],
                 ],
             ]),
@@ -951,6 +955,7 @@ class StudyImportUploadActionTest extends TestCase
 
         $this->assertSame(1700000000123, $reviewEvent->source_review_id);
         $this->assertSame('good', $reviewEvent->rating->value);
+        // reviewed_at uses the existing second-precision schema; source_review_id preserves the Anki millisecond ID.
         $this->assertSame('2023-11-14T22:13:20.000000Z', $reviewEvent->reviewed_at?->toJSON());
         $this->assertNull($reviewEvent->duration_ms);
         $this->assertNull($reviewEvent->source_time_ms);

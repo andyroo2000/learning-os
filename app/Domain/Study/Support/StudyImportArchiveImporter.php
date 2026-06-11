@@ -508,9 +508,16 @@ final class StudyImportArchiveImporter
         foreach ($reviewLogs as $reviewLog) {
             $rating = $this->reviewRating($reviewLog);
             $card = $importedCardsBySourceCardId[$reviewLog->sourceCardId] ?? null;
+
+            if ($rating === null || $card === null || isset($seenSourceReviewIds[$reviewLog->sourceReviewId])) {
+                $skippedCount++;
+
+                continue;
+            }
+
             $reviewedAt = $this->reviewedAt($reviewLog);
 
-            if ($rating === null || $card === null || $reviewedAt === null || isset($seenSourceReviewIds[$reviewLog->sourceReviewId])) {
+            if ($reviewedAt === null) {
                 $skippedCount++;
 
                 continue;

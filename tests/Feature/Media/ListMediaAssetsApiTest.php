@@ -600,6 +600,15 @@ class ListMediaAssetsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/media-assets');
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/media-assets');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/media-assets');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/media-assets');
+    }
+
     public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
     {
         $user = $this->signIn();

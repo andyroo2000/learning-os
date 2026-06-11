@@ -11,6 +11,8 @@ class ListMediaAssetsRequest extends CursorPaginatedRequest
 
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
 
         $this->mergeNormalizedUlidInput($normalized, 'course_id');
@@ -42,5 +44,10 @@ class ListMediaAssetsRequest extends CursorPaginatedRequest
         }
 
         return $validated['course_id'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['created_at', 'id'];
     }
 }

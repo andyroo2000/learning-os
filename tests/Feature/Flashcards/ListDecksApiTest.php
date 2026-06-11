@@ -379,6 +379,15 @@ class ListDecksApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/decks');
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/decks');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/decks');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/decks');
+    }
+
     public function test_it_requires_authentication(): void
     {
         Deck::factory()->create();

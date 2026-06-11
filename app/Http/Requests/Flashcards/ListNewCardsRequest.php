@@ -9,6 +9,8 @@ class ListNewCardsRequest extends CursorPaginatedRequest
 {
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
 
         foreach (['course_id', 'deck_id'] as $key) {
@@ -55,5 +57,10 @@ class ListNewCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['deck_id'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['cards.new_queue_position', 'cards.id'];
     }
 }

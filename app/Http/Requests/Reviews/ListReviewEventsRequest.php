@@ -11,6 +11,8 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
 
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
 
         foreach (['course_id', 'card_id'] as $key) {
@@ -56,5 +58,10 @@ class ListReviewEventsRequest extends CursorPaginatedRequest
         }
 
         return $validated['card_id'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['card_review_events.reviewed_at', 'card_review_events.id'];
     }
 }

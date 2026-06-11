@@ -10,6 +10,8 @@ class ListStudyImportJobsRequest extends CursorPaginatedRequest
 {
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $status = $this->input('status');
 
         if (is_string($status)) {
@@ -38,5 +40,10 @@ class ListStudyImportJobsRequest extends CursorPaginatedRequest
         }
 
         return StudyImportStatus::from($validated['status']);
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['updated_at', 'id'];
     }
 }

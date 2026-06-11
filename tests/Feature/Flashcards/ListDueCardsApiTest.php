@@ -365,4 +365,13 @@ class ListDueCardsApiTest extends TestCase
 
         $this->assertCursorEndpointAcceptsCustomPageSize('/api/cards/due');
     }
+
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsMalformedCursor('/api/cards/due');
+        $this->assertCursorEndpointRejectsArrayCursor('/api/cards/due');
+        $this->assertCursorEndpointRejectsParameterlessCursor('/api/cards/due');
+    }
 }

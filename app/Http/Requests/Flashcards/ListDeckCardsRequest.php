@@ -13,6 +13,8 @@ class ListDeckCardsRequest extends CursorPaginatedRequest
 
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $searchQuery = $this->input('q');
 
         if (is_string($searchQuery)) {
@@ -46,5 +48,10 @@ class ListDeckCardsRequest extends CursorPaginatedRequest
         }
 
         return $validated['q'];
+    }
+
+    protected function cursorParameters(): array
+    {
+        return ['created_at', 'id'];
     }
 }

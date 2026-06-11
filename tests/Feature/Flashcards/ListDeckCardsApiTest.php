@@ -695,6 +695,17 @@ class ListDeckCardsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize("/api/decks/{$deck->id}/cards");
     }
 
+    public function test_it_rejects_invalid_cursor_values(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $uri = "/api/decks/{$deck->id}/cards";
+
+        $this->assertCursorEndpointRejectsMalformedCursor($uri);
+        $this->assertCursorEndpointRejectsArrayCursor($uri);
+        $this->assertCursorEndpointRejectsParameterlessCursor($uri);
+    }
+
     public function test_it_hides_another_users_deck(): void
     {
         $this->signIn();

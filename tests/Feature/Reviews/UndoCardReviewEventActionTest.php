@@ -4,22 +4,23 @@ namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\UndoCardReviewEventAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
-use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Tests\Support\AssertsCardReviewEventSyncFeedEntries;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class UndoCardReviewEventActionTest extends TestCase
 {
+    use AssertsCardReviewEventSyncFeedEntries;
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_restores_the_card_snapshot_and_deletes_the_latest_review_event(): void
@@ -38,6 +39,10 @@ class UndoCardReviewEventActionTest extends TestCase
         ]);
 
         $reviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00Z')->reviewEvent;
+        $reviewCardEntry = $this->assertCardSyncPayloadRecorded(
+            $card->refresh()->load('deck'),
+            SyncFeedOperation::Update,
+        );
         $deletedAt = Carbon::parse('2026-05-27T10:00:00Z');
 
         Carbon::setTestNow($deletedAt);
@@ -64,22 +69,13 @@ class UndoCardReviewEventActionTest extends TestCase
         $restoredCard->refresh()->load('deck');
         $reviewEvent->setRelation('card', $restoredCard);
 
-        $deleteEntry = SyncFeedEntry::query()
-            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', $reviewEvent->id)
-            ->where('operation', SyncFeedOperation::Delete->value)
-            ->sole();
-
-        $this->assertEquals(CardReviewEventSyncPayload::fromReviewEvent($reviewEvent, $deletedAt), $deleteEntry->payload);
-
-        $latestCardEntry = SyncFeedEntry::query()
-            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', $restoredCard->id)
-            ->latest('checkpoint')
-            ->firstOrFail();
-
-        $this->assertSame(SyncFeedOperation::Update, $latestCardEntry->operation);
-        $this->assertEquals(CardSyncPayload::fromCard($restoredCard), $latestCardEntry->payload);
+        $deleteEntry = $this->assertCardReviewEventDeleteSyncPayloadRecorded($reviewEvent);
+        $this->assertSame($deletedAt->toJSON(), $deleteEntry->payload['deleted_at']);
+        $this->assertCardSyncPayloadRecorded(
+            $restoredCard,
+            SyncFeedOperation::Update,
+            afterCheckpoint: $reviewCardEntry->checkpoint,
+        );
     }
 
     public function test_it_rejects_undoing_a_review_that_is_not_the_latest_for_the_card(): void

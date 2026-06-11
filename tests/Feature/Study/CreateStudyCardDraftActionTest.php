@@ -10,9 +10,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
-use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
@@ -21,10 +19,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
+use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateStudyCardDraftActionTest extends TestCase
 {
+    use AssertsStudyCardDraftSyncFeedEntries;
     use BuildsStudyCardDraftRows;
     use RefreshDatabase;
 
@@ -57,13 +57,13 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertNull($draft->preview_image_json);
         $this->assertNull($draft->error_message);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame(StudyCardDraftSyncPayload::DOMAIN, $entry->domain);
-        $this->assertSame(StudyCardDraftSyncPayload::RESOURCE_TYPE, $entry->resource_type);
-        $this->assertSame($draft->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($draft, SyncFeedOperation::Create);
+
+        $this->assertSame('generating', $entry->payload['status']);
+        $this->assertSame('production-image', $entry->payload['creation_kind']);
+        $this->assertSame('A sunny office', $entry->payload['image_prompt']);
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void
@@ -111,8 +111,13 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
         $this->assertSame($expectedUnlockedAt, $draft->variant_unlocked_at->toJSON());
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($draft, SyncFeedOperation::Create);
+
+        $this->assertSame('vocab-group-1', $entry->payload['variant_group_id']);
+        $this->assertSame('sentence_audio_recognition', $entry->payload['variant_kind']);
+        $this->assertSame($expectedUnlockedAt, $entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
@@ -136,8 +141,12 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertNull($draft->variant_kind);
         $this->assertNull($draft->variant_status);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($draft, SyncFeedOperation::Create);
+
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_kind']);
     }
 
     #[DataProvider('invalidVariantMetadataProvider')]

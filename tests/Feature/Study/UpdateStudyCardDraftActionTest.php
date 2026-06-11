@@ -11,17 +11,18 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateStudyCardDraftActionTest extends TestCase
 {
+    use AssertsStudyCardDraftSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_autosaves_ready_study_card_draft_fields(): void
@@ -92,12 +93,13 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Ready, $updated->status);
         $this->assertSame('Old error.', $updated->error_message);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('study', $entry->domain);
-        $this->assertSame('study_card_draft', $entry->resource_type);
-        $this->assertSame($draft->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($updated), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($updated, SyncFeedOperation::Update);
+
+        $this->assertSame('ready', $entry->payload['status']);
+        $this->assertSame('A quiet meeting room', $entry->payload['image_prompt']);
+        $this->assertSame('sentence_cloze', $entry->payload['variant_kind']);
     }
 
     public function test_it_ignores_values_for_omitted_fields_in_direct_data(): void
@@ -378,8 +380,13 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertNull($updated->variant_status);
         $this->assertNull($updated->variant_unlocked_at);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($updated), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($updated, SyncFeedOperation::Update);
+
+        $this->assertSame('none', $entry->payload['image_placement']);
+        $this->assertNull($entry->payload['variant_group_id']);
+        $this->assertNull($entry->payload['variant_unlocked_at']);
     }
 
     public function test_it_rejects_generating_draft_edits(): void

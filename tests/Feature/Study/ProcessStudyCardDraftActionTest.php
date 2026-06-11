@@ -6,15 +6,16 @@ use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class ProcessStudyCardDraftActionTest extends TestCase
 {
+    use AssertsStudyCardDraftSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_marks_generating_seeded_manual_drafts_ready(): void
@@ -36,11 +37,12 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame(['meaning' => 'company'], $processed?->answer_json);
         $this->assertNull($processed?->error_message);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame('study_card_draft', $entry->resource_type);
-        $this->assertSame($draft->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($processed), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($processed, SyncFeedOperation::Update);
+
+        $this->assertSame('ready', $entry->payload['status']);
+        $this->assertNull($entry->payload['error_message']);
     }
 
     public function test_it_marks_invalid_generating_drafts_failed_without_leaving_stale_outputs(): void
@@ -73,9 +75,12 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertNull($processed?->preview_audio_role);
         $this->assertNull($processed?->preview_image_json);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($processed), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded($processed, SyncFeedOperation::Update);
+
+        $this->assertSame('error', $entry->payload['status']);
+        $this->assertSame('prompt must be 8 levels deep or fewer.', $entry->payload['error_message']);
     }
 
     public function test_it_does_not_reprocess_terminal_or_missing_drafts(): void

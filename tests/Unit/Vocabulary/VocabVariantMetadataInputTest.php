@@ -42,6 +42,10 @@ class VocabVariantMetadataInputTest extends TestCase
             '2026-06-04T14:15:30.987654Z',
             VocabVariantMetadataInput::compatibilityUnlockedAtTimestamp('2026-06-04T14:15:30.987654')?->toJSON(),
         );
+        $this->assertSame(
+            '2026-06-04T08:45:30.000000Z',
+            VocabVariantMetadataInput::compatibilityUnlockedAtTimestamp('2026-06-04T14:15:30+05:30')?->toJSON(),
+        );
     }
 
     public function test_compatibility_variant_timestamp_still_rejects_invalid_values(): void

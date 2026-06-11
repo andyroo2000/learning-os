@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Support;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Support\DateTime\StrictIsoDateTime;
 use Illuminate\Support\Carbon;
 
 final class CardSchedulerState
@@ -235,11 +236,7 @@ final class CardSchedulerState
             return null;
         }
 
-        try {
-            return Carbon::parse($value);
-        } catch (\Exception) {
-            return null;
-        }
+        return StrictIsoDateTime::parseOrNull(trim($value));
     }
 
     private static function scheduledDays(Carbon $dueAt, Carbon $from): int

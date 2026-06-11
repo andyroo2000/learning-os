@@ -237,24 +237,31 @@ class UndoCardReviewEventApiTest extends TestCase
     public function test_it_returns_server_error_when_the_undo_snapshot_is_invalid(): void
     {
         $user = $this->signIn();
-        $reviewEvent = CardReviewEvent::factory()
-            ->for($this->cardFor($user))
-            ->create([
-                'card_state_before' => [
-                    'study_status' => 'new',
-                    'new_queue_position' => null,
-                    'scheduler_state' => null,
-                    'due_at' => 'not-a-date',
-                    'introduced_at' => null,
-                    'failed_at' => null,
-                    'last_reviewed_at' => null,
-                ],
-            ]);
 
-        $this->deleteJson("/api/card-review-events/{$reviewEvent->id}")
-            ->assertStatus(500)
-            ->assertJsonPath('reason', 'card_review_event_invalid_undo_state');
+        foreach ([
+            'not-a-date',
+            '2026-02-31T09:15:00Z',
+            '2026-05-28T09:15:00+15:00',
+        ] as $dueAt) {
+            $reviewEvent = CardReviewEvent::factory()
+                ->for($this->cardFor($user))
+                ->create([
+                    'card_state_before' => [
+                        'study_status' => 'new',
+                        'new_queue_position' => null,
+                        'scheduler_state' => null,
+                        'due_at' => $dueAt,
+                        'introduced_at' => null,
+                        'failed_at' => null,
+                        'last_reviewed_at' => null,
+                    ],
+                ]);
 
-        $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+            $this->deleteJson("/api/card-review-events/{$reviewEvent->id}")
+                ->assertStatus(500)
+                ->assertJsonPath('reason', 'card_review_event_invalid_undo_state');
+
+            $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+        }
     }
 }

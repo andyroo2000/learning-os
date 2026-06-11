@@ -2,7 +2,9 @@
 
 namespace App\Domain\Media\Sync;
 
+use App\Support\DateTime\ServerTimestamp;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 final class CardMediaSyncPayload
 {
@@ -45,8 +47,7 @@ final class CardMediaSyncPayload
             return null;
         }
 
-        return $value instanceof Carbon
-            ? $value->toJSON()
-            : Carbon::parse($value, 'UTC')->toJSON();
+        return ServerTimestamp::toJson($value)
+            ?? throw new InvalidArgumentException('Card media timestamp must be a valid server timestamp.');
     }
 }

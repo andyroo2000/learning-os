@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources\Study;
 
+use App\Support\DateTime\ServerTimestamp;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Carbon;
+use UnexpectedValueException;
 
 class StudyExportCardMediaResource extends JsonResource
 {
@@ -30,6 +31,7 @@ class StudyExportCardMediaResource extends JsonResource
             return $value->toJSON();
         }
 
-        return $value === null ? null : Carbon::parse((string) $value)->toJSON();
+        return ServerTimestamp::toJson((string) $value)
+            ?? throw new UnexpectedValueException("Study export card media {$attribute} is not a valid timestamp.");
     }
 }

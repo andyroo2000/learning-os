@@ -254,6 +254,37 @@ class UndoCardReviewEventActionTest extends TestCase
         }
     }
 
+    public function test_it_rejects_invalid_iso_timestamp_strings_in_undo_snapshots(): void
+    {
+        foreach ([
+            '2026-02-31T09:15:00Z',
+            '2026-05-28T09:15:00+15:00',
+            '2026-05-28T09:15:00-13:00',
+        ] as $dueAt) {
+            $reviewEvent = CardReviewEvent::factory()->create([
+                'card_state_before' => [
+                    'study_status' => 'new',
+                    'new_queue_position' => null,
+                    'scheduler_state' => null,
+                    'due_at' => $dueAt,
+                    'introduced_at' => null,
+                    'failed_at' => null,
+                    'last_reviewed_at' => null,
+                ],
+            ]);
+
+            try {
+                app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+                $this->fail('Expected invalid undo snapshot exception was not thrown.');
+            } catch (UndoCardReviewEventException $exception) {
+                $this->assertSame('card_review_event_invalid_undo_state', $exception->reason());
+            }
+
+            $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+        }
+    }
+
     public function test_it_accepts_iso_timestamp_strings_without_fractional_seconds_in_undo_snapshots(): void
     {
         $reviewEvent = CardReviewEvent::factory()->create([
@@ -271,6 +302,25 @@ class UndoCardReviewEventActionTest extends TestCase
         $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
 
         $this->assertSame('2026-05-28T09:15:00.000000Z', $restoredCard->due_at?->toJSON());
+    }
+
+    public function test_it_normalizes_offset_timestamp_strings_in_undo_snapshots(): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->create([
+            'card_state_before' => [
+                'study_status' => 'review',
+                'new_queue_position' => null,
+                'scheduler_state' => null,
+                'due_at' => '2026-05-28T09:15:00+05:30',
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+        $this->assertSame('2026-05-28T03:45:00.000000Z', $restoredCard->due_at?->toJSON());
     }
 
     private function reviewCard(Card $card, string $reviewedAt): ReviewCardResult

@@ -66,7 +66,7 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame('漢字', $clozeCard->backText);
 
         $firstReview = $archive->reviewLogs[0];
-        $this->assertSame(901, $firstReview->sourceReviewId);
+        $this->assertSame(1700000000123, $firstReview->sourceReviewId);
         $this->assertSame(701, $firstReview->sourceCardId);
         $this->assertSame(3, $firstReview->sourceEase);
         $this->assertSame(12, $firstReview->sourceInterval);
@@ -125,7 +125,7 @@ class StudyImportArchiveReaderTest extends TestCase
         );
 
         $firstReview = $archive->reviewLogs[0];
-        $this->assertSame(901, $firstReview->sourceReviewId);
+        $this->assertSame(1700000000123, $firstReview->sourceReviewId);
         $this->assertSame(701, $firstReview->sourceCardId);
         $this->assertNull($firstReview->sourceEase);
         $this->assertNull($firstReview->sourceInterval);

@@ -14,10 +14,12 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteCardActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_soft_deletes_a_card(): void
@@ -38,47 +40,13 @@ class DeleteCardActionTest extends TestCase
             'id' => $card->id,
         ]);
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertSame($card->deck->user_id, $entry->user_id);
-        $this->assertSame('flashcards', $entry->domain);
-        $this->assertSame('card', $entry->resource_type);
-        $this->assertSame($card->id, $entry->resource_id);
-        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-        $this->assertSame([
-            'id' => $card->id,
-            'deck_id' => $card->deck_id,
-            'course_id' => $course->id,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_card_id' => null,
-            'source_note_id' => null,
-            'source_deck_id' => null,
-            'source_notetype_name' => null,
-            'source_template_ord' => null,
-            'front_text' => $card->front_text,
-            'back_text' => $card->back_text,
-            'card_type' => 'recognition',
-            'prompt_json' => null,
-            'answer_json' => null,
-            'search_text' => $card->search_text,
-            'study_status' => 'new',
-            'new_queue_position' => $card->new_queue_position,
-            'scheduler_state' => null,
-            'variant_group_id' => null,
-            'variant_sentence_id' => null,
-            'variant_kind' => null,
-            'variant_stage' => null,
-            'variant_status' => null,
-            'variant_unlocked_at' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-            'created_at' => $card->created_at?->toJSON(),
-            'updated_at' => $card->updated_at?->toJSON(),
-            'deleted_at' => $card->deleted_at?->toJSON(),
-        ], $entry->payload);
+        $entry = $this->assertCardSyncPayloadRecorded($card, SyncFeedOperation::Delete);
+
+        $this->assertSame($course->id, $entry->payload['course_id']);
+        $this->assertSame('new', $entry->payload['study_status']);
+        $this->assertSame($card->deleted_at?->toJSON(), $entry->payload['deleted_at']);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void

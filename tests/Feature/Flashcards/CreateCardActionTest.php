@@ -9,7 +9,6 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
-use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -28,10 +27,12 @@ use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use RuntimeException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateCardActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_creates_a_card_for_a_deck(): void
@@ -67,14 +68,14 @@ class CreateCardActionTest extends TestCase
                 'new_queue_position' => 1,
             ]);
 
-            $entry = SyncFeedEntry::query()->sole();
+            $this->assertDatabaseCount('sync_feed_entries', 1);
 
-            $this->assertSame($deck->user_id, $entry->user_id);
-            $this->assertSame(CardSyncPayload::DOMAIN, $entry->domain);
-            $this->assertSame(CardSyncPayload::RESOURCE_TYPE, $entry->resource_type);
-            $this->assertSame($card->id, $entry->resource_id);
-            $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-            $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+            $entry = $this->assertCardSyncPayloadRecorded($card, SyncFeedOperation::Create);
+
+            $this->assertSame($course->id, $entry->payload['course_id']);
+            $this->assertSame('ciao', $entry->payload['front_text']);
+            $this->assertSame('hello', $entry->payload['back_text']);
+            $this->assertSame(1, $entry->payload['new_queue_position']);
         } finally {
             Carbon::setTestNow();
         }
@@ -108,8 +109,9 @@ class CreateCardActionTest extends TestCase
         $this->assertSame($cardId, $secondResult->card->id);
         $this->assertSame(1, Card::query()->count());
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(CardSyncPayload::fromCard($firstResult->card->refresh()), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $this->assertCardSyncPayloadRecorded($firstResult->card->refresh(), SyncFeedOperation::Create);
     }
 
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
@@ -136,8 +138,9 @@ class CreateCardActionTest extends TestCase
         $this->assertNull($card->variant_kind);
         $this->assertNull($card->variant_status);
 
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $this->assertCardSyncPayloadRecorded($card, SyncFeedOperation::Create);
     }
 
     #[DataProvider('invalidVariantMetadataProvider')]
@@ -175,7 +178,11 @@ class CreateCardActionTest extends TestCase
             'id' => $result->card->id,
             'card_type' => 'production',
         ]);
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Create);
+
+        $this->assertSame('production', $entry->payload['card_type']);
     }
 
     public function test_it_creates_a_card_with_structured_content(): void
@@ -206,7 +213,12 @@ class CreateCardActionTest extends TestCase
             'search_text' => 'What is ATP? Cellular energy currency. text What is ATP? text Cellular energy currency.',
         ]);
 
-        $this->assertEquals(CardSyncPayload::fromCard($result->card->refresh()), SyncFeedEntry::query()->sole()->payload);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card->refresh(), SyncFeedOperation::Create);
+
+        $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $entry->payload['prompt_json']);
+        $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $entry->payload['answer_json']);
     }
 
     public function test_it_appends_new_cards_to_the_users_new_card_queue(): void

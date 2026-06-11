@@ -5,14 +5,15 @@ namespace Tests\Feature\Flashcards;
 use App\Domain\Flashcards\Actions\PerformCardStudyAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
 
 class PerformCardStudyActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_suspend_sets_status_and_records_a_sync_entry(): void
@@ -32,11 +33,10 @@ class PerformCardStudyActionTest extends TestCase
         $this->assertSame(CardStudyStatus::Suspended, $result->card->study_status);
         $this->assertSame($dueAt->toJSON(), $result->card->due_at?->toJSON());
 
-        $entry = SyncFeedEntry::query()->sole();
+        $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertSame($user->id, $entry->user_id);
-        $this->assertSame(SyncFeedOperation::Update, $entry->operation);
-        $this->assertSame($card->id, $entry->resource_id);
+        $entry = $this->assertCardSyncPayloadRecorded($result->card, SyncFeedOperation::Update);
+
         $this->assertSame('suspended', $entry->payload['study_status']);
         $this->assertSame($dueAt->toJSON(), $entry->payload['due_at']);
     }
@@ -60,7 +60,11 @@ class PerformCardStudyActionTest extends TestCase
         $this->assertNull($result->card->introduced_at);
         $this->assertNull($result->card->failed_at);
         $this->assertNull($result->card->last_reviewed_at);
-        $this->assertSame('new', SyncFeedEntry::query()->sole()->payload['study_status']);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card, SyncFeedOperation::Update);
+
+        $this->assertSame('new', $entry->payload['study_status']);
     }
 
     public function test_unsuspend_restores_review_status_and_preserves_existing_due_date(): void
@@ -80,7 +84,11 @@ class PerformCardStudyActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Review, $result->card->study_status);
         $this->assertSame($dueAt->toJSON(), $result->card->due_at?->toJSON());
-        $this->assertSame('review', SyncFeedEntry::query()->sole()->payload['study_status']);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card, SyncFeedOperation::Update);
+
+        $this->assertSame('review', $entry->payload['study_status']);
     }
 
     public function test_unsuspend_restores_scheduler_state_status_and_preserves_existing_due_date(): void
@@ -112,7 +120,11 @@ class PerformCardStudyActionTest extends TestCase
         $this->assertTrue($result->wasUpdated);
         $this->assertSame(CardStudyStatus::Relearning, $result->card->study_status);
         $this->assertSame($dueAt->toJSON(), $result->card->due_at?->toJSON());
-        $this->assertSame('relearning', SyncFeedEntry::query()->sole()->payload['study_status']);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+
+        $entry = $this->assertCardSyncPayloadRecorded($result->card, SyncFeedOperation::Update);
+
+        $this->assertSame('relearning', $entry->payload['study_status']);
     }
 
     public function test_unsuspend_sets_due_now_when_no_due_date_exists(): void

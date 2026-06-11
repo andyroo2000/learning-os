@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Support\Pagination\CursorPagination;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Pagination\Cursor;
 
 /**
@@ -112,6 +113,17 @@ trait AssertsCursorPagination
         $response = $this->getJson($uri.$separator.'per_page[]=10');
 
         $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    }
+
+    protected function assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware(string $uri): void
+    {
+        $this->assertAuthenticated();
+
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson($this->cursorPaginationUrl($uri, ['per_page' => ' ']))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('per_page');
     }

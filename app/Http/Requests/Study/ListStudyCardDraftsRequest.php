@@ -31,7 +31,7 @@ class ListStudyCardDraftsRequest extends FormRequest
     {
         return [
             'cursor' => ['sometimes', 'filled', 'string', 'max:512'],
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:'.ListStudyCardDraftsAction::MAX_LIMIT],
+            'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.ListStudyCardDraftsAction::MAX_LIMIT],
         ];
     }
 

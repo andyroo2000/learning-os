@@ -30,7 +30,7 @@ abstract class CursorPaginatedRequest extends FormRequest
     {
         return [
             'cursor' => ['sometimes', 'filled', 'string', 'max:512'],
-            'per_page' => ['sometimes', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.$this->maxPerPage()],
+            'per_page' => ['sometimes', 'filled', 'integer', 'min:'.CursorPagination::MIN_PAGE_SIZE, 'max:'.$this->maxPerPage()],
         ];
     }
 

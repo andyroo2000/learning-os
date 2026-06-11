@@ -260,6 +260,13 @@ class ListStudyImportJobsApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/study/imports');
     }
 
+    public function test_it_rejects_a_blank_page_size_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware('/api/study/imports');
+    }
+
     public function test_it_rejects_invalid_cursor_values(): void
     {
         $this->signIn();

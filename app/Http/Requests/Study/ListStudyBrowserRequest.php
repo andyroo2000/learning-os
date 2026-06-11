@@ -57,7 +57,7 @@ class ListStudyBrowserRequest extends FormRequest
                     }
                 },
             ],
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:'.ListStudyBrowserAction::MAX_LIMIT],
+            'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.ListStudyBrowserAction::MAX_LIMIT],
         ];
     }
 

@@ -513,6 +513,13 @@ class ListCoursesApiTest extends TestCase
         $this->assertCursorEndpointRejectsArrayPageSize('/api/courses');
     }
 
+    public function test_it_rejects_a_blank_page_size_without_global_trim_middleware(): void
+    {
+        $this->signIn();
+
+        $this->assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware('/api/courses');
+    }
+
     public function test_it_rejects_invalid_cursor_values(): void
     {
         $this->signIn();

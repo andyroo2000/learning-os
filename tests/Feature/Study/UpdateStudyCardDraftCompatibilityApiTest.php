@@ -7,8 +7,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
-use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
-use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
@@ -19,10 +18,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCardDraftSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_update_requires_authentication(): void
@@ -175,8 +176,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(VocabVariantStatus::Available->value, $draft->variant_status);
         $this->assertSame('2026-06-04T08:45:30.000000Z', $draft->variant_unlocked_at?->toJSON());
 
-        $entry = SyncFeedEntry::query()->latest('checkpoint')->firstOrFail();
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $firstEntry = $this->assertStudyCardDraftSyncPayloadRecorded($draft, SyncFeedOperation::Update);
 
         $this
             ->patchJson("/api/study/card-drafts/{$draft->id}", [
@@ -205,8 +205,11 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertNull($draft->variant_status);
         $this->assertNull($draft->variant_unlocked_at);
 
-        $entry = SyncFeedEntry::query()->latest('checkpoint')->firstOrFail();
-        $this->assertSame(StudyCardDraftSyncPayload::fromDraft($draft), $entry->payload);
+        $this->assertStudyCardDraftSyncPayloadRecorded(
+            $draft,
+            SyncFeedOperation::Update,
+            afterCheckpoint: $firstEntry->checkpoint,
+        );
     }
 
     public function test_it_only_updates_present_fields(): void

@@ -21,6 +21,11 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self('cardType must match creationKind.', 'cardType');
     }
 
+    public static function imagePromptTooLong(int $maxLength): self
+    {
+        return new self("imagePrompt must be {$maxLength} characters or fewer.", 'imagePrompt');
+    }
+
     public static function invalidCreationKind(): self
     {
         return new self('creationKind must be one of: '.implode(', ', StudyCardCreationKind::values()).'.', 'creationKind');
@@ -29,11 +34,6 @@ class StudyCardDraftValidationException extends RuntimeException
     public static function invalidImagePlacement(): self
     {
         return new self('imagePlacement must be one of: '.implode(', ', StudyCardImagePlacement::values()).'.', 'imagePlacement');
-    }
-
-    public static function imagePromptTooLong(int $maxLength): self
-    {
-        return new self("imagePrompt must be {$maxLength} characters or fewer.", 'imagePrompt');
     }
 
     public static function invalidPayloads(): self

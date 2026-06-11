@@ -57,10 +57,14 @@ class StudyImportJobFactory extends Factory
 
     public function uploadCompleted(): static
     {
-        return $this->state(fn (): array => [
-            'uploaded_at' => now(),
-            'upload_completed_at' => now(),
-        ]);
+        return $this->state(function (): array {
+            $uploadedAt = now();
+
+            return [
+                'uploaded_at' => $uploadedAt,
+                'upload_completed_at' => $uploadedAt,
+            ];
+        });
     }
 
     public function failed(): static

@@ -138,6 +138,7 @@ class CompleteStudyImportUploadAction
         $importJob->saveOrFail();
 
         if ($importJob->source_object_path !== null && $importJob->source_object_path !== '') {
+            // Best-effort cleanup: a storage failure rolls back the row update so retry can observe the same state.
             Storage::disk('study-imports')->delete($importJob->source_object_path);
         }
     }

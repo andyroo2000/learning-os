@@ -517,6 +517,7 @@ class StudyImportUploadApiTest extends TestCase
             ->assertStatus(202)
             ->assertJsonPath('data.upload_completed_at', '2026-06-05T12:00:00.000000Z');
 
+        // The duplicate dispatch is suppressed by ProcessStudyImportJob's ShouldBeUnique cache lock.
         Queue::assertPushed(ProcessStudyImportJob::class, 1);
         $this->assertSame('2026-06-05T12:00:00.000000Z', $importJob->refresh()->upload_completed_at?->toJSON());
     }

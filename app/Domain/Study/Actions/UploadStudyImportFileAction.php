@@ -86,6 +86,7 @@ class UploadStudyImportFileAction
             }
 
             // Keep the write under the row lock so completion cannot validate while the object is being replaced.
+            // This accepts brief per-import contention during large uploads in exchange for a strict queue boundary.
             Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
 
             $importJob->source_size_bytes = $actualContentSizeBytes;

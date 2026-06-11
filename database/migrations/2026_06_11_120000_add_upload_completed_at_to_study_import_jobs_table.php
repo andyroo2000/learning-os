@@ -14,7 +14,6 @@ return new class extends Migration
         });
 
         DB::table('study_import_jobs')
-            ->where('status', 'pending')
             ->whereNotNull('uploaded_at')
             ->whereNull('upload_completed_at')
             ->update([

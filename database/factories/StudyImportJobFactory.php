@@ -33,6 +33,7 @@ class StudyImportJobFactory extends Factory
             'error_message' => null,
             'started_at' => null,
             'uploaded_at' => null,
+            'upload_completed_at' => null,
             'upload_expires_at' => null,
             'completed_at' => null,
         ];
@@ -51,6 +52,14 @@ class StudyImportJobFactory extends Factory
         return $this->state(fn (): array => [
             'status' => StudyImportStatus::Completed,
             'completed_at' => now(),
+        ]);
+    }
+
+    public function uploadCompleted(): static
+    {
+        return $this->state(fn (): array => [
+            'uploaded_at' => now(),
+            'upload_completed_at' => now(),
         ]);
     }
 

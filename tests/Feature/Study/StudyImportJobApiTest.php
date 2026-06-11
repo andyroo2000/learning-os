@@ -98,6 +98,7 @@ class StudyImportJobApiTest extends TestCase
                     'error_message',
                     'started_at',
                     'uploaded_at',
+                    'upload_completed_at',
                     'upload_expires_at',
                     'completed_at',
                     'created_at',

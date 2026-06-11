@@ -8,9 +8,11 @@ use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Results\StudyImportUploadCompletionResult;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -24,67 +26,85 @@ class CompleteStudyImportUploadAction
         int $userId,
         string $importJobId,
         ?Carbon $now = null,
-    ): StudyImportJob {
+    ): StudyImportUploadCompletionResult {
         $now ??= now();
         $importJobId = CanonicalUlid::normalize($importJobId);
+        $deferredException = null;
 
         if (! Str::isUlid($importJobId)) {
             throw (new ModelNotFoundException)->setModel(StudyImportJob::class);
         }
 
-        $importJob = $this->findImportJob($userId, $importJobId);
+        $result = DB::transaction(function () use ($userId, $importJobId, $now, &$deferredException): StudyImportUploadCompletionResult {
+            $importJob = $this->findImportJob($userId, $importJobId);
 
-        if ($importJob->status !== StudyImportStatus::Pending) {
-            return $importJob;
+            if ($importJob->status !== StudyImportStatus::Pending) {
+                return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: false);
+            }
+
+            if ($importJob->upload_completed_at !== null) {
+                // Let client retries recover if the original queue dispatch failed after the marker committed.
+                return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: true);
+            }
+
+            $this->expireStaleProcessingStudyImports->handle($userId, $now);
+
+            // Best-effort: completion validates the upload; the queued worker transitions the job to Processing.
+            $activeProcessingImport = $this->activeProcessingImport($userId);
+            if ($activeProcessingImport !== null) {
+                throw StudyImportConflictException::activeImport($activeProcessingImport);
+            }
+
+            if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
+                throw new StudyImportValidationException('file', 'Study import upload target is missing.');
+            }
+
+            if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
+                $this->markFailedAndDeleteArchive($importJob, 'Study import upload session has expired.', $now);
+                $deferredException = new StudyImportUploadExpiredException;
+
+                return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: false);
+            }
+
+            $disk = Storage::disk('study-imports');
+
+            if (! $disk->exists($importJob->source_object_path)) {
+                throw StudyImportConflictException::uploadNotFinished($importJob);
+            }
+
+            $sourceSizeBytes = $disk->size($importJob->source_object_path);
+
+            if ($sourceSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
+                $message = 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.';
+                $this->markFailedAndDeleteArchive($importJob, $message, $now);
+                $deferredException = StudyImportArchiveException::tooLarge(StudyImportJob::MAX_ASYNC_IMPORT_BYTES);
+
+                return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: false);
+            }
+
+            if (! $this->isZipArchive($importJob->source_object_path)) {
+                $message = 'The uploaded file is not a valid ZIP-based .colpkg archive.';
+                $this->markFailedAndDeleteArchive($importJob, $message, $now);
+                $deferredException = StudyImportArchiveException::invalidZip();
+
+                return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: false);
+            }
+
+            $importJob->source_size_bytes = $sourceSizeBytes;
+            $importJob->uploaded_at ??= $now;
+            $importJob->upload_completed_at = $now;
+            $importJob->error_message = null;
+            $importJob->completed_at = null;
+            $importJob->saveOrFail();
+
+            return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: true);
+        });
+
+        if ($deferredException !== null) {
+            throw $deferredException;
         }
 
-        $this->expireStaleProcessingStudyImports->handle($userId, $now);
-
-        // Best-effort: completion validates the upload; the queued worker transitions the job to Processing.
-        $activeProcessingImport = $this->activeProcessingImport($userId);
-        if ($activeProcessingImport !== null) {
-            throw StudyImportConflictException::activeImport($activeProcessingImport);
-        }
-
-        if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
-            throw new StudyImportValidationException('file', 'Study import upload target is missing.');
-        }
-
-        if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
-            $this->markFailedAndDeleteArchive($importJob, 'Study import upload session has expired.', $now);
-
-            throw new StudyImportUploadExpiredException;
-        }
-
-        $disk = Storage::disk('study-imports');
-
-        if (! $disk->exists($importJob->source_object_path)) {
-            throw StudyImportConflictException::uploadNotFinished($importJob);
-        }
-
-        $sourceSizeBytes = $disk->size($importJob->source_object_path);
-
-        if ($sourceSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
-            $message = 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.';
-            $this->markFailedAndDeleteArchive($importJob, $message, $now);
-
-            throw StudyImportArchiveException::tooLarge(StudyImportJob::MAX_ASYNC_IMPORT_BYTES);
-        }
-
-        if (! $this->isZipArchive($importJob->source_object_path)) {
-            $message = 'The uploaded file is not a valid ZIP-based .colpkg archive.';
-            $this->markFailedAndDeleteArchive($importJob, $message, $now);
-
-            throw StudyImportArchiveException::invalidZip();
-        }
-
-        $importJob->source_size_bytes = $sourceSizeBytes;
-        $importJob->uploaded_at ??= $now;
-        $importJob->error_message = null;
-        $importJob->completed_at = null;
-        $importJob->saveOrFail();
-
-        return $importJob;
+        return $result;
     }
 
     private function findImportJob(int $userId, string $importJobId): StudyImportJob
@@ -92,6 +112,7 @@ class CompleteStudyImportUploadAction
         return StudyImportJob::query()
             ->where('user_id', $userId)
             ->whereKey($importJobId)
+            ->lockForUpdate()
             ->first()
             ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
     }

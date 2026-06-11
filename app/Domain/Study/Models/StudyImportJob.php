@@ -74,6 +74,7 @@ class StudyImportJob extends Model
             'summary_json' => 'array',
             'started_at' => 'datetime',
             'uploaded_at' => 'datetime',
+            'upload_completed_at' => 'datetime',
             'upload_expires_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

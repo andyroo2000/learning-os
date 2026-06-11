@@ -59,6 +59,10 @@ class UploadStudyImportFileAction
             throw StudyImportConflictException::notPending($importJob);
         }
 
+        if ($importJob->upload_completed_at !== null) {
+            throw StudyImportConflictException::uploadAlreadyCompleted($importJob);
+        }
+
         if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
             $importJob->status = StudyImportStatus::Failed;
             $importJob->error_message = 'Study import upload session has expired.';

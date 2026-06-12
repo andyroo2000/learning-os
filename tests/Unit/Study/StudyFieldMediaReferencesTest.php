@@ -12,12 +12,16 @@ class StudyFieldMediaReferencesTest extends TestCase
         $this->assertSame(
             [
                 [
+                    'id' => null,
                     'filename' => 'word & tone.mp3',
+                    'url' => null,
                     'mediaKind' => 'audio',
                     'source' => 'imported',
                 ],
                 [
+                    'id' => null,
                     'filename' => 'company & office.png',
+                    'url' => null,
                     'mediaKind' => 'image',
                     'source' => 'imported_image',
                 ],
@@ -33,7 +37,9 @@ class StudyFieldMediaReferencesTest extends TestCase
         $this->assertSame(
             [
                 [
+                    'id' => null,
                     'filename' => 'company.png',
+                    'url' => null,
                     'mediaKind' => 'image',
                     'source' => 'imported_image',
                 ],
@@ -80,7 +86,9 @@ class StudyFieldMediaReferencesTest extends TestCase
         $this->assertSame($image, StudyFieldMediaReferences::imageFromValue($image));
         $this->assertSame(
             [
+                'id' => null,
                 'filename' => 'legacy.mp3',
+                'url' => null,
                 'mediaKind' => 'audio',
                 'source' => 'imported',
             ],
@@ -88,7 +96,9 @@ class StudyFieldMediaReferencesTest extends TestCase
         );
         $this->assertSame(
             [
+                'id' => null,
                 'filename' => 'legacy.png',
+                'url' => null,
                 'mediaKind' => 'image',
                 'source' => 'imported_image',
             ],
@@ -100,7 +110,9 @@ class StudyFieldMediaReferencesTest extends TestCase
     {
         $this->assertSame(
             [
+                'id' => null,
                 'filename' => 'first.mp3',
+                'url' => null,
                 'mediaKind' => 'audio',
                 'source' => 'imported',
             ],
@@ -108,7 +120,9 @@ class StudyFieldMediaReferencesTest extends TestCase
         );
         $this->assertSame(
             [
+                'id' => null,
                 'filename' => 'first.png',
+                'url' => null,
                 'mediaKind' => 'image',
                 'source' => 'imported_image',
             ],

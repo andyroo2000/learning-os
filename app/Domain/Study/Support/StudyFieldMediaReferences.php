@@ -7,7 +7,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 final class StudyFieldMediaReferences
 {
     /**
-     * @return list<array{filename: string, mediaKind: 'audio'|'image', source: string}>
+     * @return list<array{id: null, filename: string, url: null, mediaKind: 'audio'|'image', source: string}>
      */
     public static function fromText(string $value): array
     {
@@ -32,7 +32,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return array{id?: string|null, filename: string, url?: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
      */
     public static function audioFromValue(mixed $value): ?array
     {
@@ -49,7 +49,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return array{id?: string|null, filename: string, url?: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
      */
     public static function imageFromValue(mixed $value): ?array
     {
@@ -66,7 +66,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return list<array{filename: string, mediaKind: 'audio', source: 'imported'}>
+     * @return list<array{id: null, filename: string, url: null, mediaKind: 'audio', source: 'imported'}>
      */
     private static function audioReferencesFromText(string $value): array
     {
@@ -86,7 +86,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return list<array{filename: string, mediaKind: 'image', source: 'imported_image'}>
+     * @return list<array{id: null, filename: string, url: null, mediaKind: 'image', source: 'imported_image'}>
      */
     private static function imageReferencesFromText(string $value): array
     {
@@ -111,7 +111,7 @@ final class StudyFieldMediaReferences
     /**
      * @param  'audio'|'image'  $mediaKind
      * @param  'imported'|'imported_image'  $source
-     * @return array{filename: string, mediaKind: 'audio'|'image', source: string}|null
+     * @return array{id: null, filename: string, url: null, mediaKind: 'audio'|'image', source: string}|null
      */
     private static function textReference(string $filename, string $mediaKind, string $source): ?array
     {
@@ -122,14 +122,16 @@ final class StudyFieldMediaReferences
         }
 
         return [
+            'id' => null,
             'filename' => $filename,
+            'url' => null,
             'mediaKind' => $mediaKind,
             'source' => $source,
         ];
     }
 
     /**
-     * @return array{id?: string|null, filename: string, url?: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
      */
     private static function typedMediaReference(array $value, string $mediaKind): ?array
     {
@@ -147,23 +149,21 @@ final class StudyFieldMediaReferences
             return null;
         }
 
-        $normalizedFilename = trim($filename);
-        $reference = [];
+        $id = $value['id'] ?? null;
+        $url = $value['url'] ?? null;
 
-        foreach (StudyCardDraft::MEDIA_REF_ALLOWED_KEYS as $key) {
-            if (! array_key_exists($key, $value)) {
-                continue;
-            }
-
-            $fieldValue = $value[$key];
-
+        foreach (['id' => $id, 'url' => $url] as $fieldValue) {
             if ($fieldValue !== null && ! is_string($fieldValue)) {
                 return null;
             }
-
-            $reference[$key] = $key === 'filename' ? $normalizedFilename : $fieldValue;
         }
 
-        return $reference;
+        return [
+            'id' => $id,
+            'filename' => trim($filename),
+            'url' => $url,
+            'mediaKind' => $mediaKind,
+            'source' => $source,
+        ];
     }
 }

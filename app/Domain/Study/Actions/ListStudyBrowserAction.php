@@ -188,6 +188,8 @@ class ListStudyBrowserAction
         }
 
         if ($total === 0) {
+            // Offset cursors can point beyond the final page; count once so `total` stays stable.
+            // The empty group collection below makes card hydration a no-op while facets still describe the result set.
             $total = (int) DB::query()
                 ->fromSub($this->browserGroupQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId), 'study_browser_groups')
                 ->count();
@@ -205,6 +207,8 @@ class ListStudyBrowserAction
         );
         $rowsByNoteId = collect($this->rowsFromCards($cards))->keyBy('noteId');
         $pageRows = $groupRows
+            // A concurrent delete between the group query and card hydration can leave a group without cards.
+            // Cursor advancement still follows the original group page so clients do not replay skipped groups.
             ->map(fn (object $group): ?array => $rowsByNoteId->get($this->noteIdFromGroupRow($group)))
             ->filter()
             ->values()
@@ -426,12 +430,19 @@ class ListStudyBrowserAction
                 }
 
                 if ($unsourcedCardIds !== []) {
-                    $method = $sourceNoteIds === [] ? 'where' : 'orWhere';
-                    $query->{$method}(function (Builder $query) use ($unsourcedCardIds): void {
-                        $query
-                            ->whereNull('cards.source_note_id')
-                            ->whereIn('cards.id', $unsourcedCardIds);
-                    });
+                    if ($sourceNoteIds === []) {
+                        $query->where(function (Builder $query) use ($unsourcedCardIds): void {
+                            $query
+                                ->whereNull('cards.source_note_id')
+                                ->whereIn('cards.id', $unsourcedCardIds);
+                        });
+                    } else {
+                        $query->orWhere(function (Builder $query) use ($unsourcedCardIds): void {
+                            $query
+                                ->whereNull('cards.source_note_id')
+                                ->whereIn('cards.id', $unsourcedCardIds);
+                        });
+                    }
                 }
             });
 

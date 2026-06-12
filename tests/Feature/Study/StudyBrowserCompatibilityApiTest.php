@@ -294,7 +294,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $this->assertCount(1, $facetSelects, 'Initial browser loads should use one unioned facet query.');
     }
 
-    public function test_it_reuses_the_unfiltered_row_query_for_initial_filter_options(): void
+    public function test_it_uses_bounded_page_and_facet_queries_for_initial_filter_options(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
@@ -793,7 +793,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         return $cardQueries->filter(function (array $query): bool {
             $sql = strtolower($query['query']);
 
-            return str_contains($sql, 'review_events_max_reviewed_at')
+            return str_contains($sql, 'source_note_id')
+                && str_contains($sql, ' in ')
                 && ! str_contains($sql, 'total_rows')
                 && ! str_contains($sql, ' as facet');
         });

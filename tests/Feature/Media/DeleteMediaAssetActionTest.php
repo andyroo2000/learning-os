@@ -6,9 +6,9 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -16,13 +16,14 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteMediaAssetActionTest extends TestCase
 {
+    use AssertsCardMediaSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_deletes_an_unattached_media_asset_with_one_asset_tombstone(): void
@@ -56,6 +57,7 @@ class DeleteMediaAssetActionTest extends TestCase
                     throw new RuntimeException('Sync feed failed.');
                 }
             },
+            recordCardMediaSyncFeedEntry: app(RecordCardMediaSyncFeedEntryAction::class),
         );
 
         try {
@@ -116,14 +118,17 @@ class DeleteMediaAssetActionTest extends TestCase
 
         $cardEntries = $cardsByReplayOrder->map(function (Card $card) use ($course, $mediaAsset, $pivotsByCardId): SyncFeedEntry {
             $pivot = $pivotsByCardId->get($card->id);
+            $this->assertNotNull($pivot);
 
             return $this->assertCardMediaSyncPayloadRecorded(
                 userId: $mediaAsset->user_id,
                 card: $card,
                 mediaAsset: $mediaAsset,
+                operation: SyncFeedOperation::Delete,
+                deckId: $card->deck_id,
                 courseId: $course->id,
-                createdAt: $pivot?->created_at,
-                updatedAt: $pivot?->updated_at,
+                createdAt: $pivot->created_at,
+                updatedAt: $pivot->updated_at,
             );
         });
 
@@ -157,17 +162,17 @@ class DeleteMediaAssetActionTest extends TestCase
         $mediaAsset = MediaAsset::factory()->for($user)->create();
         $card->mediaAssets()->attach($mediaAsset->id);
         $deleteMediaAsset = new DeleteMediaAssetAction(
-            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
-            {
-                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+            // Let the asset tombstone use the real recorder, then fail on the card-media tombstone.
+            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            recordCardMediaSyncFeedEntry: new RecordCardMediaSyncFeedEntryAction(
+                recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
                 {
-                    if ($data->resourceType === CardMediaSyncPayload::RESOURCE_TYPE) {
+                    public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                    {
                         throw new RuntimeException('Sync feed failed.');
                     }
-
-                    return parent::handle($data);
-                }
-            },
+                },
+            ),
         );
 
         try {
@@ -252,34 +257,6 @@ class DeleteMediaAssetActionTest extends TestCase
 
         $this->assertSame($mediaAsset->user_id, $entry->user_id);
         $this->assertEquals(MediaAssetSyncPayload::fromMediaAsset($mediaAsset), $entry->payload);
-
-        return $entry;
-    }
-
-    private function assertCardMediaSyncPayloadRecorded(
-        int|string $userId,
-        Card $card,
-        MediaAsset $mediaAsset,
-        ?string $courseId,
-        Carbon|string|null $createdAt,
-        Carbon|string|null $updatedAt,
-    ): SyncFeedEntry {
-        $entry = SyncFeedEntry::query()
-            ->where('domain', CardMediaSyncPayload::DOMAIN)
-            ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', CardMediaSyncPayload::resourceId($card->id, $mediaAsset->id))
-            ->where('operation', SyncFeedOperation::Delete->value)
-            ->sole();
-
-        $this->assertSame($userId, $entry->user_id);
-        $this->assertEquals(CardMediaSyncPayload::fromPivot(
-            cardId: $card->id,
-            mediaAssetId: $mediaAsset->id,
-            deckId: $card->deck_id,
-            courseId: $courseId,
-            createdAt: $createdAt,
-            updatedAt: $updatedAt,
-        ), $entry->payload);
 
         return $entry;
     }

@@ -4,12 +4,12 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\DetachMediaFromCardAction;
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -79,6 +79,8 @@ class DetachMediaFromCardApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
         $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}");
 
@@ -87,7 +89,12 @@ class DetachMediaFromCardApiTest extends TestCase
             ->assertJsonPath('data.id', $card->id)
             ->assertJsonCount(0, 'data.media_assets');
 
+        $card->refresh();
+
+        $this->assertNotNull($card->updated_at);
+        $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_detach_is_rate_limited_by_user(): void
@@ -243,7 +250,7 @@ class DetachMediaFromCardApiTest extends TestCase
 
         $card->mediaAssets()->attach($mediaAsset->id);
 
-        $this->app->instance(DetachMediaFromCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends DetachMediaFromCardAction
+        $this->app->instance(DetachMediaFromCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends DetachMediaFromCardAction
         {
             public function handle(DetachMediaFromCardData $data): Card
             {

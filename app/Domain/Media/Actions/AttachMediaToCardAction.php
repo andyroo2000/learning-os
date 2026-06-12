@@ -5,9 +5,6 @@ namespace App\Domain\Media\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Support\CardMediaOwnership;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
-use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -15,7 +12,7 @@ use RuntimeException;
 class AttachMediaToCardAction
 {
     public function __construct(
-        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
     ) {}
 
     public function handle(AttachMediaToCardData $data): Card
@@ -36,22 +33,15 @@ class AttachMediaToCardAction
             $pivot = $this->pivotFor($data)
                 ?? throw new RuntimeException('Card media pivot missing after attach.');
 
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $ownerUserId,
-                    domain: CardMediaSyncPayload::DOMAIN,
-                    resourceType: CardMediaSyncPayload::RESOURCE_TYPE,
-                    resourceId: CardMediaSyncPayload::resourceId($data->card->id, $data->mediaAsset->id),
-                    operation: SyncFeedOperation::Create->value,
-                    payload: CardMediaSyncPayload::fromPivot(
-                        cardId: $data->card->id,
-                        mediaAssetId: $data->mediaAsset->id,
-                        deckId: $data->card->deck_id,
-                        courseId: $data->card->deckCourseId(),
-                        createdAt: $pivot->created_at,
-                        updatedAt: $pivot->updated_at,
-                    ),
-                ),
+            $this->recordCardMediaSyncFeedEntry->handle(
+                userId: $ownerUserId,
+                operation: SyncFeedOperation::Create,
+                cardId: $data->card->id,
+                mediaAssetId: $data->mediaAsset->id,
+                deckId: $data->card->deck_id,
+                courseId: $data->card->deckCourseId(),
+                createdAt: $pivot->created_at,
+                updatedAt: $pivot->updated_at,
             );
         });
 

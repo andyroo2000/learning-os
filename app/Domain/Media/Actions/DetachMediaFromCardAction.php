@@ -5,16 +5,13 @@ namespace App\Domain\Media\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Support\CardMediaOwnership;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
-use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 
 class DetachMediaFromCardAction
 {
     public function __construct(
-        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
     ) {}
 
     public function handle(DetachMediaFromCardData $data): Card
@@ -34,22 +31,15 @@ class DetachMediaFromCardAction
 
             $data->card->touch();
 
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $ownerUserId,
-                    domain: CardMediaSyncPayload::DOMAIN,
-                    resourceType: CardMediaSyncPayload::RESOURCE_TYPE,
-                    resourceId: CardMediaSyncPayload::resourceId($data->card->id, $data->mediaAsset->id),
-                    operation: SyncFeedOperation::Delete->value,
-                    payload: CardMediaSyncPayload::fromPivot(
-                        cardId: $data->card->id,
-                        mediaAssetId: $data->mediaAsset->id,
-                        deckId: $data->card->deck_id,
-                        courseId: $data->card->deckCourseId(),
-                        createdAt: $pivot?->created_at,
-                        updatedAt: $pivot?->updated_at,
-                    ),
-                ),
+            $this->recordCardMediaSyncFeedEntry->handle(
+                userId: $ownerUserId,
+                operation: SyncFeedOperation::Delete,
+                cardId: $data->card->id,
+                mediaAssetId: $data->mediaAsset->id,
+                deckId: $data->card->deck_id,
+                courseId: $data->card->deckCourseId(),
+                createdAt: $pivot?->created_at,
+                updatedAt: $pivot?->updated_at,
             );
         });
 

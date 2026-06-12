@@ -4,7 +4,6 @@ namespace App\Domain\Media\Actions;
 
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -16,6 +15,7 @@ class DeleteMediaAssetAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
     ) {}
 
     public function handle(DeleteMediaAssetData $data): void
@@ -40,22 +40,15 @@ class DeleteMediaAssetAction
             $mediaAsset->delete();
 
             foreach ($cardMediaPivots as $pivot) {
-                $this->recordSyncFeedEntry->handle(
-                    RecordSyncFeedEntryData::fromInput(
-                        userId: $mediaAsset->user_id,
-                        domain: CardMediaSyncPayload::DOMAIN,
-                        resourceType: CardMediaSyncPayload::RESOURCE_TYPE,
-                        resourceId: CardMediaSyncPayload::resourceId($pivot->card_id, $mediaAsset->id),
-                        operation: SyncFeedOperation::Delete->value,
-                        payload: CardMediaSyncPayload::fromPivot(
-                            cardId: $pivot->card_id,
-                            mediaAssetId: $mediaAsset->id,
-                            deckId: $pivot->deck_id,
-                            courseId: $pivot->course_id,
-                            createdAt: $pivot->created_at,
-                            updatedAt: $pivot->updated_at,
-                        ),
-                    ),
+                $this->recordCardMediaSyncFeedEntry->handle(
+                    userId: $mediaAsset->user_id,
+                    operation: SyncFeedOperation::Delete,
+                    cardId: $pivot->card_id,
+                    mediaAssetId: $mediaAsset->id,
+                    deckId: $pivot->deck_id,
+                    courseId: $pivot->course_id,
+                    createdAt: $pivot->created_at,
+                    updatedAt: $pivot->updated_at,
                 );
             }
 

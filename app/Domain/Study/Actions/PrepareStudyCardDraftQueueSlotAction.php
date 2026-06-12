@@ -33,6 +33,7 @@ class PrepareStudyCardDraftQueueSlotAction
     private function lockUserOrFail(int $userId): void
     {
         // Lock ordering: draft create paths lock users before reading drafts to avoid deadlocks.
+        // SQLite ignores FOR UPDATE in tests; PostgreSQL/MySQL enforce this production lock.
         User::query()
             ->whereKey($userId)
             ->lockForUpdate()

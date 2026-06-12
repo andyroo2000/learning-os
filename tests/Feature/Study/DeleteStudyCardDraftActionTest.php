@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\CreateStudyCardDraftAction;
 use App\Domain\Study\Actions\DeleteStudyCardDraftAction;
+use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Models\StudyCardDraft;
@@ -136,7 +137,7 @@ class DeleteStudyCardDraftActionTest extends TestCase
         $draft = app(CreateStudyCardDraftAction::class)->handle($this->createDraftDataFor($user));
 
         $this->assertSame($user->id, $draft->user_id);
-        $this->assertDatabaseCount('study_card_drafts', CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER);
+        $this->assertDatabaseCount('study_card_drafts', PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER);
     }
 
     private function createDraftDataFor(User $user): CreateStudyCardDraftData

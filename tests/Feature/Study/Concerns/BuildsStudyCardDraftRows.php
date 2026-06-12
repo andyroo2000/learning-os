@@ -3,7 +3,7 @@
 namespace Tests\Feature\Study\Concerns;
 
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Study\Actions\CreateStudyCardDraftAction;
+use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
@@ -21,7 +21,7 @@ trait BuildsStudyCardDraftRows
         $now = now();
         $rows = [];
 
-        for ($index = 0; $index < CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER; $index++) {
+        for ($index = 0; $index < PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER; $index++) {
             $rows[] = [
                 'id' => strtolower((string) Str::ulid()),
                 'user_id' => $user->id,

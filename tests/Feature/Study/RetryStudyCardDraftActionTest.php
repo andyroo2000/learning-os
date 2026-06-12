@@ -187,6 +187,7 @@ class RetryStudyCardDraftActionTest extends TestCase
 
     public function test_it_does_not_apply_the_create_queue_slot_guard_when_retrying_existing_drafts(): void
     {
+        Queue::fake();
         $user = User::factory()->create();
         $draft = StudyCardDraft::factory()->failed()->for($user)->create([
             'prompt_json' => ['cueText' => '会社'],
@@ -203,6 +204,7 @@ class RetryStudyCardDraftActionTest extends TestCase
             StudyCardDraft::query()->where('user_id', $user->id)->count(),
         );
         $this->assertDatabaseCount('sync_feed_entries', 1);
+        Queue::assertNothingPushed();
     }
 
     #[DataProvider('nonRetryableStatusProvider')]

@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\DB;
 
 class CreateStudyCardDraftAction
 {
-    public const MAX_DRAFTS_PER_USER = PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER;
-
     public function __construct(
         private readonly PrepareStudyCardDraftQueueSlotAction $prepareStudyCardDraftQueueSlot,
         private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,

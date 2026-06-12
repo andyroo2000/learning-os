@@ -89,22 +89,49 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $erroredDraft = StudyCardDraft::factory()->failed()->create([
             'error_message' => 'Still waiting for an explicit retry.',
         ]);
-        $originalReadyUpdatedAt = $readyDraft->updated_at?->toJSON();
-        $originalErroredUpdatedAt = $erroredDraft->updated_at?->toJSON();
+        $this->assertNotNull($readyDraft->updated_at);
+        $this->assertNotNull($erroredDraft->updated_at);
+        $originalReadyUpdatedAt = $readyDraft->updated_at->toJSON();
+        $originalErroredUpdatedAt = $erroredDraft->updated_at->toJSON();
 
         $processedReady = app(ProcessStudyCardDraftAction::class)->handle($readyDraft->id);
         $processedError = app(ProcessStudyCardDraftAction::class)->handle($erroredDraft->id);
 
         $this->assertSame($readyDraft->id, $processedReady?->id);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $processedReady?->refresh()->status);
-        $this->assertSame($originalReadyUpdatedAt, $processedReady?->updated_at?->toJSON());
+        $this->assertNotNull($processedReady?->updated_at);
+        $this->assertSame($originalReadyUpdatedAt, $processedReady?->updated_at->toJSON());
 
         $this->assertSame($erroredDraft->id, $processedError?->id);
         $this->assertSame(StudyManualCardDraftStatus::Error, $processedError?->refresh()->status);
         $this->assertSame('Still waiting for an explicit retry.', $processedError?->error_message);
-        $this->assertSame($originalErroredUpdatedAt, $processedError?->updated_at?->toJSON());
+        $this->assertNotNull($processedError?->updated_at);
+        $this->assertSame($originalErroredUpdatedAt, $processedError?->updated_at->toJSON());
         $this->assertNull(app(ProcessStudyCardDraftAction::class)->handle(strtolower((string) str()->ulid())));
         $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_duplicate_processor_attempts_exit_after_the_first_terminal_update(): void
+    {
+        $draft = StudyCardDraft::factory()->create([
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+
+        $firstAttempt = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
+
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $firstAttempt?->refresh()->status);
+        $this->assertNotNull($firstAttempt?->updated_at);
+        $firstUpdatedAt = $firstAttempt->updated_at->toJSON();
+        $firstEntry = SyncFeedEntry::query()->sole();
+
+        $secondAttempt = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
+
+        $this->assertSame($draft->id, $secondAttempt?->id);
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $secondAttempt?->refresh()->status);
+        $this->assertNotNull($secondAttempt?->updated_at);
+        $this->assertSame($firstUpdatedAt, $secondAttempt->updated_at->toJSON());
+        $this->assertTrue($firstEntry->is(SyncFeedEntry::query()->sole()));
     }
 
     public function test_it_returns_null_for_malformed_draft_ids_without_querying_drafts(): void
@@ -135,7 +162,8 @@ class ProcessStudyCardDraftActionTest extends TestCase
             'committed_card_id' => strtolower((string) str()->ulid()),
             'error_message' => 'Keep this defensive marker.',
         ]);
-        $originalUpdatedAt = $draft->updated_at?->toJSON();
+        $this->assertNotNull($draft->updated_at);
+        $originalUpdatedAt = $draft->updated_at->toJSON();
 
         $processed = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
 
@@ -145,7 +173,8 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Generating, $processed?->status);
         $this->assertSame($draft->committed_card_id, $processed?->committed_card_id);
         $this->assertSame('Keep this defensive marker.', $processed?->error_message);
-        $this->assertSame($originalUpdatedAt, $processed?->updated_at?->toJSON());
+        $this->assertNotNull($processed?->updated_at);
+        $this->assertSame($originalUpdatedAt, $processed?->updated_at->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 }

@@ -32,6 +32,7 @@ class PrepareStudyCardDraftQueueSlotAction
 
     private function lockUser(int $userId): void
     {
+        // This user row is the per-user serialization point for draft queue cap checks.
         User::query()
             ->whereKey($userId)
             ->lockForUpdate()

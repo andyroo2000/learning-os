@@ -92,7 +92,7 @@ class ShowStudyBrowserNoteActionTest extends TestCase
     {
         $user = $this->signIn();
         Card::factory()->for($this->deckFor($user))->create([
-            'front_text' => 'media detail card',
+            'front_text' => 'media detail [sound:canonical.mp3]',
             'source_note_id' => 7101,
             'prompt_json' => [
                 'cueAudio' => [
@@ -119,6 +119,10 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         $this->assertNull($fieldsByName['prompt.cueAudio']['image']);
         $this->assertSame('company.png', $fieldsByName['answer.legacyImage']['image']['filename']);
         $this->assertSame('imported_image', $fieldsByName['answer.legacyImage']['image']['source']);
+        $this->assertSame('displayText', $result->canonicalFields[0]['name']);
+        $this->assertSame('canonical.mp3', $result->canonicalFields[0]['audio']['filename']);
+        $this->assertArrayHasKey('image', $result->canonicalFields[0]);
+        $this->assertNull($result->canonicalFields[0]['image']);
     }
 
     public function test_it_normalizes_database_timestamp_strings_from_review_aggregates(): void

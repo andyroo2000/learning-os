@@ -160,7 +160,7 @@ final class StudyFieldMediaReferences
                 return null;
             }
 
-            $reference[$key] = $key === 'filename' ? trim($fieldValue ?? '') : $fieldValue;
+            $reference[$key] = $key === 'filename' ? trim($fieldValue) : $fieldValue;
         }
 
         return $reference;

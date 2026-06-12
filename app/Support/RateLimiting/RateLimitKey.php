@@ -15,7 +15,7 @@ final class RateLimitKey
     }
 
     /**
-     * Use for legacy unscoped buckets that intentionally return only user:42 or anon:127.0.0.1.
+     * Use for limiters whose buckets are not prefixed with an operation name.
      */
     public static function userOrNetwork(mixed $userId, ?string $ip): string
     {

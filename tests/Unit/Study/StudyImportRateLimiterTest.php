@@ -20,6 +20,9 @@ class StudyImportRateLimiterTest extends TestCase
         $this->assertSame('study-import-create:anon:127.0.0.1', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::CREATE_NAME, false, '127.0.0.1'));
         $this->assertSame('study-import-create:user:user-1', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::CREATE_NAME, 'user-1', ''));
         $this->assertSame('study-import-upload:user:42', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::UPLOAD_NAME, 42, '127.0.0.1'));
+        $this->assertSame('study-import-upload:anon:127.0.0.1', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::UPLOAD_NAME, '', '127.0.0.1'));
+        $this->assertSame('study-import-upload:anon:127.0.0.1', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::UPLOAD_NAME, false, '127.0.0.1'));
+        $this->assertSame('study-import-upload:user:0', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::UPLOAD_NAME, 0, '127.0.0.1'));
         $this->assertSame('study-import-complete:user:42', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::COMPLETE_NAME, 42, '127.0.0.1'));
         $this->assertSame('study-import-cancel:user:42', StudyImportRateLimiter::keyFor(StudyImportRateLimiter::CANCEL_NAME, 42, '127.0.0.1'));
     }

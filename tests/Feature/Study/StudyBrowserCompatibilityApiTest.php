@@ -506,6 +506,44 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('nextCursor', null);
     }
 
+    public function test_it_paginates_browser_rows_by_review_count_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'unreviewed note',
+            'source_note_id' => 2081,
+        ]);
+        $firstReviewedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'first reviewed note card',
+            'source_note_id' => 2082,
+        ]);
+        $secondReviewedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'second reviewed note card',
+            'source_note_id' => 2082,
+        ]);
+        CardReviewEvent::factory()->for($firstReviewedCard)->count(2)->create();
+        CardReviewEvent::factory()->for($secondReviewedCard)->create();
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=review_count&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2082')
+            ->assertJsonPath('rows.0.reviewCount', 3);
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=review_count&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2081')
+            ->assertJsonPath('rows.0.reviewCount', 0)
+            ->assertJsonPath('nextCursor', null);
+    }
+
     public function test_it_orders_equal_sort_values_with_a_stable_note_id_tiebreaker(): void
     {
         $user = $this->signIn();
@@ -556,6 +594,11 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         ]);
 
         $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc')
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '11')
+            ->assertJsonPath('rows.1.noteId', (string) $unsourcedCard->id);
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc')
             ->assertOk()
             ->assertJsonPath('rows.0.noteId', '11')
             ->assertJsonPath('rows.1.noteId', (string) $unsourcedCard->id);

@@ -509,6 +509,7 @@ class ListStudyBrowserAction
      */
     private function totalFromGroupRows(Collection $groupRows): int
     {
+        // COUNT(*) OVER() is identical on every returned group row; first() is enough for the page total.
         $total = $groupRows->first()?->total_rows ?? null;
 
         return is_numeric($total) ? (int) $total : 0;

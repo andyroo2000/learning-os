@@ -173,6 +173,21 @@ class UpdateStudyCardDraftActionTest extends TestCase
             'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
             'image_placement' => StudyCardImagePlacement::Both,
             'image_prompt' => 'Keep this',
+            'preview_audio_json' => [
+                'id' => 'audio-1',
+                'filename' => 'kaisha.mp3',
+                'url' => '/api/study/media/audio-1',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            'preview_audio_role' => StudyCardAudioRole::Answer,
+            'preview_image_json' => [
+                'id' => 'image-1',
+                'filename' => 'kaisha.webp',
+                'url' => '/api/study/media/image-1',
+                'mediaKind' => 'image',
+                'source' => 'generated',
+            ],
             'variant_group_id' => 'keep-group',
             'variant_sentence_id' => 'keep-sentence',
             'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
@@ -180,8 +195,10 @@ class UpdateStudyCardDraftActionTest extends TestCase
             'variant_status' => VocabVariantStatus::Locked,
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
+        $this->assertNotNull($draft->updated_at);
+        $originalUpdatedAt = $draft->updated_at->toJSON();
 
-        app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
+        $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
             hasPrompt: true,
             promptJson: ['cueText' => '会社'],
             hasAnswer: true,
@@ -190,6 +207,24 @@ class UpdateStudyCardDraftActionTest extends TestCase
             imagePlacement: StudyCardImagePlacement::Both,
             hasImagePrompt: true,
             imagePrompt: 'Keep this',
+            hasPreviewAudio: true,
+            previewAudioJson: [
+                'id' => 'audio-1',
+                'filename' => 'kaisha.mp3',
+                'url' => '/api/study/media/audio-1',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+            hasPreviewAudioRole: true,
+            previewAudioRole: StudyCardAudioRole::Answer,
+            hasPreviewImage: true,
+            previewImageJson: [
+                'id' => 'image-1',
+                'filename' => 'kaisha.webp',
+                'url' => '/api/study/media/image-1',
+                'mediaKind' => 'image',
+                'source' => 'generated',
+            ],
             hasVariantGroupId: true,
             variantGroupId: 'keep-group',
             hasVariantSentenceId: true,
@@ -204,6 +239,10 @@ class UpdateStudyCardDraftActionTest extends TestCase
             variantUnlockedAt: Carbon::parse('2026-06-05T14:15:00Z'),
         ));
 
+        $updated->refresh();
+
+        $this->assertNotNull($updated->updated_at);
+        $this->assertSame($originalUpdatedAt, $updated->updated_at->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
@@ -214,7 +253,8 @@ class UpdateStudyCardDraftActionTest extends TestCase
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
         ]);
-        $originalUpdatedAt = $draft->updated_at?->toJSON();
+        $this->assertNotNull($draft->updated_at);
+        $originalUpdatedAt = $draft->updated_at->toJSON();
 
         $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput());
 
@@ -222,7 +262,8 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Generating, $updated->status);
         $this->assertSame(['cueText' => '会社'], $updated->prompt_json);
         $this->assertSame(['meaning' => 'company'], $updated->answer_json);
-        $this->assertSame($originalUpdatedAt, $updated->updated_at?->toJSON());
+        $this->assertNotNull($updated->updated_at);
+        $this->assertSame($originalUpdatedAt, $updated->updated_at->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
@@ -387,6 +428,60 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame('none', $entry->payload['image_placement']);
         $this->assertNull($entry->payload['variant_group_id']);
         $this->assertNull($entry->payload['variant_unlocked_at']);
+    }
+
+    public function test_repeated_nullable_clears_are_noop_resubmits_without_sync_entries(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'image_placement' => StudyCardImagePlacement::None,
+            'image_prompt' => null,
+            'preview_audio_json' => null,
+            'preview_audio_role' => null,
+            'preview_image_json' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlocked_at' => null,
+        ]);
+        $this->assertNotNull($draft->updated_at);
+        $originalUpdatedAt = $draft->updated_at->toJSON();
+
+        $updated = app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
+            hasImagePlacement: true,
+            imagePlacement: null,
+            hasImagePrompt: true,
+            imagePrompt: null,
+            hasPreviewAudio: true,
+            previewAudioJson: null,
+            hasPreviewAudioRole: true,
+            previewAudioRole: null,
+            hasPreviewImage: true,
+            previewImageJson: null,
+            hasVariantGroupId: true,
+            variantGroupId: null,
+            hasVariantSentenceId: true,
+            variantSentenceId: null,
+            hasVariantKind: true,
+            variantKind: null,
+            hasVariantStage: true,
+            variantStage: null,
+            hasVariantStatus: true,
+            variantStatus: null,
+            hasVariantUnlockedAt: true,
+            variantUnlockedAt: null,
+        ));
+
+        $updated->refresh();
+
+        $this->assertNotNull($updated->updated_at);
+        $this->assertSame($originalUpdatedAt, $updated->updated_at->toJSON());
+        $this->assertSame(StudyCardImagePlacement::None, $updated->image_placement);
+        $this->assertNull($updated->preview_audio_json);
+        $this->assertNull($updated->preview_audio_role);
+        $this->assertNull($updated->preview_image_json);
+        $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 
     public function test_it_rejects_generating_draft_edits(): void

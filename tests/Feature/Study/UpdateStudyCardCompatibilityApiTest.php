@@ -239,6 +239,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'variant_status' => VocabVariantStatus::Locked,
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
         $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => $prompt,
@@ -253,9 +255,13 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
-            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z');
+            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('updatedAt', $originalUpdatedAt);
 
         $card->refresh();
+
+        $this->assertNotNull($card->updated_at);
+        $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertSame('keep-group', $card->variant_group_id);
         $this->assertSame('keep-sentence', $card->variant_sentence_id);
         $this->assertSame(VocabVariantKind::SentenceAudioRecognition->value, $card->variant_kind);

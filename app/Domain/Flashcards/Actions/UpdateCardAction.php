@@ -108,11 +108,11 @@ class UpdateCardAction
                 ...($contentWasUpdated ? ['search_text'] : []),
             ]);
 
-            $card->saveOrFail();
-
             if (! $wasUpdated) {
                 return UpdateCardResult::unchanged($card);
             }
+
+            $card->saveOrFail();
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(

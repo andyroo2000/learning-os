@@ -329,6 +329,8 @@ class UpdateCardActionTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
         ]);
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
         $result = app(UpdateCardAction::class)->handle(
             $card,
@@ -340,6 +342,11 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertFalse($result->wasUpdated);
         $this->assertSame($card->id, $result->card->id);
+
+        $result->card->refresh();
+
+        $this->assertNotNull($result->card->updated_at);
+        $this->assertSame($originalUpdatedAt, $result->card->updated_at->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 

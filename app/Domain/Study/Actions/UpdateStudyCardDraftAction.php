@@ -109,11 +109,14 @@ class UpdateStudyCardDraftAction
 
             // Eloquent clears dirty state on save(), so capture this before persisting.
             $shouldRecordSync = $lockedDraft->isDirty();
+
+            if (! $shouldRecordSync) {
+                return $lockedDraft;
+            }
+
             $lockedDraft->save();
 
-            if ($shouldRecordSync) {
-                $this->recordStudyCardDraftSyncEntry->handle($lockedDraft, SyncFeedOperation::Update);
-            }
+            $this->recordStudyCardDraftSyncEntry->handle($lockedDraft, SyncFeedOperation::Update);
 
             return $lockedDraft;
         });

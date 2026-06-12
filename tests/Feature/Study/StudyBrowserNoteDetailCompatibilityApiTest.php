@@ -167,6 +167,119 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('cards.0.noteId', null);
     }
 
+    public function test_it_exposes_media_fields_for_unsourced_fallback_text(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'native prompt [sound:native-audio.mp3]',
+            'back_text' => '<img alt="Native" src="native image.png">',
+            'source_note_id' => null,
+            'prompt_json' => null,
+            'answer_json' => null,
+        ]);
+
+        $fieldsByName = $this->getJson("/api/study/browser/{$card->id}")
+            ->assertOk()
+            ->assertJsonPath('noteId', $card->id)
+            ->assertJsonPath('rawFields.0.name', 'frontText')
+            ->assertJsonPath('rawFields.0.value', 'native prompt [sound:native-audio.mp3]')
+            ->assertJsonPath('rawFields.0.audio.filename', 'native-audio.mp3')
+            ->assertJsonPath('rawFields.0.audio.mediaKind', 'audio')
+            ->assertJsonPath('rawFields.1.name', 'backText')
+            ->assertJsonPath('rawFields.1.value', '<img alt="Native" src="native image.png">')
+            ->assertJsonPath('rawFields.1.image.filename', 'native image.png')
+            ->assertJsonPath('rawFields.1.image.mediaKind', 'image')
+            ->collect('rawFields')
+            ->keyBy('name');
+
+        $this->assertArrayHasKey('image', $fieldsByName['frontText']);
+        $this->assertNull($fieldsByName['frontText']['image']);
+        $this->assertArrayHasKey('audio', $fieldsByName['backText']);
+        $this->assertNull($fieldsByName['backText']['audio']);
+    }
+
+    public function test_it_exposes_structured_and_legacy_media_fields_without_extra_queries(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'fallback front',
+            'back_text' => 'fallback back',
+            'card_type' => CardType::Recognition,
+            'source_kind' => 'anki_import',
+            'source_note_id' => 601,
+            'source_notetype_name' => 'Japanese - Media',
+            'source_template_ord' => 0,
+            'prompt_json' => [
+                'cueAudio' => [
+                    'id' => 'audio-1',
+                    'filename' => 'word.mp3',
+                    'url' => '/api/study/media/audio-1',
+                    'mediaKind' => 'audio',
+                    'source' => 'generated',
+                ],
+                'cueImage' => [
+                    'id' => 'image-1',
+                    'filename' => 'company.png',
+                    'url' => '/api/study/media/image-1',
+                    'mediaKind' => 'image',
+                    'source' => 'imported_image',
+                ],
+            ],
+            'answer_json' => [
+                'legacyAudio' => '会社 [sound: word &amp; tone.mp3 ]',
+                'legacyImage' => '<img alt="Company" src="company &amp; office.png">',
+            ],
+        ]);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $response = $this->getJson('/api/study/browser/601');
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $fieldsByName = $response
+            ->assertOk()
+            ->assertJsonPath('rawFields.0.name', 'prompt.cueAudio')
+            ->assertJsonPath('rawFields.0.audio.id', 'audio-1')
+            ->assertJsonPath('rawFields.0.audio.filename', 'word.mp3')
+            ->assertJsonPath('rawFields.0.audio.mediaKind', 'audio')
+            ->assertJsonPath('rawFields.0.image', null)
+            ->assertJsonPath('rawFields.1.name', 'prompt.cueImage')
+            ->assertJsonPath('rawFields.1.audio', null)
+            ->assertJsonPath('rawFields.1.image.id', 'image-1')
+            ->assertJsonPath('rawFields.1.image.filename', 'company.png')
+            ->assertJsonPath('rawFields.1.image.mediaKind', 'image')
+            ->assertJsonPath('rawFields.2.name', 'answer.legacyAudio')
+            ->assertJsonPath('rawFields.2.audio.filename', 'word & tone.mp3')
+            ->assertJsonPath('rawFields.2.audio.source', 'imported')
+            ->assertJsonPath('rawFields.3.name', 'answer.legacyImage')
+            ->assertJsonPath('rawFields.3.image.filename', 'company & office.png')
+            ->assertJsonPath('rawFields.3.image.source', 'imported_image')
+            ->collect('rawFields')
+            ->keyBy('name');
+
+        $this->assertSame(
+            '{"id":"audio-1","filename":"word.mp3","url":"/api/study/media/audio-1","mediaKind":"audio","source":"generated"}',
+            $fieldsByName['prompt.cueAudio']['value'],
+            'Structured media fields should keep the legacy string value while exposing parsed media objects.',
+        );
+        $this->assertArrayHasKey('image', $fieldsByName['prompt.cueAudio']);
+        $this->assertNull($fieldsByName['prompt.cueAudio']['image']);
+        $this->assertArrayHasKey('audio', $fieldsByName['prompt.cueImage']);
+        $this->assertNull($fieldsByName['prompt.cueImage']['audio']);
+
+        $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
+            && str_contains(strtolower($query['query']), 'from "cards"'));
+        $this->assertCount(1, $cardSelects, 'Media field parsing should stay in-memory after the bounded card query.');
+    }
+
     public function test_it_resolves_lowercase_unsourced_card_note_ids(): void
     {
         $user = $this->signIn();

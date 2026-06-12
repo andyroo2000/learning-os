@@ -60,7 +60,7 @@ class ListStudyBrowserActionTest extends TestCase
 
         $this->assertSame(1, $result['total']);
         $this->assertSame('4001', $result['rows'][0]['noteId']);
-        $this->assertSame($firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
         $this->assertSame('anki_import', $result['rows'][0]['sourceKind']);
         $this->assertSame(1, $result['rows'][0]['cardCount']);
         $this->assertSame(1, $result['rows'][0]['reviewCount']);
@@ -94,7 +94,8 @@ class ListStudyBrowserActionTest extends TestCase
         $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
 
         $this->assertSame('4011', $result['rows'][0]['noteId']);
-        $this->assertSame($firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
+        // Legacy blank first-card provenance keeps the deterministic row fallback, even if siblings carry imported metadata.
         $this->assertSame('native', $result['rows'][0]['sourceKind']);
         $this->assertSame(2, $result['rows'][0]['reviewCount']);
         $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);

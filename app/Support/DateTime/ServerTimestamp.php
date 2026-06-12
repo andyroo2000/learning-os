@@ -20,6 +20,9 @@ class ServerTimestamp
         return self::databaseTimestampOrNull($trimmed);
     }
 
+    /**
+     * Return Carbon's fixed-width UTC JSON timestamp, which sorts lexicographically by instant.
+     */
     public static function toJson(DateTimeInterface|string|null $value): ?string
     {
         if ($value === null) {

@@ -9,14 +9,13 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Results\StudyImportUploadSessionResult;
 use App\Domain\Study\Support\StudyImportPreview;
 use App\Domain\Study\Support\StudyImportUploadPath;
-use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CreateStudyImportUploadSessionAction
 {
     public function __construct(
-        private readonly ExpireStaleProcessingStudyImportsAction $expireStaleProcessingStudyImports,
+        private readonly PrepareStudyImportActiveSlotAction $prepareStudyImportActiveSlot,
     ) {}
 
     public function handle(
@@ -30,10 +29,7 @@ class CreateStudyImportUploadSessionAction
         $contentType = $this->normalizeContentType($contentType);
 
         return DB::transaction(function () use ($userId, $filename, $contentType, $now): StudyImportUploadSessionResult {
-            $this->lockUser($userId);
-            $this->expireStalePendingImports($userId, $now);
-            $this->expireStaleProcessingStudyImports->handle($userId, $now);
-            $activeImport = $this->activeImport($userId);
+            $activeImport = $this->prepareStudyImportActiveSlot->handle($userId, $now);
 
             if ($activeImport !== null) {
                 throw StudyImportConflictException::activeImport($activeImport);
@@ -101,38 +97,5 @@ class CreateStudyImportUploadSessionAction
         }
 
         return $contentType;
-    }
-
-    private function lockUser(int $userId): void
-    {
-        User::query()
-            ->whereKey($userId)
-            ->lockForUpdate()
-            ->firstOrFail();
-    }
-
-    private function expireStalePendingImports(int $userId, Carbon $now): void
-    {
-        StudyImportJob::query()
-            ->where('user_id', $userId)
-            ->where('status', StudyImportStatus::Pending->value)
-            ->whereNotNull('upload_expires_at')
-            ->where('upload_expires_at', '<', $now)
-            ->update([
-                'status' => StudyImportStatus::Failed->value,
-                'error_message' => 'Study import upload session has expired.',
-                'completed_at' => $now,
-                'updated_at' => $now,
-            ]);
-    }
-
-    private function activeImport(int $userId): ?StudyImportJob
-    {
-        return StudyImportJob::query()
-            ->where('user_id', $userId)
-            ->active()
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->first();
     }
 }

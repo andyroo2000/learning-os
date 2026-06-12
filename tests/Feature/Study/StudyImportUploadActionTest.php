@@ -463,6 +463,41 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Processing, $otherUsersStale->refresh()->status);
     }
 
+    public function test_complete_expires_stale_pending_imports_before_checking_active_imports(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $stale = StudyImportJob::factory()->for($user)->create([
+            'upload_expires_at' => now()->subMinute(),
+        ]);
+        $otherUsersStale = StudyImportJob::factory()->for(User::factory()->create())->create([
+            'upload_expires_at' => now()->subMinute(),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $result = app(CompleteStudyImportUploadAction::class)->handle(
+            userId: $user->id,
+            importJobId: $importJob->id,
+        );
+
+        $this->assertTrue($result->shouldDispatchImport);
+        $this->assertSame($importJob->id, $result->importJob->id);
+        $this->assertSame(StudyImportStatus::Pending, $result->importJob->status);
+        $stale->refresh();
+
+        $this->assertSame(StudyImportStatus::Failed, $stale->status);
+        $this->assertSame('Study import upload session has expired.', $stale->error_message);
+        $this->assertNotNull($stale->completed_at);
+        $this->assertSame(now()->toJSON(), $stale->completed_at->toJSON());
+        $this->assertSame(StudyImportStatus::Pending, $otherUsersStale->refresh()->status);
+    }
+
     public function test_complete_blocks_another_active_processing_import(): void
     {
         Storage::fake('study-imports');
@@ -487,6 +522,43 @@ class StudyImportUploadActionTest extends TestCase
             $this->assertSame('active_study_import', $exception->reason());
             $this->assertNull($importJob->refresh()->uploaded_at);
         }
+    }
+
+    public function test_complete_blocks_another_active_pending_import(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $activePending = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => 'study/imports/'.$user->id.'/active/core.colpkg',
+            'upload_expires_at' => now()->addHour(),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_completed_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        try {
+            app(CompleteStudyImportUploadAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+            );
+            $this->fail('Expected active pending imports to block completion.');
+        } catch (StudyImportConflictException $exception) {
+            $this->assertSame('active_study_import', $exception->reason());
+            $this->assertSame($activePending->id, $exception->importJob()?->id);
+        }
+
+        $importJob->refresh();
+
+        $this->assertNull($importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        $this->assertNull($importJob->upload_completed_at);
     }
 
     public function test_complete_hides_cross_user_import_jobs(): void
@@ -545,6 +617,10 @@ class StudyImportUploadActionTest extends TestCase
         } catch (StudyImportConflictException $exception) {
             $this->assertSame('study_import_upload_not_finished', $exception->reason());
         }
+        $missing->forceFill([
+            'status' => StudyImportStatus::Failed,
+            'completed_at' => now(),
+        ])->save();
 
         $expiredPath = 'study/imports/expired/core.colpkg';
         Storage::disk('study-imports')->put($expiredPath, 'PK zipped bytes');

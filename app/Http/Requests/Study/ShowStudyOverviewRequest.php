@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests\Study;
 
-use App\Http\Requests\Concerns\FiltersByDeckId;
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class ShowStudyOverviewRequest extends FormRequest
 {
-    use FiltersByDeckId;
+    use FiltersByStudyScope;
 
     public function authorize(): bool
     {
@@ -16,7 +17,7 @@ class ShowStudyOverviewRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->prepareDeckIdForValidation();
+        $this->prepareStudyScopeFiltersForValidation();
     }
 
     /**
@@ -25,7 +26,7 @@ class ShowStudyOverviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'deck_id' => ['sometimes', 'filled', 'ulid'],
+            ...$this->studyScopeRules(),
             'time_zone' => [
                 'sometimes',
                 'nullable',
@@ -33,5 +34,13 @@ class ShowStudyOverviewRequest extends FormRequest
                 'timezone',
             ],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 }

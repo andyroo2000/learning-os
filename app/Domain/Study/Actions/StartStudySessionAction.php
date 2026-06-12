@@ -6,11 +6,10 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Results\StartStudySessionResult;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Domain\Study\Support\StudyListScopeFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
 use LogicException;
 
 class StartStudySessionAction
@@ -21,20 +20,23 @@ class StartStudySessionAction
         private readonly GetStudyOverviewAction $getStudyOverview,
     ) {}
 
-    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): StartStudySessionResult
-    {
+    public function handle(
+        int $userId,
+        ?string $timeZone = null,
+        ?Carbon $now = null,
+        ?string $deckId = null,
+        ?string $courseId = null,
+    ): StartStudySessionResult {
         $now ??= now();
-        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
-
-        if ($deckId === '') {
-            throw new InvalidArgumentException('Study deck_id filter must not be blank when provided.');
-        }
+        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study session');
+        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'Study session');
 
         $overview = $this->getStudyOverview->handle(
             userId: $userId,
             timeZone: $timeZone,
             now: $now,
             deckId: $deckId,
+            courseId: $courseId,
         );
 
         $this->assertOverviewKeys($overview, ['due_count', 'failed_due_count']);
@@ -42,10 +44,11 @@ class StartStudySessionAction
         $hasReadyBacklog = $overview['due_count'] > 0 || $overview['failed_due_count'] > 0;
 
         $cards = $hasReadyBacklog
-            ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT, $deckId)
+            ? $this->dueCards($userId, $now, self::READY_CARD_LIMIT, $courseId, $deckId)
             : $this->newCards(
                 userId: $userId,
                 limit: min(self::READY_CARD_LIMIT, $overview['new_cards_available_today']),
+                courseId: $courseId,
                 deckId: $deckId,
             );
 
@@ -68,9 +71,9 @@ class StartStudySessionAction
     /**
      * @return Collection<int, Card>
      */
-    private function dueCards(int $userId, Carbon $now, int $limit, ?string $deckId): Collection
+    private function dueCards(int $userId, Carbon $now, int $limit, ?string $courseId, ?string $deckId): Collection
     {
-        return $this->ownedActiveCardsQuery($userId, $deckId)
+        return $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             ->select('cards.*')
             ->selectRaw('decks.course_id as deck_course_id')
             ->whereIn('cards.study_status', $this->activeDueStatuses())
@@ -84,13 +87,13 @@ class StartStudySessionAction
     /**
      * @return Collection<int, Card>
      */
-    private function newCards(int $userId, int $limit, ?string $deckId): Collection
+    private function newCards(int $userId, int $limit, ?string $courseId, ?string $deckId): Collection
     {
         if ($limit <= 0) {
             return collect();
         }
 
-        $query = $this->ownedActiveCardsQuery($userId, $deckId)
+        $query = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             ->select('cards.*')
             ->selectRaw('decks.course_id as deck_course_id')
             ->where('cards.study_status', CardStudyStatus::New->value);
@@ -103,13 +106,14 @@ class StartStudySessionAction
     /**
      * @return Builder<Card>
      */
-    private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
+    private function ownedActiveCardsQuery(int $userId, ?string $courseId = null, ?string $deckId = null): Builder
     {
         return Card::query()
             // This join enforces ownership/soft deletes. Session card queries also project decks.course_id.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
     }
 

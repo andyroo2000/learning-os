@@ -6,8 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudyListScopeFilter;
 use App\Support\DateTime\ServerTimestamp;
-use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use DateTimeZone;
 use Exception;
@@ -21,18 +21,20 @@ class GetStudyOverviewAction
     /**
      * @return array<string, mixed>
      */
-    public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): array
-    {
+    public function handle(
+        int $userId,
+        ?string $timeZone = null,
+        ?Carbon $now = null,
+        ?string $deckId = null,
+        ?string $courseId = null,
+    ): array {
         $now ??= now();
-        $deckId = $deckId === null ? null : CanonicalUlid::normalize($deckId);
-
-        if ($deckId === '') {
-            throw new InvalidArgumentException('Study deck_id filter must not be blank when provided.');
-        }
+        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study overview');
+        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'Study overview');
 
         $resolvedTimeZone = $this->resolveTimeZone($timeZone);
         [$dayStart, $dayEnd] = $this->studyDayWindow($now, $resolvedTimeZone);
-        $cardMetrics = $this->cardMetrics($userId, $deckId, $now, $dayStart, $dayEnd);
+        $cardMetrics = $this->cardMetrics($userId, $courseId, $deckId, $now, $dayStart, $dayEnd);
         $dueCount = $cardMetrics['due_count'];
         $failedDueCount = $cardMetrics['failed_due_count'];
         $newCount = $cardMetrics['new_count'];
@@ -101,12 +103,13 @@ class GetStudyOverviewAction
     /**
      * @return Builder<Card>
      */
-    private function ownedActiveCardsQuery(int $userId, ?string $deckId = null): Builder
+    private function ownedActiveCardsQuery(int $userId, ?string $courseId = null, ?string $deckId = null): Builder
     {
         return Card::query()
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
     }
 
@@ -125,8 +128,14 @@ class GetStudyOverviewAction
      *     next_due_at: string|null,
      * }
      */
-    private function cardMetrics(int $userId, ?string $deckId, Carbon $now, Carbon $dayStart, Carbon $dayEnd): array
-    {
+    private function cardMetrics(
+        int $userId,
+        ?string $courseId,
+        ?string $deckId,
+        Carbon $now,
+        Carbon $dayStart,
+        Carbon $dayEnd,
+    ): array {
         $activeDueStatuses = $this->activeDueStatuses();
         $learningStatuses = $this->learningStatuses();
         $suspendedStatuses = $this->suspendedStatuses();
@@ -136,7 +145,7 @@ class GetStudyOverviewAction
         $nowFormatted = $now->toDateTimeString();
         $dayStartFormatted = $dayStart->toDateTimeString();
         $dayEndFormatted = $dayEnd->toDateTimeString();
-        $row = $this->ownedActiveCardsQuery($userId, $deckId)
+        $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
             // The settings MAX() subquery is a scalar singleton read; study_settings_user_id_unique enforces one row per user.
             ->selectRaw(<<<SQL
@@ -167,7 +176,7 @@ class GetStudyOverviewAction
                 SQL, [
                 $userId,
                 StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
-                $userId, // new_cards_introduced_today stays user-wide, even when overview counts are deck-scoped.
+                $userId, // New-card daily allowance stays user-wide, even when overview counts are course/deck scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
                 // due_count

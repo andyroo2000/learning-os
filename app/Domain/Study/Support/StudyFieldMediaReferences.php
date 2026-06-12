@@ -147,6 +147,7 @@ final class StudyFieldMediaReferences
             return null;
         }
 
+        $normalizedFilename = trim($filename);
         $reference = [];
 
         foreach (StudyCardDraft::MEDIA_REF_ALLOWED_KEYS as $key) {
@@ -160,7 +161,7 @@ final class StudyFieldMediaReferences
                 return null;
             }
 
-            $reference[$key] = $key === 'filename' ? trim($fieldValue) : $fieldValue;
+            $reference[$key] = $key === 'filename' ? $normalizedFilename : $fieldValue;
         }
 
         return $reference;

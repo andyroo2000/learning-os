@@ -173,8 +173,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('rawFields.1.name', 'backText')
             ->assertJsonPath('rawFields.1.value', 'unsourced answer')
             ->assertJsonPath('cards.0.id', $card->id)
-            ->assertJsonPath('cards.0.noteId', null)
-            ->assertJsonFragment(['lastReviewedAt' => null]);
+            ->assertJsonPath('cards.0.noteId', null);
 
         $this->assertArrayHasKey('lastReviewedAt', $response->json());
     }

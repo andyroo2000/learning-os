@@ -319,13 +319,31 @@ final class StudyImportArchiveReader
 
     private function targetDeck(PDO $pdo): StudyImportArchiveDeck
     {
+        $cardDeckIds = $this->deckIdsWithCards($pdo);
+
         if ($this->hasTable($pdo, 'decks')) {
-            return $this->selectSupportedDeck($this->fetchNormalizedDecks($pdo));
+            return $this->selectSupportedDeck($this->fetchNormalizedDecks($pdo), $cardDeckIds);
         }
 
         $collectionRow = $this->collectionMetadata($pdo);
 
-        return $this->selectSupportedDeck($this->decodeLegacyDecks((string) ($collectionRow['decks'] ?? '{}')));
+        return $this->selectSupportedDeck($this->decodeLegacyDecks((string) ($collectionRow['decks'] ?? '{}')), $cardDeckIds);
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private function deckIdsWithCards(PDO $pdo): array
+    {
+        $deckIds = [];
+
+        foreach ($this->fetchAll($pdo, 'SELECT did FROM cards GROUP BY did') as $row) {
+            if (isset($row['did']) && is_numeric($row['did'])) {
+                $deckIds[(int) $row['did']] = true;
+            }
+        }
+
+        return $deckIds;
     }
 
     /**
@@ -379,27 +397,34 @@ final class StudyImportArchiveReader
 
     /**
      * @param  list<StudyImportArchiveDeck>  $decks
+     * @param  array<int, true>  $cardDeckIds
      */
-    private function selectSupportedDeck(array $decks): StudyImportArchiveDeck
+    private function selectSupportedDeck(array $decks, array $cardDeckIds): StudyImportArchiveDeck
     {
         $validDecks = array_values(array_filter(
             $decks,
             static fn (StudyImportArchiveDeck $deck): bool => $deck->name !== '',
         ));
+        $candidateDecks = $cardDeckIds === []
+            ? $validDecks
+            : array_values(array_filter(
+                $validDecks,
+                static fn (StudyImportArchiveDeck $deck): bool => isset($cardDeckIds[$deck->sourceDeckId]),
+            ));
 
-        foreach ($validDecks as $deck) {
+        foreach ($candidateDecks as $deck) {
             if ($deck->name === StudyImportJob::DEFAULT_DECK_NAME) {
                 return $deck;
             }
         }
 
-        if (count($validDecks) === 1) {
-            return $validDecks[0];
+        if (count($candidateDecks) === 1) {
+            return $candidateDecks[0];
         }
 
         throw $this->unsupportedDeckException(array_map(
             static fn (StudyImportArchiveDeck $deck): string => $deck->name,
-            $validDecks,
+            $candidateDecks,
         ));
     }
 

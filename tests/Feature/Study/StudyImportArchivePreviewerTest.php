@@ -113,6 +113,28 @@ class StudyImportArchivePreviewerTest extends TestCase
         $this->assertSame(3, $preview['card_count']);
     }
 
+    public function test_it_builds_a_preview_for_single_deck_archives_with_empty_default_deck_metadata(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/spanish-with-default-metadata.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'extra_decks' => [
+                    ['id' => 1, 'name' => 'Default'],
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/spanish-with-default-metadata.colpkg',
+        );
+
+        $this->assertSame('Spanish', $preview['deck_name']);
+        $this->assertSame(3, $preview['card_count']);
+    }
+
     public function test_it_previews_quoted_image_media_references_with_spaces(): void
     {
         Storage::fake('study-imports');
@@ -298,6 +320,9 @@ class StudyImportArchivePreviewerTest extends TestCase
                 'extra_decks' => [
                     ['id' => 1700000000001, 'name' => 'French'],
                 ],
+                'extra_cards' => [
+                    ['id' => 704, 'did' => 1700000000001],
+                ],
             ]),
         );
 
@@ -319,6 +344,9 @@ class StudyImportArchivePreviewerTest extends TestCase
                 'deck_name' => 'Spanish',
                 'extra_decks' => [
                     ['id' => 1700000000001, 'name' => 'French'],
+                ],
+                'extra_cards' => [
+                    ['id' => 704, 'did' => 1700000000001],
                 ],
                 'normalized_schema' => true,
             ]),

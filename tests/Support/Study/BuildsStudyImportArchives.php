@@ -73,6 +73,7 @@ trait BuildsStudyImportArchives
         $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
         $extraDecks = $options['extra_decks'] ?? [];
+        $extraCards = $options['extra_cards'] ?? [];
         $fieldSeparator = "\x1f";
         $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
@@ -184,6 +185,18 @@ trait BuildsStudyImportArchives
         $statement->execute(['id' => 701, 'nid' => 501, 'did' => $deckId, 'ord' => 0]);
         $statement->execute(['id' => 702, 'nid' => 501, 'did' => $deckId, 'ord' => 1]);
         $statement->execute(['id' => 703, 'nid' => 502, 'did' => $deckId, 'ord' => 0]);
+        foreach ($extraCards as $extraCard) {
+            if (! is_array($extraCard)) {
+                continue;
+            }
+
+            $statement->execute([
+                'id' => $extraCard['id'] ?? 704,
+                'nid' => $extraCard['nid'] ?? 501,
+                'did' => $extraCard['did'] ?? 1700000000001,
+                'ord' => $extraCard['ord'] ?? 0,
+            ]);
+        }
 
         if ($options['omit_revlog_table'] ?? false) {
             return;

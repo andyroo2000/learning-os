@@ -34,8 +34,8 @@ class ListStudyNewCardQueueAction
             );
         }
 
-        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', '');
-        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', '');
+        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'New card queue');
+        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'New card queue');
         $searchPattern = $q === null ? null : CardSearchText::likePattern($q);
         $query = Card::query()
             ->select('cards.*')

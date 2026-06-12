@@ -285,7 +285,7 @@ class ListStudyNewCardQueueActionTest extends TestCase
     public function test_it_rejects_blank_course_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('courseId filter must not be blank when provided.');
+        $this->expectExceptionMessage('New card queue courseId filter must not be blank when provided.');
 
         app(ListStudyNewCardQueueAction::class)->handle(
             userId: User::factory()->create()->id,
@@ -296,7 +296,7 @@ class ListStudyNewCardQueueActionTest extends TestCase
     public function test_it_rejects_malformed_course_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('courseId filter must be a valid ULID.');
+        $this->expectExceptionMessage('New card queue courseId filter must be a valid ULID.');
 
         app(ListStudyNewCardQueueAction::class)->handle(
             userId: User::factory()->create()->id,
@@ -307,7 +307,7 @@ class ListStudyNewCardQueueActionTest extends TestCase
     public function test_it_rejects_blank_deck_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('deckId filter must not be blank when provided.');
+        $this->expectExceptionMessage('New card queue deckId filter must not be blank when provided.');
 
         app(ListStudyNewCardQueueAction::class)->handle(
             userId: User::factory()->create()->id,
@@ -318,7 +318,7 @@ class ListStudyNewCardQueueActionTest extends TestCase
     public function test_it_rejects_malformed_deck_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('deckId filter must be a valid ULID.');
+        $this->expectExceptionMessage('New card queue deckId filter must be a valid ULID.');
 
         app(ListStudyNewCardQueueAction::class)->handle(
             userId: User::factory()->create()->id,

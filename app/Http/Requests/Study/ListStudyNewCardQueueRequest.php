@@ -51,13 +51,7 @@ class ListStudyNewCardQueueRequest extends FormRequest
 
     public function q(): ?string
     {
-        $validated = $this->validated();
-
-        if (! array_key_exists('q', $validated)) {
-            return null;
-        }
-
-        return $validated['q'];
+        return $this->nullableString('q');
     }
 
     public function courseId(): ?string
@@ -68,16 +62,5 @@ class ListStudyNewCardQueueRequest extends FormRequest
     public function deckId(): ?string
     {
         return $this->nullableString('deckId');
-    }
-
-    private function nullableString(string $key): ?string
-    {
-        $validated = $this->validated();
-
-        if (! array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
-            return null;
-        }
-
-        return (string) $validated[$key];
     }
 }

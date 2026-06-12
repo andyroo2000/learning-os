@@ -123,15 +123,4 @@ class ListStudyBrowserRequest extends FormRequest
 
         return (int) $validated['limit'];
     }
-
-    private function nullableString(string $key): ?string
-    {
-        $validated = $this->validated();
-
-        if (! array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
-            return null;
-        }
-
-        return (string) $validated[$key];
-    }
 }

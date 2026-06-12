@@ -17,7 +17,7 @@ final class StudyListScopeFilter
         }
 
         $normalized = CanonicalUlid::normalize($value);
-        $prefix = $context === '' ? '' : "{$context} ";
+        $prefix = "{$context} ";
 
         if ($normalized === '') {
             throw new InvalidArgumentException("{$prefix}{$field} filter must not be blank when provided.");

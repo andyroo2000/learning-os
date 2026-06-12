@@ -195,6 +195,32 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7004');
     }
 
+    public function test_it_rejects_note_groups_with_any_missing_updated_timestamp_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'valid detail timestamp sibling',
+            'source_note_id' => 7005,
+            'source_template_ord' => 0,
+            'updated_at' => Carbon::parse('2026-06-03T09:15:00Z'),
+        ]);
+        $missingTimestampCard = Card::factory()->for($deck)->create([
+            'front_text' => 'missing detail timestamp sibling',
+            'source_note_id' => 7005,
+            'source_template_ord' => 1,
+            'updated_at' => Carbon::parse('2026-06-04T09:15:00Z'),
+        ]);
+        DB::table('cards')
+            ->where('id', $missingTimestampCard->id)
+            ->update(['updated_at' => null]);
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study browser updated_at timestamp is missing or invalid.');
+
+        app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7005');
+    }
+
     public function test_it_normalizes_native_datetime_review_aggregates(): void
     {
         $this->assertSame(

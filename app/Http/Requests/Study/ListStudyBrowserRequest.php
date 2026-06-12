@@ -5,14 +5,14 @@ namespace App\Http\Requests\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
-use App\Http\Requests\Concerns\NormalizesStringInputs;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class ListStudyBrowserRequest extends FormRequest
 {
-    use NormalizesStringInputs;
+    use FiltersByStudyScope;
 
     public function authorize(): bool
     {
@@ -22,13 +22,10 @@ class ListStudyBrowserRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->mergeNormalizedStringInputs(
-            ['q', 'noteType', 'cursor', 'cardType', 'queueState', 'sortField', 'sortDirection', 'limit', 'courseId', 'deckId'],
+            ['q', 'noteType', 'cursor', 'cardType', 'queueState', 'sortField', 'sortDirection', 'limit'],
             ['cardType', 'queueState', 'sortField', 'sortDirection'],
         );
-        $this->mergeStringInputsUsing(
-            ['courseId', 'deckId'],
-            fn (string $value): string => CanonicalUlid::normalize($value),
-        );
+        $this->prepareStudyScopeFiltersForValidation();
     }
 
     /**
@@ -43,8 +40,7 @@ class ListStudyBrowserRequest extends FormRequest
             'queueState' => ['sometimes', 'nullable', 'string', Rule::in(CardStudyStatus::values())],
             'sortField' => ['sometimes', 'nullable', 'string', Rule::in(ListStudyBrowserAction::ALLOWED_SORT_FIELDS)],
             'sortDirection' => ['sometimes', 'nullable', 'string', Rule::in(ListStudyBrowserAction::ALLOWED_SORT_DIRECTIONS)],
-            'courseId' => ['sometimes', 'filled', 'ulid'],
-            'deckId' => ['sometimes', 'filled', 'ulid'],
+            ...$this->studyScopeRules(),
             'cursor' => [
                 'sometimes',
                 'bail',
@@ -66,6 +62,14 @@ class ListStudyBrowserRequest extends FormRequest
             ],
             'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.ListStudyBrowserAction::MAX_LIMIT],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     public function searchQuery(): ?string
@@ -96,16 +100,6 @@ class ListStudyBrowserRequest extends FormRequest
     public function sortDirection(): ?string
     {
         return $this->nullableString('sortDirection');
-    }
-
-    public function courseId(): ?string
-    {
-        return $this->nullableString('courseId');
-    }
-
-    public function deckId(): ?string
-    {
-        return $this->nullableString('deckId');
     }
 
     public function cursor(): ?string

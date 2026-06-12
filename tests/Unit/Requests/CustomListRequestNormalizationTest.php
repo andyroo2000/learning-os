@@ -110,7 +110,9 @@ class CustomListRequestNormalizationTest extends TestCase
     {
         $cursor = $this->studyBrowserCursor(2);
         $courseId = (string) Str::ulid();
+        $legacyCourseId = (string) Str::ulid();
         $deckId = (string) Str::ulid();
+        $legacyDeckId = (string) Str::ulid();
 
         $request = $this->validatedRequest(new ListStudyBrowserRequest, [
             'q' => ' company ',
@@ -125,6 +127,17 @@ class CustomListRequestNormalizationTest extends TestCase
             'deckId' => ' '.strtoupper($deckId).' ',
         ]);
 
+        $legacyRequest = $this->validatedRequest(new ListStudyBrowserRequest, [
+            'course_id' => ' '.strtoupper($legacyCourseId).' ',
+            'deck_id' => ' '.strtoupper($legacyDeckId).' ',
+        ]);
+        $matchingAliasRequest = $this->validatedRequest(new ListStudyBrowserRequest, [
+            'courseId' => ' '.strtoupper($courseId).' ',
+            'course_id' => ' '.$courseId.' ',
+            'deckId' => ' '.strtoupper($deckId).' ',
+            'deck_id' => ' '.$deckId.' ',
+        ]);
+
         $this->assertSame('company', $request->searchQuery());
         $this->assertSame('Japanese', $request->noteType());
         $this->assertSame('recognition', $request->cardType());
@@ -135,6 +148,10 @@ class CustomListRequestNormalizationTest extends TestCase
         $this->assertSame(3, $request->limit());
         $this->assertSame(strtolower($courseId), $request->courseId());
         $this->assertSame(strtolower($deckId), $request->deckId());
+        $this->assertSame(strtolower($legacyCourseId), $legacyRequest->courseId());
+        $this->assertSame(strtolower($legacyDeckId), $legacyRequest->deckId());
+        $this->assertSame(strtolower($courseId), $matchingAliasRequest->courseId());
+        $this->assertSame(strtolower($deckId), $matchingAliasRequest->deckId());
     }
 
     public function test_study_browser_request_preserves_invalid_array_shapes_for_validation(): void
@@ -149,7 +166,9 @@ class CustomListRequestNormalizationTest extends TestCase
             'cursor' => ['not-a-cursor'],
             'limit' => ['1'],
             'courseId' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
+            'course_id' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
             'deckId' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
+            'deck_id' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
         ]);
 
         try {
@@ -157,7 +176,7 @@ class CustomListRequestNormalizationTest extends TestCase
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
             $this->assertValidationErrorKeys(
-                ['q', 'noteType', 'cardType', 'queueState', 'sortField', 'sortDirection', 'cursor', 'limit', 'courseId', 'deckId'],
+                ['q', 'noteType', 'cardType', 'queueState', 'sortField', 'sortDirection', 'cursor', 'limit', 'courseId', 'course_id', 'deckId', 'deck_id'],
                 $exception
             );
         }
@@ -168,14 +187,33 @@ class CustomListRequestNormalizationTest extends TestCase
         $request = $this->requestWithValidator(new ListStudyBrowserRequest, [
             'limit' => ' ',
             'courseId' => ' ',
+            'course_id' => ' ',
             'deckId' => ' ',
+            'deck_id' => ' ',
         ]);
 
         try {
             $request->validated();
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
-            $this->assertValidationErrorKeys(['limit', 'courseId', 'deckId'], $exception);
+            $this->assertValidationErrorKeys(['limit', 'courseId', 'course_id', 'deckId', 'deck_id'], $exception);
+        }
+    }
+
+    public function test_study_browser_request_rejects_conflicting_scope_filter_aliases(): void
+    {
+        $request = $this->requestWithValidator(new ListStudyBrowserRequest, [
+            'courseId' => strtolower((string) Str::ulid()),
+            'course_id' => strtolower((string) Str::ulid()),
+            'deckId' => strtolower((string) Str::ulid()),
+            'deck_id' => strtolower((string) Str::ulid()),
+        ]);
+
+        try {
+            $request->validated();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertValidationErrorKeys(['courseId', 'deckId'], $exception);
         }
     }
 
@@ -224,7 +262,9 @@ class CustomListRequestNormalizationTest extends TestCase
     public function test_study_new_card_queue_request_normalizes_query_inputs(): void
     {
         $courseId = (string) Str::ulid();
+        $legacyCourseId = (string) Str::ulid();
         $deckId = (string) Str::ulid();
+        $legacyDeckId = (string) Str::ulid();
 
         $request = $this->validatedRequest(new ListStudyNewCardQueueRequest, [
             'cursor' => ' +5 ',
@@ -234,11 +274,26 @@ class CustomListRequestNormalizationTest extends TestCase
             'deckId' => ' '.strtoupper($deckId).' ',
         ]);
 
+        $legacyRequest = $this->validatedRequest(new ListStudyNewCardQueueRequest, [
+            'course_id' => ' '.strtoupper($legacyCourseId).' ',
+            'deck_id' => ' '.strtoupper($legacyDeckId).' ',
+        ]);
+        $matchingAliasRequest = $this->validatedRequest(new ListStudyNewCardQueueRequest, [
+            'courseId' => ' '.strtoupper($courseId).' ',
+            'course_id' => ' '.$courseId.' ',
+            'deckId' => ' '.strtoupper($deckId).' ',
+            'deck_id' => ' '.$deckId.' ',
+        ]);
+
         $this->assertSame(5, $request->cursor());
         $this->assertSame(6, $request->limit());
         $this->assertNull($request->q());
         $this->assertSame(strtolower($courseId), $request->courseId());
         $this->assertSame(strtolower($deckId), $request->deckId());
+        $this->assertSame(strtolower($legacyCourseId), $legacyRequest->courseId());
+        $this->assertSame(strtolower($legacyDeckId), $legacyRequest->deckId());
+        $this->assertSame(strtolower($courseId), $matchingAliasRequest->courseId());
+        $this->assertSame(strtolower($deckId), $matchingAliasRequest->deckId());
     }
 
     public function test_study_new_card_queue_request_preserves_invalid_array_shapes_for_validation(): void
@@ -248,14 +303,16 @@ class CustomListRequestNormalizationTest extends TestCase
             'limit' => ['2'],
             'q' => ['company'],
             'courseId' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
+            'course_id' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
             'deckId' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
+            'deck_id' => ['01ktt2q9z5vfpxsqgc3mwrdh35'],
         ]);
 
         try {
             $request->validated();
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
-            $this->assertValidationErrorKeys(['cursor', 'limit', 'q', 'courseId', 'deckId'], $exception);
+            $this->assertValidationErrorKeys(['cursor', 'limit', 'q', 'courseId', 'course_id', 'deckId', 'deck_id'], $exception);
         }
     }
 
@@ -265,14 +322,33 @@ class CustomListRequestNormalizationTest extends TestCase
             'cursor' => ' ',
             'limit' => ' ',
             'courseId' => ' ',
+            'course_id' => ' ',
             'deckId' => ' ',
+            'deck_id' => ' ',
         ]);
 
         try {
             $request->validated();
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
-            $this->assertValidationErrorKeys(['cursor', 'limit', 'courseId', 'deckId'], $exception);
+            $this->assertValidationErrorKeys(['cursor', 'limit', 'courseId', 'course_id', 'deckId', 'deck_id'], $exception);
+        }
+    }
+
+    public function test_study_new_card_queue_request_rejects_conflicting_scope_filter_aliases(): void
+    {
+        $request = $this->requestWithValidator(new ListStudyNewCardQueueRequest, [
+            'courseId' => strtolower((string) Str::ulid()),
+            'course_id' => strtolower((string) Str::ulid()),
+            'deckId' => strtolower((string) Str::ulid()),
+            'deck_id' => strtolower((string) Str::ulid()),
+        ]);
+
+        try {
+            $request->validated();
+            $this->fail('Expected validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertValidationErrorKeys(['courseId', 'deckId'], $exception);
         }
     }
 

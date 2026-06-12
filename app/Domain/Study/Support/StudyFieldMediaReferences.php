@@ -69,8 +69,7 @@ final class StudyFieldMediaReferences
             return null;
         }
 
-        // The browser field contract is a single nullable media object; keep the first legacy marker.
-        return self::fromValue($value)['audio'];
+        return self::audioReferencesFromText((string) $value)[0] ?? null;
     }
 
     /**
@@ -86,8 +85,7 @@ final class StudyFieldMediaReferences
             return null;
         }
 
-        // The browser field contract is a single nullable media object; keep the first legacy marker.
-        return self::fromValue($value)['image'];
+        return self::imageReferencesFromText((string) $value)[0] ?? null;
     }
 
     /**
@@ -100,7 +98,7 @@ final class StudyFieldMediaReferences
         $references = [];
 
         foreach ($soundMatches[1] ?? [] as $filename) {
-            $reference = self::textReference($filename, 'audio', 'imported');
+            $reference = self::textReference($filename, 'audio', StudyCardDraft::MEDIA_SOURCE_IMPORTED);
 
             if ($reference !== null) {
                 $references[] = $reference;
@@ -115,6 +113,7 @@ final class StudyFieldMediaReferences
      */
     private static function imageReferencesFromText(string $value): array
     {
+        // Unlike the old import-local regex, quoted src values may contain spaces.
         preg_match_all('/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^"\'\s>]+))/i', $value, $imageMatches, PREG_SET_ORDER);
 
         $references = [];
@@ -123,7 +122,7 @@ final class StudyFieldMediaReferences
             $filename = ($imageMatch[1] ?? '') !== ''
                 ? $imageMatch[1]
                 : (($imageMatch[2] ?? '') !== '' ? $imageMatch[2] : ($imageMatch[3] ?? ''));
-            $reference = self::textReference($filename, 'image', 'imported_image');
+            $reference = self::textReference($filename, 'image', StudyCardDraft::MEDIA_SOURCE_IMPORTED_IMAGE);
 
             if ($reference !== null) {
                 $references[] = $reference;

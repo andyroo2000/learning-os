@@ -48,7 +48,23 @@ class StudyCardDraft extends Model
 
     public const MEDIA_REF_ALLOWED_KEYS = ['id', 'filename', 'url', 'mediaKind', 'source'];
 
-    public const MEDIA_SOURCES = ['imported', 'generated', 'missing', 'imported_image', 'imported_other'];
+    public const MEDIA_SOURCE_IMPORTED = 'imported';
+
+    public const MEDIA_SOURCE_GENERATED = 'generated';
+
+    public const MEDIA_SOURCE_MISSING = 'missing';
+
+    public const MEDIA_SOURCE_IMPORTED_IMAGE = 'imported_image';
+
+    public const MEDIA_SOURCE_IMPORTED_OTHER = 'imported_other';
+
+    public const MEDIA_SOURCES = [
+        self::MEDIA_SOURCE_IMPORTED,
+        self::MEDIA_SOURCE_GENERATED,
+        self::MEDIA_SOURCE_MISSING,
+        self::MEDIA_SOURCE_IMPORTED_IMAGE,
+        self::MEDIA_SOURCE_IMPORTED_OTHER,
+    ];
 
     private const GENERATION_OUTPUT_ATTRIBUTES = [
         'preview_audio_json',

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Study;
 
-use App\Domain\Study\Actions\CreateStudyCardDraftAction;
+use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
 use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Actions\RetryStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
@@ -198,7 +198,10 @@ class RetryStudyCardDraftActionTest extends TestCase
 
         $this->assertSame($draft->id, $retried->id);
         $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->refresh()->status);
-        $this->assertSame(CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER + 1, StudyCardDraft::query()->where('user_id', $user->id)->count());
+        $this->assertSame(
+            PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER + 1,
+            StudyCardDraft::query()->where('user_id', $user->id)->count(),
+        );
         $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 

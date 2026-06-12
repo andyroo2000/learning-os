@@ -3,7 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Study\Actions\CreateStudyCardDraftAction;
+use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
@@ -487,7 +487,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertConflict()
             ->assertJsonPath('message', 'Draft queue is full. Delete some drafts before adding more.');
 
-        $this->assertDatabaseCount('study_card_drafts', CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER);
+        $this->assertDatabaseCount('study_card_drafts', PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER);
         $this->assertDatabaseCount('sync_feed_entries', 0);
         Queue::assertNothingPushed();
     }

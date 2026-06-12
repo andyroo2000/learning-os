@@ -18,7 +18,7 @@ class PrepareStudyCardDraftQueueSlotAction
             throw new LogicException('Study card draft queue-slot preparation must run inside a database transaction.');
         }
 
-        $this->lockUser($userId);
+        $this->lockUserOrFail($userId);
 
         // StudyCardDraft is not soft-deletable today, so this counts every persisted draft.
         $existingDraftCount = StudyCardDraft::query()
@@ -30,9 +30,9 @@ class PrepareStudyCardDraftQueueSlotAction
         }
     }
 
-    private function lockUser(int $userId): void
+    private function lockUserOrFail(int $userId): void
     {
-        // This user row is the per-user serialization point for draft queue cap checks.
+        // Lock ordering: draft create paths lock users before reading drafts to avoid deadlocks.
         User::query()
             ->whereKey($userId)
             ->lockForUpdate()

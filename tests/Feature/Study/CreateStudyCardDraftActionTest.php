@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\CreateStudyCardDraftAction;
+use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
@@ -337,7 +338,7 @@ class CreateStudyCardDraftActionTest extends TestCase
             $this->assertSame('Draft queue is full. Delete some drafts before adding more.', $exception->getMessage());
         }
 
-        $this->assertDatabaseCount('study_card_drafts', CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER);
+        $this->assertDatabaseCount('study_card_drafts', PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER);
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
@@ -357,7 +358,7 @@ class CreateStudyCardDraftActionTest extends TestCase
 
         $this->assertSame($creatingUser->id, $draft->refresh()->user_id);
         $this->assertSame(
-            CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER,
+            PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER,
             $this->draftCountFor($fullUser),
         );
         $this->assertSame(1, $this->draftCountFor($creatingUser));

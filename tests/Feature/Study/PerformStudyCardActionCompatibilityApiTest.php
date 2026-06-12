@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudySettings;
@@ -224,6 +225,47 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_action_response_overview_preserves_study_scope_filters(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $course = Course::factory()->for($user)->create();
+            $deck = $this->deckFor($user, ['course_id' => $course->id]);
+            $scopedCard = Card::factory()->for($deck)->create([
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 1,
+            ]);
+            $otherDeck = $this->deckFor($user);
+            Card::factory()->for($otherDeck)->create([
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 2,
+            ]);
+
+            $this->postJson("/api/study/cards/{$scopedCard->id}/actions", [
+                'action' => 'set_due',
+                'mode' => 'now',
+                'course_id' => strtoupper($course->id),
+                'deckId' => strtoupper($deck->id),
+                'currentOverview' => [
+                    'newCount' => 99,
+                ],
+            ])
+                ->assertOk()
+                ->assertJsonPath('card.id', $scopedCard->id)
+                ->assertJsonPath('overview.newCount', 0)
+                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.totalCards', 1)
+                ->assertJsonPath('overview.newCardsPerDay', 20);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_sets_due_tomorrow_in_the_requested_timezone(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-05T23:30:00Z'));
@@ -429,9 +471,19 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 'mode' => 'custom_date',
                 'dueAt' => 'tomorrow',
                 'currentOverview' => 'stale',
+                'course_id' => 'not-a-ulid',
+                'deckId' => ['not-a-ulid'],
             ])
                 ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt', 'currentOverview']);
+                ->assertJsonValidationErrors(['dueAt', 'currentOverview', 'course_id', 'deckId']);
+
+            $this->postJson("/api/study/cards/{$card->id}/actions", [
+                'action' => 'suspend',
+                'courseId' => strtolower((string) str()->ulid()),
+                'course_id' => strtolower((string) str()->ulid()),
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['courseId']);
 
             $this->postJson("/api/study/cards/{$card->id}/actions", [
                 'action' => 'set_due',

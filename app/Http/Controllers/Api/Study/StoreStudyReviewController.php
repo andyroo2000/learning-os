@@ -68,6 +68,8 @@ class StoreStudyReviewController extends Controller
                 $getStudyOverview->handle(
                     userId: $userId,
                     timeZone: $request->timeZone($data),
+                    deckId: $request->deckId(),
+                    courseId: $request->courseId(),
                 ),
             )->resolve($request);
 
@@ -91,6 +93,8 @@ class StoreStudyReviewController extends Controller
                 $getStudyOverview->handle(
                     userId: $userId,
                     timeZone: $request->timeZone($data),
+                    deckId: $request->deckId(),
+                    courseId: $request->courseId(),
                 ),
             )->resolve($request),
         ]);

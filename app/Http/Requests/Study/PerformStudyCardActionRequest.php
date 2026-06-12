@@ -4,21 +4,26 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Actions\SetCardDueAction;
 use App\Domain\Flashcards\Models\Card;
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PerformStudyCardActionRequest extends FormRequest
 {
+    use FiltersByStudyScope;
     use ValidatesStrictIsoDateTime;
 
     private ?Card $studyCard = null;
 
     protected function prepareForValidation(): void
     {
+        $this->prepareStudyScopeFiltersForValidation();
+
         $normalized = [];
 
         foreach (['action', 'mode', 'dueAt', 'timeZone'] as $key) {
@@ -67,6 +72,7 @@ class PerformStudyCardActionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->studyScopeRules(),
             'action' => ['required', 'string', Rule::in(['set_due', 'suspend', 'unsuspend', 'forget'])],
             'mode' => [
                 'required_if:action,set_due',
@@ -103,6 +109,14 @@ class PerformStudyCardActionRequest extends FormRequest
             // currentOverview is accepted for ConvoLab request compatibility; controllers recompute overview.
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     /**

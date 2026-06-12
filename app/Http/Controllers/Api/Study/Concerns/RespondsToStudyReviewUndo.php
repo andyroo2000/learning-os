@@ -22,6 +22,8 @@ trait RespondsToStudyReviewUndo
         int $userId,
         string $reviewLogId,
         ?string $timeZone,
+        ?string $deckId,
+        ?string $courseId,
         UndoCardReviewEventAction $undoCardReviewEvent,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
@@ -48,6 +50,8 @@ trait RespondsToStudyReviewUndo
                 $getStudyOverview->handle(
                     userId: $userId,
                     timeZone: $timeZone,
+                    deckId: $deckId,
+                    courseId: $courseId,
                 ),
             )->resolve($request),
         ]);

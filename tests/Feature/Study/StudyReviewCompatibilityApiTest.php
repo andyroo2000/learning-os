@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -346,6 +347,50 @@ class StudyReviewCompatibilityApiTest extends TestCase
         ]);
     }
 
+    public function test_review_response_overview_preserves_study_scope_filters(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $course = Course::factory()->for($user)->create();
+            $deck = $this->deckFor($user, ['course_id' => $course->id]);
+            $scopedCard = Card::factory()->for($deck)->create([
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 1,
+            ]);
+            $otherCourse = Course::factory()->for($user)->create();
+            $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+            Card::factory()->for($otherCourseDeck)->create([
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 2,
+            ]);
+
+            $response = $this->postJson('/api/study/reviews', [
+                'cardId' => $scopedCard->id,
+                'grade' => 'good',
+                'timeZone' => 'America/New_York',
+                'courseId' => strtoupper($course->id),
+                'currentOverview' => [
+                    'newCount' => 99,
+                ],
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('card.id', $scopedCard->id)
+                ->assertJsonPath('overview.newCount', 0)
+                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.totalCards', 1)
+                ->assertJsonPath('overview.newCardsPerDay', 20);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_validates_camel_case_inputs(): void
     {
         $card = $this->cardFor($this->signIn());
@@ -376,9 +421,20 @@ class StudyReviewCompatibilityApiTest extends TestCase
             'grade' => 'good',
             'durationMs' => 86_400_001,
             'timeZone' => 'not-a-zone',
+            'courseId' => 'not-a-ulid',
+            'deck_id' => ['not-a-ulid'],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['durationMs', 'timeZone']);
+            ->assertJsonValidationErrors(['durationMs', 'timeZone', 'courseId', 'deck_id']);
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+            'courseId' => strtolower((string) str()->ulid()),
+            'course_id' => strtolower((string) str()->ulid()),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
     }
 
     public function test_it_returns_not_found_for_missing_or_unowned_cards(): void
@@ -449,7 +505,12 @@ class StudyReviewCompatibilityApiTest extends TestCase
 
     public function test_it_returns_review_log_id_when_card_disappears_after_review_is_recorded(): void
     {
-        $card = $this->cardFor($this->signIn());
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $card = Card::factory()->for($deck)->create();
+        $otherDeck = $this->deckFor($user);
+        Card::factory()->for($otherDeck)->create();
 
         $realReviewCard = app(ReviewCardAction::class);
 
@@ -470,6 +531,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
         $response = $this->postJson('/api/study/reviews', [
             'cardId' => $card->id,
             'grade' => 'good',
+            'courseId' => strtoupper($course->id),
+            'deck_id' => strtoupper($deck->id),
         ]);
 
         $reviewLogId = $response->json('reviewLogId');
@@ -480,6 +543,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ->assertJsonPath('committed', true)
             ->assertJsonPath('cardFetchFailed', true)
             ->assertJsonPath('card', null)
+            ->assertJsonPath('overview.newCount', 0)
+            ->assertJsonPath('overview.reviewCount', 0)
             ->assertJsonPath('overview.totalCards', 0);
 
         $this->assertArrayHasKey('card', $response->json());

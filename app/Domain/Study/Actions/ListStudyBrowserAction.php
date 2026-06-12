@@ -68,8 +68,26 @@ class ListStudyBrowserAction
         $offset = $this->decodeOffsetCursor($cursor);
         $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study browser');
         $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'Study browser');
+        $effectiveSortField = $sortField ?? 'created_on';
+        $effectiveSortDirection = $sortDirection ?? 'desc';
 
-        // Browser rows are note aggregates with derived counts, so this compatibility slice materializes matching cards before sorting and slicing.
+        if ($this->canPageWithSqlAggregate($effectiveSortField)) {
+            return $this->handleWithPagedGroups(
+                userId: $userId,
+                q: $q,
+                noteType: $noteType,
+                cardType: $cardType,
+                queueState: $queueState,
+                sortField: $effectiveSortField,
+                sortDirection: $effectiveSortDirection,
+                offset: $offset,
+                limit: $limit,
+                courseId: $courseId,
+                deckId: $deckId,
+            );
+        }
+
+        // Text-like sorts depend on rendered display text from JSON payloads, so this compatibility path still materializes matching cards.
         $cards = $this->cardsForBrowser(
             userId: $userId,
             q: $q,
@@ -96,8 +114,8 @@ class ListStudyBrowserAction
 
         $rows = $this->sortRows(
             $this->rowsFromCards($cards),
-            $sortField ?? 'created_on',
-            $sortDirection ?? 'desc',
+            $effectiveSortField,
+            $effectiveSortDirection,
         );
         $pageRows = array_slice($rows, $offset, $limit);
         $nextOffset = $offset + count($pageRows);
@@ -110,6 +128,95 @@ class ListStudyBrowserAction
             'total' => count($rows),
             'limit' => $limit,
             'nextCursor' => $nextOffset < count($rows) ? $this->encodeOffsetCursor($nextOffset) : null,
+            'filterOptions' => [
+                'noteTypes' => $this->filterNoteTypes($filterOptionRows),
+                'cardTypes' => $this->filterCardTypes($filterOptionRows),
+                'queueStates' => $this->filterQueueStates($filterOptionRows),
+            ],
+        ];
+    }
+
+    private function canPageWithSqlAggregate(string $sortField): bool
+    {
+        return in_array($sortField, ['created_on', 'updated_on', 'card_count', 'review_count'], true);
+    }
+
+    /**
+     * @return array{
+     *     rows: list<array<string, mixed>>,
+     *     total: int,
+     *     limit: int,
+     *     nextCursor: string|null,
+     *     filterOptions: array{noteTypes: list<string>, cardTypes: list<string>, queueStates: list<string>}
+     * }
+     */
+    private function handleWithPagedGroups(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+        string $sortField,
+        string $sortDirection,
+        int $offset,
+        int $limit,
+        ?string $courseId,
+        ?string $deckId,
+    ): array {
+        $groupRows = $this->orderGroupQuery(
+            $this->browserGroupQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId),
+            $sortField,
+            $sortDirection,
+        )
+            ->skip($offset)
+            ->take($limit)
+            ->get();
+        $total = $this->totalFromGroupRows($groupRows);
+
+        if ($total === 0 && $offset === 0) {
+            return [
+                'rows' => [],
+                'total' => 0,
+                'limit' => $limit,
+                'nextCursor' => null,
+                'filterOptions' => [
+                    'noteTypes' => [],
+                    'cardTypes' => [],
+                    'queueStates' => [],
+                ],
+            ];
+        }
+
+        if ($total === 0) {
+            $total = (int) DB::query()
+                ->fromSub($this->browserGroupQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId), 'study_browser_groups')
+                ->count();
+        }
+
+        $cards = $this->cardsForBrowserGroups(
+            userId: $userId,
+            q: $q,
+            noteType: $noteType,
+            cardType: $cardType,
+            queueState: $queueState,
+            courseId: $courseId,
+            deckId: $deckId,
+            groupRows: $groupRows,
+        );
+        $rowsByNoteId = collect($this->rowsFromCards($cards))->keyBy('noteId');
+        $pageRows = $groupRows
+            ->map(fn (object $group): ?array => $rowsByNoteId->get($this->noteIdFromGroupRow($group)))
+            ->filter()
+            ->values()
+            ->all();
+        $nextOffset = $offset + $groupRows->count();
+        $filterOptionRows = $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
+
+        return [
+            'rows' => $pageRows,
+            'total' => $total,
+            'limit' => $limit,
+            'nextCursor' => $nextOffset < $total ? $this->encodeOffsetCursor($nextOffset) : null,
             'filterOptions' => [
                 'noteTypes' => $this->filterNoteTypes($filterOptionRows),
                 'cardTypes' => $this->filterCardTypes($filterOptionRows),
@@ -204,7 +311,144 @@ class ListStudyBrowserAction
             ->select('cards.id')
             ->toBase();
 
+        return $this->cardsWithReviewCounts($baseQuery, $matchingCardIds);
+    }
+
+    /**
+     * @return Builder<Card>
+     */
+    private function browserCardQuery(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
+    ): Builder {
+        return $this->applyBrowserCardFilters(
+            Card::query()->ownedByActiveDeck($userId),
+            $q,
+            $noteType,
+            $cardType,
+            $queueState,
+            $courseId,
+            $deckId,
+        );
+    }
+
+    private function browserGroupQuery(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
+    ): QueryBuilder {
+        $baseQuery = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
+        $matchingCardIds = (clone $baseQuery)
+            ->select('cards.id')
+            ->toBase();
+
         return $baseQuery
+            ->leftJoinSub(
+                $this->reviewCountSubquery($matchingCardIds),
+                'review_event_stats',
+                fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
+            )
+            ->select([
+                'cards.source_note_id',
+            ])
+            ->selectRaw('CASE WHEN cards.source_note_id IS NULL THEN cards.id ELSE NULL END AS unsourced_card_id')
+            ->selectRaw('MIN(cards.created_at) AS created_on')
+            ->selectRaw('MAX(cards.updated_at) AS updated_on')
+            ->selectRaw('COUNT(cards.id) AS card_count')
+            ->selectRaw('COALESCE(SUM(COALESCE(review_event_stats.review_events_count, 0)), 0) AS review_count')
+            ->selectRaw('COUNT(*) OVER() AS total_rows')
+            ->groupBy('cards.source_note_id')
+            ->groupByRaw('CASE WHEN cards.source_note_id IS NULL THEN cards.id ELSE NULL END')
+            ->toBase();
+    }
+
+    private function orderGroupQuery(QueryBuilder $query, string $sortField, string $sortDirection): QueryBuilder
+    {
+        $direction = $sortDirection === 'asc' ? 'asc' : 'desc';
+        $sortColumn = match ($sortField) {
+            'updated_on' => 'updated_on',
+            'card_count' => 'card_count',
+            'review_count' => 'review_count',
+            default => 'created_on',
+        };
+
+        return $query
+            ->orderBy($sortColumn, $direction)
+            ->orderBy('source_note_id', $direction)
+            ->orderBy('unsourced_card_id', $direction);
+    }
+
+    /**
+     * @param  Collection<int, object{source_note_id: int|string|null, unsourced_card_id: string|null}>  $groupRows
+     * @return Collection<int, Card>
+     */
+    private function cardsForBrowserGroups(
+        int $userId,
+        ?string $q,
+        ?string $noteType,
+        ?CardType $cardType,
+        ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
+        Collection $groupRows,
+    ): Collection {
+        $sourceNoteIds = $groupRows
+            ->pluck('source_note_id')
+            ->filter(fn (mixed $noteId): bool => $noteId !== null)
+            ->map(fn (mixed $noteId): int => (int) $noteId)
+            ->unique()
+            ->values()
+            ->all();
+        $unsourcedCardIds = $groupRows
+            ->pluck('unsourced_card_id')
+            ->filter(fn (mixed $cardId): bool => is_string($cardId) && $cardId !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($sourceNoteIds === [] && $unsourcedCardIds === []) {
+            return new Collection;
+        }
+
+        $query = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId)
+            ->where(function (Builder $query) use ($sourceNoteIds, $unsourcedCardIds): void {
+                if ($sourceNoteIds !== []) {
+                    $query->whereIn('cards.source_note_id', $sourceNoteIds);
+                }
+
+                if ($unsourcedCardIds !== []) {
+                    $method = $sourceNoteIds === [] ? 'where' : 'orWhere';
+                    $query->{$method}(function (Builder $query) use ($unsourcedCardIds): void {
+                        $query
+                            ->whereNull('cards.source_note_id')
+                            ->whereIn('cards.id', $unsourcedCardIds);
+                    });
+                }
+            });
+
+        return $this->cardsWithReviewCounts($query);
+    }
+
+    /**
+     * @param  Builder<Card>  $query
+     * @return Collection<int, Card>
+     */
+    private function cardsWithReviewCounts(Builder $query, ?QueryBuilder $matchingCardIds = null): Collection
+    {
+        $matchingCardIds ??= (clone $query)
+            ->select('cards.id')
+            ->toBase();
+
+        return $query
             ->leftJoinSub(
                 $this->reviewCountSubquery($matchingCardIds),
                 'review_event_stats',
@@ -235,27 +479,23 @@ class ListStudyBrowserAction
             ->get();
     }
 
+    private function noteIdFromGroupRow(object $group): string
+    {
+        if (($group->source_note_id ?? null) !== null) {
+            return (string) $group->source_note_id;
+        }
+
+        return (string) $group->unsourced_card_id;
+    }
+
     /**
-     * @return Builder<Card>
+     * @param  Collection<int, object{total_rows?: int|string|null}>  $groupRows
      */
-    private function browserCardQuery(
-        int $userId,
-        ?string $q,
-        ?string $noteType,
-        ?CardType $cardType,
-        ?CardStudyStatus $queueState,
-        ?string $courseId,
-        ?string $deckId,
-    ): Builder {
-        return $this->applyBrowserCardFilters(
-            Card::query()->ownedByActiveDeck($userId),
-            $q,
-            $noteType,
-            $cardType,
-            $queueState,
-            $courseId,
-            $deckId,
-        );
+    private function totalFromGroupRows(Collection $groupRows): int
+    {
+        $total = $groupRows->first()?->total_rows ?? null;
+
+        return is_numeric($total) ? (int) $total : 0;
     }
 
     /**

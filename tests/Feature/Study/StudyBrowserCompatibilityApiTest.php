@@ -153,6 +153,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
+        $groupSelects = $this->groupSelectQueries($cardSelects);
+        $pagedCardSelects = $this->pagedCardSelectQueries($cardSelects);
         $standaloneReviewCountSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_starts_with(strtolower($query['query']), 'select card_id, count(*) as review_count')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
@@ -162,10 +164,12 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $filteredReviewCountSelects = $rowSelectsWithReviewCount->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'where "card_id" in'));
 
         $this->assertCount(1, $facetSelects, 'Study browser should use one unioned facet query instead of one query per facet.');
-        $this->assertLessThanOrEqual(2, $cardSelects->count(), 'Study browser should keep card selects bounded to the row query plus the unioned facet query.');
+        $this->assertLessThanOrEqual(3, $cardSelects->count(), 'Study browser should keep card selects bounded to the group query, page-card query, and unioned facet query.');
+        $this->assertCount(1, $groupSelects, 'Study browser should use one grouped page query with total_rows.');
+        $this->assertCount(1, $pagedCardSelects, 'Study browser should hydrate only cards for the current page groups.');
         $this->assertCount(0, $standaloneReviewCountSelects, 'Study browser should not run a standalone review-count query on each page load.');
-        $this->assertCount(1, $rowSelectsWithReviewCount, 'Study browser should load review counts in the row query.');
-        $this->assertCount(1, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards.');
+        $this->assertCount(2, $rowSelectsWithReviewCount, 'Study browser should load review counts in the group and page-card queries.');
+        $this->assertCount(2, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards in both bounded queries.');
     }
 
     public function test_it_filters_browser_rows_and_filter_options_by_course_and_deck_ids(): void
@@ -284,8 +288,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Initial browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Initial browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Initial browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Initial browser loads should use one unioned facet query.');
     }
 
     public function test_it_reuses_the_unfiltered_row_query_for_initial_filter_options(): void
@@ -331,8 +337,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Initial browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Initial browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Initial browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Initial browser loads should use one unioned facet query.');
     }
 
     public function test_it_derives_initial_filter_options_from_the_full_result_set_not_the_current_page(): void
@@ -383,8 +391,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Paged initial browser loads should reuse the full row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Paged initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Paged browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Paged browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Paged browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Paged browser loads should keep filter options based on the full filtered result set.');
     }
 
     public function test_it_paginates_browser_rows_with_returned_cursor(): void
@@ -757,6 +767,35 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
             return str_contains($sql, ' as facet')
                 && str_contains($sql, ' union ');
+        });
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $cardQueries
+     * @return Collection<int, array{query: string}>
+     */
+    private function groupSelectQueries(Collection $cardQueries): Collection
+    {
+        return $cardQueries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'total_rows')
+                && str_contains($sql, 'group by');
+        });
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $cardQueries
+     * @return Collection<int, array{query: string}>
+     */
+    private function pagedCardSelectQueries(Collection $cardQueries): Collection
+    {
+        return $cardQueries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'review_events_max_reviewed_at')
+                && ! str_contains($sql, 'total_rows')
+                && ! str_contains($sql, ' as facet');
         });
     }
 }

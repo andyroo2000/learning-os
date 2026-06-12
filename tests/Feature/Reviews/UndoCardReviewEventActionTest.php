@@ -69,8 +69,7 @@ class UndoCardReviewEventActionTest extends TestCase
         $restoredCard->refresh()->load('deck');
         $reviewEvent->setRelation('card', $restoredCard);
 
-        $deleteEntry = $this->assertCardReviewEventDeleteSyncPayloadRecorded($reviewEvent);
-        $this->assertSame($deletedAt->toJSON(), $deleteEntry->payload['deleted_at']);
+        $this->assertCardReviewEventDeleteSyncPayloadRecorded($reviewEvent, $deletedAt);
         $this->assertCardSyncPayloadRecorded(
             $restoredCard,
             SyncFeedOperation::Update,

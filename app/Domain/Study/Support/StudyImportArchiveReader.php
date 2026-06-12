@@ -364,11 +364,13 @@ final class StudyImportArchiveReader
                 continue;
             }
 
+            if (! isset($deck['name']) || ! is_string($deck['name'])) {
+                continue;
+            }
+
             $decks[] = new StudyImportArchiveDeck(
                 sourceDeckId: (int) $deck['id'],
-                name: isset($deck['name']) && is_string($deck['name'])
-                    ? trim(str_replace("\0", '', $deck['name']))
-                    : '',
+                name: trim(str_replace("\0", '', $deck['name'])),
             );
         }
 

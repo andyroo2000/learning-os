@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\SetsCardStudyStatus;
@@ -134,6 +135,31 @@ class ListStudyNewCardQueueActionTest extends TestCase
         $this->assertSame(3, $secondPage['total']);
         $this->assertNull($secondPage['nextCursor']);
         $this->assertSame([$legacyNullPositionCard->id], $secondPage['items']->pluck('id')->all());
+    }
+
+    public function test_it_preserves_created_at_tiebreaking_with_null_queue_positions_last(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $newerCardWithSamePosition = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'created_at' => Carbon::parse('2026-06-05T12:00:00Z'),
+        ]);
+        $olderCardWithSamePosition = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'created_at' => Carbon::parse('2026-06-04T12:00:00Z'),
+        ]);
+        $legacyNullPositionCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => null,
+            'created_at' => Carbon::parse('2026-06-03T12:00:00Z'),
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(
+            [$olderCardWithSamePosition->id, $newerCardWithSamePosition->id, $legacyNullPositionCard->id],
+            $page['items']->pluck('id')->all(),
+        );
     }
 
     public function test_it_rejects_negative_cursors_for_direct_callers(): void

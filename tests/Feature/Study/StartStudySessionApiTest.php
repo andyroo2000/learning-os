@@ -58,6 +58,33 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonCount(2, 'data.cards');
     }
 
+    public function test_start_ignores_legacy_null_position_cards_when_filling_new_slots(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 2,
+        ]);
+        $legacyNullPositionCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => null,
+        ]);
+        $firstPositionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondPositionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->postJson('/api/study/session/start')
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 2)
+            ->assertJsonPath('data.overview.new_cards_available_today', 2)
+            ->assertJsonPath('data.cards.0.id', $firstPositionedCard->id)
+            ->assertJsonPath('data.cards.1.id', $secondPositionedCard->id)
+            ->assertJsonMissing(['id' => $legacyNullPositionCard->id])
+            ->assertJsonCount(2, 'data.cards');
+    }
+
     public function test_start_is_rate_limited_by_user_without_throttling_overview_reads(): void
     {
         $user = $this->signIn();

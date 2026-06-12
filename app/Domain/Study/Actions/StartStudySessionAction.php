@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Results\StartStudySessionResult;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,13 +90,12 @@ class StartStudySessionAction
             return collect();
         }
 
-        return $this->ownedActiveCardsQuery($userId, $deckId)
+        $query = $this->ownedActiveCardsQuery($userId, $deckId)
             ->select('cards.*')
             ->selectRaw('decks.course_id as deck_course_id')
-            ->where('cards.study_status', CardStudyStatus::New->value)
-            ->whereNotNull('cards.new_queue_position')
-            ->orderBy('cards.new_queue_position')
-            ->orderBy('cards.id')
+            ->where('cards.study_status', CardStudyStatus::New->value);
+
+        return NewCardQueueOrdering::positionedCards($query)
             ->limit($limit)
             ->get();
     }

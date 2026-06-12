@@ -99,6 +99,36 @@ class ReorderNewCardQueueActionTest extends TestCase
         ]);
     }
 
+    public function test_it_repairs_multiple_legacy_null_positions_deterministically(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstLegacyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh31',
+        ]);
+        $positionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh32',
+            'new_queue_position' => 4,
+        ]);
+        $secondLegacyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh33',
+        ]);
+
+        $cards = app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [$secondLegacyCard->id, $positionedCard->id, $firstLegacyCard->id],
+        );
+
+        $this->assertSame(
+            [$secondLegacyCard->id, $positionedCard->id, $firstLegacyCard->id],
+            $cards->pluck('id')->all(),
+        );
+        $this->assertSame(4, $secondLegacyCard->refresh()->new_queue_position);
+        $this->assertSame(5, $positionedCard->refresh()->new_queue_position);
+        $this->assertSame(6, $firstLegacyCard->refresh()->new_queue_position);
+        $this->assertDatabaseCount('sync_feed_entries', 3);
+    }
+
     public function test_it_is_idempotent_when_order_is_unchanged(): void
     {
         $user = User::factory()->create();

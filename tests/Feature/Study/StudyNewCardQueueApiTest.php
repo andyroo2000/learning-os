@@ -11,6 +11,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Support\SetsCardStudyStatus;
@@ -111,6 +112,30 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('total', 3)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonPath('items.0.id', $thirdCard->id);
+    }
+
+    public function test_it_lists_equal_queue_positions_by_created_at_before_legacy_null_positions(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $newerCardWithSamePosition = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'created_at' => Carbon::parse('2026-06-05T12:00:00Z'),
+        ]);
+        $olderCardWithSamePosition = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'created_at' => Carbon::parse('2026-06-04T12:00:00Z'),
+        ]);
+        $legacyNullPositionCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => null,
+            'created_at' => Carbon::parse('2026-06-03T12:00:00Z'),
+        ]);
+
+        $this->getJson('/api/study/new-queue')
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $olderCardWithSamePosition->id)
+            ->assertJsonPath('items.1.id', $newerCardWithSamePosition->id)
+            ->assertJsonPath('items.2.id', $legacyNullPositionCard->id);
     }
 
     public function test_it_accepts_signed_query_integers_without_trim_strings_middleware(): void

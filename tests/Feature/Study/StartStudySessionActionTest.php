@@ -87,6 +87,37 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(2, $result->overview['new_cards_available_today']);
     }
 
+    public function test_legacy_null_position_cards_do_not_consume_new_session_slots(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 2,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => null,
+        ]);
+        $firstPositionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondPositionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame(
+            [$firstPositionedCard->id, $secondPositionedCard->id],
+            $result->cards->pluck('id')->all(),
+        );
+        $this->assertSame(2, $result->overview['new_count']);
+        $this->assertSame(2, $result->overview['new_cards_available_today']);
+    }
+
     public function test_ready_failed_cards_block_new_cards_and_are_returned_even_when_due_count_is_zero(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

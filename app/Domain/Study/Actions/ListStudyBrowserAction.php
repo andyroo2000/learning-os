@@ -373,7 +373,7 @@ class ListStudyBrowserAction
 
                 return [
                     'noteId' => $noteId,
-                    'selectedCardId' => $firstCard->id,
+                    'selectedCardId' => (string) $firstCard->id,
                     'displayText' => $this->displayTextFor($firstCard),
                     'noteTypeName' => $firstCard->source_notetype_name,
                     'sourceKind' => $this->sourceKindFor($firstCard),

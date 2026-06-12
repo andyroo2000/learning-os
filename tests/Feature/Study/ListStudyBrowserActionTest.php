@@ -68,7 +68,7 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame(['production', 'recognition'], $result['filterOptions']['cardTypes']);
     }
 
-    public function test_it_reports_group_metadata_for_direct_callers(): void
+    public function test_it_reports_group_metadata_with_legacy_blank_source_kind_for_direct_callers(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);

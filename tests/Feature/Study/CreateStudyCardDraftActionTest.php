@@ -10,12 +10,15 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
+use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
@@ -64,6 +67,41 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertSame('generating', $entry->payload['status']);
         $this->assertSame('production-image', $entry->payload['creation_kind']);
         $this->assertSame('A sunny office', $entry->payload['image_prompt']);
+    }
+
+    public function test_it_calls_the_draft_lifecycle_callback_after_creating_the_draft_and_sync_entry(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $processedDraftIds = [];
+
+        $draft = app(CreateStudyCardDraftAction::class)->handle(
+            CreateStudyCardDraftData::fromInput(
+                userId: $user->id,
+                creationKind: StudyCardCreationKind::TextRecognition,
+                cardType: CardType::Recognition,
+                promptJson: ['cueText' => '犬'],
+                answerJson: ['meaning' => 'dog'],
+            ),
+            afterCommit: static function (string $draftId) use (&$processedDraftIds): void {
+                $processedDraftIds[] = $draftId;
+
+                ProcessStudyCardDraft::dispatch($draftId);
+            },
+        );
+
+        $this->assertSame([$draft->id], $processedDraftIds);
+        $this->assertDatabaseHas('study_card_drafts', [
+            'id' => $draft->id,
+            'user_id' => $user->id,
+            'status' => StudyManualCardDraftStatus::Generating->value,
+        ]);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
+        );
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void
@@ -280,21 +318,55 @@ class CreateStudyCardDraftActionTest extends TestCase
         );
     }
 
-    public function test_it_rejects_creates_when_the_user_draft_queue_is_full(): void
+    public function test_it_rejects_creates_when_the_user_draft_queue_is_full_without_side_effects(): void
     {
         $user = User::factory()->create();
         $this->insertCappedDraftRowsFor($user);
 
-        $this->expectException(StudyCardDraftConflictException::class);
-        $this->expectExceptionMessage('Draft queue is full. Delete some drafts before adding more.');
+        try {
+            app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+                userId: $user->id,
+                creationKind: StudyCardCreationKind::TextRecognition,
+                cardType: CardType::Recognition,
+                promptJson: ['cueText' => '犬'],
+                answerJson: ['answerText' => 'dog'],
+            ));
 
-        app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
-            userId: $user->id,
+            $this->fail('Expected queue full conflict.');
+        } catch (StudyCardDraftConflictException $exception) {
+            $this->assertSame('Draft queue is full. Delete some drafts before adding more.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('study_card_drafts', CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_counts_the_draft_queue_cap_per_user(): void
+    {
+        $fullUser = User::factory()->create();
+        $creatingUser = User::factory()->create();
+        $this->insertCappedDraftRowsFor($fullUser);
+
+        $draft = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: $creatingUser->id,
             creationKind: StudyCardCreationKind::TextRecognition,
             cardType: CardType::Recognition,
             promptJson: ['cueText' => '犬'],
             answerJson: ['answerText' => 'dog'],
         ));
+
+        $this->assertSame($creatingUser->id, $draft->refresh()->user_id);
+        $this->assertSame(
+            CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER,
+            $this->draftCountFor($fullUser),
+        );
+        $this->assertSame(1, $this->draftCountFor($creatingUser));
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    private function draftCountFor(User $user): int
+    {
+        return StudyCardDraft::query()->where('user_id', $user->id)->count();
     }
 
     /**

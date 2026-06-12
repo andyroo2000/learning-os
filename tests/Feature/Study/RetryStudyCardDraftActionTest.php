@@ -13,9 +13,11 @@ use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Jobs\ProcessStudyCardDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
@@ -28,6 +30,7 @@ class RetryStudyCardDraftActionTest extends TestCase
 
     public function test_it_retries_an_errored_manual_study_card_draft(): void
     {
+        Queue::fake();
         $user = User::factory()->create();
         $draft = StudyCardDraft::factory()->failed()->for($user)->create([
             'creation_kind' => StudyCardCreationKind::ProductionImage,
@@ -51,7 +54,17 @@ class RetryStudyCardDraftActionTest extends TestCase
             'error_message' => 'Generation failed.',
         ]);
 
-        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, strtoupper($draft->id));
+        $processedDraftIds = [];
+
+        $retried = app(RetryStudyCardDraftAction::class)->handle(
+            $user->id,
+            strtoupper($draft->id),
+            afterCommit: static function (string $draftId) use (&$processedDraftIds): void {
+                $processedDraftIds[] = $draftId;
+
+                ProcessStudyCardDraft::dispatch($draftId);
+            },
+        );
 
         $retried->refresh();
 
@@ -74,6 +87,12 @@ class RetryStudyCardDraftActionTest extends TestCase
         $this->assertSame('generating', $entry->payload['status']);
         $this->assertNull($entry->payload['preview_audio_json']);
         $this->assertNull($entry->payload['error_message']);
+        $this->assertSame([$draft->id], $processedDraftIds);
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
+        );
     }
 
     #[DataProvider('nonPositiveUserIdProvider')]
@@ -131,18 +150,36 @@ class RetryStudyCardDraftActionTest extends TestCase
 
     public function test_it_returns_generating_drafts_for_idempotent_transport_retries(): void
     {
+        Queue::fake();
         $user = User::factory()->create();
         $draft = StudyCardDraft::factory()->for($user)->create();
-        $originalUpdatedAt = $draft->updated_at?->toJSON();
+        $this->assertNotNull($draft->updated_at);
+        $originalUpdatedAt = $draft->updated_at->toJSON();
+        $processedDraftIds = [];
 
-        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+        $retried = app(RetryStudyCardDraftAction::class)->handle(
+            $user->id,
+            $draft->id,
+            afterCommit: static function (string $draftId) use (&$processedDraftIds): void {
+                $processedDraftIds[] = $draftId;
+
+                ProcessStudyCardDraft::dispatch($draftId);
+            },
+        );
 
         $retried->refresh();
 
         $this->assertSame($draft->id, $retried->id);
         $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->status);
-        $this->assertSame($originalUpdatedAt, $retried->updated_at?->toJSON());
+        $this->assertNotNull($retried->updated_at);
+        $this->assertSame($originalUpdatedAt, $retried->updated_at->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
+        $this->assertSame([$draft->id], $processedDraftIds);
+        Queue::assertPushedOn(
+            ProcessStudyCardDraft::QUEUE_NAME,
+            ProcessStudyCardDraft::class,
+            fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
+        );
     }
 
     #[DataProvider('nonRetryableStatusProvider')]

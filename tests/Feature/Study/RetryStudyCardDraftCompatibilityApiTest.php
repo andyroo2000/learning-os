@@ -101,16 +101,20 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
 
     public function test_it_rejects_ready_drafts(): void
     {
+        Queue::fake();
         $user = $this->signIn();
         $readyDraft = StudyCardDraft::factory()->ready()->for($user)->create();
 
         $this->postJson("/api/study/card-drafts/{$readyDraft->id}/retry")
             ->assertConflict()
             ->assertJsonPath('message', 'Only errored drafts can be retried.');
+
+        Queue::assertNothingPushed();
     }
 
     public function test_it_rejects_committed_drafts(): void
     {
+        Queue::fake();
         $draft = StudyCardDraft::factory()->failed()->for($this->signIn())->create([
             'committed_card_id' => strtolower((string) Str::ulid()),
         ]);
@@ -122,10 +126,12 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $draft->refresh();
         $this->assertSame(StudyManualCardDraftStatus::Error, $draft->status);
         $this->assertNotNull($draft->error_message);
+        Queue::assertNothingPushed();
     }
 
     public function test_it_hides_missing_and_cross_user_drafts(): void
     {
+        Queue::fake();
         $this->signIn();
         $otherDraft = StudyCardDraft::factory()->failed()->for(User::factory()->create())->create();
 
@@ -136,6 +142,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertNotFound();
 
         $this->assertSame(StudyManualCardDraftStatus::Error, $otherDraft->refresh()->status);
+        Queue::assertNothingPushed();
     }
 
     public function test_it_rate_limits_manual_card_draft_retries_by_user(): void

@@ -4,7 +4,6 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
-use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -12,9 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class CreateStudyCardDraftAction
 {
-    public const MAX_DRAFTS_PER_USER = 2000;
+    public const MAX_DRAFTS_PER_USER = PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER;
 
     public function __construct(
+        private readonly PrepareStudyCardDraftQueueSlotAction $prepareStudyCardDraftQueueSlot,
         private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
     ) {}
 
@@ -28,15 +28,7 @@ class CreateStudyCardDraftAction
         }
 
         return DB::transaction(function () use ($afterCommit, $data): StudyCardDraft {
-            // StudyCardDraft is not soft-deletable today, so this counts every persisted draft.
-            $existingDraftCount = StudyCardDraft::query()
-                ->where('user_id', $data->userId)
-                ->count();
-
-            // This matches ConvoLab's UX queue cap; concurrent requests may briefly exceed it.
-            if ($existingDraftCount >= self::MAX_DRAFTS_PER_USER) {
-                throw StudyCardDraftConflictException::queueFull();
-            }
+            $this->prepareStudyCardDraftQueueSlot->handle($data->userId);
 
             $draft = new StudyCardDraft;
             $draft->user_id = $data->userId;

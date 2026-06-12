@@ -9,6 +9,8 @@ final class NewCardQueueOrdering
     /**
      * Keep legacy null queue positions after positioned cards on every supported database.
      *
+     * Callers must append the tie-breakers required by their read path after this bucket order.
+     *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  Builder<TModel>  $query

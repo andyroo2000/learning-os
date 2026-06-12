@@ -470,6 +470,42 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('filterOptions.noteTypes', ['Remaining Type']);
     }
 
+    public function test_it_paginates_browser_rows_by_card_count_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'single-card note',
+            'source_note_id' => 2071,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'first multi-card note',
+            'source_note_id' => 2072,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'second multi-card note',
+            'source_note_id' => 2072,
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=card_count&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2072')
+            ->assertJsonPath('rows.0.cardCount', 2);
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=card_count&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2071')
+            ->assertJsonPath('rows.0.cardCount', 1)
+            ->assertJsonPath('nextCursor', null);
+    }
+
     public function test_it_orders_equal_sort_values_with_a_stable_note_id_tiebreaker(): void
     {
         $user = $this->signIn();

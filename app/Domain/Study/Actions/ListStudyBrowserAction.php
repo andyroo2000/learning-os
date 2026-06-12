@@ -171,6 +171,7 @@ class ListStudyBrowserAction
             ->skip($offset)
             ->take($limit)
             ->get();
+        $groupCount = $groupRows->count();
         $total = $this->totalFromGroupRows($groupRows);
 
         if ($total === 0 && $offset === 0) {
@@ -215,14 +216,16 @@ class ListStudyBrowserAction
             ->filter()
             ->values()
             ->all();
-        $nextOffset = $offset + $groupRows->count();
+        $nextOffset = $offset + $groupCount;
+        // Empty offset pages are terminal even if a concurrent insert lands before the fallback recount.
+        $nextCursor = $groupCount > 0 && $nextOffset < $total ? $this->encodeOffsetCursor($nextOffset) : null;
         $filterOptionRows = $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
 
         return [
             'rows' => $pageRows,
             'total' => $total,
             'limit' => $limit,
-            'nextCursor' => $nextOffset < $total ? $this->encodeOffsetCursor($nextOffset) : null,
+            'nextCursor' => $nextCursor,
             'filterOptions' => [
                 'noteTypes' => $this->filterNoteTypes($filterOptionRows),
                 'cardTypes' => $this->filterCardTypes($filterOptionRows),
@@ -434,11 +437,17 @@ class ListStudyBrowserAction
                 }
 
                 if ($unsourcedCardIds !== []) {
-                    $query->orWhere(function (Builder $query) use ($unsourcedCardIds): void {
+                    $matchUnsourcedCards = function (Builder $query) use ($unsourcedCardIds): void {
                         $query
                             ->whereNull('cards.source_note_id')
                             ->whereIn('cards.id', $unsourcedCardIds);
-                    });
+                    };
+
+                    if ($sourceNoteIds === []) {
+                        $query->where($matchUnsourcedCards);
+                    } else {
+                        $query->orWhere($matchUnsourcedCards);
+                    }
                 }
             });
 

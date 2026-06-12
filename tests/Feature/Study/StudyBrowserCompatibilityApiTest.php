@@ -205,10 +205,11 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('rows.1.selectedCardId', (string) $betaCard->id)
             ->assertJsonPath('rows.1.sourceKind', 'native')
             ->assertJsonPath('rows.1.lastReviewedAt', null)
-            ->assertJsonFragment(['lastReviewedAt' => null])
             ->assertJsonPath('filterOptions.noteTypes', ['Alpha', 'Beta'])
             ->assertJsonPath('filterOptions.cardTypes', ['cloze', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['buried', 'new']);
+
+        $this->assertArrayHasKey('lastReviewedAt', $response->json('rows.1'));
 
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);

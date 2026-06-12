@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
@@ -934,6 +935,59 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
+    }
+
+    public function test_process_job_imports_single_non_default_deck_archives(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/spanish.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'media_map' => [],
+                'media_entries' => [],
+                'note_one_fields' => 'hola'."\x1f".'hello',
+            ]),
+        );
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame('Spanish', $processed?->deck_name);
+        $this->assertSame('Spanish', $processed?->preview_json['deck_name']);
+        $this->assertSame([
+            'imported_decks' => 1,
+            'imported_cards' => 3,
+            'skipped_cards' => 0,
+            'imported_review_logs' => 2,
+            'skipped_review_logs' => 0,
+            'imported_media_assets' => 0,
+            'skipped_media_assets' => 0,
+        ], $processed?->summary_json);
+
+        $deck = Deck::query()->where('user_id', $importJob->user_id)->sole();
+        $this->assertSame('Spanish', $deck->name);
+        $this->assertDatabaseHas('cards', [
+            'import_job_id' => $importJob->id,
+            'deck_id' => $deck->id,
+            'source_deck_id' => 1700000000000,
+            'front_text' => 'hola',
+            'back_text' => 'hola hello',
+        ]);
+
+        $deckSyncEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'deck')
+            ->where('resource_id', $deck->id)
+            ->sole();
+        $this->assertSame($importJob->user_id, $deckSyncEntry->user_id);
+        $this->assertSame('create', $deckSyncEntry->operation->value);
+        $this->assertSame('Spanish', $deckSyncEntry->payload['name']);
     }
 
     public function test_process_job_skips_missing_media_content(): void

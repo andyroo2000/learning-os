@@ -86,8 +86,7 @@ final class StudyBrowserCardAggregate
     private static function boundaryTimestamp(Collection $cards, string $attribute, bool $latest): string
     {
         $timestamps = $cards
-            ->map(fn (Card $card): string => self::cardTimestamp($card, $attribute))
-            ->filter();
+            ->map(fn (Card $card): string => self::cardTimestamp($card, $attribute));
 
         $timestamp = $latest ? $timestamps->max() : $timestamps->min();
 

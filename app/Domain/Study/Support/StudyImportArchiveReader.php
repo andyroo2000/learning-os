@@ -335,6 +335,10 @@ final class StudyImportArchiveReader
      */
     private function deckIdsWithCards(PDO $pdo): array
     {
+        if (! $this->hasTable($pdo, 'cards')) {
+            throw StudyImportPreviewException::invalidCollectionDatabase();
+        }
+
         $deckIds = [];
 
         foreach ($this->fetchAll($pdo, 'SELECT did FROM cards GROUP BY did') as $row) {
@@ -411,6 +415,10 @@ final class StudyImportArchiveReader
                 $validDecks,
                 static fn (StudyImportArchiveDeck $deck): bool => isset($cardDeckIds[$deck->sourceDeckId]),
             ));
+
+        if ($cardDeckIds !== [] && $candidateDecks === []) {
+            throw new StudyImportPreviewException('The uploaded collection references cards from decks that are missing from deck metadata.');
+        }
 
         foreach ($candidateDecks as $deck) {
             if ($deck->name === StudyImportJob::DEFAULT_DECK_NAME) {

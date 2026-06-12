@@ -59,7 +59,9 @@ trait BuildsStudyImportArchives
 
         $pdo->exec('CREATE TABLE col (id integer primary key, models text not null, decks text not null)');
         $pdo->exec('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, flds text not null)');
-        $pdo->exec('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null)');
+        if (! ($options['omit_cards_table'] ?? false)) {
+            $pdo->exec('CREATE TABLE cards (id integer primary key, nid integer not null, did integer not null, ord integer not null)');
+        }
         if ($options['omit_revlog_table'] ?? false) {
             // Minimal exports from never-reviewed decks can omit revlog entirely.
         } elseif ($options['legacy_revlog_schema'] ?? false) {
@@ -72,6 +74,7 @@ trait BuildsStudyImportArchives
         $basicNoteTypeId = 1001;
         $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
+        $cardDeckId = $options['card_deck_id'] ?? $deckId;
         $extraDecks = $options['extra_decks'] ?? [];
         $extraCards = $options['extra_cards'] ?? [];
         $fieldSeparator = "\x1f";
@@ -181,21 +184,23 @@ trait BuildsStudyImportArchives
             'flds' => '{{c1::漢字}}',
         ]);
 
-        $statement = $pdo->prepare('INSERT INTO cards (id, nid, did, ord) VALUES (:id, :nid, :did, :ord)');
-        $statement->execute(['id' => 701, 'nid' => 501, 'did' => $deckId, 'ord' => 0]);
-        $statement->execute(['id' => 702, 'nid' => 501, 'did' => $deckId, 'ord' => 1]);
-        $statement->execute(['id' => 703, 'nid' => 502, 'did' => $deckId, 'ord' => 0]);
-        foreach ($extraCards as $extraCard) {
-            if (! is_array($extraCard)) {
-                continue;
-            }
+        if (! ($options['omit_cards_table'] ?? false)) {
+            $statement = $pdo->prepare('INSERT INTO cards (id, nid, did, ord) VALUES (:id, :nid, :did, :ord)');
+            $statement->execute(['id' => 701, 'nid' => 501, 'did' => $cardDeckId, 'ord' => 0]);
+            $statement->execute(['id' => 702, 'nid' => 501, 'did' => $cardDeckId, 'ord' => 1]);
+            $statement->execute(['id' => 703, 'nid' => 502, 'did' => $cardDeckId, 'ord' => 0]);
+            foreach ($extraCards as $extraCard) {
+                if (! is_array($extraCard)) {
+                    continue;
+                }
 
-            $statement->execute([
-                'id' => $extraCard['id'] ?? 704,
-                'nid' => $extraCard['nid'] ?? 501,
-                'did' => $extraCard['did'] ?? 1700000000001,
-                'ord' => $extraCard['ord'] ?? 0,
-            ]);
+                $statement->execute([
+                    'id' => $extraCard['id'] ?? 704,
+                    'nid' => $extraCard['nid'] ?? 501,
+                    'did' => $extraCard['did'] ?? 1700000000001,
+                    'ord' => $extraCard['ord'] ?? 0,
+                ]);
+            }
         }
 
         if ($options['omit_revlog_table'] ?? false) {

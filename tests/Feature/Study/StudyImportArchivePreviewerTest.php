@@ -360,4 +360,38 @@ class StudyImportArchivePreviewerTest extends TestCase
             'study/imports/preview/normalized-multi-deck.colpkg',
         );
     }
+
+    public function test_it_rejects_archives_without_a_cards_table(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/no-cards-table.colpkg',
+            $this->buildStudyImportArchiveBytes(['omit_cards_table' => true]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('The uploaded collection database could not be parsed.');
+
+        app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/no-cards-table.colpkg',
+        );
+    }
+
+    public function test_it_rejects_cards_without_matching_deck_metadata(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/missing-card-deck-metadata.colpkg',
+            $this->buildStudyImportArchiveBytes(['card_deck_id' => 1700000000999]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('The uploaded collection references cards from decks that are missing from deck metadata.');
+
+        app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/missing-card-deck-metadata.colpkg',
+        );
+    }
 }

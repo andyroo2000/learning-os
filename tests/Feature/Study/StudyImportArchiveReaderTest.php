@@ -134,6 +134,9 @@ class StudyImportArchiveReaderTest extends TestCase
                 'extra_decks' => [
                     ['id' => 1700000000001, 'name' => 'Spanish'],
                 ],
+                'extra_cards' => [
+                    ['id' => 704, 'did' => 1700000000001],
+                ],
             ]),
         );
 

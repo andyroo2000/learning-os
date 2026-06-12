@@ -28,7 +28,32 @@ final class StudyFieldMediaReferences
             $filenames[] = $reference['filename'];
         }
 
-        return $filenames;
+        return array_values(array_unique($filenames));
+    }
+
+    /**
+     * @return array{audio: array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null, image: array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null}
+     */
+    public static function fromValue(mixed $value): array
+    {
+        if (is_array($value)) {
+            return [
+                'audio' => self::typedMediaReference($value, 'audio'),
+                'image' => self::typedMediaReference($value, 'image'),
+            ];
+        }
+
+        if (! is_scalar($value)) {
+            return [
+                'audio' => null,
+                'image' => null,
+            ];
+        }
+
+        return [
+            'audio' => self::audioReferencesFromText((string) $value)[0] ?? null,
+            'image' => self::imageReferencesFromText((string) $value)[0] ?? null,
+        ];
     }
 
     /**
@@ -45,7 +70,7 @@ final class StudyFieldMediaReferences
         }
 
         // The browser field contract is a single nullable media object; keep the first legacy marker.
-        return self::audioReferencesFromText((string) $value)[0] ?? null;
+        return self::fromValue($value)['audio'];
     }
 
     /**
@@ -62,7 +87,7 @@ final class StudyFieldMediaReferences
         }
 
         // The browser field contract is a single nullable media object; keep the first legacy marker.
-        return self::imageReferencesFromText((string) $value)[0] ?? null;
+        return self::fromValue($value)['image'];
     }
 
     /**
@@ -111,7 +136,7 @@ final class StudyFieldMediaReferences
     /**
      * @param  'audio'|'image'  $mediaKind
      * @param  'imported'|'imported_image'  $source
-     * @return array{id: null, filename: string, url: null, mediaKind: 'audio'|'image', source: string}|null
+     * @return array{id: null, filename: string, url: null, mediaKind: 'audio'|'image', source: 'imported'|'imported_image'}|null
      */
     private static function textReference(string $filename, string $mediaKind, string $source): ?array
     {
@@ -152,10 +177,12 @@ final class StudyFieldMediaReferences
         $id = $value['id'] ?? null;
         $url = $value['url'] ?? null;
 
-        foreach (['id' => $id, 'url' => $url] as $fieldValue) {
-            if ($fieldValue !== null && ! is_string($fieldValue)) {
-                return null;
-            }
+        if ($id !== null && ! is_string($id)) {
+            return null;
+        }
+
+        if ($url !== null && ! is_string($url)) {
+            return null;
         }
 
         return [

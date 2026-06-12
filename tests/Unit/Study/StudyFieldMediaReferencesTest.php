@@ -130,7 +130,30 @@ class StudyFieldMediaReferencesTest extends TestCase
         );
         $this->assertSame(
             ['first.mp3', 'second.mp3'],
-            StudyFieldMediaReferences::filenamesFromText('[sound:first.mp3] [sound:second.mp3]'),
+            StudyFieldMediaReferences::filenamesFromText('[sound:first.mp3] [sound:second.mp3] [sound:first.mp3]'),
+        );
+    }
+
+    public function test_it_extracts_audio_and_image_from_a_value_once_for_browser_fields(): void
+    {
+        $this->assertSame(
+            [
+                'audio' => [
+                    'id' => null,
+                    'filename' => 'word.mp3',
+                    'url' => null,
+                    'mediaKind' => 'audio',
+                    'source' => 'imported',
+                ],
+                'image' => [
+                    'id' => null,
+                    'filename' => 'company.png',
+                    'url' => null,
+                    'mediaKind' => 'image',
+                    'source' => 'imported_image',
+                ],
+            ],
+            StudyFieldMediaReferences::fromValue('[sound:word.mp3] <img src="company.png">'),
         );
     }
 

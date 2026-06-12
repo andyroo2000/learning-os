@@ -290,13 +290,14 @@ class ShowStudyBrowserNoteAction
     private function field(string $name, mixed $value): array
     {
         $textValue = $this->fieldTextValue($value);
+        $media = StudyFieldMediaReferences::fromValue($value);
 
         return [
             'name' => $name,
             'value' => $textValue,
             'textValue' => $textValue,
-            'audio' => StudyFieldMediaReferences::audioFromValue($value),
-            'image' => StudyFieldMediaReferences::imageFromValue($value),
+            'audio' => $media['audio'],
+            'image' => $media['image'],
         ];
     }
 

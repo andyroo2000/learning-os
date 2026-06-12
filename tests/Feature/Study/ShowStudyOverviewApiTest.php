@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
@@ -142,6 +143,43 @@ class ShowStudyOverviewApiTest extends TestCase
         }
     }
 
+    public function test_show_filters_overview_by_course_id(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $course = Course::factory()->for($user)->create();
+            $deck = $this->deckFor($user, ['course_id' => $course->id]);
+            $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+            $outsideCourseDeck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 3,
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => 1,
+            ]);
+            $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::Review, [
+                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
+            ]);
+            $this->cardWithStudyStatus($outsideCourseDeck, CardStudyStatus::Review, [
+                'introduced_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
+            ]);
+
+            $this->getJson("/api/study/overview?courseId={$course->id}&time_zone=UTC")
+                ->assertOk()
+                ->assertJsonPath('data.due_count', 0)
+                ->assertJsonPath('data.review_count', 1)
+                ->assertJsonPath('data.new_count', 1)
+                ->assertJsonPath('data.new_cards_introduced_today', 1)
+                ->assertJsonPath('data.new_cards_available_today', 1)
+                ->assertJsonPath('data.total_cards', 2);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_show_reports_ready_failed_cards_separately_from_due_cards(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-04T12:00:00Z'));
@@ -192,6 +230,46 @@ class ShowStudyOverviewApiTest extends TestCase
             ->assertJsonPath('data.total_cards', 1);
     }
 
+    public function test_show_normalizes_camel_case_scope_filters_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        StudySettings::factory()->for($user)->create();
+        $targetCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->getJson('/api/study/overview?courseId=%20'.strtoupper($course->id).'%20&deckId=%20'.strtoupper($deck->id).'%20')
+            ->assertOk()
+            ->assertJsonPath('data.new_count', 1)
+            ->assertJsonPath('data.total_cards', 1);
+
+        $this->assertSame($deck->id, $targetCard->refresh()->deck_id);
+    }
+
+    public function test_show_returns_empty_overview_when_course_and_deck_filters_do_not_match(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create();
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $this->getJson("/api/study/overview?courseId={$course->id}&deckId={$deck->id}")
+            ->assertOk()
+            ->assertJsonPath('data.new_count', 0)
+            ->assertJsonPath('data.total_cards', 0);
+    }
+
     public function test_show_returns_empty_overview_for_another_users_deck_id(): void
     {
         $user = $this->signIn();
@@ -232,6 +310,25 @@ class ShowStudyOverviewApiTest extends TestCase
         $this->getJson('/api/study/overview?deck_id[]=01J00000000000000000000000')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deck_id']);
+
+        $this->getJson('/api/study/overview?deckId=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+
+        $this->getJson('/api/study/overview?courseId=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+    }
+
+    public function test_show_rejects_conflicting_camel_and_legacy_deck_filters(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+
+        $this->getJson("/api/study/overview?deckId={$deck->id}&deck_id={$otherDeck->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
     }
 
     public function test_show_rejects_blank_deck_id_without_global_trim_middleware(): void
@@ -242,5 +339,13 @@ class ShowStudyOverviewApiTest extends TestCase
         $this->getJson('/api/study/overview?deck_id=%20%20%20')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deck_id']);
+
+        $this->getJson('/api/study/overview?deckId=%20%20%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+
+        $this->getJson('/api/study/overview?courseId=%20%20%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
     }
 }

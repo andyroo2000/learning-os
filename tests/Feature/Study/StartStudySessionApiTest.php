@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
@@ -150,6 +151,37 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonCount(1, 'data.cards');
     }
 
+    public function test_start_filters_ready_cards_by_course_id(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        $outsideCourseDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $firstCourseCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCourseCard = $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($outsideCourseDeck, CardStudyStatus::New, [
+            'new_queue_position' => 3,
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => $course->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 2)
+            ->assertJsonPath('data.overview.total_cards', 2)
+            ->assertJsonPath('data.cards.0.id', $firstCourseCard->id)
+            ->assertJsonPath('data.cards.1.id', $secondCourseCard->id)
+            ->assertJsonCount(2, 'data.cards');
+    }
+
     public function test_start_normalizes_deck_id_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
@@ -176,6 +208,56 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonCount(1, 'data.cards');
     }
 
+    public function test_start_normalizes_camel_case_scope_filters_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => '  '.strtoupper($course->id).'  ',
+            'deckId' => '  '.strtoupper($deck->id).'  ',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 1)
+            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'data.cards');
+    }
+
+    public function test_start_returns_empty_session_when_course_and_deck_filters_do_not_match(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => $course->id,
+            'deckId' => $deck->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.new_count', 0)
+            ->assertJsonPath('data.overview.total_cards', 0)
+            ->assertJsonCount(0, 'data.cards');
+    }
+
     public function test_start_returns_empty_session_for_another_users_deck_id(): void
     {
         $user = $this->signIn();
@@ -187,6 +269,26 @@ class StartStudySessionApiTest extends TestCase
 
         $this->postJson('/api/study/session/start', [
             'deck_id' => $otherDeck->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.overview.due_count', 0)
+            ->assertJsonPath('data.overview.total_cards', 0)
+            ->assertJsonCount(0, 'data.cards');
+    }
+
+    public function test_start_returns_empty_session_for_another_users_course_id(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create();
+        $otherUser = User::factory()->create();
+        $otherCourse = Course::factory()->for($otherUser)->create();
+        $otherDeck = $this->deckFor($otherUser, ['course_id' => $otherCourse->id]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::Review, [
+            'due_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+        ]);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => $otherCourse->id,
         ])
             ->assertOk()
             ->assertJsonPath('data.overview.due_count', 0)
@@ -226,6 +328,32 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deck_id']);
+
+        $this->postJson('/api/study/session/start', [
+            'deckId' => 'not-a-ulid',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => 'not-a-ulid',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+    }
+
+    public function test_start_rejects_conflicting_camel_and_legacy_deck_filters(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+
+        $this->postJson('/api/study/session/start', [
+            'deckId' => $deck->id,
+            'deck_id' => $otherDeck->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
     }
 
     public function test_start_rejects_blank_deck_id_without_global_trim_middleware(): void
@@ -238,6 +366,18 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deck_id']);
+
+        $this->postJson('/api/study/session/start', [
+            'deckId' => '   ',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => '   ',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
     }
 
     public function test_start_uses_the_requested_time_zone_for_daily_new_card_allowance(): void

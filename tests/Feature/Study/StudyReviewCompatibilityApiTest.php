@@ -298,8 +298,13 @@ class StudyReviewCompatibilityApiTest extends TestCase
             /**
              * @return array<string, mixed>
              */
-            public function handle(int $userId, ?string $timeZone = null, ?Carbon $now = null, ?string $deckId = null): array
-            {
+            public function handle(
+                int $userId,
+                ?string $timeZone = null,
+                ?Carbon $now = null,
+                ?string $deckId = null,
+                ?string $courseId = null,
+            ): array {
                 $this->timeZones[] = $timeZone;
 
                 return [

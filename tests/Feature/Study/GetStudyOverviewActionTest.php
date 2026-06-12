@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
@@ -120,6 +121,51 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['review_count']);
         $this->assertSame(1, $overview['suspended_count']);
         $this->assertSame(4, $overview['total_cards']);
+        $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
+    }
+
+    public function test_it_filters_overview_counts_by_course_id_for_direct_callers(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        $outsideCourseDeck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 3,
+        ]);
+        $nextDueAt = $now->copy()->addHours(2);
+
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::Review, [
+            'due_at' => $nextDueAt,
+        ]);
+        $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::Suspended);
+        $this->cardWithStudyStatus($outsideCourseDeck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($outsideCourseDeck, CardStudyStatus::Review, [
+            'introduced_at' => $now->copy()->subHour(),
+            'due_at' => $now->copy()->addDay(),
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            courseId: strtoupper($course->id),
+        );
+
+        $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(1, $overview['new_count']);
+        $this->assertSame(1, $overview['new_cards_introduced_today']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
+        $this->assertSame(0, $overview['learning_count']);
+        $this->assertSame(1, $overview['review_count']);
+        $this->assertSame(1, $overview['suspended_count']);
+        $this->assertSame(3, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
     }
 
@@ -416,11 +462,44 @@ class GetStudyOverviewActionTest extends TestCase
     public function test_it_rejects_blank_deck_id_filters_for_direct_callers(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study deck_id filter must not be blank when provided.');
+        $this->expectExceptionMessage('Study overview deckId filter must not be blank when provided.');
 
         app(GetStudyOverviewAction::class)->handle(
             userId: User::factory()->create()->id,
             deckId: '   ',
+        );
+    }
+
+    public function test_it_rejects_invalid_deck_id_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study overview deckId filter must be a valid ULID.');
+
+        app(GetStudyOverviewAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: 'not-a-ulid',
+        );
+    }
+
+    public function test_it_rejects_blank_course_id_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study overview courseId filter must not be blank when provided.');
+
+        app(GetStudyOverviewAction::class)->handle(
+            userId: User::factory()->create()->id,
+            courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_invalid_course_id_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study overview courseId filter must be a valid ULID.');
+
+        app(GetStudyOverviewAction::class)->handle(
+            userId: User::factory()->create()->id,
+            courseId: 'not-a-ulid',
         );
     }
 }

@@ -12,8 +12,8 @@ use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
 use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -33,6 +33,7 @@ final class StudyImportArchiveImporter
     public function __construct(
         private readonly NewCardQueuePosition $newCardQueuePosition,
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
         private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
         private readonly StudyImportArchiveReader $archiveReader,
     ) {}
@@ -421,15 +422,10 @@ final class StudyImportArchiveImporter
 
     private function recordMediaAssetSync(int $userId, MediaAsset $mediaAsset): void
     {
-        $this->recordSyncFeedEntry->handle(
-            RecordSyncFeedEntryData::fromInput(
-                userId: $userId,
-                domain: MediaAssetSyncPayload::DOMAIN,
-                resourceType: MediaAssetSyncPayload::RESOURCE_TYPE,
-                resourceId: $mediaAsset->id,
-                operation: SyncFeedOperation::Create->value,
-                payload: MediaAssetSyncPayload::fromMediaAsset($mediaAsset),
-            ),
+        $this->recordMediaAssetSyncFeedEntry->handle(
+            userId: $userId,
+            operation: SyncFeedOperation::Create,
+            mediaAsset: $mediaAsset,
         );
     }
 

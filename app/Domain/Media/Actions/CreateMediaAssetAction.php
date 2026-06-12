@@ -7,11 +7,8 @@ use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Results\CreateMediaAssetResult;
-use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\MimeType;
 use App\Domain\Media\Values\PublicUrl;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
-use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
 use Closure;
@@ -27,7 +24,7 @@ class CreateMediaAssetAction
 {
     /** @internal Test-only race seam; see tests/Feature/Media/CreateMediaAssetActionTest.php. */
     public function __construct(
-        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
         private readonly ?Closure $afterClientIdPrecheckMiss = null,
     ) {
         if ($afterClientIdPrecheckMiss !== null && ! app()->runningUnitTests()) {
@@ -205,15 +202,10 @@ class CreateMediaAssetAction
         }
 
         try {
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $data->userId,
-                    domain: MediaAssetSyncPayload::DOMAIN,
-                    resourceType: MediaAssetSyncPayload::RESOURCE_TYPE,
-                    resourceId: $mediaAsset->id,
-                    operation: SyncFeedOperation::Create->value,
-                    payload: MediaAssetSyncPayload::fromMediaAsset($mediaAsset),
-                ),
+            $this->recordMediaAssetSyncFeedEntry->handle(
+                userId: $data->userId,
+                operation: SyncFeedOperation::Create,
+                mediaAsset: $mediaAsset,
             );
 
             DB::commit();

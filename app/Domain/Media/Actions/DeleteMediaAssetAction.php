@@ -4,9 +4,6 @@ namespace App\Domain\Media\Actions;
 
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\MediaAssetSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
-use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class DeleteMediaAssetAction
 {
     public function __construct(
-        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
         private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
     ) {}
 
@@ -52,15 +49,10 @@ class DeleteMediaAssetAction
                 );
             }
 
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $mediaAsset->user_id,
-                    domain: MediaAssetSyncPayload::DOMAIN,
-                    resourceType: MediaAssetSyncPayload::RESOURCE_TYPE,
-                    resourceId: $mediaAsset->id,
-                    operation: SyncFeedOperation::Delete->value,
-                    payload: MediaAssetSyncPayload::fromMediaAsset($mediaAsset),
-                ),
+            $this->recordMediaAssetSyncFeedEntry->handle(
+                userId: $mediaAsset->user_id,
+                operation: SyncFeedOperation::Delete,
+                mediaAsset: $mediaAsset,
             );
         });
     }

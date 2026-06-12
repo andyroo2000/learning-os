@@ -5,14 +5,17 @@ namespace Tests\Feature\Media;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Feature\Media\Concerns\UsesMediaRateLimitOverrides;
+use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteMediaAssetApiTest extends TestCase
 {
+    use AssertsMediaAssetSyncFeedEntries;
     use RefreshDatabase;
     use UsesMediaRateLimitOverrides;
 
@@ -38,6 +41,7 @@ class DeleteMediaAssetApiTest extends TestCase
         $this->assertDatabaseHas('cards', [
             'id' => $card->id,
         ]);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
     }
 
     public function test_it_normalizes_media_asset_id_before_deleting(): void
@@ -53,6 +57,7 @@ class DeleteMediaAssetApiTest extends TestCase
         $this->assertDatabaseMissing('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
     }
 
     public function test_it_is_idempotent_when_media_asset_is_missing(): void
@@ -62,6 +67,8 @@ class DeleteMediaAssetApiTest extends TestCase
         $response = $this->deleteJson('/api/media-assets/'.strtolower((string) Str::ulid()));
 
         $response->assertNoContent();
+
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_is_idempotent_when_media_asset_id_is_malformed(): void
@@ -71,6 +78,8 @@ class DeleteMediaAssetApiTest extends TestCase
         $response = $this->deleteJson('/api/media-assets/not-a-valid-id');
 
         $response->assertNoContent();
+
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_delete_is_rate_limited_by_user(): void
@@ -140,6 +149,7 @@ class DeleteMediaAssetApiTest extends TestCase
         $this->assertDatabaseHas('media_assets', [
             'id' => $mediaAsset->id,
         ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_requires_authentication(): void

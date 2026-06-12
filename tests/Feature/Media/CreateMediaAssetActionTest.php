@@ -3,11 +3,11 @@
 namespace Tests\Feature\Media;
 
 use App\Domain\Media\Actions\CreateMediaAssetAction;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -19,10 +19,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
 use RuntimeException;
+use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateMediaAssetActionTest extends TestCase
 {
+    use AssertsMediaAssetSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_creates_a_media_asset_for_a_user(): void
@@ -60,7 +62,7 @@ class CreateMediaAssetActionTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Create);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -88,7 +90,7 @@ class CreateMediaAssetActionTest extends TestCase
             'user_id' => $user->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Create);
     }
 
     public function test_it_normalizes_padded_provided_ulids_for_direct_callers(): void
@@ -116,7 +118,7 @@ class CreateMediaAssetActionTest extends TestCase
             'user_id' => $user->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Create);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void
@@ -124,13 +126,15 @@ class CreateMediaAssetActionTest extends TestCase
         $user = User::factory()->create();
         $id = strtolower((string) Str::ulid());
         $createMediaAsset = new CreateMediaAssetAction(
-            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
-            {
-                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+            recordMediaAssetSyncFeedEntry: new RecordMediaAssetSyncFeedEntryAction(
+                recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
                 {
-                    throw new RuntimeException('Sync feed failed.');
-                }
-            },
+                    public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                    {
+                        throw new RuntimeException('Sync feed failed.');
+                    }
+                },
+            ),
         );
 
         try {
@@ -281,7 +285,7 @@ class CreateMediaAssetActionTest extends TestCase
         $id = strtolower((string) Str::ulid());
         $now = now();
         $createMediaAsset = new CreateMediaAssetAction(
-            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            recordMediaAssetSyncFeedEntry: app(RecordMediaAssetSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateMediaAssetData $data) use ($id, $now, $user): void {
                 $this->assertSame($id, $data->id);
 
@@ -328,7 +332,7 @@ class CreateMediaAssetActionTest extends TestCase
         $id = strtolower((string) Str::ulid());
         $now = now();
         $createMediaAsset = new CreateMediaAssetAction(
-            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            recordMediaAssetSyncFeedEntry: app(RecordMediaAssetSyncFeedEntryAction::class),
             afterClientIdPrecheckMiss: function (CreateMediaAssetData $data) use ($id, $now, $user): void {
                 $this->assertSame($id, $data->id);
 
@@ -1285,20 +1289,5 @@ class CreateMediaAssetActionTest extends TestCase
                 id: 'not-a-ulid',
             ),
         );
-    }
-
-    private function assertMediaAssetSyncPayloadRecorded(MediaAsset $mediaAsset): SyncFeedEntry
-    {
-        $entry = SyncFeedEntry::query()
-            ->where('domain', MediaAssetSyncPayload::DOMAIN)
-            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', $mediaAsset->id)
-            ->where('operation', SyncFeedOperation::Create->value)
-            ->sole();
-
-        $this->assertSame($mediaAsset->user_id, $entry->user_id);
-        $this->assertEquals(MediaAssetSyncPayload::fromMediaAsset($mediaAsset), $entry->payload);
-
-        return $entry;
     }
 }

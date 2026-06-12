@@ -28,12 +28,13 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
+use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\Support\Study\BuildsStudyImportArchives;
 use Tests\TestCase;
 
 class StudyImportUploadActionTest extends TestCase
 {
-    use AssertsCardMediaSyncFeedEntries, BuildsStudyImportArchives, RefreshDatabase;
+    use AssertsCardMediaSyncFeedEntries, AssertsMediaAssetSyncFeedEntries, BuildsStudyImportArchives, RefreshDatabase;
 
     protected function tearDown(): void
     {
@@ -897,10 +898,8 @@ class StudyImportUploadActionTest extends TestCase
             ->where('resource_type', 'card')
             ->where('resource_id', $cardIdsBySourceCardId[701])
             ->sole();
-        $mediaSyncEntry = SyncFeedEntry::query()
-            ->where('resource_type', 'media_asset')
-            ->where('resource_id', $wordMediaAsset->id)
-            ->sole();
+        $wordMediaSyncEntry = $this->assertMediaAssetSyncPayloadRecorded($wordMediaAsset, SyncFeedOperation::Create);
+        $companyMediaSyncEntry = $this->assertMediaAssetSyncPayloadRecorded($companyMediaAsset, SyncFeedOperation::Create);
         $reviewSyncEntry = SyncFeedEntry::query()
             ->where('resource_type', 'card_review_event')
             ->where('resource_id', $firstReviewEvent->id)
@@ -913,10 +912,14 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(1700000000000, $cardSyncEntry->payload['source_deck_id']);
         $this->assertSame('Basic', $cardSyncEntry->payload['source_notetype_name']);
         $this->assertSame(0, $cardSyncEntry->payload['source_template_ord']);
-        $this->assertSame($importJob->id, $mediaSyncEntry->payload['import_job_id']);
-        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $mediaSyncEntry->payload['source_kind']);
-        $this->assertSame('0', $mediaSyncEntry->payload['source_media_ref']);
-        $this->assertSame('word.mp3', $mediaSyncEntry->payload['source_filename']);
+        $this->assertSame($importJob->id, $wordMediaSyncEntry->payload['import_job_id']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $wordMediaSyncEntry->payload['source_kind']);
+        $this->assertSame('0', $wordMediaSyncEntry->payload['source_media_ref']);
+        $this->assertSame('word.mp3', $wordMediaSyncEntry->payload['source_filename']);
+        $this->assertSame($importJob->id, $companyMediaSyncEntry->payload['import_job_id']);
+        $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $companyMediaSyncEntry->payload['source_kind']);
+        $this->assertSame('1', $companyMediaSyncEntry->payload['source_media_ref']);
+        $this->assertSame('company.png', $companyMediaSyncEntry->payload['source_filename']);
         $this->assertSame($importJob->id, $reviewSyncEntry->payload['import_job_id']);
         $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $reviewSyncEntry->payload['source_kind']);
         $this->assertSame(1700000000123, $reviewSyncEntry->payload['source_review_id']);

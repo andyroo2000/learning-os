@@ -4,7 +4,7 @@ namespace App\Domain\Study\Support;
 
 use App\Domain\Study\Models\StudyCardDraft;
 
-final readonly class StudyFieldMediaReferences
+final class StudyFieldMediaReferences
 {
     /**
      * @return list<array{filename: string, mediaKind: 'audio'|'image', source: string}>
@@ -44,6 +44,7 @@ final readonly class StudyFieldMediaReferences
             return null;
         }
 
+        // The browser field contract is a single nullable media object; keep the first legacy marker.
         return self::audioReferencesFromText((string) $value)[0] ?? null;
     }
 
@@ -60,6 +61,7 @@ final readonly class StudyFieldMediaReferences
             return null;
         }
 
+        // The browser field contract is a single nullable media object; keep the first legacy marker.
         return self::imageReferencesFromText((string) $value)[0] ?? null;
     }
 
@@ -88,7 +90,7 @@ final readonly class StudyFieldMediaReferences
      */
     private static function imageReferencesFromText(string $value): array
     {
-        preg_match_all('/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $value, $imageMatches, PREG_SET_ORDER);
+        preg_match_all('/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^"\'\s>]+))/i', $value, $imageMatches, PREG_SET_ORDER);
 
         $references = [];
 

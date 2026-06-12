@@ -42,6 +42,12 @@ class StudyFieldMediaReferencesTest extends TestCase
         );
     }
 
+    public function test_it_ignores_image_sources_with_mismatched_quotes(): void
+    {
+        $this->assertSame([], StudyFieldMediaReferences::fromText('<img src="company.png\'>'));
+        $this->assertSame([], StudyFieldMediaReferences::fromText('<img src=\'company.png">'));
+    }
+
     public function test_it_returns_first_matching_media_reference_from_values(): void
     {
         $audio = [
@@ -87,6 +93,30 @@ class StudyFieldMediaReferencesTest extends TestCase
                 'source' => 'imported_image',
             ],
             StudyFieldMediaReferences::imageFromValue('<img src="legacy.png">'),
+        );
+    }
+
+    public function test_value_media_helpers_keep_the_first_legacy_reference(): void
+    {
+        $this->assertSame(
+            [
+                'filename' => 'first.mp3',
+                'mediaKind' => 'audio',
+                'source' => 'imported',
+            ],
+            StudyFieldMediaReferences::audioFromValue('[sound:first.mp3] [sound:second.mp3]'),
+        );
+        $this->assertSame(
+            [
+                'filename' => 'first.png',
+                'mediaKind' => 'image',
+                'source' => 'imported_image',
+            ],
+            StudyFieldMediaReferences::imageFromValue('<img src="first.png"> <img src="second.png">'),
+        );
+        $this->assertSame(
+            ['first.mp3', 'second.mp3'],
+            StudyFieldMediaReferences::filenamesFromText('[sound:first.mp3] [sound:second.mp3]'),
         );
     }
 

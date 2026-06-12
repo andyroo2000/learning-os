@@ -18,6 +18,8 @@ final readonly class StudyBrowserNoteDetailResult
         public string $displayText,
         public ?string $noteTypeName,
         public string $sourceKind,
+        public int $reviewCount,
+        public ?string $lastReviewedAt,
         public ?string $updatedAt,
         public array $rawFields,
         public array $canonicalFields,

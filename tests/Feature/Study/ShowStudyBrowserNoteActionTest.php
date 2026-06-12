@@ -146,6 +146,38 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         $this->assertSame('2026-06-04T11:00:00.000000Z', $result->cardStats[0]['lastReviewedAt']);
     }
 
+    public function test_it_reports_note_review_summary_when_only_a_sibling_card_was_reviewed(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'unreviewed detail prompt',
+            'source_note_id' => 7003,
+            'source_template_ord' => 0,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'reviewed detail answer',
+            'source_note_id' => 7003,
+            'source_template_ord' => 1,
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-05T12:00:00Z'),
+        ]);
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7003');
+
+        $this->assertNotNull($result);
+        $this->assertSame((string) $firstCard->id, $result->selectedCardId);
+        $this->assertSame(1, $result->reviewCount);
+        $this->assertSame('2026-06-05T12:00:00.000000Z', $result->lastReviewedAt);
+        $this->assertSame((string) $firstCard->id, $result->cardStats[0]['cardId']);
+        $this->assertSame(0, $result->cardStats[0]['reviewCount']);
+        $this->assertNull($result->cardStats[0]['lastReviewedAt']);
+        $this->assertSame((string) $secondCard->id, $result->cardStats[1]['cardId']);
+        $this->assertSame(1, $result->cardStats[1]['reviewCount']);
+        $this->assertSame('2026-06-05T12:00:00.000000Z', $result->cardStats[1]['lastReviewedAt']);
+    }
+
     public function test_it_normalizes_native_datetime_review_aggregates(): void
     {
         $action = app(ShowStudyBrowserNoteAction::class);

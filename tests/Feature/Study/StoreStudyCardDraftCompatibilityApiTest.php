@@ -492,6 +492,24 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_it_returns_not_found_when_the_authenticated_user_row_disappears_before_create(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $user->delete();
+
+        $this->postJson('/api/study/card-drafts', [
+            'creationKind' => 'text-recognition',
+            'cardType' => 'recognition',
+            'prompt' => ['cueText' => '犬'],
+            'answer' => [],
+        ])->assertNotFound();
+
+        $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        Queue::assertNothingPushed();
+    }
+
     public function test_it_rate_limits_manual_card_draft_creation_by_user(): void
     {
         Queue::fake();

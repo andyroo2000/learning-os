@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Actions\CreateStudyCardDraftAction;
 use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Actions\RetryStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
@@ -20,12 +21,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
 class RetryStudyCardDraftActionTest extends TestCase
 {
     use AssertsStudyCardDraftSyncFeedEntries;
+    use BuildsStudyCardDraftRows;
     use RefreshDatabase;
 
     public function test_it_retries_an_errored_manual_study_card_draft(): void
@@ -180,6 +183,23 @@ class RetryStudyCardDraftActionTest extends TestCase
             ProcessStudyCardDraft::class,
             fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
         );
+    }
+
+    public function test_it_does_not_apply_the_create_queue_slot_guard_when_retrying_existing_drafts(): void
+    {
+        $user = User::factory()->create();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create([
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+        $this->insertCappedDraftRowsFor($user);
+
+        $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+
+        $this->assertSame($draft->id, $retried->id);
+        $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->refresh()->status);
+        $this->assertSame(CreateStudyCardDraftAction::MAX_DRAFTS_PER_USER + 1, StudyCardDraft::query()->where('user_id', $user->id)->count());
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     #[DataProvider('nonRetryableStatusProvider')]

@@ -32,7 +32,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return array{audio: array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null, image: array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null}
+     * @return array{audio: array{id: string|null, filename: string, url: string|null, mediaKind: 'audio'|'image', source: 'imported'|'generated'|'missing'|'imported_image'|'imported_other'}|null, image: array{id: string|null, filename: string, url: string|null, mediaKind: 'audio'|'image', source: 'imported'|'generated'|'missing'|'imported_image'|'imported_other'}|null}
      */
     public static function fromValue(mixed $value): array
     {
@@ -50,6 +50,7 @@ final class StudyFieldMediaReferences
             ];
         }
 
+        // Browser fields expose one nullable media object per kind; import extraction keeps all refs via fromText().
         return [
             'audio' => self::audioReferencesFromText((string) $value)[0] ?? null,
             'image' => self::imageReferencesFromText((string) $value)[0] ?? null,
@@ -57,35 +58,19 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: 'audio'|'image', source: 'imported'|'generated'|'missing'|'imported_image'|'imported_other'}|null
      */
     public static function audioFromValue(mixed $value): ?array
     {
-        if (is_array($value)) {
-            return self::typedMediaReference($value, 'audio');
-        }
-
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        return self::audioReferencesFromText((string) $value)[0] ?? null;
+        return self::fromValue($value)['audio'];
     }
 
     /**
-     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: 'audio'|'image', source: 'imported'|'generated'|'missing'|'imported_image'|'imported_other'}|null
      */
     public static function imageFromValue(mixed $value): ?array
     {
-        if (is_array($value)) {
-            return self::typedMediaReference($value, 'image');
-        }
-
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        return self::imageReferencesFromText((string) $value)[0] ?? null;
+        return self::fromValue($value)['image'];
     }
 
     /**
@@ -155,7 +140,7 @@ final class StudyFieldMediaReferences
     }
 
     /**
-     * @return array{id: string|null, filename: string, url: string|null, mediaKind: string, source: string}|null
+     * @return array{id: string|null, filename: string, url: string|null, mediaKind: 'audio'|'image', source: 'imported'|'generated'|'missing'|'imported_image'|'imported_other'}|null
      */
     private static function typedMediaReference(array $value, string $mediaKind): ?array
     {

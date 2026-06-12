@@ -153,6 +153,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
+        $groupSelects = $this->groupSelectQueries($cardSelects);
+        $pagedCardSelects = $this->pagedCardSelectQueries($cardSelects);
         $standaloneReviewCountSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_starts_with(strtolower($query['query']), 'select card_id, count(*) as review_count')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
@@ -162,10 +164,12 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $filteredReviewCountSelects = $rowSelectsWithReviewCount->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'where "card_id" in'));
 
         $this->assertCount(1, $facetSelects, 'Study browser should use one unioned facet query instead of one query per facet.');
-        $this->assertLessThanOrEqual(2, $cardSelects->count(), 'Study browser should keep card selects bounded to the row query plus the unioned facet query.');
+        $this->assertLessThanOrEqual(3, $cardSelects->count(), 'Study browser should keep card selects bounded to the group query, page-card query, and unioned facet query.');
+        $this->assertCount(1, $groupSelects, 'Study browser should use one grouped page query with total_rows.');
+        $this->assertCount(1, $pagedCardSelects, 'Study browser should hydrate only cards for the current page groups.');
         $this->assertCount(0, $standaloneReviewCountSelects, 'Study browser should not run a standalone review-count query on each page load.');
-        $this->assertCount(1, $rowSelectsWithReviewCount, 'Study browser should load review counts in the row query.');
-        $this->assertCount(1, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards.');
+        $this->assertCount(2, $rowSelectsWithReviewCount, 'Study browser should load review counts in the group and page-card queries.');
+        $this->assertCount(2, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards in both bounded queries.');
     }
 
     public function test_it_filters_browser_rows_and_filter_options_by_course_and_deck_ids(): void
@@ -284,11 +288,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Initial browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Initial browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Initial browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Initial browser loads should use one unioned facet query.');
     }
 
-    public function test_it_reuses_the_unfiltered_row_query_for_initial_filter_options(): void
+    public function test_it_uses_bounded_page_and_facet_queries_for_initial_filter_options(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
@@ -331,8 +337,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Initial browser loads should reuse the row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Initial browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Initial browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Initial browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Initial browser loads should use one unioned facet query.');
     }
 
     public function test_it_derives_initial_filter_options_from_the_full_result_set_not_the_current_page(): void
@@ -383,8 +391,10 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $cardSelects = $this->cardSelectQueries($queries);
         $facetSelects = $this->facetSelectQueries($cardSelects);
 
-        $this->assertCount(1, $cardSelects, 'Paged initial browser loads should reuse the full row query for filter options.');
-        $this->assertCount(0, $facetSelects, 'Paged initial browser loads should not run a separate facet query.');
+        $this->assertCount(3, $cardSelects, 'Paged browser loads should use grouped page, page-card, and unioned facet queries.');
+        $this->assertCount(1, $this->groupSelectQueries($cardSelects), 'Paged browser loads should page note groups in SQL.');
+        $this->assertCount(1, $this->pagedCardSelectQueries($cardSelects), 'Paged browser loads should hydrate only current page cards.');
+        $this->assertCount(1, $facetSelects, 'Paged browser loads should keep filter options based on the full filtered result set.');
     }
 
     public function test_it_paginates_browser_rows_with_returned_cursor(): void
@@ -420,6 +430,191 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('nextCursor', null);
     }
 
+    public function test_it_handles_stale_browser_cursor_after_later_rows_are_deleted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'remaining cursor row',
+            'source_note_id' => 2051,
+            'source_notetype_name' => 'Remaining Type',
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ]);
+        $deletedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'deleted cursor row',
+            'source_note_id' => 2052,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2051');
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $deletedCard->delete();
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonCount(0, 'rows')
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonPath('filterOptions.noteTypes', ['Remaining Type']);
+    }
+
+    public function test_it_handles_stale_browser_cursor_after_all_rows_are_deleted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'first deleted cursor row',
+            'source_note_id' => 2061,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'second deleted cursor row',
+            'source_note_id' => 2062,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1');
+
+        $cursor = $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $firstCard->delete();
+        $secondCard->delete();
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonCount(0, 'rows')
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonPath('filterOptions.noteTypes', []);
+    }
+
+    public function test_it_paginates_browser_rows_by_card_count_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'single-card note',
+            'source_note_id' => 2071,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'first multi-card note',
+            'source_note_id' => 2072,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'second multi-card note',
+            'source_note_id' => 2072,
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=card_count&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2072')
+            ->assertJsonPath('rows.0.cardCount', 2);
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=card_count&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2071')
+            ->assertJsonPath('rows.0.cardCount', 1)
+            ->assertJsonPath('nextCursor', null);
+    }
+
+    public function test_it_paginates_browser_rows_by_updated_on_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'older updated note',
+            'source_note_id' => 2076,
+            'updated_at' => now()->subDays(2),
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'newer updated note',
+            'source_note_id' => 2077,
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=updated_on&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2077');
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=updated_on&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2076')
+            ->assertJsonPath('nextCursor', null);
+    }
+
+    public function test_it_paginates_browser_rows_by_review_count_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'unreviewed note',
+            'source_note_id' => 2081,
+        ]);
+        $firstReviewedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'first reviewed note card',
+            'source_note_id' => 2082,
+        ]);
+        $secondReviewedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'second reviewed note card',
+            'source_note_id' => 2082,
+        ]);
+        CardReviewEvent::factory()->for($firstReviewedCard)->count(2)->create();
+        CardReviewEvent::factory()->for($secondReviewedCard)->create();
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=review_count&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2082')
+            ->assertJsonPath('rows.0.reviewCount', 3);
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=review_count&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2081')
+            ->assertJsonPath('rows.0.reviewCount', 0)
+            ->assertJsonPath('nextCursor', null);
+    }
+
     public function test_it_orders_equal_sort_values_with_a_stable_note_id_tiebreaker(): void
     {
         $user = $this->signIn();
@@ -448,6 +643,36 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('rows.0.noteId', '10')
             ->assertJsonPath('rows.1.noteId', '9');
+    }
+
+    public function test_it_orders_sourced_groups_before_unsourced_groups_when_sort_values_tie(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $timestamp = now()->subHour();
+
+        $unsourcedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'unsourced tie row',
+            'source_note_id' => null,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'sourced tie row',
+            'source_note_id' => 11,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc')
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '11')
+            ->assertJsonPath('rows.1.noteId', (string) $unsourcedCard->id);
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc')
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '11')
+            ->assertJsonPath('rows.1.noteId', (string) $unsourcedCard->id);
     }
 
     public function test_it_sorts_browser_rows_by_display_text_case_insensitively(): void
@@ -757,6 +982,36 @@ class StudyBrowserCompatibilityApiTest extends TestCase
 
             return str_contains($sql, ' as facet')
                 && str_contains($sql, ' union ');
+        });
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $cardQueries
+     * @return Collection<int, array{query: string}>
+     */
+    private function groupSelectQueries(Collection $cardQueries): Collection
+    {
+        return $cardQueries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'total_rows')
+                && str_contains($sql, 'group by');
+        });
+    }
+
+    /**
+     * @param  Collection<int, array{query: string}>  $cardQueries
+     * @return Collection<int, array{query: string}>
+     */
+    private function pagedCardSelectQueries(Collection $cardQueries): Collection
+    {
+        return $cardQueries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'source_note_id')
+                && str_contains($sql, ' in ')
+                && ! str_contains($sql, 'total_rows')
+                && ! str_contains($sql, ' as facet');
         });
     }
 }

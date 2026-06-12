@@ -125,6 +125,30 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame(1700000000000, $archive->cards[0]->sourceDeckId);
     }
 
+    public function test_it_ignores_empty_normalized_default_deck_metadata_for_single_deck_exports(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/normalized-spanish-with-default-metadata.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'extra_decks' => [
+                    ['id' => 1, 'name' => 'Default'],
+                ],
+                'normalized_schema' => true,
+            ]),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/normalized-spanish-with-default-metadata.colpkg',
+        );
+
+        $this->assertSame('Spanish', $archive->deckName);
+        $this->assertSame(3, $archive->cardCount());
+        $this->assertSame(1700000000000, $archive->cards[0]->sourceDeckId);
+    }
+
     public function test_it_prefers_the_default_deck_when_multiple_decks_are_present(): void
     {
         Storage::fake('study-imports');

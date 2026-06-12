@@ -409,6 +409,8 @@ final class StudyImportArchiveReader
             $decks,
             static fn (StudyImportArchiveDeck $deck): bool => $deck->name !== '',
         ));
+        // If the cards table exists but is empty, keep metadata decks visible so the
+        // downstream no-cards branch can report the selected deck name.
         $candidateDecks = $cardDeckIds === []
             ? $validDecks
             : array_values(array_filter(
@@ -721,7 +723,7 @@ final class StudyImportArchiveReader
             ? ''
             : ' Found: '.implode(', ', array_map(static fn (string $name): string => '"'.$name.'"', $visibleDeckNames)).'.';
 
-        return new StudyImportPreviewException('Import supports the "'.StudyImportJob::DEFAULT_DECK_NAME.'" deck or archives with exactly one deck in this version.'.$deckSummary);
+        return new StudyImportPreviewException('Import supports the "'.StudyImportJob::DEFAULT_DECK_NAME.'" deck or archives where exactly one deck contains cards in this version.'.$deckSummary);
     }
 
     /**

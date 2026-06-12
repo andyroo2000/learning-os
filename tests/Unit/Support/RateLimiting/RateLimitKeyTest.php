@@ -12,6 +12,7 @@ class RateLimitKeyTest extends TestCase
         $this->assertSame('review-create:user:42', RateLimitKey::scopedUserOrNetwork('review-create', 42, '127.0.0.1'));
         $this->assertSame('review-create:user:0', RateLimitKey::scopedUserOrNetwork('review-create', 0, '127.0.0.1'));
         $this->assertSame('review-create:user:user-1', RateLimitKey::scopedUserOrNetwork('review-create', 'user-1', null));
+        $this->assertSame('review-create:anon:127.0.0.1', RateLimitKey::scopedUserOrNetwork('review-create', null, '127.0.0.1'));
         $this->assertSame('review-create:anon:127.0.0.1', RateLimitKey::scopedUserOrNetwork('review-create', '', '127.0.0.1'));
         $this->assertSame('review-create:anon:127.0.0.1', RateLimitKey::scopedUserOrNetwork('review-create', false, '127.0.0.1'));
         $this->assertSame('review-create:anon:unknown-ip', RateLimitKey::scopedUserOrNetwork('review-create', null, ''));
@@ -22,6 +23,7 @@ class RateLimitKeyTest extends TestCase
         $this->assertSame('user:42', RateLimitKey::userOrNetwork(42, '127.0.0.1'));
         $this->assertSame('user:0', RateLimitKey::userOrNetwork(0, '127.0.0.1'));
         $this->assertSame('user:user-1', RateLimitKey::userOrNetwork('user-1', null));
+        $this->assertSame('anon:127.0.0.1', RateLimitKey::userOrNetwork(null, '127.0.0.1'));
         $this->assertSame('anon:127.0.0.1', RateLimitKey::userOrNetwork('', '127.0.0.1'));
         $this->assertSame('anon:127.0.0.1', RateLimitKey::userOrNetwork(false, '127.0.0.1'));
         $this->assertSame('anon:unknown-ip', RateLimitKey::userOrNetwork(null, ''));

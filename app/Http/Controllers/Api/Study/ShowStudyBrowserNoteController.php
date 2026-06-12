@@ -27,6 +27,8 @@ class ShowStudyBrowserNoteController extends Controller
             'displayText' => $result->displayText,
             'noteTypeName' => $result->noteTypeName,
             'sourceKind' => $result->sourceKind,
+            'reviewCount' => $result->reviewCount,
+            'lastReviewedAt' => $result->lastReviewedAt,
             'updatedAt' => $result->updatedAt,
             'rawFields' => $result->rawFields,
             'canonicalFields' => $result->canonicalFields,

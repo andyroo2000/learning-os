@@ -7,6 +7,7 @@ use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use App\Domain\Study\Support\StudyFieldMediaReferences;
 use App\Support\DateTime\ServerTimestamp;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -42,23 +43,16 @@ class ShowStudyBrowserNoteAction
             noteId: $this->noteIdForResult($firstCard),
             displayText: $displayText,
             noteTypeName: $firstCard->source_notetype_name,
-            sourceKind: is_string($firstCard->source_kind) && $firstCard->source_kind !== ''
-                ? $firstCard->source_kind
-                : self::SOURCE_KIND_NATIVE,
-            updatedAt: $cards->map(fn (Card $card) => $card->updated_at)->filter()->max()?->toJSON(),
+            sourceKind: $this->sourceKindFor($firstCard),
+            reviewCount: $this->groupReviewCount($cards),
+            lastReviewedAt: $this->groupLastReviewedAt($cards),
+            updatedAt: $this->groupUpdatedAt($cards),
             rawFields: $this->fieldsForCards($cards),
             canonicalFields: $this->canonicalFieldsForCards($cards, $displayText),
             cards: $cards,
-            cardStats: $cards
-                ->map(fn (Card $card): array => [
-                    'cardId' => $card->id,
-                    'reviewCount' => (int) ($card->getAttribute('review_events_count') ?? 0),
-                    'lastReviewedAt' => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')),
-                ])
-                ->values()
-                ->all(),
+            cardStats: $this->cardStatsFor($cards),
             // The first card mirrors the deterministic card ordering used by the legacy browser detail.
-            selectedCardId: $firstCard->id,
+            selectedCardId: (string) $firstCard->id,
         );
     }
 
@@ -129,6 +123,7 @@ class ShowStudyBrowserNoteAction
                 'cards.updated_at',
             ])
             ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
+            // NULL marks cards with no reviews; groupLastReviewedAt filters those before maxing the note.
             ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -146,13 +141,78 @@ class ShowStudyBrowserNoteAction
             ->groupBy('card_id');
     }
 
+    private function sourceKindFor(Card $card): string
+    {
+        // Note groups are imported atomically; the deterministic first card represents group provenance.
+        // Legacy blank provenance still falls back to native, even when sibling cards carry imported metadata.
+        return is_string($card->source_kind) && $card->source_kind !== ''
+            ? $card->source_kind
+            : self::SOURCE_KIND_NATIVE;
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     */
+    private function groupReviewCount(EloquentCollection $cards): int
+    {
+        return $cards->sum(fn (Card $card): int => (int) ($card->getAttribute('review_events_count') ?? 0));
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     */
+    private function groupLastReviewedAt(EloquentCollection $cards): ?string
+    {
+        return $cards
+            ->map(fn (Card $card): ?string => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')))
+            ->filter()
+            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
+            ->max();
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     */
+    private function groupUpdatedAt(EloquentCollection $cards): ?string
+    {
+        $timestamp = $cards
+            ->map(fn (Card $card): ?string => $card->updated_at === null
+                ? null
+                : ServerTimestamp::toJson($card->updated_at)
+                    ?? throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.'))
+            ->filter()
+            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
+            ->max();
+
+        return is_string($timestamp)
+            ? $timestamp
+            : throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.');
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     * @return list<array{cardId: string, reviewCount: int, lastReviewedAt: string|null}>
+     */
+    private function cardStatsFor(EloquentCollection $cards): array
+    {
+        return $cards
+            ->map(fn (Card $card): array => [
+                'cardId' => (string) $card->id,
+                'reviewCount' => (int) ($card->getAttribute('review_events_count') ?? 0),
+                'lastReviewedAt' => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')),
+            ])
+            ->values()
+            ->all();
+    }
+
     private function lastReviewedAt(mixed $value): ?string
     {
         if ($value === null) {
             return null;
         }
 
-        if ($value instanceof \DateTimeInterface || is_string($value)) {
+        // Raw aggregate values arrive as strings today; the DateTimeInterface arm keeps direct callers defensive.
+        if ($value instanceof DateTimeInterface || is_string($value)) {
             return ServerTimestamp::toJson($value)
                 ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
         }

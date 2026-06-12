@@ -63,12 +63,16 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             'source_note_id' => 502,
         ]);
         $latestReviewAt = now()->subHour()->milliseconds(0);
+        $latestSecondCardReviewAt = $latestReviewAt->copy()->addMinute();
 
         CardReviewEvent::factory()->for($firstCard)->create([
             'reviewed_at' => now()->subDays(2),
         ]);
         CardReviewEvent::factory()->for($firstCard)->create([
             'reviewed_at' => $latestReviewAt,
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => $latestSecondCardReviewAt,
         ]);
 
         DB::enableQueryLog();
@@ -88,11 +92,14 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('displayText', '会社')
             ->assertJsonPath('noteTypeName', 'Japanese - Vocab')
             ->assertJsonPath('sourceKind', 'anki_import')
-            ->assertJsonPath('selectedCardId', $firstCard->id)
-            ->assertJsonPath('cards.0.id', $firstCard->id)
+            ->assertJsonPath('reviewCount', 3)
+            ->assertJsonPath('lastReviewedAt', $latestSecondCardReviewAt->toJSON())
+            ->assertJsonPath('updatedAt', $secondCard->updated_at?->toJSON())
+            ->assertJsonPath('selectedCardId', (string) $firstCard->id)
+            ->assertJsonPath('cards.0.id', (string) $firstCard->id)
             ->assertJsonPath('cards.0.noteId', '501')
             ->assertJsonPath('cards.0.cardType', 'recognition')
-            ->assertJsonPath('cards.1.id', $secondCard->id)
+            ->assertJsonPath('cards.1.id', (string) $secondCard->id)
             ->assertJsonPath('cards.1.cardType', 'production')
             ->assertJsonPath('rawFields.0.name', 'prompt.cueText')
             ->assertJsonPath('rawFields.0.value', '会社')
@@ -102,11 +109,12 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('rawFields.3.name', 'answer.expression')
             ->assertJsonPath('canonicalFields.0.name', 'displayText')
             ->assertJsonPath('canonicalFields.0.value', '会社')
-            ->assertJsonPath('cardStats.0.cardId', $firstCard->id)
+            ->assertJsonPath('cardStats.0.cardId', (string) $firstCard->id)
             ->assertJsonPath('cardStats.0.reviewCount', 2)
             ->assertJsonPath('cardStats.0.lastReviewedAt', $latestReviewAt->toJSON())
-            ->assertJsonPath('cardStats.1.cardId', $secondCard->id)
-            ->assertJsonPath('cardStats.1.reviewCount', 0)
+            ->assertJsonPath('cardStats.1.cardId', (string) $secondCard->id)
+            ->assertJsonPath('cardStats.1.reviewCount', 1)
+            ->assertJsonPath('cardStats.1.lastReviewedAt', $latestSecondCardReviewAt->toJSON())
             ->assertJsonCount(2, 'cards')
             ->assertJsonCount(4, 'rawFields')
             ->assertJsonCount(2, 'cardStats');
@@ -155,16 +163,20 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             'answer_json' => null,
         ]);
 
-        $this->getJson("/api/study/browser/{$card->id}")
+        $response = $this->getJson("/api/study/browser/{$card->id}")
             ->assertOk()
-            ->assertJsonPath('noteId', $card->id)
+            ->assertJsonPath('noteId', (string) $card->id)
             ->assertJsonPath('displayText', 'unsourced card')
+            ->assertJsonPath('reviewCount', 0)
+            ->assertJsonPath('lastReviewedAt', null)
             ->assertJsonPath('rawFields.0.name', 'frontText')
             ->assertJsonPath('rawFields.0.value', 'unsourced card')
             ->assertJsonPath('rawFields.1.name', 'backText')
             ->assertJsonPath('rawFields.1.value', 'unsourced answer')
-            ->assertJsonPath('cards.0.id', $card->id)
+            ->assertJsonPath('cards.0.id', (string) $card->id)
             ->assertJsonPath('cards.0.noteId', null);
+
+        $this->assertArrayHasKey('lastReviewedAt', $response->json());
     }
 
     public function test_it_exposes_media_fields_for_unsourced_fallback_text(): void
@@ -291,9 +303,9 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $this
             ->getJson('/api/study/browser/'.strtolower($card->id))
             ->assertOk()
-            ->assertJsonPath('noteId', $card->id)
-            ->assertJsonPath('selectedCardId', $card->id)
-            ->assertJsonPath('cards.0.id', $card->id);
+            ->assertJsonPath('noteId', (string) $card->id)
+            ->assertJsonPath('selectedCardId', (string) $card->id)
+            ->assertJsonPath('cards.0.id', (string) $card->id);
     }
 
     public function test_it_returns_not_found_for_missing_deleted_or_cross_user_notes(): void

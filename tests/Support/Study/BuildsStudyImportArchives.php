@@ -68,10 +68,11 @@ trait BuildsStudyImportArchives
             $pdo->exec('CREATE TABLE revlog (id integer primary key, cid integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null)');
         }
 
-        $deckId = 1700000000000;
+        $deckId = $options['deck_id'] ?? 1700000000000;
         $basicNoteTypeId = 1001;
         $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
+        $extraDecks = $options['extra_decks'] ?? [];
         $fieldSeparator = "\x1f";
         $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
@@ -120,6 +121,22 @@ trait BuildsStudyImportArchives
                 'name' => $deckName,
             ],
         ];
+        foreach ($extraDecks as $extraDeck) {
+            if (! is_array($extraDeck)) {
+                continue;
+            }
+
+            $extraDeckId = $extraDeck['id'] ?? null;
+
+            if (! is_numeric($extraDeckId)) {
+                continue;
+            }
+
+            $decks[(string) $extraDeckId] = [
+                'id' => (int) $extraDeckId,
+                'name' => $extraDeck['name'] ?? '',
+            ];
+        }
 
         $statement = $pdo->prepare('INSERT INTO col (id, models, decks) VALUES (1, :models, :decks)');
         $statement->execute([
@@ -133,6 +150,16 @@ trait BuildsStudyImportArchives
 
             $statement = $pdo->prepare('INSERT INTO decks (id, name) VALUES (:id, :name)');
             $statement->execute(['id' => $deckId, 'name' => $deckName]);
+            foreach ($extraDecks as $extraDeck) {
+                if (! is_array($extraDeck) || ! isset($extraDeck['id']) || ! is_numeric($extraDeck['id'])) {
+                    continue;
+                }
+
+                $statement->execute([
+                    'id' => (int) $extraDeck['id'],
+                    'name' => (string) ($extraDeck['name'] ?? ''),
+                ]);
+            }
 
             $statement = $pdo->prepare('INSERT INTO notetypes (id, name) VALUES (:id, :name)');
             $statement->execute(['id' => $basicNoteTypeId, 'name' => 'Basic']);

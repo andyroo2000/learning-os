@@ -75,6 +75,44 @@ class StudyImportArchivePreviewerTest extends TestCase
         ], $preview['note_type_breakdown']);
     }
 
+    public function test_it_builds_a_preview_for_single_non_default_deck_archives(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/spanish.colpkg',
+            $this->buildStudyImportArchiveBytes(['deck_name' => 'Spanish']),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/spanish.colpkg',
+        );
+
+        $this->assertSame('Spanish', $preview['deck_name']);
+        $this->assertSame(3, $preview['card_count']);
+        $this->assertSame(2, $preview['review_log_count']);
+    }
+
+    public function test_it_builds_a_preview_for_single_normalized_non_default_deck_archives(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/normalized-spanish.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'normalized_schema' => true,
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/normalized-spanish.colpkg',
+        );
+
+        $this->assertSame('Spanish', $preview['deck_name']);
+        $this->assertSame(3, $preview['card_count']);
+    }
+
     public function test_it_previews_quoted_image_media_references_with_spaces(): void
     {
         Storage::fake('study-imports');
@@ -255,15 +293,43 @@ class StudyImportArchivePreviewerTest extends TestCase
         Storage::fake('study-imports');
         Storage::disk('study-imports')->put(
             'study/imports/preview/spanish.colpkg',
-            $this->buildStudyImportArchiveBytes(['deck_name' => 'Spanish']),
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'extra_decks' => [
+                    ['id' => 1700000000001, 'name' => 'French'],
+                ],
+            ]),
         );
 
         $this->expectException(StudyImportPreviewException::class);
-        $this->expectExceptionMessage('Only the "Japanese" deck is supported in this version. Found: "Spanish".');
+        $this->expectExceptionMessage('Import supports the "Japanese" deck or archives with exactly one deck in this version. Found: "Spanish", "French".');
 
         app(StudyImportArchivePreviewer::class)->preview(
             Storage::disk('study-imports'),
             'study/imports/preview/spanish.colpkg',
+        );
+    }
+
+    public function test_it_reports_unsupported_normalized_decks_with_detected_names(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/normalized-multi-deck.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Spanish',
+                'extra_decks' => [
+                    ['id' => 1700000000001, 'name' => 'French'],
+                ],
+                'normalized_schema' => true,
+            ]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('Import supports the "Japanese" deck or archives with exactly one deck in this version. Found: "Spanish", "French".');
+
+        app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/normalized-multi-deck.colpkg',
         );
     }
 }

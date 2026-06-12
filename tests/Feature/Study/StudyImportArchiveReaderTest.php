@@ -83,6 +83,47 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame(hash('sha256', 'media-bytes'), $wordMedia->checksumSha256);
     }
 
+    public function test_it_reads_single_non_default_deck_archives(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/spanish.colpkg',
+            $this->buildStudyImportArchiveBytes(['deck_name' => 'Spanish']),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/spanish.colpkg',
+        );
+
+        $this->assertSame('Spanish', $archive->deckName);
+        $this->assertSame(3, $archive->cardCount());
+        $this->assertSame(2, $archive->reviewLogCount());
+        $this->assertSame(1700000000000, $archive->cards[0]->sourceDeckId);
+    }
+
+    public function test_it_prefers_the_default_deck_when_multiple_decks_are_present(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/default-plus-extra.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'extra_decks' => [
+                    ['id' => 1700000000001, 'name' => 'Spanish'],
+                ],
+            ]),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/default-plus-extra.colpkg',
+        );
+
+        $this->assertSame(StudyImportJob::DEFAULT_DECK_NAME, $archive->deckName);
+        $this->assertSame(3, $archive->cardCount());
+        $this->assertSame(1700000000000, $archive->cards[0]->sourceDeckId);
+    }
+
     public function test_media_content_metadata_is_nullable_when_manifest_content_is_absent(): void
     {
         Storage::fake('study-imports');

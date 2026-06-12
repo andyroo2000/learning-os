@@ -86,6 +86,37 @@ class ReorderNewCardQueueApiTest extends TestCase
             ->assertJsonPath('data.'.CursorPagination::MAX_PAGE_SIZE.'.id', $cards->last()->id);
     }
 
+    public function test_it_repairs_legacy_null_positions_through_the_api(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstLegacyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh31',
+        ]);
+        $positionedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh32',
+            'new_queue_position' => 4,
+        ]);
+        $secondLegacyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01ktt2q9z5vfpxsqgc3mwrdh33',
+        ]);
+
+        $this->postJson('/api/cards/new/reorder', [
+            'card_ids' => [$secondLegacyCard->id, $positionedCard->id, $firstLegacyCard->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $secondLegacyCard->id)
+            ->assertJsonPath('data.0.new_queue_position', 4)
+            ->assertJsonPath('data.1.id', $positionedCard->id)
+            ->assertJsonPath('data.1.new_queue_position', 5)
+            ->assertJsonPath('data.2.id', $firstLegacyCard->id)
+            ->assertJsonPath('data.2.new_queue_position', 6);
+
+        $this->assertSame(4, $secondLegacyCard->refresh()->new_queue_position);
+        $this->assertSame(5, $positionedCard->refresh()->new_queue_position);
+        $this->assertSame(6, $firstLegacyCard->refresh()->new_queue_position);
+    }
+
     public function test_it_rate_limits_reorders_by_user(): void
     {
         $limiter = new NewCardQueueReorderRateLimiter;

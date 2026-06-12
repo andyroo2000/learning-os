@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
+use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -45,15 +46,16 @@ class ReorderNewCardQueueAction
         return DB::transaction(function () use ($userId, $cardIds): Collection {
             $this->lockQueueOwner($userId);
 
-            $cards = Card::query()
+            $cardsQuery = Card::query()
                 ->select('cards.*')
                 ->with(['deck:id,user_id,course_id'])
                 ->join('decks', 'decks.id', '=', 'cards.deck_id')
                 ->where('decks.user_id', $userId)
                 ->whereNull('decks.deleted_at')
                 ->where('cards.study_status', CardStudyStatus::New->value)
-                ->whereIn('cards.id', $cardIds)
-                ->orderBy('cards.new_queue_position')
+                ->whereIn('cards.id', $cardIds);
+
+            $cards = NewCardQueueOrdering::nullPositionsLast($cardsQuery)
                 ->orderBy('cards.id')
                 ->lockForUpdate()
                 ->get();

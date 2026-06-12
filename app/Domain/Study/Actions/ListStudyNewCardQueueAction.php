@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
+use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -43,10 +44,7 @@ class ListStudyNewCardQueueAction
             ));
 
         $total = (clone $query)->count('cards.id');
-        $items = $query
-            // Keep legacy null queue positions ordered consistently across SQLite, MySQL, and Postgres.
-            ->orderByRaw('case when cards.new_queue_position is null then 1 else 0 end')
-            ->orderBy('cards.new_queue_position')
+        $items = NewCardQueueOrdering::nullPositionsLast($query)
             ->orderBy('cards.created_at')
             ->orderBy('cards.id')
             ->skip($cursor)

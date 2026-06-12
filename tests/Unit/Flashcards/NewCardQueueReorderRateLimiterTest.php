@@ -16,8 +16,11 @@ class NewCardQueueReorderRateLimiterTest extends TestCase
         $this->assertSame('new-card-queue-reorder:user:42', $limiter->keyFor(42, '192.0.2.10'));
         $this->assertSame('new-card-queue-reorder:anon:unknown-ip', $limiter->keyFor(null, null));
         $this->assertSame('new-card-queue-reorder:anon:unknown-ip', $limiter->keyFor(null, ''));
+        $this->assertSame('new-card-queue-reorder:anon:127.0.0.1', $limiter->keyFor('', '127.0.0.1'));
+        $this->assertSame('new-card-queue-reorder:anon:127.0.0.1', $limiter->keyFor(false, '127.0.0.1'));
         $this->assertSame('new-card-queue-reorder:anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
         $this->assertSame('new-card-queue-reorder:anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
+        $this->assertSame('new-card-queue-reorder:user:0', $limiter->keyFor(0, '127.0.0.1'));
         $this->assertSame('new-card-queue-reorder:user:user-1', $limiter->keyFor('user-1', ''));
         $this->assertSame('new-card-queue-reorder:user:str-id', $limiter->keyFor('str-id', ''));
     }

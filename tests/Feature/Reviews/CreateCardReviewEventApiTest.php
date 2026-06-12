@@ -204,7 +204,10 @@ class CreateCardReviewEventApiTest extends TestCase
                     'rating' => CardReviewRating::Good->value,
                     'reviewed_at' => '2026-05-27T09:30:00Z',
                 ])
-                ->assertTooManyRequests();
+                ->assertTooManyRequests()
+                ->assertHeader('X-RateLimit-Limit', '2')
+                ->assertHeader('X-RateLimit-Remaining', '0')
+                ->assertHeader('Retry-After');
 
             $this->getJson('/api/card-review-events')->assertOk();
 

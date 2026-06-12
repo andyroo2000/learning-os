@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -43,16 +44,7 @@ final class DeckRateLimiter
 
     public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
     {
-        // Auth normally rejects anonymous requests first; this fallback bounds unexpected IP-less traffic.
-        $normalizedUserId = self::normalizeUserId($userId);
-
-        if ($normalizedUserId !== null) {
-            return $limiterName.':user:'.$normalizedUserId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return $limiterName.':anon:'.$network;
+        return RateLimitKey::scopedUserOrNetwork($limiterName, $userId, $ip);
     }
 
     private function key(Request $request): string
@@ -62,14 +54,5 @@ final class DeckRateLimiter
             $request->user()?->getAuthIdentifier(),
             $request->ip(),
         );
-    }
-
-    private static function normalizeUserId(mixed $userId): ?string
-    {
-        if (is_int($userId) || is_string($userId)) {
-            return (string) $userId;
-        }
-
-        return null;
     }
 }

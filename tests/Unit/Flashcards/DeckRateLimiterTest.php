@@ -50,6 +50,7 @@ class DeckRateLimiterTest extends TestCase
             'zero user id stays user scoped' => [DeckRateLimiter::CREATE_NAME, 0, '127.0.0.1', 'deck-create:user:0'],
             'anonymous null ip' => [DeckRateLimiter::CREATE_NAME, null, null, 'deck-create:anon:unknown-ip'],
             'anonymous empty ip' => [DeckRateLimiter::CREATE_NAME, null, '', 'deck-create:anon:unknown-ip'],
+            'empty user id falls back to network key' => [DeckRateLimiter::CREATE_NAME, '', '127.0.0.1', 'deck-create:anon:127.0.0.1'],
             'false user id falls back to network key' => [DeckRateLimiter::CREATE_NAME, false, '127.0.0.1', 'deck-create:anon:127.0.0.1'],
             'anonymous localhost' => [DeckRateLimiter::CREATE_NAME, null, '127.0.0.1', 'deck-create:anon:127.0.0.1'],
             'anonymous public ip' => [DeckRateLimiter::CREATE_NAME, null, '192.0.2.10', 'deck-create:anon:192.0.2.10'],

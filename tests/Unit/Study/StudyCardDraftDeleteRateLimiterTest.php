@@ -15,7 +15,11 @@ class StudyCardDraftDeleteRateLimiterTest extends TestCase
         $this->assertSame('user:42', $limiter->keyFor(42, '127.0.0.1'));
         $this->assertSame('user:42', $limiter->keyFor(42, '192.0.2.10'));
         $this->assertSame('anon:unknown-ip', $limiter->keyFor(null, null));
+        $this->assertSame('anon:unknown-ip', $limiter->keyFor(null, ''));
+        $this->assertSame('anon:127.0.0.1', $limiter->keyFor('', '127.0.0.1'));
+        $this->assertSame('anon:127.0.0.1', $limiter->keyFor(false, '127.0.0.1'));
         $this->assertSame('anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
+        $this->assertSame('user:0', $limiter->keyFor(0, '127.0.0.1'));
         $this->assertSame('user:user-1', $limiter->keyFor('user-1', ''));
         $this->assertSame('user:missing-user', $limiter->keyFor('missing-user', ''));
     }

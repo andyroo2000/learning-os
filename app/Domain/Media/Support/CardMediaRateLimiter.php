@@ -2,6 +2,7 @@
 
 namespace App\Domain\Media\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -35,14 +36,7 @@ final class CardMediaRateLimiter
 
     public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
     {
-        // Auth normally rejects anonymous requests first; this fallback bounds unexpected IP-less traffic.
-        if (is_int($userId) || (is_string($userId) && $userId !== '')) {
-            return $limiterName.':user:'.(string) $userId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return $limiterName.':anon:'.$network;
+        return RateLimitKey::scopedUserOrNetwork($limiterName, $userId, $ip);
     }
 
     private function key(Request $request): string

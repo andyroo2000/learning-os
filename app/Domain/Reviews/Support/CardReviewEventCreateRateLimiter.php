@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -30,13 +31,6 @@ final class CardReviewEventCreateRateLimiter
      */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // Auth normally rejects anonymous requests first; this shared fallback only bounds unexpected IP-less traffic.
-        if ($userId !== null) {
-            return self::NAME.':user:'.(string) $userId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return self::NAME.':anon:'.$network;
+        return RateLimitKey::scopedUserOrNetwork(self::NAME, $userId, $ip);
     }
 }

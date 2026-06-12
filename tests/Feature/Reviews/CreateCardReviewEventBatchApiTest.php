@@ -237,7 +237,10 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                         ],
                     ],
                 ])
-                ->assertTooManyRequests();
+                ->assertTooManyRequests()
+                ->assertHeader('X-RateLimit-Limit', '1')
+                ->assertHeader('X-RateLimit-Remaining', '0')
+                ->assertHeader('Retry-After');
 
             $this->getJson('/api/card-review-events')->assertOk();
 

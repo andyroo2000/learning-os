@@ -3,6 +3,7 @@
 namespace Tests\Feature\Media;
 
 use App\Domain\Media\Actions\CreateMediaAssetAction;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Data\CreateMediaAssetData;
 use App\Domain\Media\Exceptions\MediaAssetConflictException;
 use App\Domain\Media\Exceptions\MediaAssetValidationException;
@@ -10,16 +11,18 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Results\CreateMediaAssetResult;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Feature\Media\Concerns\UsesMediaRateLimitOverrides;
+use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\TestCase;
 
 class CreateMediaAssetApiTest extends TestCase
 {
+    use AssertsMediaAssetSyncFeedEntries;
     use RefreshDatabase;
     use UsesMediaRateLimitOverrides;
 
@@ -74,6 +77,10 @@ class CreateMediaAssetApiTest extends TestCase
             'checksum_sha256' => str_repeat('a', 64),
             'original_filename' => 'example.jpg',
         ]);
+
+        $mediaAsset = MediaAsset::query()->findOrFail($response->json('data.id'));
+
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Create);
     }
 
     public function test_it_serializes_the_maximum_size_without_precision_loss(): void
@@ -261,6 +268,7 @@ class CreateMediaAssetApiTest extends TestCase
             ->assertJsonMissingPath('data.path');
 
         $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
     public function test_create_is_rate_limited_by_user(): void
@@ -462,7 +470,7 @@ class CreateMediaAssetApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends CreateMediaAssetAction
+        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordMediaAssetSyncFeedEntryAction::class)) extends CreateMediaAssetAction
         {
             public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {
@@ -723,7 +731,7 @@ class CreateMediaAssetApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends CreateMediaAssetAction
+        $this->app->instance(CreateMediaAssetAction::class, new class(app(RecordMediaAssetSyncFeedEntryAction::class)) extends CreateMediaAssetAction
         {
             public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
             {

@@ -7,9 +7,9 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -19,11 +19,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
+use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\TestCase;
 
 class DeleteMediaAssetActionTest extends TestCase
 {
     use AssertsCardMediaSyncFeedEntries;
+    use AssertsMediaAssetSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_deletes_an_unattached_media_asset_with_one_asset_tombstone(): void
@@ -42,7 +44,7 @@ class DeleteMediaAssetActionTest extends TestCase
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
 
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void
@@ -50,13 +52,15 @@ class DeleteMediaAssetActionTest extends TestCase
         $user = User::factory()->create();
         $mediaAsset = MediaAsset::factory()->for($user)->create();
         $deleteMediaAsset = new DeleteMediaAssetAction(
-            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
-            {
-                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+            recordMediaAssetSyncFeedEntry: new RecordMediaAssetSyncFeedEntryAction(
+                recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
                 {
-                    throw new RuntimeException('Sync feed failed.');
-                }
-            },
+                    public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                    {
+                        throw new RuntimeException('Sync feed failed.');
+                    }
+                },
+            ),
             recordCardMediaSyncFeedEntry: app(RecordCardMediaSyncFeedEntryAction::class),
         );
 
@@ -132,7 +136,7 @@ class DeleteMediaAssetActionTest extends TestCase
             );
         });
 
-        $assetEntry = $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $assetEntry = $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
         $this->assertLessThan($cardEntries->get(1)->checkpoint, $cardEntries->get(0)->checkpoint);
         $this->assertLessThan($assetEntry->checkpoint, $cardEntries->get(1)->checkpoint);
     }
@@ -152,7 +156,7 @@ class DeleteMediaAssetActionTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
     }
 
     public function test_it_rolls_back_media_asset_delete_when_card_media_feed_recording_fails(): void
@@ -163,7 +167,7 @@ class DeleteMediaAssetActionTest extends TestCase
         $card->mediaAssets()->attach($mediaAsset->id);
         $deleteMediaAsset = new DeleteMediaAssetAction(
             // Let the asset tombstone use the real recorder, then fail on the card-media tombstone.
-            recordSyncFeedEntry: app(RecordSyncFeedEntryAction::class),
+            recordMediaAssetSyncFeedEntry: app(RecordMediaAssetSyncFeedEntryAction::class),
             recordCardMediaSyncFeedEntry: new RecordCardMediaSyncFeedEntryAction(
                 recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
                 {
@@ -214,7 +218,7 @@ class DeleteMediaAssetActionTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
-        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset);
+        $this->assertMediaAssetSyncPayloadRecorded($mediaAsset, SyncFeedOperation::Delete);
     }
 
     public function test_it_is_idempotent_when_media_asset_is_missing(): void
@@ -244,20 +248,5 @@ class DeleteMediaAssetActionTest extends TestCase
             'id' => $mediaAsset->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 0);
-    }
-
-    private function assertMediaAssetSyncPayloadRecorded(MediaAsset $mediaAsset): SyncFeedEntry
-    {
-        $entry = SyncFeedEntry::query()
-            ->where('domain', MediaAssetSyncPayload::DOMAIN)
-            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', $mediaAsset->id)
-            ->where('operation', SyncFeedOperation::Delete->value)
-            ->sole();
-
-        $this->assertSame($mediaAsset->user_id, $entry->user_id);
-        $this->assertEquals(MediaAssetSyncPayload::fromMediaAsset($mediaAsset), $entry->payload);
-
-        return $entry;
     }
 }

@@ -44,9 +44,6 @@ class ListStudyBrowserActionTest extends TestCase
         CardReviewEvent::factory()->for($firstCard)->create([
             'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
         ]);
-        CardReviewEvent::factory()->for($secondCard)->create([
-            'reviewed_at' => Carbon::parse('2026-06-03T10:00:00Z'),
-        ]);
 
         $result = app(ListStudyBrowserAction::class)->handle(
             userId: $user->id,
@@ -129,6 +126,30 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame(2, $result['rows'][0]['cardCount']);
         $this->assertSame(2, $result['rows'][0]['reviewCount']);
         $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
+    }
+
+    public function test_it_reports_null_last_reviewed_at_for_unreviewed_groups_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'unreviewed prompt',
+            'source_note_id' => 4031,
+            'source_template_ord' => 0,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'unreviewed answer',
+            'source_note_id' => 4031,
+            'source_template_ord' => 1,
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+
+        $this->assertSame('4031', $result['rows'][0]['noteId']);
+        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame(2, $result['rows'][0]['cardCount']);
+        $this->assertSame(0, $result['rows'][0]['reviewCount']);
+        $this->assertNull($result['rows'][0]['lastReviewedAt']);
     }
 
     public function test_it_normalizes_direct_note_type_and_sort_inputs(): void

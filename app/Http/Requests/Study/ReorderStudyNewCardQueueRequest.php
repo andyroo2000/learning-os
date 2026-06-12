@@ -35,6 +35,7 @@ class ReorderStudyNewCardQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // `present` lets compatibility clients distinguish missing cardIds from an explicit null/list shape.
             'cardIds' => ['present', 'array', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'cardIds.*' => ['required', 'string', 'distinct', 'ulid'],
         ];

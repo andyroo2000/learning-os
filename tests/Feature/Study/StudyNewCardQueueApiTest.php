@@ -191,7 +191,6 @@ class StudyNewCardQueueApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('total', 2)
-            ->assertJsonPath('nextCursor', null)
             ->assertJsonFragment(['nextCursor' => null])
             ->assertJsonPath('items.0.id', $firstCard->id)
             ->assertJsonPath('items.0.queuePosition', 1)
@@ -205,7 +204,7 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->assertNotNull($secondCard->updated_at);
         $this->assertSame($firstUpdatedAt, $firstCard->updated_at->toJSON());
         $this->assertSame($secondUpdatedAt, $secondCard->updated_at->toJSON());
-        $this->assertSame(0, SyncFeedEntry::query()->count());
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_study_and_canonical_reorders_share_the_same_rate_limit_bucket(): void

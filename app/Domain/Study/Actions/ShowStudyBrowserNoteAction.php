@@ -176,7 +176,7 @@ class ShowStudyBrowserNoteAction
     private function groupUpdatedAt(EloquentCollection $cards): ?string
     {
         return $cards
-            ->map(fn (Card $card): ?string => ServerTimestamp::toJson($card->updated_at))
+            ->map(fn (Card $card): ?string => $card->updated_at === null ? null : ServerTimestamp::toJson($card->updated_at))
             ->filter()
             // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
             ->max();

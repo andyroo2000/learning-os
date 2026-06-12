@@ -172,7 +172,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('rawFields.0.value', 'unsourced card')
             ->assertJsonPath('rawFields.1.name', 'backText')
             ->assertJsonPath('rawFields.1.value', 'unsourced answer')
-            ->assertJsonPath('cards.0.id', $card->id)
+            ->assertJsonPath('cards.0.id', (string) $card->id)
             ->assertJsonPath('cards.0.noteId', null);
 
         $this->assertArrayHasKey('lastReviewedAt', $response->json());
@@ -303,8 +303,8 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->getJson('/api/study/browser/'.strtolower($card->id))
             ->assertOk()
             ->assertJsonPath('noteId', $card->id)
-            ->assertJsonPath('selectedCardId', $card->id)
-            ->assertJsonPath('cards.0.id', $card->id);
+            ->assertJsonPath('selectedCardId', (string) $card->id)
+            ->assertJsonPath('cards.0.id', (string) $card->id);
     }
 
     public function test_it_returns_not_found_for_missing_deleted_or_cross_user_notes(): void

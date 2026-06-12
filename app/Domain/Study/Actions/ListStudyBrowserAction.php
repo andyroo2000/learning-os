@@ -205,6 +205,8 @@ class ListStudyBrowserAction
             deckId: $deckId,
             groupRows: $groupRows,
         );
+        // rowsFromCards() and noteIdFromGroupRow() both string-cast IDs so numeric Anki note IDs
+        // and ULID fallback note IDs address the same map keys after database hydration.
         $rowsByNoteId = collect($this->rowsFromCards($cards))->keyBy('noteId');
         $pageRows = $groupRows
             // A concurrent delete between the group query and card hydration can leave a group without cards.
@@ -387,6 +389,8 @@ class ListStudyBrowserAction
 
         return $query
             ->orderBy($sortColumn, $direction)
+            // Avoid database-specific NULL ordering when sourced and unsourced rows tie on the sort value.
+            ->orderByRaw('CASE WHEN source_note_id IS NULL THEN 1 ELSE 0 END asc')
             ->orderBy('source_note_id', $direction)
             ->orderBy('unsourced_card_id', $direction);
     }
@@ -430,19 +434,11 @@ class ListStudyBrowserAction
                 }
 
                 if ($unsourcedCardIds !== []) {
-                    if ($sourceNoteIds === []) {
-                        $query->where(function (Builder $query) use ($unsourcedCardIds): void {
-                            $query
-                                ->whereNull('cards.source_note_id')
-                                ->whereIn('cards.id', $unsourcedCardIds);
-                        });
-                    } else {
-                        $query->orWhere(function (Builder $query) use ($unsourcedCardIds): void {
-                            $query
-                                ->whereNull('cards.source_note_id')
-                                ->whereIn('cards.id', $unsourcedCardIds);
-                        });
-                    }
+                    $query->orWhere(function (Builder $query) use ($unsourcedCardIds): void {
+                        $query
+                            ->whereNull('cards.source_note_id')
+                            ->whereIn('cards.id', $unsourcedCardIds);
+                    });
                 }
             });
 

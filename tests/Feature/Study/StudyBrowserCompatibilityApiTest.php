@@ -430,6 +430,46 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('nextCursor', null);
     }
 
+    public function test_it_handles_stale_browser_cursor_after_later_rows_are_deleted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'remaining cursor row',
+            'source_note_id' => 2051,
+            'source_notetype_name' => 'Remaining Type',
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ]);
+        $deletedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'deleted cursor row',
+            'source_note_id' => 2052,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2051');
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $deletedCard->delete();
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonCount(0, 'rows')
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonPath('filterOptions.noteTypes', ['Remaining Type']);
+    }
+
     public function test_it_orders_equal_sort_values_with_a_stable_note_id_tiebreaker(): void
     {
         $user = $this->signIn();
@@ -458,6 +498,31 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('rows.0.noteId', '10')
             ->assertJsonPath('rows.1.noteId', '9');
+    }
+
+    public function test_it_orders_sourced_groups_before_unsourced_groups_when_sort_values_tie(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $timestamp = now()->subHour();
+
+        $unsourcedCard = Card::factory()->for($deck)->create([
+            'front_text' => 'unsourced tie row',
+            'source_note_id' => null,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'sourced tie row',
+            'source_note_id' => 11,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc')
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '11')
+            ->assertJsonPath('rows.1.noteId', (string) $unsourcedCard->id);
     }
 
     public function test_it_sorts_browser_rows_by_display_text_case_insensitively(): void

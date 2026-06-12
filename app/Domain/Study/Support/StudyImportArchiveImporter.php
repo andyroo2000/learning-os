@@ -11,8 +11,8 @@ use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -33,6 +33,7 @@ final class StudyImportArchiveImporter
     public function __construct(
         private readonly NewCardQueuePosition $newCardQueuePosition,
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
         private readonly StudyImportArchiveReader $archiveReader,
     ) {}
 
@@ -459,22 +460,15 @@ final class StudyImportArchiveImporter
                 $card->saveOrFail();
                 $pivot = $this->cardMediaPivot($card, $mediaAsset);
 
-                $this->recordSyncFeedEntry->handle(
-                    RecordSyncFeedEntryData::fromInput(
-                        userId: $userId,
-                        domain: CardMediaSyncPayload::DOMAIN,
-                        resourceType: CardMediaSyncPayload::RESOURCE_TYPE,
-                        resourceId: CardMediaSyncPayload::resourceId($card->id, $mediaAsset->id),
-                        operation: SyncFeedOperation::Create->value,
-                        payload: CardMediaSyncPayload::fromPivot(
-                            cardId: $card->id,
-                            mediaAssetId: $mediaAsset->id,
-                            deckId: $card->deck_id,
-                            courseId: $card->deckCourseId(),
-                            createdAt: $pivot?->created_at,
-                            updatedAt: $pivot?->updated_at,
-                        ),
-                    ),
+                $this->recordCardMediaSyncFeedEntry->handle(
+                    userId: $userId,
+                    operation: SyncFeedOperation::Create,
+                    cardId: $card->id,
+                    mediaAssetId: $mediaAsset->id,
+                    deckId: $card->deck_id,
+                    courseId: $card->deckCourseId(),
+                    createdAt: $pivot?->created_at,
+                    updatedAt: $pivot?->updated_at,
                 );
             }
         }

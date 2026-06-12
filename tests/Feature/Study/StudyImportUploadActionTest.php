@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
@@ -15,6 +16,7 @@ use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -25,12 +27,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
 use Tests\Support\Study\BuildsStudyImportArchives;
 use Tests\TestCase;
 
 class StudyImportUploadActionTest extends TestCase
 {
-    use BuildsStudyImportArchives, RefreshDatabase;
+    use AssertsCardMediaSyncFeedEntries, BuildsStudyImportArchives, RefreshDatabase;
 
     protected function tearDown(): void
     {
@@ -840,6 +843,26 @@ class StudyImportUploadActionTest extends TestCase
                 'card_id' => $cardIdsBySourceCardId[$sourceCardId],
                 'media_asset_id' => $companyMediaAsset->id,
             ]);
+        }
+
+        foreach ([701, 702] as $sourceCardId) {
+            $card = Card::query()->findOrFail($cardIdsBySourceCardId[$sourceCardId]);
+
+            foreach ([$wordMediaAsset, $companyMediaAsset] as $mediaAsset) {
+                $pivot = $card->mediaAssets()->whereKey($mediaAsset->id)->first()?->pivot;
+                $this->assertNotNull($pivot);
+
+                $this->assertCardMediaSyncPayloadRecorded(
+                    userId: $importJob->user_id,
+                    card: $card,
+                    mediaAsset: $mediaAsset,
+                    operation: SyncFeedOperation::Create,
+                    deckId: $card->deck_id,
+                    courseId: null,
+                    createdAt: $pivot->created_at,
+                    updatedAt: $pivot->updated_at,
+                );
+            }
         }
 
         $firstReviewEvent = CardReviewEvent::query()->where('source_review_id', 1700000000123)->sole();

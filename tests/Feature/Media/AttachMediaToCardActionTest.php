@@ -6,10 +6,10 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -17,10 +17,12 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
+use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
 use Tests\TestCase;
 
 class AttachMediaToCardActionTest extends TestCase
 {
+    use AssertsCardMediaSyncFeedEntries;
     use RefreshDatabase;
 
     public function test_it_attaches_media_to_a_card(): void
@@ -50,22 +52,17 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 1);
 
         $pivot = $card->mediaAssets()->whereKey($mediaAsset->id)->first()?->pivot;
-        $entry = SyncFeedEntry::query()
-            ->where('domain', CardMediaSyncPayload::DOMAIN)
-            ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', CardMediaSyncPayload::resourceId($card->id, $mediaAsset->id))
-            ->where('operation', SyncFeedOperation::Create->value)
-            ->sole();
-
-        $this->assertSame($card->ownerUserId(), $entry->user_id);
-        $this->assertEquals(CardMediaSyncPayload::fromPivot(
-            cardId: $card->id,
-            mediaAssetId: $mediaAsset->id,
-            deckId: $deck->id,
+        $this->assertNotNull($pivot);
+        $this->assertCardMediaSyncPayloadRecorded(
+            userId: $card->ownerUserId(),
+            card: $card,
+            mediaAsset: $mediaAsset,
+            operation: SyncFeedOperation::Create,
+            deckId: $card->deck_id,
             courseId: $course->id,
-            createdAt: $pivot?->created_at,
-            updatedAt: $pivot?->updated_at,
-        ), $entry->payload);
+            createdAt: $pivot->created_at,
+            updatedAt: $pivot->updated_at,
+        );
     }
 
     public function test_it_rolls_back_when_feed_recording_fails(): void
@@ -77,13 +74,15 @@ class AttachMediaToCardActionTest extends TestCase
         ]);
         $mediaAsset = $this->mediaAssetForCardOwner($card);
         $attachMedia = new AttachMediaToCardAction(
-            recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
-            {
-                public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+            recordCardMediaSyncFeedEntry: new RecordCardMediaSyncFeedEntryAction(
+                recordSyncFeedEntry: new class extends RecordSyncFeedEntryAction
                 {
-                    throw new RuntimeException('Sync feed failed.');
-                }
-            },
+                    public function handle(RecordSyncFeedEntryData $data): SyncFeedEntry
+                    {
+                        throw new RuntimeException('Sync feed failed.');
+                    }
+                },
+            ),
         );
 
         // Use try/catch so post-exception database assertions still run.
@@ -115,16 +114,17 @@ class AttachMediaToCardActionTest extends TestCase
         $mediaAsset = $this->mediaAssetForCardOwner($card);
 
         $card->mediaAssets()->attach($mediaAsset->id);
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
-        app(AttachMediaToCardAction::class)->handle(
+        $updatedCard = app(AttachMediaToCardAction::class)->handle(
             AttachMediaToCardData::fromModels($card, $mediaAsset),
         );
 
+        $this->assertTrue($updatedCard->is($card));
         $this->assertDatabaseCount('card_media', 1);
-        $this->assertDatabaseHas('cards', [
-            'id' => $card->id,
-            'updated_at' => $timestamp,
-        ]);
+        $this->assertNotNull($card->refresh()->updated_at);
+        $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 

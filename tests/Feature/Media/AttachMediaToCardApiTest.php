@@ -4,12 +4,12 @@ namespace Tests\Feature\Media;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Exception;
 use Illuminate\Database\QueryException;
@@ -48,6 +48,7 @@ class AttachMediaToCardApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.id', $card->id)
+            ->assertJsonStructure(['data' => ['media_assets' => [['url']]]])
             ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id)
             ->assertJsonPath('data.media_assets.0.url', 'https://cdn.example.test/uploads/example.jpg')
             ->assertJsonPath('data.media_assets.0.content_url', "/api/media-assets/{$mediaAsset->id}/content")
@@ -141,6 +142,8 @@ class AttachMediaToCardApiTest extends TestCase
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
         $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
             'media_asset_id' => $mediaAsset->id,
@@ -149,10 +152,16 @@ class AttachMediaToCardApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data.media_assets')
+            ->assertJsonStructure(['data' => ['media_assets' => [['url']]]])
             ->assertJsonPath('data.media_assets.0.url', null)
             ->assertJsonPath('data.media_assets.0.content_url', "/api/media-assets/{$mediaAsset->id}/content");
 
+        $card->refresh();
+
+        $this->assertNotNull($card->updated_at);
+        $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('card_media', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_preserves_existing_attachments_when_adding_another_media_asset(): void
@@ -259,7 +268,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -292,8 +301,10 @@ class AttachMediaToCardApiTest extends TestCase
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
         $card->mediaAssets()->attach($mediaAsset->id);
+        $this->assertNotNull($card->updated_at);
+        $originalUpdatedAt = $card->updated_at->toJSON();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -316,7 +327,12 @@ class AttachMediaToCardApiTest extends TestCase
             ->assertJsonCount(1, 'data.media_assets')
             ->assertJsonPath('data.media_assets.0.id', $mediaAsset->id);
 
+        $card->refresh();
+
+        $this->assertNotNull($card->updated_at);
+        $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('card_media', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_returns_not_found_when_card_is_deleted_after_route_binding(): void
@@ -325,7 +341,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -355,7 +371,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {
@@ -378,7 +394,7 @@ class AttachMediaToCardApiTest extends TestCase
         $card = $this->cardFor($user);
         $mediaAsset = MediaAsset::factory()->for($user)->create();
 
-        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
         {
             public function handle(AttachMediaToCardData $data): Card
             {

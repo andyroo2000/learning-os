@@ -52,8 +52,9 @@ class RetryStudyCardDraftAction
 
             // Lost-response transport retries should see the already-pending draft instead of a 409.
             // Re-request processing as recovery for a dropped queue write; the unique job and terminal
-            // action guard keep duplicate enqueue attempts harmless. Do not clear outputs here:
-            // once a draft is in flight, the generation worker owns preview state.
+            // action guard keep duplicate enqueue attempts harmless. Duplicate workers re-lock the draft
+            // and re-check processability before writing, so only the first terminal write records sync.
+            // Do not clear outputs here: once a draft is in flight, the generation worker owns preview state.
             if ($draft->status === StudyManualCardDraftStatus::Generating) {
                 $this->queueAfterCommit($draft, $afterCommit);
 

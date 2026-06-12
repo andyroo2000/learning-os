@@ -228,6 +228,30 @@ class ListStudyBrowserActionTest extends TestCase
         app(ListStudyBrowserAction::class)->handle(userId: $user->id);
     }
 
+    public function test_it_rejects_rows_with_any_missing_updated_timestamp_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'valid timestamp sibling',
+            'source_note_id' => 4055,
+            'updated_at' => Carbon::parse('2026-06-03T09:15:00Z'),
+        ]);
+        $missingTimestampCard = Card::factory()->for($deck)->create([
+            'front_text' => 'missing updated timestamp sibling',
+            'source_note_id' => 4055,
+            'updated_at' => Carbon::parse('2026-06-04T09:15:00Z'),
+        ]);
+        DB::table('cards')
+            ->where('id', $missingTimestampCard->id)
+            ->update(['updated_at' => null]);
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('Study browser updated_at timestamp is missing or invalid.');
+
+        app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+    }
+
     public function test_it_treats_search_wildcards_as_literals_for_direct_callers(): void
     {
         $user = $this->signIn();

@@ -5,11 +5,11 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\ShowStudyBrowserNoteAction;
+use App\Domain\Study\Support\StudyBrowserCardAggregate;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use ReflectionMethod;
 use Tests\TestCase;
 use UnexpectedValueException;
 
@@ -197,24 +197,18 @@ class ShowStudyBrowserNoteActionTest extends TestCase
 
     public function test_it_normalizes_native_datetime_review_aggregates(): void
     {
-        $action = app(ShowStudyBrowserNoteAction::class);
-        $method = new ReflectionMethod($action, 'lastReviewedAt');
-
         $this->assertSame(
             '2026-06-04T11:00:00.000000Z',
-            $method->invoke($action, new DateTimeImmutable('2026-06-04T11:00:00Z')),
+            StudyBrowserCardAggregate::reviewAggregateTimestamp(new DateTimeImmutable('2026-06-04T11:00:00Z')),
         );
     }
 
     public function test_it_rejects_unexpected_review_aggregate_timestamp_types(): void
     {
-        $action = app(ShowStudyBrowserNoteAction::class);
-        $method = new ReflectionMethod($action, 'lastReviewedAt');
-
         $this->expectException(UnexpectedValueException::class);
         $this->expectExceptionMessage('Study browser review aggregate has an unexpected timestamp type.');
 
-        $method->invoke($action, 123);
+        StudyBrowserCardAggregate::reviewAggregateTimestamp(123);
     }
 
     public function test_it_returns_null_for_malformed_unsourced_note_ids(): void

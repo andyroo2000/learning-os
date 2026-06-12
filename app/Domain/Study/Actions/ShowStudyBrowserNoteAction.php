@@ -4,10 +4,9 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
+use App\Domain\Study\Support\StudyBrowserCardAggregate;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use App\Domain\Study\Support\StudyFieldMediaReferences;
-use App\Support\DateTime\ServerTimestamp;
-use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -15,12 +14,9 @@ use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
-use UnexpectedValueException;
 
 class ShowStudyBrowserNoteAction
 {
-    private const SOURCE_KIND_NATIVE = 'native';
-
     public function handle(int $userId, string $noteId): ?StudyBrowserNoteDetailResult
     {
         $noteId = trim($noteId);
@@ -40,17 +36,17 @@ class ShowStudyBrowserNoteAction
         $displayText = StudyBrowserCardDisplay::displayTextFor($firstCard);
 
         return new StudyBrowserNoteDetailResult(
-            noteId: $this->noteIdForResult($firstCard),
+            noteId: StudyBrowserCardAggregate::noteIdFor($firstCard),
             displayText: $displayText,
             noteTypeName: $firstCard->source_notetype_name,
-            sourceKind: $this->sourceKindFor($firstCard),
-            reviewCount: $this->groupReviewCount($cards),
-            lastReviewedAt: $this->groupLastReviewedAt($cards),
-            updatedAt: $this->groupUpdatedAt($cards),
+            sourceKind: StudyBrowserCardAggregate::sourceKindFor($firstCard),
+            reviewCount: StudyBrowserCardAggregate::reviewCount($cards),
+            lastReviewedAt: StudyBrowserCardAggregate::lastReviewedAt($cards),
+            updatedAt: StudyBrowserCardAggregate::latestTimestamp($cards, 'updated_at'),
             rawFields: $this->fieldsForCards($cards),
             canonicalFields: $this->canonicalFieldsForCards($cards, $displayText),
             cards: $cards,
-            cardStats: $this->cardStatsFor($cards),
+            cardStats: StudyBrowserCardAggregate::cardStats($cards),
             // The first card mirrors the deterministic card ordering used by the legacy browser detail.
             selectedCardId: (string) $firstCard->id,
         );
@@ -141,85 +137,6 @@ class ShowStudyBrowserNoteAction
             ->groupBy('card_id');
     }
 
-    private function sourceKindFor(Card $card): string
-    {
-        // Note groups are imported atomically; the deterministic first card represents group provenance.
-        // Legacy blank provenance still falls back to native, even when sibling cards carry imported metadata.
-        return is_string($card->source_kind) && $card->source_kind !== ''
-            ? $card->source_kind
-            : self::SOURCE_KIND_NATIVE;
-    }
-
-    /**
-     * @param  EloquentCollection<int, Card>  $cards
-     */
-    private function groupReviewCount(EloquentCollection $cards): int
-    {
-        return $cards->sum(fn (Card $card): int => (int) ($card->getAttribute('review_events_count') ?? 0));
-    }
-
-    /**
-     * @param  EloquentCollection<int, Card>  $cards
-     */
-    private function groupLastReviewedAt(EloquentCollection $cards): ?string
-    {
-        return $cards
-            ->map(fn (Card $card): ?string => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')))
-            ->filter()
-            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
-            ->max();
-    }
-
-    /**
-     * @param  EloquentCollection<int, Card>  $cards
-     */
-    private function groupUpdatedAt(EloquentCollection $cards): ?string
-    {
-        $timestamp = $cards
-            ->map(fn (Card $card): ?string => $card->updated_at === null
-                ? null
-                : ServerTimestamp::toJson($card->updated_at)
-                    ?? throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.'))
-            ->filter()
-            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
-            ->max();
-
-        return is_string($timestamp)
-            ? $timestamp
-            : throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.');
-    }
-
-    /**
-     * @param  EloquentCollection<int, Card>  $cards
-     * @return list<array{cardId: string, reviewCount: int, lastReviewedAt: string|null}>
-     */
-    private function cardStatsFor(EloquentCollection $cards): array
-    {
-        return $cards
-            ->map(fn (Card $card): array => [
-                'cardId' => (string) $card->id,
-                'reviewCount' => (int) ($card->getAttribute('review_events_count') ?? 0),
-                'lastReviewedAt' => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')),
-            ])
-            ->values()
-            ->all();
-    }
-
-    private function lastReviewedAt(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        // Raw aggregate values arrive as strings today; the DateTimeInterface arm keeps direct callers defensive.
-        if ($value instanceof DateTimeInterface || is_string($value)) {
-            return ServerTimestamp::toJson($value)
-                ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
-        }
-
-        throw new UnexpectedValueException('Study browser review aggregate has an unexpected timestamp type.');
-    }
-
     private function sourceNoteIdValue(string $noteId): ?int
     {
         if (! ctype_digit($noteId)) {
@@ -274,11 +191,6 @@ class ShowStudyBrowserNoteAction
         }
 
         throw new LogicException('Study browser card ID candidate query returned a non-candidate card.');
-    }
-
-    private function noteIdForResult(Card $card): string
-    {
-        return $card->source_note_id === null ? (string) $card->id : (string) $card->source_note_id;
     }
 
     /**

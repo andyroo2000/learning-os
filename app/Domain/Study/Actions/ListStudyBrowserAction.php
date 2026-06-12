@@ -6,21 +6,17 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
+use App\Domain\Study\Support\StudyBrowserCardAggregate;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
-use App\Support\DateTime\ServerTimestamp;
-use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use UnexpectedValueException;
 
 class ListStudyBrowserAction
 {
-    private const SOURCE_KIND_NATIVE = 'native';
-
     public const DEFAULT_LIMIT = 50;
 
     public const MAX_LIMIT = 100;
@@ -357,17 +353,15 @@ class ListStudyBrowserAction
     private function rowsFromCards(Collection $cards): array
     {
         return $cards
-            ->groupBy(fn (Card $card) => $this->noteIdFor($card))
+            ->groupBy(fn (Card $card) => StudyBrowserCardAggregate::noteIdFor($card))
             ->map(function (Collection $group, string $noteId): array {
                 /** @var Card $firstCard */
                 $firstCard = $group->first();
                 $queueSummary = [];
-                $reviewCount = 0;
 
                 foreach ($group as $card) {
                     $state = $this->queueStateSummaryValue($card);
                     $queueSummary[$state] = ($queueSummary[$state] ?? 0) + 1;
-                    $reviewCount += (int) ($card->getAttribute('review_events_count') ?? 0);
                 }
 
                 ksort($queueSummary);
@@ -377,60 +371,17 @@ class ListStudyBrowserAction
                     'selectedCardId' => (string) $firstCard->id,
                     'displayText' => $this->displayTextFor($firstCard),
                     'noteTypeName' => $firstCard->source_notetype_name,
-                    'sourceKind' => $this->sourceKindFor($firstCard),
+                    'sourceKind' => StudyBrowserCardAggregate::sourceKindFor($firstCard),
                     'cardCount' => $group->count(),
-                    'reviewCount' => $reviewCount,
-                    'lastReviewedAt' => $this->groupLastReviewedAt($group),
+                    'reviewCount' => StudyBrowserCardAggregate::reviewCount($group),
+                    'lastReviewedAt' => StudyBrowserCardAggregate::lastReviewedAt($group),
                     'queueSummary' => $queueSummary,
-                    'createdAt' => $this->groupTimestamp($group, 'created_at', latest: false),
-                    'updatedAt' => $this->groupTimestamp($group, 'updated_at', latest: true),
+                    'createdAt' => StudyBrowserCardAggregate::earliestTimestamp($group, 'created_at'),
+                    'updatedAt' => StudyBrowserCardAggregate::latestTimestamp($group, 'updated_at'),
                 ];
             })
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  Collection<int, Card>  $group
-     */
-    private function groupTimestamp(Collection $group, string $attribute, bool $latest): string
-    {
-        $timestamps = $group
-            ->map(fn (Card $card): ?string => ServerTimestamp::toJson($card->getAttribute($attribute)))
-            ->filter();
-
-        $timestamp = $latest ? $timestamps->max() : $timestamps->min();
-
-        return is_string($timestamp)
-            ? $timestamp
-            : throw new UnexpectedValueException("Study browser {$attribute} timestamp is missing or invalid.");
-    }
-
-    /**
-     * @param  Collection<int, Card>  $group
-     */
-    private function groupLastReviewedAt(Collection $group): ?string
-    {
-        return $group
-            ->map(fn (Card $card): ?string => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')))
-            ->filter()
-            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
-            ->max();
-    }
-
-    private function lastReviewedAt(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        // Raw aggregate values arrive as strings today; the DateTimeInterface arm keeps direct callers defensive.
-        if ($value instanceof DateTimeInterface || is_string($value)) {
-            return ServerTimestamp::toJson($value)
-                ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
-        }
-
-        throw new UnexpectedValueException('Study browser review aggregate has an unexpected timestamp type.');
     }
 
     /**
@@ -478,23 +429,9 @@ class ListStudyBrowserAction
         return $left <=> $right;
     }
 
-    private function noteIdFor(Card $card): string
-    {
-        return $card->source_note_id === null ? (string) $card->id : (string) $card->source_note_id;
-    }
-
     private function displayTextFor(Card $card): string
     {
         return StudyBrowserCardDisplay::displayTextFor($card);
-    }
-
-    private function sourceKindFor(Card $card): string
-    {
-        // Note groups are imported atomically; the deterministic first card represents group provenance.
-        // Legacy blank provenance still falls back to native, even when sibling cards carry imported metadata.
-        return is_string($card->source_kind) && $card->source_kind !== ''
-            ? $card->source_kind
-            : self::SOURCE_KIND_NATIVE;
     }
 
     private function queueStateSummaryValue(Card $card): string

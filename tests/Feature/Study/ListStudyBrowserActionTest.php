@@ -26,6 +26,7 @@ class ListStudyBrowserActionTest extends TestCase
             'front_text' => '学校',
             'card_type' => CardType::Recognition,
             'study_status' => CardStudyStatus::Review,
+            'source_kind' => 'anki_import',
             'source_note_id' => 4001,
             'source_notetype_name' => 'Japanese - Vocab',
             'source_template_ord' => 0,
@@ -40,8 +41,12 @@ class ListStudyBrowserActionTest extends TestCase
             'source_template_ord' => 1,
             'search_text' => '学校 production school',
         ]);
-        CardReviewEvent::factory()->for($firstCard)->create();
-        CardReviewEvent::factory()->for($secondCard)->create();
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-03T10:00:00Z'),
+        ]);
 
         $result = app(ListStudyBrowserAction::class)->handle(
             userId: $user->id,
@@ -55,9 +60,44 @@ class ListStudyBrowserActionTest extends TestCase
 
         $this->assertSame(1, $result['total']);
         $this->assertSame('4001', $result['rows'][0]['noteId']);
+        $this->assertSame($firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame('anki_import', $result['rows'][0]['sourceKind']);
         $this->assertSame(1, $result['rows'][0]['cardCount']);
         $this->assertSame(1, $result['rows'][0]['reviewCount']);
+        $this->assertSame('2026-06-01T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
         $this->assertSame(['production', 'recognition'], $result['filterOptions']['cardTypes']);
+    }
+
+    public function test_it_reports_group_metadata_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'group metadata prompt',
+            'source_kind' => '',
+            'source_note_id' => 4011,
+            'source_template_ord' => 0,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'group metadata answer',
+            'source_kind' => 'anki_import',
+            'source_note_id' => 4011,
+            'source_template_ord' => 1,
+        ]);
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T10:00:00Z'),
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+
+        $this->assertSame('4011', $result['rows'][0]['noteId']);
+        $this->assertSame($firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame('native', $result['rows'][0]['sourceKind']);
+        $this->assertSame(2, $result['rows'][0]['reviewCount']);
+        $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
     }
 
     public function test_it_normalizes_direct_note_type_and_sort_inputs(): void

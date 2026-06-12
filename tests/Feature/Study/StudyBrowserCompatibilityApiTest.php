@@ -31,6 +31,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'back_text' => 'company',
             'card_type' => CardType::Recognition,
             'study_status' => CardStudyStatus::Review,
+            'source_kind' => 'anki_import',
             'source_note_id' => 1001,
             'source_notetype_name' => 'Japanese - Vocab',
             'source_template_ord' => 0,
@@ -65,8 +66,15 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             'search_text' => '会社 hidden',
             'source_note_id' => 1003,
         ]);
-        CardReviewEvent::factory()->for($firstCard)->count(2)->create();
-        CardReviewEvent::factory()->for($secondCard)->create();
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T11:00:00Z'),
+        ]);
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T12:00:00Z'),
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T13:00:00Z'),
+        ]);
 
         $response = $this->getJson('/api/study/browser?q='.rawurlencode('会社').'&noteType=Japanese%20-%20Vocab&sortField=review_count&sortDirection=desc&limit=10');
 
@@ -76,10 +84,13 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('limit', 10)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonPath('rows.0.noteId', '1001')
+            ->assertJsonPath('rows.0.selectedCardId', $firstCard->id)
             ->assertJsonPath('rows.0.displayText', '会社')
             ->assertJsonPath('rows.0.noteTypeName', 'Japanese - Vocab')
+            ->assertJsonPath('rows.0.sourceKind', 'anki_import')
             ->assertJsonPath('rows.0.cardCount', 2)
             ->assertJsonPath('rows.0.reviewCount', 3)
+            ->assertJsonPath('rows.0.lastReviewedAt', '2026-06-04T13:00:00.000000Z')
             ->assertJsonPath('rows.0.queueSummary.new', 1)
             ->assertJsonPath('rows.0.queueSummary.review', 1)
             ->assertJsonPath('rows.0.createdAt', $firstCreatedAt->toJSON())
@@ -145,6 +156,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             && str_starts_with(strtolower($query['query']), 'select card_id, count(*) as review_count')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
         $rowSelectsWithReviewCount = $cardSelects->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'review_events_count')
+            && str_contains(strtolower($query['query']), 'review_events_max_reviewed_at')
             && str_contains(strtolower($query['query']), 'from "card_review_events"'));
         $filteredReviewCountSelects = $rowSelectsWithReviewCount->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'where "card_id" in'));
 
@@ -160,7 +172,7 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        Card::factory()->for($deck)->create([
+        $betaCard = Card::factory()->for($deck)->create([
             'front_text' => 'beta recognition',
             'card_type' => CardType::Recognition,
             'study_status' => CardStudyStatus::New,
@@ -189,6 +201,11 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.1.noteId', '1201')
+            ->assertJsonPath('rows.1.selectedCardId', $betaCard->id)
+            ->assertJsonPath('rows.1.sourceKind', 'native')
+            ->assertJsonPath('rows.1.lastReviewedAt', null)
+            ->assertJsonFragment(['lastReviewedAt' => null])
             ->assertJsonPath('filterOptions.noteTypes', ['Alpha', 'Beta'])
             ->assertJsonPath('filterOptions.cardTypes', ['cloze', 'recognition'])
             ->assertJsonPath('filterOptions.queueStates', ['buried', 'new']);

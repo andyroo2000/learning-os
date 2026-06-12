@@ -18,6 +18,8 @@ use UnexpectedValueException;
 
 class ListStudyBrowserAction
 {
+    private const SOURCE_KIND_NATIVE = 'native';
+
     public const DEFAULT_LIMIT = 50;
 
     public const MAX_LIMIT = 100;
@@ -210,6 +212,7 @@ class ListStudyBrowserAction
                 'cards.prompt_json',
                 'cards.answer_json',
                 'cards.study_status',
+                'cards.source_kind',
                 'cards.source_note_id',
                 'cards.source_notetype_name',
                 'cards.source_template_ord',
@@ -217,6 +220,7 @@ class ListStudyBrowserAction
                 'cards.updated_at',
             ])
             ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
+            ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_note_id')
             ->orderBy('cards.source_template_ord')
             ->orderBy('cards.created_at')
@@ -339,6 +343,7 @@ class ListStudyBrowserAction
         return DB::table('card_review_events')
             ->select('card_id')
             ->selectRaw('count(*) as review_events_count')
+            ->selectRaw('max(reviewed_at) as review_events_max_reviewed_at')
             ->whereIn('card_id', $matchingCardIds)
             ->groupBy('card_id');
     }
@@ -367,10 +372,13 @@ class ListStudyBrowserAction
 
                 return [
                     'noteId' => $noteId,
+                    'selectedCardId' => $firstCard->id,
                     'displayText' => $this->displayTextFor($firstCard),
                     'noteTypeName' => $firstCard->source_notetype_name,
+                    'sourceKind' => $this->sourceKindFor($firstCard),
                     'cardCount' => $group->count(),
                     'reviewCount' => $reviewCount,
+                    'lastReviewedAt' => $this->groupLastReviewedAt($group),
                     'queueSummary' => $queueSummary,
                     'createdAt' => $this->groupTimestamp($group, 'created_at', latest: false),
                     'updatedAt' => $this->groupTimestamp($group, 'updated_at', latest: true),
@@ -394,6 +402,31 @@ class ListStudyBrowserAction
         return is_string($timestamp)
             ? $timestamp
             : throw new UnexpectedValueException("Study browser {$attribute} timestamp is missing or invalid.");
+    }
+
+    /**
+     * @param  Collection<int, Card>  $group
+     */
+    private function groupLastReviewedAt(Collection $group): ?string
+    {
+        return $group
+            ->map(fn (Card $card): ?string => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')))
+            ->filter()
+            ->max();
+    }
+
+    private function lastReviewedAt(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface || is_string($value)) {
+            return ServerTimestamp::toJson($value)
+                ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
+        }
+
+        throw new UnexpectedValueException('Study browser review aggregate has an unexpected timestamp type.');
     }
 
     /**
@@ -449,6 +482,13 @@ class ListStudyBrowserAction
     private function displayTextFor(Card $card): string
     {
         return StudyBrowserCardDisplay::displayTextFor($card);
+    }
+
+    private function sourceKindFor(Card $card): string
+    {
+        return is_string($card->source_kind) && $card->source_kind !== ''
+            ? $card->source_kind
+            : self::SOURCE_KIND_NATIVE;
     }
 
     private function queueStateSummaryValue(Card $card): string

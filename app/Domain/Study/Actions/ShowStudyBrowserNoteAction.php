@@ -175,11 +175,18 @@ class ShowStudyBrowserNoteAction
      */
     private function groupUpdatedAt(EloquentCollection $cards): ?string
     {
-        return $cards
-            ->map(fn (Card $card): ?string => $card->updated_at === null ? null : ServerTimestamp::toJson($card->updated_at))
+        $timestamp = $cards
+            ->map(fn (Card $card): ?string => $card->updated_at === null
+                ? null
+                : ServerTimestamp::toJson($card->updated_at)
+                    ?? throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.'))
             ->filter()
             // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
             ->max();
+
+        return is_string($timestamp)
+            ? $timestamp
+            : throw new UnexpectedValueException('Study browser updated_at timestamp is missing or invalid.');
     }
 
     /**

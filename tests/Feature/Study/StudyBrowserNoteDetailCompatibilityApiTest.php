@@ -303,7 +303,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $this
             ->getJson('/api/study/browser/'.strtolower($card->id))
             ->assertOk()
-            ->assertJsonPath('noteId', $card->id)
+            ->assertJsonPath('noteId', (string) $card->id)
             ->assertJsonPath('selectedCardId', (string) $card->id)
             ->assertJsonPath('cards.0.id', (string) $card->id);
     }

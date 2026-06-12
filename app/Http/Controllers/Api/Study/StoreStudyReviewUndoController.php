@@ -24,6 +24,8 @@ class StoreStudyReviewUndoController extends Controller
             userId: AuthenticatedUser::id($request),
             reviewLogId: $request->reviewLogId(),
             timeZone: $request->timeZone(),
+            deckId: $request->deckId(),
+            courseId: $request->courseId(),
             undoCardReviewEvent: $undoCardReviewEvent,
             getStudyOverview: $getStudyOverview,
         );

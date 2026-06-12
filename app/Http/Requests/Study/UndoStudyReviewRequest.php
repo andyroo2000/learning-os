@@ -2,12 +2,18 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UndoStudyReviewRequest extends FormRequest
 {
+    use FiltersByStudyScope;
+
     protected function prepareForValidation(): void
     {
+        $this->prepareStudyScopeFiltersForValidation();
+
         $value = $this->input('timeZone');
 
         // Leave non-string values untouched so validation reports type errors instead of coercing them.
@@ -27,9 +33,18 @@ class UndoStudyReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->studyScopeRules(),
             'timeZone' => ['sometimes', 'nullable', 'string', 'timezone'],
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     public function timeZone(): ?string

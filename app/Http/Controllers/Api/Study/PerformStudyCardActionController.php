@@ -36,6 +36,8 @@ class PerformStudyCardActionController extends Controller
                 $getStudyOverview->handle(
                     userId: $userId,
                     timeZone: $request->timeZone(),
+                    deckId: $request->deckId(),
+                    courseId: $request->courseId(),
                 ),
             )->resolve($request),
         ]);

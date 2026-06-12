@@ -2,15 +2,20 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreStudyReviewUndoRequest extends FormRequest
 {
+    use FiltersByStudyScope;
     use NormalizesUlidInput;
 
     protected function prepareForValidation(): void
     {
+        $this->prepareStudyScopeFiltersForValidation();
+
         $normalized = [];
 
         $this->mergeNormalizedUlidInput($normalized, 'reviewLogId');
@@ -38,11 +43,20 @@ class StoreStudyReviewUndoRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->studyScopeRules(),
             'reviewLogId' => ['required', 'ulid'],
             'timeZone' => ['sometimes', 'nullable', 'string', 'timezone'],
             // currentOverview is accepted for ConvoLab request compatibility; controllers recompute overview.
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     public function reviewLogId(): string

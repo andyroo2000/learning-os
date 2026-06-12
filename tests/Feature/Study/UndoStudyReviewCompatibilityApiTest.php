@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -153,6 +154,50 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_undo_response_overview_preserves_study_scope_filters(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $course = Course::factory()->for($user)->create();
+            $deck = $this->deckFor($user, ['course_id' => $course->id]);
+            $scopedCard = Card::factory()->for($deck)->create([
+                'study_status' => CardStudyStatus::Learning,
+                'new_queue_position' => null,
+                'due_at' => '2026-05-28T09:15:00Z',
+            ]);
+            $otherDeck = $this->deckFor($user);
+            Card::factory()->for($otherDeck)->create([
+                'study_status' => CardStudyStatus::Learning,
+                'new_queue_position' => null,
+                'due_at' => '2026-05-28T09:15:00Z',
+            ]);
+            $createResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $scopedCard->id,
+                'grade' => CardReviewRating::Good->value,
+            ]);
+            $reviewLogId = $createResponse->json('reviewLogId');
+
+            $this->postJson('/api/study/reviews/undo', [
+                'reviewLogId' => strtoupper($reviewLogId),
+                'course_id' => strtoupper($course->id),
+                'deckId' => strtoupper($deck->id),
+                'currentOverview' => [
+                    'reviewCount' => 99,
+                ],
+            ])
+                ->assertOk()
+                ->assertJsonPath('reviewLogId', $reviewLogId)
+                ->assertJsonPath('card.id', $scopedCard->id)
+                ->assertJsonPath('overview.learningCount', 1)
+                ->assertJsonPath('overview.reviewCount', 0)
+                ->assertJsonPath('overview.totalCards', 1);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_study_and_canonical_review_undos_share_the_same_rate_limit_bucket(): void
     {
         $limiter = new CardReviewEventUndoRateLimiter;
@@ -227,9 +272,11 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
 
         $this->deleteJson("/api/study/reviews/{$reviewEvent->id}", [
             'timeZone' => 'not-a-zone',
+            'courseId' => 'not-a-ulid',
+            'deck_id' => ['not-a-ulid'],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
+            ->assertJsonValidationErrors(['timeZone', 'courseId', 'deck_id']);
 
         $this->deleteJson("/api/study/reviews/{$reviewEvent->id}", [
             'timeZone' => ['America/New_York'],
@@ -238,6 +285,13 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['timeZone']);
 
         $this->assertDatabaseHas('card_review_events', ['id' => $reviewEvent->id]);
+
+        $this->deleteJson("/api/study/reviews/{$reviewEvent->id}", [
+            'deckId' => strtolower((string) str()->ulid()),
+            'deck_id' => strtolower((string) str()->ulid()),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
     }
 
     public function test_it_validates_legacy_post_body_inputs(): void
@@ -252,9 +306,11 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
             'reviewLogId' => 'not-a-ulid',
             'timeZone' => 'not-a-zone',
             'currentOverview' => 'stale',
+            'course_id' => 'not-a-ulid',
+            'deckId' => ['not-a-ulid'],
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['reviewLogId', 'timeZone', 'currentOverview']);
+            ->assertJsonValidationErrors(['reviewLogId', 'timeZone', 'currentOverview', 'course_id', 'deckId']);
 
         $this->postJson('/api/study/reviews/undo', [
             'reviewLogId' => [strtolower((string) str()->ulid())],
@@ -262,6 +318,14 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['reviewLogId', 'timeZone']);
+
+        $this->postJson('/api/study/reviews/undo', [
+            'reviewLogId' => strtolower((string) str()->ulid()),
+            'courseId' => strtolower((string) str()->ulid()),
+            'course_id' => strtolower((string) str()->ulid()),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
     }
 
     public function test_it_returns_not_found_for_missing_or_unowned_review_logs(): void

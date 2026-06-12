@@ -4,16 +4,21 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreStudyReviewRequest extends FormRequest
 {
+    use FiltersByStudyScope;
     use NormalizesUlidInput;
 
     protected function prepareForValidation(): void
     {
+        $this->prepareStudyScopeFiltersForValidation();
+
         $normalized = [];
 
         $this->mergeNormalizedUlidInput($normalized, 'cardId');
@@ -47,12 +52,21 @@ class StoreStudyReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->studyScopeRules(),
             'cardId' => ['required', 'ulid'],
             'grade' => ['required', Rule::enum(CardReviewRating::class)],
             'durationMs' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:'.ReviewCardData::MAX_DURATION_MS],
             'timeZone' => ['sometimes', 'nullable', 'string', 'timezone'],
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     /**

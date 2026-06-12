@@ -20,6 +20,9 @@ class MediaAssetRateLimiterTest extends TestCase
         $this->assertSame('media-asset-create:anon:127.0.0.1', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::CREATE_NAME, false, '127.0.0.1'));
         $this->assertSame('media-asset-create:user:user-1', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::CREATE_NAME, 'user-1', ''));
         $this->assertSame('media-asset-delete:user:42', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::DELETE_NAME, 42, '127.0.0.1'));
+        $this->assertSame('media-asset-delete:anon:127.0.0.1', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::DELETE_NAME, '', '127.0.0.1'));
+        $this->assertSame('media-asset-delete:anon:127.0.0.1', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::DELETE_NAME, false, '127.0.0.1'));
+        $this->assertSame('media-asset-delete:user:0', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::DELETE_NAME, 0, '127.0.0.1'));
         $this->assertSame('media-asset-delete:anon:127.0.0.1', MediaAssetRateLimiter::keyFor(MediaAssetRateLimiter::DELETE_NAME, null, '127.0.0.1'));
     }
 

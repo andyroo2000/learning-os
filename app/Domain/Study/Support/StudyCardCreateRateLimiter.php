@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -26,14 +27,6 @@ class StudyCardCreateRateLimiter
 
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; the fallback keeps the limiter safe if middleware changes.
-        if ($userId !== null) {
-            // Authenticated creation quotas are intentionally user-scoped across network changes.
-            return 'user:'.(string) $userId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return 'anon:'.$network;
+        return RateLimitKey::userOrNetwork($userId, $ip);
     }
 }

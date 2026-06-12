@@ -16,8 +16,11 @@ class StudyCardActionRateLimiterTest extends TestCase
         $this->assertSame('study-card-action:user:42', $limiter->keyFor(42, '192.0.2.10'));
         $this->assertSame('study-card-action:anon:unknown-ip', $limiter->keyFor(null, null));
         $this->assertSame('study-card-action:anon:unknown-ip', $limiter->keyFor(null, ''));
+        $this->assertSame('study-card-action:anon:127.0.0.1', $limiter->keyFor('', '127.0.0.1'));
+        $this->assertSame('study-card-action:anon:127.0.0.1', $limiter->keyFor(false, '127.0.0.1'));
         $this->assertSame('study-card-action:anon:127.0.0.1', $limiter->keyFor(null, '127.0.0.1'));
         $this->assertSame('study-card-action:anon:192.0.2.10', $limiter->keyFor(null, '192.0.2.10'));
+        $this->assertSame('study-card-action:user:0', $limiter->keyFor(0, '127.0.0.1'));
         $this->assertSame('study-card-action:user:user-1', $limiter->keyFor('user-1', ''));
         $this->assertSame('study-card-action:user:missing-user', $limiter->keyFor('missing-user', ''));
     }

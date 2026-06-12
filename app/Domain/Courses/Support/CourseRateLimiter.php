@@ -2,6 +2,7 @@
 
 namespace App\Domain\Courses\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -43,14 +44,7 @@ final class CourseRateLimiter
 
     public static function keyFor(string $limiterName, mixed $userId, ?string $ip): string
     {
-        // Auth normally rejects anonymous requests first; this shared fallback only bounds unexpected IP-less traffic.
-        if ($userId !== null) {
-            return $limiterName.':user:'.(string) $userId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return $limiterName.':anon:'.$network;
+        return RateLimitKey::scopedUserOrNetwork($limiterName, $userId, $ip);
     }
 
     private function key(Request $request): string

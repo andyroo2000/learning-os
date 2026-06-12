@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Support;
 
+use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -30,13 +31,6 @@ class StudyCardUpdateRateLimiter
      */
     public function keyFor(mixed $userId, ?string $ip): string
     {
-        // The route requires auth; the shared fallback bucket keeps IP-less anonymous requests bounded if middleware changes.
-        if ($userId !== null) {
-            return self::NAME.':user:'.(string) $userId;
-        }
-
-        $network = $ip !== null && $ip !== '' ? $ip : 'unknown-ip';
-
-        return self::NAME.':anon:'.$network;
+        return RateLimitKey::scopedUserOrNetwork(self::NAME, $userId, $ip);
     }
 }

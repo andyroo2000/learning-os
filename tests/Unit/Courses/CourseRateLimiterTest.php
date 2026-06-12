@@ -61,8 +61,11 @@ class CourseRateLimiterTest extends TestCase
             'user id ignores public ip' => [CourseRateLimiter::CREATE_NAME, 42, '192.0.2.10', 'course-create:user:42'],
             'anonymous null ip' => [CourseRateLimiter::CREATE_NAME, null, null, 'course-create:anon:unknown-ip'],
             'anonymous empty ip' => [CourseRateLimiter::CREATE_NAME, null, '', 'course-create:anon:unknown-ip'],
+            'empty user id falls back to network key' => [CourseRateLimiter::CREATE_NAME, '', '127.0.0.1', 'course-create:anon:127.0.0.1'],
+            'false user id falls back to network key' => [CourseRateLimiter::CREATE_NAME, false, '127.0.0.1', 'course-create:anon:127.0.0.1'],
             'anonymous localhost' => [CourseRateLimiter::CREATE_NAME, null, '127.0.0.1', 'course-create:anon:127.0.0.1'],
             'anonymous public ip' => [CourseRateLimiter::CREATE_NAME, null, '192.0.2.10', 'course-create:anon:192.0.2.10'],
+            'zero user id stays user scoped' => [CourseRateLimiter::CREATE_NAME, 0, '127.0.0.1', 'course-create:user:0'],
             'string user id' => [CourseRateLimiter::CREATE_NAME, 'user-1', '', 'course-create:user:user-1'],
             'sentinel-looking string user id' => [CourseRateLimiter::CREATE_NAME, 'str-id', '', 'course-create:user:str-id'],
         ];

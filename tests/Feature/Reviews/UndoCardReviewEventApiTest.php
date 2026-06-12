@@ -151,7 +151,10 @@ class UndoCardReviewEventApiTest extends TestCase
 
             $this
                 ->deleteJson("/api/card-review-events/{$secondReviewEvent->id}")
-                ->assertTooManyRequests();
+                ->assertTooManyRequests()
+                ->assertHeader('X-RateLimit-Limit', '1')
+                ->assertHeader('X-RateLimit-Remaining', '0')
+                ->assertHeader('Retry-After');
 
             $this->signIn($otherUser);
 

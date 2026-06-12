@@ -221,6 +221,7 @@ class ListStudyBrowserAction
                 'cards.updated_at',
             ])
             ->selectRaw('coalesce(review_event_stats.review_events_count, 0) as review_events_count')
+            // NULL marks cards with no reviews; groupLastReviewedAt filters those before maxing the group.
             ->addSelect('review_event_stats.review_events_max_reviewed_at')
             ->orderBy('cards.source_note_id')
             ->orderBy('cards.source_template_ord')
@@ -490,6 +491,7 @@ class ListStudyBrowserAction
     private function sourceKindFor(Card $card): string
     {
         // Note groups are imported atomically; the deterministic first card represents group provenance.
+        // Legacy blank provenance still falls back to native, even when sibling cards carry imported metadata.
         return is_string($card->source_kind) && $card->source_kind !== ''
             ? $card->source_kind
             : self::SOURCE_KIND_NATIVE;

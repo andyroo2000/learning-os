@@ -98,6 +98,39 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame('2026-06-01T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
     }
 
+    public function test_it_reports_latest_review_across_group_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'latest review prompt',
+            'source_kind' => 'anki_import',
+            'source_note_id' => 4021,
+            'source_template_ord' => 0,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'latest review answer',
+            'source_kind' => 'anki_import',
+            'source_note_id' => 4021,
+            'source_template_ord' => 1,
+        ]);
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => Carbon::parse('2026-06-04T10:00:00Z'),
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+
+        $this->assertSame('4021', $result['rows'][0]['noteId']);
+        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame('anki_import', $result['rows'][0]['sourceKind']);
+        $this->assertSame(2, $result['rows'][0]['cardCount']);
+        $this->assertSame(2, $result['rows'][0]['reviewCount']);
+        $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
+    }
+
     public function test_it_normalizes_direct_note_type_and_sort_inputs(): void
     {
         $user = $this->signIn();

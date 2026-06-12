@@ -24,10 +24,12 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class StoreStudyCardDraftCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use BuildsStudyCardDraftRows;
     use RefreshDatabase;
 
@@ -46,7 +48,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         Queue::fake();
         $user = $this->signIn();
 
-        $this->postJson('/api/study/card-drafts', [
+        $response = $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'cloze',
             'cardType' => 'cloze',
             'prompt' => ['clozeText' => '試合に[勝ちました]。'],
@@ -74,30 +76,9 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null)
             ->assertJsonPath('errorMessage', null)
-            ->assertJsonPath('committedCardId', null)
-            ->assertJsonStructure([
-                'id',
-                'status',
-                'creationKind',
-                'cardType',
-                'prompt',
-                'answer',
-                'imagePlacement',
-                'imagePrompt',
-                'previewAudio',
-                'previewAudioRole',
-                'previewImage',
-                'variantGroupId',
-                'variantSentenceId',
-                'variantKind',
-                'variantStage',
-                'variantStatus',
-                'variantUnlockedAt',
-                'errorMessage',
-                'committedCardId',
-                'createdAt',
-                'updatedAt',
-            ]);
+            ->assertJsonPath('committedCardId', null);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft = StudyCardDraft::query()->sole();
         $this->assertSame($user->id, $draft->user_id);
@@ -115,7 +96,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         Queue::fake();
         $user = $this->signIn();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/card-drafts', [
                 'creationKind' => ' text-recognition ',
@@ -137,6 +118,8 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
             // The storage column is second-precision, so fractional input is normalized away.
             ->assertJsonPath('variantUnlockedAt', '2026-06-04T14:15:30.000000Z');
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft = StudyCardDraft::query()->sole();
         $this->assertSame($user->id, $draft->user_id);
@@ -231,7 +214,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         Queue::fake();
         $this->signIn();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/card-drafts', [
                 'creationKind' => ' PRODUCTION-IMAGE ',
@@ -261,6 +244,8 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null);
 
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
+
         $draft = StudyCardDraft::query()->sole();
         $this->assertSame(['cueText' => '  company  '], $draft->prompt_json);
         $this->assertSame(['meaning' => '  会社  '], $draft->answer_json);
@@ -275,7 +260,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         // This test intentionally posts twice: first for payload normalization, then for defaults.
         StudyCardDraft::query()->delete();
 
-        $this
+        $defaultResponse = $this
             ->postJson('/api/study/card-drafts', [
                 'creationKind' => 'text-recognition',
                 'cardType' => 'recognition',
@@ -284,6 +269,8 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('imagePlacement', StudyCardImagePlacement::None->value);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($defaultResponse->json());
 
         Queue::assertPushed(ProcessStudyCardDraft::class, 2);
     }

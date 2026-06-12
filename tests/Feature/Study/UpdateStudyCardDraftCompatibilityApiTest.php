@@ -20,11 +20,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
 {
     use AssertsStudyCardDraftSyncFeedEntries;
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_update_requires_authentication(): void
@@ -50,7 +52,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
 
             $this->travelTo(Carbon::parse('2026-06-05T14:16:00Z'));
 
-            $this->patchJson("/api/study/card-drafts/{$draft->id}", [
+            $response = $this->patchJson("/api/study/card-drafts/{$draft->id}", [
                 'prompt' => ['cueText' => '会議'],
                 'answer' => ['expression' => '会議', 'meaning' => 'meeting'],
                 'imagePlacement' => 'answer',
@@ -85,6 +87,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
                 ->assertJsonPath('previewImage.id', 'image-1')
                 ->assertJsonPath('errorMessage', null)
                 ->assertJsonPath('updatedAt', '2026-06-05T14:16:00.000000Z');
+
+            $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
             $draft->refresh();
             $this->assertSame(['cueText' => '会議'], $draft->prompt_json);
@@ -133,7 +137,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->patchJson("/api/study/card-drafts/{$draft->id}", [
                 'prompt' => ['cueText' => '  company  '],
@@ -165,6 +169,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
             ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
 
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
+
         $draft->refresh();
         $this->assertNull($draft->image_prompt);
         $this->assertNull($draft->preview_audio_json);
@@ -179,7 +185,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
 
         $firstEntry = $this->assertStudyCardDraftSyncPayloadRecorded($draft, SyncFeedOperation::Update);
 
-        $this
+        $clearResponse = $this
             ->patchJson("/api/study/card-drafts/{$draft->id}", [
                 'imagePlacement' => null,
                 'variantGroupId' => null,
@@ -197,6 +203,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', null)
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($clearResponse->json());
 
         $this->assertSame(StudyCardImagePlacement::None, $draft->refresh()->image_placement);
         $this->assertNull($draft->variant_group_id);
@@ -229,7 +237,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
-        $this->patchJson("/api/study/card-drafts/{$draft->id}", [
+        $response = $this->patchJson("/api/study/card-drafts/{$draft->id}", [
             'prompt' => ['cueText' => '会社'],
             'answer' => ['expression' => '会社', 'meaning' => 'business'],
         ])
@@ -243,6 +251,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
             ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z');
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft->refresh();
         $this->assertSame(['expression' => '会社', 'meaning' => 'business'], $draft->answer_json);
@@ -267,12 +277,14 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $originalUpdatedAt = $draft->updated_at->toJSON();
 
         // Autosave clients can submit an empty body after debounced form churn; keep it a harmless readback.
-        $this->patchJson("/api/study/card-drafts/{$draft->id}", [])
+        $response = $this->patchJson("/api/study/card-drafts/{$draft->id}", [])
             ->assertOk()
             ->assertJsonPath('prompt.cueText', '会社')
             ->assertJsonPath('answer.meaning', 'company')
             ->assertJsonPath('imagePrompt', 'Keep this')
             ->assertJsonPath('updatedAt', $originalUpdatedAt);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft->refresh();
 
@@ -302,7 +314,7 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertNotNull($draft->updated_at);
         $originalUpdatedAt = $draft->updated_at->toJSON();
 
-        $this->patchJson("/api/study/card-drafts/{$draft->id}", [
+        $response = $this->patchJson("/api/study/card-drafts/{$draft->id}", [
             'prompt' => ['cueText' => '会社'],
             'answer' => ['meaning' => 'company'],
             'imagePlacement' => 'both',
@@ -323,6 +335,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('previewAudioRole', StudyCardAudioRole::Answer->value)
             ->assertJsonPath('previewImage.id', 'image-1')
             ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft->refresh();
 

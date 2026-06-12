@@ -6,6 +6,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Http\Resources\Study\StudyCardDraftResource;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use UnexpectedValueException;
 
 enum IntegerBackedStudyCardDraftResourceValue: int
@@ -20,6 +21,8 @@ enum StringBackedStudyCardDraftResourceValue: string
 
 class StudyCardDraftResourceTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
+
     public function test_resource_serializes_string_draft_attributes_from_raw_values(): void
     {
         $draft = new StudyCardDraft;
@@ -41,6 +44,8 @@ class StudyCardDraftResourceTest extends TestCase
 
         $resource = StudyCardDraftResource::make($draft)->toArray(new Request);
 
+        $this->assertSame($this->studyCardDraftCompatibilityPayloadKeys(), array_keys($resource));
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($resource);
         $this->assertSame('generating', $resource['status']);
         $this->assertSame('production-image', $resource['creationKind']);
         $this->assertSame('production', $resource['cardType']);
@@ -129,6 +134,14 @@ final class StudyCardDraftResourceSubject
 
     /** @var array<string, mixed>|null */
     public ?array $preview_image_json = null;
+
+    public ?string $variant_group_id = null;
+
+    public ?string $variant_sentence_id = null;
+
+    public ?int $variant_stage = null;
+
+    public mixed $variant_unlocked_at = null;
 
     public ?string $error_message = null;
 

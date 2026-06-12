@@ -15,10 +15,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class RetryStudyCardDraftCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_retry_requires_authentication(): void
@@ -54,7 +56,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             'error_message' => 'Generation failed.',
         ]);
 
-        $this->postJson('/api/study/card-drafts/'.strtoupper($draft->id).'/retry')
+        $response = $this->postJson('/api/study/card-drafts/'.strtoupper($draft->id).'/retry')
             ->assertOk()
             ->assertJsonPath('id', $draft->id)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value)
@@ -67,6 +69,8 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('previewImage', null)
             ->assertJsonPath('errorMessage', null)
             ->assertJsonPath('committedCardId', null);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         $draft->refresh();
         $this->assertSame(StudyManualCardDraftStatus::Generating, $draft->status);
@@ -87,10 +91,12 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $user = $this->signIn();
         $generatingDraft = StudyCardDraft::factory()->for($user)->create();
 
-        $this->postJson("/api/study/card-drafts/{$generatingDraft->id}/retry")
+        $response = $this->postJson("/api/study/card-drafts/{$generatingDraft->id}/retry")
             ->assertOk()
             ->assertJsonPath('id', $generatingDraft->id)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
 
         Queue::assertPushedOn(
             ProcessStudyCardDraft::QUEUE_NAME,

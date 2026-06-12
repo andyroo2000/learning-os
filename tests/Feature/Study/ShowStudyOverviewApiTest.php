@@ -230,7 +230,7 @@ class ShowStudyOverviewApiTest extends TestCase
             ->assertJsonPath('data.total_cards', 1);
     }
 
-    public function test_show_normalizes_camel_case_scope_filters_without_global_trim_middleware(): void
+    public function test_show_normalizes_scope_filter_aliases_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
 
@@ -246,7 +246,7 @@ class ShowStudyOverviewApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->getJson('/api/study/overview?courseId=%20'.strtoupper($course->id).'%20&deckId=%20'.strtoupper($deck->id).'%20')
+        $this->getJson('/api/study/overview?course_id=%20'.strtoupper($course->id).'%20&deckId=%20'.strtoupper($deck->id).'%20')
             ->assertOk()
             ->assertJsonPath('data.new_count', 1)
             ->assertJsonPath('data.total_cards', 1);
@@ -318,13 +318,27 @@ class ShowStudyOverviewApiTest extends TestCase
         $this->getJson('/api/study/overview?courseId=not-a-ulid')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+
+        $this->getJson('/api/study/overview?course_id=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+
+        $this->getJson('/api/study/overview?course_id[]=01J00000000000000000000000')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 
-    public function test_show_rejects_conflicting_camel_and_legacy_deck_filters(): void
+    public function test_show_rejects_conflicting_camel_and_legacy_scope_filters(): void
     {
         $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
         $deck = $this->deckFor($user);
         $otherDeck = $this->deckFor($user);
+
+        $this->getJson("/api/study/overview?courseId={$course->id}&course_id={$otherCourse->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
 
         $this->getJson("/api/study/overview?deckId={$deck->id}&deck_id={$otherDeck->id}")
             ->assertUnprocessable()
@@ -347,5 +361,9 @@ class ShowStudyOverviewApiTest extends TestCase
         $this->getJson('/api/study/overview?courseId=%20%20%20')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+
+        $this->getJson('/api/study/overview?course_id=%20%20%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 }

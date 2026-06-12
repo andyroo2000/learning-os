@@ -150,8 +150,8 @@ class StudyNewCardQueueApiTest extends TestCase
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/new-queue?q='.rawurlencode(' 会社 ')
-                .'&courseId='.rawurlencode(' '.strtoupper($course->id).' ')
-                .'&deckId='.rawurlencode(' '.strtoupper($deck->id).' '));
+                .'&course_id='.rawurlencode(' '.strtoupper($course->id).' ')
+                .'&deck_id='.rawurlencode(' '.strtoupper($deck->id).' '));
 
         $response
             ->assertOk()
@@ -393,9 +393,17 @@ class StudyNewCardQueueApiTest extends TestCase
             ->getJson('/api/study/new-queue?courseId=%20')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?course_id=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
         $this->getJson('/api/study/new-queue?courseId=not-a-ulid')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+        $this->getJson('/api/study/new-queue?course_id=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
         $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/new-queue?deckId=%20')
@@ -404,6 +412,9 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->getJson('/api/study/new-queue?deckId=not-a-ulid')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deckId']);
+        $this->getJson('/api/study/new-queue?deck_id=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
 
         $duplicateResponse = $this->postJson('/api/study/new-queue/reorder', ['cardIds' => [$cardId, strtoupper($cardId)]])
             ->assertUnprocessable()
@@ -495,7 +506,32 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
 
+        $this->getJson('/api/study/new-queue?course_id[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+
         $this->getJson('/api/study/new-queue?deckId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+
+        $this->getJson('/api/study/new-queue?deck_id[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deck_id']);
+    }
+
+    public function test_it_rejects_conflicting_new_queue_scope_filter_aliases(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+
+        $this->getJson("/api/study/new-queue?courseId={$course->id}&course_id={$otherCourse->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+
+        $this->getJson("/api/study/new-queue?deckId={$deck->id}&deck_id={$otherDeck->id}")
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['deckId']);
     }

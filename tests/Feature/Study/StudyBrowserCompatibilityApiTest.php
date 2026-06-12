@@ -203,8 +203,8 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/browser?q='.rawurlencode(' 会社 scoped ')
-                .'&courseId='.rawurlencode(' '.strtoupper($course->id).' ')
-                .'&deckId='.rawurlencode(' '.strtoupper($deck->id).' ')
+                .'&course_id='.rawurlencode(' '.strtoupper($course->id).' ')
+                .'&deck_id='.rawurlencode(' '.strtoupper($deck->id).' ')
                 .'&cardType=recognition');
 
         $response
@@ -673,24 +673,57 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['courseId']);
         $this->getJson('/api/study/browser?courseId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
             ->assertJsonValidationErrors(['courseId']);
+        $this->getJson('/api/study/browser?course_id=not-a-ulid')
+            ->assertJsonValidationErrors(['course_id']);
+        $this->getJson('/api/study/browser?course_id[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertJsonValidationErrors(['course_id']);
         $this->getJson('/api/study/browser?deckId=not-a-ulid')
             ->assertJsonValidationErrors(['deckId']);
         $this->getJson('/api/study/browser?deckId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
             ->assertJsonValidationErrors(['deckId']);
+        $this->getJson('/api/study/browser?deck_id=not-a-ulid')
+            ->assertJsonValidationErrors(['deck_id']);
+        $this->getJson('/api/study/browser?deck_id[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertJsonValidationErrors(['deck_id']);
         $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/browser?courseId=%20')
             ->assertJsonValidationErrors(['courseId']);
         $this
             ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?course_id=%20')
+            ->assertJsonValidationErrors(['course_id']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/browser?deckId=%20')
             ->assertJsonValidationErrors(['deckId']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?deck_id=%20')
+            ->assertJsonValidationErrors(['deck_id']);
         $this->getJson('/api/study/browser?cursor=')
             ->assertJsonValidationErrors(['cursor']);
         $this->getJson('/api/study/browser?cursor[]=abc')
             ->assertJsonValidationErrors(['cursor']);
         $this->getJson('/api/study/browser?cursor=not-a-cursor')
             ->assertJsonValidationErrors(['cursor']);
+    }
+
+    public function test_it_rejects_conflicting_browser_scope_filter_aliases(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user);
+        $otherDeck = $this->deckFor($user);
+
+        $this->getJson("/api/study/browser?courseId={$course->id}&course_id={$otherCourse->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+
+        $this->getJson("/api/study/browser?deckId={$deck->id}&deck_id={$otherDeck->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
     }
 
     public function test_it_requires_authentication(): void

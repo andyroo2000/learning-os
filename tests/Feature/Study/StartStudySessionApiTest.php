@@ -208,7 +208,7 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonCount(1, 'data.cards');
     }
 
-    public function test_start_normalizes_camel_case_scope_filters_without_global_trim_middleware(): void
+    public function test_start_normalizes_scope_filter_aliases_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
 
@@ -227,7 +227,7 @@ class StartStudySessionApiTest extends TestCase
         ]);
 
         $this->postJson('/api/study/session/start', [
-            'courseId' => '  '.strtoupper($course->id).'  ',
+            'course_id' => '  '.strtoupper($course->id).'  ',
             'deckId' => '  '.strtoupper($deck->id).'  ',
         ])
             ->assertOk()
@@ -340,13 +340,34 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+
+        $this->postJson('/api/study/session/start', [
+            'course_id' => 'not-a-ulid',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
+
+        $this->postJson('/api/study/session/start', [
+            'course_id' => ['01J00000000000000000000000'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 
-    public function test_start_rejects_conflicting_camel_and_legacy_deck_filters(): void
+    public function test_start_rejects_conflicting_camel_and_legacy_scope_filters(): void
     {
         $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
         $deck = $this->deckFor($user);
         $otherDeck = $this->deckFor($user);
+
+        $this->postJson('/api/study/session/start', [
+            'courseId' => $course->id,
+            'course_id' => $otherCourse->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
 
         $this->postJson('/api/study/session/start', [
             'deckId' => $deck->id,
@@ -378,6 +399,12 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['courseId']);
+
+        $this->postJson('/api/study/session/start', [
+            'course_id' => '   ',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['course_id']);
     }
 
     public function test_start_uses_the_requested_time_zone_for_daily_new_card_allowance(): void

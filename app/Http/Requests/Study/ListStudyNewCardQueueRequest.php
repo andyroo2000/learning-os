@@ -3,21 +3,18 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
-use App\Http\Requests\Concerns\NormalizesStringInputs;
-use App\Support\Identifiers\CanonicalUlid;
+use App\Http\Requests\Concerns\FiltersByStudyScope;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class ListStudyNewCardQueueRequest extends FormRequest
 {
-    use NormalizesStringInputs;
+    use FiltersByStudyScope;
 
     protected function prepareForValidation(): void
     {
-        $this->mergeNormalizedStringInputs(['cursor', 'limit', 'q', 'courseId', 'deckId'], blankToNull: ['q']);
-        $this->mergeStringInputsUsing(
-            ['courseId', 'deckId'],
-            fn (string $value): string => CanonicalUlid::normalize($value),
-        );
+        $this->mergeNormalizedStringInputs(['cursor', 'limit', 'q'], blankToNull: ['q']);
+        $this->prepareStudyScopeFiltersForValidation();
     }
 
     public function authorize(): bool
@@ -34,9 +31,16 @@ class ListStudyNewCardQueueRequest extends FormRequest
             'cursor' => ['sometimes', 'filled', 'integer', 'min:0'],
             'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'q' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'courseId' => ['sometimes', 'filled', 'ulid'],
-            'deckId' => ['sometimes', 'filled', 'ulid'],
+            ...$this->studyScopeRules(),
         ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
     }
 
     public function cursor(): int
@@ -52,15 +56,5 @@ class ListStudyNewCardQueueRequest extends FormRequest
     public function q(): ?string
     {
         return $this->nullableString('q');
-    }
-
-    public function courseId(): ?string
-    {
-        return $this->nullableString('courseId');
-    }
-
-    public function deckId(): ?string
-    {
-        return $this->nullableString('deckId');
     }
 }

@@ -529,8 +529,10 @@ class StudyImportUploadApiTest extends TestCase
         Storage::fake('study-imports');
         $user = $this->signIn();
         $importJobs = StudyImportJob::factory()->count(3)->for($user)->create([
+            'status' => StudyImportStatus::Failed,
             'source_size_bytes' => null,
             'uploaded_at' => null,
+            'completed_at' => now(),
             'upload_expires_at' => now()->addHour(),
         ]);
         foreach ($importJobs as $index => $importJob) {
@@ -551,11 +553,22 @@ class StudyImportUploadApiTest extends TestCase
             [$user->id, $otherUser->id],
             function () use ($importJobs, $otherImportJob, $otherUser, $user): void {
                 foreach ($importJobs->take(2) as $importJob) {
+                    $importJob->forceFill([
+                        'status' => StudyImportStatus::Pending,
+                        'completed_at' => null,
+                    ])->save();
+
                     $this
                         ->postJson("/api/study/imports/{$importJob->id}/complete")
                         ->assertStatus(202)
                         ->assertJsonPath('data.source_size_bytes', 15)
                         ->assertJsonPath('data.uploaded_at', now()->toJSON());
+
+                    // This test is about the completion throttle, not concurrent active imports.
+                    $importJob->forceFill([
+                        'status' => StudyImportStatus::Failed,
+                        'completed_at' => now(),
+                    ])->save();
                 }
 
                 $this->signIn($otherUser);
@@ -567,6 +580,10 @@ class StudyImportUploadApiTest extends TestCase
                 $this->signIn($user);
 
                 $blockedImportJob = $importJobs->last();
+                $blockedImportJob->forceFill([
+                    'status' => StudyImportStatus::Pending,
+                    'completed_at' => null,
+                ])->save();
 
                 $this
                     ->postJson("/api/study/imports/{$blockedImportJob->id}/complete")
@@ -613,6 +630,36 @@ class StudyImportUploadApiTest extends TestCase
             ->assertJsonPath('data.status', StudyImportStatus::Pending->value);
 
         $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        Queue::assertPushedOn(
+            ProcessStudyImportJob::QUEUE_NAME,
+            ProcessStudyImportJob::class,
+            fn (ProcessStudyImportJob $job): bool => $job->importJobId === $importJob->id,
+        );
+    }
+
+    public function test_complete_expires_stale_pending_imports_and_enqueues_the_import_job(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        $stale = StudyImportJob::factory()->for($user)->create([
+            'upload_expires_at' => now()->subMinute(),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertStatus(202)
+            ->assertJsonPath('data.id', $importJob->id)
+            ->assertJsonPath('data.status', StudyImportStatus::Pending->value);
+
+        $this->assertSame(StudyImportStatus::Failed, $stale->refresh()->status);
+        $this->assertSame('Study import upload session has expired.', $stale->error_message);
         Queue::assertPushedOn(
             ProcessStudyImportJob::QUEUE_NAME,
             ProcessStudyImportJob::class,
@@ -671,6 +718,38 @@ class StudyImportUploadApiTest extends TestCase
         Queue::assertNotPushed(ProcessStudyImportJob::class);
     }
 
+    public function test_complete_rejects_when_another_pending_import_is_active(): void
+    {
+        Carbon::setTestNow('2026-06-05 12:00:00');
+        Queue::fake();
+        Storage::fake('study-imports');
+        $user = $this->signIn();
+        StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => 'study/imports/'.$user->id.'/active/core.colpkg',
+            'upload_expires_at' => now()->addHour(),
+        ]);
+        $sourceObjectPath = 'study/imports/'.$user->id.'/complete/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+            'upload_completed_at' => null,
+            'upload_expires_at' => now()->addHour(),
+        ]);
+
+        $this->postJson('/api/study/imports/'.$importJob->id.'/complete')
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'active_study_import');
+
+        $importJob->refresh();
+
+        $this->assertNull($importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        $this->assertNull($importJob->upload_completed_at);
+        Queue::assertNotPushed(ProcessStudyImportJob::class);
+    }
+
     public function test_complete_hides_cross_user_import_jobs(): void
     {
         $this->signIn();
@@ -694,6 +773,10 @@ class StudyImportUploadApiTest extends TestCase
         $this->postJson('/api/study/imports/'.$unfinished->id.'/complete')
             ->assertStatus(409)
             ->assertJsonPath('reason', 'study_import_upload_not_finished');
+        $unfinished->forceFill([
+            'status' => StudyImportStatus::Failed,
+            'completed_at' => now(),
+        ])->save();
 
         $expiredPath = 'study/imports/'.$user->id.'/expired/core.colpkg';
         Storage::disk('study-imports')->put($expiredPath, 'PK zipped bytes');

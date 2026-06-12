@@ -20,7 +20,7 @@ use Throwable;
 class CompleteStudyImportUploadAction
 {
     public function __construct(
-        private readonly ExpireStaleProcessingStudyImportsAction $expireStaleProcessingStudyImports,
+        private readonly PrepareStudyImportActiveSlotAction $prepareStudyImportActiveSlot,
     ) {}
 
     public function handle(
@@ -50,12 +50,12 @@ class CompleteStudyImportUploadAction
                 return new StudyImportUploadCompletionResult($importJob, shouldDispatchImport: true);
             }
 
-            $this->expireStaleProcessingStudyImports->handle($userId, $now);
-
-            // Best-effort: completion validates the upload; the queued worker transitions the job to Processing.
-            $activeProcessingImport = $this->activeProcessingImport($userId);
-            if ($activeProcessingImport !== null) {
-                throw StudyImportConflictException::activeImport($activeProcessingImport);
+            // Completion validates the upload; the queued worker later transitions this row to Processing.
+            // Keep the same per-user active-import guard as session creation so legacy/raced extra pending
+            // uploads cannot all complete before any worker has a chance to claim Processing.
+            $activeImport = $this->prepareStudyImportActiveSlot->handle($userId, $now, $importJob->id);
+            if ($activeImport !== null) {
+                throw StudyImportConflictException::activeImport($activeImport);
             }
 
             if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
@@ -119,16 +119,6 @@ class CompleteStudyImportUploadAction
             ->lockForUpdate()
             ->first()
             ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
-    }
-
-    private function activeProcessingImport(int $userId): ?StudyImportJob
-    {
-        return StudyImportJob::query()
-            ->where('user_id', $userId)
-            ->where('status', StudyImportStatus::Processing->value)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->first();
     }
 
     private function markFailedAndDeleteArchive(StudyImportJob $importJob, string $message, Carbon $now): void

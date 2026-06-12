@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
 use App\Support\DateTime\ServerTimestamp;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
@@ -412,6 +413,7 @@ class ListStudyBrowserAction
         return $group
             ->map(fn (Card $card): ?string => $this->lastReviewedAt($card->getAttribute('review_events_max_reviewed_at')))
             ->filter()
+            // ServerTimestamp emits fixed-width UTC ISO strings, so lexicographic max is chronological max.
             ->max();
     }
 
@@ -421,7 +423,7 @@ class ListStudyBrowserAction
             return null;
         }
 
-        if ($value instanceof \DateTimeInterface || is_string($value)) {
+        if ($value instanceof DateTimeInterface || is_string($value)) {
             return ServerTimestamp::toJson($value)
                 ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');
         }
@@ -486,6 +488,7 @@ class ListStudyBrowserAction
 
     private function sourceKindFor(Card $card): string
     {
+        // Note groups are imported atomically; the deterministic first card represents group provenance.
         return is_string($card->source_kind) && $card->source_kind !== ''
             ? $card->source_kind
             : self::SOURCE_KIND_NATIVE;

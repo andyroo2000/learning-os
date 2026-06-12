@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 final readonly class StudyBrowserNoteDetailResult
 {
     /**
-     * @param  list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>  $rawFields
-     * @param  list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>  $canonicalFields
+     * @param  list<array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>  $rawFields
+     * @param  list<array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>  $canonicalFields
      * @param  EloquentCollection<int, Card>  $cards
      * @param  list<array{cardId: string, reviewCount: int, lastReviewedAt: string|null}>  $cardStats
      */

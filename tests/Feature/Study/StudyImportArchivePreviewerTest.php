@@ -75,6 +75,30 @@ class StudyImportArchivePreviewerTest extends TestCase
         ], $preview['note_type_breakdown']);
     }
 
+    public function test_it_previews_quoted_image_media_references_with_spaces(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/spaced-image-filename.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'note_one_fields' => '会社[sound:word.mp3]'."\x1f".'<img src="native image.png"> company',
+                'media_map' => [
+                    '0' => 'word.mp3',
+                    '1' => 'native image.png',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/spaced-image-filename.colpkg',
+        );
+
+        $this->assertSame(2, $preview['media_reference_count']);
+        $this->assertSame(0, $preview['skipped_media_count']);
+        $this->assertSame([], $preview['warnings']);
+    }
+
     public function test_it_reports_missing_and_skipped_media_manifest_entries(): void
     {
         Storage::fake('study-imports');

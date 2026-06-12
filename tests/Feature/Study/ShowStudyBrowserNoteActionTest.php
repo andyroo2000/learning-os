@@ -88,6 +88,43 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         $this->assertSame('7001', $result->noteId);
     }
 
+    public function test_it_exposes_media_fields_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'media detail [sound:canonical.mp3]',
+            'source_note_id' => 7101,
+            'prompt_json' => [
+                'cueAudio' => [
+                    'id' => 'audio-1',
+                    'filename' => 'word.mp3',
+                    'mediaKind' => 'audio',
+                    'source' => 'generated',
+                ],
+            ],
+            'answer_json' => [
+                'legacyImage' => '<img src="company.png">',
+            ],
+        ]);
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7101');
+
+        $this->assertNotNull($result);
+
+        $fieldsByName = collect($result->rawFields)->keyBy('name');
+
+        $this->assertSame('audio-1', $fieldsByName['prompt.cueAudio']['audio']['id']);
+        $this->assertSame('word.mp3', $fieldsByName['prompt.cueAudio']['audio']['filename']);
+        $this->assertArrayHasKey('image', $fieldsByName['prompt.cueAudio']);
+        $this->assertNull($fieldsByName['prompt.cueAudio']['image']);
+        $this->assertSame('company.png', $fieldsByName['answer.legacyImage']['image']['filename']);
+        $this->assertSame('imported_image', $fieldsByName['answer.legacyImage']['image']['source']);
+        $this->assertSame('displayText', $result->canonicalFields[0]['name']);
+        $this->assertSame('canonical.mp3', $result->canonicalFields[0]['audio']['filename']);
+        $this->assertArrayHasKey('image', $result->canonicalFields[0]);
+        $this->assertNull($result->canonicalFields[0]['image']);
+    }
+
     public function test_it_normalizes_database_timestamp_strings_from_review_aggregates(): void
     {
         $user = $this->signIn();

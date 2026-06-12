@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Results\StudyBrowserNoteDetailResult;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
+use App\Domain\Study\Support\StudyFieldMediaReferences;
 use App\Support\DateTime\ServerTimestamp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -222,7 +223,7 @@ class ShowStudyBrowserNoteAction
 
     /**
      * @param  EloquentCollection<int, Card>  $cards
-     * @return list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>
+     * @return list<array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>
      */
     private function fieldsForCards(EloquentCollection $cards): array
     {
@@ -246,7 +247,7 @@ class ShowStudyBrowserNoteAction
 
     /**
      * @param  EloquentCollection<int, Card>  $cards
-     * @return list<array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>
+     * @return list<array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>
      */
     private function canonicalFieldsForCards(EloquentCollection $cards, string $displayText): array
     {
@@ -260,7 +261,7 @@ class ShowStudyBrowserNoteAction
     }
 
     /**
-     * @param  array<string, array{name: string, value: string|null, textValue: string|null, audio: null, image: null}>  $fieldsByName
+     * @param  array<string, array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>  $fieldsByName
      */
     private function appendPayloadFields(array &$fieldsByName, string $prefix, mixed $payload): void
     {
@@ -284,19 +285,19 @@ class ShowStudyBrowserNoteAction
     }
 
     /**
-     * @return array{name: string, value: string|null, textValue: string|null, audio: null, image: null}
+     * @return array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}
      */
     private function field(string $name, mixed $value): array
     {
         $textValue = $this->fieldTextValue($value);
+        $media = StudyFieldMediaReferences::fromValue($value);
 
         return [
             'name' => $name,
-            // Keep both ConvoLab-compatible keys aligned until richer media field parsing exists.
             'value' => $textValue,
             'textValue' => $textValue,
-            'audio' => null,
-            'image' => null,
+            'audio' => $media['audio'],
+            'image' => $media['image'],
         ];
     }
 

@@ -111,6 +111,32 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertNull($companyMedia->checksumSha256);
     }
 
+    public function test_it_reads_quoted_image_media_references_with_spaces(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/spaced-image-filename.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'note_one_fields' => '会社[sound:word.mp3]'."\x1f".'<img src="native image.png"> company',
+                'media_map' => [
+                    '0' => 'word.mp3',
+                    '1' => 'native image.png',
+                ],
+            ]),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/spaced-image-filename.colpkg',
+        );
+
+        $this->assertSame(['word.mp3', 'native image.png'], $archive->mediaReferences());
+        $this->assertSame(['word.mp3', 'native image.png'], $archive->cards[0]->mediaReferences());
+        $this->assertArrayHasKey('native image.png', $archive->mediaManifestByFilename);
+        $this->assertSame('1', $archive->mediaManifestByFilename['native image.png']->sourceMediaRef);
+        $this->assertTrue($archive->mediaManifestByFilename['native image.png']->hasContent);
+    }
+
     public function test_review_log_metadata_is_nullable_when_legacy_columns_are_absent(): void
     {
         Storage::fake('study-imports');

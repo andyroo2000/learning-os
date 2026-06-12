@@ -423,6 +423,7 @@ class ListStudyBrowserAction
             return null;
         }
 
+        // Raw aggregate values arrive as strings today; the DateTimeInterface arm keeps direct callers defensive.
         if ($value instanceof DateTimeInterface || is_string($value)) {
             return ServerTimestamp::toJson($value)
                 ?? throw new UnexpectedValueException('Study browser review aggregate is not a valid timestamp.');

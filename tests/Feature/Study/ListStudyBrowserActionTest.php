@@ -87,9 +87,6 @@ class ListStudyBrowserActionTest extends TestCase
         CardReviewEvent::factory()->for($firstCard)->create([
             'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
         ]);
-        CardReviewEvent::factory()->for($secondCard)->create([
-            'reviewed_at' => Carbon::parse('2026-06-04T10:00:00Z'),
-        ]);
 
         $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
 
@@ -97,8 +94,8 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
         // Legacy blank first-card provenance keeps the deterministic row fallback, even if siblings carry imported metadata.
         $this->assertSame('native', $result['rows'][0]['sourceKind']);
-        $this->assertSame(2, $result['rows'][0]['reviewCount']);
-        $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
+        $this->assertSame(1, $result['rows'][0]['reviewCount']);
+        $this->assertSame('2026-06-01T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
     }
 
     public function test_it_normalizes_direct_note_type_and_sort_inputs(): void

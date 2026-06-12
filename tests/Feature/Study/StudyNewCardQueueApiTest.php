@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -170,6 +171,42 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
+    public function test_reorder_is_idempotent_when_the_compatible_order_is_unchanged(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+        $this->assertNotNull($firstCard->updated_at);
+        $this->assertNotNull($secondCard->updated_at);
+        $firstUpdatedAt = $firstCard->updated_at->toJSON();
+        $secondUpdatedAt = $secondCard->updated_at->toJSON();
+
+        $this->postJson('/api/study/new-queue/reorder', [
+            'cardIds' => [$firstCard->id, $secondCard->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonFragment(['nextCursor' => null])
+            ->assertJsonPath('items.0.id', $firstCard->id)
+            ->assertJsonPath('items.0.queuePosition', 1)
+            ->assertJsonPath('items.1.id', $secondCard->id)
+            ->assertJsonPath('items.1.queuePosition', 2);
+
+        $firstCard->refresh();
+        $secondCard->refresh();
+
+        $this->assertNotNull($firstCard->updated_at);
+        $this->assertNotNull($secondCard->updated_at);
+        $this->assertSame($firstUpdatedAt, $firstCard->updated_at->toJSON());
+        $this->assertSame($secondUpdatedAt, $secondCard->updated_at->toJSON());
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_study_and_canonical_reorders_share_the_same_rate_limit_bucket(): void
     {
         $limiter = new NewCardQueueReorderRateLimiter;
@@ -250,13 +287,59 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit']);
 
-        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => [$cardId, strtoupper($cardId)]])
+        $duplicateResponse = $this->postJson('/api/study/new-queue/reorder', ['cardIds' => [$cardId, strtoupper($cardId)]])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cardIds.1']);
 
-        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => ['not-a-ulid']])
+        $this->assertSame('cardIds must not contain duplicates.', $duplicateResponse->json('errors')['cardIds.1'][0]);
+
+        $malformedResponse = $this->postJson('/api/study/new-queue/reorder', ['cardIds' => ['not-a-ulid']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cardIds.0']);
+
+        $this->assertSame('Each cardId must be a valid ULID.', $malformedResponse->json('errors')['cardIds.0'][0]);
+    }
+
+    public function test_it_returns_camel_case_validation_messages_for_reorder_body_shapes(): void
+    {
+        $this->signIn();
+        $batchLimitMessage = 'cardIds must include between 1 and '.NewCardQueueLimits::PAGE_SIZE_MAX.' cards.';
+
+        $this->postJson('/api/study/new-queue/reorder', [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds'])
+            ->assertJsonPath('errors.cardIds.0', 'cardIds is required.');
+
+        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => []])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds'])
+            ->assertJsonPath('errors.cardIds.0', $batchLimitMessage);
+
+        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => null])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds'])
+            ->assertJsonPath('errors.cardIds.0', 'cardIds must be an array.');
+
+        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => 'not-a-list'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds'])
+            ->assertJsonPath('errors.cardIds.0', 'cardIds must be an array.');
+
+        $nestedResponse = $this->postJson('/api/study/new-queue/reorder', ['cardIds' => [['nested']]])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds.0']);
+
+        $this->assertSame('Each cardId must be a valid ULID.', $nestedResponse->json('errors')['cardIds.0'][0]);
+
+        $tooManyCardIds = array_map(
+            fn (): string => strtolower((string) str()->ulid()),
+            range(1, NewCardQueueLimits::PAGE_SIZE_MAX + 1),
+        );
+
+        $this->postJson('/api/study/new-queue/reorder', ['cardIds' => $tooManyCardIds])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cardIds'])
+            ->assertJsonPath('errors.cardIds.0', $batchLimitMessage);
     }
 
     public function test_it_rejects_array_shaped_new_queue_cursor(): void

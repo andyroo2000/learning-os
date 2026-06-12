@@ -12,11 +12,13 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
+use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class ReorderNewCardQueueActionTest extends TestCase
 {
+    use AssertsCardSyncFeedEntries;
     use RefreshDatabase;
     use SetsCardStudyStatus;
 
@@ -53,10 +55,14 @@ class ReorderNewCardQueueActionTest extends TestCase
             'new_queue_position' => 3,
         ]);
 
-        $entries = SyncFeedEntry::query()->orderBy('resource_id')->get();
+        $this->assertDatabaseCount('sync_feed_entries', 3);
 
-        $this->assertCount(3, $entries);
-        $this->assertTrue($entries->every(fn (SyncFeedEntry $entry): bool => $entry->operation === SyncFeedOperation::Update));
+        $entries = collect([
+            $this->assertCardSyncPayloadRecorded($firstCard->refresh(), SyncFeedOperation::Update),
+            $this->assertCardSyncPayloadRecorded($secondCard->refresh(), SyncFeedOperation::Update),
+            $this->assertCardSyncPayloadRecorded($thirdCard->refresh(), SyncFeedOperation::Update),
+        ]);
+
         $this->assertSame([
             $firstCard->id => 2,
             $secondCard->id => 3,
@@ -103,12 +109,23 @@ class ReorderNewCardQueueActionTest extends TestCase
         $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 2,
         ]);
+        $this->assertNotNull($firstCard->updated_at);
+        $this->assertNotNull($secondCard->updated_at);
+        $firstUpdatedAt = $firstCard->updated_at->toJSON();
+        $secondUpdatedAt = $secondCard->updated_at->toJSON();
 
-        app(ReorderNewCardQueueAction::class)->handle(
+        $cards = app(ReorderNewCardQueueAction::class)->handle(
             userId: $user->id,
             cardIds: [$firstCard->id, $secondCard->id],
         );
 
+        $this->assertSame([$firstCard->id, $secondCard->id], $cards->pluck('id')->all());
+        $this->assertSame(1, $firstCard->refresh()->new_queue_position);
+        $this->assertSame(2, $secondCard->refresh()->new_queue_position);
+        $this->assertNotNull($firstCard->updated_at);
+        $this->assertNotNull($secondCard->updated_at);
+        $this->assertSame($firstUpdatedAt, $firstCard->updated_at->toJSON());
+        $this->assertSame($secondUpdatedAt, $secondCard->updated_at->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 

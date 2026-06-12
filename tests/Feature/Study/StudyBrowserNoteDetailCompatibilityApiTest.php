@@ -94,6 +94,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('sourceKind', 'anki_import')
             ->assertJsonPath('reviewCount', 3)
             ->assertJsonPath('lastReviewedAt', $latestSecondCardReviewAt->toJSON())
+            ->assertJsonPath('updatedAt', $secondCard->updated_at?->toJSON())
             ->assertJsonPath('selectedCardId', (string) $firstCard->id)
             ->assertJsonPath('cards.0.id', (string) $firstCard->id)
             ->assertJsonPath('cards.0.noteId', '501')
@@ -164,7 +165,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
 
         $response = $this->getJson("/api/study/browser/{$card->id}")
             ->assertOk()
-            ->assertJsonPath('noteId', $card->id)
+            ->assertJsonPath('noteId', (string) $card->id)
             ->assertJsonPath('displayText', 'unsourced card')
             ->assertJsonPath('reviewCount', 0)
             ->assertJsonPath('lastReviewedAt', null)

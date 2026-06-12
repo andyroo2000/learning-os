@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Http\Requests\Concerns\NormalizesStringInputs;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ListStudyNewCardQueueRequest extends FormRequest
@@ -12,7 +13,11 @@ class ListStudyNewCardQueueRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->mergeNormalizedStringInputs(['cursor', 'limit', 'q'], blankToNull: ['q']);
+        $this->mergeNormalizedStringInputs(['cursor', 'limit', 'q', 'courseId', 'deckId'], blankToNull: ['q']);
+        $this->mergeStringInputsUsing(
+            ['courseId', 'deckId'],
+            fn (string $value): string => CanonicalUlid::normalize($value),
+        );
     }
 
     public function authorize(): bool
@@ -29,6 +34,8 @@ class ListStudyNewCardQueueRequest extends FormRequest
             'cursor' => ['sometimes', 'filled', 'integer', 'min:0'],
             'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'q' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'courseId' => ['sometimes', 'filled', 'ulid'],
+            'deckId' => ['sometimes', 'filled', 'ulid'],
         ];
     }
 
@@ -51,5 +58,26 @@ class ListStudyNewCardQueueRequest extends FormRequest
         }
 
         return $validated['q'];
+    }
+
+    public function courseId(): ?string
+    {
+        return $this->nullableString('courseId');
+    }
+
+    public function deckId(): ?string
+    {
+        return $this->nullableString('deckId');
+    }
+
+    private function nullableString(string $key): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
+            return null;
+        }
+
+        return (string) $validated[$key];
     }
 }

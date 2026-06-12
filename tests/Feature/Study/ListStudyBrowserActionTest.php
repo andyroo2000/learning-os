@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\ListStudyBrowserAction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -181,6 +183,100 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame(['4051', '4052'], collect($result['rows'])->pluck('noteId')->all());
     }
 
+    public function test_it_filters_browser_rows_by_course_id_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user);
+        Card::factory()->for($courseDeck)->create([
+            'front_text' => 'course scoped note',
+            'source_note_id' => 4056,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => 'course scoped browser note',
+        ]);
+        Card::factory()->for($otherDeck)->create([
+            'front_text' => 'outside course note',
+            'source_note_id' => 4057,
+            'source_notetype_name' => 'Japanese - Grammar',
+            'search_text' => 'course scoped browser note',
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            q: 'course scoped browser note',
+            courseId: ' '.strtoupper($course->id).' ',
+        );
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame(['4056'], collect($result['rows'])->pluck('noteId')->all());
+        $this->assertSame(['Japanese - Vocab'], $result['filterOptions']['noteTypes']);
+    }
+
+    public function test_it_filters_browser_rows_by_deck_id_for_direct_callers(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'deck scoped note',
+            'source_note_id' => 4058,
+        ]);
+        Card::factory()->for($otherDeck)->create([
+            'front_text' => 'same course other deck note',
+            'source_note_id' => 4059,
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            deckId: ' '.strtoupper($deck->id).' ',
+        );
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame(['4058'], collect($result['rows'])->pluck('noteId')->all());
+    }
+
+    public function test_it_returns_empty_when_browser_course_and_deck_filters_do_not_match(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+        Card::factory()->for($otherCourseDeck)->create([
+            'front_text' => 'other course note',
+            'source_note_id' => 4060,
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            courseId: $course->id,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertSame(0, $result['total']);
+        $this->assertSame([], $result['rows']);
+        $this->assertSame([], $result['filterOptions']['noteTypes']);
+    }
+
+    public function test_it_hides_browser_deck_filters_owned_by_other_users(): void
+    {
+        $user = $this->signIn();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        Card::factory()->for($otherDeck)->create([
+            'front_text' => 'other user note',
+            'source_note_id' => 4061,
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertSame(0, $result['total']);
+        $this->assertSame([], $result['rows']);
+    }
+
     public function test_it_uses_group_timestamp_boundaries_for_direct_callers(): void
     {
         $user = $this->signIn();
@@ -295,6 +391,50 @@ class ListStudyBrowserActionTest extends TestCase
         app(ListStudyBrowserAction::class)->handle(
             userId: $this->signIn()->id,
             q: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_course_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study browser courseId filter must not be blank when provided.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_malformed_course_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study browser courseId filter must be a valid ULID.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            courseId: 'not-a-ulid',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study browser deckId filter must not be blank when provided.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            deckId: '   ',
+        );
+    }
+
+    public function test_it_rejects_malformed_deck_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Study browser deckId filter must be a valid ULID.');
+
+        app(ListStudyBrowserAction::class)->handle(
+            userId: $this->signIn()->id,
+            deckId: 'not-a-ulid',
         );
     }
 

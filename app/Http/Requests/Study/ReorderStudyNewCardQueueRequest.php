@@ -35,8 +35,25 @@ class ReorderStudyNewCardQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cardIds' => ['required', 'array', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
+            'cardIds' => ['present', 'array', 'min:1', 'max:'.NewCardQueueLimits::PAGE_SIZE_MAX],
             'cardIds.*' => ['required', 'string', 'distinct', 'ulid'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'cardIds.present' => 'cardIds is required.',
+            'cardIds.array' => 'cardIds must be an array.',
+            'cardIds.min' => 'cardIds must include between 1 and '.NewCardQueueLimits::PAGE_SIZE_MAX.' cards.',
+            'cardIds.max' => 'cardIds must include between 1 and '.NewCardQueueLimits::PAGE_SIZE_MAX.' cards.',
+            'cardIds.*.required' => 'Each cardId must be a valid ULID.',
+            'cardIds.*.string' => 'Each cardId must be a valid ULID.',
+            'cardIds.*.distinct' => 'cardIds must not contain duplicates.',
+            'cardIds.*.ulid' => 'Each cardId must be a valid ULID.',
         ];
     }
 }

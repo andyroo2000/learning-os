@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Flashcards\Support\NewCardQueueOrdering;
+use App\Domain\Study\Support\StudyListScopeFilter;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -20,6 +21,8 @@ class ListStudyNewCardQueueAction
         int $cursor = 0,
         int $limit = NewCardQueueLimits::PAGE_SIZE_DEFAULT,
         ?string $q = null,
+        ?string $courseId = null,
+        ?string $deckId = null,
     ): array {
         if ($cursor < 0) {
             throw new InvalidArgumentException('cursor must be a non-negative integer.');
@@ -31,12 +34,16 @@ class ListStudyNewCardQueueAction
             );
         }
 
+        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'New card queue');
+        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'New card queue');
         $searchPattern = $q === null ? null : CardSearchText::likePattern($q);
         $query = Card::query()
             ->select('cards.*')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
             ->where('cards.study_status', CardStudyStatus::New->value)
             ->when($searchPattern !== null, fn ($query) => $query->whereRaw(
                 "lower(coalesce(cards.search_text, '')) like ? escape ?",

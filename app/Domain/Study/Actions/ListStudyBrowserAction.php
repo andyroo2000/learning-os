@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Study\Support\StudyBrowserCardAggregate;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
+use App\Domain\Study\Support\StudyListScopeFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
@@ -54,6 +55,8 @@ class ListStudyBrowserAction
         ?string $sortDirection = null,
         ?string $cursor = null,
         ?int $limit = null,
+        ?string $courseId = null,
+        ?string $deckId = null,
     ): array {
         $q = $this->normalizeSearchQuery($q);
         $noteType = $this->normalizeNoteTypeFilter($noteType);
@@ -63,6 +66,8 @@ class ListStudyBrowserAction
         $sortDirection = $this->normalizeSortDirection($sortDirection);
         $limit = $this->normalizeLimit($limit);
         $offset = $this->decodeOffsetCursor($cursor);
+        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study browser');
+        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'Study browser');
 
         // Browser rows are note aggregates with derived counts, so this compatibility slice materializes matching cards before sorting and slicing.
         $cards = $this->cardsForBrowser(
@@ -71,6 +76,8 @@ class ListStudyBrowserAction
             noteType: $noteType,
             cardType: $cardType,
             queueState: $queueState,
+            courseId: $courseId,
+            deckId: $deckId,
         );
 
         if ($cards->isEmpty()) {
@@ -96,7 +103,7 @@ class ListStudyBrowserAction
         $nextOffset = $offset + count($pageRows);
         $filterOptionRows = $this->canReuseLoadedCardsForFilterOptions($noteType, $cardType, $queueState)
             ? $this->filterOptionRowsFromCards($cards)
-            : $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState);
+            : $this->filterOptionRows($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
 
         return [
             'rows' => $pageRows,
@@ -187,8 +194,10 @@ class ListStudyBrowserAction
         ?string $noteType,
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
     ): Collection {
-        $baseQuery = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState);
+        $baseQuery = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
 
         // Mirror the outer filters so the review aggregate scans only stats for visible browser cards.
         $matchingCardIds = (clone $baseQuery)
@@ -235,6 +244,8 @@ class ListStudyBrowserAction
         ?string $noteType,
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
     ): Builder {
         return $this->applyBrowserCardFilters(
             Card::query()->ownedByActiveDeck($userId),
@@ -242,6 +253,8 @@ class ListStudyBrowserAction
             $noteType,
             $cardType,
             $queueState,
+            $courseId,
+            $deckId,
         );
     }
 
@@ -254,10 +267,12 @@ class ListStudyBrowserAction
         ?string $noteType,
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
     ): Collection {
-        $noteTypes = $this->filterOptionQuery($userId, $q, null, $cardType, $queueState, 'note_type', 'cards.source_notetype_name');
-        $cardTypes = $this->filterOptionQuery($userId, $q, $noteType, null, $queueState, 'card_type', 'cards.card_type');
-        $queueStates = $this->filterOptionQuery($userId, $q, $noteType, $cardType, null, 'queue_state', 'cards.study_status');
+        $noteTypes = $this->filterOptionQuery($userId, $q, null, $cardType, $queueState, $courseId, $deckId, 'note_type', 'cards.source_notetype_name');
+        $cardTypes = $this->filterOptionQuery($userId, $q, $noteType, null, $queueState, $courseId, $deckId, 'card_type', 'cards.card_type');
+        $queueStates = $this->filterOptionQuery($userId, $q, $noteType, $cardType, null, $courseId, $deckId, 'queue_state', 'cards.study_status');
 
         return $noteTypes
             ->union($cardTypes)
@@ -302,6 +317,8 @@ class ListStudyBrowserAction
         ?string $noteType,
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
         string $facet,
         string $column,
     ): QueryBuilder {
@@ -310,7 +327,7 @@ class ListStudyBrowserAction
         }
 
         // $column is a trusted literal column reference from filterOptionRows(); never pass request input here.
-        return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState)
+        return $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId)
             ->select(DB::raw($column.' as value'))
             ->selectRaw('? as facet', [$facet])
             ->whereNotNull($column)
@@ -325,11 +342,15 @@ class ListStudyBrowserAction
         ?string $noteType,
         ?CardType $cardType,
         ?CardStudyStatus $queueState,
+        ?string $courseId,
+        ?string $deckId,
     ): Builder {
         return $query
             ->when($noteType !== null, fn ($query) => $query->where('cards.source_notetype_name', $noteType))
             ->when($cardType !== null, fn ($query) => $query->where('cards.card_type', $cardType->value))
             ->when($queueState !== null, fn ($query) => $query->where('cards.study_status', $queueState->value))
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
             ->when($q !== null, fn ($query) => $query->whereRaw(
                 "lower(coalesce(cards.search_text, '')) like ? escape ?",
                 [CardSearchText::likePattern($q), '\\'],

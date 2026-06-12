@@ -56,4 +56,15 @@ trait NormalizesStringInputs
             $this->merge($normalized);
         }
     }
+
+    protected function nullableString(string $key): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
+            return null;
+        }
+
+        return (string) $validated[$key];
+    }
 }

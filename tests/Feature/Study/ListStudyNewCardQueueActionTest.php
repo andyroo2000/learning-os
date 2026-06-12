@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
@@ -137,6 +138,91 @@ class ListStudyNewCardQueueActionTest extends TestCase
         $this->assertSame([$legacyNullPositionCard->id], $secondPage['items']->pluck('id')->all());
     }
 
+    public function test_it_filters_new_cards_by_course_id_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $courseDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user);
+        $courseCard = $this->cardWithStudyStatus($courseDeck, CardStudyStatus::New, [
+            'search_text' => '会社 company',
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'search_text' => '会社 outside course',
+            'new_queue_position' => 2,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            q: '会社',
+            courseId: ' '.strtoupper($course->id).' ',
+        );
+
+        $this->assertSame(1, $page['total']);
+        $this->assertSame([$courseCard->id], $page['items']->pluck('id')->all());
+    }
+
+    public function test_it_filters_new_cards_by_deck_id_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeck = $this->deckFor($user, ['course_id' => $course->id]);
+        $deckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            deckId: ' '.strtoupper($deck->id).' ',
+        );
+
+        $this->assertSame(1, $page['total']);
+        $this->assertSame([$deckCard->id], $page['items']->pluck('id')->all());
+    }
+
+    public function test_it_returns_empty_when_course_and_deck_filters_do_not_match(): void
+    {
+        $user = User::factory()->create();
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        $otherCourseDeck = $this->deckFor($user, ['course_id' => $otherCourse->id]);
+        $this->cardWithStudyStatus($otherCourseDeck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            courseId: $course->id,
+            deckId: $otherCourseDeck->id,
+        );
+
+        $this->assertSame(0, $page['total']);
+        $this->assertNull($page['nextCursor']);
+        $this->assertEmpty($page['items']);
+    }
+
+    public function test_it_hides_deck_filters_owned_by_other_users(): void
+    {
+        $user = User::factory()->create();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $page = app(ListStudyNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            deckId: $otherDeck->id,
+        );
+
+        $this->assertSame(0, $page['total']);
+        $this->assertEmpty($page['items']);
+    }
+
     public function test_it_preserves_created_at_tiebreaking_with_null_queue_positions_last(): void
     {
         $user = User::factory()->create();
@@ -193,6 +279,50 @@ class ListStudyNewCardQueueActionTest extends TestCase
         app(ListStudyNewCardQueueAction::class)->handle(
             userId: User::factory()->create()->id,
             q: '   ',
+        );
+    }
+
+    public function test_it_rejects_blank_course_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('New card queue courseId filter must not be blank when provided.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            courseId: '   ',
+        );
+    }
+
+    public function test_it_rejects_malformed_course_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('New card queue courseId filter must be a valid ULID.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            courseId: 'not-a-ulid',
+        );
+    }
+
+    public function test_it_rejects_blank_deck_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('New card queue deckId filter must not be blank when provided.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: '   ',
+        );
+    }
+
+    public function test_it_rejects_malformed_deck_filters_for_direct_callers(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('New card queue deckId filter must be a valid ULID.');
+
+        app(ListStudyNewCardQueueAction::class)->handle(
+            userId: User::factory()->create()->id,
+            deckId: 'not-a-ulid',
         );
     }
 

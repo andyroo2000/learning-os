@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
@@ -165,6 +166,75 @@ class StudyBrowserCompatibilityApiTest extends TestCase
         $this->assertCount(0, $standaloneReviewCountSelects, 'Study browser should not run a standalone review-count query on each page load.');
         $this->assertCount(1, $rowSelectsWithReviewCount, 'Study browser should load review counts in the row query.');
         $this->assertCount(1, $filteredReviewCountSelects, 'Study browser should filter review-count aggregation to matching cards.');
+    }
+
+    public function test_it_filters_browser_rows_and_filter_options_by_course_and_deck_ids(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        $outsideCourseDeck = $this->deckFor($user);
+        $matchingCard = Card::factory()->for($deck)->create([
+            'front_text' => '会社',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::Review,
+            'source_note_id' => 1151,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'search_text' => '会社 scoped browser',
+        ]);
+        Card::factory()->for($otherDeckInCourse)->create([
+            'front_text' => '会社 same course',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::New,
+            'source_note_id' => 1152,
+            'source_notetype_name' => 'Japanese - Grammar',
+            'search_text' => '会社 scoped browser',
+        ]);
+        Card::factory()->for($outsideCourseDeck)->create([
+            'front_text' => '会社 outside course',
+            'card_type' => CardType::Cloze,
+            'study_status' => CardStudyStatus::Buried,
+            'source_note_id' => 1153,
+            'source_notetype_name' => 'Outside Course',
+            'search_text' => '会社 scoped browser',
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?q='.rawurlencode(' 会社 scoped ')
+                .'&courseId='.rawurlencode(' '.strtoupper($course->id).' ')
+                .'&deckId='.rawurlencode(' '.strtoupper($deck->id).' ')
+                .'&cardType=recognition');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('rows.0.noteId', '1151')
+            ->assertJsonPath('rows.0.selectedCardId', (string) $matchingCard->id)
+            ->assertJsonPath('filterOptions.noteTypes', ['Japanese - Vocab'])
+            ->assertJsonPath('filterOptions.cardTypes', ['recognition'])
+            ->assertJsonPath('filterOptions.queueStates', ['review']);
+    }
+
+    public function test_it_returns_empty_for_cross_user_browser_deck_filters(): void
+    {
+        $user = $this->signIn();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        Card::factory()->for($otherDeck)->create([
+            'front_text' => 'hidden browser note',
+            'source_note_id' => 1154,
+        ]);
+        Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => 'visible different deck note',
+            'source_note_id' => 1155,
+        ]);
+
+        $this->getJson('/api/study/browser?deckId='.$otherDeck->id)
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonCount(0, 'rows')
+            ->assertJsonPath('filterOptions.noteTypes', []);
     }
 
     public function test_it_returns_sorted_filter_options_without_filters(): void
@@ -599,6 +669,22 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonValidationErrors(['sortField']);
         $this->getJson('/api/study/browser?sortDirection[]=desc')
             ->assertJsonValidationErrors(['sortDirection']);
+        $this->getJson('/api/study/browser?courseId=not-a-ulid')
+            ->assertJsonValidationErrors(['courseId']);
+        $this->getJson('/api/study/browser?courseId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertJsonValidationErrors(['courseId']);
+        $this->getJson('/api/study/browser?deckId=not-a-ulid')
+            ->assertJsonValidationErrors(['deckId']);
+        $this->getJson('/api/study/browser?deckId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertJsonValidationErrors(['deckId']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?courseId=%20')
+            ->assertJsonValidationErrors(['courseId']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/browser?deckId=%20')
+            ->assertJsonValidationErrors(['deckId']);
         $this->getJson('/api/study/browser?cursor=')
             ->assertJsonValidationErrors(['cursor']);
         $this->getJson('/api/study/browser?cursor[]=abc')

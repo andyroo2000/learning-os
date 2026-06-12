@@ -22,6 +22,8 @@ class ListStudyNewCardQueueController extends Controller
             cursor: $request->cursor(),
             limit: $request->limit(),
             q: $request->q(),
+            courseId: $request->courseId(),
+            deckId: $request->deckId(),
         );
 
         return response()->json([

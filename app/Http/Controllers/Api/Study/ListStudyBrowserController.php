@@ -22,6 +22,8 @@ class ListStudyBrowserController extends Controller
             sortDirection: $request->sortDirection(),
             cursor: $request->cursor(),
             limit: $request->limit(),
+            courseId: $request->courseId(),
+            deckId: $request->deckId(),
         ));
     }
 }

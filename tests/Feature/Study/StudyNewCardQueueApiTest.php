@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
@@ -112,6 +113,62 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('total', 3)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonPath('items.0.id', $thirdCard->id);
+    }
+
+    public function test_it_filters_the_new_queue_by_course_and_deck_ids(): void
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $otherDeckInCourse = $this->deckFor($user, ['course_id' => $course->id]);
+        $outsideCourseDeck = $this->deckFor($user);
+        $matchingCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'search_text' => '会社 company',
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($otherDeckInCourse, CardStudyStatus::New, [
+            'search_text' => '会社 same course',
+            'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($outsideCourseDeck, CardStudyStatus::New, [
+            'search_text' => '会社 outside course',
+            'new_queue_position' => 3,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'search_text' => '会社 review',
+            'new_queue_position' => 4,
+        ]);
+
+        $response = $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?q='.rawurlencode(' 会社 ')
+                .'&courseId='.rawurlencode(' '.strtoupper($course->id).' ')
+                .'&deckId='.rawurlencode(' '.strtoupper($deck->id).' '));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('items.0.id', $matchingCard->id);
+    }
+
+    public function test_it_returns_empty_for_cross_user_deck_filters(): void
+    {
+        $user = $this->signIn();
+        $otherDeck = $this->deckFor(User::factory()->create());
+        $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+        $this->cardWithStudyStatus($this->deckFor($user), CardStudyStatus::New, [
+            'new_queue_position' => 2,
+        ]);
+
+        $this->getJson('/api/study/new-queue?deckId='.$otherDeck->id)
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonCount(0, 'items');
     }
 
     public function test_it_lists_equal_queue_positions_by_created_at_before_legacy_null_positions(): void
@@ -311,6 +368,22 @@ class StudyNewCardQueueApiTest extends TestCase
             ->getJson('/api/study/new-queue?limit=%20')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?courseId=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+        $this->getJson('/api/study/new-queue?courseId=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+        $this
+            ->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/study/new-queue?deckId=%20')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
+        $this->getJson('/api/study/new-queue?deckId=not-a-ulid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
 
         $duplicateResponse = $this->postJson('/api/study/new-queue/reorder', ['cardIds' => [$cardId, strtoupper($cardId)]])
             ->assertUnprocessable()
@@ -392,5 +465,18 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->getJson('/api/study/new-queue?q[]=会社')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['q']);
+    }
+
+    public function test_it_rejects_array_shaped_new_queue_course_and_deck_filters(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/new-queue?courseId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['courseId']);
+
+        $this->getJson('/api/study/new-queue?deckId[]=01ktt2q9z5vfpxsqgc3mwrdh35')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId']);
     }
 }

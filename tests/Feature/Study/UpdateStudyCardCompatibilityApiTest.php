@@ -18,10 +18,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class UpdateStudyCardCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_it_updates_a_study_card_from_prompt_and_answer_payloads(): void
@@ -73,6 +75,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
                 ->assertJsonPath('state.source.cardId', '901')
                 ->assertJsonPath('state.source.deckId', '301')
                 ->assertJsonPath('answerAudioSource', 'missing');
+
+            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
             $card->refresh();
 
@@ -138,7 +142,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->patchJson("/api/study/cards/{$card->id}", [
                 'prompt' => ['cueText' => '  会社  '],
@@ -159,6 +163,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', 3)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
             ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card->refresh();
         $this->assertSame('会社', $card->front_text);
@@ -190,7 +196,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
         ]);
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->patchJson("/api/study/cards/{$card->id}", [
                 'prompt' => ['cueText' => '会社'],
@@ -209,6 +215,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', null)
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card->refresh();
         $this->assertNull($card->variant_group_id);
@@ -242,7 +250,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertNotNull($card->updated_at);
         $originalUpdatedAt = $card->updated_at->toJSON();
 
-        $this->patchJson("/api/study/cards/{$card->id}", [
+        $response = $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => $prompt,
             'answer' => $answer,
         ])
@@ -257,6 +265,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
             ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z')
             ->assertJsonPath('updatedAt', $originalUpdatedAt);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card->refresh();
 
@@ -290,7 +300,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         ]);
         $card->refresh();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->patchJson("/api/study/cards/{$card->id}", [
                 'prompt' => $prompt,
@@ -309,6 +319,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
             ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $this->assertSame('2026-06-05T14:15:00.000000Z', $card->refresh()->variant_unlocked_at?->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
@@ -404,7 +416,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             'back_text' => 'old back',
         ]);
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->patchJson('/api/study/cards/'.strtoupper($card->id), [
                 'prompt' => ['cueText' => '  会社  '],
@@ -413,6 +425,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('prompt.cueText', '  会社  ')
             ->assertJsonPath('answer.meaning', '  company  ');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card->refresh();
 
@@ -595,13 +609,15 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             $maxDepth = ['nested' => $maxDepth];
         }
 
-        $this->patchJson("/api/study/cards/{$card->id}", [
+        $response = $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => ['cueText' => 'front', 'nested' => $maxDepth],
             'answer' => ['meaning' => 'back'],
         ])
             ->assertOk()
             ->assertJsonPath('prompt.cueText', 'front')
             ->assertJsonPath('answer.meaning', 'back');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card->refresh();
 

@@ -26,12 +26,14 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\Support\AssertsCardReviewEventSyncFeedEntries;
 use Tests\Support\AssertsCardSyncFeedEntries;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class StudyReviewCompatibilityApiTest extends TestCase
 {
     use AssertsCardReviewEventSyncFeedEntries;
     use AssertsCardSyncFeedEntries;
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_it_requires_authentication(): void
@@ -107,6 +109,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('overview.latestImport.status', 'completed')
                 ->assertJsonPath('overview.latestImport.sourceType', StudyImportJob::SOURCE_TYPE_ANKI_COLPKG)
                 ->assertJsonPath('overview.latestImport.sourceFilename', 'core-2k.apkg');
+
+            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json('card'), 'review card payload');
 
             $reviewLogId = $response->json('reviewLogId');
 
@@ -204,7 +208,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 'due_at' => '2026-06-05T12:00:00Z',
             ]);
 
-            $this->postJson('/api/study/reviews', [
+            $response = $this->postJson('/api/study/reviews', [
                 'cardId' => '  '.strtoupper($card->id).'  ',
                 'grade' => '  GOOD  ',
                 'timeZone' => '  America/New_York  ',
@@ -212,6 +216,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('card.id', $card->id)
                 ->assertJsonPath('card.state.queueState', 'review');
+
+            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json('card'), 'normalized review card payload');
         } finally {
             Carbon::setTestNow();
         }
@@ -238,6 +244,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('card.noteId', null)
                 ->assertJsonPath('card.state.source.noteId', null);
+
+            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json('card'), 'native review card payload');
 
             $this->assertDatabaseHas('card_review_events', [
                 'id' => $response->json('reviewLogId'),
@@ -468,6 +476,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ->assertJsonPath('cardFetchFailed', true)
             ->assertJsonPath('card', null)
             ->assertJsonPath('overview.totalCards', 0);
+
+        $this->assertArrayHasKey('card', $response->json());
 
         $this->assertIsString($reviewLogId);
         $this->assertDatabaseHas('card_review_events', [

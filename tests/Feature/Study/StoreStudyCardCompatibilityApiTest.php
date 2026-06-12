@@ -25,10 +25,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use LogicException;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class StoreStudyCardCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_it_creates_a_manual_study_card_in_the_default_study_deck(): void
@@ -61,6 +63,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('state.source.noteId', null)
             ->assertJsonPath('answerAudioSource', 'missing');
 
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
         $deck = Deck::query()->sole();
         $this->assertSame($user->id, $deck->user_id);
         $this->assertSame(ResolveManualStudyDeckAction::DEFAULT_DECK_NAME, $deck->name);
@@ -90,7 +94,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $user = $this->signIn();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/cards', [
                 'creationKind' => ' text-recognition ',
@@ -114,6 +118,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             // The storage column is second-precision, so fractional input is normalized away.
             ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
 
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
         $card = Card::query()->sole();
         $this->assertSame($user->id, $card->ownerUserId());
         $this->assertSame('vocab-group-1', $card->variant_group_id);
@@ -133,7 +139,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $this->signIn();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/cards', [
                 'cardType' => 'recognition',
@@ -143,6 +149,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('variantStage', 2);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card = Card::query()->sole();
         $this->assertSame(2, $card->variant_stage);
@@ -157,7 +165,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $this->signIn();
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/cards', [
                 'cardType' => 'recognition',
@@ -178,6 +186,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null);
 
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
         $card = Card::query()->sole();
         $this->assertNull($card->variant_group_id);
         $this->assertNull($card->variant_sentence_id);
@@ -191,7 +201,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->postJson('/api/study/cards', [
+        $response = $this->postJson('/api/study/cards', [
             'cardType' => 'recognition',
             'prompt' => ['cueText' => '犬'],
             'answer' => ['meaning' => 'dog'],
@@ -204,6 +214,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', null)
             ->assertJsonPath('variantStatus', null)
             ->assertJsonPath('variantUnlockedAt', null);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card = Card::query()->sole();
         $this->assertSame('vocab-group-1', $card->variant_group_id);
@@ -271,6 +283,9 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('cardType', 'recognition')
             ->assertJsonPath('prompt.cueText', '会社')
             ->assertJsonPath('answer.meaning', 'company');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($firstResponse->json(), 'first idempotent card payload');
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($secondResponse->json(), 'second idempotent card payload');
 
         $this->assertSame(1, Card::query()->count());
         $this->assertSame(1, Deck::query()->count());
@@ -538,7 +553,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->postJson('/api/study/cards', [
+        $response = $this->postJson('/api/study/cards', [
             'creationKind' => 'production-image',
             'cardType' => 'retired-card-type',
             'prompt' => ['cueText' => 'company'],
@@ -547,6 +562,8 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('cardType', 'production');
 
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
         $this->assertSame(CardType::Production, Card::query()->sole()->card_type);
     }
 
@@ -554,13 +571,15 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->postJson('/api/study/cards', [
+        $response = $this->postJson('/api/study/cards', [
             'creationKind' => 'cloze',
             'prompt' => ['cueText' => 'front'],
             'answer' => ['meaning' => 'back'],
         ])
             ->assertCreated()
             ->assertJsonPath('cardType', 'cloze');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $this->assertSame(CardType::Cloze, Card::query()->sole()->card_type);
     }

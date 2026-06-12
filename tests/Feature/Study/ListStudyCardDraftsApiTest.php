@@ -14,10 +14,12 @@ use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class ListStudyCardDraftsApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_index_requires_authentication(): void
@@ -29,12 +31,14 @@ class ListStudyCardDraftsApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->getJson('/api/study/card-drafts')
+        $response = $this->getJson('/api/study/card-drafts')
             ->assertOk()
             ->assertJsonPath('total', 0)
             ->assertJsonPath('limit', ListStudyCardDraftsAction::DEFAULT_LIMIT)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonCount(0, 'drafts');
+
+        $this->assertStudyCardDraftCompatibilityPageHasShape($response->json());
     }
 
     public function test_index_returns_drafts_for_the_authenticated_user(): void
@@ -70,7 +74,7 @@ class ListStudyCardDraftsApiTest extends TestCase
             'created_at' => now()->subDays(2),
         ]);
 
-        $this->getJson('/api/study/card-drafts')
+        $response = $this->getJson('/api/study/card-drafts')
             ->assertOk()
             ->assertJsonPath('total', 2)
             ->assertJsonPath('limit', ListStudyCardDraftsAction::DEFAULT_LIMIT)
@@ -100,37 +104,9 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertJsonPath('drafts.1.committedCardId', null)
             ->assertJsonMissing([
                 'id' => $otherDraft->id,
-            ])
-            ->assertJsonStructure([
-                'drafts' => [
-                    '*' => [
-                        'id',
-                        'status',
-                        'creationKind',
-                        'cardType',
-                        'prompt',
-                        'answer',
-                        'imagePlacement',
-                        'imagePrompt',
-                        'previewAudio',
-                        'previewAudioRole',
-                        'previewImage',
-                        'variantGroupId',
-                        'variantSentenceId',
-                        'variantKind',
-                        'variantStage',
-                        'variantStatus',
-                        'variantUnlockedAt',
-                        'errorMessage',
-                        'committedCardId',
-                        'createdAt',
-                        'updatedAt',
-                    ],
-                ],
-                'total',
-                'limit',
-                'nextCursor',
             ]);
+
+        $this->assertStudyCardDraftCompatibilityPageHasShape($response->json());
     }
 
     public function test_index_uses_limit_and_next_cursor(): void
@@ -152,15 +128,19 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertJsonPath('total', 2)
             ->assertJsonPath('limit', 1);
 
+        $this->assertStudyCardDraftCompatibilityPageHasShape($firstPage->json());
+
         $nextCursor = $firstPage->json('nextCursor');
         $this->assertNotNull($nextCursor);
 
-        $this->getJson('/api/study/card-drafts?limit=1&cursor='.urlencode($nextCursor))
+        $secondPage = $this->getJson('/api/study/card-drafts?limit=1&cursor='.urlencode($nextCursor))
             ->assertOk()
             ->assertJsonCount(1, 'drafts')
             ->assertJsonPath('drafts.0.id', $newerDraft->id)
             ->assertJsonPath('total', null)
             ->assertJsonPath('nextCursor', null);
+
+        $this->assertStudyCardDraftCompatibilityPageHasShape($secondPage->json());
     }
 
     public function test_index_uses_stable_id_tiebreaker_for_equal_created_at_values(): void
@@ -202,7 +182,7 @@ class ListStudyCardDraftsApiTest extends TestCase
         ]);
         $cursor = app(ListStudyCardDraftsAction::class)->handle($user->id, limit: 1)['nextCursor'];
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/card-drafts?limit=%201%20&cursor='.urlencode(' '.$cursor.' '))
             ->assertOk()
@@ -211,6 +191,8 @@ class ListStudyCardDraftsApiTest extends TestCase
             ->assertJsonMissing([
                 'id' => $olderDraft->id,
             ]);
+
+        $this->assertStudyCardDraftCompatibilityPageHasShape($response->json());
     }
 
     public function test_index_rejects_invalid_limit_and_cursor_values(): void

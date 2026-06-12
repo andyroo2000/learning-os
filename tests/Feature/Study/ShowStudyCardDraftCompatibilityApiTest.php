@@ -12,10 +12,12 @@ use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class ShowStudyCardDraftCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_show_requires_authentication(): void
@@ -52,7 +54,7 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->getJson("/api/study/card-drafts/{$draft->id}")
+        $response = $this->getJson("/api/study/card-drafts/{$draft->id}")
             ->assertOk()
             ->assertJsonPath('id', $draft->id)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Ready->value)
@@ -70,40 +72,21 @@ class ShowStudyCardDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', 3)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
             ->assertJsonPath('variantUnlockedAt', $draft->variant_unlocked_at->toJSON())
-            ->assertJsonPath('committedCardId', null)
-            ->assertJsonStructure([
-                'id',
-                'status',
-                'creationKind',
-                'cardType',
-                'prompt',
-                'answer',
-                'imagePlacement',
-                'imagePrompt',
-                'previewAudio',
-                'previewAudioRole',
-                'previewImage',
-                'variantGroupId',
-                'variantSentenceId',
-                'variantKind',
-                'variantStage',
-                'variantStatus',
-                'variantUnlockedAt',
-                'errorMessage',
-                'committedCardId',
-                'createdAt',
-                'updatedAt',
-            ]);
+            ->assertJsonPath('committedCardId', null);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
     }
 
     public function test_it_returns_failed_draft_status_and_error_message(): void
     {
         $draft = StudyCardDraft::factory()->failed()->for($this->signIn())->create();
 
-        $this->getJson("/api/study/card-drafts/{$draft->id}")
+        $response = $this->getJson("/api/study/card-drafts/{$draft->id}")
             ->assertOk()
             ->assertJsonPath('status', StudyManualCardDraftStatus::Error->value)
             ->assertJsonPath('errorMessage', 'Could not fill the remaining fields.');
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
     }
 
     public function test_it_normalizes_uppercase_route_draft_ids(): void

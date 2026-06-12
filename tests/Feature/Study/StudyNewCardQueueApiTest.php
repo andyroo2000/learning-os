@@ -15,11 +15,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class StudyNewCardQueueApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
     use SetsCardStudyStatus;
 
@@ -80,6 +82,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('items.1.displayText', 'Legacy display')
             ->assertJsonPath('items.1.meaning', 'legacy meaning')
             ->assertJsonPath('items.1.queuePosition', null);
+
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
     }
 
     public function test_it_supports_offset_cursor_pagination(): void
@@ -106,6 +110,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('items.0.id', $firstCard->id)
             ->assertJsonPath('items.1.id', $secondCard->id);
 
+        $this->assertStudyNewCardQueuePageHasShape($firstPage->json());
+
         $secondPage = $this->getJson('/api/study/new-queue?cursor=2&limit=2');
 
         $secondPage
@@ -113,6 +119,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('total', 3)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonPath('items.0.id', $thirdCard->id);
+
+        $this->assertStudyNewCardQueuePageHasShape($secondPage->json());
     }
 
     public function test_it_filters_the_new_queue_by_course_and_deck_ids(): void
@@ -151,6 +159,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('nextCursor', null)
             ->assertJsonCount(1, 'items')
             ->assertJsonPath('items.0.id', $matchingCard->id);
+
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
     }
 
     public function test_it_returns_empty_for_cross_user_deck_filters(): void
@@ -164,11 +174,13 @@ class StudyNewCardQueueApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->getJson('/api/study/new-queue?deckId='.$otherDeck->id)
+        $response = $this->getJson('/api/study/new-queue?deckId='.$otherDeck->id)
             ->assertOk()
             ->assertJsonPath('total', 0)
             ->assertJsonPath('nextCursor', null)
             ->assertJsonCount(0, 'items');
+
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
     }
 
     public function test_it_lists_equal_queue_positions_by_created_at_before_legacy_null_positions(): void
@@ -206,7 +218,7 @@ class StudyNewCardQueueApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/study/new-queue?cursor=%20%2B1%20&limit=%20%2B1%20')
             ->assertOk()
@@ -215,6 +227,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('nextCursor', null)
             ->assertJsonCount(1, 'items')
             ->assertJsonPath('items.0.id', $secondCard->id);
+
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
     }
 
     public function test_it_reorders_with_camel_case_card_ids_and_returns_the_default_queue_page(): void
@@ -242,6 +256,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('items.1.id', $firstCard->id)
             ->assertJsonPath('items.1.queuePosition', 2);
 
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
+
         $this->assertDatabaseHas('cards', [
             'id' => $secondCard->id,
             'new_queue_position' => 1,
@@ -268,7 +284,7 @@ class StudyNewCardQueueApiTest extends TestCase
         $firstUpdatedAt = $firstCard->updated_at->toJSON();
         $secondUpdatedAt = $secondCard->updated_at->toJSON();
 
-        $this->postJson('/api/study/new-queue/reorder', [
+        $response = $this->postJson('/api/study/new-queue/reorder', [
             'cardIds' => [$firstCard->id, $secondCard->id],
         ])
             ->assertOk()
@@ -278,6 +294,8 @@ class StudyNewCardQueueApiTest extends TestCase
             ->assertJsonPath('items.0.queuePosition', 1)
             ->assertJsonPath('items.1.id', $secondCard->id)
             ->assertJsonPath('items.1.queuePosition', 2);
+
+        $this->assertStudyNewCardQueuePageHasShape($response->json());
 
         $firstCard->refresh();
         $secondCard->refresh();
@@ -331,11 +349,13 @@ class StudyNewCardQueueApiTest extends TestCase
                 ])
                 ->assertTooManyRequests();
 
-            $this
+            $response = $this
                 ->getJson('/api/study/new-queue')
                 ->assertOk()
                 ->assertJsonPath('items.0.id', $secondCard->id)
                 ->assertJsonPath('items.1.id', $firstCard->id);
+
+            $this->assertStudyNewCardQueuePageHasShape($response->json());
 
             $this->assertSame(2, $firstCard->refresh()->new_queue_position);
             $this->assertSame(1, $secondCard->refresh()->new_queue_position);

@@ -17,10 +17,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\TestCase;
 
 class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
     public function test_store_from_draft_requires_authentication(): void
@@ -48,7 +50,7 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         ]);
         $cardId = strtolower((string) Str::ulid());
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
+        $response = $this->postJson("/api/study/card-drafts/{$draft->id}/card", [
             'id' => strtoupper($cardId),
             'status' => 'client-owned',
         ])
@@ -59,6 +61,8 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('answer.meaning', 'company')
             ->assertJsonPath('state.queueState', 'new')
             ->assertJsonPath('answerAudioSource', 'missing');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $card = Card::query()->sole();
         $this->assertSame($cardId, $card->id);
@@ -90,7 +94,7 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         ]);
         $cardId = strtolower((string) Str::ulid());
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
+        $response = $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
             'id' => strtoupper($cardId),
         ])
             ->assertCreated()
@@ -98,6 +102,8 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('cardType', CardType::Recognition->value)
             ->assertJsonPath('prompt.cueText', '犬')
             ->assertJsonPath('answer.meaning', 'dog');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,
@@ -117,13 +123,15 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         ]);
         $cardId = strtolower((string) Str::ulid());
 
-        $this
+        $response = $this
             ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/study/card-drafts/'.strtoupper($draft->id).'/card', [
                 'id' => ' '.strtoupper($cardId).' ',
             ])
             ->assertCreated()
             ->assertJsonPath('id', $cardId);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
     }
 
     public function test_it_is_idempotent_when_retried_with_the_same_card_id_and_draft_content(): void
@@ -135,13 +143,16 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $cardId = strtolower((string) Str::ulid());
         $payload = ['id' => $cardId];
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+        $firstResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
             ->assertCreated()
             ->assertJsonPath('id', $cardId);
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+        $secondResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
             ->assertOk()
             ->assertJsonPath('id', $cardId);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($firstResponse->json(), 'first draft commit payload');
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($secondResponse->json(), 'second draft commit payload');
 
         $this->assertSame(1, Card::query()->count());
         $this->assertDatabaseHas('study_card_drafts', [
@@ -159,13 +170,16 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $cardId = strtolower((string) Str::ulid());
         $payload = ['id' => $cardId];
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
+        $firstResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
             ->assertCreated()
             ->assertJsonPath('id', $cardId);
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+        $secondResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
             ->assertOk()
             ->assertJsonPath('id', $cardId);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($firstResponse->json(), 'first alias commit payload');
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($secondResponse->json(), 'second alias commit payload');
 
         $this->assertSame(1, Card::query()->count());
         $this->getJson("/api/study/card-drafts/{$draft->id}")
@@ -182,13 +196,16 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $cardId = strtolower((string) Str::ulid());
         $payload = ['id' => $cardId];
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
+        $firstResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/card", $payload)
             ->assertCreated()
             ->assertJsonPath('id', $cardId);
 
-        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
+        $secondResponse = $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", $payload)
             ->assertOk()
             ->assertJsonPath('id', $cardId);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($firstResponse->json(), 'first cross-alias commit payload');
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($secondResponse->json(), 'second cross-alias commit payload');
 
         $this->assertSame(1, Card::query()->count());
         $this->getJson("/api/study/card-drafts/{$draft->id}")

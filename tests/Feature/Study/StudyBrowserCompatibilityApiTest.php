@@ -470,6 +470,45 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertJsonPath('filterOptions.noteTypes', ['Remaining Type']);
     }
 
+    public function test_it_handles_stale_browser_cursor_after_all_rows_are_deleted(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'first deleted cursor row',
+            'source_note_id' => 2061,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'second deleted cursor row',
+            'source_note_id' => 2062,
+            'source_notetype_name' => 'Deleted Type',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1');
+
+        $cursor = $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $firstCard->delete();
+        $secondCard->delete();
+
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=asc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonCount(0, 'rows')
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonPath('filterOptions.noteTypes', []);
+    }
+
     public function test_it_paginates_browser_rows_by_card_count_aggregate(): void
     {
         $user = $this->signIn();
@@ -503,6 +542,38 @@ class StudyBrowserCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('rows.0.noteId', '2071')
             ->assertJsonPath('rows.0.cardCount', 1)
+            ->assertJsonPath('nextCursor', null);
+    }
+
+    public function test_it_paginates_browser_rows_by_updated_on_aggregate(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+
+        Card::factory()->for($deck)->create([
+            'front_text' => 'older updated note',
+            'source_note_id' => 2076,
+            'updated_at' => now()->subDays(2),
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'newer updated note',
+            'source_note_id' => 2077,
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $firstPage = $this->getJson('/api/study/browser?sortField=updated_on&sortDirection=desc&limit=1');
+
+        $firstPage
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('rows.0.noteId', '2077');
+
+        $cursor = $firstPage->json('nextCursor');
+        $this->assertIsString($cursor);
+
+        $this->getJson('/api/study/browser?sortField=updated_on&sortDirection=desc&limit=1&cursor='.rawurlencode($cursor))
+            ->assertOk()
+            ->assertJsonPath('rows.0.noteId', '2076')
             ->assertJsonPath('nextCursor', null);
     }
 

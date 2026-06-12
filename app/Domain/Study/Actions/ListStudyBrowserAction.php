@@ -189,7 +189,7 @@ class ListStudyBrowserAction
         }
 
         if ($total === 0) {
-            // Offset cursors can point beyond the final page; count once so `total` stays stable.
+            // Offset cursors can point beyond the final page; this rare path counts once so `total` stays stable.
             // The empty group collection below makes card hydration a no-op while facets still describe the result set.
             $total = (int) DB::query()
                 ->fromSub($this->browserGroupQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId), 'study_browser_groups')
@@ -384,10 +384,11 @@ class ListStudyBrowserAction
     {
         $direction = $sortDirection === 'asc' ? 'asc' : 'desc';
         $sortColumn = match ($sortField) {
+            'created_on' => 'created_on',
             'updated_on' => 'updated_on',
             'card_count' => 'card_count',
             'review_count' => 'review_count',
-            default => 'created_on',
+            default => throw new InvalidArgumentException("Unsupported aggregate sort field [{$sortField}]."),
         };
 
         return $query
@@ -421,7 +422,8 @@ class ListStudyBrowserAction
             ->all();
         $unsourcedCardIds = $groupRows
             ->pluck('unsourced_card_id')
-            ->filter(fn (mixed $cardId): bool => is_string($cardId) && $cardId !== '')
+            ->filter(fn (mixed $cardId): bool => $cardId !== null && $cardId !== '')
+            ->map(fn (mixed $cardId): string => (string) $cardId)
             ->unique()
             ->values()
             ->all();

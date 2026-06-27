@@ -1,6 +1,5 @@
 <?php
 
-use App\Console\Commands\RunDatabaseRehearsalSmokeCheck;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,9 +14,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([
-        RunDatabaseRehearsalSmokeCheck::class,
-    ])
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })

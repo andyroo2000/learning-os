@@ -42,7 +42,7 @@ class RunDatabaseRehearsalSmokeCheck extends Command
             ));
 
             if (array_key_exists('meta', $check)) {
-                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES));
+                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
             }
         }
 

@@ -8,6 +8,8 @@ use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use JsonException;
+use Laravel\Sanctum\PersonalAccessToken;
+use RuntimeException;
 use Tests\TestCase;
 
 class DatabaseRehearsalSmokeCommandTest extends TestCase
@@ -93,6 +95,27 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         } finally {
             @unlink($migrationFile);
             @rmdir($migrationDirectory);
+        }
+    }
+
+    public function test_smoke_command_reports_temporary_token_cleanup_failure(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+
+        PersonalAccessToken::deleting(function (): never {
+            throw new RuntimeException('cleanup failed');
+        });
+
+        try {
+            $this->artisan('rehearsal:smoke', [
+                '--user-email' => $user->email,
+            ])
+                ->expectsOutputToContain('[FAIL] token cleanup - Unable to delete the temporary smoke-check token; it will expire automatically.')
+                ->assertExitCode(1);
+        } finally {
+            PersonalAccessToken::flushEventListeners();
         }
     }
 

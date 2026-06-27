@@ -98,6 +98,7 @@ class DatabaseRehearsalSmokeCheck
             return $this->report($checks);
         }
 
+        $cleanupFailure = null;
         $token = $user->createToken(self::TOKEN_NAME, ['*'], now()->addMinutes(15));
 
         try {
@@ -105,7 +106,22 @@ class DatabaseRehearsalSmokeCheck
                 $checks[] = $this->checkEndpoint($endpoint, $token);
             }
         } finally {
-            $token->accessToken->delete();
+            try {
+                $token->accessToken->delete();
+            } catch (Throwable $exception) {
+                $cleanupFailure = $this->fail(
+                    'token cleanup',
+                    'Unable to delete the temporary smoke-check token; it will expire automatically.',
+                    [
+                        'exception' => $exception::class,
+                        'message' => $exception->getMessage(),
+                    ],
+                );
+            }
+        }
+
+        if ($cleanupFailure !== null) {
+            $checks[] = $cleanupFailure;
         }
 
         return $this->report($checks);

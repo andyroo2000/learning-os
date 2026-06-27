@@ -113,7 +113,8 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
                 '--user-email' => $user->email,
             ])
                 ->expectsOutputToContain('[FAIL] token cleanup - Unable to delete the temporary smoke-check token; it will expire automatically.')
-                ->assertExitCode(1);
+                ->expectsOutputToContain('Smoke check passed.')
+                ->assertExitCode(0);
         } finally {
             PersonalAccessToken::getEventDispatcher()
                 ?->forget('eloquent.deleting: '.PersonalAccessToken::class);

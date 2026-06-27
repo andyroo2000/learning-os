@@ -17,8 +17,14 @@ class DatabaseRehearsalSmokeCheck
 {
     public const TOKEN_NAME = 'learning-os-rehearsal-smoke';
 
+    private const TOKEN_CLEANUP_CHECK = 'token cleanup';
+
     /**
      * @var list<array{name: string, uri: string, required: list<string>}>
+     *
+     * These endpoints must stay stateless. The smoke harness dispatches them through the HTTP kernel without
+     * running the terminate phase, so session-dependent or throttle-protected endpoints can leak state across
+     * loop iterations.
      */
     private const ENDPOINTS = [
         [
@@ -109,7 +115,7 @@ class DatabaseRehearsalSmokeCheck
                 $token->accessToken->delete();
             } catch (Throwable $exception) {
                 $checks[] = $this->fail(
-                    'token cleanup',
+                    self::TOKEN_CLEANUP_CHECK,
                     'Unable to delete the temporary smoke-check token; it will expire automatically.',
                     [
                         'exception' => $exception::class,
@@ -213,8 +219,6 @@ class DatabaseRehearsalSmokeCheck
         ]);
 
         try {
-            // The smoke endpoints are intentionally stateless bearer-token requests; this command does not run
-            // the HTTP kernel terminate phase, so session-dependent endpoints should stay out of this list.
             Auth::forgetGuards();
 
             $response = $this->app->handle($request);
@@ -278,7 +282,7 @@ class DatabaseRehearsalSmokeCheck
     private function report(array $checks): array
     {
         return [
-            'ok' => collect($checks)->every(fn (array $check): bool => $check['ok']),
+            'ok' => collect($checks)->every(fn (array $check): bool => $check['name'] === self::TOKEN_CLEANUP_CHECK || $check['ok']),
             'connection' => [
                 'name' => config('database.default'),
                 'database' => config('database.connections.'.config('database.default').'.database'),

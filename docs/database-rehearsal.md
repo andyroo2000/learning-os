@@ -13,14 +13,17 @@ Read Convo Lab's current `DATABASE_URL`, strip Prisma's `?schema=public` query
 parameter for the Postgres CLI, and write a custom-format dump:
 
 ```bash
-cd /Users/andrewlandry/source/convo-lab/server
+CONVOLAB_DIR=<path-to-convo-lab>
+LEARNINGOS_DIR=<path-to-learning-os>
 PG_BIN=${PG_BIN:-/opt/homebrew/opt/postgresql@15/bin}
+
+cd "$CONVOLAB_DIR/server"
 CONVOLAB_DATABASE_URL=$(sed -n 's/^DATABASE_URL=//p' .env | head -1 | sed 's/^"//; s/"$//')
 CONVOLAB_PG_URL=${CONVOLAB_DATABASE_URL%%\?*}
 
-mkdir -p /Users/andrewlandry/source/learning-os/storage/app/rehearsals
+mkdir -p "$LEARNINGOS_DIR/storage/app/rehearsals"
 "$PG_BIN/pg_dump" --format=custom --no-owner --no-acl \
-  --file=/Users/andrewlandry/source/learning-os/storage/app/rehearsals/convo-lab.dump \
+  --file="$LEARNINGOS_DIR/storage/app/rehearsals/convo-lab.dump" \
   "$CONVOLAB_PG_URL"
 ```
 
@@ -32,13 +35,14 @@ If your Postgres tools are already on `PATH`, set `PG_BIN=` or replace
 Create a fresh local target and restore the dump into it:
 
 ```bash
+LEARNINGOS_DIR=<path-to-learning-os>
 PG_BIN=${PG_BIN:-/opt/homebrew/opt/postgresql@15/bin}
 "$PG_BIN/dropdb" --if-exists learning_os_rehearsal
 "$PG_BIN/createdb" learning_os_rehearsal
 
 "$PG_BIN/pg_restore" --clean --if-exists --no-owner --no-acl \
   --dbname=learning_os_rehearsal \
-  /Users/andrewlandry/source/learning-os/storage/app/rehearsals/convo-lab.dump
+  "$LEARNINGOS_DIR/storage/app/rehearsals/convo-lab.dump"
 ```
 
 If the restore or later smoke check fails, drop and recreate
@@ -46,7 +50,7 @@ If the restore or later smoke check fails, drop and recreate
 
 ## 3. Point Learning OS At The Copy
 
-Update `/Users/andrewlandry/source/learning-os/.env` for the restored database:
+Update `<path-to-learning-os>/.env` for the restored database:
 
 ```dotenv
 DB_CONNECTION=pgsql
@@ -61,7 +65,7 @@ PGSQL_SSL_MODE=disable
 Then migrate the copied database forward:
 
 ```bash
-cd /Users/andrewlandry/source/learning-os
+cd <path-to-learning-os>
 php artisan migrate --force
 ```
 

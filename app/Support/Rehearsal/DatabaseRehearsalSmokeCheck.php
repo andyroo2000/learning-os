@@ -7,6 +7,7 @@ use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use JsonException;
 use Laravel\Sanctum\NewAccessToken;
@@ -80,12 +81,12 @@ class DatabaseRehearsalSmokeCheck
         $checks = [];
 
         $checks[] = $this->checkDatabaseConnection();
-        if (! end($checks)['ok']) {
+        if (! $this->lastCheckPassed($checks)) {
             return $this->report($checks);
         }
 
         $checks[] = $this->checkMigrationsAreCurrent();
-        if (! end($checks)['ok']) {
+        if (! $this->lastCheckPassed($checks)) {
             return $this->report($checks);
         }
 
@@ -196,6 +197,8 @@ class DatabaseRehearsalSmokeCheck
         ]);
 
         try {
+            Auth::forgetGuards();
+
             $response = $this->app->handle($request);
         } catch (Throwable $exception) {
             return $this->fail($endpoint['name'], 'Endpoint threw before returning a response.', [
@@ -244,6 +247,14 @@ class DatabaseRehearsalSmokeCheck
         }
 
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
+    }
+
+    /**
+     * @param  list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>}>  $checks
+     */
+    private function lastCheckPassed(array $checks): bool
+    {
+        return $checks[array_key_last($checks)]['ok'];
     }
 
     /**

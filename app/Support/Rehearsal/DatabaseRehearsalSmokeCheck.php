@@ -98,7 +98,6 @@ class DatabaseRehearsalSmokeCheck
             return $this->report($checks);
         }
 
-        $cleanupFailure = null;
         $token = $user->createToken(self::TOKEN_NAME, ['*'], now()->addMinutes(15));
 
         try {
@@ -109,7 +108,7 @@ class DatabaseRehearsalSmokeCheck
             try {
                 $token->accessToken->delete();
             } catch (Throwable $exception) {
-                $cleanupFailure = $this->fail(
+                $checks[] = $this->fail(
                     'token cleanup',
                     'Unable to delete the temporary smoke-check token; it will expire automatically.',
                     [
@@ -118,10 +117,6 @@ class DatabaseRehearsalSmokeCheck
                     ],
                 );
             }
-        }
-
-        if ($cleanupFailure !== null) {
-            $checks[] = $cleanupFailure;
         }
 
         return $this->report($checks);
@@ -218,6 +213,8 @@ class DatabaseRehearsalSmokeCheck
         ]);
 
         try {
+            // The smoke endpoints are intentionally stateless bearer-token requests; this command does not run
+            // the HTTP kernel terminate phase, so session-dependent endpoints should stay out of this list.
             Auth::forgetGuards();
 
             $response = $this->app->handle($request);

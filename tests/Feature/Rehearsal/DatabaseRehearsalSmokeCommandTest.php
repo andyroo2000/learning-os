@@ -89,6 +89,21 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         ]);
     }
 
+    public function test_smoke_command_can_run_in_production_with_explicit_override(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+
+        $this->artisan('rehearsal:smoke', [
+            '--user-email' => 'ada@example.com',
+            '--allow-production' => true,
+        ])
+            ->expectsOutputToContain('Smoke check passed.')
+            ->assertExitCode(0);
+    }
+
     public function test_smoke_command_checks_registered_migration_paths(): void
     {
         $user = User::factory()->create([
@@ -140,6 +155,9 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         $user = User::factory()->create([
             'email' => 'ada@example.com',
         ]);
+        $dispatcher = PersonalAccessToken::getEventDispatcher();
+        $eventKey = 'eloquent.deleting: '.PersonalAccessToken::class;
+        $previousListeners = $dispatcher?->getListeners($eventKey) ?? [];
 
         PersonalAccessToken::deleting(function (): never {
             throw new RuntimeException('cleanup failed');
@@ -153,8 +171,11 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
                 ->expectsOutputToContain('Smoke check passed.')
                 ->assertExitCode(0);
         } finally {
-            PersonalAccessToken::getEventDispatcher()
-                ?->forget('eloquent.deleting: '.PersonalAccessToken::class);
+            $dispatcher?->forget($eventKey);
+
+            foreach ($previousListeners as $listener) {
+                $dispatcher?->listen($eventKey, $listener);
+            }
         }
     }
 

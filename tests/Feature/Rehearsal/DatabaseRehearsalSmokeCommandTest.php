@@ -7,6 +7,7 @@ use App\Support\Rehearsal\DatabaseRehearsalSmokeCheck;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use JsonException;
 use Laravel\Sanctum\PersonalAccessToken;
 use RuntimeException;
@@ -70,6 +71,24 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         ]);
     }
 
+    public function test_smoke_command_refuses_to_run_in_production_without_explicit_override(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+
+        $this->artisan('rehearsal:smoke', [
+            '--user-email' => 'ada@example.com',
+        ])
+            ->expectsOutputToContain('This command must not run in production without --allow-production.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'name' => DatabaseRehearsalSmokeCheck::TOKEN_NAME,
+        ]);
+    }
+
     public function test_smoke_command_checks_registered_migration_paths(): void
     {
         $user = User::factory()->create([
@@ -96,6 +115,24 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
             @unlink($migrationFile);
             @rmdir($migrationDirectory);
         }
+    }
+
+    public function test_smoke_command_fails_when_migration_records_have_no_matching_files(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+        DB::table('migrations')->insert([
+            'migration' => '2099_01_01_000000_missing_rehearsal_migration',
+            'batch' => 999,
+        ]);
+
+        $this->artisan('rehearsal:smoke', [
+            '--user-email' => 'ada@example.com',
+        ])
+            ->expectsOutputToContain('[FAIL] migrations - Migration records were found without matching migration files.')
+            ->expectsOutputToContain('2099_01_01_000000_missing_rehearsal_migration')
+            ->assertExitCode(1);
     }
 
     public function test_smoke_command_reports_temporary_token_cleanup_failure(): void

@@ -9,12 +9,19 @@ class RunDatabaseRehearsalSmokeCheck extends Command
 {
     protected $signature = 'rehearsal:smoke
         {--user-email= : Existing user email to authenticate read-oriented smoke requests as}
-        {--json : Output the smoke report as JSON}';
+        {--json : Output the smoke report as JSON}
+        {--allow-production : Permit the smoke check to run when APP_ENV=production}';
 
     protected $description = 'Smoke-test a restored Convo Lab database through the Learning OS API.';
 
     public function handle(DatabaseRehearsalSmokeCheck $smokeCheck): int
     {
+        if (app()->isProduction() && ! $this->option('allow-production')) {
+            $this->error('This command must not run in production without --allow-production.');
+
+            return self::FAILURE;
+        }
+
         $report = $smokeCheck->run($this->option('user-email'));
 
         if ($this->option('json')) {
@@ -40,7 +47,7 @@ class RunDatabaseRehearsalSmokeCheck extends Command
             ));
 
             if (array_key_exists('meta', $check)) {
-                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
             }
         }
 

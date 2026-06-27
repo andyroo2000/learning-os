@@ -17,8 +17,6 @@ class DatabaseRehearsalSmokeCheck
 {
     public const TOKEN_NAME = 'learning-os-rehearsal-smoke';
 
-    private const TOKEN_CLEANUP_CHECK = 'token cleanup';
-
     /**
      * @var list<array{name: string, uri: string, required: list<string>}>
      *
@@ -79,7 +77,7 @@ class DatabaseRehearsalSmokeCheck
      * @return array{
      *     ok: bool,
      *     connection: array{name: string, database: string|null},
-     *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>}>
+     *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>
      * }
      */
     public function run(?string $userEmail = null): array
@@ -115,12 +113,13 @@ class DatabaseRehearsalSmokeCheck
                 $token->accessToken->delete();
             } catch (Throwable $exception) {
                 $checks[] = $this->fail(
-                    self::TOKEN_CLEANUP_CHECK,
+                    'token cleanup',
                     'Unable to delete the temporary smoke-check token; it will expire automatically.',
                     [
                         'exception' => $exception::class,
                         'message' => $exception->getMessage(),
                     ],
+                    softFail: true,
                 );
             }
         }
@@ -129,7 +128,7 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>}
+     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkDatabaseConnection(): array
     {
@@ -146,7 +145,7 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>}
+     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkMigrationsAreCurrent(): array
     {
@@ -158,7 +157,9 @@ class DatabaseRehearsalSmokeCheck
             [database_path('migrations')],
             $this->migrator->paths(),
         ));
-        $pending = array_values(array_diff(array_keys($migrationFiles), $this->migrator->getRepository()->getRan()));
+        $migrationNames = array_keys($migrationFiles);
+        $ran = $this->migrator->getRepository()->getRan();
+        $pending = array_values(array_diff($migrationNames, $ran));
 
         if ($pending !== []) {
             return $this->fail('migrations', 'Pending migrations were found. Run php artisan migrate first.', [
@@ -166,11 +167,19 @@ class DatabaseRehearsalSmokeCheck
             ]);
         }
 
+        $orphaned = array_values(array_diff($ran, $migrationNames));
+
+        if ($orphaned !== []) {
+            return $this->fail('migrations', 'Migration records were found without matching migration files.', [
+                'orphaned' => $orphaned,
+            ]);
+        }
+
         return $this->pass('migrations', 'All database migrations are current.');
     }
 
     /**
-     * @return array{0: array{name: string, ok: bool, message: string, meta?: array<string, mixed>}, 1: User|null}
+     * @return array{0: array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}, 1: User|null}
      */
     private function resolveUser(?string $userEmail): array
     {
@@ -209,7 +218,7 @@ class DatabaseRehearsalSmokeCheck
 
     /**
      * @param  array{name: string, uri: string, required: list<string>}  $endpoint
-     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>}
+     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkEndpoint(array $endpoint, NewAccessToken $token): array
     {
@@ -237,6 +246,12 @@ class DatabaseRehearsalSmokeCheck
             return $this->fail($endpoint['name'], "Expected HTTP 200, received HTTP {$status}.", [
                 'uri' => $endpoint['uri'],
                 'body' => $this->preview($content),
+            ]);
+        }
+
+        if ($content === false || $content === '') {
+            return $this->fail($endpoint['name'], 'Endpoint returned an empty body.', [
+                'uri' => $endpoint['uri'],
             ]);
         }
 
@@ -272,17 +287,17 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @param  list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>}>  $checks
+     * @param  list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>  $checks
      * @return array{
      *     ok: bool,
      *     connection: array{name: string, database: string|null},
-     *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>}>
+     *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>
      * }
      */
     private function report(array $checks): array
     {
         return [
-            'ok' => collect($checks)->every(fn (array $check): bool => $check['name'] === self::TOKEN_CLEANUP_CHECK || $check['ok']),
+            'ok' => collect($checks)->every(fn (array $check): bool => $check['ok'] || ($check['soft_fail'] ?? false)),
             'connection' => [
                 'name' => config('database.default'),
                 'database' => config('database.connections.'.config('database.default').'.database'),
@@ -292,7 +307,7 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>}
+     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function pass(string $name, string $message): array
     {
@@ -305,9 +320,9 @@ class DatabaseRehearsalSmokeCheck
 
     /**
      * @param  array<string, mixed>  $meta
-     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>}
+     * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
-    private function fail(string $name, string $message, array $meta = []): array
+    private function fail(string $name, string $message, array $meta = [], bool $softFail = false): array
     {
         $check = [
             'name' => $name,
@@ -317,6 +332,10 @@ class DatabaseRehearsalSmokeCheck
 
         if ($meta !== []) {
             $check['meta'] = $meta;
+        }
+
+        if ($softFail) {
+            $check['soft_fail'] = true;
         }
 
         return $check;

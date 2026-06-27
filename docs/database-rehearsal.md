@@ -101,6 +101,11 @@ For machine-readable output:
 php artisan rehearsal:smoke --user-email=<your-convo-lab-user@example.com> --json
 ```
 
+The command refuses to run when `APP_ENV=production` unless
+`--allow-production` is passed. Use that override only after confirming the app
+is pointed at the restored Learning OS database, not the live Convo Lab source
+database.
+
 The smoke harness creates a short-lived Sanctum token for the selected user and
 deletes it before exiting. Treat any failure as a compatibility issue to fix in
 Learning OS, then recreate the rehearsal database and rerun the workflow.

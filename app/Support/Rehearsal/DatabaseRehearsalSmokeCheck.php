@@ -80,13 +80,15 @@ class DatabaseRehearsalSmokeCheck
     {
         $checks = [];
 
-        $checks[] = $this->checkDatabaseConnection();
-        if (! $this->lastCheckPassed($checks)) {
+        $check = $this->checkDatabaseConnection();
+        $checks[] = $check;
+        if (! $check['ok']) {
             return $this->report($checks);
         }
 
-        $checks[] = $this->checkMigrationsAreCurrent();
-        if (! $this->lastCheckPassed($checks)) {
+        $check = $this->checkMigrationsAreCurrent();
+        $checks[] = $check;
+        if (! $check['ok']) {
             return $this->report($checks);
         }
 
@@ -135,7 +137,10 @@ class DatabaseRehearsalSmokeCheck
             return $this->fail('migrations', 'The migrations table does not exist. Run php artisan migrate first.');
         }
 
-        $migrationFiles = $this->migrator->getMigrationFiles([database_path('migrations')]);
+        $migrationFiles = $this->migrator->getMigrationFiles(array_merge(
+            [database_path('migrations')],
+            $this->migrator->paths(),
+        ));
         $pending = array_values(array_diff(array_keys($migrationFiles), $this->migrator->getRepository()->getRan()));
 
         if ($pending !== []) {
@@ -247,14 +252,6 @@ class DatabaseRehearsalSmokeCheck
         }
 
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
-    }
-
-    /**
-     * @param  list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>}>  $checks
-     */
-    private function lastCheckPassed(array $checks): bool
-    {
-        return $checks[array_key_last($checks)]['ok'];
     }
 
     /**

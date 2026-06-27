@@ -4,6 +4,7 @@ namespace Tests\Feature\Rehearsal;
 
 use App\Models\User;
 use App\Support\Rehearsal\DatabaseRehearsalSmokeCheck;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use JsonException;
@@ -67,6 +68,34 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         ]);
     }
 
+    public function test_smoke_command_checks_registered_migration_paths(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+        $migrationDirectory = storage_path('framework/testing/rehearsal-migrations');
+        $migrationFile = $migrationDirectory.'/2099_01_01_000000_create_external_rehearsal_table.php';
+
+        if (! is_dir($migrationDirectory)) {
+            mkdir($migrationDirectory, 0777, true);
+        }
+
+        file_put_contents($migrationFile, '<?php');
+        $this->app->make(Migrator::class)->path($migrationDirectory);
+
+        try {
+            $this->artisan('rehearsal:smoke', [
+                '--user-email' => $user->email,
+            ])
+                ->expectsOutputToContain('[FAIL] migrations - Pending migrations were found. Run php artisan migrate first.')
+                ->expectsOutputToContain('2099_01_01_000000_create_external_rehearsal_table')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($migrationFile);
+            @rmdir($migrationDirectory);
+        }
+    }
+
     /**
      * @throws JsonException
      */
@@ -87,5 +116,22 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         $this->assertArrayHasKey('connection', $report);
         $this->assertArrayHasKey('checks', $report);
         $this->assertContains('current user', array_column($report['checks'], 'name'));
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function test_smoke_command_can_emit_json_failure_report(): void
+    {
+        $exitCode = Artisan::call('rehearsal:smoke', [
+            '--json' => true,
+        ]);
+        $report = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse($report['ok']);
+        $this->assertArrayHasKey('connection', $report);
+        $this->assertArrayHasKey('checks', $report);
+        $this->assertContains('auth user', array_column($report['checks'], 'name'));
     }
 }

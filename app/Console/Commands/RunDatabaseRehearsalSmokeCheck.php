@@ -18,7 +18,9 @@ class RunDatabaseRehearsalSmokeCheck extends Command
         $report = $smokeCheck->run($this->option('user-email'));
 
         if ($this->option('json')) {
-            $this->output->writeln(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $encoded = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+
+            $this->output->writeln($encoded !== false ? $encoded : '{"error":"Report could not be JSON-encoded"}');
 
             return $report['ok'] ? self::SUCCESS : self::FAILURE;
         }

@@ -105,9 +105,8 @@ class DatabaseRehearsalSmokeCheck
         }
 
         [$tokenCheck, $token] = $this->issueTemporaryToken($user);
+        $checks[] = $tokenCheck;
         if ($token === null) {
-            $checks[] = $tokenCheck;
-
             return $this->report($checks);
         }
 
@@ -160,10 +159,9 @@ class DatabaseRehearsalSmokeCheck
             $token = DB::transaction(function () use ($user): NewAccessToken {
                 $user->tokens()
                     ->where('name', self::TOKEN_NAME)
-                    ->get()
-                    ->each
                     ->delete();
 
+                // Advisory scope for operator diagnostics; current routes authenticate but do not enforce abilities.
                 return $user->createToken(self::TOKEN_NAME, ['smoke:read'], now()->addMinutes(15));
             });
         } catch (Throwable $exception) {

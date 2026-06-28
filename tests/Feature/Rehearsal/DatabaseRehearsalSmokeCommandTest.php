@@ -29,6 +29,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
             ->expectsOutputToContain('[PASS] database connection')
             ->expectsOutputToContain('[PASS] migrations')
             ->expectsOutputToContain('[PASS] auth user')
+            ->expectsOutputToContain('[PASS] temporary token')
             ->expectsOutputToContain('[PASS] current user')
             ->expectsOutputToContain('[PASS] study settings')
             ->expectsOutputToContain('[PASS] study overview')

@@ -45,7 +45,11 @@ class RunDatabaseRehearsalSmokeCheck extends Command
         foreach ($report['checks'] as $check) {
             $this->line(sprintf(
                 '[%s] %s - %s',
-                $check['ok'] ? 'PASS' : 'FAIL',
+                match (true) {
+                    $check['ok'] => 'PASS',
+                    $check['soft_fail'] ?? false => 'WARN',
+                    default => 'FAIL',
+                },
                 $check['name'],
                 $check['message'],
             ));

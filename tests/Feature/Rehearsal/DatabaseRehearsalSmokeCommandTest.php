@@ -162,7 +162,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
             $this->artisan('rehearsal:smoke', [
                 '--user-email' => $user->email,
             ])
-                ->expectsOutputToContain('[FAIL] token cleanup - Unable to delete the temporary smoke-check token; it will expire automatically.')
+                ->expectsOutputToContain('[WARN] token cleanup - Unable to delete the temporary smoke-check token; it will expire automatically.')
                 ->expectsOutputToContain('Smoke check passed.')
                 ->assertExitCode(0);
 

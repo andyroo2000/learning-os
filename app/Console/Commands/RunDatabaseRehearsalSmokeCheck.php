@@ -55,7 +55,7 @@ class RunDatabaseRehearsalSmokeCheck extends Command
             ));
 
             if (array_key_exists('meta', $check)) {
-                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
+                $this->line('       '.json_encode($check['meta'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
             }
         }
 

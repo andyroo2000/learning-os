@@ -72,6 +72,19 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         ]);
     }
 
+    public function test_smoke_command_treats_blank_user_email_as_omitted(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+
+        $this->artisan('rehearsal:smoke', [
+            '--user-email' => '   ',
+        ])
+            ->expectsOutputToContain('[PASS] auth user - Selected first available user [ada@example.com].')
+            ->assertExitCode(0);
+    }
+
     public function test_smoke_command_refuses_to_run_in_production_without_explicit_override(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');

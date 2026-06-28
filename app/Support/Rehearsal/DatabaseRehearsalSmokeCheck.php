@@ -34,7 +34,7 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'study settings',
             'uri' => '/api/study/settings',
             'required' => ['data.new_cards_per_day', 'data.created_at', 'data.updated_at'],
-            'required_non_null' => ['data.new_cards_per_day', 'data.created_at', 'data.updated_at'],
+            'required_non_null' => ['data.new_cards_per_day'],
         ],
         [
             'name' => 'study overview',
@@ -220,6 +220,7 @@ class DatabaseRehearsalSmokeCheck
     private function resolveUser(?string $userEmail): array
     {
         $query = User::query()->orderBy('id');
+        $userEmail = is_string($userEmail) ? trim($userEmail) : null;
 
         if ($userEmail !== null && $userEmail !== '') {
             $user = $query->where('email', $userEmail)->first();

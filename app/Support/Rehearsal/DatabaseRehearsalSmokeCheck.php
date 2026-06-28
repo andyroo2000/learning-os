@@ -34,6 +34,7 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'study settings',
             'uri' => '/api/study/settings',
             'required' => ['data.new_cards_per_day', 'data.created_at', 'data.updated_at'],
+            'required_non_null' => ['data.new_cards_per_day', 'data.created_at', 'data.updated_at'],
         ],
         [
             'name' => 'study overview',
@@ -76,6 +77,7 @@ class DatabaseRehearsalSmokeCheck
     /**
      * @return array{
      *     ok: bool,
+     *     environment: string,
      *     connection: array{name: string, database: string|null},
      *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>
      * }
@@ -102,11 +104,12 @@ class DatabaseRehearsalSmokeCheck
             return $this->report($checks);
         }
 
-        $user->tokens()
-            ->where('name', self::TOKEN_NAME)
-            ->delete();
+        [$tokenCheck, $token] = $this->issueTemporaryToken($user);
+        if ($token === null) {
+            $checks[] = $tokenCheck;
 
-        $token = $user->createToken(self::TOKEN_NAME, ['*'], now()->addMinutes(15));
+            return $this->report($checks);
+        }
 
         try {
             foreach (self::ENDPOINTS as $endpoint) {
@@ -146,6 +149,37 @@ class DatabaseRehearsalSmokeCheck
         }
 
         return $this->pass('database connection', 'Connected to the configured database.');
+    }
+
+    /**
+     * @return array{0: array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}, 1: NewAccessToken|null}
+     */
+    private function issueTemporaryToken(User $user): array
+    {
+        try {
+            $token = DB::transaction(function () use ($user): NewAccessToken {
+                $user->tokens()
+                    ->where('name', self::TOKEN_NAME)
+                    ->get()
+                    ->each
+                    ->delete();
+
+                return $user->createToken(self::TOKEN_NAME, ['smoke:read'], now()->addMinutes(15));
+            });
+        } catch (Throwable $exception) {
+            return [
+                $this->fail('temporary token', 'Unable to create the temporary smoke-check token.', [
+                    'exception' => $exception::class,
+                    'message' => $exception->getMessage(),
+                ]),
+                null,
+            ];
+        }
+
+        return [
+            $this->pass('temporary token', 'Created temporary read-only smoke-check token.'),
+            $token,
+        ];
     }
 
     /**
@@ -221,7 +255,7 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @param  array{name: string, uri: string, required: list<string>}  $endpoint
+     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>}  $endpoint
      * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkEndpoint(array $endpoint, NewAccessToken $token): array
@@ -287,6 +321,18 @@ class DatabaseRehearsalSmokeCheck
             ]);
         }
 
+        $nullKeys = array_values(array_filter(
+            $endpoint['required_non_null'] ?? [],
+            fn (string $key): bool => data_get($payload, $key) === null,
+        ));
+
+        if ($nullKeys !== []) {
+            return $this->fail($endpoint['name'], 'Endpoint response has null required values.', [
+                'uri' => $endpoint['uri'],
+                'null' => $nullKeys,
+            ]);
+        }
+
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
     }
 
@@ -294,6 +340,7 @@ class DatabaseRehearsalSmokeCheck
      * @param  list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>  $checks
      * @return array{
      *     ok: bool,
+     *     environment: string,
      *     connection: array{name: string, database: string|null},
      *     checks: list<array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}>
      * }
@@ -302,6 +349,7 @@ class DatabaseRehearsalSmokeCheck
     {
         return [
             'ok' => collect($checks)->every(fn (array $check): bool => $check['ok'] || ($check['soft_fail'] ?? false)),
+            'environment' => $this->app->environment(),
             'connection' => [
                 'name' => config('database.default'),
                 'database' => config('database.connections.'.config('database.default').'.database'),

@@ -22,6 +22,10 @@ class RunDatabaseRehearsalSmokeCheck extends Command
             return self::FAILURE;
         }
 
+        if (app()->isProduction()) {
+            $this->warn('WARNING: Running smoke check against a production database.');
+        }
+
         $report = $smokeCheck->run($this->option('user-email'));
 
         if ($this->option('json')) {

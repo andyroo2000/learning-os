@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Rehearsal;
 
+use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
 use App\Support\Rehearsal\DatabaseRehearsalSmokeCheck;
 use Illuminate\Database\Migrations\Migrator;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -19,9 +21,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 
     public function test_smoke_command_exercises_read_oriented_api_shapes_for_a_selected_user(): void
     {
-        $user = User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
+        $user = $this->rehearsalUser();
 
         $this->artisan('rehearsal:smoke', [
             '--user-email' => $user->email,
@@ -74,9 +74,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     public function test_smoke_command_refuses_to_run_in_production_without_explicit_override(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
-        User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
+        $this->rehearsalUser();
 
         $this->artisan('rehearsal:smoke', [
             '--user-email' => 'ada@example.com',
@@ -92,14 +90,13 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     public function test_smoke_command_can_run_in_production_with_explicit_override(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
-        User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
+        $this->rehearsalUser();
 
         $this->artisan('rehearsal:smoke', [
             '--user-email' => 'ada@example.com',
             '--allow-production' => true,
         ])
+            ->expectsOutputToContain('WARNING: Running smoke check against a production database.')
             ->expectsOutputToContain('Smoke check passed.')
             ->assertExitCode(0);
     }
@@ -152,12 +149,9 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 
     public function test_smoke_command_reports_temporary_token_cleanup_failure(): void
     {
-        $user = User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
-        $dispatcher = PersonalAccessToken::getEventDispatcher();
-        $eventKey = 'eloquent.deleting: '.PersonalAccessToken::class;
-        $previousListeners = $dispatcher?->getListeners($eventKey) ?? [];
+        $user = $this->rehearsalUser();
+        $originalDispatcher = PersonalAccessToken::getEventDispatcher();
+        PersonalAccessToken::setEventDispatcher(new Dispatcher($this->app));
 
         PersonalAccessToken::deleting(function (): never {
             throw new RuntimeException('cleanup failed');
@@ -173,12 +167,13 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 
             $this->assertDatabaseHas('personal_access_tokens', [
                 'name' => DatabaseRehearsalSmokeCheck::TOKEN_NAME,
+                'abilities' => '["smoke:read"]',
             ]);
         } finally {
-            $dispatcher?->forget($eventKey);
-
-            foreach ($previousListeners as $listener) {
-                $dispatcher?->listen($eventKey, $listener);
+            if ($originalDispatcher === null) {
+                PersonalAccessToken::unsetEventDispatcher();
+            } else {
+                PersonalAccessToken::setEventDispatcher($originalDispatcher);
             }
         }
     }
@@ -188,9 +183,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
      */
     public function test_smoke_command_can_emit_json_report(): void
     {
-        $user = User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
+        $user = $this->rehearsalUser();
 
         $exitCode = Artisan::call('rehearsal:smoke', [
             '--user-email' => $user->email,
@@ -200,6 +193,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertTrue($report['ok']);
+        $this->assertSame('testing', $report['environment']);
         $this->assertArrayHasKey('connection', $report);
         $this->assertArrayHasKey('checks', $report);
         $this->assertContains('current user', array_column($report['checks'], 'name'));
@@ -220,5 +214,15 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         $this->assertArrayHasKey('connection', $report);
         $this->assertArrayHasKey('checks', $report);
         $this->assertContains('auth user', array_column($report['checks'], 'name'));
+    }
+
+    private function rehearsalUser(): User
+    {
+        $user = User::factory()->create([
+            'email' => 'ada@example.com',
+        ]);
+        StudySettings::factory()->for($user)->create();
+
+        return $user;
     }
 }

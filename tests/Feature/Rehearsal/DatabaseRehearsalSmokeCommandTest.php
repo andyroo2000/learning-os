@@ -170,6 +170,10 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
                 ->expectsOutputToContain('[FAIL] token cleanup - Unable to delete the temporary smoke-check token; it will expire automatically.')
                 ->expectsOutputToContain('Smoke check passed.')
                 ->assertExitCode(0);
+
+            $this->assertDatabaseHas('personal_access_tokens', [
+                'name' => DatabaseRehearsalSmokeCheck::TOKEN_NAME,
+            ]);
         } finally {
             $dispatcher?->forget($eventKey);
 

@@ -102,6 +102,10 @@ class DatabaseRehearsalSmokeCheck
             return $this->report($checks);
         }
 
+        $user->tokens()
+            ->where('name', self::TOKEN_NAME)
+            ->delete();
+
         $token = $user->createToken(self::TOKEN_NAME, ['*'], now()->addMinutes(15));
 
         try {

@@ -98,6 +98,17 @@ maps Convo Lab string user IDs to Learning OS integer users, creates canonical
 study decks/cards/media/review rows, and reuses duplicate media storage paths
 when Convo Lab has several media records for the same object.
 
+Production use requires both `--allow-production` and a target-specific typed
+confirmation. For a disposable production target named `learning_os`, append:
+
+```bash
+--allow-production \
+--production-truncate-confirmation="TRUNCATE learning_os"
+```
+
+The command rejects the confirmation when it does not exactly name the active
+target database.
+
 ## 5. Run The Smoke Harness
 
 Run the read-oriented API smoke check as a real user from the restored data:

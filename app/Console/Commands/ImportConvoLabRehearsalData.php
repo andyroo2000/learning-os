@@ -17,6 +17,7 @@ class ImportConvoLabRehearsalData extends Command
 {
     /**
      * Complete target reset boundary, including tables reached through user/deck/card foreign keys.
+     * Keep this list synchronized when a migration adds a new foreign key into that ownership graph.
      *
      * @var list<string>
      */
@@ -45,7 +46,8 @@ class ImportConvoLabRehearsalData extends Command
         {--source-username= : Source database username; defaults to DB_USERNAME}
         {--source-password= : Source database password; defaults to DB_PASSWORD}
         {--truncate : Delete existing Learning OS study data before importing}
-        {--allow-production : Permit the importer to run when APP_ENV=production}';
+        {--allow-production : Permit the importer to run when APP_ENV=production}
+        {--production-truncate-confirmation= : Required production phrase: TRUNCATE <target database>}';
 
     protected $description = 'Import read-oriented Convo Lab study data into a migrated Learning OS rehearsal database.';
 
@@ -68,11 +70,6 @@ class ImportConvoLabRehearsalData extends Command
      * @var array<string, string>
      */
     private array $cardIds = [];
-
-    /**
-     * @var array<string, int|null>
-     */
-    private array $cardNewQueuePositions = [];
 
     /**
      * @var array<string, string>
@@ -101,6 +98,7 @@ class ImportConvoLabRehearsalData extends Command
 
         try {
             $target = DB::connection();
+            $this->assertProductionTruncateConfirmed($target);
             $source = $this->sourceConnection();
 
             if ($this->sameDatabase($source, $target)) {
@@ -181,7 +179,6 @@ class ImportConvoLabRehearsalData extends Command
         $this->deckIds = [];
         $this->importJobIds = [];
         $this->cardIds = [];
-        $this->cardNewQueuePositions = [];
         $this->mediaIds = [];
         $this->mediaPathIds = [];
         $this->mediaPathUserIds = [];
@@ -192,6 +189,21 @@ class ImportConvoLabRehearsalData extends Command
         return $source->getDatabaseName() === $target->getDatabaseName()
             && $source->getConfig('host') === $target->getConfig('host')
             && (string) $source->getConfig('port') === (string) $target->getConfig('port');
+    }
+
+    private function assertProductionTruncateConfirmed(ConnectionInterface $target): void
+    {
+        if (! app()->isProduction() || ! $this->option('truncate')) {
+            return;
+        }
+
+        $expected = 'TRUNCATE '.$target->getDatabaseName();
+
+        if ($this->option('production-truncate-confirmation') !== $expected) {
+            throw new \RuntimeException(
+                "Production truncation requires --production-truncate-confirmation=\"{$expected}\".",
+            );
+        }
     }
 
     private function assertConvoLabSource(ConnectionInterface $source): void
@@ -464,7 +476,6 @@ class ImportConvoLabRehearsalData extends Command
                 foreach ($cards as $card) {
                     $id = (string) Str::ulid();
                     $this->cardIds[$card->id] = $id;
-                    $this->cardNewQueuePositions[$card->id] = $card->newQueuePosition;
                     $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
                     $promptText = $this->payloadText($card->promptJson, [
                         'cueText',
@@ -679,6 +690,11 @@ class ImportConvoLabRehearsalData extends Command
             return null;
         }
 
+        // Convo Lab did not persist the queue position before a first review, so that state cannot be undone safely.
+        if ($queueState === CardStudyStatus::New->value) {
+            return null;
+        }
+
         foreach (['beforeDueAt', 'beforeIntroducedAt', 'beforeLastReviewedAt'] as $key) {
             if (! array_key_exists($key, $rawPayload)
                 || (! is_string($rawPayload[$key]) && $rawPayload[$key] !== null)) {
@@ -694,7 +710,7 @@ class ImportConvoLabRehearsalData extends Command
 
         return json_encode([
             'study_status' => $queueState,
-            'new_queue_position' => $this->cardNewQueuePositions[$review->cardId] ?? null,
+            'new_queue_position' => null,
             'scheduler_state' => $schedulerState,
             'due_at' => $rawPayload['beforeDueAt'],
             'introduced_at' => $rawPayload['beforeIntroducedAt'],

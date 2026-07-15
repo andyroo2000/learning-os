@@ -26,6 +26,7 @@ APP_DEBUG=false
 APP_KEY=base64:<32-byte Laravel application key>
 APP_URL=http://learning-os:8080
 LOG_CHANNEL=stderr
+QUEUE_CONNECTION=sync
 DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
@@ -43,6 +44,11 @@ tables. Database-backed cache is required because Laravel's rate limiters must
 persist across PHP request lifecycles. ConvoLab authenticates to Learning OS
 with a Sanctum bearer token, and no queue worker is needed for the read-only
 feature slice.
+
+`QUEUE_CONNECTION=sync` prevents queued study-card-draft and import jobs from
+accumulating without a worker during the initial rollout. Before enabling those
+write features, deploy a separate `php artisan queue:work` service and switch
+the connection to `database`.
 
 Run migrations as a one-shot container before starting a new image:
 

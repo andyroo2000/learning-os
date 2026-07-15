@@ -6,6 +6,7 @@
 :8080 {
     root * /app/public
     encode zstd br gzip
+    redir / /up 307
     php_server
 
     log {

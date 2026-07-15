@@ -48,6 +48,8 @@ jobs:
     name: Container smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -122,12 +124,14 @@ jobs:
             --env DB_PASSWORD=container-test-password \
             --env PGSQL_SSL_MODE=disable \
             --env CACHE_STORE=database \
+            --env QUEUE_CONNECTION=sync \
             --env SESSION_DRIVER=database \
             $TEST_IMAGE
 
           for attempt in {1..30}; do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up > /dev/null; then
-              exit 0
+              curl --fail --silent --show-error --location http://127.0.0.1:8080/ > /dev/null
+              exit $?
             fi
             sleep 2
           done

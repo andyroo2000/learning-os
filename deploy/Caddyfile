@@ -1,0 +1,17 @@
+{
+    admin off
+    auto_https off
+}
+
+:8080 {
+    root * /app/public
+    encode zstd br gzip
+    # This private API image has no landing page; make its root an operational probe.
+    redir / /up 307
+    php_server
+
+    log {
+        output stdout
+        format json
+    }
+}

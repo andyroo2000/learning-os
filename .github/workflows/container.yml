@@ -121,8 +121,8 @@ jobs:
             --env DB_USERNAME=learning_os \
             --env DB_PASSWORD=container-test-password \
             --env PGSQL_SSL_MODE=disable \
-            --env CACHE_STORE=array \
-            --env SESSION_DRIVER=array \
+            --env CACHE_STORE=database \
+            --env SESSION_DRIVER=database \
             $TEST_IMAGE
 
           for attempt in {1..30}; do

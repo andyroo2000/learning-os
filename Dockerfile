@@ -33,12 +33,14 @@ RUN mkdir -p \
 
 ENV APP_ENV=production \
     APP_DEBUG=false \
+    CACHE_STORE=database \
     LOG_CHANNEL=stderr \
-    SERVER_NAME=:8080
+    SERVER_NAME=:8080 \
+    SESSION_DRIVER=database
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD ["php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/up') === false ? 1 : 0);"]
+    CMD ["php", "-r", "$context = stream_context_create(['http' => ['timeout' => 2]]); exit(@file_get_contents('http://127.0.0.1:8080/up', false, $context) === false ? 1 : 0);"]
 
 USER www-data

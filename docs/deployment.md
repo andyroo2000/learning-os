@@ -33,14 +33,16 @@ DB_DATABASE=learning_os
 DB_USERNAME=<postgres role>
 DB_PASSWORD=<postgres password>
 PGSQL_SSL_MODE=disable
-CACHE_STORE=array
-SESSION_DRIVER=array
+CACHE_STORE=database
+SESSION_DRIVER=database
 ```
 
 `APP_KEY` must be generated once and retained across deploys. The initial
-single-node rollout uses process-local cache/session stores because ConvoLab
-authenticates to Learning OS with a Sanctum bearer token and no queue worker is
-needed for the read-only feature slice.
+single-node rollout uses the migrated `cache`, `cache_locks`, and `sessions`
+tables. Database-backed cache is required because Laravel's rate limiters must
+persist across PHP request lifecycles. ConvoLab authenticates to Learning OS
+with a Sanctum bearer token, and no queue worker is needed for the read-only
+feature slice.
 
 Run migrations as a one-shot container before starting a new image:
 

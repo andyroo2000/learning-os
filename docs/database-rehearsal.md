@@ -103,11 +103,16 @@ confirmation. For a disposable production target named `learning_os`, append:
 
 ```bash
 --allow-production \
+--skip-media \
 --production-truncate-confirmation="TRUNCATE learning_os"
 ```
 
 The command rejects the confirmation when it does not exactly name the active
-target database.
+target database. `--skip-media` is also mandatory when source media exists:
+Convo Lab does not persist byte sizes, and Learning OS must not expose
+zero-byte placeholder assets through its offline media manifests. Migrate media
+bytes and verified sizes in a separate step before enabling media-dependent API
+features.
 
 ## 5. Run The Smoke Harness
 

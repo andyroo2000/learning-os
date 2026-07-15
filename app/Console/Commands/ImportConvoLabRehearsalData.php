@@ -46,6 +46,7 @@ class ImportConvoLabRehearsalData extends Command
         {--source-username= : Source database username; defaults to DB_USERNAME}
         {--source-password= : Source database password; defaults to DB_PASSWORD}
         {--truncate : Delete existing Learning OS study data before importing}
+        {--skip-media : Omit media assets and card-media links when source byte sizes are unavailable}
         {--allow-production : Permit the importer to run when APP_ENV=production}
         {--production-truncate-confirmation= : Required production phrase: TRUNCATE <target database>}';
 
@@ -108,6 +109,7 @@ class ImportConvoLabRehearsalData extends Command
             }
 
             $this->assertConvoLabSource($source);
+            $this->assertProductionMediaStrategy($source);
             $this->assertTargetIsReady($target);
 
             $this->info('Importing Convo Lab rehearsal data');
@@ -121,9 +123,19 @@ class ImportConvoLabRehearsalData extends Command
                 $this->importDecks($source, $target);
                 $this->importStudySettings($source, $target);
                 $this->importStudyImportJobs($source, $target);
-                $this->importMedia($source, $target);
+                if ($this->option('skip-media')) {
+                    $this->line('Skipped media assets and card media links; Convo Lab does not store byte sizes.');
+                } else {
+                    $this->warn('Importing metadata-only media with size_bytes=0 for disposable rehearsal use.');
+                    $this->importMedia($source, $target);
+                }
+
                 $this->importCards($source, $target);
-                $this->importCardMedia($source, $target);
+
+                if (! $this->option('skip-media')) {
+                    $this->importCardMedia($source, $target);
+                }
+
                 $this->importReviewLogs($source, $target);
             });
         } catch (Throwable $e) {
@@ -206,6 +218,17 @@ class ImportConvoLabRehearsalData extends Command
         }
     }
 
+    private function assertProductionMediaStrategy(ConnectionInterface $source): void
+    {
+        if (! app()->isProduction() || $this->option('skip-media') || ! $source->table('study_media')->exists()) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'Production import requires --skip-media because Convo Lab does not store media byte sizes.',
+        );
+    }
+
     private function assertConvoLabSource(ConnectionInterface $source): void
     {
         foreach (['User', 'study_cards', 'study_review_logs', 'study_media', 'study_import_jobs', 'study_settings'] as $table) {
@@ -270,10 +293,8 @@ class ImportConvoLabRehearsalData extends Command
                     }
 
                     $sourceUserIdsByEmail[$normalizedEmail] = $user->id;
-                    // ConvoLab and Learning OS currently share Laravel-compatible password hashes.
-                    $password = is_string($user->password) && $user->password !== ''
-                        ? $user->password
-                        : Hash::make(Str::random(32));
+                    // Convo Lab uses Node bcrypt; importedPassword normalizes its prefix for PHP.
+                    $password = $this->importedPassword($user);
 
                     $targetId = $target->table('users')->insertGetId([
                         'name' => $user->displayName ?: $user->name ?: $user->email,
@@ -491,10 +512,13 @@ class ImportConvoLabRehearsalData extends Command
                     $studyStatus = CardStudyStatus::fromFilter(
                         $this->stringOrDefault($card->queueState, CardStudyStatus::New->value),
                     );
+                    $deckKey = $this->deckKey($card->userId, $deckName);
+                    $deckId = $this->deckIds[$deckKey]
+                        ?? throw new \RuntimeException("Missing imported deck mapping for [{$deckKey}].");
 
                     $insertRows[] = [
                         'id' => $id,
-                        'deck_id' => $this->deckIds[$this->deckKey($card->userId, $deckName)],
+                        'deck_id' => $deckId,
                         'front_text' => $promptText,
                         'back_text' => $answerText,
                         'card_type' => $cardType->value,
@@ -650,6 +674,23 @@ class ImportConvoLabRehearsalData extends Command
     private function stringOrDefault(mixed $value, string $default): string
     {
         return is_string($value) && trim($value) !== '' ? $value : $default;
+    }
+
+    private function importedPassword(object $user): string
+    {
+        if (! is_string($user->password) || $user->password === '') {
+            return Hash::make(Str::random(32));
+        }
+
+        $password = str_starts_with($user->password, '$2b$')
+            ? '$2y$'.substr($user->password, 4)
+            : $user->password;
+
+        if ((password_get_info($password)['algoName'] ?? 'unknown') === 'unknown') {
+            throw new \RuntimeException("Convo Lab user [{$user->id}] has an unsupported password hash.");
+        }
+
+        return $password;
     }
 
     /**

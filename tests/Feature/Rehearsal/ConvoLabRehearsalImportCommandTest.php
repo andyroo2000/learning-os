@@ -9,6 +9,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -151,11 +152,34 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->artisan('rehearsal:import-convolab', [
             '--source-connection' => 'convolab_test_source',
             '--truncate' => true,
+            '--skip-media' => true,
             '--allow-production' => true,
             '--production-truncate-confirmation' => "TRUNCATE {$targetDatabase}",
         ])->assertExitCode(0);
 
         $this->assertDatabaseHas('users', ['email' => 'ada@example.com']);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
+    public function test_production_import_rejects_metadata_only_media(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $this->seedConvoLabSourceData();
+        $targetDatabase = DB::connection()->getDatabaseName();
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+            '--allow-production' => true,
+            '--production-truncate-confirmation' => "TRUNCATE {$targetDatabase}",
+        ])
+            ->expectsOutputToContain(
+                'Production import requires --skip-media because Convo Lab does not store media byte sizes.',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_refuses_to_import_into_a_non_empty_target_without_truncate(): void
@@ -195,6 +219,37 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             ->assertExitCode(1);
 
         $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_rejects_an_unsupported_source_password_hash(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')->table('User')->update(['password' => 'not-a-password-hash']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Convo Lab user [source-user-1] has an unsupported password hash.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_normalizes_node_bcrypt_passwords_for_php_authentication(): void
+    {
+        $this->seedConvoLabSourceData();
+        $nodeBcryptHash = '$2b$'.substr(Hash::make('correct horse battery staple'), 4);
+        DB::connection('convolab_test_source')->table('User')->update(['password' => $nodeBcryptHash]);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])->assertExitCode(0);
+
+        $importedHash = User::query()->sole()->password;
+        $this->assertStringStartsWith('$2y$', $importedHash);
+        $this->assertTrue(Hash::check('correct horse battery staple', $importedHash));
     }
 
     public function test_truncate_and_import_roll_back_together_when_a_late_mapping_fails(): void

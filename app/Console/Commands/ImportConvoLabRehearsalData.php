@@ -70,6 +70,11 @@ class ImportConvoLabRehearsalData extends Command
     private array $cardIds = [];
 
     /**
+     * @var array<string, int|null>
+     */
+    private array $cardNewQueuePositions = [];
+
+    /**
      * @var array<string, string>
      */
     private array $mediaIds = [];
@@ -176,6 +181,7 @@ class ImportConvoLabRehearsalData extends Command
         $this->deckIds = [];
         $this->importJobIds = [];
         $this->cardIds = [];
+        $this->cardNewQueuePositions = [];
         $this->mediaIds = [];
         $this->mediaPathIds = [];
         $this->mediaPathUserIds = [];
@@ -234,31 +240,40 @@ class ImportConvoLabRehearsalData extends Command
     private function importUsers(ConnectionInterface $source, ConnectionInterface $target): void
     {
         $count = 0;
+        $sourceUserIdsByEmail = [];
 
         $source->table('User')
             ->orderBy('createdAt')
             ->orderBy('id')
-            ->chunk(200, function ($users) use ($target, &$count): void {
+            ->chunk(200, function ($users) use ($target, &$count, &$sourceUserIdsByEmail): void {
                 foreach ($users as $user) {
-                    $existingId = $target->table('users')->where('email', $user->email)->value('id');
+                    $normalizedEmail = strtolower(trim((string) $user->email));
+
+                    if ($normalizedEmail === '') {
+                        throw new \RuntimeException("Convo Lab user [{$user->id}] has no email.");
+                    }
+
+                    if (isset($sourceUserIdsByEmail[$normalizedEmail])) {
+                        throw new \RuntimeException("Multiple Convo Lab users share email [{$user->email}].");
+                    }
+
+                    $sourceUserIdsByEmail[$normalizedEmail] = $user->id;
                     // ConvoLab and Learning OS currently share Laravel-compatible password hashes.
                     $password = is_string($user->password) && $user->password !== ''
                         ? $user->password
                         : Hash::make(Str::random(32));
 
-                    if ($existingId === null) {
-                        $existingId = $target->table('users')->insertGetId([
-                            'name' => $user->displayName ?: $user->name ?: $user->email,
-                            'email' => $user->email,
-                            'email_verified_at' => $user->emailVerifiedAt,
-                            'password' => $password,
-                            'remember_token' => null,
-                            'created_at' => $user->createdAt,
-                            'updated_at' => $user->updatedAt,
-                        ]);
-                    }
+                    $targetId = $target->table('users')->insertGetId([
+                        'name' => $user->displayName ?: $user->name ?: $user->email,
+                        'email' => $user->email,
+                        'email_verified_at' => $user->emailVerifiedAt,
+                        'password' => $password,
+                        'remember_token' => null,
+                        'created_at' => $user->createdAt,
+                        'updated_at' => $user->updatedAt,
+                    ]);
 
-                    $this->userIds[$user->id] = (int) $existingId;
+                    $this->userIds[$user->id] = (int) $targetId;
                     $count++;
                 }
             });
@@ -449,9 +464,18 @@ class ImportConvoLabRehearsalData extends Command
                 foreach ($cards as $card) {
                     $id = (string) Str::ulid();
                     $this->cardIds[$card->id] = $id;
+                    $this->cardNewQueuePositions[$card->id] = $card->newQueuePosition;
                     $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
-                    $promptText = $this->payloadText($card->promptJson);
-                    $answerText = $this->payloadText($card->answerJson);
+                    $promptText = $this->payloadText($card->promptJson, [
+                        'cueText',
+                        'clozeText',
+                        'clozeDisplayText',
+                        'cueMeaning',
+                        'text',
+                        'expression',
+                        'cueHtml',
+                    ]);
+                    $answerText = $this->payloadText($card->answerJson, ['meaning', 'text', 'expression', 'notes']);
                     $cardType = CardType::fromInput($this->stringOrDefault($card->cardType, CardType::Recognition->value));
                     $studyStatus = CardStudyStatus::fromFilter(
                         $this->stringOrDefault($card->queueState, CardStudyStatus::New->value),
@@ -566,7 +590,7 @@ class ImportConvoLabRehearsalData extends Command
                         'scheduler_state_before' => $review->stateBeforeJson,
                         'scheduler_state_after' => $review->stateAfterJson,
                         'duration_ms' => $review->durationMs,
-                        'card_state_before' => $review->stateBeforeJson,
+                        'card_state_before' => $this->reviewCardStateBefore($review),
                         'import_job_id' => $this->mappedImportJobId($review->importJobId),
                         'source_kind' => $review->source,
                         'source_review_id' => $review->sourceReviewId,
@@ -617,7 +641,10 @@ class ImportConvoLabRehearsalData extends Command
         return is_string($value) && trim($value) !== '' ? $value : $default;
     }
 
-    private function payloadText(?string $json): string
+    /**
+     * @param  list<string>  $keys
+     */
+    private function payloadText(?string $json, array $keys): string
     {
         if ($json === null || $json === '') {
             return '';
@@ -629,14 +656,66 @@ class ImportConvoLabRehearsalData extends Command
             return '';
         }
 
-        $texts = [];
-        array_walk_recursive($decoded, function (mixed $value, string|int $key) use (&$texts): void {
-            if (($key === 'text' || $key === 'expression') && is_string($value) && trim($value) !== '') {
-                $texts[] = trim($value);
-            }
-        });
+        foreach ($keys as $key) {
+            $value = $decoded[$key] ?? null;
 
-        return Str::limit(implode(' ', array_unique($texts)), 1000, '');
+            if (is_string($value) && trim($value) !== '') {
+                $text = str_ends_with($key, 'Html') ? strip_tags($value) : $value;
+
+                return Str::limit(trim($text), 1000, '');
+            }
+        }
+
+        return '';
+    }
+
+    private function reviewCardStateBefore(object $review): ?string
+    {
+        $rawPayload = $this->jsonObject($review->rawPayloadJson);
+        $schedulerState = $this->jsonObject($review->stateBeforeJson);
+        $queueState = $rawPayload['beforeQueueState'] ?? null;
+
+        if (! is_string($queueState) || CardStudyStatus::tryFrom($queueState) === null || $schedulerState === null) {
+            return null;
+        }
+
+        foreach (['beforeDueAt', 'beforeIntroducedAt', 'beforeLastReviewedAt'] as $key) {
+            if (! array_key_exists($key, $rawPayload)
+                || (! is_string($rawPayload[$key]) && $rawPayload[$key] !== null)) {
+                return null;
+            }
+        }
+
+        $beforeFailedAt = $rawPayload['beforeFailedAt'] ?? null;
+
+        if (! is_string($beforeFailedAt) && $beforeFailedAt !== null) {
+            return null;
+        }
+
+        return json_encode([
+            'study_status' => $queueState,
+            'new_queue_position' => $this->cardNewQueuePositions[$review->cardId] ?? null,
+            'scheduler_state' => $schedulerState,
+            'due_at' => $rawPayload['beforeDueAt'],
+            'introduced_at' => $rawPayload['beforeIntroducedAt'],
+            // Older Convo Lab-native reviews omitted this optional key; its undo path restores null.
+            'failed_at' => $beforeFailedAt,
+            'last_reviewed_at' => $rawPayload['beforeLastReviewedAt'],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function jsonObject(?string $json): ?array
+    {
+        if ($json === null || $json === '') {
+            return null;
+        }
+
+        $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+
+        return is_array($decoded) && ! array_is_list($decoded) ? $decoded : null;
     }
 
     private function rating(int $rating): string

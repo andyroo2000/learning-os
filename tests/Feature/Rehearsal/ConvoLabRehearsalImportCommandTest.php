@@ -3,6 +3,7 @@
 namespace Tests\Feature\Rehearsal;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -88,6 +89,15 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseHas('card_review_events', [
             'rating' => 'good',
         ]);
+        $this->assertSame([
+            'study_status' => 'review',
+            'new_queue_position' => null,
+            'scheduler_state' => ['before' => true],
+            'due_at' => '2026-07-14T09:00:00.000Z',
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => '2026-07-13T10:00:00.000Z',
+        ], CardReviewEvent::query()->sole()->card_state_before);
 
         $this->artisan('rehearsal:smoke', [
             '--user-email' => 'ada@example.com',
@@ -107,6 +117,30 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $existingUser->id]);
         $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_rejects_duplicate_source_emails_instead_of_merging_users(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')->table('User')->insert([
+            'id' => 'source-user-duplicate-email',
+            'email' => 'ADA@example.com',
+            'password' => null,
+            'name' => 'Other Ada',
+            'displayName' => null,
+            'emailVerifiedAt' => null,
+            'createdAt' => '2026-07-14 10:00:00',
+            'updatedAt' => '2026-07-14 10:00:00',
+        ]);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Multiple Convo Lab users share email [ADA@example.com].')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_truncate_and_import_roll_back_together_when_a_late_mapping_fails(): void
@@ -471,8 +505,15 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'queueState' => 'review',
             'dueAt' => $now,
             'lastReviewedAt' => $now,
-            'promptJson' => json_encode(['type' => 'text', 'text' => '猫']),
-            'answerJson' => json_encode(['type' => 'text', 'text' => 'cat']),
+            'promptJson' => json_encode([
+                'cueHtml' => '<strong>猫</strong>',
+                'cueText' => '猫',
+                'cueReading' => '猫[ねこ]',
+            ]),
+            'answerJson' => json_encode([
+                'meaning' => 'cat',
+                'answerAudio' => ['text' => 'nested media metadata must not become card text'],
+            ]),
             'schedulerStateJson' => json_encode(['state' => 'review']),
             'answerAudioSource' => 'generated',
             'promptAudioMediaId' => 'source-media-1',
@@ -497,7 +538,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'userId' => 'source-user-1',
             'cardId' => 'source-card-1',
             'importJobId' => 'source-import-1',
-            'source' => 'anki_import',
+            'source' => 'convolab',
             'sourceReviewId' => 789,
             'reviewedAt' => $now,
             'rating' => 3,
@@ -510,7 +551,13 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'sourceReviewType' => 1,
             'stateBeforeJson' => json_encode(['before' => true]),
             'stateAfterJson' => json_encode(['after' => true]),
-            'rawPayloadJson' => json_encode(['raw' => true]),
+            'rawPayloadJson' => json_encode([
+                'grade' => 'good',
+                'beforeQueueState' => 'review',
+                'beforeDueAt' => '2026-07-14T09:00:00.000Z',
+                'beforeIntroducedAt' => null,
+                'beforeLastReviewedAt' => '2026-07-13T10:00:00.000Z',
+            ]),
             'createdAt' => $now,
         ]);
     }

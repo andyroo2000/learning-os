@@ -78,6 +78,11 @@ class ImportConvoLabRehearsalData extends Command
     private array $mediaIds = [];
 
     /**
+     * @var array<string, int>
+     */
+    private array $mediaUserIds = [];
+
+    /**
      * @var array<string, string>
      */
     private array $mediaPathIds = [];
@@ -192,6 +197,7 @@ class ImportConvoLabRehearsalData extends Command
         $this->importJobIds = [];
         $this->cardIds = [];
         $this->mediaIds = [];
+        $this->mediaUserIds = [];
         $this->mediaPathIds = [];
         $this->mediaPathUserIds = [];
     }
@@ -437,6 +443,7 @@ class ImportConvoLabRehearsalData extends Command
                     $path = $this->stringOrDefault($media->storagePath, 'convolab-missing/'.$media->id);
                     $pathKey = MediaAsset::DISK_MEDIA."\n".$path;
                     $userId = $this->mappedUserId($media->userId);
+                    $this->mediaUserIds[$media->id] = $userId;
 
                     if (isset($this->mediaPathIds[$pathKey])) {
                         if ($this->mediaPathUserIds[$pathKey] !== $userId) {
@@ -563,7 +570,7 @@ class ImportConvoLabRehearsalData extends Command
         $count = 0;
 
         $source->table('study_cards')
-            ->select('id', 'promptAudioMediaId', 'answerAudioMediaId', 'imageMediaId', 'createdAt', 'updatedAt')
+            ->select('id', 'userId', 'promptAudioMediaId', 'answerAudioMediaId', 'imageMediaId', 'createdAt', 'updatedAt')
             ->orderBy('id')
             ->chunk(500, function ($cards) use ($target, &$count): void {
                 $rows = [];
@@ -576,6 +583,14 @@ class ImportConvoLabRehearsalData extends Command
 
                         if (! is_string($sourceMediaId) || ! isset($this->mediaIds[$sourceMediaId])) {
                             throw new \RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
+                        }
+
+                        $cardUserId = $this->mappedUserId($card->userId);
+
+                        if (($this->mediaUserIds[$sourceMediaId] ?? null) !== $cardUserId) {
+                            throw new \RuntimeException(
+                                "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
+                            );
                         }
 
                         $rows[$this->cardIds[$card->id].':'.$this->mediaIds[$sourceMediaId]] = [

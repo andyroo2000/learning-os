@@ -252,6 +252,35 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertTrue(Hash::check('correct horse battery staple', $importedHash));
     }
 
+    public function test_rejects_card_media_links_across_user_ownership_boundaries(): void
+    {
+        $this->seedConvoLabSourceData();
+        $source = DB::connection('convolab_test_source');
+        $source->table('User')->insert([
+            'id' => 'source-user-2',
+            'email' => 'grace@example.com',
+            'password' => null,
+            'name' => 'Grace',
+            'displayName' => null,
+            'emailVerifiedAt' => null,
+            'createdAt' => '2026-07-14 10:00:00',
+            'updatedAt' => '2026-07-14 10:00:00',
+        ]);
+        $source->table('study_media')->update(['userId' => 'source-user-2']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain(
+                'Card [source-card-1] references media [source-media-1] owned by another user.',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('card_media', 0);
+    }
+
     public function test_truncate_and_import_roll_back_together_when_a_late_mapping_fails(): void
     {
         $this->seedConvoLabSourceData();

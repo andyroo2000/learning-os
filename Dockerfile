@@ -2,18 +2,27 @@ FROM composer:2 AS vendor
 
 WORKDIR /app
 
-COPY . .
+COPY composer.json composer.lock ./
 
 RUN composer install \
     --no-dev \
     --no-interaction \
     --no-progress \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --no-scripts
+
+COPY . .
+
+RUN composer dump-autoload --no-dev --optimize
 
 FROM dunglas/frankenphp:1-php8.4-bookworm
 
-RUN install-php-extensions pdo_pgsql opcache
+RUN install-php-extensions pdo_pgsql opcache \
+    && printf '%s\n' \
+        'opcache.validate_timestamps=0' \
+        'opcache.revalidate_freq=0' \
+        > /usr/local/etc/php/conf.d/zz-production-opcache.ini
 
 WORKDIR /app
 

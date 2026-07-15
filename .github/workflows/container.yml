@@ -1,0 +1,184 @@
+name: Container
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/container.yml'
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'deploy/**'
+      - 'app/**'
+      - 'bootstrap/**'
+      - 'config/**'
+      - 'database/**'
+      - 'public/**'
+      - 'resources/**'
+      - 'routes/**'
+      - 'lang/**'
+      - 'artisan'
+      - 'composer.json'
+      - 'composer.lock'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/container.yml'
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'deploy/**'
+      - 'app/**'
+      - 'bootstrap/**'
+      - 'config/**'
+      - 'database/**'
+      - 'public/**'
+      - 'resources/**'
+      - 'routes/**'
+      - 'lang/**'
+      - 'artisan'
+      - 'composer.json'
+      - 'composer.lock'
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/learning-os
+  TEST_IMAGE: learning-os:container-test
+
+jobs:
+  test:
+    name: Container smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.TEST_IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start PostgreSQL
+        run: |
+          docker network create learning-os-test
+          docker run --detach --rm \
+            --name learning-os-postgres \
+            --network learning-os-test \
+            --env POSTGRES_DB=learning_os \
+            --env POSTGRES_USER=learning_os \
+            --env POSTGRES_PASSWORD=container-test-password \
+            --health-cmd='pg_isready -U learning_os -d learning_os' \
+            --health-interval=2s \
+            --health-timeout=3s \
+            --health-retries=20 \
+            postgres:16-alpine
+
+          for attempt in {1..30}; do
+            if [ "$(docker inspect --format='{{.State.Health.Status}}' learning-os-postgres)" = healthy ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs learning-os-postgres
+          exit 1
+
+      - name: Generate ephemeral application key
+        run: echo "TEST_APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Migrate database
+        run: |
+          docker run --rm \
+            --network learning-os-test \
+            --env APP_KEY="$TEST_APP_KEY" \
+            --env DB_CONNECTION=pgsql \
+            --env DB_HOST=learning-os-postgres \
+            --env DB_PORT=5432 \
+            --env DB_DATABASE=learning_os \
+            --env DB_USERNAME=learning_os \
+            --env DB_PASSWORD=container-test-password \
+            --env PGSQL_SSL_MODE=disable \
+            $TEST_IMAGE php artisan migrate --force
+
+      - name: Start Learning OS
+        run: |
+          docker run --detach --rm \
+            --name learning-os-api \
+            --network learning-os-test \
+            --publish 127.0.0.1:8080:8080 \
+            --env APP_KEY="$TEST_APP_KEY" \
+            --env DB_CONNECTION=pgsql \
+            --env DB_HOST=learning-os-postgres \
+            --env DB_PORT=5432 \
+            --env DB_DATABASE=learning_os \
+            --env DB_USERNAME=learning_os \
+            --env DB_PASSWORD=container-test-password \
+            --env PGSQL_SSL_MODE=disable \
+            --env CACHE_STORE=array \
+            --env SESSION_DRIVER=array \
+            $TEST_IMAGE
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/up > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs learning-os-api
+          exit 1
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker logs learning-os-api 2>/dev/null || true
+          docker logs learning-os-postgres 2>/dev/null || true
+
+  publish:
+    name: Publish image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=main-,format=long
+
+      - name: Build and publish runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

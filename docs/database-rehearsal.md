@@ -30,27 +30,37 @@ mkdir -p "$LEARNINGOS_DIR/storage/app/rehearsals"
 If your Postgres tools are already on `PATH`, set `PG_BIN=` or replace
 `"$PG_BIN/pg_dump"` with `pg_dump`.
 
-## 2. Restore Into A Disposable Database
+## 2. Restore Into A Disposable Source Database
 
-Create a fresh local target and restore the dump into it:
+Create a fresh local source copy and restore the dump into it:
 
 ```bash
 LEARNINGOS_DIR=<path-to-learning-os>
 PG_BIN=${PG_BIN:-/opt/homebrew/opt/postgresql@15/bin}
-"$PG_BIN/dropdb" --if-exists learning_os_rehearsal
-"$PG_BIN/createdb" learning_os_rehearsal
+"$PG_BIN/dropdb" --if-exists learning_os_convolab_source
+"$PG_BIN/createdb" learning_os_convolab_source
 
 "$PG_BIN/pg_restore" --clean --if-exists --no-owner --no-acl \
-  --dbname=learning_os_rehearsal \
+  --dbname=learning_os_convolab_source \
   "$LEARNINGOS_DIR/storage/app/rehearsals/convo-lab.dump"
 ```
 
 If the restore or later smoke check fails, drop and recreate
-`learning_os_rehearsal`, then rerun the restore after patching Learning OS.
+`learning_os_convolab_source`, then rerun the restore after patching Learning
+OS.
 
-## 3. Point Learning OS At The Copy
+## 3. Migrate A Fresh Learning OS Target
 
-Update `<path-to-learning-os>/.env` for the restored database:
+Create a separate disposable target database and point Learning OS at it. Keep
+the restored Convo Lab source database unchanged so the import can be rerun:
+
+```bash
+PG_BIN=${PG_BIN:-/opt/homebrew/opt/postgresql@15/bin}
+"$PG_BIN/dropdb" --if-exists learning_os_rehearsal
+"$PG_BIN/createdb" learning_os_rehearsal
+```
+
+Update `<path-to-learning-os>/.env` for the Learning OS target:
 
 ```dotenv
 DB_CONNECTION=pgsql
@@ -69,12 +79,26 @@ cd <path-to-learning-os>
 php artisan migrate --force
 ```
 
-If migration fails because the restored Convo Lab schema already has tables but
-does not have Laravel migration history, stop and treat that as real-data
-compatibility work for the next PR. Do not manually mark migrations as run
-unless a reviewed baseline step exists for the copied schema.
+Do not run Learning OS migrations directly against the restored Convo Lab
+source copy. Convo Lab's schema uses string user IDs, camelCase study columns,
+and legacy table names that are not Laravel's canonical schema.
 
-## 4. Run The Smoke Harness
+## 4. Import Convo Lab Study Data
+
+Import the restored source copy into the migrated Learning OS target:
+
+```bash
+php artisan rehearsal:import-convolab \
+  --source-database=learning_os_convolab_source \
+  --truncate
+```
+
+The importer is rehearsal-only and expects a disposable Learning OS target. It
+maps Convo Lab string user IDs to Learning OS integer users, creates canonical
+study decks/cards/media/review rows, and reuses duplicate media storage paths
+when Convo Lab has several media records for the same object.
+
+## 5. Run The Smoke Harness
 
 Run the read-oriented API smoke check as a real user from the restored data:
 

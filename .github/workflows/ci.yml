@@ -103,7 +103,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, pdo_pgsql, pgsql
+          extensions: mbstring, pdo_pgsql, pgsql, pdo_sqlite, sqlite3
           coverage: none
 
       - name: Cache Composer dependencies
@@ -132,3 +132,6 @@ jobs:
 
       - name: Verify PostgreSQL migration status
         run: php artisan migrate:status --ansi
+
+      - name: Run rehearsal importer against PostgreSQL
+        run: php artisan test tests/Feature/Rehearsal/ConvoLabRehearsalImportCommandTest.php

@@ -169,6 +169,24 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('cards', 0);
     }
 
+    public function test_rejects_a_review_with_a_missing_card_instead_of_discarding_it(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')
+            ->table('study_review_logs')
+            ->update(['cardId' => 'missing-card']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Missing imported card mapping for review [source-review-1].')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
     public function test_rejects_shared_media_paths_across_users(): void
     {
         $this->seedConvoLabSourceData();

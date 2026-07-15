@@ -235,6 +235,7 @@ class ImportConvoLabRehearsalData extends Command
             ->chunk(200, function ($users) use ($target, &$count): void {
                 foreach ($users as $user) {
                     $existingId = $target->table('users')->where('email', $user->email)->value('id');
+                    // ConvoLab and Learning OS currently share Laravel-compatible password hashes.
                     $password = is_string($user->password) && $user->password !== ''
                         ? $user->password
                         : bcrypt(Str::random(32));
@@ -407,6 +408,7 @@ class ImportConvoLabRehearsalData extends Command
                         'path' => $path,
                         'public_url' => $media->publicUrl,
                         'mime_type' => $this->stringOrDefault($media->contentType, 'application/octet-stream'),
+                        // The rehearsal imports metadata only; media bytes are copied in a later rollout step.
                         'size_bytes' => 0,
                         'checksum_sha256' => null,
                         'original_filename' => $media->sourceFilename,
@@ -542,7 +544,7 @@ class ImportConvoLabRehearsalData extends Command
 
                 foreach ($reviews as $review) {
                     if (! isset($this->cardIds[$review->cardId])) {
-                        continue;
+                        throw new \RuntimeException("Missing imported card mapping for review [{$review->id}].");
                     }
 
                     $insertRows[] = [

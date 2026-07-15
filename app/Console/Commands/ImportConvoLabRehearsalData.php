@@ -9,11 +9,34 @@ use App\Domain\Study\Enums\StudyImportStatus;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
 
 class ImportConvoLabRehearsalData extends Command
 {
+    /**
+     * Complete target reset boundary, including tables reached through user/deck/card foreign keys.
+     *
+     * @var list<string>
+     */
+    private const TARGET_TABLES = [
+        'card_media',
+        'card_review_events',
+        'sync_feed_entries',
+        'study_card_drafts',
+        'media_assets',
+        'cards',
+        'decks',
+        'courses',
+        'study_import_jobs',
+        'study_settings',
+        'personal_access_tokens',
+        'sessions',
+        'password_reset_tokens',
+        'users',
+    ];
+
     protected $signature = 'rehearsal:import-convolab
         {--source-connection=convolab_rehearsal : Temporary source connection name}
         {--source-database= : Restored Convo Lab source database name}
@@ -137,6 +160,7 @@ class ImportConvoLabRehearsalData extends Command
         $sourceConfig['host'] = $this->option('source-host') ?: ($targetConfig['host'] ?? '127.0.0.1');
         $sourceConfig['port'] = $this->option('source-port') ?: ($targetConfig['port'] ?? '5432');
         $sourceConfig['database'] = trim($database);
+        // A blank username means "reuse the target role"; a blank password is meaningful for trust auth.
         $sourceConfig['username'] = $this->option('source-username') ?: ($targetConfig['username'] ?? null);
         $sourceConfig['password'] = $this->option('source-password') ?? ($targetConfig['password'] ?? null);
 
@@ -179,7 +203,7 @@ class ImportConvoLabRehearsalData extends Command
             return;
         }
 
-        foreach (['users', 'decks', 'study_settings', 'study_import_jobs', 'media_assets', 'cards', 'card_review_events'] as $table) {
+        foreach (self::TARGET_TABLES as $table) {
             if ($target->table($table)->exists()) {
                 throw new \RuntimeException(
                     "Learning OS target table [{$table}] is not empty. Re-run with --truncate against a disposable target.",
@@ -193,34 +217,16 @@ class ImportConvoLabRehearsalData extends Command
         $driver = $target->getDriverName();
 
         if ($driver === 'pgsql') {
-            $target->statement(<<<'SQL'
-                TRUNCATE TABLE
-                    card_media,
-                    card_review_events,
-                    media_assets,
-                    cards,
-                    decks,
-                    study_import_jobs,
-                    study_settings,
-                    personal_access_tokens,
-                    users
-                RESTART IDENTITY CASCADE
-                SQL);
+            $tables = implode(', ', array_map(
+                static fn (string $table): string => '"'.$table.'"',
+                self::TARGET_TABLES,
+            ));
+            $target->statement("TRUNCATE TABLE {$tables} RESTART IDENTITY");
 
             return;
         }
 
-        foreach ([
-            'card_media',
-            'card_review_events',
-            'media_assets',
-            'cards',
-            'decks',
-            'study_import_jobs',
-            'study_settings',
-            'personal_access_tokens',
-            'users',
-        ] as $table) {
+        foreach (self::TARGET_TABLES as $table) {
             $target->table($table)->delete();
         }
     }
@@ -238,7 +244,7 @@ class ImportConvoLabRehearsalData extends Command
                     // ConvoLab and Learning OS currently share Laravel-compatible password hashes.
                     $password = is_string($user->password) && $user->password !== ''
                         ? $user->password
-                        : bcrypt(Str::random(32));
+                        : Hash::make(Str::random(32));
 
                     if ($existingId === null) {
                         $existingId = $target->table('users')->insertGetId([

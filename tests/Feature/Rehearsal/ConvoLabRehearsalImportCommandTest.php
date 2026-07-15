@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Rehearsal;
 
+use App\Domain\Courses\Models\Course;
+use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -121,6 +124,25 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $existingUser->id]);
         $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_truncate_explicitly_clears_the_full_user_data_boundary(): void
+    {
+        $this->seedConvoLabSourceData();
+        $existingUser = User::factory()->create();
+        Course::factory()->for($existingUser)->create();
+        StudyCardDraft::factory()->for($existingUser)->create();
+        SyncFeedEntry::factory()->for($existingUser)->create();
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseCount('courses', 0);
+        $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertDatabaseCount('users', 1);
     }
 
     public function test_deduplicates_deck_names_after_legacy_values_are_defaulted(): void

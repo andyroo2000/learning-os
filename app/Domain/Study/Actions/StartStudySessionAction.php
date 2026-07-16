@@ -107,7 +107,7 @@ class StartStudySessionAction
     private function ownedActiveCardsQuery(int $userId, ?string $courseId = null, ?string $deckId = null): Builder
     {
         return Card::query()
-            // This join enforces ownership/soft deletes. Session card queries also project decks.course_id.
+            // This join enforces deck ownership and excludes cards in soft-deleted decks.
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')

@@ -112,6 +112,36 @@ class KnownKanjiApiTest extends TestCase
         $this->assertDatabaseMissing('wanikani_connections', ['user_id' => $user->id]);
     }
 
+    public function test_disconnect_is_idempotent_and_preserves_ever_known_kanji(): void
+    {
+        $user = $this->signIn();
+        Http::fake(['api.wanikani.com/v2/user' => Http::response(['object' => 'user'])]);
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+
+        $knownKanji = new UserKnownKanji;
+        $knownKanji->user_id = $user->id;
+        $knownKanji->character = '私';
+        $knownKanji->wanikani_subject_id = 999;
+        $knownKanji->wanikani_passed_at = now();
+        $knownKanji->save();
+
+        $this->deleteJson('/api/study/wanikani')->assertNoContent();
+        $this->deleteJson('/api/study/wanikani')->assertNoContent();
+
+        $this->getJson('/api/study/known-kanji')
+            ->assertOk()
+            ->assertJsonPath('wanikani.connected', false)
+            ->assertJsonPath('kanji.0', '私');
+
+        $this->assertDatabaseMissing('wanikani_connections', ['user_id' => $user->id]);
+        $this->assertDatabaseHas('user_known_kanji', [
+            'user_id' => $user->id,
+            'character' => '私',
+            'wanikani_subject_id' => 999,
+        ]);
+    }
+
     public function test_connect_reports_wanikani_outages_without_persisting_the_token(): void
     {
         $user = $this->signIn();

@@ -163,7 +163,9 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 'new_cards_per_day' => 20,
             ]);
             $clientCardId = '98F42A62-8303-410E-AD4D-5A69C55911BB';
+            $canonicalCardId = strtoupper((string) Str::ulid());
             $card = Card::factory()->for($deck)->create([
+                'id' => $canonicalCardId,
                 'convolab_id' => strtolower($clientCardId),
                 'convolab_note_id' => 'c0a8012e-7d2f-4b21-9dd7-14caf2bb1f88',
                 'study_status' => CardStudyStatus::New,
@@ -193,9 +195,12 @@ class StudyReviewCompatibilityApiTest extends TestCase
             $this->assertIsString($reviewLogId);
             $this->assertDatabaseHas('card_review_events', [
                 'id' => $reviewLogId,
-                'card_id' => $card->id,
                 'rating' => CardReviewRating::Good->value,
             ]);
+            $this->assertSame(
+                $canonicalCardId,
+                CardReviewEvent::query()->findOrFail($reviewLogId)->card_id,
+            );
         } finally {
             Carbon::setTestNow();
         }

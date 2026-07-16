@@ -642,6 +642,25 @@ class ReviewCardActionTest extends TestCase
         ]);
     }
 
+    public function test_it_reviews_cards_from_legacy_imports_with_uppercase_ulids(): void
+    {
+        $storedCardId = strtoupper((string) Str::ulid());
+        $card = Card::factory()->create(['id' => $storedCardId]);
+
+        $result = $this->reviewCard(
+            ReviewCardData::fromInput(
+                cardId: strtolower($storedCardId),
+                rating: 'good',
+                reviewedAt: '2026-05-27T09:15:00Z',
+            ),
+        );
+
+        $this->assertTrue($result->wasCreated);
+        $this->assertSame($storedCardId, $result->reviewEvent->card_id);
+        $this->assertSame($storedCardId, CardReviewEvent::query()->findOrFail($result->reviewEvent->id)->card_id);
+        $this->assertSame(CardStudyStatus::Review, $card->refresh()->study_status);
+    }
+
     public function test_it_is_idempotent_for_the_same_client_event_and_device(): void
     {
         $card = Card::factory()->create();

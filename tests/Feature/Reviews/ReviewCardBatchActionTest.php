@@ -256,6 +256,27 @@ class ReviewCardBatchActionTest extends TestCase
         ]);
     }
 
+    public function test_it_reviews_cards_from_legacy_imports_with_uppercase_ulids(): void
+    {
+        $storedCardId = strtoupper((string) Str::ulid());
+        $card = Card::factory()->create(['id' => $storedCardId]);
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: strtolower($storedCardId),
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'legacy-event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
+            ),
+        ]);
+
+        $this->assertTrue($result->hasCreatedEvents);
+        $this->assertSame($storedCardId, $result->reviewEvents->sole()->card_id);
+        $this->assertSame(CardStudyStatus::Review, $card->refresh()->study_status);
+    }
+
     public function test_it_returns_existing_events_for_retried_client_events_with_matching_provided_ids(): void
     {
         $card = Card::factory()->create();

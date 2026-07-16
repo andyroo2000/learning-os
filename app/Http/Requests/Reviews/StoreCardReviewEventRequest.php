@@ -3,13 +3,13 @@
 namespace App\Http\Requests\Reviews;
 
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
 use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Http\Support\AuthenticatedUser;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -52,17 +52,16 @@ class StoreCardReviewEventRequest extends FormRequest
             'id' => ['nullable', 'ulid'],
             'card_id' => [
                 'required',
+                'bail',
                 'ulid',
-                // Rule::exists bypasses SoftDeletes scopes, so the card guard is explicit.
-                // Deck::query remains Eloquent-scoped, so deleted decks are excluded there.
-                Rule::exists(Card::class, 'id')
-                    ->whereNull('deleted_at')
-                    ->whereIn(
-                        'deck_id',
-                        Deck::query()
-                            ->select('id')
-                            ->where('user_id', $userId),
-                    ),
+                function (string $attribute, mixed $value, callable $fail) use ($userId): void {
+                    if (! is_string($value) || ! Card::query()
+                        ->ownedByActiveDeck($userId)
+                        ->whereIn('cards.id', CanonicalUlid::databaseCandidates($value))
+                        ->exists()) {
+                        $fail('The selected card id is invalid.');
+                    }
+                },
             ],
             'rating' => ['required', Rule::enum(CardReviewRating::class)],
             'reviewed_at' => [

@@ -160,20 +160,18 @@ class ReviewCardAction
 
     private function findCard(string $cardId): ?Card
     {
-        $card = Card::query()
-            ->with('deck')
-            ->whereKey($cardId)
-            ->first();
+        foreach (CanonicalUlid::databaseCandidates($cardId) as $candidate) {
+            $card = Card::query()
+                ->with('deck')
+                ->whereKey($candidate)
+                ->first();
 
-        if ($card !== null || $cardId === strtoupper($cardId)) {
-            return $card;
+            if ($card !== null) {
+                return $card;
+            }
         }
 
-        // Early Convo Lab imports generated uppercase ULIDs. PostgreSQL text keys are case-sensitive.
-        return Card::query()
-            ->with('deck')
-            ->whereKey(strtoupper($cardId))
-            ->first();
+        return null;
     }
 
     private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent

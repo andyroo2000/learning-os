@@ -94,10 +94,8 @@ class Card extends Model
         }
 
         if (Str::isUlid($clientId)) {
-            $canonicalId = CanonicalUlid::normalize($clientId);
-
             // Early Convo Lab imports stored generated ULIDs in uppercase.
-            return $query->whereIn('cards.id', [$canonicalId, strtoupper($canonicalId)]);
+            return $query->whereIn('cards.id', CanonicalUlid::databaseCandidates($clientId));
         }
 
         return $query->whereRaw('1 = 0');

@@ -31,6 +31,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $this->assertSame($card->convolab_id, $sharedSummary['id']);
         $this->assertSame($card->convolab_note_id, $sharedSummary['noteId']);
         $this->assertSame('500', $sharedSummary['state']['source']['noteId']);
+        $this->assertSame('日本語', $sharedSummary['state']['source']['deckName']);
 
         $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertOk()
@@ -39,6 +40,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('cards.0.id', 'c358732a-2cd0-4b18-9cce-c474297863f9')
             ->assertJsonPath('cards.0.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertJsonPath('cards.0.state.source.noteId', '500')
+            ->assertJsonPath('cards.0.state.source.deckName', '日本語')
             ->assertJsonPath('rawFields.0.name', 'frontText')
             ->assertJsonPath('rawFields.0.value', 'copied detail card')
             ->assertJsonPath('rawFields.1.name', 'backText')
@@ -82,10 +84,13 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             'Expression' => '<b>会社</b>',
             'Count' => 0,
             'Empty' => '',
+            'Notes' => "First line\nSecond line",
         ];
         $card->convolab_note_canonical_json = [
             'expression' => '会社',
             'metadata' => ['register' => 'formal'],
+            'createdInApp' => true,
+            'archived' => false,
         ];
         $card->save();
 
@@ -99,8 +104,14 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('rawFields.1.textValue', '0')
             ->assertJsonPath('rawFields.2.value', '')
             ->assertJsonPath('rawFields.2.textValue', null)
+            ->assertJsonPath('rawFields.3.value', "First line\nSecond line")
+            ->assertJsonPath('rawFields.3.textValue', "First line\nSecond line")
             ->assertJsonPath('canonicalFields.0.name', 'expression')
             ->assertJsonPath('canonicalFields.1.value', '{"register":"formal"}')
+            ->assertJsonPath('canonicalFields.2.value', 'true')
+            ->assertJsonPath('canonicalFields.2.textValue', 'true')
+            ->assertJsonPath('canonicalFields.3.value', 'false')
+            ->assertJsonPath('canonicalFields.3.textValue', 'false')
             ->assertJsonPath('cards.0.state.source.noteId', '501')
             ->assertJsonPath('cards.0.state.source.noteGuid', 'anki-guid')
             ->assertJsonPath('cards.0.state.source.deckName', 'Japanese')

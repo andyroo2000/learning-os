@@ -365,7 +365,11 @@ class ShowStudyBrowserNoteAction
             return $value;
         }
 
-        if (is_int($value) || is_float($value) || is_bool($value)) {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_int($value) || is_float($value)) {
             return (string) $value;
         }
 
@@ -384,9 +388,14 @@ class ShowStudyBrowserNoteAction
             return null;
         }
 
+        $value = preg_replace('/<br\s*\/?\s*>/iu', "\n", $value) ?? $value;
+        $value = preg_replace('/<\/(?:p|div|blockquote|section|article|header|footer|li|ul|ol)\s*>/iu', "\n", $value) ?? $value;
         $plainText = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plainText = str_replace(["\0", "\r"], '', $plainText);
+        $plainText = preg_replace('/[ \t]+\n/u', "\n", $plainText) ?? $plainText;
+        $plainText = preg_replace('/\n{3,}/u', "\n\n", $plainText) ?? $plainText;
 
-        return trim(preg_replace('/\s+/u', ' ', $plainText) ?? $plainText);
+        return trim($plainText);
     }
 
     private function fieldTextValue(mixed $value): ?string

@@ -67,6 +67,120 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame(['production', 'recognition'], $result['filterOptions']['cardTypes']);
     }
 
+    public function test_it_groups_copied_convolab_cards_by_their_note_identifier(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $noteId = '33afc682-eef1-46f2-849a-13a9f80ec11e';
+        $firstCardId = '1b6df437-414e-45c3-b12a-c2da90782ee5';
+        $noteCreatedAt = Carbon::parse('2026-06-01T09:15:00.844Z');
+        $noteUpdatedAt = Carbon::parse('2026-06-04T10:30:00.108Z');
+
+        $firstCard = Card::factory()->for($deck)->create([
+            'convolab_id' => $firstCardId,
+            'convolab_note_id' => $noteId,
+            'convolab_note_created_at' => $noteCreatedAt,
+            'convolab_note_updated_at' => $noteUpdatedAt,
+            'front_text' => 'copied prompt',
+            'source_note_id' => 4201,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 0,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'convolab_id' => '75d30d7b-a85d-44c0-9fd0-b6a85193d7bd',
+            'convolab_note_id' => $noteId,
+            'convolab_note_created_at' => $noteCreatedAt,
+            'convolab_note_updated_at' => $noteUpdatedAt,
+            'front_text' => 'copied answer',
+            'source_note_id' => 4201,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 1,
+        ]);
+        DB::table('cards')
+            ->whereIn('id', [$firstCard->id, $secondCard->id])
+            ->update([
+                'convolab_note_created_at' => '2026-06-01 09:15:00.844',
+                'convolab_note_updated_at' => '2026-06-04 10:30:00.108',
+            ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame($noteId, $result['rows'][0]['noteId']);
+        $this->assertSame($firstCardId, $result['rows'][0]['selectedCardId']);
+        $this->assertSame(2, $result['rows'][0]['cardCount']);
+        $this->assertSame('2026-06-01T09:15:00.844000Z', $result['rows'][0]['createdAt']);
+        $this->assertSame('2026-06-04T10:30:00.108000Z', $result['rows'][0]['updatedAt']);
+    }
+
+    public function test_it_paginates_mixed_copied_sourced_and_unsourced_groups_with_stable_ties(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $tiedAt = Carbon::parse('2026-06-01T09:15:00Z');
+        $copiedNoteId = '33afc682-eef1-46f2-849a-13a9f80ec11e';
+
+        Card::factory()->for($deck)->create([
+            'convolab_id' => '1b6df437-414e-45c3-b12a-c2da90782ee5',
+            'convolab_note_id' => $copiedNoteId,
+            'convolab_note_created_at' => $tiedAt,
+            'convolab_note_updated_at' => $tiedAt,
+            'front_text' => 'copied group',
+            'source_note_id' => 4301,
+            'created_at' => $tiedAt,
+            'updated_at' => $tiedAt,
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'numeric source group',
+            'source_note_id' => 4302,
+            'created_at' => $tiedAt,
+            'updated_at' => $tiedAt,
+        ]);
+        $firstUnsourced = Card::factory()->for($deck)->create([
+            'front_text' => 'first unsourced group',
+            'source_note_id' => null,
+            'created_at' => $tiedAt,
+            'updated_at' => $tiedAt,
+        ]);
+        $secondUnsourced = Card::factory()->for($deck)->create([
+            'front_text' => 'second unsourced group',
+            'source_note_id' => null,
+            'created_at' => $tiedAt,
+            'updated_at' => $tiedAt,
+        ]);
+        $orderedUnsourcedIds = collect([$firstUnsourced->id, $secondUnsourced->id])
+            ->map(fn (mixed $id): string => (string) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $firstPage = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            sortField: 'created_on',
+            sortDirection: 'asc',
+            limit: 3,
+        );
+
+        $this->assertSame(4, $firstPage['total']);
+        $this->assertSame(
+            [$copiedNoteId, '4302', $orderedUnsourcedIds[0]],
+            collect($firstPage['rows'])->pluck('noteId')->all(),
+        );
+        $this->assertNotNull($firstPage['nextCursor']);
+
+        $secondPage = app(ListStudyBrowserAction::class)->handle(
+            userId: $user->id,
+            sortField: 'created_on',
+            sortDirection: 'asc',
+            cursor: $firstPage['nextCursor'],
+            limit: 3,
+        );
+
+        $this->assertSame(4, $secondPage['total']);
+        $this->assertSame([$orderedUnsourcedIds[1]], collect($secondPage['rows'])->pluck('noteId')->all());
+        $this->assertNull($secondPage['nextCursor']);
+    }
+
     public function test_it_reports_group_metadata_with_legacy_blank_source_kind_for_direct_callers(): void
     {
         $user = $this->signIn();

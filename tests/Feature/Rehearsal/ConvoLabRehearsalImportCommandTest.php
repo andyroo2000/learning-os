@@ -87,6 +87,9 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'convolab_id' => self::SOURCE_CARD_ID,
             'convolab_note_id' => self::SOURCE_NOTE_ID,
             'source_note_id' => 321,
+            'source_deck_name' => '日本語',
+            'source_template_name' => 'Card 1',
+            'answer_audio_source' => 'generated',
             'source_notetype_name' => 'Japanese - Vocab',
             'card_type' => 'recognition',
             'study_status' => 'review',
@@ -106,6 +109,11 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         );
         $this->assertSame('2026-06-14 22:18:00.956', Card::query()->sole()->convolab_note_created_at->format('Y-m-d H:i:s.v'));
         $this->assertSame('2026-07-13 09:08:07.654', Card::query()->sole()->convolab_note_updated_at->format('Y-m-d H:i:s.v'));
+        $this->assertSame('anki_import', Card::query()->sole()->convolab_note_source_kind);
+        $this->assertSame('source-note-guid', Card::query()->sole()->convolab_note_source_guid);
+        $this->assertSame(654, Card::query()->sole()->convolab_note_source_notetype_id);
+        $this->assertSame(['Expression' => '猫', 'Meaning' => 'cat'], Card::query()->sole()->convolab_note_raw_fields_json);
+        $this->assertSame(['expression' => '猫', 'meaning' => 'cat'], Card::query()->sole()->convolab_note_canonical_json);
         $this->signIn(User::query()->sole());
         $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc&limit=25')
             ->assertOk()
@@ -132,6 +140,20 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
                     'queueStates' => ['review'],
                 ],
             ]);
+        $this->getJson('/api/study/browser/'.self::SOURCE_NOTE_ID)
+            ->assertOk()
+            ->assertJsonPath('sourceKind', 'anki_import')
+            ->assertJsonPath('rawFields.0.name', 'Expression')
+            ->assertJsonPath('rawFields.0.value', '猫')
+            ->assertJsonPath('rawFields.1.name', 'Meaning')
+            ->assertJsonPath('canonicalFields.0.name', 'expression')
+            ->assertJsonPath('canonicalFields.1.name', 'meaning')
+            ->assertJsonPath('cards.0.state.source.noteId', '321')
+            ->assertJsonPath('cards.0.state.source.noteGuid', 'source-note-guid')
+            ->assertJsonPath('cards.0.state.source.deckName', '日本語')
+            ->assertJsonPath('cards.0.state.source.notetypeId', '654')
+            ->assertJsonPath('cards.0.state.source.templateName', 'Card 1')
+            ->assertJsonPath('cards.0.answerAudioSource', 'generated');
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseHas('media_assets', [
             'disk' => 'media',
@@ -632,8 +654,13 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $schema->create('study_notes', function ($table): void {
             $table->text('id')->primary();
             $table->text('userId');
+            $table->text('sourceKind');
             $table->integer('sourceNoteId')->nullable();
+            $table->text('sourceGuid')->nullable();
+            $table->integer('sourceNotetypeId')->nullable();
             $table->text('sourceNotetypeName')->nullable();
+            $table->json('rawFieldsJson');
+            $table->json('canonicalJson');
             $table->timestamp('createdAt');
             $table->timestamp('updatedAt');
         });
@@ -777,8 +804,19 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $source->table('study_notes')->insert([
             'id' => self::SOURCE_NOTE_ID,
             'userId' => 'source-user-1',
+            'sourceKind' => 'anki_import',
             'sourceNoteId' => 321,
+            'sourceGuid' => 'source-note-guid',
+            'sourceNotetypeId' => 654,
             'sourceNotetypeName' => 'Japanese - Vocab',
+            'rawFieldsJson' => json_encode([
+                'Expression' => '猫',
+                'Meaning' => 'cat',
+            ]),
+            'canonicalJson' => json_encode([
+                'expression' => '猫',
+                'meaning' => 'cat',
+            ]),
             'createdAt' => $noteCreatedAt,
             'updatedAt' => $noteUpdatedAt,
         ]);

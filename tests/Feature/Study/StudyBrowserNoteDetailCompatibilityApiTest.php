@@ -30,7 +30,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $sharedSummary = StudyCardSummaryResource::make($card)->resolve(request());
         $this->assertSame($card->convolab_id, $sharedSummary['id']);
         $this->assertSame($card->convolab_note_id, $sharedSummary['noteId']);
-        $this->assertSame($card->convolab_note_id, $sharedSummary['state']['source']['noteId']);
+        $this->assertSame('500', $sharedSummary['state']['source']['noteId']);
 
         $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertOk()
@@ -38,8 +38,88 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('selectedCardId', 'c358732a-2cd0-4b18-9cce-c474297863f9')
             ->assertJsonPath('cards.0.id', 'c358732a-2cd0-4b18-9cce-c474297863f9')
             ->assertJsonPath('cards.0.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
-            ->assertJsonPath('cards.0.state.source.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertJsonPath('cards.0.state.source.noteId', '500')
+            ->assertJsonPath('rawFields.0.name', 'frontText')
+            ->assertJsonPath('rawFields.0.value', 'copied detail card')
+            ->assertJsonPath('rawFields.1.name', 'backText')
+            ->assertJsonPath('canonicalFields.0.name', 'displayText')
+            ->assertJsonPath('canonicalFields.0.value', 'copied detail card')
             ->assertJsonPath('cardStats.0.cardId', 'c358732a-2cd0-4b18-9cce-c474297863f9');
+    }
+
+    public function test_it_preserves_copied_convolab_note_fields_and_source_metadata(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->make([
+            'front_text' => 'fallback front',
+            'back_text' => 'fallback back',
+            'source_note_id' => 501,
+            'source_card_id' => 701,
+            'source_deck_id' => 801,
+            'source_deck_name' => 'Japanese',
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 0,
+            'source_template_name' => 'Card 1',
+            'source_queue' => 2,
+            'source_card_type' => 2,
+            'source_due' => 12,
+            'source_interval' => 30,
+            'source_factor' => 2500,
+            'source_reps' => 7,
+            'source_lapses' => 1,
+            'source_left' => 0,
+            'source_original_due' => 4,
+            'source_original_deck_id' => 901,
+            'source_fsrs_json' => ['stability' => 4.2],
+            'answer_audio_source' => 'generated',
+        ]);
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->convolab_note_source_kind = 'manual';
+        $card->convolab_note_source_guid = 'anki-guid';
+        $card->convolab_note_source_notetype_id = 601;
+        $card->convolab_note_raw_fields_json = [
+            'Expression' => '<b>会社</b>',
+            'Count' => 0,
+            'Empty' => '',
+        ];
+        $card->convolab_note_canonical_json = [
+            'expression' => '会社',
+            'metadata' => ['register' => 'formal'],
+        ];
+        $card->save();
+
+        $response = $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertOk()
+            ->assertJsonPath('sourceKind', 'manual')
+            ->assertJsonPath('rawFields.0.name', 'Expression')
+            ->assertJsonPath('rawFields.0.value', '<b>会社</b>')
+            ->assertJsonPath('rawFields.0.textValue', '会社')
+            ->assertJsonPath('rawFields.1.value', '0')
+            ->assertJsonPath('rawFields.1.textValue', '0')
+            ->assertJsonPath('rawFields.2.value', '')
+            ->assertJsonPath('rawFields.2.textValue', null)
+            ->assertJsonPath('canonicalFields.0.name', 'expression')
+            ->assertJsonPath('canonicalFields.1.value', '{"register":"formal"}')
+            ->assertJsonPath('cards.0.state.source.noteId', '501')
+            ->assertJsonPath('cards.0.state.source.noteGuid', 'anki-guid')
+            ->assertJsonPath('cards.0.state.source.deckName', 'Japanese')
+            ->assertJsonPath('cards.0.state.source.notetypeId', '601')
+            ->assertJsonPath('cards.0.state.source.templateName', 'Card 1')
+            ->assertJsonPath('cards.0.state.source.queue', 2)
+            ->assertJsonPath('cards.0.state.source.type', 2)
+            ->assertJsonPath('cards.0.state.source.due', 12)
+            ->assertJsonPath('cards.0.state.source.ivl', 30)
+            ->assertJsonPath('cards.0.state.source.factor', 2500)
+            ->assertJsonPath('cards.0.state.source.reps', 7)
+            ->assertJsonPath('cards.0.state.source.lapses', 1)
+            ->assertJsonPath('cards.0.state.source.left', 0)
+            ->assertJsonPath('cards.0.state.source.odue', 4)
+            ->assertJsonPath('cards.0.state.source.odid', '901')
+            ->assertJsonPath('cards.0.state.rawFsrs.stability', 4.2)
+            ->assertJsonPath('cards.0.answerAudioSource', 'generated');
+
+        $this->assertArrayHasKey('textValue', $response->json('rawFields.2'));
     }
 
     public function test_it_shows_browser_note_detail_grouped_by_source_note_id(): void

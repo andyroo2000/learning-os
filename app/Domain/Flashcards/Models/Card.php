@@ -56,6 +56,11 @@ class Card extends Model
                 'convolab_note_id',
                 'convolab_note_created_at',
                 'convolab_note_updated_at',
+                'convolab_note_source_kind',
+                'convolab_note_source_guid',
+                'convolab_note_source_notetype_id',
+                'convolab_note_raw_fields_json',
+                'convolab_note_canonical_json',
             ])) {
                 throw new LogicException('Card ConvoLab compatibility metadata cannot be changed.');
             }
@@ -109,6 +114,17 @@ class Card extends Model
             'source_note_id' => 'integer',
             'source_deck_id' => 'integer',
             'source_template_ord' => 'integer',
+            'source_queue' => 'integer',
+            'source_card_type' => 'integer',
+            'source_due' => 'integer',
+            'source_interval' => 'integer',
+            'source_factor' => 'integer',
+            'source_reps' => 'integer',
+            'source_lapses' => 'integer',
+            'source_left' => 'integer',
+            'source_original_due' => 'integer',
+            'source_original_deck_id' => 'integer',
+            'source_fsrs_json' => 'array',
             'due_at' => 'datetime',
             'introduced_at' => 'datetime',
             'failed_at' => 'datetime',
@@ -119,6 +135,9 @@ class Card extends Model
             'variant_unlocked_at' => 'datetime',
             'convolab_note_created_at' => 'datetime',
             'convolab_note_updated_at' => 'datetime',
+            'convolab_note_source_notetype_id' => 'integer',
+            'convolab_note_raw_fields_json' => 'array',
+            'convolab_note_canonical_json' => 'array',
         ];
     }
 

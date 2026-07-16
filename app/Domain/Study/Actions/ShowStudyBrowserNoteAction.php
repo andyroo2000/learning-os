@@ -112,6 +112,11 @@ class ShowStudyBrowserNoteAction
                 'cards.convolab_note_id',
                 'cards.convolab_note_created_at',
                 'cards.convolab_note_updated_at',
+                'cards.convolab_note_source_kind',
+                'cards.convolab_note_source_guid',
+                'cards.convolab_note_source_notetype_id',
+                'cards.convolab_note_raw_fields_json',
+                'cards.convolab_note_canonical_json',
                 'cards.front_text',
                 'cards.back_text',
                 'cards.card_type',
@@ -126,8 +131,22 @@ class ShowStudyBrowserNoteAction
                 'cards.source_card_id',
                 'cards.source_note_id',
                 'cards.source_deck_id',
+                'cards.source_deck_name',
                 'cards.source_notetype_name',
                 'cards.source_template_ord',
+                'cards.source_template_name',
+                'cards.source_queue',
+                'cards.source_card_type',
+                'cards.source_due',
+                'cards.source_interval',
+                'cards.source_factor',
+                'cards.source_reps',
+                'cards.source_lapses',
+                'cards.source_left',
+                'cards.source_original_due',
+                'cards.source_original_deck_id',
+                'cards.source_fsrs_json',
+                'cards.answer_audio_source',
                 'cards.created_at',
                 'cards.updated_at',
             ])
@@ -212,6 +231,11 @@ class ShowStudyBrowserNoteAction
      */
     private function fieldsForCards(EloquentCollection $cards): array
     {
+        $copiedFields = $this->copiedNoteFields($cards, 'convolab_note_raw_fields_json');
+        if ($copiedFields !== null) {
+            return $copiedFields;
+        }
+
         $fieldsByName = [];
 
         foreach ($cards as $card) {
@@ -236,6 +260,11 @@ class ShowStudyBrowserNoteAction
      */
     private function canonicalFieldsForCards(EloquentCollection $cards, string $displayText): array
     {
+        $copiedFields = $this->copiedNoteFields($cards, 'convolab_note_canonical_json');
+        if ($copiedFields !== null) {
+            return $copiedFields;
+        }
+
         /** @var Card $firstCard */
         $firstCard = $cards->first();
 
@@ -284,6 +313,80 @@ class ShowStudyBrowserNoteAction
             'audio' => $media['audio'],
             'image' => $media['image'],
         ];
+    }
+
+    /**
+     * @param  EloquentCollection<int, Card>  $cards
+     * @return list<array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>|null
+     */
+    private function copiedNoteFields(EloquentCollection $cards, string $attribute): ?array
+    {
+        /** @var Card $firstCard */
+        $firstCard = $cards->first();
+        if ($firstCard->convolab_note_id === null) {
+            return null;
+        }
+
+        $fields = $firstCard->getAttribute($attribute);
+        if (! is_array($fields)) {
+            return null;
+        }
+
+        $result = [];
+        foreach ($fields as $name => $value) {
+            if (is_string($name) || is_int($name)) {
+                $result[] = $this->compatibilityField((string) $name, $value);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}
+     */
+    private function compatibilityField(string $name, mixed $value): array
+    {
+        $stringValue = $this->compatibilityFieldStringValue($value);
+        $media = StudyFieldMediaReferences::fromValue($value);
+
+        return [
+            'name' => $name,
+            'value' => $stringValue,
+            'textValue' => $this->compatibilityFieldPlainText($stringValue),
+            'audio' => $media['audio'],
+            'image' => $media['image'],
+        ];
+    }
+
+    private function compatibilityFieldStringValue(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value) || is_bool($value)) {
+            return (string) $value;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $json === false ? null : $json;
+    }
+
+    private function compatibilityFieldPlainText(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $plainText = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(preg_replace('/\s+/u', ' ', $plainText) ?? $plainText);
     }
 
     private function fieldTextValue(mixed $value): ?string

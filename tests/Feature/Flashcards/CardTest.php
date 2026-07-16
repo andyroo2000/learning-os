@@ -28,14 +28,33 @@ class CardTest extends TestCase
             'convolab_note_id',
             'convolab_note_created_at',
             'convolab_note_updated_at',
+            'convolab_note_source_kind',
+            'convolab_note_source_guid',
+            'convolab_note_source_notetype_id',
+            'convolab_note_raw_fields_json',
+            'convolab_note_canonical_json',
             'deck_id',
             'import_job_id',
             'source_kind',
             'source_card_id',
             'source_note_id',
             'source_deck_id',
+            'source_deck_name',
             'source_notetype_name',
             'source_template_ord',
+            'source_template_name',
+            'source_queue',
+            'source_card_type',
+            'source_due',
+            'source_interval',
+            'source_factor',
+            'source_reps',
+            'source_lapses',
+            'source_left',
+            'source_original_due',
+            'source_original_deck_id',
+            'source_fsrs_json',
+            'answer_audio_source',
             'front_text',
             'back_text',
             'card_type',
@@ -123,11 +142,27 @@ class CardTest extends TestCase
         $card->source_note_id = '1700000000002';
         $card->source_deck_id = '1700000000003';
         $card->source_template_ord = '2';
+        $card->source_queue = '2';
+        $card->source_card_type = '1';
+        $card->source_due = '42';
+        $card->source_interval = '30';
+        $card->source_factor = '2500';
+        $card->source_reps = '10';
+        $card->source_lapses = '2';
+        $card->source_left = '0';
+        $card->source_original_due = '12';
+        $card->source_original_deck_id = '1700000000004';
+        $card->source_fsrs_json = ['stability' => 4.2];
         $card->variant_kind = VocabVariantKind::WordAudioRecognition->value;
         $card->variant_stage = '3';
         $card->variant_status = VocabVariantStatus::Locked->value;
         $card->variant_unlocked_at = Carbon::parse('2026-06-04T14:15:00Z');
         $card->save();
+        DB::table('cards')->where('id', $card->id)->update([
+            'convolab_note_source_notetype_id' => '1700000000005',
+            'convolab_note_raw_fields_json' => json_encode(['Expression' => '会社']),
+            'convolab_note_canonical_json' => json_encode(['expression' => '会社']),
+        ]);
         $card->refresh();
 
         $this->assertSame(CardType::Production, $card->card_type);
@@ -148,6 +183,20 @@ class CardTest extends TestCase
         $this->assertSame(1700000000002, $card->source_note_id);
         $this->assertSame(1700000000003, $card->source_deck_id);
         $this->assertSame(2, $card->source_template_ord);
+        $this->assertSame(2, $card->source_queue);
+        $this->assertSame(1, $card->source_card_type);
+        $this->assertSame(42, $card->source_due);
+        $this->assertSame(30, $card->source_interval);
+        $this->assertSame(2500, $card->source_factor);
+        $this->assertSame(10, $card->source_reps);
+        $this->assertSame(2, $card->source_lapses);
+        $this->assertSame(0, $card->source_left);
+        $this->assertSame(12, $card->source_original_due);
+        $this->assertSame(1700000000004, $card->source_original_deck_id);
+        $this->assertSame(['stability' => 4.2], $card->source_fsrs_json);
+        $this->assertSame(1700000000005, $card->convolab_note_source_notetype_id);
+        $this->assertSame(['Expression' => '会社'], $card->convolab_note_raw_fields_json);
+        $this->assertSame(['expression' => '会社'], $card->convolab_note_canonical_json);
         $this->assertSame(VocabVariantKind::WordAudioRecognition->value, $card->variant_kind);
         $this->assertSame(3, $card->variant_stage);
         $this->assertSame(VocabVariantStatus::Locked->value, $card->variant_status);
@@ -165,12 +214,31 @@ class CardTest extends TestCase
             'convolab_note_id' => '9e33f12d-cf38-409b-bbf1-6fddd9977576',
             'convolab_note_created_at' => Carbon::parse('2026-06-01T14:15:00Z'),
             'convolab_note_updated_at' => Carbon::parse('2026-06-02T14:15:00Z'),
+            'convolab_note_source_kind' => 'anki_import',
+            'convolab_note_source_guid' => 'source-guid',
+            'convolab_note_source_notetype_id' => 1700000000004,
+            'convolab_note_raw_fields_json' => ['Expression' => '会社'],
+            'convolab_note_canonical_json' => ['expression' => '会社'],
             'source_kind' => 'anki_import',
             'source_card_id' => 1700000000001,
             'source_note_id' => 1700000000002,
             'source_deck_id' => 1700000000003,
+            'source_deck_name' => 'Japanese',
             'source_notetype_name' => 'Basic',
             'source_template_ord' => 1,
+            'source_template_name' => 'Card 1',
+            'source_queue' => 2,
+            'source_card_type' => 1,
+            'source_due' => 42,
+            'source_interval' => 30,
+            'source_factor' => 2500,
+            'source_reps' => 10,
+            'source_lapses' => 2,
+            'source_left' => 0,
+            'source_original_due' => 12,
+            'source_original_deck_id' => 1700000000005,
+            'source_fsrs_json' => ['stability' => 4.2],
+            'answer_audio_source' => 'generated',
             'study_status' => CardStudyStatus::Review,
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
@@ -200,12 +268,31 @@ class CardTest extends TestCase
         $this->assertNull($card->convolab_note_id);
         $this->assertNull($card->convolab_note_created_at);
         $this->assertNull($card->convolab_note_updated_at);
+        $this->assertNull($card->convolab_note_source_kind);
+        $this->assertNull($card->convolab_note_source_guid);
+        $this->assertNull($card->convolab_note_source_notetype_id);
+        $this->assertNull($card->convolab_note_raw_fields_json);
+        $this->assertNull($card->convolab_note_canonical_json);
         $this->assertNull($card->source_kind);
         $this->assertNull($card->source_card_id);
         $this->assertNull($card->source_note_id);
         $this->assertNull($card->source_deck_id);
+        $this->assertNull($card->source_deck_name);
         $this->assertNull($card->source_notetype_name);
         $this->assertNull($card->source_template_ord);
+        $this->assertNull($card->source_template_name);
+        $this->assertNull($card->source_queue);
+        $this->assertNull($card->source_card_type);
+        $this->assertNull($card->source_due);
+        $this->assertNull($card->source_interval);
+        $this->assertNull($card->source_factor);
+        $this->assertNull($card->source_reps);
+        $this->assertNull($card->source_lapses);
+        $this->assertNull($card->source_left);
+        $this->assertNull($card->source_original_due);
+        $this->assertNull($card->source_original_deck_id);
+        $this->assertNull($card->source_fsrs_json);
+        $this->assertNull($card->answer_audio_source);
         $this->assertNull($card->variant_group_id);
         $this->assertNull($card->variant_sentence_id);
         $this->assertNull($card->variant_kind);

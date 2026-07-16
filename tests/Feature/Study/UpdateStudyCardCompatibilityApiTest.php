@@ -44,7 +44,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('id', $card->convolab_id)
             ->assertJsonPath('noteId', $card->convolab_note_id)
-            ->assertJsonPath('state.source.noteId', $card->convolab_note_id)
+            ->assertJsonPath('state.source.noteId', null)
             ->assertJsonPath('prompt.cueText', 'updated copied prompt')
             ->assertJsonPath('answer.expression', 'updated copied answer');
 

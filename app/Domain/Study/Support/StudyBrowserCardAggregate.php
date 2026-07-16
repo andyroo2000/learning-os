@@ -21,6 +21,12 @@ final class StudyBrowserCardAggregate
 
     public static function sourceKindFor(Card $card): string
     {
+        if ($card->convolab_note_id !== null
+            && is_string($card->convolab_note_source_kind)
+            && $card->convolab_note_source_kind !== '') {
+            return $card->convolab_note_source_kind;
+        }
+
         // Note groups are imported atomically; the deterministic first card represents group provenance.
         // Legacy blank provenance still falls back to native, even when sibling cards carry imported metadata.
         return is_string($card->source_kind) && $card->source_kind !== ''

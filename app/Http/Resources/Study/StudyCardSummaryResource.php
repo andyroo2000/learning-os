@@ -20,7 +20,7 @@ class StudyCardSummaryResource extends JsonResource
     {
         return [
             'id' => $this->resource->clientId(),
-            // ConvoLab exposes noteId at both the root and state.source; keep both values aligned.
+            // The root uses ConvoLab's public note UUID; source.noteId retains the original Anki ID.
             'noteId' => $this->noteIdString(),
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
@@ -33,28 +33,29 @@ class StudyCardSummaryResource extends JsonResource
                 // ConvoLab clients interpret scheduler internals; expose the stored state verbatim.
                 'scheduler' => $this->scheduler_state,
                 'source' => [
-                    'noteId' => $this->noteIdString(),
-                    // Anki-only source fields remain present for ConvoLab compatibility.
-                    'noteGuid' => null,
+                    'noteId' => $this->source_note_id === null ? null : (string) $this->source_note_id,
+                    'noteGuid' => $this->convolab_note_source_guid,
                     'cardId' => $this->source_card_id === null ? null : (string) $this->source_card_id,
                     'deckId' => $this->source_deck_id === null ? null : (string) $this->source_deck_id,
-                    'deckName' => null,
-                    'notetypeId' => null,
+                    'deckName' => $this->source_deck_name,
+                    'notetypeId' => $this->convolab_note_source_notetype_id === null
+                        ? null
+                        : (string) $this->convolab_note_source_notetype_id,
                     'notetypeName' => $this->source_notetype_name,
                     'templateOrd' => $this->source_template_ord,
-                    'templateName' => null,
-                    'queue' => null,
-                    'type' => null,
-                    'due' => null,
-                    'ivl' => null,
-                    'factor' => null,
-                    'reps' => null,
-                    'lapses' => null,
-                    'left' => null,
-                    'odue' => null,
-                    'odid' => null,
+                    'templateName' => $this->source_template_name,
+                    'queue' => $this->source_queue,
+                    'type' => $this->source_card_type,
+                    'due' => $this->source_due,
+                    'ivl' => $this->source_interval,
+                    'factor' => $this->source_factor,
+                    'reps' => $this->source_reps,
+                    'lapses' => $this->source_lapses,
+                    'left' => $this->source_left,
+                    'odue' => $this->source_original_due,
+                    'odid' => $this->source_original_deck_id === null ? null : (string) $this->source_original_deck_id,
                 ],
-                'rawFsrs' => null,
+                'rawFsrs' => $this->source_fsrs_json,
             ],
             'variantGroupId' => $this->variant_group_id,
             'variantSentenceId' => $this->variant_sentence_id,
@@ -62,8 +63,7 @@ class StudyCardSummaryResource extends JsonResource
             'variantStage' => $this->variant_stage,
             'variantStatus' => $this->stringAttributeValue('variant_status'),
             'variantUnlockedAt' => $this->variant_unlocked_at?->toJSON(),
-            // Laravel cards do not track generated/imported audio roles yet; expose the safe ConvoLab sentinel.
-            'answerAudioSource' => self::ANSWER_AUDIO_SOURCE_MISSING,
+            'answerAudioSource' => $this->answer_audio_source ?? self::ANSWER_AUDIO_SOURCE_MISSING,
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),
         ];

@@ -10,6 +10,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
+use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
@@ -219,6 +220,21 @@ class AppServiceProvider extends ServiceProvider
         $cardReviewEventUndoRateLimiter = new CardReviewEventUndoRateLimiter;
         RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($cardReviewEventUndoRateLimiter): Limit {
             return $cardReviewEventUndoRateLimiter->limit($request);
+        });
+
+        $wanikaniConnectionRateLimiter = JapaneseKnowledgeRateLimiter::forConnection();
+        RateLimiter::for(JapaneseKnowledgeRateLimiter::CONNECTION_NAME, function (Request $request) use ($wanikaniConnectionRateLimiter): Limit {
+            return $wanikaniConnectionRateLimiter->limit($request);
+        });
+
+        $wanikaniSyncRateLimiter = JapaneseKnowledgeRateLimiter::forSync();
+        RateLimiter::for(JapaneseKnowledgeRateLimiter::SYNC_NAME, function (Request $request) use ($wanikaniSyncRateLimiter): Limit {
+            return $wanikaniSyncRateLimiter->limit($request);
+        });
+
+        $knownKanjiManualRateLimiter = JapaneseKnowledgeRateLimiter::forManual();
+        RateLimiter::for(JapaneseKnowledgeRateLimiter::MANUAL_NAME, function (Request $request) use ($knownKanjiManualRateLimiter): Limit {
+            return $knownKanjiManualRateLimiter->limit($request);
         });
 
         // Current reset flows are API/client-link based; use per-flow notifications if web/admin URLs diverge.

@@ -6,6 +6,7 @@ use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
+use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
@@ -68,8 +69,10 @@ use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
+use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
+use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
@@ -85,7 +88,9 @@ use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
+use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
+use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
@@ -101,6 +106,7 @@ use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
+use App\Http\Controllers\Api\Study\SyncWaniKaniKanjiController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
@@ -288,6 +294,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Settings sync can retry updates; keep that quota separate from card writes.
     Route::patch('/study/settings', UpdateStudySettingsController::class)
         ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
+    Route::get('/study/known-kanji', ShowKnownKanjiController::class);
+    Route::patch('/study/known-kanji/manual', SetManualKnownKanjiController::class)
+        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::MANUAL_NAME);
+    Route::put('/study/wanikani', ConnectWaniKaniController::class)
+        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
+    Route::delete('/study/wanikani', DisconnectWaniKaniController::class)
+        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
+    Route::post('/study/wanikani/sync', SyncWaniKaniKanjiController::class)
+        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::SYNC_NAME);
     // Deck updates and deletes use separate buckets from deck creation so replay pressure cannot starve deletes.
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')

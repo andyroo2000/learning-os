@@ -3,8 +3,10 @@
 namespace Tests\Feature\Rehearsal;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -86,6 +88,14 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseHas('study_import_jobs', [
             'convolab_id' => self::SOURCE_IMPORT_ID,
         ]);
+        $this->assertSame(
+            '2026-07-14 10:00:00.108',
+            StudyImportJob::query()->sole()->completed_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            '2026-07-14 10:00:00.844',
+            Card::query()->sole()->due_at->format('Y-m-d H:i:s.v'),
+        );
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseHas('media_assets', [
             'disk' => 'media',
@@ -582,6 +592,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
     {
         $source = DB::connection('convolab_test_source');
         $now = '2026-07-14 10:00:00';
+        $completedAt = '2026-07-14 10:00:00.108';
+        $dueAt = '2026-07-14 10:00:00.844';
 
         $source->table('User')->insert([
             'id' => 'source-user-1',
@@ -617,7 +629,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'startedAt' => $now,
             'uploadedAt' => $now,
             'uploadExpiresAt' => $now,
-            'completedAt' => $now,
+            'completedAt' => $completedAt,
             'createdAt' => $now,
             'updatedAt' => $now,
         ]);
@@ -664,7 +676,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'sourceFsrsJson' => null,
             'cardType' => 'recognition',
             'queueState' => 'review',
-            'dueAt' => $now,
+            'dueAt' => $dueAt,
             'lastReviewedAt' => $now,
             'promptJson' => json_encode([
                 'cueHtml' => '<strong>猫</strong>',

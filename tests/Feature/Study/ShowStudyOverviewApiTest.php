@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -107,6 +108,36 @@ class ShowStudyOverviewApiTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_show_preserves_convolab_timestamp_milliseconds(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-01T12:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create();
+            $card = $this->cardWithStudyStatus($deck, CardStudyStatus::Review);
+            $latestImport = StudyImportJob::factory()->completed()->for($user)->create([
+                'convolab_id' => self::CONVOLAB_IMPORT_ID,
+                'created_at' => Carbon::parse('2026-04-24T17:35:14.108Z'),
+            ]);
+            // The rehearsal importer bulk-inserts source timestamp strings instead of using Eloquent's date formatter.
+            DB::table('cards')->where('id', $card->id)->update([
+                'due_at' => '2026-07-03 13:12:56.844',
+            ]);
+            DB::table('study_import_jobs')->where('id', $latestImport->id)->update([
+                'completed_at' => '2026-04-24 17:35:14.108',
+            ]);
+
+            $this->getJson('/api/study/overview?time_zone=America/New_York')
+                ->assertOk()
+                ->assertJsonPath('data.next_due_at', '2026-07-03T13:12:56.844000Z')
+                ->assertJsonPath('data.latest_import.completed_at', '2026-04-24T17:35:14.108000Z');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_show_filters_overview_by_deck_id(): void

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Study\Actions\ShowStudyBrowserNoteAction;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Study\StudyBrowserCardSummaryResource;
+use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,7 +32,7 @@ class ShowStudyBrowserNoteController extends Controller
             'updatedAt' => $result->updatedAt,
             'rawFields' => $result->rawFields,
             'canonicalFields' => $result->canonicalFields,
-            'cards' => StudyBrowserCardSummaryResource::collection($result->cards)->resolve($request),
+            'cards' => StudyCardSummaryResource::collection($result->cards)->resolve($request),
             'cardStats' => $result->cardStats,
             'selectedCardId' => $result->selectedCardId,
         ]);

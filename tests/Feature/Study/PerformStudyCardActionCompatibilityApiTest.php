@@ -53,6 +53,9 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             'action' => 'suspend',
         ])
             ->assertOk()
+            ->assertJsonPath('card.id', $card->convolab_id)
+            ->assertJsonPath('card.noteId', $card->convolab_note_id)
+            ->assertJsonPath('card.state.source.noteId', $card->convolab_note_id)
             ->assertJsonPath('card.state.queueState', 'suspended');
 
         $this->assertDatabaseHas('cards', [

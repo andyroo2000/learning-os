@@ -28,8 +28,9 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $card->save();
 
         $sharedSummary = StudyCardSummaryResource::make($card)->resolve(request());
-        $this->assertSame($card->id, $sharedSummary['id']);
-        $this->assertSame('500', $sharedSummary['noteId']);
+        $this->assertSame($card->convolab_id, $sharedSummary['id']);
+        $this->assertSame($card->convolab_note_id, $sharedSummary['noteId']);
+        $this->assertSame($card->convolab_note_id, $sharedSummary['state']['source']['noteId']);
 
         $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertOk()

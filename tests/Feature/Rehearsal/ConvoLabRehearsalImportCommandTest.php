@@ -504,6 +504,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             ->assertExitCode(1);
 
         $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('cards', 0);
     }
 
     public function test_rejects_a_review_with_a_missing_card_instead_of_discarding_it(): void

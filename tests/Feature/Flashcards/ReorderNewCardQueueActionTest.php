@@ -159,6 +159,30 @@ class ReorderNewCardQueueActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_it_reorders_uppercase_imported_card_ids_after_canonical_normalization(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01KTT2Q9Z5VFPXSQGC3MWRDH41',
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01KTT2Q9Z5VFPXSQGC3MWRDH42',
+            'new_queue_position' => 2,
+        ]);
+
+        $cards = app(ReorderNewCardQueueAction::class)->handle(
+            userId: $user->id,
+            cardIds: [strtolower($secondCard->id), strtolower($firstCard->id)],
+        );
+
+        $this->assertSame([$secondCard->id, $firstCard->id], $cards->pluck('id')->all());
+        $this->assertSame(1, $secondCard->refresh()->new_queue_position);
+        $this->assertSame(2, $firstCard->refresh()->new_queue_position);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
     public function test_it_rejects_duplicate_card_ids(): void
     {
         $cardId = strtolower((string) str()->ulid());

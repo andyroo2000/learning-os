@@ -307,6 +307,36 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_reorder_accepts_uppercase_card_ids_returned_from_the_copied_database(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $firstCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01KTT2Q9Z5VFPXSQGC3MWRDH51',
+            'new_queue_position' => 1,
+        ]);
+        $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'id' => '01KTT2Q9Z5VFPXSQGC3MWRDH52',
+            'new_queue_position' => 2,
+        ]);
+
+        $queue = $this->getJson('/api/study/new-queue?limit=100')
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $firstCard->id)
+            ->assertJsonPath('items.1.id', $secondCard->id);
+
+        $response = $this->postJson('/api/study/new-queue/reorder', [
+            'cardIds' => array_reverse($queue->json('items.*.id')),
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $secondCard->id)
+            ->assertJsonPath('items.1.id', $firstCard->id);
+        $this->assertSame(1, $secondCard->refresh()->new_queue_position);
+        $this->assertSame(2, $firstCard->refresh()->new_queue_position);
+    }
+
     public function test_study_and_canonical_reorders_share_the_same_rate_limit_bucket(): void
     {
         $limiter = new NewCardQueueReorderRateLimiter;

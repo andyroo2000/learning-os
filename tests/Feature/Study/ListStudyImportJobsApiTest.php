@@ -16,6 +16,8 @@ class ListStudyImportJobsApiTest extends TestCase
     use AssertsCursorPagination;
     use RefreshDatabase;
 
+    private const CONVOLAB_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     public function test_index_requires_authentication(): void
     {
         $this->getJson('/api/study/imports')->assertUnauthorized();
@@ -35,6 +37,7 @@ class ListStudyImportJobsApiTest extends TestCase
             ],
         ]);
         $newerImport = StudyImportJob::factory()->completed()->for($user)->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
             'source_filename' => 'newer.colpkg',
             'deck_name' => 'Newer Deck',
             'summary_json' => [
@@ -49,7 +52,7 @@ class ListStudyImportJobsApiTest extends TestCase
         $this->getJson('/api/study/imports')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.id', $newerImport->id)
+            ->assertJsonPath('data.0.id', self::CONVOLAB_IMPORT_ID)
             ->assertJsonPath('data.0.status', StudyImportStatus::Completed->value)
             ->assertJsonPath('data.0.source_filename', 'newer.colpkg')
             ->assertJsonPath('data.0.deck_name', 'Newer Deck')
@@ -86,6 +89,8 @@ class ListStudyImportJobsApiTest extends TestCase
                 'links',
                 'meta',
             ]);
+
+        $this->assertNotSame(self::CONVOLAB_IMPORT_ID, $newerImport->id);
     }
 
     public function test_index_preserves_query_string_across_cursor_pages(): void

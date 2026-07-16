@@ -18,6 +18,8 @@ class StudyImportJobActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const CONVOLAB_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     public function test_current_returns_latest_active_import_job_for_the_user(): void
     {
         $user = User::factory()->create();
@@ -112,6 +114,22 @@ class StudyImportJobActionTest extends TestCase
         $this->assertSame($importJob->id, $shown->id);
     }
 
+    public function test_show_returns_owned_import_job_by_normalized_convolab_identifier(): void
+    {
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
+        ]);
+
+        $shown = app(ShowStudyImportJobAction::class)->handle(
+            $user->id,
+            '  '.strtoupper(self::CONVOLAB_IMPORT_ID).'  ',
+        );
+
+        $this->assertSame($importJob->id, $shown->id);
+        $this->assertSame(self::CONVOLAB_IMPORT_ID, $shown->clientId());
+    }
+
     public function test_show_hides_cross_user_import_jobs(): void
     {
         $importJob = StudyImportJob::factory()->create();
@@ -122,6 +140,21 @@ class StudyImportJobActionTest extends TestCase
         app(ShowStudyImportJobAction::class)->handle(User::factory()->create()->id, $importJob->id);
     }
 
+    public function test_show_hides_cross_user_import_jobs_looked_up_by_convolab_identifier(): void
+    {
+        $importJob = StudyImportJob::factory()->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
+        ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        $this->expectExceptionMessage(StudyImportJob::class);
+
+        app(ShowStudyImportJobAction::class)->handle(
+            User::factory()->create()->id,
+            (string) $importJob->convolab_id,
+        );
+    }
+
     public function test_show_hides_missing_import_jobs(): void
     {
         $this->expectException(ModelNotFoundException::class);
@@ -130,6 +163,17 @@ class StudyImportJobActionTest extends TestCase
         app(ShowStudyImportJobAction::class)->handle(
             User::factory()->create()->id,
             strtolower((string) str()->ulid()),
+        );
+    }
+
+    public function test_show_hides_missing_convolab_import_jobs(): void
+    {
+        $this->expectException(ModelNotFoundException::class);
+        $this->expectExceptionMessage(StudyImportJob::class);
+
+        app(ShowStudyImportJobAction::class)->handle(
+            User::factory()->create()->id,
+            self::CONVOLAB_IMPORT_ID,
         );
     }
 

@@ -14,7 +14,7 @@ class StudyImportJobResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->resource->clientId(),
             'status' => $this->statusValue(),
             'source_type' => $this->source_type,
             'source_filename' => $this->source_filename,

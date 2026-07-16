@@ -21,6 +21,7 @@ class StudyImportJobFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'convolab_id' => null,
             'status' => StudyImportStatus::Pending,
             'source_type' => StudyImportJob::SOURCE_TYPE_ANKI_COLPKG,
             'source_filename' => 'japanese.colpkg',

@@ -46,7 +46,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
         }
 
         return [
-            'id' => $latestImport->id,
+            'id' => $latestImport->clientId(),
             'status' => $this->importStatusValue($latestImport),
             'sourceType' => $latestImport->source_type,
             'sourceFilename' => $latestImport->source_filename,

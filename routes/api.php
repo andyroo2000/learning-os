@@ -226,7 +226,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
         ->whereUlid('studyImportJobId')
         ->middleware('throttle:'.StudyImportRateLimiter::CANCEL_NAME);
-    Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)->whereUlid('studyImportJobId');
+    Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)
+        // Copied ConvoLab jobs retain UUIDs; jobs created by Learning OS use ULIDs.
+        ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})');
     Route::get('/study/browser', ListStudyBrowserController::class);
     // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
     Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');

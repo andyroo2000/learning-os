@@ -37,6 +37,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
     use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
+    private const CONVOLAB_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     public function test_it_requires_authentication(): void
     {
         $card = Card::factory()->create();
@@ -57,6 +59,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 'new_cards_per_day' => 20,
             ]);
             $importJob = StudyImportJob::factory()->for($user)->completed()->create([
+                'convolab_id' => self::CONVOLAB_IMPORT_ID,
                 'source_filename' => 'core-2k.apkg',
             ]);
             $card = $this->cardFor($user, [
@@ -106,10 +109,12 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('overview.newCount', 0)
                 ->assertJsonPath('overview.reviewCount', 1)
                 ->assertJsonPath('overview.newCardsPerDay', 20)
-                ->assertJsonPath('overview.latestImport.id', $importJob->id)
+                ->assertJsonPath('overview.latestImport.id', self::CONVOLAB_IMPORT_ID)
                 ->assertJsonPath('overview.latestImport.status', 'completed')
                 ->assertJsonPath('overview.latestImport.sourceType', StudyImportJob::SOURCE_TYPE_ANKI_COLPKG)
                 ->assertJsonPath('overview.latestImport.sourceFilename', 'core-2k.apkg');
+
+            $this->assertNotSame(self::CONVOLAB_IMPORT_ID, $importJob->id);
 
             $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json('card'), 'review card payload');
 

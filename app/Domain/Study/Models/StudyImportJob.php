@@ -54,6 +54,10 @@ class StudyImportJob extends Model
             if ($importJob->isDirty('user_id')) {
                 throw new LogicException('Study import job owner cannot be changed.');
             }
+
+            if ($importJob->isDirty('convolab_id')) {
+                throw new LogicException('Study import job ConvoLab identifier cannot be changed.');
+            }
         });
     }
 
@@ -86,6 +90,15 @@ class StudyImportJob extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function clientId(): string
+    {
+        $convoLabId = $this->getAttribute('convolab_id');
+
+        return is_string($convoLabId) && $convoLabId !== ''
+            ? $convoLabId
+            : (string) $this->getKey();
     }
 
     /**

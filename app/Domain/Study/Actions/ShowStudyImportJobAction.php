@@ -11,16 +11,18 @@ class ShowStudyImportJobAction
 {
     public function handle(int $userId, string $importJobId): StudyImportJob
     {
-        $importJobId = CanonicalUlid::normalize($importJobId);
+        $importJobId = trim($importJobId);
+        $query = StudyImportJob::query()->where('user_id', $userId);
 
-        if (! Str::isUlid($importJobId)) {
+        if (Str::isUlid($importJobId)) {
+            $query->whereKey(CanonicalUlid::normalize($importJobId));
+        } elseif (Str::isUuid($importJobId)) {
+            $query->where('convolab_id', strtolower($importJobId));
+        } else {
             throw (new ModelNotFoundException)->setModel(StudyImportJob::class);
         }
 
-        return StudyImportJob::query()
-            ->where('user_id', $userId)
-            ->whereKey($importJobId)
-            ->first()
+        return $query->first()
             ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
     }
 }

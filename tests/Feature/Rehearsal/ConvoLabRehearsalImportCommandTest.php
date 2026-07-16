@@ -17,6 +17,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SOURCE_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     private string $sourceDatabase;
 
     protected function setUp(): void
@@ -80,6 +82,9 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'study_status' => 'review',
             'front_text' => '猫',
             'back_text' => 'cat',
+        ]);
+        $this->assertDatabaseHas('study_import_jobs', [
+            'convolab_id' => self::SOURCE_IMPORT_ID,
         ]);
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseHas('media_assets', [
@@ -363,6 +368,24 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('cards', 0);
     }
 
+    public function test_rejects_a_non_uuid_convolab_import_job_identifier(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')
+            ->table('study_import_jobs')
+            ->update(['id' => 'not-a-uuid']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Convo Lab import job [not-a-uuid] does not have a valid UUID.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('study_import_jobs', 0);
+    }
+
     public function test_rejects_a_review_with_a_missing_card_instead_of_discarding_it(): void
     {
         $this->seedConvoLabSourceData();
@@ -579,7 +602,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         ]);
 
         $source->table('study_import_jobs')->insert([
-            'id' => 'source-import-1',
+            'id' => self::SOURCE_IMPORT_ID,
             'userId' => 'source-user-1',
             'status' => 'completed',
             'sourceType' => 'anki_colpkg',
@@ -603,7 +626,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             $source->table('study_media')->insert([
                 'id' => $mediaId,
                 'userId' => 'source-user-1',
-                'importJobId' => 'source-import-1',
+                'importJobId' => self::SOURCE_IMPORT_ID,
                 'sourceKind' => 'anki_import',
                 'sourceMediaKey' => $mediaId,
                 'sourceFilename' => 'neko.mp3',
@@ -621,7 +644,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'id' => 'source-card-1',
             'userId' => 'source-user-1',
             'noteId' => 'source-note-1',
-            'importJobId' => 'source-import-1',
+            'importJobId' => self::SOURCE_IMPORT_ID,
             'sourceKind' => 'anki_import',
             'sourceCardId' => 123,
             'sourceDeckId' => 456,
@@ -675,7 +698,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'id' => 'source-review-1',
             'userId' => 'source-user-1',
             'cardId' => 'source-card-1',
-            'importJobId' => 'source-import-1',
+            'importJobId' => self::SOURCE_IMPORT_ID,
             'source' => 'convolab',
             'sourceReviewId' => 789,
             'reviewedAt' => $now,

@@ -19,6 +19,8 @@ class ShowStudyOverviewApiTest extends TestCase
     use RefreshDatabase;
     use SetsCardStudyStatus;
 
+    private const CONVOLAB_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     public function test_show_requires_authentication(): void
     {
         $this->getJson('/api/study/overview')->assertUnauthorized();
@@ -67,6 +69,7 @@ class ShowStudyOverviewApiTest extends TestCase
             'created_at' => Carbon::parse('2026-06-03T12:00:00Z'),
         ]);
         $latestImport = StudyImportJob::factory()->failed()->for($user)->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
             'source_filename' => 'latest.colpkg',
             'error_message' => 'Import failed.',
             'created_at' => Carbon::parse('2026-06-04T12:00:00Z'),
@@ -77,7 +80,7 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson('/api/study/overview')
             ->assertOk()
-            ->assertJsonPath('data.latest_import.id', $latestImport->id)
+            ->assertJsonPath('data.latest_import.id', self::CONVOLAB_IMPORT_ID)
             ->assertJsonPath('data.latest_import.status', StudyImportStatus::Failed->value)
             ->assertJsonPath('data.latest_import.source_filename', 'latest.colpkg')
             ->assertJsonPath('data.latest_import.error_message', 'Import failed.')

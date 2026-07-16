@@ -14,6 +14,8 @@ class StudyImportJobApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const CONVOLAB_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
+
     public function test_current_requires_authentication(): void
     {
         $this->getJson('/api/study/imports/current')->assertUnauthorized();
@@ -158,12 +160,46 @@ class StudyImportJobApiTest extends TestCase
             ->assertJsonPath('data.summary.imported_cards', 3);
     }
 
+    public function test_show_resolves_and_returns_a_copied_convolab_import_identifier(): void
+    {
+        $user = $this->signIn();
+        $importJob = StudyImportJob::factory()->completed()->for($user)->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
+        ]);
+
+        $this->getJson('/api/study/imports/'.strtoupper(self::CONVOLAB_IMPORT_ID))
+            ->assertOk()
+            ->assertJsonPath('data.id', self::CONVOLAB_IMPORT_ID)
+            ->assertJsonPath('data.status', StudyImportStatus::Completed->value);
+
+        $this->assertNotSame(self::CONVOLAB_IMPORT_ID, $importJob->id);
+    }
+
+    public function test_show_rejects_malformed_mixed_format_identifiers(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/imports/98f42a62-8303-410e-ad4d-5a69c55911bZ')
+            ->assertNotFound();
+    }
+
     public function test_show_hides_cross_user_import_jobs(): void
     {
         $this->signIn();
         $importJob = StudyImportJob::factory()->create();
 
         $this->getJson('/api/study/imports/'.$importJob->id)
+            ->assertNotFound();
+    }
+
+    public function test_show_hides_cross_user_convolab_import_jobs(): void
+    {
+        $this->signIn();
+        StudyImportJob::factory()->for(User::factory()->create())->create([
+            'convolab_id' => self::CONVOLAB_IMPORT_ID,
+        ]);
+
+        $this->getJson('/api/study/imports/'.self::CONVOLAB_IMPORT_ID)
             ->assertNotFound();
     }
 }

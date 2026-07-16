@@ -395,6 +395,12 @@ class ImportConvoLabRehearsalData extends Command
             ->chunk(200, function ($jobs) use ($target, &$count): void {
                 foreach ($jobs as $job) {
                     $id = (string) Str::ulid();
+                    $convoLabId = strtolower(trim((string) $job->id));
+
+                    if (! Str::isUuid($convoLabId)) {
+                        throw new \RuntimeException("Convo Lab import job [{$job->id}] does not have a valid UUID.");
+                    }
+
                     $this->importJobIds[$job->id] = $id;
                     $status = StudyImportStatus::tryFrom($job->status)
                         ?? throw new \RuntimeException("Unsupported Convo Lab import status [{$job->status}].");
@@ -402,6 +408,7 @@ class ImportConvoLabRehearsalData extends Command
                     $target->table('study_import_jobs')->insert([
                         'id' => $id,
                         'user_id' => $this->mappedUserId($job->userId),
+                        'convolab_id' => $convoLabId,
                         'status' => $status->value,
                         'source_type' => $this->stringOrDefault($job->sourceType, 'anki_colpkg'),
                         'source_filename' => $this->stringOrDefault($job->sourceFilename, 'convo-lab-import.colpkg'),

@@ -151,6 +151,72 @@ class StudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_it_reviews_a_copied_card_by_the_client_id_returned_from_session_start(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        Carbon::setTestNow(Carbon::parse('2026-07-16T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $clientCardId = '98F42A62-8303-410E-AD4D-5A69C55911BB';
+            $card = Card::factory()->for($deck)->create([
+                'convolab_id' => strtolower($clientCardId),
+                'convolab_note_id' => 'c0a8012e-7d2f-4b21-9dd7-14caf2bb1f88',
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 1,
+                'prompt_json' => ['type' => 'text', 'text' => '会社'],
+                'answer_json' => ['type' => 'text', 'text' => 'company'],
+            ]);
+
+            $sessionResponse = $this->postJson('/api/study/session/start');
+            $sessionCardId = $sessionResponse->json('data.cards.0.id');
+
+            $this->assertSame(strtolower($clientCardId), $sessionCardId);
+            $this->assertNotSame($card->id, $sessionCardId);
+
+            $response = $this->postJson('/api/study/reviews', [
+                'cardId' => '  '.strtoupper($sessionCardId).'  ',
+                'grade' => '  GOOD  ',
+                'timeZone' => '  America/New_York  ',
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('card.id', strtolower($clientCardId))
+                ->assertJsonPath('card.state.queueState', 'review');
+
+            $reviewLogId = $response->json('reviewLogId');
+            $this->assertIsString($reviewLogId);
+            $this->assertDatabaseHas('card_review_events', [
+                'id' => $reviewLogId,
+                'card_id' => $card->id,
+                'rating' => CardReviewRating::Good->value,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_rejects_malformed_client_card_ids_without_review_side_effects(): void
+    {
+        $this->signIn();
+
+        foreach (['not-a-card', '98f42a62-8303-410e-ad4d-5a69c55911b', ['invalid']] as $cardId) {
+            $this->postJson('/api/study/reviews', [
+                'cardId' => $cardId,
+                'grade' => CardReviewRating::Good->value,
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['cardId']);
+        }
+
+        $this->assertDatabaseCount('card_review_events', 0);
+    }
+
     public function test_study_and_canonical_review_creates_share_the_same_rate_limit_bucket(): void
     {
         $limiter = new CardReviewEventCreateRateLimiter;
@@ -445,7 +511,9 @@ class StudyReviewCompatibilityApiTest extends TestCase
     public function test_it_returns_not_found_for_missing_or_unowned_cards(): void
     {
         $user = $this->signIn();
-        $otherUserCard = $this->cardFor(User::factory()->create());
+        $otherUserCard = $this->cardFor(User::factory()->create(), [
+            'convolab_id' => '98f42a62-8303-410e-ad4d-5a69c55911bb',
+        ]);
         $deletedOwnedCard = $this->cardFor($user);
         $cardInDeletedOwnedDeck = $this->cardFor($user);
         $deletedOwnedCard->delete();
@@ -460,6 +528,13 @@ class StudyReviewCompatibilityApiTest extends TestCase
 
         $this->postJson('/api/study/reviews', [
             'cardId' => $otherUserCard->id,
+            'grade' => 'good',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Study card not found.');
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => strtoupper((string) $otherUserCard->convolab_id),
             'grade' => 'good',
         ])
             ->assertNotFound()

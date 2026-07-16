@@ -378,6 +378,26 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         Course::factory()->for($existingUser)->create();
         StudyCardDraft::factory()->for($existingUser)->create();
         SyncFeedEntry::factory()->for($existingUser)->create();
+        $now = now();
+        DB::table('japanese_knowledge_profiles')->insert([
+            'user_id' => $existingUser->id,
+            'knowledge_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('wanikani_connections')->insert([
+            'user_id' => $existingUser->id,
+            'api_token' => 'encrypted-test-token',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('user_known_kanji')->insert([
+            'user_id' => $existingUser->id,
+            'character' => '私',
+            'manually_added_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
         $this->artisan('rehearsal:import-convolab', [
             '--source-connection' => 'convolab_test_source',
@@ -387,6 +407,9 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
+        $this->assertDatabaseCount('wanikani_connections', 0);
+        $this->assertDatabaseCount('user_known_kanji', 0);
         $this->assertDatabaseCount('users', 1);
     }
 

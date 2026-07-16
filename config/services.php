@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'wanikani' => [
+        'base_url' => env('WANIKANI_API_BASE_URL', 'https://api.wanikani.com/v2'),
+    ],
+
 ];

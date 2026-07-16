@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\Japanese\Exceptions\WaniKaniApiException;
+use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,6 +21,23 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
+        $exceptions->dontReport([WaniKaniApiException::class, WaniKaniSyncInProgressException::class]);
+
+        $exceptions->render(function (WaniKaniApiException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json(['message' => $exception->getMessage()], $exception->getCode());
+        });
+
+        $exceptions->render(function (WaniKaniSyncInProgressException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json(['message' => $exception->getMessage()], 409);
+        });
 
         $exceptions->render(function (StaleSyncFeedCheckpointException $exception, Request $request): ?JsonResponse {
             if (! $request->expectsJson()) {

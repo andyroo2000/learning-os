@@ -15,11 +15,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
 class StartStudySessionApiTest extends TestCase
 {
+    use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
     use SetsCardStudyStatus;
 
@@ -57,6 +59,132 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonPath('data.cards.0.id', $firstNewCard->id)
             ->assertJsonPath('data.cards.1.id', $secondNewCard->id)
             ->assertJsonCount(2, 'data.cards');
+    }
+
+    public function test_start_returns_convolab_compatible_card_summaries(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-16T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create([
+                'new_cards_per_day' => 20,
+            ]);
+            $convoLabCardId = Str::uuid()->toString();
+            $convoLabNoteId = Str::uuid()->toString();
+            $card = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+                'convolab_id' => $convoLabCardId,
+                'convolab_note_id' => $convoLabNoteId,
+                'convolab_note_source_guid' => 'guid-501',
+                'convolab_note_source_notetype_id' => 601,
+                'front_text' => '会社',
+                'back_text' => 'company',
+                'card_type' => 'production',
+                'prompt_json' => [
+                    'type' => 'text',
+                    'text' => '会社',
+                    'cueAudio' => [
+                        'filename' => 'company.mp3',
+                        'mediaKind' => 'audio',
+                        'source' => 'imported',
+                    ],
+                ],
+                'answer_json' => [
+                    'type' => 'text',
+                    'text' => 'company',
+                ],
+                'scheduler_state' => ['state' => 2, 'reps' => 7],
+                'due_at' => Carbon::parse('2026-07-16T15:00:00Z'),
+                'introduced_at' => Carbon::parse('2026-07-01T12:00:00Z'),
+                'failed_at' => Carbon::parse('2026-07-10T12:00:00Z'),
+                'source_note_id' => 501,
+                'source_card_id' => 701,
+                'source_deck_id' => 301,
+                'source_notetype_name' => 'Japanese - Vocab',
+                'source_template_ord' => 0,
+                'source_template_name' => 'Card 1',
+                'source_queue' => 2,
+                'source_card_type' => 2,
+                'source_due' => 12,
+                'source_interval' => 30,
+                'source_factor' => 2500,
+                'source_reps' => 7,
+                'source_lapses' => 1,
+                'source_left' => 0,
+                'source_original_due' => 4,
+                'source_original_deck_id' => 901,
+                'source_fsrs_json' => ['stability' => 4.2],
+                'answer_audio_source' => 'imported',
+                'variant_group_id' => 'group-1',
+                'variant_sentence_id' => 'sentence-1',
+                'variant_kind' => 'recognition',
+                'variant_stage' => 2,
+                'variant_status' => 'unlocked',
+                'variant_unlocked_at' => Carbon::parse('2026-07-12T12:00:00Z'),
+            ]);
+
+            $response = $this->postJson('/api/study/session/start', [
+                'timeZone' => 'America/New_York',
+            ]);
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('data.cards.0.id', $convoLabCardId)
+                ->assertJsonPath('data.cards.0.noteId', $convoLabNoteId)
+                ->assertJsonPath('data.cards.0.cardType', 'production')
+                ->assertJsonPath('data.cards.0.prompt.text', '会社')
+                ->assertJsonPath('data.cards.0.prompt.cueAudio.filename', 'company.mp3')
+                ->assertJsonPath('data.cards.0.answer.text', 'company')
+                ->assertJsonPath('data.cards.0.state.queueState', 'review')
+                ->assertJsonPath('data.cards.0.state.dueAt', '2026-07-16T15:00:00.000000Z')
+                ->assertJsonPath('data.cards.0.state.scheduler.reps', 7)
+                ->assertJsonPath('data.cards.0.state.source.noteId', '501')
+                ->assertJsonPath('data.cards.0.state.source.noteGuid', 'guid-501')
+                ->assertJsonPath('data.cards.0.state.source.cardId', '701')
+                ->assertJsonPath('data.cards.0.state.source.deckName', '日本語')
+                ->assertJsonPath('data.cards.0.state.source.notetypeId', '601')
+                ->assertJsonPath('data.cards.0.state.source.odid', '901')
+                ->assertJsonPath('data.cards.0.state.rawFsrs.stability', 4.2)
+                ->assertJsonPath('data.cards.0.variantGroupId', 'group-1')
+                ->assertJsonPath('data.cards.0.variantUnlockedAt', '2026-07-12T12:00:00.000000Z')
+                ->assertJsonPath('data.cards.0.answerAudioSource', 'imported')
+                ->assertJsonMissingPath('data.cards.0.deck_id')
+                ->assertJsonMissingPath('data.cards.0.prompt_json')
+                ->assertJsonCount(1, 'data.cards');
+
+            $payload = $response->json('data.cards.0');
+            $this->assertIsArray($payload);
+            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($payload, 'session card payload');
+            $this->assertNotSame($card->id, $payload['id']);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_start_preserves_native_card_identifiers_and_nullable_source_metadata(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 1,
+        ]);
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'source_note_id' => null,
+            'source_deck_name' => null,
+        ]);
+
+        $response = $this->postJson('/api/study/session/start');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.cards.0.id', $card->id)
+            ->assertJsonPath('data.cards.0.noteId', null)
+            ->assertJsonPath('data.cards.0.state.source.deckName', null)
+            ->assertJsonPath('data.cards.0.state.source.noteId', null)
+            ->assertJsonFragment(['noteId' => null])
+            ->assertJsonFragment(['deckName' => null]);
     }
 
     public function test_start_ignores_legacy_null_position_cards_when_filling_new_slots(): void

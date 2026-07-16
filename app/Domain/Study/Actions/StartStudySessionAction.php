@@ -75,7 +75,6 @@ class StartStudySessionAction
     {
         return $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             ->select('cards.*')
-            ->selectRaw('decks.course_id as deck_course_id')
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->where('cards.due_at', '<=', $now)
             ->orderBy('cards.due_at')
@@ -95,7 +94,6 @@ class StartStudySessionAction
 
         $query = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             ->select('cards.*')
-            ->selectRaw('decks.course_id as deck_course_id')
             ->where('cards.study_status', CardStudyStatus::New->value);
 
         return NewCardQueueOrdering::positionedCards($query)

@@ -442,7 +442,7 @@ class StartStudySessionActionTest extends TestCase
 
     public function test_it_serializes_new_session_cards_without_a_separate_deck_lookup_query(): void
     {
-        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::New, [
+        $this->assertSessionCardSerializationAvoidsDeckLookup(CardStudyStatus::New, [
             'new_queue_position' => 1,
         ], [
             'new_queue_position' => 2,
@@ -451,7 +451,7 @@ class StartStudySessionActionTest extends TestCase
 
     public function test_it_serializes_due_session_cards_without_a_separate_deck_lookup_query(): void
     {
-        $this->assertSessionCardCourseLookupUsesJoinedDeckCourse(CardStudyStatus::Review, [
+        $this->assertSessionCardSerializationAvoidsDeckLookup(CardStudyStatus::Review, [
             'due_at' => Carbon::parse('2026-06-04T11:30:00Z'),
         ], [
             'due_at' => Carbon::parse('2026-06-04T11:45:00Z'),
@@ -517,7 +517,7 @@ class StartStudySessionActionTest extends TestCase
      * @param  array<string, mixed>  $cardAttributes
      * @param  array<string, mixed>  $secondCardAttributes
      */
-    private function assertSessionCardCourseLookupUsesJoinedDeckCourse(
+    private function assertSessionCardSerializationAvoidsDeckLookup(
         CardStudyStatus $status,
         array $cardAttributes,
         array $secondCardAttributes,
@@ -550,12 +550,12 @@ class StartStudySessionActionTest extends TestCase
         }
 
         $this->assertSame($card->id, $payload['cards'][0]['id']);
-        $this->assertSame($course->id, $payload['cards'][0]['course_id']);
         $this->assertSame($secondCard->id, $payload['cards'][1]['id']);
-        $this->assertSame($course->id, $payload['cards'][1]['course_id']);
+        $this->assertArrayNotHasKey('course_id', $payload['cards'][0]);
+        $this->assertArrayNotHasKey('course_id', $payload['cards'][1]);
 
         $sessionCardSelects = $queries->filter(fn (array $query): bool => $this->isSelectFromTable($query['query'], 'cards')
-            && str_contains(strtolower($query['query']), 'deck_course_id'));
+            && preg_match('/^select\s+["`]?cards["`]?\.\*/i', $query['query']) === 1);
 
         $this->assertCount(
             1,

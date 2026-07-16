@@ -45,6 +45,11 @@ class ReorderNewCardQueueAction
 
         return DB::transaction(function () use ($userId, $cardIds): Collection {
             $this->lockQueueOwner($userId);
+            $databaseCardIds = collect($cardIds)
+                ->flatMap(fn (string $cardId): array => CanonicalUlid::databaseCandidates($cardId))
+                ->unique()
+                ->values()
+                ->all();
 
             $cardsQuery = Card::query()
                 ->select('cards.*')
@@ -53,7 +58,7 @@ class ReorderNewCardQueueAction
                 ->where('decks.user_id', $userId)
                 ->whereNull('decks.deleted_at')
                 ->where('cards.study_status', CardStudyStatus::New->value)
-                ->whereIn('cards.id', $cardIds);
+                ->whereIn('cards.id', $databaseCardIds);
 
             $cards = NewCardQueueOrdering::nullPositionsLast($cardsQuery)
                 ->orderBy('cards.id')
@@ -69,7 +74,9 @@ class ReorderNewCardQueueAction
             $availablePositions = $this->availablePositions($userId, $cards);
             $positionsByCardId = array_combine($cardIds, $availablePositions);
 
-            $cardsById = $cards->keyBy('id');
+            $cardsById = $cards->keyBy(
+                fn (Card $card): string => CanonicalUlid::normalize($card->id),
+            );
             $orderedCards = collect();
 
             foreach ($cardIds as $cardId) {

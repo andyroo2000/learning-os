@@ -54,6 +54,8 @@ class ReviewCardBatchAction
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $cardsById = $this->cardsById($preparedItems);
+            $preparedItems = $this->useStoredCardIds($preparedItems, $cardsById);
+            $cardsById = $cardsById->keyBy(fn (Card $card): string => (string) $card->getKey());
 
             $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKeyWithOwnerContext($preparedItems);
             $existingReviewEventsById = $this->existingReviewEventsByProvidedId($preparedItems);
@@ -264,20 +266,41 @@ class ReviewCardBatchAction
             ->unique()
             ->values();
 
+        $candidateCardIds = $cardIds
+            ->flatMap(fn (string $cardId): array => CanonicalUlid::databaseCandidates($cardId))
+            ->unique()
+            ->values();
+
         $cardsById = Card::query()
             ->select('cards.*')
             ->selectRaw('decks.user_id as owner_user_id')
             ->selectRaw('decks.course_id as deck_course_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->whereKey($cardIds)
+            ->whereKey($candidateCardIds)
             ->get()
-            ->keyBy('id');
+            ->keyBy(fn (Card $card): string => CanonicalUlid::normalize((string) $card->getKey()));
 
         if ($cardsById->count() !== $cardIds->count()) {
             throw new InvalidArgumentException('One or more cards do not exist.');
         }
 
         return $cardsById;
+    }
+
+    /**
+     * @param  Collection<int, array{card_id: string}>  $preparedItems
+     * @param  Collection<string, Card>  $cardsById
+     * @return Collection<int, array{card_id: string}>
+     */
+    private function useStoredCardIds(Collection $preparedItems, Collection $cardsById): Collection
+    {
+        return $preparedItems->map(function (array $item) use ($cardsById): array {
+            $card = $cardsById->get($item['card_id'])
+                ?? throw new RuntimeException('Card missing while resolving its stored ID.');
+            $item['card_id'] = (string) $card->getKey();
+
+            return $item;
+        });
     }
 
     /**

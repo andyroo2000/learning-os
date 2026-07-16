@@ -84,6 +84,28 @@ class CreateCardReviewEventApiTest extends TestCase
         ]);
     }
 
+    public function test_it_reviews_a_legacy_imported_card_with_an_uppercase_ulid(): void
+    {
+        $user = $this->signIn();
+        $storedCardId = strtoupper((string) Str::ulid());
+        Card::factory()->for($this->deckFor($user))->create(['id' => $storedCardId]);
+
+        $response = $this->postJson('/api/card-review-events', [
+            'card_id' => strtolower($storedCardId),
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.card_id', $storedCardId);
+
+        $this->assertSame(
+            $storedCardId,
+            CardReviewEvent::query()->findOrFail($response->json('data.id'))->card_id,
+        );
+    }
+
     public function test_it_stores_client_sync_metadata(): void
     {
         $user = $this->signIn();

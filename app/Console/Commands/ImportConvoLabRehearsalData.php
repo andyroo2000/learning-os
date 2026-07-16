@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Enums\StudyImportStatus;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
@@ -345,7 +346,7 @@ class ImportConvoLabRehearsalData extends Command
                 continue;
             }
 
-            $deckId = (string) Str::ulid();
+            $deckId = $this->newCanonicalUlid();
 
             $target->table('decks')->insert([
                 'id' => $deckId,
@@ -397,7 +398,7 @@ class ImportConvoLabRehearsalData extends Command
             ->orderBy('id')
             ->chunk(200, function ($jobs) use ($target, &$count): void {
                 foreach ($jobs as $job) {
-                    $id = (string) Str::ulid();
+                    $id = $this->newCanonicalUlid();
                     $convoLabId = $this->sourceUuid($job->id, 'import job');
 
                     $this->importJobIds[$job->id] = $id;
@@ -462,7 +463,7 @@ class ImportConvoLabRehearsalData extends Command
                         continue;
                     }
 
-                    $id = (string) Str::ulid();
+                    $id = $this->newCanonicalUlid();
                     $this->mediaIds[$media->id] = $id;
                     $this->mediaPathIds[$pathKey] = $id;
                     $this->mediaPathUserIds[$pathKey] = $userId;
@@ -531,7 +532,7 @@ class ImportConvoLabRehearsalData extends Command
                         throw new \RuntimeException("Convo Lab card [{$card->id}] references a note owned by another user.");
                     }
 
-                    $id = (string) Str::ulid();
+                    $id = $this->newCanonicalUlid();
                     $this->cardIds[$card->id] = $id;
                     $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
                     $promptText = $this->payloadText($card->promptJson, [
@@ -682,7 +683,7 @@ class ImportConvoLabRehearsalData extends Command
                     }
 
                     $insertRows[] = [
-                        'id' => (string) Str::ulid(),
+                        'id' => $this->newCanonicalUlid(),
                         'card_id' => $this->cardIds[$review->cardId],
                         'rating' => $this->rating((int) $review->rating),
                         'reviewed_at' => $review->reviewedAt,
@@ -738,6 +739,11 @@ class ImportConvoLabRehearsalData extends Command
     private function deckKey(string $sourceUserId, string $deckName): string
     {
         return $sourceUserId."\n".$deckName;
+    }
+
+    private function newCanonicalUlid(): string
+    {
+        return CanonicalUlid::normalize((string) Str::ulid());
     }
 
     private function stringOrDefault(mixed $value, string $default): string

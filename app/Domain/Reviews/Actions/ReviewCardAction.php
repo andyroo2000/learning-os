@@ -37,10 +37,7 @@ class ReviewCardAction
             throw new InvalidArgumentException('Card ID must be a valid ULID.');
         }
 
-        $card = Card::query()
-            ->with('deck')
-            ->whereKey($data->cardId)
-            ->first();
+        $card = $this->findCard($data->cardId);
 
         if ($card === null) {
             throw new InvalidArgumentException('Card does not exist.');
@@ -91,7 +88,7 @@ class ReviewCardAction
         }
 
         $reviewEvent = new CardReviewEvent([
-            'card_id' => $data->cardId,
+            'card_id' => (string) $card->getKey(),
             'rating' => $rating,
             'reviewed_at' => $data->reviewedAt,
             'duration_ms' => $data->durationMs,
@@ -159,6 +156,22 @@ class ReviewCardAction
 
             return ReviewCardResult::existing($existingReviewEvent);
         }
+    }
+
+    private function findCard(string $cardId): ?Card
+    {
+        foreach (CanonicalUlid::databaseCandidates($cardId) as $candidate) {
+            $card = Card::query()
+                ->with('deck')
+                ->whereKey($candidate)
+                ->first();
+
+            if ($card !== null) {
+                return $card;
+            }
+        }
+
+        return null;
     }
 
     private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent

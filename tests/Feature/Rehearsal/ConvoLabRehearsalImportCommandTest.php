@@ -76,6 +76,13 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             ->expectsOutputToContain('Imported 1 review events.')
             ->assertExitCode(0);
 
+        foreach (['decks', 'study_import_jobs', 'media_assets', 'cards', 'card_review_events'] as $table) {
+            $id = DB::table($table)->value('id');
+
+            $this->assertIsString($id);
+            $this->assertSame(strtolower($id), $id, "{$table}.id must use canonical lowercase ULIDs.");
+        }
+
         $this->assertDatabaseHas('users', [
             'email' => 'ada@example.com',
         ]);

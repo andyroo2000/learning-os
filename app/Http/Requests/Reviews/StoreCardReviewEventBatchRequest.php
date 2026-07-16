@@ -9,6 +9,7 @@ use App\Domain\Sync\Values\SyncMetadata;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
 use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use App\Http\Support\AuthenticatedUser;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -110,10 +111,16 @@ class StoreCardReviewEventBatchRequest extends FormRequest
         $cardIds = $events->pluck('card_id')->unique()->values();
 
         // Eloquent applies Card and Deck SoftDeletes scopes here.
+        $candidateCardIds = $cardIds
+            ->flatMap(fn (string $cardId): array => CanonicalUlid::databaseCandidates($cardId))
+            ->unique()
+            ->values();
+
         $visibleCardIds = Card::query()
-            ->whereKey($cardIds)
+            ->whereKey($candidateCardIds)
             ->whereHas('deck', fn ($query) => $query->where('user_id', AuthenticatedUser::id($this)))
             ->pluck('id')
+            ->map(fn (string $cardId): string => CanonicalUlid::normalize($cardId))
             ->all();
 
         $visibleCardIds = array_flip($visibleCardIds);

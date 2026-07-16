@@ -130,6 +130,30 @@ class ShowStudyBrowserNoteActionTest extends TestCase
         $this->assertSame('7001', $result->noteId);
     }
 
+    public function test_it_keeps_numeric_source_note_details_separate_from_copied_convolab_notes(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $nativeCard = Card::factory()->for($deck)->create([
+            'front_text' => 'native source note',
+            'source_note_id' => 7006,
+        ]);
+        Card::factory()->for($deck)->create([
+            'convolab_id' => 'c358732a-2cd0-4b18-9cce-c474297863f9',
+            'convolab_note_id' => '9e33f12d-cf38-409b-bbf1-6fddd9977576',
+            'front_text' => 'copied note with colliding source number',
+            'source_note_id' => 7006,
+        ]);
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, '7006');
+
+        $this->assertNotNull($result);
+        $this->assertSame('7006', $result->noteId);
+        $this->assertSame($nativeCard->id, $result->selectedCardId);
+        $this->assertCount(1, $result->cards);
+        $this->assertSame($nativeCard->id, $result->cardStats[0]['cardId']);
+    }
+
     public function test_it_exposes_media_fields_for_direct_callers(): void
     {
         $user = $this->signIn();

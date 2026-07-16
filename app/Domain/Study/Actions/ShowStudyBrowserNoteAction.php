@@ -69,7 +69,9 @@ class ShowStudyBrowserNoteAction
         $sourceNoteId = $this->sourceNoteIdValue($noteId);
 
         if ($sourceNoteId !== null) {
-            $query->where('cards.source_note_id', $sourceNoteId);
+            $query
+                ->whereNull('cards.convolab_note_id')
+                ->where('cards.source_note_id', $sourceNoteId);
 
             return $this->cardsWithReviewStats($query);
         }

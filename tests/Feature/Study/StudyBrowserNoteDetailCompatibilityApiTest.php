@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,10 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
         $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
         $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
         $card->save();
+
+        $sharedSummary = StudyCardSummaryResource::make($card)->resolve(request());
+        $this->assertSame($card->id, $sharedSummary['id']);
+        $this->assertSame('500', $sharedSummary['noteId']);
 
         $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertOk()

@@ -21,6 +21,10 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
     private const SOURCE_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
 
+    private const SOURCE_CARD_ID = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+
+    private const SOURCE_NOTE_ID = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+
     private string $sourceDatabase;
 
     protected function setUp(): void
@@ -80,6 +84,10 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'is_manual_study_deck' => false,
         ]);
         $this->assertDatabaseHas('cards', [
+            'convolab_id' => self::SOURCE_CARD_ID,
+            'convolab_note_id' => self::SOURCE_NOTE_ID,
+            'source_note_id' => 321,
+            'source_notetype_name' => 'Japanese - Vocab',
             'card_type' => 'recognition',
             'study_status' => 'review',
             'front_text' => '猫',
@@ -96,6 +104,34 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             '2026-07-14 10:00:00.844',
             Card::query()->sole()->due_at->format('Y-m-d H:i:s.v'),
         );
+        $this->assertSame('2026-06-14 22:18:00.956', Card::query()->sole()->convolab_note_created_at->format('Y-m-d H:i:s.v'));
+        $this->assertSame('2026-07-13 09:08:07.654', Card::query()->sole()->convolab_note_updated_at->format('Y-m-d H:i:s.v'));
+        $this->signIn(User::query()->sole());
+        $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc&limit=25')
+            ->assertOk()
+            ->assertExactJson([
+                'rows' => [[
+                    'noteId' => self::SOURCE_NOTE_ID,
+                    'selectedCardId' => self::SOURCE_CARD_ID,
+                    'displayText' => '猫',
+                    'noteTypeName' => 'Japanese - Vocab',
+                    'sourceKind' => 'anki_import',
+                    'cardCount' => 1,
+                    'reviewCount' => 1,
+                    'lastReviewedAt' => '2026-07-14T10:00:00.000000Z',
+                    'queueSummary' => ['review' => 1],
+                    'createdAt' => '2026-06-14T22:18:00.956000Z',
+                    'updatedAt' => '2026-07-13T09:08:07.654000Z',
+                ]],
+                'total' => 1,
+                'limit' => 25,
+                'nextCursor' => null,
+                'filterOptions' => [
+                    'noteTypes' => ['Japanese - Vocab'],
+                    'cardTypes' => ['recognition'],
+                    'queueStates' => ['review'],
+                ],
+            ]);
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseHas('media_assets', [
             'disk' => 'media',
@@ -288,7 +324,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             '--truncate' => true,
         ])
             ->expectsOutputToContain(
-                'Card [source-card-1] references media [source-media-1] owned by another user.',
+                'Card ['.self::SOURCE_CARD_ID.'] references media [source-media-1] owned by another user.',
             )
             ->assertExitCode(1);
 
@@ -336,13 +372,22 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
     {
         $this->seedConvoLabSourceData();
         $source = DB::connection('convolab_test_source');
-        $template = (array) $source->table('study_cards')->where('id', 'source-card-1')->first();
+        $template = (array) $source->table('study_cards')->where('id', self::SOURCE_CARD_ID)->first();
+        $noteTemplate = (array) $source->table('study_notes')->where('id', self::SOURCE_NOTE_ID)->first();
 
-        foreach ([['source-card-2', 124, null], ['source-card-3', 125, '   ']] as [$id, $sourceCardId, $deckName]) {
+        foreach ([
+            ['1a2d53ab-10e6-4552-b25b-3c9386a5ff29', 'b7cf04c9-bce8-4030-bf34-43f898474af0', 124, null],
+            ['97eeef49-a6ad-478e-88f8-e33ba463e798', '143a150f-ecaf-47fb-8299-73f4a0b87718', 125, '   '],
+        ] as [$id, $noteId, $sourceCardId, $deckName]) {
+            $source->table('study_notes')->insert([
+                ...$noteTemplate,
+                'id' => $noteId,
+                'sourceNoteId' => $sourceCardId + 1000,
+            ]);
             $source->table('study_cards')->insert([
                 ...$template,
                 'id' => $id,
-                'noteId' => 'note-'.$id,
+                'noteId' => $noteId,
                 'sourceCardId' => $sourceCardId,
                 'sourceDeckName' => $deckName,
                 'promptAudioMediaId' => null,
@@ -394,6 +439,72 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseCount('study_import_jobs', 0);
+    }
+
+    public function test_rejects_a_non_uuid_convolab_card_identifier(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')->table('study_cards')->update(['id' => 'not-a-uuid']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Convo Lab card [not-a-uuid] does not have a valid UUID.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_rejects_a_non_uuid_convolab_note_identifier(): void
+    {
+        $this->seedConvoLabSourceData();
+        $source = DB::connection('convolab_test_source');
+        $source->table('study_notes')->update(['id' => 'not-a-uuid']);
+        $source->table('study_cards')->update(['noteId' => 'not-a-uuid']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Convo Lab note [not-a-uuid] does not have a valid UUID.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_rejects_a_dangling_note_reference_instead_of_discarding_the_card(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')->table('study_notes')->delete();
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain(
+                'Missing Convo Lab note ['.self::SOURCE_NOTE_ID.'] for card ['.self::SOURCE_CARD_ID.'].',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('cards', 0);
+    }
+
+    public function test_rejects_a_card_whose_note_is_owned_by_another_user(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')->table('study_notes')->update(['userId' => 'source-user-2']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Convo Lab card ['.self::SOURCE_CARD_ID.'] references a note owned by another user.')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('cards', 0);
     }
 
     public function test_rejects_a_review_with_a_missing_card_instead_of_discarding_it(): void
@@ -518,6 +629,15 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             $table->timestamp('updatedAt');
         });
 
+        $schema->create('study_notes', function ($table): void {
+            $table->text('id')->primary();
+            $table->text('userId');
+            $table->integer('sourceNoteId')->nullable();
+            $table->text('sourceNotetypeName')->nullable();
+            $table->timestamp('createdAt');
+            $table->timestamp('updatedAt');
+        });
+
         $schema->create('study_cards', function ($table): void {
             $table->text('id')->primary();
             $table->text('userId');
@@ -594,6 +714,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $now = '2026-07-14 10:00:00';
         $completedAt = '2026-07-14 10:00:00.108';
         $dueAt = '2026-07-14 10:00:00.844';
+        $noteCreatedAt = '2026-06-14 22:18:00.956';
+        $noteUpdatedAt = '2026-07-13 09:08:07.654';
 
         $source->table('User')->insert([
             'id' => 'source-user-1',
@@ -652,10 +774,19 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             ]);
         }
 
-        $source->table('study_cards')->insert([
-            'id' => 'source-card-1',
+        $source->table('study_notes')->insert([
+            'id' => self::SOURCE_NOTE_ID,
             'userId' => 'source-user-1',
-            'noteId' => 'source-note-1',
+            'sourceNoteId' => 321,
+            'sourceNotetypeName' => 'Japanese - Vocab',
+            'createdAt' => $noteCreatedAt,
+            'updatedAt' => $noteUpdatedAt,
+        ]);
+
+        $source->table('study_cards')->insert([
+            'id' => self::SOURCE_CARD_ID,
+            'userId' => 'source-user-1',
+            'noteId' => self::SOURCE_NOTE_ID,
             'importJobId' => self::SOURCE_IMPORT_ID,
             'sourceKind' => 'anki_import',
             'sourceCardId' => 123,
@@ -709,7 +840,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $source->table('study_review_logs')->insert([
             'id' => 'source-review-1',
             'userId' => 'source-user-1',
-            'cardId' => 'source-card-1',
+            'cardId' => self::SOURCE_CARD_ID,
             'importJobId' => self::SOURCE_IMPORT_ID,
             'source' => 'convolab',
             'sourceReviewId' => 789,

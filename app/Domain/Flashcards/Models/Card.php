@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
+use App\Support\Identifiers\CanonicalUlid;
 use App\Support\VariantMetadataLimits;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use LogicException;
 
 #[Fillable(['deck_id', 'front_text', 'back_text', 'card_type', 'prompt_json', 'answer_json'])]
@@ -29,6 +31,8 @@ class Card extends Model
     public const MAX_VARIANT_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
 
     public const MAX_VARIANT_STAGE = VariantMetadataLimits::MAX_STAGE;
+
+    public const CLIENT_ID_ROUTE_PATTERN = '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})';
 
     /**
      * @var array<string, mixed>
@@ -44,6 +48,20 @@ class Card extends Model
         return CardFactory::new();
     }
 
+    protected static function booted(): void
+    {
+        static::updating(function (Card $card): void {
+            if ($card->isDirty([
+                'convolab_id',
+                'convolab_note_id',
+                'convolab_note_created_at',
+                'convolab_note_updated_at',
+            ])) {
+                throw new LogicException('Card ConvoLab compatibility metadata cannot be changed.');
+            }
+        });
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>
@@ -56,6 +74,25 @@ class Card extends Model
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWhereClientIdentifier(Builder $query, string $clientId): Builder
+    {
+        $clientId = trim($clientId);
+
+        if (Str::isUuid($clientId)) {
+            return $query->where('cards.convolab_id', strtolower($clientId));
+        }
+
+        if (Str::isUlid($clientId)) {
+            return $query->where('cards.id', CanonicalUlid::normalize($clientId));
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     /**
@@ -80,7 +117,31 @@ class Card extends Model
             'scheduler_state' => 'array',
             'variant_stage' => 'integer',
             'variant_unlocked_at' => 'datetime',
+            'convolab_note_created_at' => 'datetime',
+            'convolab_note_updated_at' => 'datetime',
         ];
+    }
+
+    public function clientId(): string
+    {
+        $convoLabId = $this->getAttribute('convolab_id');
+
+        return is_string($convoLabId) && $convoLabId !== ''
+            ? $convoLabId
+            : (string) $this->getKey();
+    }
+
+    public function clientNoteId(): string
+    {
+        $convoLabNoteId = $this->getAttribute('convolab_note_id');
+
+        if (is_string($convoLabNoteId) && $convoLabNoteId !== '') {
+            return $convoLabNoteId;
+        }
+
+        return $this->source_note_id === null
+            ? (string) $this->getKey()
+            : (string) $this->source_note_id;
     }
 
     /**

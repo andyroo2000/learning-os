@@ -20,6 +20,9 @@ class ConvoLabStudyTimestampPrecisionMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_16_023000_preserve_convolab_study_timestamp_precision.php',
         );
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_16_031000_preserve_convolab_browser_timestamp_precision.php',
+        );
     }
 
     #[DataProvider('sqlProvider')]
@@ -30,17 +33,18 @@ class ConvoLabStudyTimestampPrecisionMigrationTest extends TestCase
         string $column,
         array $expectedUpSql,
         array $expectedDownSql,
+        bool $nullable = true,
     ): void {
         $connection = $this->connection($connectionClass);
         $grammar = new $grammarClass($connection);
         $connection->setSchemaGrammar($grammar);
 
-        $this->assertSame($expectedUpSql, $this->changeBlueprint($connection, $table, $column, 3)->toSql());
-        $this->assertSame($expectedDownSql, $this->changeBlueprint($connection, $table, $column, 0)->toSql());
+        $this->assertSame($expectedUpSql, $this->changeBlueprint($connection, $table, $column, 3, $nullable)->toSql());
+        $this->assertSame($expectedDownSql, $this->changeBlueprint($connection, $table, $column, 0, $nullable)->toSql());
     }
 
     /**
-     * @return array<string, array{class-string<Connection>, class-string<Grammar>, string, string, list<string>, list<string>}>
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, string, string, list<string>, list<string>, 6?: bool}>
      */
     public static function sqlProvider(): array
     {
@@ -89,7 +93,45 @@ class ConvoLabStudyTimestampPrecisionMigrationTest extends TestCase
                 ['alter table `study_import_jobs` modify `completed_at` timestamp(3) null'],
                 ['alter table `study_import_jobs` modify `completed_at` timestamp null'],
             ],
+            ...self::browserTimestampSql(),
         ];
+    }
+
+    /** @return array<string, array{class-string<Connection>, class-string<Grammar>, string, string, list<string>, list<string>, bool}> */
+    private static function browserTimestampSql(): array
+    {
+        $fixtures = [];
+
+        foreach ([['cards', 'created_at', true], ['cards', 'updated_at', true], ['card_review_events', 'reviewed_at', false]] as [$table, $column, $nullable]) {
+            $nullSql = $nullable ? 'drop not null' : 'set not null';
+            $mysqlNull = $nullable ? ' null' : ' not null';
+            $fixtures["postgres {$table} {$column}"] = [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                $table,
+                $column,
+                [
+                    "alter table \"{$table}\" alter column \"{$column}\" type timestamp(3) without time zone, alter column \"{$column}\" {$nullSql}, alter column \"{$column}\" drop default, alter column \"{$column}\" drop identity if exists",
+                    "comment on column \"{$table}\".\"{$column}\" is NULL",
+                ],
+                [
+                    "alter table \"{$table}\" alter column \"{$column}\" type timestamp(0) without time zone, alter column \"{$column}\" {$nullSql}, alter column \"{$column}\" drop default, alter column \"{$column}\" drop identity if exists",
+                    "comment on column \"{$table}\".\"{$column}\" is NULL",
+                ],
+                $nullable,
+            ];
+            $fixtures["mysql {$table} {$column}"] = [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                $table,
+                $column,
+                ["alter table `{$table}` modify `{$column}` timestamp(3){$mysqlNull}"],
+                ["alter table `{$table}` modify `{$column}` timestamp{$mysqlNull}"],
+                $nullable,
+            ];
+        }
+
+        return $fixtures;
     }
 
     /** @param class-string<Connection> $connectionClass */
@@ -104,10 +146,17 @@ class ConvoLabStudyTimestampPrecisionMigrationTest extends TestCase
         string $tableName,
         string $column,
         int $precision,
+        bool $nullable,
     ): Blueprint {
         // Keep this compile-only blueprint synchronized with the production migration.
-        return new Blueprint($connection, $tableName, function (Blueprint $table) use ($column, $precision): void {
-            $table->timestamp($column, $precision)->nullable()->change();
+        return new Blueprint($connection, $tableName, function (Blueprint $table) use ($column, $precision, $nullable): void {
+            $definition = $table->timestamp($column, $precision);
+
+            if ($nullable) {
+                $definition->nullable();
+            }
+
+            $definition->change();
         });
     }
 }

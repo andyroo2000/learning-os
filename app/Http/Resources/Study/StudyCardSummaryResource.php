@@ -19,7 +19,7 @@ class StudyCardSummaryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->resource->clientId(),
             // ConvoLab exposes noteId at both the root and state.source; keep both values aligned.
             'noteId' => $this->noteIdString(),
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
@@ -71,6 +71,13 @@ class StudyCardSummaryResource extends JsonResource
 
     private function noteIdString(): ?string
     {
+        $convoLabNoteId = $this->resource->getAttribute('convolab_note_id');
+
+        if (is_string($convoLabNoteId) && $convoLabNoteId !== '') {
+            return $convoLabNoteId;
+        }
+
+        // Native manual cards retain the established null noteId contract outside Browser grouping.
         return $this->source_note_id === null ? null : (string) $this->source_note_id;
     }
 

@@ -10,6 +10,7 @@ use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use LogicException;
@@ -23,6 +24,10 @@ class CardTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumns('cards', [
             'id',
+            'convolab_id',
+            'convolab_note_id',
+            'convolab_note_created_at',
+            'convolab_note_updated_at',
             'deck_id',
             'import_job_id',
             'source_kind',
@@ -156,6 +161,10 @@ class CardTest extends TestCase
             'front_text' => 'ciao',
             'back_text' => 'hello',
             'import_job_id' => strtolower((string) Str::ulid()),
+            'convolab_id' => 'c358732a-2cd0-4b18-9cce-c474297863f9',
+            'convolab_note_id' => '9e33f12d-cf38-409b-bbf1-6fddd9977576',
+            'convolab_note_created_at' => Carbon::parse('2026-06-01T14:15:00Z'),
+            'convolab_note_updated_at' => Carbon::parse('2026-06-02T14:15:00Z'),
             'source_kind' => 'anki_import',
             'source_card_id' => 1700000000001,
             'source_note_id' => 1700000000002,
@@ -187,6 +196,10 @@ class CardTest extends TestCase
         $this->assertNull($card->scheduler_state);
         $this->assertSame('', $card->search_text);
         $this->assertNull($card->import_job_id);
+        $this->assertNull($card->convolab_id);
+        $this->assertNull($card->convolab_note_id);
+        $this->assertNull($card->convolab_note_created_at);
+        $this->assertNull($card->convolab_note_updated_at);
         $this->assertNull($card->source_kind);
         $this->assertNull($card->source_card_id);
         $this->assertNull($card->source_note_id);
@@ -199,6 +212,49 @@ class CardTest extends TestCase
         $this->assertNull($card->variant_stage);
         $this->assertNull($card->variant_status);
         $this->assertNull($card->variant_unlocked_at);
+    }
+
+    public function test_card_prefers_convolab_client_identifiers_without_overwriting_provenance(): void
+    {
+        $card = Card::factory()->make();
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->source_note_id = 321;
+        $card->save();
+
+        $this->assertSame('c358732a-2cd0-4b18-9cce-c474297863f9', $card->clientId());
+        $this->assertSame('9e33f12d-cf38-409b-bbf1-6fddd9977576', $card->clientNoteId());
+        $this->assertSame(321, $card->source_note_id);
+    }
+
+    public function test_card_convolab_identifiers_are_immutable_after_create(): void
+    {
+        $card = Card::factory()->create();
+        DB::table('cards')->where('id', $card->id)->update([
+            'convolab_id' => 'c358732a-2cd0-4b18-9cce-c474297863f9',
+        ]);
+        $card->refresh();
+        $card->convolab_id = '3bc53cee-82e0-4c18-b892-39c180801f22';
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card ConvoLab compatibility metadata cannot be changed.');
+
+        $card->save();
+    }
+
+    public function test_card_convolab_note_timestamps_are_immutable_after_create(): void
+    {
+        $card = Card::factory()->create();
+        DB::table('cards')->where('id', $card->id)->update([
+            'convolab_note_created_at' => '2026-06-01 12:00:00.123',
+        ]);
+        $card->refresh();
+        $card->convolab_note_created_at = Carbon::parse('2026-06-02T12:00:00Z');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card ConvoLab compatibility metadata cannot be changed.');
+
+        $card->save();
     }
 
     public function test_card_belongs_to_a_deck(): void

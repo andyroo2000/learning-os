@@ -3,6 +3,7 @@
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Media\Support\CardMediaRateLimiter;
@@ -230,8 +231,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         // Copied ConvoLab jobs retain UUIDs; jobs created by Learning OS use ULIDs.
         ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})');
     Route::get('/study/browser', ListStudyBrowserController::class);
-    // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
-    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
+    // Supports numeric Anki IDs, native ULIDs, and copied ConvoLab UUIDs.
+    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9-]+');
     Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
     Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)->whereUlid('draftId');
     // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.
@@ -272,15 +273,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/cards', StoreStudyCardController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
-        ->whereUlid('cardId')
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
     // Manual card actions can be retried independently from create/update/delete writes.
     Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)
-        ->whereUlid('cardId')
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
     // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
     Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
-        ->whereUlid('cardId')
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
     Route::get('/study/settings', ShowStudySettingsController::class);

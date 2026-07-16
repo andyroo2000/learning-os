@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,32 @@ use Tests\TestCase;
 class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_shows_copied_convolab_notes_with_compatibility_identifiers(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->make([
+            'front_text' => 'copied detail card',
+            'source_note_id' => 500,
+        ]);
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->save();
+
+        $sharedSummary = StudyCardSummaryResource::make($card)->resolve(request());
+        $this->assertSame($card->convolab_id, $sharedSummary['id']);
+        $this->assertSame($card->convolab_note_id, $sharedSummary['noteId']);
+        $this->assertSame($card->convolab_note_id, $sharedSummary['state']['source']['noteId']);
+
+        $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertOk()
+            ->assertJsonPath('noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertJsonPath('selectedCardId', 'c358732a-2cd0-4b18-9cce-c474297863f9')
+            ->assertJsonPath('cards.0.id', 'c358732a-2cd0-4b18-9cce-c474297863f9')
+            ->assertJsonPath('cards.0.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertJsonPath('cards.0.state.source.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertJsonPath('cardStats.0.cardId', 'c358732a-2cd0-4b18-9cce-c474297863f9');
+    }
 
     public function test_it_shows_browser_note_detail_grouped_by_source_note_id(): void
     {

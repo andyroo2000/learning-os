@@ -34,6 +34,36 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         ])->assertUnauthorized();
     }
 
+    public function test_it_performs_an_action_with_the_card_identifier_returned_by_copied_note_detail(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->make([
+            'study_status' => CardStudyStatus::Review,
+        ]);
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->save();
+
+        $browserCardId = $this->getJson('/api/study/browser/9e33f12d-cf38-409b-bbf1-6fddd9977576')
+            ->assertOk()
+            ->assertJsonPath('cards.0.id', $card->convolab_id)
+            ->json('cards.0.id');
+
+        $this->postJson("/api/study/cards/{$browserCardId}/actions", [
+            'action' => 'suspend',
+        ])
+            ->assertOk()
+            ->assertJsonPath('card.id', $card->convolab_id)
+            ->assertJsonPath('card.noteId', $card->convolab_note_id)
+            ->assertJsonPath('card.state.source.noteId', $card->convolab_note_id)
+            ->assertJsonPath('card.state.queueState', 'suspended');
+
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->id,
+            'study_status' => CardStudyStatus::Suspended->value,
+        ]);
+    }
+
     public function test_it_sets_a_custom_due_date_with_a_convolab_compatible_response(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));

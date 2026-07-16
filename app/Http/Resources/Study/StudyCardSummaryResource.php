@@ -13,6 +13,8 @@ class StudyCardSummaryResource extends JsonResource
 {
     private const ANSWER_AUDIO_SOURCE_MISSING = 'missing';
 
+    private const CONVOLAB_DEFAULT_DECK_NAME = '日本語';
+
     /**
      * @return array<string, mixed>
      */
@@ -37,7 +39,7 @@ class StudyCardSummaryResource extends JsonResource
                     'noteGuid' => $this->convolab_note_source_guid,
                     'cardId' => $this->source_card_id === null ? null : (string) $this->source_card_id,
                     'deckId' => $this->source_deck_id === null ? null : (string) $this->source_deck_id,
-                    'deckName' => $this->source_deck_name,
+                    'deckName' => $this->sourceDeckName(),
                     'notetypeId' => $this->convolab_note_source_notetype_id === null
                         ? null
                         : (string) $this->convolab_note_source_notetype_id,
@@ -79,6 +81,17 @@ class StudyCardSummaryResource extends JsonResource
 
         // Native manual cards retain the established null noteId contract outside Browser grouping.
         return $this->source_note_id === null ? null : (string) $this->source_note_id;
+    }
+
+    private function sourceDeckName(): ?string
+    {
+        if (is_string($this->source_deck_name)) {
+            return $this->source_deck_name;
+        }
+
+        return $this->resource->getAttribute('convolab_id') === null
+            ? null
+            : self::CONVOLAB_DEFAULT_DECK_NAME;
     }
 
     private function stringAttributeValue(string $key): ?string

@@ -237,7 +237,22 @@ class CardTest extends TestCase
         $card->convolab_id = '3bc53cee-82e0-4c18-b892-39c180801f22';
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Card ConvoLab identifiers cannot be changed.');
+        $this->expectExceptionMessage('Card ConvoLab compatibility metadata cannot be changed.');
+
+        $card->save();
+    }
+
+    public function test_card_convolab_note_timestamps_are_immutable_after_create(): void
+    {
+        $card = Card::factory()->create();
+        DB::table('cards')->where('id', $card->id)->update([
+            'convolab_note_created_at' => '2026-06-01 12:00:00.123',
+        ]);
+        $card->refresh();
+        $card->convolab_note_created_at = Carbon::parse('2026-06-02T12:00:00Z');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card ConvoLab compatibility metadata cannot be changed.');
 
         $card->save();
     }

@@ -42,13 +42,13 @@ class ShowStudyBrowserNoteAction
             sourceKind: StudyBrowserCardAggregate::sourceKindFor($firstCard),
             reviewCount: StudyBrowserCardAggregate::reviewCount($cards),
             lastReviewedAt: StudyBrowserCardAggregate::lastReviewedAt($cards),
-            updatedAt: StudyBrowserCardAggregate::latestTimestamp($cards, 'updated_at'),
+            updatedAt: StudyBrowserCardAggregate::noteUpdatedAt($cards),
             rawFields: $this->fieldsForCards($cards),
             canonicalFields: $this->canonicalFieldsForCards($cards, $displayText),
             cards: $cards,
             cardStats: StudyBrowserCardAggregate::cardStats($cards),
             // The first card mirrors the deterministic card ordering used by the legacy browser detail.
-            selectedCardId: (string) $firstCard->id,
+            selectedCardId: $firstCard->clientId(),
         );
     }
 
@@ -59,6 +59,12 @@ class ShowStudyBrowserNoteAction
     {
         $query = Card::query()
             ->ownedByActiveDeck($userId);
+
+        if (Str::isUuid($noteId)) {
+            $query->where('cards.convolab_note_id', strtolower($noteId));
+
+            return $this->cardsWithReviewStats($query);
+        }
 
         $sourceNoteId = $this->sourceNoteIdValue($noteId);
 
@@ -74,6 +80,7 @@ class ShowStudyBrowserNoteAction
 
         $cardIdCandidates = $this->cardIdCandidates($noteId);
         $query
+            ->whereNull('cards.convolab_note_id')
             ->whereNull('cards.source_note_id')
             ->whereIn('cards.id', $cardIdCandidates);
 
@@ -99,6 +106,10 @@ class ShowStudyBrowserNoteAction
             )
             ->select([
                 'cards.id',
+                'cards.convolab_id',
+                'cards.convolab_note_id',
+                'cards.convolab_note_created_at',
+                'cards.convolab_note_updated_at',
                 'cards.front_text',
                 'cards.back_text',
                 'cards.card_type',

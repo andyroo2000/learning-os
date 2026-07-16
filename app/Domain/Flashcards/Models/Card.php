@@ -47,8 +47,13 @@ class Card extends Model
     protected static function booted(): void
     {
         static::updating(function (Card $card): void {
-            if ($card->isDirty(['convolab_id', 'convolab_note_id'])) {
-                throw new LogicException('Card ConvoLab identifiers cannot be changed.');
+            if ($card->isDirty([
+                'convolab_id',
+                'convolab_note_id',
+                'convolab_note_created_at',
+                'convolab_note_updated_at',
+            ])) {
+                throw new LogicException('Card ConvoLab compatibility metadata cannot be changed.');
             }
         });
     }

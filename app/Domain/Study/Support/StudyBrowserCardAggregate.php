@@ -84,7 +84,7 @@ final class StudyBrowserCardAggregate
     {
         return $cards
             ->map(fn (Card $card): array => [
-                'cardId' => (string) $card->id,
+                'cardId' => $card->clientId(),
                 'reviewCount' => (int) ($card->getAttribute('review_events_count') ?? 0),
                 'lastReviewedAt' => self::reviewAggregateTimestamp($card->getAttribute('review_events_max_reviewed_at')),
             ])

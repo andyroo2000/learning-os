@@ -231,7 +231,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})');
     Route::get('/study/browser', ListStudyBrowserController::class);
     // Supports numeric imported note IDs and Laravel ULID card IDs; neither format uses separators.
-    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9]+');
+    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9-]+');
     Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
     Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)->whereUlid('draftId');
     // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.

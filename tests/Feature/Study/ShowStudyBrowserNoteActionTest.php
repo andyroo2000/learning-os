@@ -17,6 +17,48 @@ class ShowStudyBrowserNoteActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_resolves_convolab_note_ids_and_returns_compatibility_card_ids(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->make([
+            'front_text' => 'copied ConvoLab detail card',
+            'source_note_id' => 7000,
+        ]);
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->save();
+        DB::table('cards')->where('id', $card->id)->update([
+            'convolab_note_updated_at' => '2026-07-13 09:08:07.654',
+        ]);
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle(
+            $user->id,
+            ' 9E33F12D-CF38-409B-BBF1-6FDDD9977576 ',
+        );
+
+        $this->assertNotNull($result);
+        $this->assertSame('9e33f12d-cf38-409b-bbf1-6fddd9977576', $result->noteId);
+        $this->assertSame('c358732a-2cd0-4b18-9cce-c474297863f9', $result->selectedCardId);
+        $this->assertSame('c358732a-2cd0-4b18-9cce-c474297863f9', $result->cardStats[0]['cardId']);
+        $this->assertSame('2026-07-13T09:08:07.654000Z', $result->updatedAt);
+    }
+
+    public function test_it_hides_convolab_note_ids_owned_by_another_user(): void
+    {
+        $signedInUser = $this->signIn();
+        $otherUser = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($otherUser))->make();
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->save();
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle(
+            $signedInUser->id,
+            '9e33f12d-cf38-409b-bbf1-6fddd9977576',
+        );
+
+        $this->assertNull($result);
+    }
+
     public function test_it_normalizes_unsourced_card_note_ids_for_direct_callers(): void
     {
         $user = $this->signIn();

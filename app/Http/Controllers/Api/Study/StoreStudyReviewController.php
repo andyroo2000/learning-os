@@ -104,7 +104,7 @@ class StoreStudyReviewController extends Controller
     {
         return Card::query()
             ->ownedByActiveDeck($userId)
-            ->where('cards.id', $cardId)
+            ->whereClientIdentifier($cardId)
             ->first();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Http\Requests\Concerns\FiltersByStudyScope;
@@ -53,11 +54,23 @@ class StoreStudyReviewRequest extends FormRequest
     {
         return [
             ...$this->studyScopeRules(),
-            'cardId' => ['required', 'ulid'],
+            'cardId' => ['required', 'string', 'regex:/^'.Card::CLIENT_ID_ROUTE_PATTERN.'$/'],
             'grade' => ['required', Rule::enum(CardReviewRating::class)],
             'durationMs' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:'.ReviewCardData::MAX_DURATION_MS],
             'timeZone' => ['sometimes', 'nullable', 'string', 'timezone'],
             'currentOverview' => ['sometimes', 'nullable', 'array'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'cardId.required' => 'cardId is required.',
+            'cardId.string' => 'cardId must be a valid Study card id.',
+            'cardId.regex' => 'cardId must be a valid Study card id.',
         ];
     }
 

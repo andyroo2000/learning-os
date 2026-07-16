@@ -329,7 +329,7 @@ class ShowStudyBrowserNoteAction
 
         $fields = $firstCard->getAttribute($attribute);
         if (! is_array($fields)) {
-            return [];
+            return null;
         }
 
         $result = [];

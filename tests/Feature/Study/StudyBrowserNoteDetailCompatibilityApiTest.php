@@ -39,6 +39,11 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             ->assertJsonPath('cards.0.id', 'c358732a-2cd0-4b18-9cce-c474297863f9')
             ->assertJsonPath('cards.0.noteId', '9e33f12d-cf38-409b-bbf1-6fddd9977576')
             ->assertJsonPath('cards.0.state.source.noteId', '500')
+            ->assertJsonPath('rawFields.0.name', 'frontText')
+            ->assertJsonPath('rawFields.0.value', 'copied detail card')
+            ->assertJsonPath('rawFields.1.name', 'backText')
+            ->assertJsonPath('canonicalFields.0.name', 'displayText')
+            ->assertJsonPath('canonicalFields.0.value', 'copied detail card')
             ->assertJsonPath('cardStats.0.cardId', 'c358732a-2cd0-4b18-9cce-c474297863f9');
     }
 

@@ -395,11 +395,7 @@ class ImportConvoLabRehearsalData extends Command
             ->chunk(200, function ($jobs) use ($target, &$count): void {
                 foreach ($jobs as $job) {
                     $id = (string) Str::ulid();
-                    $convoLabId = strtolower(trim((string) $job->id));
-
-                    if (! Str::isUuid($convoLabId)) {
-                        throw new \RuntimeException("Convo Lab import job [{$job->id}] does not have a valid UUID.");
-                    }
+                    $convoLabId = $this->sourceUuid($job->id, 'import job');
 
                     $this->importJobIds[$job->id] = $id;
                     $status = StudyImportStatus::tryFrom($job->status)
@@ -502,13 +498,31 @@ class ImportConvoLabRehearsalData extends Command
     {
         $count = 0;
 
-        $source->table('study_cards')
-            ->orderBy('createdAt')
-            ->orderBy('id')
+        $source->table('study_cards as cards')
+            ->leftJoin('study_notes as notes', 'notes.id', '=', 'cards.noteId')
+            ->select('cards.*')
+            ->addSelect([
+                'notes.id as importedNoteId',
+                'notes.sourceNoteId as noteSourceId',
+                'notes.sourceNotetypeName as noteTypeName',
+                'notes.userId as noteUserId',
+                'notes.createdAt as noteCreatedAt',
+                'notes.updatedAt as noteUpdatedAt',
+            ])
+            ->orderBy('cards.createdAt')
+            ->orderBy('cards.id')
             ->chunk(500, function ($cards) use ($target, &$count): void {
                 $insertRows = [];
 
                 foreach ($cards as $card) {
+                    if (! is_string($card->importedNoteId) || $card->importedNoteId === '') {
+                        throw new \RuntimeException("Missing Convo Lab note [{$card->noteId}] for card [{$card->id}].");
+                    }
+
+                    if ($card->noteUserId !== $card->userId) {
+                        throw new \RuntimeException("Convo Lab card [{$card->id}] references a note owned by another user.");
+                    }
+
                     $id = (string) Str::ulid();
                     $this->cardIds[$card->id] = $id;
                     $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
@@ -526,12 +540,18 @@ class ImportConvoLabRehearsalData extends Command
                     $studyStatus = CardStudyStatus::fromFilter(
                         $this->stringOrDefault($card->queueState, CardStudyStatus::New->value),
                     );
+                    $convoLabId = $this->sourceUuid($card->id, 'card');
+                    $convoLabNoteId = $this->sourceUuid($card->noteId, 'note');
                     $deckKey = $this->deckKey($card->userId, $deckName);
                     $deckId = $this->deckIds[$deckKey]
                         ?? throw new \RuntimeException("Missing imported deck mapping for [{$deckKey}].");
 
                     $insertRows[] = [
                         'id' => $id,
+                        'convolab_id' => $convoLabId,
+                        'convolab_note_id' => $convoLabNoteId,
+                        'convolab_note_created_at' => $card->noteCreatedAt,
+                        'convolab_note_updated_at' => $card->noteUpdatedAt,
                         'deck_id' => $deckId,
                         'front_text' => $promptText,
                         'back_text' => $answerText,
@@ -549,9 +569,9 @@ class ImportConvoLabRehearsalData extends Command
                         'import_job_id' => $this->mappedImportJobId($card->importJobId),
                         'source_kind' => $card->sourceKind,
                         'source_card_id' => $card->sourceCardId,
-                        'source_note_id' => null,
+                        'source_note_id' => $card->noteSourceId,
                         'source_deck_id' => $card->sourceDeckId,
-                        'source_notetype_name' => null,
+                        'source_notetype_name' => $card->noteTypeName,
                         'source_template_ord' => $card->sourceTemplateOrd,
                         'variant_group_id' => $card->variantGroupId,
                         'variant_sentence_id' => $card->variantSentenceId,
@@ -696,6 +716,17 @@ class ImportConvoLabRehearsalData extends Command
     private function stringOrDefault(mixed $value, string $default): string
     {
         return is_string($value) && trim($value) !== '' ? $value : $default;
+    }
+
+    private function sourceUuid(mixed $value, string $label): string
+    {
+        $uuid = strtolower(trim((string) $value));
+
+        if (! Str::isUuid($uuid)) {
+            throw new \RuntimeException("Convo Lab {$label} [{$value}] does not have a valid UUID.");
+        }
+
+        return $uuid;
     }
 
     private function importedPassword(object $user): string

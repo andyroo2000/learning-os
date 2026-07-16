@@ -16,7 +16,7 @@ final class StudyBrowserCardAggregate
 
     public static function noteIdFor(Card $card): string
     {
-        return $card->source_note_id === null ? (string) $card->id : (string) $card->source_note_id;
+        return $card->clientNoteId();
     }
 
     public static function sourceKindFor(Card $card): string
@@ -64,6 +64,18 @@ final class StudyBrowserCardAggregate
         return self::boundaryTimestamp($cards, $attribute, latest: true);
     }
 
+    /** @param Collection<int, Card> $cards */
+    public static function noteCreatedAt(Collection $cards): string
+    {
+        return self::compatibilityBoundaryTimestamp($cards, 'convolab_note_created_at', 'created_at', latest: false);
+    }
+
+    /** @param Collection<int, Card> $cards */
+    public static function noteUpdatedAt(Collection $cards): string
+    {
+        return self::compatibilityBoundaryTimestamp($cards, 'convolab_note_updated_at', 'updated_at', latest: true);
+    }
+
     /**
      * @param  Collection<int, Card>  $cards
      * @return list<array{cardId: string, reviewCount: int, lastReviewedAt: string|null}>
@@ -93,6 +105,24 @@ final class StudyBrowserCardAggregate
         return is_string($timestamp)
             ? $timestamp
             : throw new UnexpectedValueException("Study browser {$attribute} timestamp is missing or invalid.");
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private static function compatibilityBoundaryTimestamp(
+        Collection $cards,
+        string $compatibilityAttribute,
+        string $fallbackAttribute,
+        bool $latest,
+    ): string {
+        $timestamps = $cards->map(fn (Card $card): string => self::cardTimestamp(
+            $card,
+            $card->getAttribute($compatibilityAttribute) === null ? $fallbackAttribute : $compatibilityAttribute,
+        ));
+        $timestamp = $latest ? $timestamps->max() : $timestamps->min();
+
+        return is_string($timestamp)
+            ? $timestamp
+            : throw new UnexpectedValueException("Study browser {$compatibilityAttribute} timestamp is missing or invalid.");
     }
 
     private static function cardTimestamp(Card $card, string $attribute): string

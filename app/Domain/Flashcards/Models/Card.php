@@ -44,6 +44,15 @@ class Card extends Model
         return CardFactory::new();
     }
 
+    protected static function booted(): void
+    {
+        static::updating(function (Card $card): void {
+            if ($card->isDirty(['convolab_id', 'convolab_note_id'])) {
+                throw new LogicException('Card ConvoLab identifiers cannot be changed.');
+            }
+        });
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>
@@ -80,7 +89,31 @@ class Card extends Model
             'scheduler_state' => 'array',
             'variant_stage' => 'integer',
             'variant_unlocked_at' => 'datetime',
+            'convolab_note_created_at' => 'datetime',
+            'convolab_note_updated_at' => 'datetime',
         ];
+    }
+
+    public function clientId(): string
+    {
+        $convoLabId = $this->getAttribute('convolab_id');
+
+        return is_string($convoLabId) && $convoLabId !== ''
+            ? $convoLabId
+            : (string) $this->getKey();
+    }
+
+    public function clientNoteId(): string
+    {
+        $convoLabNoteId = $this->getAttribute('convolab_note_id');
+
+        if (is_string($convoLabNoteId) && $convoLabNoteId !== '') {
+            return $convoLabNoteId;
+        }
+
+        return $this->source_note_id === null
+            ? (string) $this->getKey()
+            : (string) $this->source_note_id;
     }
 
     /**

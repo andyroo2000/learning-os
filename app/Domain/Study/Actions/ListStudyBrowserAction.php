@@ -367,16 +367,18 @@ class ListStudyBrowserAction
                 fn (JoinClause $join) => $join->on('review_event_stats.card_id', '=', 'cards.id'),
             )
             ->select([
+                'cards.convolab_note_id',
                 'cards.source_note_id',
             ])
-            ->selectRaw('CASE WHEN cards.source_note_id IS NULL THEN cards.id ELSE NULL END AS unsourced_card_id')
-            ->selectRaw('MIN(cards.created_at) AS created_on')
-            ->selectRaw('MAX(cards.updated_at) AS updated_on')
+            ->selectRaw('CASE WHEN cards.convolab_note_id IS NULL AND cards.source_note_id IS NULL THEN cards.id ELSE NULL END AS unsourced_card_id')
+            ->selectRaw('MIN(COALESCE(cards.convolab_note_created_at, cards.created_at)) AS created_on')
+            ->selectRaw('MAX(COALESCE(cards.convolab_note_updated_at, cards.updated_at)) AS updated_on')
             ->selectRaw('COUNT(cards.id) AS card_count')
             ->selectRaw('COALESCE(SUM(COALESCE(review_event_stats.review_events_count, 0)), 0) AS review_count')
             ->selectRaw('COUNT(*) OVER() AS total_rows')
+            ->groupBy('cards.convolab_note_id')
             ->groupBy('cards.source_note_id')
-            ->groupByRaw('CASE WHEN cards.source_note_id IS NULL THEN cards.id ELSE NULL END')
+            ->groupByRaw('CASE WHEN cards.convolab_note_id IS NULL AND cards.source_note_id IS NULL THEN cards.id ELSE NULL END')
             ->toBase();
     }
 
@@ -394,13 +396,15 @@ class ListStudyBrowserAction
         return $query
             ->orderBy($sortColumn, $direction)
             // Avoid database-specific NULL ordering when sourced and unsourced rows tie on the sort value.
+            ->orderByRaw('CASE WHEN convolab_note_id IS NULL THEN 1 ELSE 0 END asc')
+            ->orderBy('convolab_note_id', $direction)
             ->orderByRaw('CASE WHEN source_note_id IS NULL THEN 1 ELSE 0 END asc')
             ->orderBy('source_note_id', $direction)
             ->orderBy('unsourced_card_id', $direction);
     }
 
     /**
-     * @param  Collection<int, object{source_note_id: int|string|null, unsourced_card_id: string|null}>  $groupRows
+     * @param  Collection<int, object{convolab_note_id: string|null, source_note_id: int|string|null, unsourced_card_id: string|null}>  $groupRows
      * @return Collection<int, Card>
      */
     private function cardsForBrowserGroups(
@@ -413,7 +417,14 @@ class ListStudyBrowserAction
         ?string $deckId,
         Collection $groupRows,
     ): Collection {
+        $convoLabNoteIds = $groupRows
+            ->pluck('convolab_note_id')
+            ->filter(fn (mixed $noteId): bool => is_string($noteId) && $noteId !== '')
+            ->unique()
+            ->values()
+            ->all();
         $sourceNoteIds = $groupRows
+            ->filter(fn (object $group): bool => ($group->convolab_note_id ?? null) === null)
             ->pluck('source_note_id')
             ->filter(fn (mixed $noteId): bool => $noteId !== null)
             ->map(fn (mixed $noteId): int => (int) $noteId)
@@ -428,24 +439,37 @@ class ListStudyBrowserAction
             ->values()
             ->all();
 
-        if ($sourceNoteIds === [] && $unsourcedCardIds === []) {
+        if ($convoLabNoteIds === [] && $sourceNoteIds === [] && $unsourcedCardIds === []) {
             return new Collection;
         }
 
         $query = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId)
-            ->where(function (Builder $query) use ($sourceNoteIds, $unsourcedCardIds): void {
+            ->where(function (Builder $query) use ($convoLabNoteIds, $sourceNoteIds, $unsourcedCardIds): void {
+                if ($convoLabNoteIds !== []) {
+                    $query->whereIn('cards.convolab_note_id', $convoLabNoteIds);
+                }
+
                 if ($sourceNoteIds !== []) {
-                    $query->whereIn('cards.source_note_id', $sourceNoteIds);
+                    $matchSourceNotes = fn (Builder $query) => $query
+                        ->whereNull('cards.convolab_note_id')
+                        ->whereIn('cards.source_note_id', $sourceNoteIds);
+
+                    if ($convoLabNoteIds === []) {
+                        $query->where($matchSourceNotes);
+                    } else {
+                        $query->orWhere($matchSourceNotes);
+                    }
                 }
 
                 if ($unsourcedCardIds !== []) {
                     $matchUnsourcedCards = function (Builder $query) use ($unsourcedCardIds): void {
                         $query
+                            ->whereNull('cards.convolab_note_id')
                             ->whereNull('cards.source_note_id')
                             ->whereIn('cards.id', $unsourcedCardIds);
                     };
 
-                    if ($sourceNoteIds === []) {
+                    if ($convoLabNoteIds === [] && $sourceNoteIds === []) {
                         $query->where($matchUnsourcedCards);
                     } else {
                         $query->orWhere($matchUnsourcedCards);
@@ -475,6 +499,10 @@ class ListStudyBrowserAction
             // Keep this projection in sync with rowsFromCards(), displayTextFor(), and queueStateSummaryValue().
             ->select([
                 'cards.id',
+                'cards.convolab_id',
+                'cards.convolab_note_id',
+                'cards.convolab_note_created_at',
+                'cards.convolab_note_updated_at',
                 'cards.front_text',
                 'cards.card_type',
                 'cards.prompt_json',
@@ -499,6 +527,10 @@ class ListStudyBrowserAction
 
     private function noteIdFromGroupRow(object $group): string
     {
+        if (($group->convolab_note_id ?? null) !== null) {
+            return (string) $group->convolab_note_id;
+        }
+
         if (($group->source_note_id ?? null) !== null) {
             return (string) $group->source_note_id;
         }
@@ -648,7 +680,7 @@ class ListStudyBrowserAction
 
                 return [
                     'noteId' => $noteId,
-                    'selectedCardId' => (string) $firstCard->id,
+                    'selectedCardId' => $firstCard->clientId(),
                     'displayText' => $this->displayTextFor($firstCard),
                     'noteTypeName' => $firstCard->source_notetype_name,
                     'sourceKind' => StudyBrowserCardAggregate::sourceKindFor($firstCard),
@@ -656,8 +688,8 @@ class ListStudyBrowserAction
                     'reviewCount' => StudyBrowserCardAggregate::reviewCount($group),
                     'lastReviewedAt' => StudyBrowserCardAggregate::lastReviewedAt($group),
                     'queueSummary' => $queueSummary,
-                    'createdAt' => StudyBrowserCardAggregate::earliestTimestamp($group, 'created_at'),
-                    'updatedAt' => StudyBrowserCardAggregate::latestTimestamp($group, 'updated_at'),
+                    'createdAt' => StudyBrowserCardAggregate::noteCreatedAt($group),
+                    'updatedAt' => StudyBrowserCardAggregate::noteUpdatedAt($group),
                 ];
             })
             ->values()

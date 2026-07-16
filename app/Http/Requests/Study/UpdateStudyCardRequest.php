@@ -6,7 +6,6 @@ use App\Domain\Flashcards\Models\Card;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Http\Support\AuthenticatedUser;
-use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
 use LogicException;
@@ -43,7 +42,7 @@ class UpdateStudyCardRequest extends FormRequest
 
         $this->studyCard = Card::query()
             ->ownedByActiveDeck(AuthenticatedUser::id($this))
-            ->where('cards.id', CanonicalUlid::normalize($cardId))
+            ->whereClientIdentifier($cardId)
             ->first();
 
         if ($this->studyCard === null) {

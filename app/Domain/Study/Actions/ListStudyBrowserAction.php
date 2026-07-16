@@ -376,6 +376,7 @@ class ListStudyBrowserAction
             ->selectRaw('COUNT(cards.id) AS card_count')
             ->selectRaw('COALESCE(SUM(COALESCE(review_event_stats.review_events_count, 0)), 0) AS review_count')
             ->selectRaw('COUNT(*) OVER() AS total_rows')
+            // The importer guarantees one numeric provenance ID per copied note UUID; retain both grouping keys for hydration.
             ->groupBy('cards.convolab_note_id')
             ->groupBy('cards.source_note_id')
             ->groupByRaw('CASE WHEN cards.convolab_note_id IS NULL AND cards.source_note_id IS NULL THEN cards.id ELSE NULL END')

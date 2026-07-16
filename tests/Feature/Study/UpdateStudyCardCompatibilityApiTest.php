@@ -26,6 +26,31 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
     use AssertsStudyCompatibilityPayloads;
     use RefreshDatabase;
 
+    public function test_it_updates_a_copied_card_by_its_convolab_identifier(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->make([
+            'front_text' => 'old copied prompt',
+            'back_text' => 'old copied answer',
+        ]);
+        $card->convolab_id = 'c358732a-2cd0-4b18-9cce-c474297863f9';
+        $card->convolab_note_id = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
+        $card->save();
+
+        $this->patchJson('/api/study/cards/C358732A-2CD0-4B18-9CCE-C474297863F9', [
+            'prompt' => ['cueText' => 'updated copied prompt'],
+            'answer' => ['expression' => 'updated copied answer'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('prompt.cueText', 'updated copied prompt')
+            ->assertJsonPath('answer.expression', 'updated copied answer');
+
+        $card->refresh();
+
+        $this->assertSame(['cueText' => 'updated copied prompt'], $card->prompt_json);
+        $this->assertSame(['expression' => 'updated copied answer'], $card->answer_json);
+    }
+
     public function test_it_updates_a_study_card_from_prompt_and_answer_payloads(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-05T14:15:00Z'));

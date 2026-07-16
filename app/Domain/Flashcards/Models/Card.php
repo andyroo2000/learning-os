@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
+use App\Support\Identifiers\CanonicalUlid;
 use App\Support\VariantMetadataLimits;
 use Database\Factories\CardFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use LogicException;
 
 #[Fillable(['deck_id', 'front_text', 'back_text', 'card_type', 'prompt_json', 'answer_json'])]
@@ -29,6 +31,8 @@ class Card extends Model
     public const MAX_VARIANT_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
 
     public const MAX_VARIANT_STAGE = VariantMetadataLimits::MAX_STAGE;
+
+    public const CLIENT_ID_ROUTE_PATTERN = '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})';
 
     /**
      * @var array<string, mixed>
@@ -70,6 +74,25 @@ class Card extends Model
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWhereClientIdentifier(Builder $query, string $clientId): Builder
+    {
+        $clientId = trim($clientId);
+
+        if (Str::isUuid($clientId)) {
+            return $query->where('cards.convolab_id', strtolower($clientId));
+        }
+
+        if (Str::isUlid($clientId)) {
+            return $query->where('cards.id', CanonicalUlid::normalize($clientId));
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     /**

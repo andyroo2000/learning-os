@@ -14,6 +14,7 @@ use App\Domain\Study\Actions\UploadStudyImportFileAction;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportArchiveException;
 use App\Domain\Study\Exceptions\StudyImportConflictException;
+use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
@@ -25,6 +26,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -1292,6 +1294,7 @@ class StudyImportUploadActionTest extends TestCase
 
     public function test_process_job_marks_unparseable_archives_failed(): void
     {
+        Exceptions::fake();
         Carbon::setTestNow('2026-06-05 12:00:00');
         Storage::fake('study-imports');
         $sourceObjectPath = 'study/imports/process/broken.colpkg';
@@ -1308,6 +1311,11 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Failed, $processed?->status);
         $this->assertSame('The uploaded collection database could not be parsed.', $processed?->error_message);
         $this->assertSame(now()->toJSON(), $processed?->completed_at->toJSON());
+        Exceptions::assertReported(
+            fn (StudyImportPreviewException $exception): bool => $exception->isInvalidCollectionDatabase()
+                && $exception->getPrevious() instanceof \PDOException,
+        );
+        Exceptions::assertReportedCount(1);
     }
 
     public function test_process_job_returns_null_for_missing_imports(): void

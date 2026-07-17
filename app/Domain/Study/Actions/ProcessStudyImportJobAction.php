@@ -82,8 +82,14 @@ class ProcessStudyImportJobAction
                 (string) $importJob->source_object_path,
             );
         } catch (StudyImportPreviewException $exception) {
+            if ($exception->isInvalidCollectionDatabase()) {
+                report($exception);
+            }
+
             return StudyImportJobFailureMarker::markFailed($importJob, $exception->getMessage(), $now);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            report($exception);
+
             return StudyImportJobFailureMarker::markFailed(
                 $importJob,
                 StudyImportPreviewException::invalidCollectionDatabase()->getMessage(),

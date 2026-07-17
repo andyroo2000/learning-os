@@ -11,6 +11,7 @@ class ProductionImageConfigurationTest extends TestCase
         $dockerfile = file_get_contents(dirname(__DIR__, 2).'/Dockerfile');
 
         $this->assertIsString($dockerfile);
+        $this->assertStringContainsString("'memory_limit=512M'", $dockerfile);
         $this->assertStringContainsString("'post_max_size=2048M'", $dockerfile);
         $this->assertStringContainsString("'upload_max_filesize=2048M'", $dockerfile);
     }

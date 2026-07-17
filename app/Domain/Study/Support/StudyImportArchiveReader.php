@@ -118,8 +118,8 @@ final class StudyImportArchiveReader
             );
         } catch (StudyImportPreviewException $exception) {
             throw $exception;
-        } catch (PDOException|JsonException|RuntimeException) {
-            throw StudyImportPreviewException::invalidCollectionDatabase();
+        } catch (PDOException|JsonException|RuntimeException $exception) {
+            throw StudyImportPreviewException::invalidCollectionDatabase($exception);
         }
     }
 

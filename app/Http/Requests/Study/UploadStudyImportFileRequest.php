@@ -29,9 +29,12 @@ class UploadStudyImportFileRequest extends FormRequest
         });
     }
 
-    public function contents(): string
+    /**
+     * @return resource
+     */
+    public function contents()
     {
-        return $this->getContent();
+        return $this->getContent(asResource: true);
     }
 
     public function contentType(): ?string

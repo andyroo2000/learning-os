@@ -177,6 +177,38 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame('anki bytes', Storage::disk('study-imports')->get($importJob->source_object_path));
     }
 
+    public function test_upload_streams_file_bytes_and_records_the_actual_size(): void
+    {
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$user->id.'/stream/core.colpkg',
+            'source_content_type' => 'application/zip',
+        ]);
+        $contents = fopen('php://temp', 'w+b');
+        $this->assertIsResource($contents);
+        fwrite($contents, 'streamed anki bytes');
+        rewind($contents);
+
+        try {
+            $uploaded = app(UploadStudyImportFileAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+                contents: $contents,
+                contentType: 'application/zip',
+                contentSizeBytes: 19,
+            );
+        } finally {
+            fclose($contents);
+        }
+
+        $this->assertSame(19, $uploaded->source_size_bytes);
+        $this->assertSame(
+            'streamed anki bytes',
+            Storage::disk('study-imports')->get($importJob->source_object_path),
+        );
+    }
+
     public function test_upload_hides_cross_user_import_jobs(): void
     {
         $importJob = StudyImportJob::factory()->create();

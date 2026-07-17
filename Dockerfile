@@ -22,6 +22,8 @@ RUN install-php-extensions pdo_pgsql opcache \
     && printf '%s\n' \
         'opcache.validate_timestamps=0' \
         'opcache.revalidate_freq=0' \
+        'post_max_size=2048M' \
+        'upload_max_filesize=2048M' \
         > /usr/local/etc/php/conf.d/zz-production-opcache.ini
 
 WORKDIR /app

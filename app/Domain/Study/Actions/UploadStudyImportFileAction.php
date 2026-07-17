@@ -13,13 +13,19 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class UploadStudyImportFileAction
 {
+    private const STREAM_CHUNK_BYTES = 1024 * 1024;
+
+    /**
+     * @param  resource|string  $contents
+     */
     public function handle(
         int $userId,
         string $importJobId,
-        string $contents,
+        mixed $contents,
         ?string $contentType,
         ?int $contentSizeBytes = null,
         ?Carbon $now = null,
@@ -33,75 +39,76 @@ class UploadStudyImportFileAction
         }
 
         $contentType = $this->normalizeContentType($contentType);
-        $actualContentSizeBytes = mb_strlen($contents, '8bit');
-
-        if ($actualContentSizeBytes < 1) {
-            throw new StudyImportValidationException('file', 'Study import upload must contain file bytes.');
-        }
-
-        if ($actualContentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
-            throw new StudyImportValidationException('file', 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.');
-        }
 
         if ($contentSizeBytes !== null && $contentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
             throw new StudyImportValidationException('file', 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.');
         }
 
-        if ($contentSizeBytes !== null && $contentSizeBytes !== $actualContentSizeBytes) {
-            throw new StudyImportValidationException('file', 'Study import upload content length does not match the file bytes received.');
-        }
+        [$stagedContents, $actualContentSizeBytes] = $this->stageContents($contents);
 
-        $importJob = DB::transaction(function () use ($userId, $importJobId, $contentType, $contents, $actualContentSizeBytes, $now, &$deferredException): StudyImportJob {
-            $importJob = StudyImportJob::query()
-                ->where('user_id', $userId)
-                ->whereKey($importJobId)
-                ->lockForUpdate()
-                ->first()
-                ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
-
-            if ($importJob->status !== StudyImportStatus::Pending) {
-                throw StudyImportConflictException::notPending($importJob);
+        try {
+            if ($actualContentSizeBytes < 1) {
+                throw new StudyImportValidationException('file', 'Study import upload must contain file bytes.');
             }
 
-            if ($importJob->upload_completed_at !== null) {
-                throw StudyImportConflictException::uploadAlreadyCompleted($importJob);
+            if ($contentSizeBytes !== null && $contentSizeBytes !== $actualContentSizeBytes) {
+                throw new StudyImportValidationException('file', 'Study import upload content length does not match the file bytes received.');
             }
 
-            if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
-                $importJob->status = StudyImportStatus::Failed;
-                $importJob->error_message = 'Study import upload session has expired.';
-                $importJob->completed_at = $now;
+            $importJob = DB::transaction(function () use ($userId, $importJobId, $contentType, $stagedContents, $actualContentSizeBytes, $now, &$deferredException): StudyImportJob {
+                $importJob = StudyImportJob::query()
+                    ->where('user_id', $userId)
+                    ->whereKey($importJobId)
+                    ->lockForUpdate()
+                    ->first()
+                    ?? throw (new ModelNotFoundException)->setModel(StudyImportJob::class, [$importJobId]);
+
+                if ($importJob->status !== StudyImportStatus::Pending) {
+                    throw StudyImportConflictException::notPending($importJob);
+                }
+
+                if ($importJob->upload_completed_at !== null) {
+                    throw StudyImportConflictException::uploadAlreadyCompleted($importJob);
+                }
+
+                if ($importJob->upload_expires_at !== null && $importJob->upload_expires_at->lessThan($now)) {
+                    $importJob->status = StudyImportStatus::Failed;
+                    $importJob->error_message = 'Study import upload session has expired.';
+                    $importJob->completed_at = $now;
+                    $importJob->saveOrFail();
+                    $deferredException = new StudyImportUploadExpiredException;
+
+                    return $importJob;
+                }
+
+                if ($importJob->source_content_type !== $contentType) {
+                    throw new StudyImportValidationException('content_type', 'Study import upload content type does not match the upload session.');
+                }
+
+                if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
+                    throw new StudyImportValidationException('file', 'Study import upload target is missing.');
+                }
+
+                // Keep the write under the row lock so completion cannot validate a partial object.
+                if (! Storage::disk('study-imports')->writeStream($importJob->source_object_path, $stagedContents)) {
+                    throw new RuntimeException('Unable to persist the study import upload.');
+                }
+
+                $importJob->source_size_bytes = $actualContentSizeBytes;
+                $importJob->uploaded_at = $now;
                 $importJob->saveOrFail();
-                $deferredException = new StudyImportUploadExpiredException;
 
                 return $importJob;
+            });
+
+            if ($deferredException !== null) {
+                throw $deferredException;
             }
-
-            if ($importJob->source_content_type !== $contentType) {
-                throw new StudyImportValidationException('content_type', 'Study import upload content type does not match the upload session.');
-            }
-
-            if ($importJob->source_object_path === null || $importJob->source_object_path === '') {
-                throw new StudyImportValidationException('file', 'Study import upload target is missing.');
-            }
-
-            // Keep the write under the row lock so completion cannot validate while the object is being replaced.
-            // This can hold the per-import lock during a large upload, up to MAX_ASYNC_IMPORT_BYTES.
-            // If that becomes too slow for the storage backend, move the write before this transaction.
-            Storage::disk('study-imports')->put($importJob->source_object_path, $contents);
-
-            $importJob->source_size_bytes = $actualContentSizeBytes;
-            $importJob->uploaded_at = $now;
-            $importJob->saveOrFail();
 
             return $importJob;
-        });
-
-        if ($deferredException !== null) {
-            throw $deferredException;
+        } finally {
+            fclose($stagedContents);
         }
-
-        return $importJob;
     }
 
     private function normalizeContentType(?string $contentType): string
@@ -114,5 +121,80 @@ class UploadStudyImportFileAction
         }
 
         return $contentType;
+    }
+
+    /**
+     * @param  resource|string  $contents
+     * @return array{0: resource, 1: int}
+     */
+    private function stageContents(mixed $contents): array
+    {
+        if (! is_resource($contents) && ! is_string($contents)) {
+            throw new RuntimeException('Study import contents must be a stream or string.');
+        }
+
+        $stagedContents = tmpfile();
+
+        if ($stagedContents === false) {
+            throw new RuntimeException('Unable to create temporary storage for the study import upload.');
+        }
+
+        $actualContentSizeBytes = 0;
+
+        try {
+            if (is_string($contents)) {
+                $this->appendChunk($stagedContents, $contents, $actualContentSizeBytes);
+            } else {
+                while (! feof($contents)) {
+                    $chunk = fread($contents, self::STREAM_CHUNK_BYTES);
+
+                    if ($chunk === false) {
+                        throw new RuntimeException('Unable to read the study import upload stream.');
+                    }
+
+                    if ($chunk === '') {
+                        if (feof($contents)) {
+                            break;
+                        }
+
+                        throw new RuntimeException('Study import upload stream stopped before EOF.');
+                    }
+
+                    $this->appendChunk($stagedContents, $chunk, $actualContentSizeBytes);
+                }
+            }
+
+            rewind($stagedContents);
+
+            return [$stagedContents, $actualContentSizeBytes];
+        } catch (\Throwable $exception) {
+            fclose($stagedContents);
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param  resource  $stagedContents
+     */
+    private function appendChunk($stagedContents, string $chunk, int &$actualContentSizeBytes): void
+    {
+        $actualContentSizeBytes += strlen($chunk);
+
+        if ($actualContentSizeBytes > StudyImportJob::MAX_ASYNC_IMPORT_BYTES) {
+            throw new StudyImportValidationException('file', 'Study import upload must not exceed '.StudyImportJob::MAX_ASYNC_IMPORT_BYTES.' bytes.');
+        }
+
+        $remaining = $chunk;
+
+        while ($remaining !== '') {
+            $written = fwrite($stagedContents, $remaining);
+
+            if ($written === false || $written === 0) {
+                throw new RuntimeException('Unable to stage the study import upload.');
+            }
+
+            $remaining = substr($remaining, $written);
+        }
     }
 }

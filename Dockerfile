@@ -18,7 +18,7 @@ RUN composer dump-autoload --no-dev --optimize
 
 FROM dunglas/frankenphp:1-php8.4-bookworm
 
-RUN install-php-extensions pdo_pgsql opcache \
+RUN install-php-extensions pdo_pgsql opcache zip \
     && printf '%s\n' \
         'opcache.validate_timestamps=0' \
         'opcache.revalidate_freq=0' \

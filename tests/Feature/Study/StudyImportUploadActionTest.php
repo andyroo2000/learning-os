@@ -1312,10 +1312,31 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame('The uploaded collection database could not be parsed.', $processed?->error_message);
         $this->assertSame(now()->toJSON(), $processed?->completed_at->toJSON());
         Exceptions::assertReported(
-            fn (StudyImportPreviewException $exception): bool => $exception->isInvalidCollectionDatabase()
+            fn (StudyImportPreviewException $exception): bool => $exception->getMessage()
+                === 'The uploaded collection database could not be parsed.'
                 && $exception->getPrevious() instanceof \PDOException,
         );
         Exceptions::assertReportedCount(1);
+    }
+
+    public function test_process_job_does_not_report_expected_invalid_collection_structure(): void
+    {
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        $sourceObjectPath = 'study/imports/process/missing-cards-table.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['omit_cards_table' => true]),
+        );
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame('The uploaded collection database could not be parsed.', $processed?->error_message);
+        Exceptions::assertNothingReported();
     }
 
     public function test_process_job_returns_null_for_missing_imports(): void

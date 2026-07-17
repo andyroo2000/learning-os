@@ -24,11 +24,6 @@ final class StudyImportPreviewException extends RuntimeException
         return new self(self::INVALID_COLLECTION_DATABASE_MESSAGE, previous: $previous);
     }
 
-    public function isInvalidCollectionDatabase(): bool
-    {
-        return $this->getMessage() === self::INVALID_COLLECTION_DATABASE_MESSAGE;
-    }
-
     public static function invalidMediaManifest(): self
     {
         return new self('The uploaded media manifest could not be parsed.');

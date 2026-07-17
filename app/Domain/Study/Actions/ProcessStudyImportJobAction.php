@@ -82,7 +82,7 @@ class ProcessStudyImportJobAction
                 (string) $importJob->source_object_path,
             );
         } catch (StudyImportPreviewException $exception) {
-            if ($exception->isInvalidCollectionDatabase()) {
+            if ($exception->getPrevious() !== null) {
                 report($exception);
             }
 

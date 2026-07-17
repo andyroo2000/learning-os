@@ -99,6 +99,7 @@ jobs:
       - name: Verify import runtime extensions
         run: |
           docker run --rm $TEST_IMAGE php -r '
+            require "vendor/autoload.php";
             if (! class_exists("ZipArchive")) {
                 fwrite(STDERR, "ZipArchive is unavailable in the runtime image.\n");
                 exit(1);

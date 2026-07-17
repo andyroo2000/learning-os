@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use ReflectionMethod;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
 use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -207,6 +208,27 @@ class StudyImportUploadActionTest extends TestCase
             'streamed anki bytes',
             Storage::disk('study-imports')->get($importJob->source_object_path),
         );
+    }
+
+    public function test_upload_rejects_actual_stream_bytes_above_the_limit_before_staging_the_overflow(): void
+    {
+        $stagedContents = tmpfile();
+        $this->assertIsResource($stagedContents);
+        $actualContentSizeBytes = StudyImportJob::MAX_ASYNC_IMPORT_BYTES;
+        $appendChunk = new ReflectionMethod(UploadStudyImportFileAction::class, 'appendChunk');
+
+        try {
+            $appendChunk->invokeArgs(
+                app(UploadStudyImportFileAction::class),
+                [$stagedContents, 'x', &$actualContentSizeBytes],
+            );
+            $this->fail('Expected actual upload bytes above the limit to be rejected.');
+        } catch (StudyImportValidationException $exception) {
+            $this->assertSame('file', $exception->field());
+            $this->assertSame(0, fstat($stagedContents)['size']);
+        } finally {
+            fclose($stagedContents);
+        }
     }
 
     public function test_upload_hides_cross_user_import_jobs(): void

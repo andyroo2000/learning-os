@@ -90,9 +90,7 @@ class UploadStudyImportFileAction
                 }
 
                 // Keep the write under the row lock so completion cannot validate a partial object.
-                if (! Storage::disk('study-imports')->writeStream($importJob->source_object_path, $stagedContents)) {
-                    throw new RuntimeException('Unable to persist the study import upload.');
-                }
+                Storage::disk('study-imports')->writeStream($importJob->source_object_path, $stagedContents);
 
                 $importJob->source_size_bytes = $actualContentSizeBytes;
                 $importJob->uploaded_at = $now;

@@ -141,6 +141,43 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertSame($syncCount, SyncFeedEntry::query()->count());
     }
 
+    public function test_it_refuses_to_overwrite_a_partially_transitioned_bundle(): void
+    {
+        config()->set('services.openai.api_key', 'test-key');
+        Http::fake([
+            'https://api.openai.com/v1/responses' => Http::response([
+                'output_text' => json_encode($this->generatedBundle(), JSON_THROW_ON_ERROR),
+            ]),
+        ]);
+        $group = $this->createBundle();
+        $readyDraft = StudyCardDraft::query()
+            ->where('variant_group_id', $group->id)
+            ->firstOrFail();
+        $readyDraft->status = StudyManualCardDraftStatus::Ready;
+        $readyDraft->save();
+        $syncCount = SyncFeedEntry::query()->count();
+
+        try {
+            app(ProcessStudyVocabBundleDraftsAction::class)->handle($group->id);
+            $this->fail('Expected partial bundle state to be rejected.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame(
+                'Queued study vocab bundle drafts are not in one consistent generating state.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $readyDraft->refresh()->status);
+        $this->assertSame(
+            10,
+            StudyCardDraft::query()
+                ->where('variant_group_id', $group->id)
+                ->where('status', StudyManualCardDraftStatus::Generating)
+                ->count(),
+        );
+        $this->assertSame($syncCount, SyncFeedEntry::query()->count());
+    }
+
     public function test_failed_job_marks_only_generating_bundle_drafts_as_errors(): void
     {
         $group = $this->createBundle();

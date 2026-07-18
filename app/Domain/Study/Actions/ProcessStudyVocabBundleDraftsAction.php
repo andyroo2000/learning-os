@@ -70,6 +70,9 @@ class ProcessStudyVocabBundleDraftsAction
             if ($drafts->count() !== StudyVocabBundleGenerator::DRAFT_COUNT || $sentences->count() !== 3) {
                 throw new RuntimeException('Queued study vocab bundle placeholders no longer match the generated bundle.');
             }
+            if ($generatingDrafts->count() !== $drafts->count()) {
+                throw new RuntimeException('Queued study vocab bundle drafts are not in one consistent generating state.');
+            }
 
             $group->target_word = $generated['targetWord'];
             $group->target_reading = $generated['targetReading'];

@@ -196,6 +196,48 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         );
     }
 
+    public function test_it_rejects_a_ready_vocab_bundle_draft(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $group = $this->createVocabBundle($user);
+        $readyDraft = StudyCardDraft::query()
+            ->where('variant_group_id', $group->id)
+            ->firstOrFail();
+        $readyDraft->status = StudyManualCardDraftStatus::Ready;
+        $readyDraft->save();
+
+        $this->postJson("/api/study/card-drafts/{$readyDraft->id}/retry")
+            ->assertConflict()
+            ->assertJsonPath('message', 'Only errored drafts can be retried.');
+
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $readyDraft->refresh()->status);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_it_rejects_a_vocab_bundle_when_any_draft_is_committed(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $group = $this->createVocabBundle($user);
+        $drafts = StudyCardDraft::query()
+            ->where('variant_group_id', $group->id)
+            ->orderBy('id')
+            ->take(2)
+            ->get();
+        $selectedDraft = $drafts->firstOrFail();
+        $committedSibling = $drafts->last();
+        $committedSibling->committed_card_id = strtolower((string) Str::ulid());
+        $committedSibling->save();
+
+        $this->postJson("/api/study/card-drafts/{$selectedDraft->id}/retry")
+            ->assertConflict()
+            ->assertJsonPath('message', 'Committed drafts cannot be retried.');
+
+        $this->assertNotNull($committedSibling->refresh()->committed_card_id);
+        Queue::assertNothingPushed();
+    }
+
     public function test_it_rejects_ready_drafts(): void
     {
         Queue::fake();

@@ -37,6 +37,7 @@ class RegenerateStudyCardAnswerAudioAction
         $nextAnswer = $this->answerWithOverrides($answer, $data);
         $text = $this->audioText($nextAnswer);
         $voiceId = $this->voiceId($nextAnswer);
+        $nextAnswer['answerAudioVoiceId'] = $voiceId;
         $snapshotFingerprint = $this->cardFingerprint($card);
         $oldGeneratedMedia = $this->generatedAnswerMedia($card, $answer);
 
@@ -136,11 +137,12 @@ class RegenerateStudyCardAnswerAudioAction
     {
         $voiceId = $answer['answerAudioVoiceId'] ?? StudyCardGenerationDefaults::VOICE_ID;
 
-        if (! is_string($voiceId) || preg_match('/^fishaudio:[a-f0-9]{32}$/i', trim($voiceId)) !== 1) {
+        if (! is_string($voiceId)) {
             throw StudyCardAudioValidationException::invalidVoice();
         }
 
-        return trim($voiceId);
+        return StudyCardGenerationDefaults::normalizeVoiceId($voiceId)
+            ?? throw StudyCardAudioValidationException::invalidVoice();
     }
 
     /**

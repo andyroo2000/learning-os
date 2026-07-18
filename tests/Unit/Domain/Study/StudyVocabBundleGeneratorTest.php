@@ -28,6 +28,32 @@ class StudyVocabBundleGeneratorTest extends TestCase
         $this->assertSame('sentence_cloze', $bundle['variants'][10]['variantKind']->value);
     }
 
+    public function test_it_preserves_a_supplied_source_sentence_at_ordinal_zero(): void
+    {
+        $generator = $this->generatorReturning(
+            json_encode(self::validBundle(), JSON_THROW_ON_ERROR),
+        );
+
+        $bundle = $generator->generate($this->group('この会社で働いています。'));
+
+        $this->assertSame('この会社で働いています。', $bundle['sentences'][0]['sentenceJp']);
+        $this->assertSame(
+            'この会社で働いています。',
+            $bundle['variants'][0]['answer']['expression'],
+        );
+    }
+
+    public function test_it_rejects_provider_drift_from_a_supplied_source_sentence(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Generated study vocab bundle changed the requested source sentence.',
+        );
+
+        $this->generatorReturning(json_encode(self::validBundle(), JSON_THROW_ON_ERROR))
+            ->generate($this->group('利用者が入力した会社の文です。'));
+    }
+
     #[DataProvider('invalidResponseProvider')]
     public function test_it_rejects_malformed_provider_payloads(
         string $response,
@@ -95,12 +121,12 @@ class StudyVocabBundleGeneratorTest extends TestCase
         return new StudyVocabBundleGenerator($openAi, $learnerContext);
     }
 
-    private function group(): StudyVocabVariantGroup
+    private function group(?string $sourceSentence = null): StudyVocabVariantGroup
     {
         $group = new StudyVocabVariantGroup;
         $group->user_id = 1;
         $group->target_word = '会社';
-        $group->source_sentence = null;
+        $group->source_sentence = $sourceSentence;
         $group->source_context = null;
         $group->include_learner_context = false;
 

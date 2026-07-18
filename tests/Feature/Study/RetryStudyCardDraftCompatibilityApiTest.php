@@ -110,6 +110,27 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         );
     }
 
+    public function test_manual_draft_retry_dispatch_failure_returns_an_error_draft(): void
+    {
+        $user = $this->signIn();
+        $draft = StudyCardDraft::factory()->failed()->for($user)->create();
+        $this->mock(Dispatcher::class)
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new \RuntimeException('queue unavailable'));
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/retry")
+            ->assertOk()
+            ->assertJsonPath('id', $draft->id)
+            ->assertJsonPath('status', StudyManualCardDraftStatus::Error->value)
+            ->assertJsonPath(
+                'errorMessage',
+                ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE,
+            );
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $draft->refresh()->status);
+    }
+
     public function test_it_retries_an_owned_errored_vocab_bundle_as_one_job(): void
     {
         Queue::fake();

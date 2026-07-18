@@ -32,7 +32,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
             ]),
         ]);
 
-        $group = $this->createBundle();
+        $group = $this->createBundle('この会社で働いています。');
         $initialSyncCount = SyncFeedEntry::query()->count();
 
         $updated = app(ProcessStudyVocabBundleDraftsAction::class)->handle($group->id);
@@ -206,14 +206,14 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         Queue::assertNotPushed(ProcessStudyCardDraft::class);
     }
 
-    private function createBundle(): StudyVocabVariantGroup
+    private function createBundle(?string $sourceSentence = null): StudyVocabVariantGroup
     {
         $user = User::factory()->create();
         $result = app(CreateStudyVocabBundleDraftsAction::class)->handle(
             CreateStudyVocabBundleData::fromInput(
                 userId: $user->id,
                 targetWord: '会社',
-                sourceSentence: null,
+                sourceSentence: $sourceSentence,
                 context: 'workplace vocabulary',
                 includeLearnerContext: false,
             ),

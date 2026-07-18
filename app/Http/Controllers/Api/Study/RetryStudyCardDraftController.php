@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Study;
 
+use App\Domain\Study\Actions\FailStudyCardDraftAction;
 use App\Domain\Study\Actions\FailStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\RetryStudyCardDraftAction;
 use App\Domain\Study\Actions\RetryStudyVocabBundleDraftsAction;
@@ -24,17 +25,23 @@ class RetryStudyCardDraftController extends Controller
         string $draftId,
         RetryStudyCardDraftAction $retryStudyCardDraft,
         RetryStudyVocabBundleDraftsAction $retryStudyVocabBundleDrafts,
+        FailStudyCardDraftAction $failStudyCardDraft,
         FailStudyVocabBundleDraftsAction $failStudyVocabBundleDrafts,
     ): JsonResponse {
         try {
             $userId = AuthenticatedUser::id($request);
+            $dispatchFailed = false;
             $draft = $retryStudyVocabBundleDrafts->handleIfBundle(
                 $userId,
                 $draftId,
-                afterCommit: static function (string $groupId) use ($failStudyVocabBundleDrafts): void {
+                afterCommit: static function (string $groupId) use (
+                    &$dispatchFailed,
+                    $failStudyVocabBundleDrafts,
+                ): void {
                     try {
                         ProcessStudyVocabBundleDrafts::dispatch($groupId);
                     } catch (Throwable $exception) {
+                        $dispatchFailed = true;
                         report($exception);
                         $failStudyVocabBundleDrafts->handle(
                             $groupId,
@@ -42,12 +49,31 @@ class RetryStudyCardDraftController extends Controller
                         );
                     }
                 },
-            ) ?? $retryStudyCardDraft->handle(
-                $userId,
-                $draftId,
-                afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
             );
-            $draft->refresh();
+            if ($draft === null) {
+                $draft = $retryStudyCardDraft->handle(
+                    $userId,
+                    $draftId,
+                    afterCommit: static function (string $processedDraftId) use (
+                        &$dispatchFailed,
+                        $failStudyCardDraft,
+                    ): void {
+                        try {
+                            ProcessStudyCardDraft::dispatch($processedDraftId);
+                        } catch (Throwable $exception) {
+                            $dispatchFailed = true;
+                            report($exception);
+                            $failStudyCardDraft->handle(
+                                $processedDraftId,
+                                ProcessStudyCardDraft::EXHAUSTED_ERROR_MESSAGE,
+                            );
+                        }
+                    },
+                );
+            }
+            if ($dispatchFailed) {
+                $draft->refresh();
+            }
         } catch (StudyCardDraftNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         } catch (StudyCardDraftConflictException $exception) {

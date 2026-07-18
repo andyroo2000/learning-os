@@ -18,11 +18,11 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
+use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
-use App\Domain\Study\Support\StudyCardDraftPreviewMediaRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
@@ -164,6 +164,11 @@ class AppServiceProvider extends ServiceProvider
             return $studyCardActionRateLimiter->limit($request);
         });
 
+        $studyCardAudioPrepareRateLimiter = new StudyCardAudioPrepareRateLimiter;
+        RateLimiter::for(StudyCardAudioPrepareRateLimiter::NAME, function (Request $request) use ($studyCardAudioPrepareRateLimiter): Limit {
+            return $studyCardAudioPrepareRateLimiter->limit($request);
+        });
+
         $studyCardDraftAutosaveRateLimiter = new StudyCardDraftAutosaveRateLimiter;
         RateLimiter::for(StudyCardDraftAutosaveRateLimiter::NAME, function (Request $request) use ($studyCardDraftAutosaveRateLimiter): Limit {
             return $studyCardDraftAutosaveRateLimiter->limit($request);
@@ -177,11 +182,6 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftRetryRateLimiter = new StudyCardDraftRetryRateLimiter;
         RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($studyCardDraftRetryRateLimiter): Limit {
             return $studyCardDraftRetryRateLimiter->limit($request);
-        });
-
-        $studyCardDraftPreviewMediaRateLimiter = new StudyCardDraftPreviewMediaRateLimiter;
-        RateLimiter::for(StudyCardDraftPreviewMediaRateLimiter::NAME, function (Request $request) use ($studyCardDraftPreviewMediaRateLimiter): Limit {
-            return $studyCardDraftPreviewMediaRateLimiter->limit($request);
         });
 
         $studyVocabBundleDraftRateLimiter = new StudyVocabBundleDraftRateLimiter;

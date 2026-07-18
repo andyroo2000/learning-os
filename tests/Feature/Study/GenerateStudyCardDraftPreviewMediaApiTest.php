@@ -11,16 +11,13 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Services\OpenAiStudyImageGenerator;
-use App\Domain\Study\Support\StudyCardDraftPreviewMediaRateLimiter;
 use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -378,15 +375,6 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
 
     public function test_audio_and_image_generation_share_one_user_scoped_rate_limit(): void
     {
-        RateLimiter::for(
-            StudyCardDraftPreviewMediaRateLimiter::NAME,
-            fn ($request): Limit => Limit::perMinute(1)->by(
-                (new StudyCardDraftPreviewMediaRateLimiter)->keyFor(
-                    $request->user()?->getAuthIdentifier(),
-                    $request->ip(),
-                ),
-            ),
-        );
         Http::fake([
             'fish.test/v1/tts' => Http::response('ID3first-audio'),
             'openai.test/v1/images/generations' => Http::response([
@@ -400,12 +388,18 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
             'image_prompt' => 'A scene.',
         ]);
 
-        $this->postJson("/api/study/card-drafts/{$audioDraft->id}/preview-audio")
-            ->assertOk();
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postJson("/api/study/card-drafts/{$audioDraft->id}/preview-audio")
+                ->assertOk();
+        }
         $this->postJson("/api/study/card-drafts/{$imageDraft->id}/preview-image")
-            ->assertTooManyRequests();
+            ->assertTooManyRequests()
+            ->assertHeader('Retry-After')
+            ->assertHeader('X-RateLimit-Limit', '10')
+            ->assertHeader('X-RateLimit-Remaining', '0')
+            ->assertHeader('X-RateLimit-Reset');
 
-        Http::assertSentCount(1);
+        Http::assertSentCount(10);
     }
 
     private function readyDraft(User $user, array $attributes = []): StudyCardDraft

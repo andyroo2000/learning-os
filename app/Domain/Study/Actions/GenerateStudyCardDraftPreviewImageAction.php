@@ -9,6 +9,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\OpenAiStudyImageGenerator;
+use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use Throwable;
 
 class GenerateStudyCardDraftPreviewImageAction
@@ -18,6 +19,7 @@ class GenerateStudyCardDraftPreviewImageAction
         private readonly PersistGeneratedStudyMediaAction $persistGeneratedMedia,
         private readonly UpdateStudyCardDraftAction $updateDraft,
         private readonly DiscardGeneratedStudyMediaAction $discardGeneratedMedia,
+        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
     public function handle(StudyCardDraft $draft): StudyCardDraft
@@ -35,6 +37,7 @@ class GenerateStudyCardDraftPreviewImageAction
             throw StudyCardDraftValidationException::missingPreviewImagePrompt();
         }
 
+        $this->generationRateLimiter->consume($draft->user_id);
         $generated = $this->persistGeneratedMedia->handle(
             userId: $draft->user_id,
             bytes: $this->openAiImage->generate($imagePrompt),

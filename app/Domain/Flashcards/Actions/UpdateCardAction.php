@@ -99,6 +99,7 @@ class UpdateCardAction
                 'card_type',
                 'prompt_json',
                 'answer_json',
+                'answer_audio_source',
                 'variant_group_id',
                 'variant_sentence_id',
                 'variant_kind',

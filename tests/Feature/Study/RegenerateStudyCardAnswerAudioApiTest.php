@@ -341,6 +341,10 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
 
         $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
             ->assertTooManyRequests()
+            ->assertHeader('Retry-After')
+            ->assertHeader('X-RateLimit-Limit', '10')
+            ->assertHeader('X-RateLimit-Remaining', '0')
+            ->assertHeader('X-RateLimit-Reset')
             ->assertExactJson([
                 'message' => 'Study media generation rate limit exceeded. Please try again shortly.',
             ]);

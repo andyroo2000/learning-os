@@ -30,7 +30,11 @@ class GenerateStudyCardDraftPreviewImageController extends Controller
         } catch (StudyCardDraftNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         } catch (StudyPreviewMediaGenerationException $exception) {
-            return response()->json(['message' => $exception->getMessage()], $exception->httpStatus());
+            return response()->json(
+                ['message' => $exception->getMessage()],
+                $exception->httpStatus(),
+                $exception->responseHeaders(),
+            );
         }
 
         return response()->json([

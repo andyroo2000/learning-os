@@ -14,7 +14,9 @@ class StudyMediaGenerationRateLimiter
     public function consume(int $userId): void
     {
         if (! RateLimiter::attempt($this->keyFor($userId), self::PER_MINUTE, fn (): bool => true, 60)) {
-            throw StudyPreviewMediaGenerationException::spendLimitExceeded();
+            throw StudyPreviewMediaGenerationException::spendLimitExceeded(
+                RateLimiter::availableIn($this->keyFor($userId)),
+            );
         }
     }
 

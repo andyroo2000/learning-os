@@ -393,7 +393,11 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
                 ->assertOk();
         }
         $this->postJson("/api/study/card-drafts/{$imageDraft->id}/preview-image")
-            ->assertTooManyRequests();
+            ->assertTooManyRequests()
+            ->assertHeader('Retry-After')
+            ->assertHeader('X-RateLimit-Limit', '10')
+            ->assertHeader('X-RateLimit-Remaining', '0')
+            ->assertHeader('X-RateLimit-Reset');
 
         Http::assertSentCount(10);
     }

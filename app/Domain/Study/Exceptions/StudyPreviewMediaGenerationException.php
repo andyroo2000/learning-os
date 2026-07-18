@@ -11,6 +11,7 @@ class StudyPreviewMediaGenerationException extends RuntimeException
         string $message,
         private readonly int $httpStatus,
         ?Throwable $previous = null,
+        private readonly ?int $retryAfterSeconds = null,
     ) {
         parent::__construct($message, 0, $previous);
     }
@@ -25,9 +26,14 @@ class StudyPreviewMediaGenerationException extends RuntimeException
         return new self("{$provider} is rate limiting preview generation. Please try again shortly.", 429);
     }
 
-    public static function spendLimitExceeded(): self
+    public static function spendLimitExceeded(int $retryAfterSeconds): self
     {
-        return new self('Study media generation rate limit exceeded. Please try again shortly.', 429);
+        return new self(
+            'Study media generation rate limit exceeded. Please try again shortly.',
+            429,
+            null,
+            max(1, $retryAfterSeconds),
+        );
     }
 
     public static function providerFailed(string $provider, ?Throwable $previous = null): self
@@ -48,5 +54,22 @@ class StudyPreviewMediaGenerationException extends RuntimeException
     public function httpStatus(): int
     {
         return $this->httpStatus;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function responseHeaders(): array
+    {
+        if ($this->retryAfterSeconds === null) {
+            return [];
+        }
+
+        return [
+            'Retry-After' => (string) $this->retryAfterSeconds,
+            'X-RateLimit-Limit' => '10',
+            'X-RateLimit-Remaining' => '0',
+            'X-RateLimit-Reset' => (string) (time() + $this->retryAfterSeconds),
+        ];
     }
 }

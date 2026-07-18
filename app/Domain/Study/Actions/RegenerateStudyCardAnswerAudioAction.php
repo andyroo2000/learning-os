@@ -85,8 +85,8 @@ class RegenerateStudyCardAnswerAudioAction
             throw $exception;
         }
 
-        if ($oldGeneratedMedia !== null && ! $oldGeneratedMedia->cards()->exists()) {
-            $this->discardGeneratedMedia->handle($oldGeneratedMedia);
+        if ($oldGeneratedMedia !== null) {
+            $this->discardGeneratedMedia->handleIfUnreferenced($oldGeneratedMedia);
         }
 
         return $updated;

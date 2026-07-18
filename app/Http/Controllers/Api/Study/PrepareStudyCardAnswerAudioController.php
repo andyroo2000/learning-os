@@ -27,7 +27,11 @@ class PrepareStudyCardAnswerAudioController extends Controller
         } catch (StudyCardAudioConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (StudyPreviewMediaGenerationException $exception) {
-            return response()->json(['message' => $exception->getMessage()], $exception->httpStatus());
+            return response()->json(
+                ['message' => $exception->getMessage()],
+                $exception->httpStatus(),
+                $exception->responseHeaders(),
+            );
         }
 
         return response()->json(StudyCardSummaryResource::make($card)->resolve($request));

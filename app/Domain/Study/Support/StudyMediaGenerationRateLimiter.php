@@ -6,9 +6,9 @@ use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
-class StudyCardDraftPreviewMediaRateLimiter
+class StudyMediaGenerationRateLimiter
 {
-    public const NAME = 'study-card-draft-preview-media';
+    public const NAME = 'study-media-generation';
 
     private const PER_MINUTE = 10;
 

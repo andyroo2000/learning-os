@@ -11,7 +11,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Services\OpenAiStudyImageGenerator;
-use App\Domain\Study\Support\StudyCardDraftPreviewMediaRateLimiter;
+use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -379,9 +379,9 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
     public function test_audio_and_image_generation_share_one_user_scoped_rate_limit(): void
     {
         RateLimiter::for(
-            StudyCardDraftPreviewMediaRateLimiter::NAME,
+            StudyMediaGenerationRateLimiter::NAME,
             fn ($request): Limit => Limit::perMinute(1)->by(
-                (new StudyCardDraftPreviewMediaRateLimiter)->keyFor(
+                (new StudyMediaGenerationRateLimiter)->keyFor(
                     $request->user()?->getAuthIdentifier(),
                     $request->ip(),
                 ),

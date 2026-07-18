@@ -9,7 +9,7 @@ use RuntimeException;
 
 class OpenAiStudyCardGenerator
 {
-    private const TIMEOUT_SECONDS = 90;
+    public const TIMEOUT_SECONDS = 90;
 
     public function generateJson(string $systemInstruction, string $prompt): string
     {

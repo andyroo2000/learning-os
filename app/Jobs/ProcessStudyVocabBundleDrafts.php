@@ -20,6 +20,8 @@ class ProcessStudyVocabBundleDrafts implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 4;
 
+    public int $timeout = 120;
+
     public readonly string $groupId;
 
     public function __construct(string $groupId)

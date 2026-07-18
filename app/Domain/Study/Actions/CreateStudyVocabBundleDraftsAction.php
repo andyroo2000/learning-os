@@ -40,7 +40,7 @@ class CreateStudyVocabBundleDraftsAction
             $sentences = collect([0, 1, 2])->map(function (int $ordinal) use ($data, $group): StudyVocabVariantSentence {
                 $placeholder = $ordinal === 0 && $data->sourceSentence !== null
                     ? $data->sourceSentence
-                    : 'Generating sentence '.($ordinal + 1)." for {$data->targetWord}";
+                    : $this->placeholderLabel($ordinal, $data->targetWord);
 
                 $sentence = new StudyVocabVariantSentence;
                 $sentence->user_id = $data->userId;
@@ -91,7 +91,7 @@ class CreateStudyVocabBundleDraftsAction
         $variants = [];
 
         foreach ([0, 1, 2] as $ordinal) {
-            $label = 'Generating sentence '.($ordinal + 1)." for {$targetWord}";
+            $label = $this->placeholderLabel($ordinal, $targetWord);
             $variants[] = [
                 'creationKind' => StudyCardCreationKind::AudioRecognition,
                 'cardType' => CardType::Recognition,
@@ -104,7 +104,7 @@ class CreateStudyVocabBundleDraftsAction
             ];
         }
         foreach ([0, 1, 2] as $ordinal) {
-            $label = 'Generating sentence '.($ordinal + 1)." for {$targetWord}";
+            $label = $this->placeholderLabel($ordinal, $targetWord);
             $variants[] = [
                 'creationKind' => StudyCardCreationKind::TextRecognition,
                 'cardType' => CardType::Recognition,
@@ -137,7 +137,7 @@ class CreateStudyVocabBundleDraftsAction
             'sentenceOrdinal' => null,
         ];
         foreach ([0, 1, 2] as $ordinal) {
-            $label = 'Generating sentence '.($ordinal + 1)." for {$targetWord}";
+            $label = $this->placeholderLabel($ordinal, $targetWord);
             $variants[] = [
                 'creationKind' => StudyCardCreationKind::Cloze,
                 'cardType' => CardType::Cloze,
@@ -155,6 +155,11 @@ class CreateStudyVocabBundleDraftsAction
         }
 
         return $variants;
+    }
+
+    private function placeholderLabel(int $ordinal, string $targetWord): string
+    {
+        return 'Generating sentence '.($ordinal + 1)." for {$targetWord}";
     }
 
     /** @return array<string, string> */

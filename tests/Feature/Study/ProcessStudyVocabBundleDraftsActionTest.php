@@ -10,6 +10,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Models\StudyVocabVariantSentence;
+use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
 use App\Jobs\ProcessStudyVocabBundleDrafts;
@@ -105,6 +106,16 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertSame(0, $action->handle(strtolower($group->id)));
         $this->assertSame($syncCount, SyncFeedEntry::query()->count());
         Http::assertSentCount(1);
+    }
+
+    public function test_job_timeout_exceeds_the_openai_client_timeout(): void
+    {
+        $job = new ProcessStudyVocabBundleDrafts(strtolower((string) str()->ulid()));
+
+        $this->assertSame(120, $job->timeout);
+        $this->assertGreaterThan(OpenAiStudyCardGenerator::TIMEOUT_SECONDS, $job->timeout);
+        $this->assertSame(4, $job->tries);
+        $this->assertSame([10, 30, 60], $job->backoff());
     }
 
     public function test_provider_cannot_replace_the_user_requested_target_word(): void

@@ -133,6 +133,27 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->data()['text'] === '株式会社');
     }
 
+    public function test_it_generates_preview_audio_for_a_legacy_google_voice_with_the_fish_default(): void
+    {
+        Http::fake([
+            'fish.test/v1/tts' => Http::response('ID3legacy-preview'),
+        ]);
+        $user = $this->signIn();
+        $draft = $this->readyDraft($user, [
+            'answer_json' => [
+                'expression' => '会社',
+                'answerAudioVoiceId' => 'ja-JP-Wavenet-D',
+            ],
+        ]);
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/preview-audio")
+            ->assertOk()
+            ->assertJsonPath('previewAudio.source', 'generated');
+
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        $this->assertSame('ja-JP-Wavenet-D', $draft->refresh()->answer_json['answerAudioVoiceId']);
+    }
+
     public function test_it_generates_and_persists_a_guarded_webp_preview_image(): void
     {
         $webpBytes = $this->webpBytes();
@@ -201,7 +222,7 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
         $draft = $this->readyDraft($user, [
             'answer_json' => [
                 'expression' => '会社',
-                'answerAudioVoiceId' => 'ja-JP-Wavenet-D',
+                'answerAudioVoiceId' => 'not-a-voice',
             ],
         ]);
 

@@ -16,7 +16,8 @@ final class StudyCardGenerationDefaults
             return $voiceId;
         }
 
-        if (preg_match('/^ja-JP-(?:Neural2|Wavenet)-[A-D]$/i', $voiceId) === 1) {
+        if (preg_match('/^ja-JP-(?:Neural2|Wavenet)-[A-D]$/i', $voiceId) === 1
+            || in_array($voiceId, ['Takumi', 'Kazuha', 'Tomoko'], true)) {
             return self::VOICE_ID;
         }
 

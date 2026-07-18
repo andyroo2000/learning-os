@@ -39,6 +39,25 @@ class StudyCardGenerationDefaultsTest extends TestCase
         yield 'case insensitive' => ['JA-jp-wAVEnet-C'];
     }
 
+    #[DataProvider('legacyPollyVoiceProvider')]
+    public function test_it_migrates_supported_legacy_polly_voices_to_the_fish_default(string $voiceId): void
+    {
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::normalizeVoiceId($voiceId),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function legacyPollyVoiceProvider(): iterable
+    {
+        yield 'Takumi' => ['Takumi'];
+        yield 'Kazuha' => ['Kazuha'];
+        yield 'Tomoko' => ['Tomoko'];
+    }
+
     #[DataProvider('unsupportedVoiceProvider')]
     public function test_it_rejects_unsupported_voice_ids(string $voiceId): void
     {
@@ -54,6 +73,7 @@ class StudyCardGenerationDefaultsTest extends TestCase
         yield 'unknown provider' => ['google:ja-JP-Wavenet-D'];
         yield 'unsupported Google family' => ['ja-JP-Standard-A'];
         yield 'unsupported Google variant' => ['ja-JP-Wavenet-E'];
+        yield 'non-canonical Polly casing' => ['takumi'];
         yield 'malformed Fish identifier' => ['fishaudio:not-a-voice'];
     }
 }

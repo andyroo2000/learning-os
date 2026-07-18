@@ -26,7 +26,6 @@ use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
-use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
@@ -183,11 +182,6 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftRetryRateLimiter = new StudyCardDraftRetryRateLimiter;
         RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($studyCardDraftRetryRateLimiter): Limit {
             return $studyCardDraftRetryRateLimiter->limit($request);
-        });
-
-        $studyMediaGenerationRateLimiter = new StudyMediaGenerationRateLimiter;
-        RateLimiter::for(StudyMediaGenerationRateLimiter::NAME, function (Request $request) use ($studyMediaGenerationRateLimiter): Limit {
-            return $studyMediaGenerationRateLimiter->limit($request);
         });
 
         $studyVocabBundleDraftRateLimiter = new StudyVocabBundleDraftRateLimiter;

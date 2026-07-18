@@ -11,6 +11,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
+use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use Throwable;
 
 class GenerateStudyCardDraftPreviewAudioAction
@@ -20,6 +21,7 @@ class GenerateStudyCardDraftPreviewAudioAction
         private readonly PersistGeneratedStudyMediaAction $persistGeneratedMedia,
         private readonly UpdateStudyCardDraftAction $updateDraft,
         private readonly DiscardGeneratedStudyMediaAction $discardGeneratedMedia,
+        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
     public function handle(StudyCardDraft $draft): StudyCardDraft
@@ -43,6 +45,7 @@ class GenerateStudyCardDraftPreviewAudioAction
             throw StudyCardDraftValidationException::invalidPreviewAudioVoice();
         }
 
+        $this->generationRateLimiter->consume($draft->user_id);
         $generated = $this->persistGeneratedMedia->handle(
             userId: $draft->user_id,
             bytes: $this->fishAudio->generate($text, $voiceId),

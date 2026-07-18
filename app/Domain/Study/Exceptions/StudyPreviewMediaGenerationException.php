@@ -25,6 +25,11 @@ class StudyPreviewMediaGenerationException extends RuntimeException
         return new self("{$provider} is rate limiting preview generation. Please try again shortly.", 429);
     }
 
+    public static function spendLimitExceeded(): self
+    {
+        return new self('Study media generation rate limit exceeded. Please try again shortly.', 429);
+    }
+
     public static function providerFailed(string $provider, ?Throwable $previous = null): self
     {
         return new self("{$provider} failed to generate preview media.", 502, $previous);

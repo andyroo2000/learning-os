@@ -2,31 +2,37 @@
 
 namespace Tests\Unit\Study;
 
+use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
-use App\Models\User;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 class StudyMediaGenerationRateLimiterTest extends TestCase
 {
-    public function test_it_uses_a_named_user_bucket_with_the_default_limit(): void
+    public function test_it_consumes_ten_attempts_and_rejects_the_eleventh(): void
     {
-        $request = Request::create('/api/study/card-drafts/draft/preview-audio', 'POST');
-        $user = new User;
-        $user->id = 42;
-        $request->setUserResolver(fn (): User => $user);
+        $limiter = new StudyMediaGenerationRateLimiter;
+        $key = $limiter->keyFor(42);
+        RateLimiter::clear($key);
 
-        $limit = (new StudyMediaGenerationRateLimiter)->limit($request);
+        try {
+            for ($attempt = 0; $attempt < 10; $attempt++) {
+                $limiter->consume(42);
+            }
 
-        $this->assertSame(10, $limit->maxAttempts);
-        $this->assertSame('study-media-generation:user:42', $limit->key);
+            $this->expectException(StudyPreviewMediaGenerationException::class);
+            $this->expectExceptionMessage('Study media generation rate limit exceeded.');
+            $limiter->consume(42);
+        } finally {
+            RateLimiter::clear($key);
+        }
     }
 
-    public function test_it_falls_back_to_a_named_network_bucket(): void
+    public function test_it_uses_a_stable_user_scoped_key(): void
     {
         $this->assertSame(
-            'study-media-generation:anon:203.0.113.10',
-            (new StudyMediaGenerationRateLimiter)->keyFor(null, '203.0.113.10'),
+            'study-media-generation:user:42',
+            (new StudyMediaGenerationRateLimiter)->keyFor(42),
         );
     }
 }

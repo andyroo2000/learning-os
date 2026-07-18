@@ -2,9 +2,8 @@
 
 namespace App\Domain\Study\Support;
 
-use App\Support\RateLimiting\RateLimitKey;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
+use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
+use Illuminate\Support\Facades\RateLimiter;
 
 class StudyMediaGenerationRateLimiter
 {
@@ -12,16 +11,15 @@ class StudyMediaGenerationRateLimiter
 
     private const PER_MINUTE = 10;
 
-    public function limit(Request $request, int $perMinute = self::PER_MINUTE): Limit
+    public function consume(int $userId): void
     {
-        return Limit::perMinute($perMinute)->by($this->keyFor(
-            $request->user()?->getAuthIdentifier(),
-            $request->ip(),
-        ));
+        if (! RateLimiter::attempt($this->keyFor($userId), self::PER_MINUTE, fn (): bool => true, 60)) {
+            throw StudyPreviewMediaGenerationException::spendLimitExceeded();
+        }
     }
 
-    public function keyFor(mixed $userId, ?string $ip): string
+    public function keyFor(int $userId): string
     {
-        return RateLimitKey::scopedUserOrNetwork(self::NAME, $userId, $ip);
+        return self::NAME.':user:'.$userId;
     }
 }

@@ -20,7 +20,6 @@ use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
-use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
@@ -264,16 +263,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
-    // Draft previews and explicit regeneration share one 10/min spend-protection bucket.
+    // Provider actions consume one shared 10/min user spend budget after payload validation.
     Route::post('/study/card-drafts/{draftId}/preview-audio', GenerateStudyCardDraftPreviewAudioController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyMediaGenerationRateLimiter::NAME);
+        ->whereUlid('draftId');
     Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyMediaGenerationRateLimiter::NAME);
+        ->whereUlid('draftId');
     Route::post('/study/cards/{cardId}/regenerate-answer-audio', RegenerateStudyCardAnswerAudioController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyMediaGenerationRateLimiter::NAME);
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
     Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);

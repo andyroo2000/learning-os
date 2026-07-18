@@ -177,7 +177,7 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->assertFalse($card->mediaAssets()->whereKey($oldMedia->id)->exists());
     }
 
-    public function test_it_hides_cross_user_cards_and_does_not_call_the_provider(): void
+    public function test_both_routes_hide_cross_user_cards_and_do_not_call_the_provider(): void
     {
         Http::fake();
         $owner = User::factory()->create();
@@ -187,6 +187,8 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->signIn();
 
         $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")
+            ->assertNotFound();
+        $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
             ->assertNotFound();
 
         Http::assertNothingSent();
@@ -317,7 +319,7 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->assertSame([], Storage::disk('media')->allFiles());
     }
 
-    public function test_explicit_regeneration_uses_the_shared_generation_rate_limit_budget(): void
+    public function test_prepare_fallback_consumes_the_shared_generation_rate_limit_budget(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3audio')]);
         $user = $this->signIn();
@@ -329,7 +331,20 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")->assertOk();
         }
 
-        $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")->assertTooManyRequests();
+        $card->forceFill([
+            'answer_json' => [
+                'expression' => '会社',
+                'answerAudioVoiceId' => self::VOICE_ID,
+            ],
+            'answer_audio_source' => 'missing',
+        ])->save();
+
+        $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
+            ->assertTooManyRequests()
+            ->assertExactJson([
+                'message' => 'Study media generation rate limit exceeded. Please try again shortly.',
+            ]);
+        Http::assertSentCount(10);
     }
 
     /**

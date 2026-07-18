@@ -15,6 +15,7 @@ use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
+use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -27,6 +28,7 @@ class RegenerateStudyCardAnswerAudioAction
         private readonly UpdateCardAction $updateCard,
         private readonly AttachMediaToCardAction $attachMedia,
         private readonly DetachMediaFromCardAction $detachMedia,
+        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
     public function handle(Card $card, RegenerateStudyCardAnswerAudioData $data): Card
@@ -38,6 +40,7 @@ class RegenerateStudyCardAnswerAudioAction
         $snapshotFingerprint = $this->cardFingerprint($card);
         $oldGeneratedMedia = $this->generatedAnswerMedia($card, $answer);
 
+        $this->generationRateLimiter->consume($card->ownerUserId());
         $generated = $this->persistGeneratedMedia->handle(
             userId: $card->ownerUserId(),
             bytes: $this->fishAudio->generate($text, $voiceId),
@@ -168,6 +171,7 @@ class RegenerateStudyCardAnswerAudioAction
             $card->back_text,
             $card->prompt_json,
             $card->answer_json,
+            $card->answer_audio_source,
             $card->updated_at?->toJSON(),
         ]));
     }

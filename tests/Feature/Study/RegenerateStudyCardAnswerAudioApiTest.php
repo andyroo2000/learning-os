@@ -282,27 +282,35 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
     }
 
-    public function test_prepare_migrates_a_persisted_legacy_polly_voice_to_the_fish_default(): void
+    public function test_prepare_preserves_gender_when_migrating_a_persisted_legacy_polly_voice(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);
         $user = $this->signIn();
         $card = $this->studyCardFor($user, [
             'answer_json' => [
                 'expression' => '会社',
-                'answerAudioVoiceId' => 'Takumi',
+                'answerAudioVoiceId' => 'Kazuha',
             ],
         ]);
 
         $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
             ->assertOk()
-            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID)
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::FEMALE_VOICE_ID)
             ->assertJsonPath('answer.answerAudio.source', 'generated');
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $card->refresh()->answer_json['answerAudioVoiceId'],
         );
-        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
+        $this->assertSame(
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
+            $cardEntry->payload['answer_json']['answerAudioVoiceId'],
+        );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_regenerate_accepts_a_legacy_polly_voice_override_and_persists_the_fish_default(): void
@@ -317,12 +325,13 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             'answerAudioVoiceId' => 'Tomoko',
         ])
             ->assertOk()
-            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID);
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::FEMALE_VOICE_ID);
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $card->refresh()->answer_json['answerAudioVoiceId'],
         );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_the_action_migrates_a_legacy_polly_voice_override_for_direct_callers(): void
@@ -344,13 +353,13 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         );
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $updated->answer_json['answerAudioVoiceId'],
         );
-        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
-    public function test_regenerate_accepts_a_legacy_google_voice_override_and_persists_the_fish_default(): void
+    public function test_regenerate_preserves_gender_for_a_legacy_google_voice_override(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);
         $user = $this->signIn();
@@ -359,15 +368,16 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         ]);
 
         $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio", [
-            'answerAudioVoiceId' => 'ja-JP-Neural2-C',
+            'answerAudioVoiceId' => 'ja-JP-Neural2-B',
         ])
             ->assertOk()
-            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID);
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::FEMALE_VOICE_ID);
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $card->refresh()->answer_json['answerAudioVoiceId'],
         );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_the_action_migrates_a_legacy_google_voice_override_for_direct_callers(): void
@@ -389,10 +399,10 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         );
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $updated->answer_json['answerAudioVoiceId'],
         );
-        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_it_validates_payload_text_voice_and_unknown_fields_before_generation(): void

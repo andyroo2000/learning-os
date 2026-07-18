@@ -27,6 +27,7 @@ use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
+use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
@@ -175,6 +176,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardDraftRetryRateLimiter = new StudyCardDraftRetryRateLimiter;
         RateLimiter::for(StudyCardDraftRetryRateLimiter::NAME, function (Request $request) use ($studyCardDraftRetryRateLimiter): Limit {
             return $studyCardDraftRetryRateLimiter->limit($request);
+        });
+
+        $studyVocabBundleDraftRateLimiter = new StudyVocabBundleDraftRateLimiter;
+        RateLimiter::for(StudyVocabBundleDraftRateLimiter::NAME, function (Request $request) use ($studyVocabBundleDraftRateLimiter): Limit {
+            return $studyVocabBundleDraftRateLimiter->limit($request);
         });
 
         $studyImportCreateRateLimiter = StudyImportRateLimiter::forCreateSession();

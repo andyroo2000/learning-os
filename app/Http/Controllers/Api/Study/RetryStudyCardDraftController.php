@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Api\Study;
 
+use App\Domain\Study\Actions\FailStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\RetryStudyCardDraftAction;
+use App\Domain\Study\Actions\RetryStudyVocabBundleDraftsAction;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Study\StudyCardDraftResource;
 use App\Http\Support\AuthenticatedUser;
 use App\Jobs\ProcessStudyCardDraft;
+use App\Jobs\ProcessStudyVocabBundleDrafts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 class RetryStudyCardDraftController extends Controller
 {
@@ -19,13 +23,31 @@ class RetryStudyCardDraftController extends Controller
         Request $request,
         string $draftId,
         RetryStudyCardDraftAction $retryStudyCardDraft,
+        RetryStudyVocabBundleDraftsAction $retryStudyVocabBundleDrafts,
+        FailStudyVocabBundleDraftsAction $failStudyVocabBundleDrafts,
     ): JsonResponse {
         try {
-            $draft = $retryStudyCardDraft->handle(
-                AuthenticatedUser::id($request),
+            $userId = AuthenticatedUser::id($request);
+            $draft = $retryStudyVocabBundleDrafts->handleIfBundle(
+                $userId,
+                $draftId,
+                afterCommit: static function (string $groupId) use ($failStudyVocabBundleDrafts): void {
+                    try {
+                        ProcessStudyVocabBundleDrafts::dispatch($groupId);
+                    } catch (Throwable $exception) {
+                        report($exception);
+                        $failStudyVocabBundleDrafts->handle(
+                            $groupId,
+                            ProcessStudyVocabBundleDrafts::EXHAUSTED_ERROR_MESSAGE,
+                        );
+                    }
+                },
+            ) ?? $retryStudyCardDraft->handle(
+                $userId,
                 $draftId,
                 afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
             );
+            $draft->refresh();
         } catch (StudyCardDraftNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         } catch (StudyCardDraftConflictException $exception) {

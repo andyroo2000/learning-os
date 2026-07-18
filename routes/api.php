@@ -21,6 +21,7 @@ use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
+use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -106,6 +107,7 @@ use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
+use App\Http\Controllers\Api\Study\StoreStudyVocabBundleDraftsController;
 use App\Http\Controllers\Api\Study\SyncWaniKaniKanjiController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardController;
@@ -251,6 +253,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+    Route::post('/study/card-candidates/vocab-bundle/drafts', StoreStudyVocabBundleDraftsController::class)
+        ->middleware('throttle:'.StudyVocabBundleDraftRateLimiter::NAME);
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);

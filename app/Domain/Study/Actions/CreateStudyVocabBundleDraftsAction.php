@@ -10,14 +10,13 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Models\StudyVocabVariantSentence;
 use App\Domain\Study\Results\CreateStudyVocabBundleDraftsResult;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Support\Facades\DB;
 
 class CreateStudyVocabBundleDraftsAction
 {
-    private const DEFAULT_VOICE_ID = 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f';
-
     public function __construct(
         private readonly CreateStudyCardDraftAction $createStudyCardDraft,
     ) {}
@@ -146,7 +145,7 @@ class CreateStudyVocabBundleDraftsAction
                 'answer' => [
                     'restoredText' => $label,
                     'meaning' => '',
-                    'answerAudioVoiceId' => self::DEFAULT_VOICE_ID,
+                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
                 ],
                 'variantKind' => VocabVariantKind::SentenceCloze,
                 'variantStage' => 5,
@@ -164,7 +163,7 @@ class CreateStudyVocabBundleDraftsAction
         return [
             'expression' => $expression,
             'meaning' => '',
-            'answerAudioVoiceId' => self::DEFAULT_VOICE_ID,
+            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
         ];
     }
 }

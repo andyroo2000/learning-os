@@ -2,14 +2,19 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Actions\CreateStudyVocabBundleDraftsAction;
+use App\Domain\Study\Data\CreateStudyVocabBundleData;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Jobs\ProcessStudyCardDraft;
+use App\Jobs\ProcessStudyVocabBundleDrafts;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
@@ -102,6 +107,71 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
             ProcessStudyCardDraft::QUEUE_NAME,
             ProcessStudyCardDraft::class,
             fn (ProcessStudyCardDraft $job): bool => $job->draftId === $generatingDraft->id,
+        );
+    }
+
+    public function test_it_retries_an_owned_errored_vocab_bundle_as_one_job(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $group = $this->createVocabBundle($user);
+        (new ProcessStudyVocabBundleDrafts($group->id))
+            ->failed(new \RuntimeException('provider unavailable'));
+        $draft = StudyCardDraft::query()
+            ->where('variant_group_id', $group->id)
+            ->firstOrFail();
+
+        $response = $this->postJson("/api/study/card-drafts/{$draft->id}/retry")
+            ->assertOk()
+            ->assertJsonPath('id', $draft->id)
+            ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value)
+            ->assertJsonPath('errorMessage', null);
+
+        $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
+        $this->assertSame(
+            11,
+            StudyCardDraft::query()
+                ->where('variant_group_id', $group->id)
+                ->where('status', StudyManualCardDraftStatus::Generating)
+                ->count(),
+        );
+        Queue::assertPushedOn(
+            ProcessStudyVocabBundleDrafts::QUEUE_NAME,
+            ProcessStudyVocabBundleDrafts::class,
+            fn (ProcessStudyVocabBundleDrafts $job): bool => $job->groupId === $group->id,
+        );
+        Queue::assertNotPushed(ProcessStudyCardDraft::class);
+    }
+
+    public function test_vocab_bundle_retry_dispatch_failure_returns_an_error_draft(): void
+    {
+        $user = $this->signIn();
+        $group = $this->createVocabBundle($user);
+        (new ProcessStudyVocabBundleDrafts($group->id))
+            ->failed(new \RuntimeException('provider unavailable'));
+        $draft = StudyCardDraft::query()
+            ->where('variant_group_id', $group->id)
+            ->firstOrFail();
+        $this->mock(Dispatcher::class)
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new \RuntimeException('queue unavailable'));
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/retry")
+            ->assertOk()
+            ->assertJsonPath('id', $draft->id)
+            ->assertJsonPath('status', StudyManualCardDraftStatus::Error->value)
+            ->assertJsonPath(
+                'errorMessage',
+                ProcessStudyVocabBundleDrafts::EXHAUSTED_ERROR_MESSAGE,
+            );
+
+        $this->assertSame(
+            0,
+            StudyCardDraft::query()
+                ->where('variant_group_id', $group->id)
+                ->where('status', StudyManualCardDraftStatus::Generating)
+                ->count(),
         );
     }
 
@@ -215,5 +285,18 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
         $this->assertSame('anon:203.0.113.10', $limit->key);
+    }
+
+    private function createVocabBundle(User $user): StudyVocabVariantGroup
+    {
+        return app(CreateStudyVocabBundleDraftsAction::class)->handle(
+            CreateStudyVocabBundleData::fromInput(
+                userId: $user->id,
+                targetWord: '会社',
+                sourceSentence: null,
+                context: null,
+                includeLearnerContext: false,
+            ),
+        )->group;
     }
 }

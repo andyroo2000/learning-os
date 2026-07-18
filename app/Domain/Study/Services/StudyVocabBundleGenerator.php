@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use JsonException;
@@ -16,8 +17,6 @@ class StudyVocabBundleGenerator
     public const SENTENCE_COUNT = 3;
 
     public const DRAFT_COUNT = 11;
-
-    private const DEFAULT_VOICE_ID = 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f';
 
     public function __construct(
         private readonly OpenAiStudyCardGenerator $openAi,
@@ -197,7 +196,7 @@ PROMPT;
             'notes' => "Target word: {$targetWord}",
             'sentenceJp' => $sentences[0]['sentenceJp'],
             'sentenceEn' => $sentences[0]['sentenceEn'],
-            'answerAudioVoiceId' => self::DEFAULT_VOICE_ID,
+            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
         ];
         $variants[] = $this->variant(
             StudyCardCreationKind::AudioRecognition,
@@ -226,7 +225,7 @@ PROMPT;
                     'restoredTextReading' => $sentence['sentenceReading'],
                     'meaning' => $sentence['sentenceEn'],
                     'notes' => $sentence['notes'],
-                    'answerAudioVoiceId' => self::DEFAULT_VOICE_ID,
+                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
                 ],
                 VocabVariantKind::SentenceCloze,
                 5,
@@ -259,7 +258,7 @@ PROMPT;
                 'expressionReading' => $sentence['sentenceReading'],
                 'meaning' => $sentence['sentenceEn'],
                 'notes' => $sentence['notes'],
-                'answerAudioVoiceId' => self::DEFAULT_VOICE_ID,
+                'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
             ],
             $variantKind,
             $stage,

@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ConvoLabRehearsalImportCommandTest extends TestCase
@@ -405,6 +406,25 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        $variantGroupId = strtolower((string) Str::ulid());
+        DB::table('study_vocab_variant_groups')->insert([
+            'id' => $variantGroupId,
+            'user_id' => $existingUser->id,
+            'target_word' => '会社',
+            'include_learner_context' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('study_vocab_variant_sentences')->insert([
+            'id' => strtolower((string) Str::ulid()),
+            'user_id' => $existingUser->id,
+            'variant_group_id' => $variantGroupId,
+            'ordinal' => 0,
+            'sentence_jp' => '会社で働いています。',
+            'sentence_en' => 'I work at a company.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
         $this->artisan('rehearsal:import-convolab', [
             '--source-connection' => 'convolab_test_source',
@@ -417,6 +437,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
         $this->assertDatabaseCount('wanikani_connections', 0);
         $this->assertDatabaseCount('user_known_kanji', 0);
+        $this->assertDatabaseCount('study_vocab_variant_sentences', 0);
+        $this->assertDatabaseCount('study_vocab_variant_groups', 0);
         $this->assertDatabaseCount('users', 1);
     }
 

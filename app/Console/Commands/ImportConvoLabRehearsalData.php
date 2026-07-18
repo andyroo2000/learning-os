@@ -27,6 +27,8 @@ class ImportConvoLabRehearsalData extends Command
         'card_review_events',
         'sync_feed_entries',
         'study_card_drafts',
+        'study_vocab_variant_sentences',
+        'study_vocab_variant_groups',
         'media_assets',
         'cards',
         'decks',

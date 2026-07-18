@@ -16,6 +16,7 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
+use App\Domain\Study\Support\StudyCardDraftPreviewMediaRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
@@ -74,6 +75,8 @@ use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
+use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
+use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
@@ -258,6 +261,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
         ->whereUlid('draftId')
         ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
+    // Audio and image generation share one spend-protection bucket.
+    Route::post('/study/card-drafts/{draftId}/preview-audio', GenerateStudyCardDraftPreviewAudioController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardDraftPreviewMediaRateLimiter::NAME);
+    Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
+        ->whereUlid('draftId')
+        ->middleware('throttle:'.StudyCardDraftPreviewMediaRateLimiter::NAME);
     // Manual generation retries use their own 30/min user bucket so create/autosave retries cannot starve them.
     Route::post('/study/card-drafts/{draftId}/retry', RetryStudyCardDraftController::class)
         ->whereUlid('draftId')

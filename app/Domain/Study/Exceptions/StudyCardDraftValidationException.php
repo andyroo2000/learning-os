@@ -51,6 +51,31 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self('previewAudioRole requires previewAudio.', 'previewAudioRole');
     }
 
+    public static function missingPreviewAudioText(): self
+    {
+        return new self('The draft answer has no text available for audio generation.', 'answer');
+    }
+
+    public static function previewAudioTextTooLong(int $maxLength): self
+    {
+        return new self("Preview audio text must be {$maxLength} characters or fewer.", 'answer');
+    }
+
+    public static function invalidPreviewAudioVoice(): self
+    {
+        return new self('answer.answerAudioVoiceId must be a Fish Audio voice ID.', 'answer.answerAudioVoiceId');
+    }
+
+    public static function missingPreviewImagePrompt(): self
+    {
+        return new self('imagePrompt is required to generate a preview image.', 'imagePrompt');
+    }
+
+    public static function previewImageRequiresPlacement(): self
+    {
+        return new self('imagePlacement must not be none when generating a preview image.', 'imagePlacement');
+    }
+
     public static function payloadsTooLarge(int $maxKilobytes): self
     {
         return new self("study card payloads must be {$maxKilobytes} KB or smaller.", 'payloads');

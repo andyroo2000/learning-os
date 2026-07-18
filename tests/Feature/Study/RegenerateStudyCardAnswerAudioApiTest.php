@@ -302,6 +302,14 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $card->refresh()->answer_json['answerAudioVoiceId'],
         );
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
+        $this->assertSame(
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
+            $cardEntry->payload['answer_json']['answerAudioVoiceId'],
+        );
         Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 

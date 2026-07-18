@@ -10,6 +10,7 @@ use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Study\Actions\RegenerateStudyCardAnswerAudioAction;
 use App\Domain\Study\Data\RegenerateStudyCardAnswerAudioData;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -250,6 +251,82 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_prepare_migrates_a_persisted_legacy_google_voice_to_the_fish_default(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'answer_json' => [
+                'expression' => '会社',
+                'answerAudioVoiceId' => 'ja-JP-Wavenet-D',
+            ],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
+            ->assertOk()
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID)
+            ->assertJsonPath('answer.answerAudio.source', 'generated');
+
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            $card->refresh()->answer_json['answerAudioVoiceId'],
+        );
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            $cardEntry->payload['answer_json']['answerAudioVoiceId'],
+        );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+    }
+
+    public function test_regenerate_accepts_a_legacy_google_voice_override_and_persists_the_fish_default(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'answer_json' => ['expression' => '会社'],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio", [
+            'answerAudioVoiceId' => 'ja-JP-Neural2-C',
+        ])
+            ->assertOk()
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID);
+
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            $card->refresh()->answer_json['answerAudioVoiceId'],
+        );
+    }
+
+    public function test_the_action_migrates_a_legacy_google_voice_override_for_direct_callers(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3direct-migration')]);
+        $user = User::factory()->create();
+        $card = $this->studyCardFor($user, [
+            'answer_json' => ['expression' => '会社'],
+        ]);
+
+        $updated = app(RegenerateStudyCardAnswerAudioAction::class)->handle(
+            $card,
+            RegenerateStudyCardAnswerAudioData::fromInput(
+                hasVoiceId: true,
+                voiceId: 'ja-JP-Wavenet-A',
+                hasTextOverride: false,
+                textOverride: null,
+            ),
+        );
+
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            $updated->answer_json['answerAudioVoiceId'],
+        );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+    }
+
     public function test_it_validates_payload_text_voice_and_unknown_fields_before_generation(): void
     {
         Http::fake();
@@ -257,7 +334,7 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $card = $this->studyCardFor($user, ['answer_json' => ['meaning' => 'company']]);
 
         $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio", [
-            'answerAudioVoiceId' => 'ja-JP-Wavenet-D',
+            'answerAudioVoiceId' => 'not-a-voice',
             'unexpected' => true,
         ])
             ->assertUnprocessable()
@@ -273,7 +350,7 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $card = $this->studyCardFor($user, [
             'answer_json' => [
                 'expression' => '会社',
-                'answerAudioVoiceId' => 'ja-JP-Wavenet-D',
+                'answerAudioVoiceId' => 'not-a-voice',
             ],
         ]);
 

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Study;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Data\RegenerateStudyCardAnswerAudioData;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
@@ -39,7 +40,16 @@ class RegenerateStudyCardAnswerAudioRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'answerAudioVoiceId' => ['sometimes', 'nullable', 'string', 'regex:/^fishaudio:[a-f0-9]{32}$/i'],
+            'answerAudioVoiceId' => [
+                'sometimes',
+                'nullable',
+                'string',
+                static function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value) || StudyCardGenerationDefaults::normalizeVoiceId($value) === null) {
+                        $fail("The {$attribute} field format is invalid.");
+                    }
+                },
+            ],
             'answerAudioTextOverride' => ['sometimes', 'nullable', 'string', 'max:'.FishAudioSpeechGenerator::MAX_TEXT_LENGTH],
         ];
 

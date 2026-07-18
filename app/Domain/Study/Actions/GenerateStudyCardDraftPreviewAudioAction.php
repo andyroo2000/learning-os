@@ -39,9 +39,11 @@ class GenerateStudyCardDraftPreviewAudioAction
             throw StudyCardDraftValidationException::previewAudioTextTooLong(FishAudioSpeechGenerator::MAX_TEXT_LENGTH);
         }
 
-        $voiceId = $this->answerString($draft, 'answerAudioVoiceId')
+        $configuredVoiceId = $this->answerString($draft, 'answerAudioVoiceId')
             ?? StudyCardGenerationDefaults::VOICE_ID;
-        if (preg_match('/^fishaudio:[a-f0-9]{32}$/i', $voiceId) !== 1) {
+        // Normalize provider input without rewriting draft fields from this pre-generation snapshot.
+        $voiceId = StudyCardGenerationDefaults::normalizeVoiceId($configuredVoiceId);
+        if ($voiceId === null) {
             throw StudyCardDraftValidationException::invalidPreviewAudioVoice();
         }
 

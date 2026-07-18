@@ -317,12 +317,13 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             'answerAudioVoiceId' => 'Tomoko',
         ])
             ->assertOk()
-            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID);
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::FEMALE_VOICE_ID);
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $card->refresh()->answer_json['answerAudioVoiceId'],
         );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_the_action_migrates_a_legacy_polly_voice_override_for_direct_callers(): void
@@ -344,10 +345,10 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         );
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $updated->answer_json['answerAudioVoiceId'],
         );
-        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_regenerate_accepts_a_legacy_google_voice_override_and_persists_the_fish_default(): void
@@ -389,10 +390,10 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         );
 
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            StudyCardGenerationDefaults::FEMALE_VOICE_ID,
             $updated->answer_json['answerAudioVoiceId'],
         );
-        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === '9639f090aa6346329d7d3aca7e6b7226');
     }
 
     public function test_it_validates_payload_text_voice_and_unknown_fields_before_generation(): void

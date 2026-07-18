@@ -19,43 +19,50 @@ class StudyCardGenerationDefaultsTest extends TestCase
     }
 
     #[DataProvider('legacyGoogleVoiceProvider')]
-    public function test_it_migrates_supported_legacy_google_voices_to_the_fish_default(string $voiceId): void
-    {
+    public function test_it_migrates_supported_legacy_google_voices_to_a_fish_voice_with_matching_gender(
+        string $voiceId,
+        string $expectedVoiceId,
+    ): void {
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            $expectedVoiceId,
             StudyCardGenerationDefaults::normalizeVoiceId($voiceId),
         );
     }
 
     /**
-     * @return iterable<string, array{string}>
+     * @return iterable<string, array{string, string}>
      */
     public static function legacyGoogleVoiceProvider(): iterable
     {
-        yield 'Neural2 lower boundary' => ['ja-JP-Neural2-A'];
-        yield 'Neural2 upper boundary' => ['ja-JP-Neural2-D'];
-        yield 'Wavenet lower boundary' => ['ja-JP-Wavenet-A'];
-        yield 'Wavenet upper boundary' => ['ja-JP-Wavenet-D'];
-        yield 'case insensitive' => ['JA-jp-wAVEnet-C'];
+        yield 'Neural2 female A' => ['ja-JP-Neural2-A', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
+        yield 'Neural2 female B' => ['ja-JP-Neural2-B', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
+        yield 'Neural2 male C' => ['ja-JP-Neural2-C', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Neural2 male D' => ['ja-JP-Neural2-D', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Wavenet female A' => ['ja-JP-Wavenet-A', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
+        yield 'Wavenet female B' => ['ja-JP-Wavenet-B', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
+        yield 'Wavenet male C with case-insensitive input' => ['JA-jp-wAVEnet-C', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Wavenet male D' => ['ja-JP-Wavenet-D', StudyCardGenerationDefaults::VOICE_ID];
     }
 
     #[DataProvider('legacyPollyVoiceProvider')]
-    public function test_it_migrates_supported_legacy_polly_voices_to_the_fish_default(string $voiceId): void
-    {
+    public function test_it_migrates_supported_legacy_polly_voices_to_a_fish_voice_with_matching_gender(
+        string $voiceId,
+        string $expectedVoiceId,
+    ): void {
         $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+            $expectedVoiceId,
             StudyCardGenerationDefaults::normalizeVoiceId($voiceId),
         );
     }
 
     /**
-     * @return iterable<string, array{string}>
+     * @return iterable<string, array{string, string}>
      */
     public static function legacyPollyVoiceProvider(): iterable
     {
-        yield 'Takumi' => ['Takumi'];
-        yield 'Kazuha' => ['Kazuha'];
-        yield 'Tomoko' => ['Tomoko'];
+        yield 'Takumi' => ['Takumi', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Kazuha' => ['Kazuha', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
+        yield 'Tomoko' => ['Tomoko', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
     }
 
     #[DataProvider('unsupportedVoiceProvider')]

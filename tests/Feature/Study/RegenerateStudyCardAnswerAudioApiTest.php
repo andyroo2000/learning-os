@@ -282,6 +282,29 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
     }
 
+    public function test_prepare_migrates_a_persisted_legacy_polly_voice_to_the_fish_default(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'answer_json' => [
+                'expression' => '会社',
+                'answerAudioVoiceId' => 'Takumi',
+            ],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
+            ->assertOk()
+            ->assertJsonPath('answer.answerAudioVoiceId', StudyCardGenerationDefaults::VOICE_ID)
+            ->assertJsonPath('answer.answerAudio.source', 'generated');
+
+        $this->assertSame(
+            StudyCardGenerationDefaults::VOICE_ID,
+            $card->refresh()->answer_json['answerAudioVoiceId'],
+        );
+        Http::assertSent(fn (Request $request): bool => $request->data()['reference_id'] === 'abb4362e736f40b7b5716f4fafcafa9f');
+    }
+
     public function test_regenerate_accepts_a_legacy_google_voice_override_and_persists_the_fish_default(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3migrated')]);

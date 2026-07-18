@@ -39,4 +39,11 @@ return [
         'base_url' => env('WANIKANI_API_BASE_URL', 'https://api.wanikani.com/v2'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_API_BASE_URL', 'https://api.openai.com/v1'),
+        'study_card_model' => env('STUDY_CARD_GENERATOR_MODEL', 'gpt-5.5'),
+        'study_card_reasoning_effort' => env('STUDY_CARD_GENERATOR_REASONING_EFFORT', 'medium'),
+    ],
+
 ];

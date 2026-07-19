@@ -170,6 +170,25 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
         );
     }
 
+    public function test_normalizes_postgres_shortened_fractional_timestamps(): void
+    {
+        DB::connection('convolab_daily_audio_test_source')
+            ->table('daily_audio_practices')
+            ->update([
+                // Postgres renders a stored .500 millisecond fraction as .5 by default.
+                'createdAt' => '2026-06-24 14:46:18.5',
+                'updatedAt' => '2026-06-24 15:18:16.05',
+            ]);
+        $this->putSourceFile(self::SOURCE_OBJECT_PATH, 'verified-audio');
+
+        $this->artisan('migration:import-convolab-daily-audio', $this->commandOptions())
+            ->assertExitCode(0);
+
+        $practice = DailyAudioPractice::query()->sole();
+        $this->assertSame('2026-06-24 14:46:18.500', $practice->created_at->format('Y-m-d H:i:s.v'));
+        $this->assertSame('2026-06-24 15:18:16.050', $practice->updated_at->format('Y-m-d H:i:s.v'));
+    }
+
     public function test_repairs_timestamps_for_tracks_without_media(): void
     {
         $source = DB::connection('convolab_daily_audio_test_source');

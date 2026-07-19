@@ -171,6 +171,47 @@ For the production Learning OS target, add both safeguards:
 The confirmation must exactly name the active target database. Always run this
 against the restored Convo Lab source copy, never the live Convo Lab database.
 
+### Import Historical Daily Audio
+
+Daily Audio files use GCS object paths rooted at
+`daily-audio-practice/...`, while Learning OS serves them from canonical paths
+rooted at `daily-audio/...`. Export the source objects into the same media root:
+
+```bash
+gcloud storage cp --recursive \
+  "$CONVOLAB_MEDIA_BUCKET/daily-audio-practice" \
+  "$CONVOLAB_MEDIA_ROOT"
+```
+
+Then verify and import the historical tracks:
+
+```bash
+php artisan migration:import-convolab-daily-audio \
+  --source-database=learning_os_convolab_source \
+  --source-media-root="$CONVOLAB_MEDIA_ROOT" \
+  --source-bucket=<convo-lab-media-bucket>
+```
+
+The command accepts only ready source tracks with strict
+`https://storage.googleapis.com/<bucket>/daily-audio-practice/...` URLs. It
+checks the source practice relationship, matching target track ID, practice,
+mode and status, plus source and destination byte checksums. After every track
+passes preflight, it copies missing files and rewrites the target rows to
+Learning OS's authenticated audio route under a database transaction and row
+locks.
+
+Retries reuse byte-identical files. Conflicting files, missing source objects,
+dangling records, unmatched legacy target tracks, and non-GCS URLs fail the
+whole import. Files created by an attempt are removed if its database
+transaction fails.
+
+For production, add both safeguards:
+
+```bash
+--allow-production \
+--production-confirmation="IMPORT DAILY AUDIO INTO learning_os"
+```
+
 ## 6. Run The Smoke Harness
 
 Run the read-oriented API smoke check as a real user from the restored data:

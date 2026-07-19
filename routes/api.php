@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
+use App\Http\Controllers\Api\Study\ListDailyAudioPracticesController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
@@ -99,6 +100,8 @@ use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
+use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeController;
+use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeStatusController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
@@ -215,6 +218,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class)
         ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+    Route::get('/daily-audio-practice', ListDailyAudioPracticesController::class);
+    Route::get('/daily-audio-practice/{practiceId}', ShowDailyAudioPracticeController::class)
+        ->whereUuid('practiceId');
+    Route::get('/daily-audio-practice/{practiceId}/status', ShowDailyAudioPracticeStatusController::class)
+        ->whereUuid('practiceId');
     Route::get('/study/export', ShowStudyExportManifestController::class);
     Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)->name('api.study.export.card-drafts');
     Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');

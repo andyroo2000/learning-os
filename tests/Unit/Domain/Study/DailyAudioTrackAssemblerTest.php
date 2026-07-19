@@ -149,6 +149,48 @@ class DailyAudioTrackAssemblerTest extends TestCase
         ], $result->timingData);
     }
 
+    public function test_degenerate_audio_ceiling_scales_for_intentionally_slow_speech(): void
+    {
+        $speech = $this->mock(FishAudioSpeechGenerator::class);
+        $speech->shouldReceive('generate')
+            ->once()
+            ->with('短い', 'fishaudio:speaker', 0.5)
+            ->andReturn('ID3slow-speech');
+        $audio = $this->mock(DailyAudioAudioProcessor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('normalize')
+                ->once()
+                ->andReturnUsing(fn (string $input, string $output): bool => copy($input, $output));
+            $mock->shouldReceive('duration')
+                ->withArgs(fn (string $path): bool => ! str_ends_with($path, '/track.mp3'))
+                ->once()
+                ->andReturn(15.0);
+            $mock->shouldNotReceive('truncate');
+            $mock->shouldReceive('concatenate')
+                ->once()
+                ->andReturnUsing(function (array $segments, string $directory, string $output): void {
+                    file_put_contents($output, 'ID3assembled-track');
+                });
+            $mock->shouldReceive('duration')
+                ->withArgs(fn (string $path): bool => str_ends_with($path, '/track.mp3'))
+                ->once()
+                ->andReturn(15.0);
+        });
+
+        $result = (new DailyAudioTrackAssembler($speech, $audio))->assemble(
+            $this->practiceId,
+            $this->trackId,
+            [DailyAudioScriptUnit::targetLanguage(
+                '短い',
+                null,
+                'Short.',
+                'fishaudio:speaker',
+                0.5,
+            )],
+        );
+
+        $this->assertSame(15, $result->durationSeconds);
+    }
+
     public function test_it_does_not_persist_a_partial_track_when_concatenation_fails(): void
     {
         $speech = $this->mock(FishAudioSpeechGenerator::class);
@@ -232,6 +274,11 @@ class DailyAudioTrackAssemblerTest extends TestCase
             ['bad-id', $this->trackId, [DailyAudioScriptUnit::pause(1)]],
             [$this->practiceId, $this->trackId, []],
             [$this->practiceId, $this->trackId, ['not-a-unit']],
+            [
+                $this->practiceId,
+                $this->trackId,
+                [DailyAudioScriptUnit::marker('no audio')],
+            ],
             [
                 $this->practiceId,
                 $this->trackId,

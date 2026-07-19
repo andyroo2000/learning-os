@@ -44,6 +44,11 @@ class DailyAudioTrackAssembler
         )) {
             throw new InvalidArgumentException('Daily Audio assembly requires typed script units.');
         }
+        if ($units->every(
+            fn (DailyAudioScriptUnit $unit): bool => $unit->type === 'marker',
+        )) {
+            throw new InvalidArgumentException('Daily Audio assembly requires at least one audio unit.');
+        }
 
         $directory = sys_get_temp_dir().'/learning-os-daily-audio-'.bin2hex(random_bytes(12));
         if (! mkdir($directory, 0700, true) && ! is_dir($directory)) {
@@ -162,7 +167,8 @@ class DailyAudioTrackAssembler
         string $directory,
         int $sequence,
     ): array {
-        $maximumDuration = max(10.0, mb_strlen($text, 'UTF-8') * 0.5);
+        $maximumDuration = max(10.0, mb_strlen($text, 'UTF-8') * 0.5)
+            / min(1.0, $speed);
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $rawPath = "{$directory}/speech-{$sequence}-{$attempt}-raw.mp3";

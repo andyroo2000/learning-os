@@ -5,8 +5,10 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -159,19 +161,67 @@ class ResolveStudyCardPitchAccentApiTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_it_uses_restored_cloze_text_for_resolution(): void
+    public function test_it_uses_the_variant_group_target_for_realistic_sentence_and_cloze_cards(): void
     {
         Http::fake();
         $user = $this->signIn();
-        $card = $this->studyCardFor($user, [
-            'card_type' => CardType::Cloze,
+        $group = StudyVocabVariantGroup::factory()->for($user)->create([
+            'target_word' => '会社',
+            'target_reading' => '会社[かいしゃ]',
+        ]);
+        $sentenceCard = $this->studyCardFor($user, [
+            'variant_group_id' => $group->id,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
             'answer_json' => [
-                'restoredText' => '会社[かいしゃ]',
-                'restoredTextReading' => '会社[かいしゃ]',
+                'expression' => 'この会社で働いています。',
+                'expressionReading' => 'この会社[かいしゃ]で働[はたら]いています。',
+            ],
+        ]);
+        $clozeCard = $this->studyCardFor($user, [
+            'card_type' => CardType::Cloze,
+            'variant_group_id' => $group->id,
+            'variant_kind' => VocabVariantKind::SentenceCloze,
+            'answer_json' => [
+                'restoredText' => 'この会社で働いています。',
+                'restoredTextReading' => 'この会社[かいしゃ]で働[はたら]いています。',
             ],
         ]);
 
-        $this->postJson("/api/study/cards/{$card->id}/pitch-accent")
+        $this->postJson("/api/study/cards/{$sentenceCard->id}/pitch-accent")
+            ->assertOk()
+            ->assertJsonPath('answer.pitchAccent.expression', '会社')
+            ->assertJsonPath('answer.pitchAccent.reading', 'かいしゃ');
+        $this->postJson("/api/study/cards/{$clozeCard->id}/pitch-accent")
+            ->assertOk()
+            ->assertJsonPath('answer.pitchAccent.expression', '会社')
+            ->assertJsonPath('answer.pitchAccent.reading', 'かいしゃ');
+    }
+
+    public function test_it_uses_an_owned_word_sibling_when_a_copied_variant_group_row_is_missing(): void
+    {
+        Http::fake();
+        $user = $this->signIn();
+        $groupId = 'copied-convo-group';
+        $sentenceCard = $this->studyCardFor($user, [
+            'variant_group_id' => $groupId,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'answer_json' => ['expression' => 'この会社で働いています。'],
+        ]);
+        $this->studyCardFor(User::factory()->create(), [
+            'variant_group_id' => $groupId,
+            'variant_kind' => VocabVariantKind::WordAudioRecognition,
+            'answer_json' => ['expression' => '学校', 'expressionReading' => 'がっこう'],
+        ]);
+        $this->studyCardFor($user, [
+            'variant_group_id' => $groupId,
+            'variant_kind' => VocabVariantKind::WordTextRecognition,
+            'answer_json' => [
+                'expression' => '会社',
+                'expressionReading' => '会社[かいしゃ]',
+            ],
+        ]);
+
+        $this->postJson("/api/study/cards/{$sentenceCard->id}/pitch-accent")
             ->assertOk()
             ->assertJsonPath('answer.pitchAccent.expression', '会社')
             ->assertJsonPath('answer.pitchAccent.reading', 'かいしゃ');

@@ -8,6 +8,8 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Services\PitchAccentResolver;
 use App\Domain\Study\Exceptions\StudyCardPitchAccentConflictException;
+use App\Domain\Study\Models\StudyVocabVariantGroup;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use Illuminate\Support\Facades\DB;
 
 class ResolveStudyCardPitchAccentAction
@@ -85,6 +87,18 @@ class ResolveStudyCardPitchAccentAction
      */
     private function resolverInput(Card $card, array $prompt, array $answer): array
     {
+        $variantTarget = $this->variantTarget($card);
+        if ($variantTarget !== null) {
+            return [
+                'expression' => $variantTarget['word'],
+                'expressionReading' => $variantTarget['reading'],
+                'promptReading' => null,
+                'sentence' => $this->stringValue($answer, 'restoredText')
+                    ?? $this->stringValue($answer, 'sentenceJp')
+                    ?? $this->stringValue($answer, 'expression'),
+            ];
+        }
+
         if ($card->card_type === CardType::Cloze) {
             return [
                 'expression' => $this->stripBracketRuby(
@@ -106,6 +120,53 @@ class ResolveStudyCardPitchAccentAction
             'promptReading' => $this->stringValue($prompt, 'cueReading'),
             'sentence' => $this->stringValue($answer, 'sentenceJp'),
         ];
+    }
+
+    /**
+     * @return array{word: string, reading: ?string}|null
+     */
+    private function variantTarget(Card $card): ?array
+    {
+        if (! is_string($card->variant_group_id) || $card->variant_group_id === '') {
+            return null;
+        }
+
+        $userId = $card->ownerUserId();
+        $group = StudyVocabVariantGroup::query()
+            ->whereKey($card->variant_group_id)
+            ->where('user_id', $userId)
+            ->first(['target_word', 'target_reading']);
+        if ($group !== null && trim($group->target_word) !== '') {
+            return [
+                'word' => trim($group->target_word),
+                'reading' => is_string($group->target_reading) ? $group->target_reading : null,
+            ];
+        }
+
+        // Copied Convo cards can retain group IDs even when the source group table was not imported.
+        $wordCard = Card::query()
+            ->ownedByActiveDeck($userId)
+            ->where('cards.variant_group_id', $card->variant_group_id)
+            ->whereIn('cards.variant_kind', [
+                VocabVariantKind::WordAudioRecognition->value,
+                VocabVariantKind::WordTextRecognition->value,
+            ])
+            ->orderBy('cards.variant_stage')
+            ->orderBy('cards.id')
+            ->first();
+        $wordAnswer = $wordCard?->answer_json;
+        if (! is_array($wordAnswer)) {
+            return null;
+        }
+
+        $word = $this->stringValue($wordAnswer, 'expression');
+
+        return $word === null || trim($word) === ''
+            ? null
+            : [
+                'word' => trim($word),
+                'reading' => $this->stringValue($wordAnswer, 'expressionReading'),
+            ];
     }
 
     /**

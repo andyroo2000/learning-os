@@ -11,8 +11,12 @@ class OpenAiStudyCardGenerator
 {
     public const TIMEOUT_SECONDS = 90;
 
-    public function generateJson(string $systemInstruction, string $prompt): string
-    {
+    public function generateJson(
+        string $systemInstruction,
+        string $prompt,
+        ?string $model = null,
+        ?string $reasoningEffort = null,
+    ): string {
         $apiKey = trim((string) config('services.openai.api_key'));
 
         if ($apiKey === '') {
@@ -26,7 +30,7 @@ class OpenAiStudyCardGenerator
                 ->withToken($apiKey)
                 ->timeout(self::TIMEOUT_SECONDS)
                 ->post('/responses', [
-                    'model' => (string) config('services.openai.study_card_model'),
+                    'model' => $model ?? (string) config('services.openai.study_card_model'),
                     'input' => [
                         [
                             'role' => 'system',
@@ -38,7 +42,8 @@ class OpenAiStudyCardGenerator
                         ],
                     ],
                     'reasoning' => [
-                        'effort' => (string) config('services.openai.study_card_reasoning_effort'),
+                        'effort' => $reasoningEffort
+                            ?? (string) config('services.openai.study_card_reasoning_effort'),
                     ],
                     'text' => [
                         'format' => ['type' => 'json_object'],

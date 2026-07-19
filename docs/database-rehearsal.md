@@ -157,9 +157,9 @@ The import is idempotent. A successful retry reuses matching media rows, files,
 and card links. If the database transaction fails, the command rolls it back
 and removes files created by that attempt; files that existed before the
 attempt are left untouched. A target-database lock also prevents concurrent
-import commands from racing over the same files. Production must use a shared,
-lock-capable cache store such as the default database store; an in-process
-`array` cache cannot coordinate separate CLI processes.
+import commands from racing over the same files. The command pins this lock to
+Laravel's shared database cache store even if the app's default cache store is
+configured differently.
 
 For the production Learning OS target, add both safeguards:
 

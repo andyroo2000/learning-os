@@ -29,6 +29,8 @@ class ImportConvoLabMedia extends Command
 
     private const LOCK_TTL_SECONDS = 86400;
 
+    private const LOCK_CACHE_STORE = 'database';
+
     protected $signature = 'migration:import-convolab-media
         {--source-connection=convolab_rehearsal : Temporary source connection name}
         {--source-database= : Restored Convo Lab source database name}
@@ -184,7 +186,7 @@ class ImportConvoLabMedia extends Command
 
     private function importLock(ConnectionInterface $target): Lock
     {
-        return Cache::lock(
+        return Cache::store(self::LOCK_CACHE_STORE)->lock(
             'migration:import-convolab-media:'.$target->getDatabaseName(),
             self::LOCK_TTL_SECONDS,
         );
@@ -863,6 +865,9 @@ class ImportConvoLabMedia extends Command
                     createdAt: $pair['created_at'],
                     updatedAt: $pair['updated_at'],
                 );
+            }
+
+            if ($inserted === 1) {
                 $created++;
             }
         }

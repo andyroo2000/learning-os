@@ -152,6 +152,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
         ]);
 
         $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain('Convo Lab media import completed: 1 media assets, 0 new card links.')
             ->assertExitCode(0);
         $this->artisan('migration:import-convolab-media', $this->commandOptions())
             ->assertExitCode(0);
@@ -174,7 +175,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
     public function test_rejects_a_concurrent_import_before_touching_storage_or_data(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
-        $lock = Cache::lock(
+        $lock = Cache::store('database')->lock(
             'migration:import-convolab-media:'.DB::connection()->getDatabaseName(),
             30,
         );

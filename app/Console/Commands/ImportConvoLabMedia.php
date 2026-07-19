@@ -75,6 +75,16 @@ class ImportConvoLabMedia extends Command
     private array $userIdBySourceMediaId = [];
 
     /**
+     * @var array<string, true>
+     */
+    private array $unavailableSourceMediaIds = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $skippedUnavailableCardMediaPairs = [];
+
+    /**
      * @var array<string, array{
      *     card_id: string,
      *     user_id: int,
@@ -125,6 +135,14 @@ class ImportConvoLabMedia extends Command
             $cardMediaPairs = $this->buildCardMediaPairs($source);
             $existingMedia = $this->preflightExistingMedia($target);
             $this->preflightDestinationFiles();
+
+            if ($this->unavailableSourceMediaIds !== []) {
+                $this->warn(sprintf(
+                    'Skipped %d unavailable Convo Lab media rows and %d card media links without storage paths.',
+                    count($this->unavailableSourceMediaIds),
+                    count($this->skippedUnavailableCardMediaPairs),
+                ));
+            }
 
             $this->line(sprintf(
                 'Verified %d unique media files and %d card media links.',
@@ -439,6 +457,7 @@ class ImportConvoLabMedia extends Command
         $this->mediaByPath = [];
         $this->pathBySourceMediaId = [];
         $this->userIdBySourceMediaId = [];
+        $this->unavailableSourceMediaIds = [];
 
         $source->table('study_media')
             ->orderBy('createdAt')
@@ -446,6 +465,13 @@ class ImportConvoLabMedia extends Command
             ->chunk(500, function (Collection $rows) use ($sourceMediaRoot, $userIds, $importJobIds): void {
                 foreach ($rows as $media) {
                     $sourceId = (string) $media->id;
+
+                    if (! is_string($media->storagePath) || trim($media->storagePath) === '') {
+                        $this->unavailableSourceMediaIds[$sourceId] = true;
+
+                        continue;
+                    }
+
                     $userId = $userIds[(string) $media->userId] ?? null;
 
                     if ($userId === null) {
@@ -579,6 +605,7 @@ class ImportConvoLabMedia extends Command
     private function buildCardMediaPairs(ConnectionInterface $source): array
     {
         $pairs = [];
+        $this->skippedUnavailableCardMediaPairs = [];
 
         foreach ($source->table('study_cards')
             ->where(function ($query): void {
@@ -594,13 +621,22 @@ class ImportConvoLabMedia extends Command
                     continue;
                 }
 
-                $path = $this->pathBySourceMediaId[(string) $sourceMediaId] ?? null;
+                $sourceMediaId = (string) $sourceMediaId;
+                if (isset($this->unavailableSourceMediaIds[$sourceMediaId])) {
+                    $this->skippedUnavailableCardMediaPairs[
+                        (string) $card->id."\n".$sourceMediaId
+                    ] = true;
+
+                    continue;
+                }
+
+                $path = $this->pathBySourceMediaId[$sourceMediaId] ?? null;
 
                 if ($path === null) {
                     throw new RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
                 }
 
-                if (($this->userIdBySourceMediaId[(string) $sourceMediaId] ?? null) !== $targetCard['user_id']) {
+                if (($this->userIdBySourceMediaId[$sourceMediaId] ?? null) !== $targetCard['user_id']) {
                     throw new RuntimeException(
                         "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
                     );

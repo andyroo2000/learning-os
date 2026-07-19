@@ -347,6 +347,8 @@ class ImportConvoLabMedia extends Command
         $targetCards = $target->table('cards')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->whereNotNull('cards.convolab_id')
+            ->whereNull('cards.deleted_at')
+            ->whereNull('decks.deleted_at')
             ->get(['cards.id', 'cards.convolab_id', 'decks.user_id'])
             ->mapWithKeys(fn (object $card): array => [
                 strtolower((string) $card->convolab_id) => [

@@ -243,6 +243,38 @@ class ConvoLabMediaImportCommandTest extends TestCase
         $this->assertDatabaseCount('card_media', 1);
     }
 
+    public function test_rejects_media_for_a_soft_deleted_target_card(): void
+    {
+        $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
+        Card::query()->sole()->delete();
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain(
+                'Learning OS has no card matching Convo Lab card ['.self::SOURCE_CARD_ID.'].',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing('study-media/source-user/neko.mp3');
+    }
+
+    public function test_rejects_media_for_a_card_in_a_soft_deleted_target_deck(): void
+    {
+        $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
+        Card::query()->sole()->deck()->sole()->delete();
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain(
+                'Learning OS has no card matching Convo Lab card ['.self::SOURCE_CARD_ID.'].',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing('study-media/source-user/neko.mp3');
+    }
+
     public function test_rejects_missing_import_job_provenance(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');

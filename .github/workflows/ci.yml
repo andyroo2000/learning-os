@@ -134,4 +134,7 @@ jobs:
         run: php artisan migrate:status --ansi
 
       - name: Run rehearsal importer against PostgreSQL
-        run: php artisan test tests/Feature/Rehearsal/ConvoLabRehearsalImportCommandTest.php
+        run: |
+          php artisan test \
+            tests/Feature/Rehearsal/ConvoLabRehearsalImportCommandTest.php \
+            tests/Feature/Rehearsal/ConvoLabMediaImportCommandTest.php

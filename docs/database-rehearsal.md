@@ -114,7 +114,56 @@ zero-byte placeholder assets through its offline media manifests. Migrate media
 bytes and verified sizes in a separate step before enabling media-dependent API
 features.
 
-## 5. Run The Smoke Harness
+## 5. Import Verified Media Bytes
+
+Export Convo Lab's GCS study media into a local directory while preserving each
+object's `study-media/...` path. For example, when the bucket contains that
+prefix:
+
+```bash
+LEARNINGOS_DIR=<path-to-learning-os>
+CONVOLAB_MEDIA_BUCKET=gs://<convo-lab-media-bucket>
+CONVOLAB_MEDIA_ROOT="$LEARNINGOS_DIR/storage/app/rehearsals/convo-lab-media"
+
+rm -rf "$CONVOLAB_MEDIA_ROOT"
+mkdir -p "$CONVOLAB_MEDIA_ROOT"
+gcloud storage cp --recursive \
+  "$CONVOLAB_MEDIA_BUCKET/study-media" \
+  "$CONVOLAB_MEDIA_ROOT"
+```
+
+Check that the resulting files are rooted at
+`$CONVOLAB_MEDIA_ROOT/study-media/...`, matching `study_media.storagePath` in
+the restored source database. Then import and verify the bytes:
+
+```bash
+php artisan migration:import-convolab-media \
+  --source-database=learning_os_convolab_source \
+  --source-media-root="$CONVOLAB_MEDIA_ROOT"
+```
+
+The command preflights every source file, path, owner, target card, import job,
+byte size, SHA-256 checksum, and existing target file before it writes
+anything. It rejects path traversal, cross-user links, conflicting bytes, and
+metadata that cannot fit the Postgres target columns.
+
+The import is idempotent. A successful retry reuses matching media rows, files,
+and card links. If the database transaction fails, the command rolls it back
+and removes files created by that attempt; files that existed before the
+attempt are left untouched. A target-database lock also prevents concurrent
+import commands from racing over the same files.
+
+For the production Learning OS target, add both safeguards:
+
+```bash
+--allow-production \
+--production-confirmation="IMPORT MEDIA INTO learning_os"
+```
+
+The confirmation must exactly name the active target database. Always run this
+against the restored Convo Lab source copy, never the live Convo Lab database.
+
+## 6. Run The Smoke Harness
 
 Run the read-oriented API smoke check as a real user from the restored data:
 

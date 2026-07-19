@@ -116,7 +116,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
             // The storage column is second-precision, so fractional input is normalized away.
-            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
+            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000Z');
 
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 

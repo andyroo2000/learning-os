@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Study;
 
+use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,8 +20,8 @@ class DailyAudioPracticeSummaryTrackResource extends JsonResource
             'audioUrl' => $this->audio_url,
             'approxDurationSeconds' => $this->approx_duration_seconds,
             'errorMessage' => $this->error_message,
-            'createdAt' => $this->created_at?->toJSON(),
-            'updatedAt' => $this->updated_at?->toJSON(),
+            'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
+            'updatedAt' => ConvoLabTimestamp::serialize($this->updated_at),
         ];
     }
 }

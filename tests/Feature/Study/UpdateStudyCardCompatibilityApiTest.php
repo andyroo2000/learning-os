@@ -11,6 +11,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
+use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -190,7 +191,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantKind', VocabVariantKind::SentenceCloze->value)
             ->assertJsonPath('variantStage', 3)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Available->value)
-            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000000Z');
+            ->assertJsonPath('variantUnlockedAt', '2026-06-04T08:45:30.000Z');
 
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
@@ -277,6 +278,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         ]);
         $this->assertNotNull($card->updated_at);
         $originalUpdatedAt = $card->updated_at->toJSON();
+        $originalUpdatedAtResponse = ConvoLabTimestamp::serialize($card->updated_at);
 
         $response = $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => $prompt,
@@ -291,8 +293,8 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
-            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z')
-            ->assertJsonPath('updatedAt', $originalUpdatedAt);
+            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000Z')
+            ->assertJsonPath('updatedAt', $originalUpdatedAtResponse);
 
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
@@ -346,7 +348,7 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('variantKind', VocabVariantKind::SentenceAudioRecognition->value)
             ->assertJsonPath('variantStage', 2)
             ->assertJsonPath('variantStatus', VocabVariantStatus::Locked->value)
-            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000000Z');
+            ->assertJsonPath('variantUnlockedAt', '2026-06-05T14:15:00.000Z');
 
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 

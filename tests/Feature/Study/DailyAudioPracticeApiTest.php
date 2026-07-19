@@ -130,6 +130,35 @@ class DailyAudioPracticeApiTest extends TestCase
             ->assertJsonPath('tracks.0.generationMetadataJson.provider', 'test');
     }
 
+    public function test_list_and_show_use_convolab_millisecond_timestamps(): void
+    {
+        $practice = DailyAudioPractice::factory()->for($this->signIn())->create();
+        $track = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create();
+
+        DB::table('daily_audio_practices')->where('id', $practice->id)->update([
+            'created_at' => '2026-07-18 12:34:56.987654',
+            'updated_at' => '2026-07-18 13:45:57.123456',
+        ]);
+        DB::table('daily_audio_practice_tracks')->where('id', $track->id)->update([
+            'created_at' => '2026-07-18 14:56:58.456789',
+            'updated_at' => '2026-07-18 15:57:59.789123',
+        ]);
+
+        $this->getJson('/api/daily-audio-practice')
+            ->assertOk()
+            ->assertJsonPath('0.createdAt', '2026-07-18T12:34:56.987Z')
+            ->assertJsonPath('0.updatedAt', '2026-07-18T13:45:57.123Z')
+            ->assertJsonPath('0.tracks.0.createdAt', '2026-07-18T14:56:58.456Z')
+            ->assertJsonPath('0.tracks.0.updatedAt', '2026-07-18T15:57:59.789Z');
+
+        $this->getJson("/api/daily-audio-practice/{$practice->id}")
+            ->assertOk()
+            ->assertJsonPath('createdAt', '2026-07-18T12:34:56.987Z')
+            ->assertJsonPath('updatedAt', '2026-07-18T13:45:57.123Z')
+            ->assertJsonPath('tracks.0.createdAt', '2026-07-18T14:56:58.456Z')
+            ->assertJsonPath('tracks.0.updatedAt', '2026-07-18T15:57:59.789Z');
+    }
+
     public function test_show_includes_nullable_compatibility_keys(): void
     {
         $practice = DailyAudioPractice::factory()->for($this->signIn())->create([

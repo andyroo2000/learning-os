@@ -4,6 +4,7 @@ namespace App\Http\Resources\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
+use App\Support\DateTime\ConvoLabTimestamp;
 use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,9 +29,9 @@ class StudyCardSummaryResource extends JsonResource
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
             'answer' => $this->answer_json ?? ['type' => 'text', 'text' => $this->back_text],
             'state' => [
-                'dueAt' => $this->due_at?->toJSON(),
-                'introducedAt' => $this->introduced_at?->toJSON(),
-                'failedAt' => $this->failed_at?->toJSON(),
+                'dueAt' => ConvoLabTimestamp::serialize($this->due_at),
+                'introducedAt' => ConvoLabTimestamp::serialize($this->introduced_at),
+                'failedAt' => ConvoLabTimestamp::serialize($this->failed_at),
                 'queueState' => $this->study_status?->value ?? CardStudyStatus::New->value,
                 // ConvoLab clients interpret scheduler internals; expose the stored state verbatim.
                 'scheduler' => $this->scheduler_state,
@@ -64,10 +65,10 @@ class StudyCardSummaryResource extends JsonResource
             'variantKind' => $this->stringAttributeValue('variant_kind'),
             'variantStage' => $this->variant_stage,
             'variantStatus' => $this->stringAttributeValue('variant_status'),
-            'variantUnlockedAt' => $this->variant_unlocked_at?->toJSON(),
+            'variantUnlockedAt' => ConvoLabTimestamp::serialize($this->variant_unlocked_at),
             'answerAudioSource' => $this->answer_audio_source ?? self::ANSWER_AUDIO_SOURCE_MISSING,
-            'createdAt' => $this->created_at?->toJSON(),
-            'updatedAt' => $this->updated_at?->toJSON(),
+            'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
+            'updatedAt' => ConvoLabTimestamp::serialize($this->updated_at),
         ];
     }
 

@@ -5,6 +5,9 @@ namespace App\Console\Commands;
 use App\Console\Concerns\ConnectsToConvoLabSourceDatabase;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
@@ -22,6 +25,12 @@ class ImportConvoLabDailyAudio extends Command
     private const LOCK_TTL_SECONDS = 86400;
 
     private const LOCK_CACHE_STORE = 'database';
+
+    /** @var array<string, array{id: string, created_at: string, updated_at: string}> */
+    private array $practices = [];
+
+    /** @var array<string, array{id: string, practice_id: string, created_at: string, updated_at: string}> */
+    private array $trackTimestamps = [];
 
     protected $signature = 'migration:import-convolab-daily-audio
         {--source-connection=convolab_rehearsal : Temporary source connection name}
@@ -84,7 +93,9 @@ class ImportConvoLabDailyAudio extends Command
 
             $this->info('Preflighting Convo Lab Daily Audio media');
 
+            $this->buildTimestampManifest($source);
             $this->buildTrackManifest($source, $sourceMediaRoot, $sourceBucket);
+            $this->assertTargetTimestampsMatch($target, false);
             $this->assertTargetTracksMatch($target, false);
             $this->preflightDestinationFiles();
 
@@ -96,7 +107,39 @@ class ImportConvoLabDailyAudio extends Command
             $createdPaths = $this->copyMissingFiles();
 
             $target->transaction(function () use ($target): void {
+                $this->assertTargetTimestampsMatch($target, true);
                 $this->assertTargetTracksMatch($target, true);
+
+                foreach ($this->practices as $practice) {
+                    $updated = $target->table('daily_audio_practices')
+                        ->where('id', $practice['id'])
+                        ->update([
+                            'created_at' => $practice['created_at'],
+                            'updated_at' => $practice['updated_at'],
+                        ]);
+
+                    if ($updated !== 1) {
+                        throw new RuntimeException(
+                            "Learning OS Daily Audio practice [{$practice['id']}] changed during import.",
+                        );
+                    }
+                }
+
+                foreach ($this->trackTimestamps as $track) {
+                    $updated = $target->table('daily_audio_practice_tracks')
+                        ->where('id', $track['id'])
+                        ->where('practice_id', $track['practice_id'])
+                        ->update([
+                            'created_at' => $track['created_at'],
+                            'updated_at' => $track['updated_at'],
+                        ]);
+
+                    if ($updated !== 1) {
+                        throw new RuntimeException(
+                            "Learning OS Daily Audio track [{$track['id']}] changed during import.",
+                        );
+                    }
+                }
 
                 foreach ($this->tracks as $track) {
                     $updated = $target->table('daily_audio_practice_tracks')
@@ -181,6 +224,54 @@ class ImportConvoLabDailyAudio extends Command
         }
 
         return $bucket;
+    }
+
+    private function buildTimestampManifest(ConnectionInterface $source): void
+    {
+        $this->practices = [];
+        $this->trackTimestamps = [];
+
+        foreach ($source->table('daily_audio_practices')
+            ->orderBy('createdAt')
+            ->orderBy('id')
+            ->get(['id', 'createdAt', 'updatedAt']) as $row) {
+            $id = $this->sourceUuid($row->id, 'Daily Audio practice');
+
+            if (isset($this->practices[$id])) {
+                throw new RuntimeException("Convo Lab Daily Audio practice [{$row->id}] is duplicated.");
+            }
+
+            $this->practices[$id] = [
+                'id' => $id,
+                'created_at' => $this->sourceTimestamp($row->createdAt, "practice [{$id}] createdAt"),
+                'updated_at' => $this->sourceTimestamp($row->updatedAt, "practice [{$id}] updatedAt"),
+            ];
+        }
+
+        foreach ($source->table('daily_audio_practice_tracks')
+            ->orderBy('createdAt')
+            ->orderBy('id')
+            ->get(['id', 'practiceId', 'createdAt', 'updatedAt']) as $row) {
+            $id = $this->sourceUuid($row->id, 'Daily Audio track');
+            $practiceId = $this->sourceUuid($row->practiceId, 'Daily Audio practice');
+
+            if (! isset($this->practices[$practiceId])) {
+                throw new RuntimeException(
+                    "Convo Lab Daily Audio track [{$row->id}] references a missing practice.",
+                );
+            }
+
+            if (isset($this->trackTimestamps[$id])) {
+                throw new RuntimeException("Convo Lab Daily Audio track [{$row->id}] is duplicated.");
+            }
+
+            $this->trackTimestamps[$id] = [
+                'id' => $id,
+                'practice_id' => $practiceId,
+                'created_at' => $this->sourceTimestamp($row->createdAt, "track [{$id}] createdAt"),
+                'updated_at' => $this->sourceTimestamp($row->updatedAt, "track [{$id}] updatedAt"),
+            ];
+        }
     }
 
     private function buildTrackManifest(
@@ -271,6 +362,24 @@ class ImportConvoLabDailyAudio extends Command
         }
 
         return $normalized;
+    }
+
+    private function sourceTimestamp(mixed $value, string $label): string
+    {
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s.v');
+        }
+
+        $timestamp = is_string($value) ? trim($value) : '';
+        $format = str_contains($timestamp, '.') ? '!Y-m-d H:i:s.u' : '!Y-m-d H:i:s';
+        $parsed = DateTimeImmutable::createFromFormat($format, $timestamp, new DateTimeZone('UTC'));
+        $errors = DateTimeImmutable::getLastErrors();
+
+        if ($parsed === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            throw new RuntimeException("Convo Lab Daily Audio {$label} is not a valid database timestamp.");
+        }
+
+        return $parsed->format('Y-m-d H:i:s.v');
     }
 
     private function sourceObjectPath(
@@ -372,6 +481,57 @@ class ImportConvoLabDailyAudio extends Command
                 || (string) $targetTrack->status !== 'ready') {
                 throw new RuntimeException(
                     "Learning OS Daily Audio track [{$track['id']}] does not match its ready Convo Lab source.",
+                );
+            }
+        }
+    }
+
+    private function assertTargetTimestampsMatch(
+        ConnectionInterface $target,
+        bool $lockForUpdate,
+    ): void {
+        $practiceQuery = $target->table('daily_audio_practices')
+            ->whereIn('id', array_keys($this->practices));
+
+        if ($lockForUpdate) {
+            $practiceQuery->lockForUpdate();
+        }
+
+        $targetPractices = $practiceQuery->pluck('id')->mapWithKeys(
+            fn (mixed $id): array => [strtolower((string) $id) => true],
+        );
+
+        foreach ($this->practices as $practice) {
+            if (! $targetPractices->has($practice['id'])) {
+                throw new RuntimeException(
+                    "Learning OS has no Daily Audio practice matching Convo Lab practice [{$practice['id']}].",
+                );
+            }
+        }
+
+        $trackQuery = $target->table('daily_audio_practice_tracks')
+            ->whereIn('id', array_keys($this->trackTimestamps));
+
+        if ($lockForUpdate) {
+            $trackQuery->lockForUpdate();
+        }
+
+        $targetTracks = $trackQuery->get(['id', 'practice_id'])->keyBy(
+            fn (object $track): string => strtolower((string) $track->id),
+        );
+
+        foreach ($this->trackTimestamps as $track) {
+            $targetTrack = $targetTracks->get($track['id']);
+
+            if ($targetTrack === null) {
+                throw new RuntimeException(
+                    "Learning OS has no Daily Audio track matching Convo Lab track [{$track['id']}].",
+                );
+            }
+
+            if (strtolower((string) $targetTrack->practice_id) !== $track['practice_id']) {
+                throw new RuntimeException(
+                    "Learning OS Daily Audio track [{$track['id']}] belongs to a different practice.",
                 );
             }
         }

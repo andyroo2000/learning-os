@@ -23,6 +23,16 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
 
     private const TRACK_ID = '2e3c670d-10ed-442c-bb7b-3901e354a3d3';
 
+    private const ERROR_TRACK_ID = '12a8c937-b990-4f50-b126-30dfe3687b85';
+
+    private const PRACTICE_CREATED_AT = '2026-06-24 14:46:18.554';
+
+    private const PRACTICE_UPDATED_AT = '2026-06-24 15:18:16.766';
+
+    private const TRACK_CREATED_AT = '2026-06-24 14:46:18.561';
+
+    private const TRACK_UPDATED_AT = '2026-06-24 15:18:16.679';
+
     private const SOURCE_OBJECT_PATH = 'daily-audio-practice/39ac4e14-b8b0-482c-8831-a3c1cb1987e9/'.
         'source-drill-2e3c670d-10ed-442c-bb7b-3901e354a3d3.mp3';
 
@@ -108,6 +118,22 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
                 self::TRACK_ID,
             ),
         ]);
+        $this->assertSame(
+            self::PRACTICE_CREATED_AT,
+            DailyAudioPractice::query()->sole()->created_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            self::PRACTICE_UPDATED_AT,
+            DailyAudioPractice::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            self::TRACK_CREATED_AT,
+            DailyAudioPracticeTrack::query()->sole()->created_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            self::TRACK_UPDATED_AT,
+            DailyAudioPracticeTrack::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
 
         Sanctum::actingAs(User::query()->sole(), ['study:read']);
         $this->get(
@@ -134,6 +160,65 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
             DailyAudioPracticeGeneration::audioUrl(self::PRACTICE_ID, self::TRACK_ID),
             DailyAudioPracticeTrack::query()->sole()->audio_url,
         );
+        $this->assertSame(
+            self::PRACTICE_UPDATED_AT,
+            DailyAudioPractice::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            self::TRACK_UPDATED_AT,
+            DailyAudioPracticeTrack::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
+    }
+
+    public function test_repairs_timestamps_for_tracks_without_media(): void
+    {
+        $source = DB::connection('convolab_daily_audio_test_source');
+        $source->table('daily_audio_practice_tracks')->insert([
+            'id' => self::ERROR_TRACK_ID,
+            'practiceId' => self::PRACTICE_ID,
+            'mode' => 'dialogue',
+            'status' => 'error',
+            'audioUrl' => null,
+            'createdAt' => '2026-06-24 14:46:18.562',
+            'updatedAt' => '2026-06-24 15:18:16.680',
+        ]);
+        DailyAudioPracticeTrack::factory()->for(
+            DailyAudioPractice::query()->sole(),
+            'practice',
+        )->create([
+            'id' => self::ERROR_TRACK_ID,
+            'mode' => 'dialogue',
+            'status' => 'error',
+            'audio_url' => null,
+            'created_at' => '2026-06-24 14:46:19',
+            'updated_at' => '2026-06-24 15:18:17',
+        ]);
+        $this->putSourceFile(self::SOURCE_OBJECT_PATH, 'ready-track-audio');
+
+        $this->artisan('migration:import-convolab-daily-audio', $this->commandOptions())
+            ->assertExitCode(0);
+
+        $track = DailyAudioPracticeTrack::query()->findOrFail(self::ERROR_TRACK_ID);
+        $this->assertSame('2026-06-24 14:46:18.562', $track->created_at->format('Y-m-d H:i:s.v'));
+        $this->assertSame('2026-06-24 15:18:16.680', $track->updated_at->format('Y-m-d H:i:s.v'));
+        $this->assertNull($track->audio_url);
+    }
+
+    public function test_rejects_an_invalid_source_timestamp_before_touching_storage_or_data(): void
+    {
+        DB::connection('convolab_daily_audio_test_source')
+            ->table('daily_audio_practices')
+            ->update(['updatedAt' => 'not-a-timestamp']);
+        $this->putSourceFile(self::SOURCE_OBJECT_PATH, 'verified-audio');
+
+        $this->artisan('migration:import-convolab-daily-audio', $this->commandOptions())
+            ->expectsOutputToContain(
+                'Convo Lab Daily Audio practice ['.self::PRACTICE_ID.
+                '] updatedAt is not a valid database timestamp.',
+            )
+            ->assertExitCode(1);
+
+        $this->assertLegacyTargetState();
     }
 
     public function test_empty_source_is_a_successful_no_op(): void
@@ -274,7 +359,11 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
             )
             ->assertExitCode(1);
 
-        $source->table('daily_audio_practices')->insert(['id' => self::PRACTICE_ID]);
+        $source->table('daily_audio_practices')->insert([
+            'id' => self::PRACTICE_ID,
+            'createdAt' => self::PRACTICE_CREATED_AT,
+            'updatedAt' => self::PRACTICE_UPDATED_AT,
+        ]);
         $source->table('daily_audio_practice_tracks')->delete();
 
         $this->artisan('migration:import-convolab-daily-audio', $this->commandOptions())
@@ -439,6 +528,8 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
         $schema = Schema::connection('convolab_daily_audio_test_source');
         $schema->create('daily_audio_practices', function ($table): void {
             $table->text('id')->primary();
+            $table->timestamp('createdAt', 3);
+            $table->timestamp('updatedAt', 3);
         });
         $schema->create('daily_audio_practice_tracks', function ($table): void {
             $table->text('id')->primary();
@@ -446,7 +537,8 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
             $table->text('mode');
             $table->text('status');
             $table->text('audioUrl')->nullable();
-            $table->timestamp('createdAt');
+            $table->timestamp('createdAt', 3);
+            $table->timestamp('updatedAt', 3);
         });
     }
 
@@ -455,6 +547,8 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
         $user = User::factory()->create();
         $practice = DailyAudioPractice::factory()->for($user)->create([
             'id' => self::PRACTICE_ID,
+            'created_at' => '2026-06-24 14:46:19',
+            'updated_at' => '2026-06-24 15:18:17',
         ]);
         DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
             'id' => self::TRACK_ID,
@@ -462,13 +556,19 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
             'mode' => 'drill',
             'status' => 'ready',
             'audio_url' => 'https://storage.googleapis.com/convolab-storage/legacy.mp3',
+            'created_at' => '2026-06-24 14:46:19',
+            'updated_at' => '2026-06-24 15:18:17',
         ]);
     }
 
     private function seedSource(): void
     {
         $source = DB::connection('convolab_daily_audio_test_source');
-        $source->table('daily_audio_practices')->insert(['id' => self::PRACTICE_ID]);
+        $source->table('daily_audio_practices')->insert([
+            'id' => self::PRACTICE_ID,
+            'createdAt' => self::PRACTICE_CREATED_AT,
+            'updatedAt' => self::PRACTICE_UPDATED_AT,
+        ]);
         $source->table('daily_audio_practice_tracks')->insert([
             'id' => self::TRACK_ID,
             'practiceId' => self::PRACTICE_ID,
@@ -476,7 +576,8 @@ class ConvoLabDailyAudioImportCommandTest extends TestCase
             'status' => 'ready',
             'audioUrl' => 'https://storage.googleapis.com/convolab-storage/'.
                 self::SOURCE_OBJECT_PATH,
-            'createdAt' => '2026-07-19 10:00:00',
+            'createdAt' => self::TRACK_CREATED_AT,
+            'updatedAt' => self::TRACK_UPDATED_AT,
         ]);
     }
 

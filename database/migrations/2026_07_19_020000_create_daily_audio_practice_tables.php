@@ -20,7 +20,7 @@ return new class extends Migration
             $table->json('source_card_ids_json')->nullable();
             $table->json('selection_summary_json')->nullable();
             $table->text('error_message')->nullable();
-            $table->timestamps();
+            $table->timestamps(3);
 
             $table->unique(['user_id', 'practice_date']);
             $table->index(['user_id', 'status', 'practice_date']);
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->unsignedInteger('approx_duration_seconds')->nullable();
             $table->json('generation_metadata_json')->nullable();
             $table->text('error_message')->nullable();
-            $table->timestamps();
+            $table->timestamps(3);
 
             $table->foreign('practice_id')->references('id')->on('daily_audio_practices')->cascadeOnDelete();
             $table->unique(['practice_id', 'mode']);

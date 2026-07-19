@@ -17,6 +17,7 @@ use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
+use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
@@ -223,6 +224,11 @@ class AppServiceProvider extends ServiceProvider
         $studySessionStartRateLimiter = new StudySessionStartRateLimiter;
         RateLimiter::for(StudySessionStartRateLimiter::NAME, function (Request $request) use ($studySessionStartRateLimiter): Limit {
             return $studySessionStartRateLimiter->limit($request);
+        });
+
+        $dailyAudioPracticeGenerationRateLimiter = new DailyAudioPracticeGenerationRateLimiter;
+        RateLimiter::for(DailyAudioPracticeGenerationRateLimiter::NAME, function (Request $request) use ($dailyAudioPracticeGenerationRateLimiter): Limit {
+            return $dailyAudioPracticeGenerationRateLimiter->limit($request);
         });
 
         $newCardQueueReorderRateLimiter = new NewCardQueueReorderRateLimiter;

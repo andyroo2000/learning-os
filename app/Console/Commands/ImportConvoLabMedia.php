@@ -127,7 +127,7 @@ class ImportConvoLabMedia extends Command
             $source = $this->convoLabSourceConnection();
             $this->assertConvoLabSourceDiffersFromTarget($source, $target);
             $this->assertSourceSchema($source);
-            $sourceMediaRoot = $this->sourceMediaRoot();
+            $sourceMediaRoot = $this->convoLabSourceMediaRoot();
 
             $this->info('Preflighting Convo Lab study media');
 
@@ -235,23 +235,6 @@ class ImportConvoLabMedia extends Command
                 throw new RuntimeException("Source database is missing expected Convo Lab table [{$table}].");
             }
         }
-    }
-
-    private function sourceMediaRoot(): string
-    {
-        $root = $this->option('source-media-root');
-
-        if (! is_string($root) || trim($root) === '') {
-            throw new RuntimeException('Pass --source-media-root with the exported Convo Lab media directory.');
-        }
-
-        $resolved = realpath($root);
-
-        if ($resolved === false || ! is_dir($resolved)) {
-            throw new RuntimeException("Source media root [{$root}] is not a readable directory.");
-        }
-
-        return rtrim($resolved, DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -434,7 +417,11 @@ class ImportConvoLabMedia extends Command
                     }
 
                     $path = $this->validatedStoragePath($media->storagePath, $sourceId);
-                    $sourcePath = $this->resolvedSourcePath($sourceMediaRoot, $path, $sourceId);
+                    $sourcePath = $this->resolveConvoLabSourceFile(
+                        $sourceMediaRoot,
+                        $path,
+                        "Convo Lab media bytes are missing for [{$sourceId}] at [{$path}].",
+                    );
                     $size = filesize($sourcePath);
                     $checksum = hash_file('sha256', $sourcePath);
 
@@ -530,20 +517,6 @@ class ImportConvoLabMedia extends Command
         }
 
         return $normalized;
-    }
-
-    private function resolvedSourcePath(string $root, string $path, string $sourceId): string
-    {
-        $candidate = realpath($root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path));
-        $prefix = $root.DIRECTORY_SEPARATOR;
-
-        if ($candidate === false
-            || ! is_file($candidate)
-            || (! str_starts_with($candidate, $prefix) && $candidate !== $root)) {
-            throw new RuntimeException("Convo Lab media bytes are missing for [{$sourceId}] at [{$path}].");
-        }
-
-        return $candidate;
     }
 
     /**

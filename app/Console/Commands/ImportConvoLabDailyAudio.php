@@ -79,7 +79,7 @@ class ImportConvoLabDailyAudio extends Command
             $source = $this->convoLabSourceConnection();
             $this->assertConvoLabSourceDiffersFromTarget($source, $target);
             $this->assertSourceSchema($source);
-            $sourceMediaRoot = $this->sourceMediaRoot();
+            $sourceMediaRoot = $this->convoLabSourceMediaRoot();
             $sourceBucket = $this->sourceBucket();
 
             $this->info('Preflighting Convo Lab Daily Audio media');
@@ -170,23 +170,6 @@ class ImportConvoLabDailyAudio extends Command
         }
     }
 
-    private function sourceMediaRoot(): string
-    {
-        $root = $this->option('source-media-root');
-
-        if (! is_string($root) || trim($root) === '') {
-            throw new RuntimeException('Pass --source-media-root with the exported Convo Lab media directory.');
-        }
-
-        $resolved = realpath($root);
-
-        if ($resolved === false || ! is_dir($resolved)) {
-            throw new RuntimeException("Source media root [{$root}] is not a readable directory.");
-        }
-
-        return rtrim($resolved, DIRECTORY_SEPARATOR);
-    }
-
     private function sourceBucket(): string
     {
         $bucket = trim((string) $this->option('source-bucket'));
@@ -248,7 +231,12 @@ class ImportConvoLabDailyAudio extends Command
                 $practiceId,
                 $id,
             );
-            $sourcePath = $this->resolvedSourcePath($sourceMediaRoot, $sourceObjectPath, $id);
+            $sourcePath = $this->resolveConvoLabSourceFile(
+                $sourceMediaRoot,
+                $sourceObjectPath,
+                "Convo Lab Daily Audio bytes are missing for track [{$id}] at ".
+                "[{$sourceObjectPath}].",
+            );
             $size = filesize($sourcePath);
             $checksum = hash_file('sha256', $sourcePath);
 
@@ -335,39 +323,25 @@ class ImportConvoLabDailyAudio extends Command
         return $objectPath;
     }
 
-    private function resolvedSourcePath(string $root, string $path, string $trackId): string
-    {
-        $candidate = realpath($root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path));
-        $prefix = $root.DIRECTORY_SEPARATOR;
-
-        if ($candidate === false
-            || ! is_file($candidate)
-            || (! str_starts_with($candidate, $prefix) && $candidate !== $root)) {
-            throw new RuntimeException(
-                "Convo Lab Daily Audio bytes are missing for track [{$trackId}] at [{$path}].",
-            );
-        }
-
-        return $candidate;
-    }
-
     private function assertTargetTracksMatch(
         ConnectionInterface $target,
         bool $lockForUpdate,
     ): void {
-        if (! $lockForUpdate) {
-            foreach ($target->table('daily_audio_practice_tracks')
-                ->where('status', 'ready')
-                ->whereNotNull('audio_url')
-                ->get(['id', 'audio_url']) as $targetTrack) {
-                $audioUrl = (string) $targetTrack->audio_url;
-                if (! str_starts_with($audioUrl, '/api/daily-audio-practice/')
-                    && ! isset($this->tracks[strtolower((string) $targetTrack->id)])) {
-                    throw new RuntimeException(
-                        "Learning OS legacy Daily Audio track [{$targetTrack->id}] ".
-                        'has no matching Convo Lab source media.',
-                    );
-                }
+        $legacyQuery = $target->table('daily_audio_practice_tracks')
+            ->where('status', 'ready')
+            ->whereNotNull('audio_url');
+        if ($lockForUpdate) {
+            $legacyQuery->lockForUpdate();
+        }
+
+        foreach ($legacyQuery->get(['id', 'audio_url']) as $targetTrack) {
+            $audioUrl = (string) $targetTrack->audio_url;
+            if (! str_starts_with($audioUrl, '/api/daily-audio-practice/')
+                && ! isset($this->tracks[strtolower((string) $targetTrack->id)])) {
+                throw new RuntimeException(
+                    "Learning OS legacy Daily Audio track [{$targetTrack->id}] ".
+                    'has no matching Convo Lab source media.',
+                );
             }
         }
 

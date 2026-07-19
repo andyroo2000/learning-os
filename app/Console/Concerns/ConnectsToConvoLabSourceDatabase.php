@@ -55,4 +55,38 @@ trait ConnectsToConvoLabSourceDatabase
             );
         }
     }
+
+    protected function convoLabSourceMediaRoot(): string
+    {
+        $root = $this->option('source-media-root');
+
+        if (! is_string($root) || trim($root) === '') {
+            throw new RuntimeException('Pass --source-media-root with the exported Convo Lab media directory.');
+        }
+
+        $resolved = realpath($root);
+
+        if ($resolved === false || ! is_dir($resolved)) {
+            throw new RuntimeException("Source media root [{$root}] is not a readable directory.");
+        }
+
+        return rtrim($resolved, DIRECTORY_SEPARATOR);
+    }
+
+    protected function resolveConvoLabSourceFile(
+        string $root,
+        string $path,
+        string $missingMessage,
+    ): string {
+        $candidate = realpath($root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path));
+        $prefix = $root.DIRECTORY_SEPARATOR;
+
+        if ($candidate === false
+            || ! is_file($candidate)
+            || (! str_starts_with($candidate, $prefix) && $candidate !== $root)) {
+            throw new RuntimeException($missingMessage);
+        }
+
+        return $candidate;
+    }
 }

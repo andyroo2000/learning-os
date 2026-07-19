@@ -35,18 +35,17 @@ class DailyAudioDrillScriptGenerator
 
     /**
      * @param  iterable<int, DailyAudioLearningAtom>  $atoms
-     * @param  list<string>  $speakerVoiceIds
      */
     public function generate(
         iterable $atoms,
         string $l1VoiceId,
-        array $speakerVoiceIds,
+        string $l2VoiceId,
     ): DailyAudioDrillGenerationResult {
         $atoms = collect($atoms)
             ->take(self::MAX_SCRIPT_ATOMS)
             ->values();
         $l1VoiceId = trim($l1VoiceId);
-        $l2VoiceId = trim((string) ($speakerVoiceIds[0] ?? ''));
+        $l2VoiceId = trim($l2VoiceId);
 
         if ($atoms->isEmpty()) {
             throw new InvalidArgumentException(
@@ -470,11 +469,11 @@ PROMPT."\n".$cardsJson;
         $target = DailyAudioJapaneseText::normalizeDisplay($atom->targetText, $atom->reading);
         $prompts = [];
         $hasGeneratedContent = $enhancement?->hasGeneratedContent() ?? false;
+        $hasGeneratedAnchor = $enhancement?->exampleJp !== null
+            && $enhancement->exampleEn !== null;
         $exampleJp = $enhancement?->exampleJp ?? $atom->exampleJp;
         $exampleEn = $enhancement?->exampleEn
-            ?? ($hasGeneratedContent
-                ? null
-                : DailyAudioJapaneseText::safeEnglish($atom->exampleEn));
+            ?? DailyAudioJapaneseText::safeEnglish($atom->exampleEn);
 
         if ($exampleJp !== null && $exampleEn !== null) {
             $example = DailyAudioJapaneseText::normalizeDisplay(
@@ -488,7 +487,7 @@ PROMPT."\n".$cardsJson;
                     'japanese' => $example['text'],
                     'reading' => $example['reading'] ?? null,
                     'english' => $exampleEn,
-                    'source' => $hasGeneratedContent ? 'generated' : 'fallback',
+                    'source' => $hasGeneratedAnchor ? 'generated' : 'fallback',
                 ];
             }
         }
@@ -510,7 +509,7 @@ PROMPT."\n".$cardsJson;
             ];
         }
 
-        if (! $hasGeneratedContent && $cueText !== null && $target !== null) {
+        if (! $hasGeneratedAnchor && $cueText !== null && $target !== null) {
             array_unshift($prompts, [
                 'label' => 'Drill: '.$this->labelTarget($atom),
                 'japanese' => $target['text'],

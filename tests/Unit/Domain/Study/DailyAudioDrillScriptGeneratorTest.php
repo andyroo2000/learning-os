@@ -82,7 +82,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $result = $generator->generate(
             [$this->atom(english: '物の値段')],
             'fishaudio:english',
-            ['ja-JP-Wavenet-C', 'unused'],
+            'ja-JP-Wavenet-C',
         );
         $script = $result->scriptUnits();
         $l2Units = collect($script)->where('type', 'L2');
@@ -144,7 +144,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $result = (new DailyAudioDrillScriptGenerator($openAi))->generate(
             $atoms,
             'fishaudio:english',
-            ['ja-JP-Wavenet-C'],
+            'ja-JP-Wavenet-C',
         );
 
         $this->assertSame(1, $result->metadata['enhancedAtomCount']);
@@ -184,7 +184,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
                 english: '食べるto eat',
             )],
             'fishaudio:english',
-            ['ja-JP-Wavenet-C'],
+            'ja-JP-Wavenet-C',
         );
         $narration = collect($result->scriptUnits())
             ->where('type', 'narration_L1')
@@ -198,6 +198,40 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         );
         $this->assertSame(1, $result->metadata['fallbackPromptCount']);
         $this->assertSame(0, $result->metadata['missingCueCount']);
+    }
+
+    public function test_variations_only_enhancement_keeps_a_literal_target_prompt(): void
+    {
+        $generator = $this->generatorReturning([
+            'items' => [[
+                'cardId' => 'card-1',
+                'englishCue' => 'prices',
+                'anchor' => [
+                    'japanese' => 'この町は物価が高いです。',
+                    'english' => 'The cost of living is high in this town.',
+                ],
+                'grammarSubstitutions' => [[
+                    'japanese' => '大阪は物価が安いです。',
+                    'reading' => '大阪[おおさか]は物価[ぶっか]が安[やす]いです。',
+                    'english' => 'The cost of living is low in Osaka.',
+                ]],
+            ]],
+        ]);
+
+        $result = $generator->generate(
+            [$this->atom()],
+            'fishaudio:english',
+            'ja-JP-Wavenet-C',
+        );
+        $l2Text = collect($result->scriptUnits())->where('type', 'L2')->pluck('text');
+
+        $this->assertTrue($l2Text->contains('物価'));
+        $this->assertTrue($l2Text->contains('大阪は物価が安いです。'));
+        $this->assertFalse($l2Text->contains('この町は物価が高いです。'));
+        $this->assertSame(1, $result->metadata['enhancedAtomCount']);
+        $this->assertSame(1, $result->metadata['generatedPromptCount']);
+        $this->assertSame(1, $result->metadata['fallbackPromptCount']);
+        $this->assertSame(2, $result->metadata['totalPromptCount']);
     }
 
     public function test_it_normalizes_inline_furigana_and_deduplicates_repeated_prompts(): void
@@ -229,7 +263,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
                 $this->atom(cardId: 'card-2'),
             ],
             'fishaudio:english',
-            ['ja-JP-Wavenet-C'],
+            'ja-JP-Wavenet-C',
         );
         $l2Units = collect($result->scriptUnits())->where('type', 'L2');
 
@@ -261,7 +295,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $result = (new DailyAudioDrillScriptGenerator($openAi))->generate(
             $atoms,
             'fishaudio:english',
-            ['ja-JP-Wavenet-C'],
+            'ja-JP-Wavenet-C',
         );
         $l2Text = collect($result->scriptUnits())->where('type', 'L2')->pluck('text');
 
@@ -277,7 +311,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $result = $generator->generate(
             [$this->atom(english: '食べるto eat', exampleEn: null)],
             'fishaudio:english',
-            ['ja-JP-Wavenet-C'],
+            'ja-JP-Wavenet-C',
         );
 
         $this->assertSame(1, $result->metadata['missingCueCount']);
@@ -292,7 +326,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $generator = new DailyAudioDrillScriptGenerator($openAi);
 
         try {
-            $generator->generate([], 'narrator', ['speaker']);
+            $generator->generate([], 'narrator', 'speaker');
             $this->fail('Expected empty atoms to be rejected.');
         } catch (InvalidArgumentException $exception) {
             $this->assertSame(
@@ -303,7 +337,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('requires narrator and speaker voice IDs');
-        $generator->generate([$this->atom()], 'narrator', []);
+        $generator->generate([$this->atom()], 'narrator', '');
     }
 
     public function test_script_units_reject_invalid_shapes_at_construction(): void

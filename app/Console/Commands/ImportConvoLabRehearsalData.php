@@ -26,6 +26,8 @@ class ImportConvoLabRehearsalData extends Command
         'card_media',
         'card_review_events',
         'sync_feed_entries',
+        'daily_audio_practice_tracks',
+        'daily_audio_practices',
         'study_card_drafts',
         'study_vocab_variant_sentences',
         'study_vocab_variant_groups',
@@ -131,6 +133,7 @@ class ImportConvoLabRehearsalData extends Command
                 }
 
                 $this->importUsers($source, $target);
+                $this->importDailyAudioPractices($source, $target);
                 $this->importDecks($source, $target);
                 $this->importStudySettings($source, $target);
                 $this->importStudyImportJobs($source, $target);
@@ -243,7 +246,16 @@ class ImportConvoLabRehearsalData extends Command
 
     private function assertConvoLabSource(ConnectionInterface $source): void
     {
-        foreach (['User', 'study_cards', 'study_review_logs', 'study_media', 'study_import_jobs', 'study_settings'] as $table) {
+        foreach ([
+            'User',
+            'daily_audio_practices',
+            'daily_audio_practice_tracks',
+            'study_cards',
+            'study_review_logs',
+            'study_media',
+            'study_import_jobs',
+            'study_settings',
+        ] as $table) {
             if (! $source->getSchemaBuilder()->hasTable($table)) {
                 throw new \RuntimeException("Source database is missing expected Convo Lab table [{$table}].");
             }
@@ -324,6 +336,89 @@ class ImportConvoLabRehearsalData extends Command
             });
 
         $this->line("Imported {$count} users.");
+    }
+
+    private function importDailyAudioPractices(
+        ConnectionInterface $source,
+        ConnectionInterface $target,
+    ): void {
+        $practiceUserIds = [];
+        $practiceCount = 0;
+
+        $source->table('daily_audio_practices')
+            ->orderBy('createdAt')
+            ->orderBy('id')
+            ->chunk(200, function ($practices) use ($target, &$practiceCount, &$practiceUserIds): void {
+                $rows = [];
+
+                foreach ($practices as $practice) {
+                    $id = $this->sourceUuid($practice->id, 'daily audio practice');
+                    $userId = $this->mappedUserId($practice->userId);
+                    $practiceUserIds[$id] = $userId;
+                    $rows[] = [
+                        'id' => $id,
+                        'user_id' => $userId,
+                        'convolab_user_id' => $practice->userId,
+                        'practice_date' => $practice->practiceDate,
+                        'status' => $practice->status,
+                        'target_duration_minutes' => $practice->targetDurationMinutes,
+                        'target_language' => $practice->targetLanguage,
+                        'native_language' => $practice->nativeLanguage,
+                        // Historical compatibility payload: imported cards retain these UUIDs in convolab_id.
+                        'source_card_ids_json' => $practice->sourceCardIdsJson,
+                        'selection_summary_json' => $practice->selectionSummaryJson,
+                        'error_message' => $practice->errorMessage,
+                        'created_at' => $practice->createdAt,
+                        'updated_at' => $practice->updatedAt,
+                    ];
+                }
+
+                if ($rows !== []) {
+                    $target->table('daily_audio_practices')->insert($rows);
+                }
+                $practiceCount += count($rows);
+            });
+
+        $trackCount = 0;
+        $source->table('daily_audio_practice_tracks')
+            ->orderBy('createdAt')
+            ->orderBy('id')
+            ->chunk(500, function ($tracks) use ($target, &$trackCount, $practiceUserIds): void {
+                $rows = [];
+
+                foreach ($tracks as $track) {
+                    $practiceId = $this->sourceUuid($track->practiceId, 'daily audio practice');
+                    if (! isset($practiceUserIds[$practiceId])) {
+                        throw new \RuntimeException(
+                            "Missing imported daily audio practice mapping for track [{$track->id}].",
+                        );
+                    }
+
+                    $rows[] = [
+                        'id' => $this->sourceUuid($track->id, 'daily audio practice track'),
+                        'practice_id' => $practiceId,
+                        'mode' => $track->mode,
+                        'status' => $track->status,
+                        'title' => $track->title,
+                        'sort_order' => $track->sortOrder,
+                        'script_units_json' => $track->scriptUnitsJson,
+                        'audio_url' => $track->audioUrl,
+                        'timing_data' => $track->timingData,
+                        'approx_duration_seconds' => $track->approxDurationSeconds,
+                        'generation_metadata_json' => $track->generationMetadataJson,
+                        'error_message' => $track->errorMessage,
+                        'created_at' => $track->createdAt,
+                        'updated_at' => $track->updatedAt,
+                    ];
+                }
+
+                if ($rows !== []) {
+                    $target->table('daily_audio_practice_tracks')->insert($rows);
+                }
+                $trackCount += count($rows);
+            });
+
+        $this->line("Imported {$practiceCount} daily audio practices and {$trackCount} tracks.");
     }
 
     private function importDecks(ConnectionInterface $source, ConnectionInterface $target): void

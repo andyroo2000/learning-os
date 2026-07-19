@@ -26,6 +26,10 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
     private const SOURCE_NOTE_ID = '9e33f12d-cf38-409b-bbf1-6fddd9977576';
 
+    private const SOURCE_DAILY_AUDIO_ID = '33cb3d35-8566-4dd5-aebe-af1725c3d18a';
+
+    private const SOURCE_DAILY_AUDIO_TRACK_ID = '81469668-5a26-48ad-8bf1-65587c8463ee';
+
     private string $sourceDatabase;
 
     protected function setUp(): void
@@ -68,6 +72,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             '--truncate' => true,
         ])
             ->expectsOutputToContain('Imported 1 users.')
+            ->expectsOutputToContain('Imported 1 daily audio practices and 1 tracks.')
             ->expectsOutputToContain('Imported 1 decks.')
             ->expectsOutputToContain('Imported 1 study settings rows.')
             ->expectsOutputToContain('Imported 1 study import jobs.')
@@ -86,6 +91,18 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'ada@example.com',
+        ]);
+        $this->assertDatabaseHas('daily_audio_practices', [
+            'id' => self::SOURCE_DAILY_AUDIO_ID,
+            'convolab_user_id' => 'source-user-1',
+            'status' => 'ready',
+            'target_duration_minutes' => 30,
+        ]);
+        $this->assertDatabaseHas('daily_audio_practice_tracks', [
+            'id' => self::SOURCE_DAILY_AUDIO_TRACK_ID,
+            'practice_id' => self::SOURCE_DAILY_AUDIO_ID,
+            'mode' => 'drill',
+            'sort_order' => 0,
         ]);
         $this->assertDatabaseHas('decks', [
             'name' => '日本語',
@@ -123,6 +140,21 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertSame(['Expression' => '猫', 'Meaning' => 'cat'], Card::query()->sole()->convolab_note_raw_fields_json);
         $this->assertSame(['expression' => '猫', 'meaning' => 'cat'], Card::query()->sole()->convolab_note_canonical_json);
         $this->signIn(User::query()->sole());
+        $this->getJson('/api/daily-audio-practice')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', self::SOURCE_DAILY_AUDIO_ID)
+            ->assertJsonPath('0.userId', 'source-user-1')
+            ->assertJsonPath('0.tracks.0.id', self::SOURCE_DAILY_AUDIO_TRACK_ID)
+            ->assertJsonMissingPath('0.tracks.0.scriptUnitsJson');
+        $this->getJson('/api/daily-audio-practice/'.self::SOURCE_DAILY_AUDIO_ID)
+            ->assertOk()
+            ->assertJsonPath('sourceCardIdsJson.0', self::SOURCE_CARD_ID)
+            ->assertJsonPath('selectionSummaryJson.selectedCount', 1)
+            ->assertJsonPath('tracks.0.scriptUnitsJson.0.text', '猫')
+            ->assertJsonPath('tracks.0.audioUrl', '/uploads/daily-audio-practice/drill.mp3')
+            ->assertJsonPath('tracks.0.timingData.0.endTime', 1)
+            ->assertJsonPath('tracks.0.generationMetadataJson.provider', 'test');
         $this->getJson('/api/study/browser?sortField=created_on&sortDirection=desc&limit=25')
             ->assertOk()
             ->assertExactJson([
@@ -497,6 +529,27 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('cards', 0);
     }
 
+    public function test_rejects_a_dangling_daily_audio_track_and_rolls_back_the_import(): void
+    {
+        $this->seedConvoLabSourceData();
+        DB::connection('convolab_test_source')
+            ->table('daily_audio_practice_tracks')
+            ->update(['practiceId' => 'a0ba34d4-b2e7-4fb3-b138-03b78a0d0d14']);
+
+        $this->artisan('rehearsal:import-convolab', [
+            '--source-connection' => 'convolab_test_source',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain(
+                'Missing imported daily audio practice mapping for track ['.self::SOURCE_DAILY_AUDIO_TRACK_ID.'].',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('daily_audio_practices', 0);
+        $this->assertDatabaseCount('daily_audio_practice_tracks', 0);
+    }
+
     public function test_rejects_a_non_uuid_convolab_import_job_identifier(): void
     {
         $this->seedConvoLabSourceData();
@@ -666,6 +719,38 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             $table->timestamp('updatedAt');
         });
 
+        $schema->create('daily_audio_practices', function ($table): void {
+            $table->text('id')->primary();
+            $table->text('userId');
+            $table->date('practiceDate');
+            $table->text('status');
+            $table->integer('targetDurationMinutes');
+            $table->text('targetLanguage');
+            $table->text('nativeLanguage');
+            $table->json('sourceCardIdsJson')->nullable();
+            $table->json('selectionSummaryJson')->nullable();
+            $table->text('errorMessage')->nullable();
+            $table->timestamp('createdAt');
+            $table->timestamp('updatedAt');
+        });
+
+        $schema->create('daily_audio_practice_tracks', function ($table): void {
+            $table->text('id')->primary();
+            $table->text('practiceId');
+            $table->text('mode');
+            $table->text('status');
+            $table->text('title');
+            $table->integer('sortOrder');
+            $table->json('scriptUnitsJson')->nullable();
+            $table->text('audioUrl')->nullable();
+            $table->json('timingData')->nullable();
+            $table->integer('approxDurationSeconds')->nullable();
+            $table->json('generationMetadataJson')->nullable();
+            $table->text('errorMessage')->nullable();
+            $table->timestamp('createdAt');
+            $table->timestamp('updatedAt');
+        });
+
         $schema->create('study_import_jobs', function ($table): void {
             $table->text('id')->primary();
             $table->text('userId');
@@ -810,6 +895,38 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $source->table('study_settings')->insert([
             'userId' => 'source-user-1',
             'newCardsPerDay' => 12,
+            'createdAt' => $now,
+            'updatedAt' => $now,
+        ]);
+
+        $source->table('daily_audio_practices')->insert([
+            'id' => self::SOURCE_DAILY_AUDIO_ID,
+            'userId' => 'source-user-1',
+            'practiceDate' => '2026-07-14',
+            'status' => 'ready',
+            'targetDurationMinutes' => 30,
+            'targetLanguage' => 'ja',
+            'nativeLanguage' => 'en',
+            'sourceCardIdsJson' => json_encode([self::SOURCE_CARD_ID]),
+            'selectionSummaryJson' => json_encode(['selectedCount' => 1]),
+            'errorMessage' => null,
+            'createdAt' => $now,
+            'updatedAt' => $now,
+        ]);
+
+        $source->table('daily_audio_practice_tracks')->insert([
+            'id' => self::SOURCE_DAILY_AUDIO_TRACK_ID,
+            'practiceId' => self::SOURCE_DAILY_AUDIO_ID,
+            'mode' => 'drill',
+            'status' => 'ready',
+            'title' => 'Drill',
+            'sortOrder' => 0,
+            'scriptUnitsJson' => json_encode([['type' => 'speech', 'text' => '猫']]),
+            'audioUrl' => '/uploads/daily-audio-practice/drill.mp3',
+            'timingData' => json_encode([['unitIndex' => 0, 'startTime' => 0, 'endTime' => 1]]),
+            'approxDurationSeconds' => 1,
+            'generationMetadataJson' => json_encode(['provider' => 'test']),
+            'errorMessage' => null,
             'createdAt' => $now,
             'updatedAt' => $now,
         ]);

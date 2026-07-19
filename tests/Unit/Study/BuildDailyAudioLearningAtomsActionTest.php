@@ -27,7 +27,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             'source_notetype_name' => 'Vocabulary',
         ]);
 
-        $atom = app(BuildDailyAudioLearningAtomsAction::class)->handle([$card])->sole();
+        $atom = (new BuildDailyAudioLearningAtomsAction)->handle([$card])->sole();
 
         $this->assertSame([
             'cardId' => '33cb3d35-8566-4dd5-aebe-af1725c3d18a',
@@ -62,7 +62,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             ],
         ]);
 
-        $atom = app(BuildDailyAudioLearningAtomsAction::class)->handle([$card])->sole();
+        $atom = (new BuildDailyAudioLearningAtomsAction)->handle([$card])->sole();
 
         $this->assertSame('第一候補', $atom->targetText);
         $this->assertSame('だいいちこうほ', $atom->reading);
@@ -81,7 +81,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             ],
         ]);
 
-        $atom = app(BuildDailyAudioLearningAtomsAction::class)->handle([$card])->sole();
+        $atom = (new BuildDailyAudioLearningAtomsAction)->handle([$card])->sole();
 
         $this->assertSame('cat', $atom->english);
     }
@@ -100,7 +100,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             'source_notetype_name' => '  Basic  ',
         ]);
 
-        $atom = app(BuildDailyAudioLearningAtomsAction::class)->handle([$card])->sole();
+        $atom = (new BuildDailyAudioLearningAtomsAction)->handle([$card])->sole();
 
         $this->assertSame('勉強する', $atom->targetText);
         $this->assertSame('べんきょうする', $atom->reading);
@@ -116,7 +116,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             'answer_json' => [],
         ]);
 
-        $atom = app(BuildDailyAudioLearningAtomsAction::class)->handle([$card])->sole();
+        $atom = (new BuildDailyAudioLearningAtomsAction)->handle([$card])->sole();
 
         $this->assertSame('こんにちは', $atom->english);
     }
@@ -132,7 +132,7 @@ class BuildDailyAudioLearningAtomsActionTest extends TestCase
             'answer_json' => ['meaning' => 'to exist'],
         ]);
 
-        $atoms = app(BuildDailyAudioLearningAtomsAction::class)->handle([$missing, $present]);
+        $atoms = (new BuildDailyAudioLearningAtomsAction)->handle([$missing, $present]);
 
         $this->assertCount(1, $atoms);
         $this->assertSame($present->id, $atoms->sole()->cardId);

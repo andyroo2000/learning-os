@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Results\DailyAudioCardSelectionResult;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class SelectDailyAudioPracticeCardsAction
@@ -14,6 +15,8 @@ class SelectDailyAudioPracticeCardsAction
     public const DEFAULT_SELECTION_LIMIT = 30;
 
     public const DEFAULT_CANDIDATE_POOL_SIZE = 80;
+
+    private const NEWER_CANDIDATE_POOL_SIZE = 30;
 
     private const RECENTLY_INTRODUCED_DAYS = 14;
 
@@ -44,7 +47,7 @@ class SelectDailyAudioPracticeCardsAction
         ?CarbonImmutable $now = null,
     ): DailyAudioCardSelectionResult {
         $now ??= CarbonImmutable::now();
-        $candidates = $this->candidates($userId);
+        $candidates = $this->candidates($userId, $now);
         $reviewCounts = $this->reviewCounts($userId, $candidates);
         $ranked = $this->ranked($candidates, $reviewCounts, $now);
         $selected = $this->selected($ranked, $now);
@@ -74,7 +77,43 @@ class SelectDailyAudioPracticeCardsAction
     /**
      * @return Collection<int, Card>
      */
-    private function candidates(int $userId): Collection
+    private function candidates(int $userId, CarbonImmutable $now): Collection
+    {
+        $newer = $this->candidateQuery($userId)
+            ->where(function (Builder $query) use ($now): void {
+                $query
+                    ->where('cards.study_status', CardStudyStatus::New->value)
+                    ->orWhere('cards.introduced_at', '>', $now->subDays(self::RECENTLY_INTRODUCED_DAYS));
+            })
+            ->orderByRaw(
+                'CASE WHEN cards.study_status = ? THEN 0 ELSE 1 END',
+                [CardStudyStatus::New->value],
+            )
+            ->tap(fn (Builder $query): Builder => $this->orderCandidates($query))
+            ->limit(self::NEWER_CANDIDATE_POOL_SIZE)
+            ->get();
+
+        $remainingLimit = self::DEFAULT_CANDIDATE_POOL_SIZE - $newer->count();
+        if ($remainingLimit === 0) {
+            return $newer->values();
+        }
+
+        $remaining = $this->candidateQuery($userId)
+            ->when(
+                $newer->isNotEmpty(),
+                fn (Builder $query): Builder => $query->whereNotIn('cards.id', $newer->modelKeys()),
+            )
+            ->tap(fn (Builder $query): Builder => $this->orderCandidates($query))
+            ->limit($remainingLimit)
+            ->get();
+
+        return $newer->concat($remaining)->values();
+    }
+
+    /**
+     * @return Builder<Card>
+     */
+    private function candidateQuery(int $userId): Builder
     {
         return Card::query()
             ->ownedByActiveDeck($userId)
@@ -84,14 +123,6 @@ class SelectDailyAudioPracticeCardsAction
                 CardStudyStatus::Review->value,
                 CardStudyStatus::Relearning->value,
             ])
-            // Explicit null placement keeps the candidate pool identical on SQLite and Postgres.
-            ->orderByRaw('CASE WHEN cards.due_at IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('cards.due_at')
-            ->orderByDesc('cards.last_reviewed_at')
-            ->orderByDesc('cards.introduced_at')
-            ->orderByDesc('cards.updated_at')
-            ->orderBy('cards.id')
-            ->limit(self::DEFAULT_CANDIDATE_POOL_SIZE)
             // ownedByActiveDeck() starts with cards.*; override that projection explicitly.
             ->select([
                 'cards.id',
@@ -108,8 +139,23 @@ class SelectDailyAudioPracticeCardsAction
                 'cards.prompt_json',
                 'cards.answer_json',
                 'cards.convolab_note_raw_fields_json',
-            ])
-            ->get();
+            ]);
+    }
+
+    /**
+     * @param  Builder<Card>  $query
+     * @return Builder<Card>
+     */
+    private function orderCandidates(Builder $query): Builder
+    {
+        return $query
+            // Explicit null placement keeps the candidate pool identical on SQLite and Postgres.
+            ->orderByRaw('CASE WHEN cards.due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('cards.due_at')
+            ->orderByDesc('cards.last_reviewed_at')
+            ->orderByDesc('cards.introduced_at')
+            ->orderByDesc('cards.updated_at')
+            ->orderBy('cards.id');
     }
 
     /**

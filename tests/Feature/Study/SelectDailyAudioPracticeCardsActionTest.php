@@ -32,7 +32,7 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
             DB::flushQueryLog();
         }
 
-        $this->assertCount(1, $queries, $queries->pluck('query')->implode("\n"));
+        $this->assertCount(2, $queries, $queries->pluck('query')->implode("\n"));
         $this->assertTrue($result->cards->isEmpty());
         $this->assertSame([
             'totalCandidates' => 0,
@@ -81,7 +81,7 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $now = CarbonImmutable::parse('2026-07-19T12:00:00Z');
         $deck = Deck::factory()->for(User::factory()->create())->create();
 
-        $overdue = collect(range(1, 30))->map(fn (): Card => $this->card($deck, [
+        $overdue = collect(range(1, 100))->map(fn (): Card => $this->card($deck, [
             'study_status' => CardStudyStatus::Review,
             'due_at' => $now->subDays(30),
             'introduced_at' => $now->subDays(100),
@@ -165,7 +165,7 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $this->assertSame($unreviewed->id, $result->cards->first()->id);
     }
 
-    public function test_it_bounds_the_candidate_pool_and_uses_two_queries(): void
+    public function test_it_bounds_the_candidate_pool_and_uses_three_queries(): void
     {
         $now = CarbonImmutable::parse('2026-07-19T12:00:00Z');
         $deck = Deck::factory()->for(User::factory()->create())->create();
@@ -189,20 +189,20 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
             DB::flushQueryLog();
         }
 
-        $this->assertCount(2, $queries, $queries->pluck('query')->implode("\n"));
+        $this->assertCount(3, $queries, $queries->pluck('query')->implode("\n"));
         $this->assertSame(SelectDailyAudioPracticeCardsAction::DEFAULT_CANDIDATE_POOL_SIZE, $result->summary['totalCandidates']);
         $this->assertSame(SelectDailyAudioPracticeCardsAction::DEFAULT_SELECTION_LIMIT, $result->summary['selectedCount']);
         $this->assertStringContainsString(
             'CASE WHEN cards.due_at IS NULL THEN 1 ELSE 0 END',
-            $queries->first()['query'],
+            $queries->get(1)['query'],
         );
         $this->assertStringNotContainsString(
             'cards.*',
-            $queries->first()['query'],
+            $queries->get(1)['query'],
         );
         $this->assertStringNotContainsString(
             'scheduler_state',
-            $queries->first()['query'],
+            $queries->get(1)['query'],
         );
     }
 

@@ -3,9 +3,11 @@
 namespace App\Domain\Study\Services;
 
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
+use App\Domain\Study\Results\DailyAudioScriptUnit;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 
 class FishAudioSpeechGenerator
 {
@@ -13,7 +15,7 @@ class FishAudioSpeechGenerator
 
     public const TIMEOUT_SECONDS = 90;
 
-    public function generate(string $text, string $voiceId): string
+    public function generate(string $text, string $voiceId, float $speed = 1.0): string
     {
         $apiKey = trim((string) config('services.fish_audio.api_key'));
         if ($apiKey === '') {
@@ -23,6 +25,11 @@ class FishAudioSpeechGenerator
         $text = trim($text);
         if ($text === '' || mb_strlen($text, 'UTF-8') > self::MAX_TEXT_LENGTH) {
             throw StudyPreviewMediaGenerationException::invalidProviderOutput('Fish Audio');
+        }
+        if (! is_finite($speed)
+            || $speed < DailyAudioScriptUnit::MIN_SPEECH_SPEED
+            || $speed > DailyAudioScriptUnit::MAX_SPEECH_SPEED) {
+            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
         }
 
         $referenceId = preg_replace('/^fishaudio:/i', '', trim($voiceId));
@@ -44,7 +51,7 @@ class FishAudioSpeechGenerator
                     'mp3_bitrate' => 128,
                     'sample_rate' => 44_100,
                     'prosody' => [
-                        'speed' => 1,
+                        'speed' => floor($speed) === $speed ? (int) $speed : $speed,
                         'volume' => 0,
                     ],
                 ]);

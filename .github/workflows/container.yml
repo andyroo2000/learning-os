@@ -105,6 +105,14 @@ jobs:
                 exit(1);
             }
           '
+          docker run --rm $TEST_IMAGE ffmpeg -version
+          docker run --rm $TEST_IMAGE ffprobe -version
+          docker run --rm $TEST_IMAGE sh -c '
+            ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=r=44100:cl=stereo \
+              -t 0.1 -c:a libmp3lame -b:a 128k /tmp/audio-runtime-smoke.mp3 &&
+            ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 /tmp/audio-runtime-smoke.mp3
+          '
 
       - name: Start PostgreSQL
         run: |

@@ -260,6 +260,46 @@ class ConvoLabMediaImportCommandTest extends TestCase
         Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing('study-media/source-user/neko.mp3');
     }
 
+    public function test_skips_linked_media_without_storage_paths_while_importing_valid_media(): void
+    {
+        $source = DB::connection('convolab_media_test_source');
+        $source->table('study_media')
+            ->where('id', 'source-media-1')
+            ->update(['storagePath' => null]);
+        $source->table('study_media')
+            ->where('id', 'source-media-duplicate')
+            ->update(['storagePath' => '   ']);
+        $source->table('study_media')->insert([
+            'id' => 'source-media-2',
+            'userId' => 'source-user-1',
+            'importJobId' => self::SOURCE_IMPORT_ID,
+            'sourceKind' => 'anki_import',
+            'sourceMediaKey' => '1',
+            'sourceFilename' => 'inu.png',
+            'normalizedFilename' => 'inu.png',
+            'mediaKind' => 'image',
+            'contentType' => 'image/png',
+            'storagePath' => 'study-media/source-user/inu.png',
+            'publicUrl' => null,
+            'createdAt' => '2026-07-19 10:00:01',
+            'updatedAt' => '2026-07-19 10:00:01',
+        ]);
+        $this->putSourceFile('study-media/source-user/inu.png', 'verified-inu-bytes');
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain(
+                'Skipped 2 unavailable Convo Lab media rows and 2 card media links without storage paths.',
+            )
+            ->expectsOutputToContain('Verified 1 unique media files and 0 card media links.')
+            ->expectsOutputToContain('Convo Lab media import completed: 1 media assets, 0 new card links.')
+            ->assertExitCode(0);
+
+        $media = MediaAsset::query()->sole();
+        $this->assertSame('study-media/source-user/inu.png', $media->path);
+        $this->assertDatabaseCount('card_media', 0);
+        Storage::disk(MediaAsset::DISK_MEDIA)->assertExists('study-media/source-user/inu.png');
+    }
+
     public function test_preflight_rejects_a_different_existing_destination_file(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'source-bytes');

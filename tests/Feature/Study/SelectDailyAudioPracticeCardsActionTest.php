@@ -17,6 +17,34 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_returns_an_empty_selection_when_no_cards_are_eligible(): void
+    {
+        $user = User::factory()->create();
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $result = app(SelectDailyAudioPracticeCardsAction::class)->handle($user->id);
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertCount(1, $queries, $queries->pluck('query')->implode("\n"));
+        $this->assertTrue($result->cards->isEmpty());
+        $this->assertSame([
+            'totalCandidates' => 0,
+            'totalEligible' => 0,
+            'selectedCount' => 0,
+            'dueCount' => 0,
+            'learningCount' => 0,
+            'recentMissCount' => 0,
+        ], $result->summary);
+        $this->assertSame([], $result->clientCardIds());
+    }
+
     public function test_it_selects_only_eligible_cards_owned_through_active_decks(): void
     {
         $now = CarbonImmutable::parse('2026-07-19T12:00:00Z');
@@ -166,6 +194,14 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $this->assertSame(SelectDailyAudioPracticeCardsAction::DEFAULT_SELECTION_LIMIT, $result->summary['selectedCount']);
         $this->assertStringContainsString(
             'CASE WHEN cards.due_at IS NULL THEN 1 ELSE 0 END',
+            $queries->first()['query'],
+        );
+        $this->assertStringNotContainsString(
+            'cards.*',
+            $queries->first()['query'],
+        );
+        $this->assertStringNotContainsString(
+            'scheduler_state',
             $queries->first()['query'],
         );
     }

@@ -19,6 +19,26 @@ class SelectDailyAudioPracticeCardsAction
 
     private const RECENTLY_REVIEWED_DAYS = 3;
 
+    private const DUE_WEIGHT = 140;
+
+    private const LEARNING_WEIGHT = 75;
+
+    private const NEW_WEIGHT = 55;
+
+    private const LAPSE_WEIGHT = 15;
+
+    private const MAX_LAPSE_WEIGHT = 60;
+
+    private const RECENTLY_INTRODUCED_WEIGHT = 55;
+
+    private const RECENTLY_REVIEWED_WEIGHT = 20;
+
+    private const UNREVIEWED_WEIGHT = 15;
+
+    private const MAX_REVIEW_COUNT_PENALTY = 20;
+
+    private const NEWER_CARD_RESERVE_RATIO = 0.3;
+
     public function handle(
         int $userId,
         ?CarbonImmutable $now = null,
@@ -72,7 +92,8 @@ class SelectDailyAudioPracticeCardsAction
             ->orderByDesc('cards.updated_at')
             ->orderBy('cards.id')
             ->limit(self::DEFAULT_CANDIDATE_POOL_SIZE)
-            ->get([
+            // ownedByActiveDeck() starts with cards.*; override that projection explicitly.
+            ->select([
                 'cards.id',
                 'cards.convolab_id',
                 'cards.card_type',
@@ -87,7 +108,8 @@ class SelectDailyAudioPracticeCardsAction
                 'cards.prompt_json',
                 'cards.answer_json',
                 'cards.convolab_note_raw_fields_json',
-            ]);
+            ])
+            ->get();
     }
 
     /**
@@ -149,32 +171,32 @@ class SelectDailyAudioPracticeCardsAction
         $score = 0;
 
         if ($card->due_at !== null && $card->due_at->lte($now)) {
-            $score += 140;
+            $score += self::DUE_WEIGHT;
         }
         if (in_array($card->study_status, [
             CardStudyStatus::Learning,
             CardStudyStatus::Relearning,
         ], true)) {
-            $score += 75;
+            $score += self::LEARNING_WEIGHT;
         }
         if ($card->study_status === CardStudyStatus::New) {
-            $score += 55;
+            $score += self::NEW_WEIGHT;
         }
 
         $lapses = max(0, (int) ($card->source_lapses ?? 0));
-        $score += min(60, $lapses * 15);
+        $score += min(self::MAX_LAPSE_WEIGHT, $lapses * self::LAPSE_WEIGHT);
 
         if ($this->isWithinDays($card->introduced_at, $now, self::RECENTLY_INTRODUCED_DAYS)) {
-            $score += 55;
+            $score += self::RECENTLY_INTRODUCED_WEIGHT;
         }
         if ($this->isWithinDays($card->last_reviewed_at, $now, self::RECENTLY_REVIEWED_DAYS)) {
-            $score += 20;
+            $score += self::RECENTLY_REVIEWED_WEIGHT;
         }
         if ($reviewCount === 0) {
-            $score += 15;
+            $score += self::UNREVIEWED_WEIGHT;
         }
 
-        return $score - min(20, $reviewCount);
+        return $score - min(self::MAX_REVIEW_COUNT_PENALTY, $reviewCount);
     }
 
     /**
@@ -189,7 +211,7 @@ class SelectDailyAudioPracticeCardsAction
         );
         $reservedCount = min(
             $newer->count(),
-            (int) ceil(self::DEFAULT_SELECTION_LIMIT * 0.3),
+            (int) ceil(self::DEFAULT_SELECTION_LIMIT * self::NEWER_CARD_RESERVE_RATIO),
         );
         $selected = $newer->take($reservedCount)->values();
         $selectedIds = $selected->modelKeys();

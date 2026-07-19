@@ -2,8 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\OriginalFilename;
+use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
@@ -68,12 +73,19 @@ class ImportConvoLabMedia extends Command
     private array $userIdBySourceMediaId = [];
 
     /**
-     * @var array<string, array{card_id: string, user_id: int}>
+     * @var array<string, array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null
+     * }>
      */
     private array $cardsBySourceId = [];
 
-    public function handle(): int
-    {
+    public function handle(
+        RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
+        RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
+    ): int {
         if (app()->isProduction() && ! $this->option('allow-production')) {
             $this->error('This command must not run in production without --allow-production.');
 
@@ -120,9 +132,24 @@ class ImportConvoLabMedia extends Command
 
             $createdPaths = $this->copyMissingFiles();
 
-            $result = $target->transaction(function () use ($target, $existingMedia, $cardMediaPairs): array {
-                $mediaIdsByPath = $this->persistMediaRows($target, $existingMedia);
-                $createdLinks = $this->persistCardMediaLinks($target, $cardMediaPairs, $mediaIdsByPath);
+            $result = $target->transaction(function () use (
+                $target,
+                $existingMedia,
+                $cardMediaPairs,
+                $recordMediaAssetSyncFeedEntry,
+                $recordCardMediaSyncFeedEntry,
+            ): array {
+                $mediaIdsByPath = $this->persistMediaRows(
+                    $target,
+                    $existingMedia,
+                    $recordMediaAssetSyncFeedEntry,
+                );
+                $createdLinks = $this->persistCardMediaLinks(
+                    $target,
+                    $cardMediaPairs,
+                    $mediaIdsByPath,
+                    $recordCardMediaSyncFeedEntry,
+                );
 
                 return [
                     'media' => count($mediaIdsByPath),
@@ -337,7 +364,12 @@ class ImportConvoLabMedia extends Command
 
     /**
      * @param  array<string, int>  $userIds
-     * @return array<string, array{card_id: string, user_id: int}>
+     * @return array<string, array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null
+     * }>
      */
     private function mapSourceCards(
         ConnectionInterface $source,
@@ -349,11 +381,19 @@ class ImportConvoLabMedia extends Command
             ->whereNotNull('cards.convolab_id')
             ->whereNull('cards.deleted_at')
             ->whereNull('decks.deleted_at')
-            ->get(['cards.id', 'cards.convolab_id', 'decks.user_id'])
+            ->get([
+                'cards.id',
+                'cards.convolab_id',
+                'cards.deck_id',
+                'decks.user_id',
+                'decks.course_id',
+            ])
             ->mapWithKeys(fn (object $card): array => [
                 strtolower((string) $card->convolab_id) => [
                     'card_id' => (string) $card->id,
                     'user_id' => (int) $card->user_id,
+                    'deck_id' => (string) $card->deck_id,
+                    'course_id' => $card->course_id === null ? null : (string) $card->course_id,
                 ],
             ])
             ->all();
@@ -524,7 +564,15 @@ class ImportConvoLabMedia extends Command
     }
 
     /**
-     * @return list<array{card_id: string, path: string, created_at: mixed, updated_at: mixed}>
+     * @return list<array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null,
+     *     path: string,
+     *     created_at: mixed,
+     *     updated_at: mixed
+     * }>
      */
     private function buildCardMediaPairs(ConnectionInterface $source): array
     {
@@ -559,6 +607,9 @@ class ImportConvoLabMedia extends Command
                 $key = $targetCard['card_id']."\n".$path;
                 $pairs[$key] = [
                     'card_id' => $targetCard['card_id'],
+                    'user_id' => $targetCard['user_id'],
+                    'deck_id' => $targetCard['deck_id'],
+                    'course_id' => $targetCard['course_id'],
                     'path' => $path,
                     'created_at' => $card->createdAt,
                     'updated_at' => $card->updatedAt,
@@ -682,15 +733,31 @@ class ImportConvoLabMedia extends Command
      * @param  array<string, object>  $existing
      * @return array<string, string>
      */
-    private function persistMediaRows(ConnectionInterface $target, array $existing): array
-    {
+    private function persistMediaRows(
+        ConnectionInterface $target,
+        array $existing,
+        RecordMediaAssetSyncFeedEntryAction $recordSyncFeedEntry,
+    ): array {
         $ids = [];
+        $existingResourceUserIds = [];
+
+        foreach ($existing as $row) {
+            $existingResourceUserIds[(string) $row->id] = (int) $row->user_id;
+        }
+
+        $existingFeedResourceIds = $this->existingCreateSyncResourceIds(
+            $target,
+            MediaAssetSyncPayload::RESOURCE_TYPE,
+            $existingResourceUserIds,
+        );
 
         foreach ($this->mediaByPath as $path => $manifest) {
             $row = $existing[$path] ?? null;
 
             if ($row !== null) {
-                if ((int) $row->size_bytes === 0 && $row->checksum_sha256 === null) {
+                $wasVerified = ! ((int) $row->size_bytes === 0 && $row->checksum_sha256 === null);
+
+                if (! $wasVerified) {
                     $target->table('media_assets')->where('id', $row->id)->update([
                         'size_bytes' => $manifest['size_bytes'],
                         'checksum_sha256' => $manifest['checksum_sha256'],
@@ -699,7 +766,17 @@ class ImportConvoLabMedia extends Command
                     ]);
                 }
 
-                $ids[$path] = (string) $row->id;
+                $existingId = (string) $row->id;
+
+                if (! isset($existingFeedResourceIds[$existingId])) {
+                    $this->recordMediaSyncEntry(
+                        $existingId,
+                        $manifest['user_id'],
+                        $recordSyncFeedEntry,
+                    );
+                }
+
+                $ids[$path] = $existingId;
 
                 continue;
             }
@@ -722,6 +799,7 @@ class ImportConvoLabMedia extends Command
                 'created_at' => $manifest['created_at'],
                 'updated_at' => $manifest['updated_at'],
             ]);
+            $this->recordMediaSyncEntry($id, $manifest['user_id'], $recordSyncFeedEntry);
             $ids[$path] = $id;
         }
 
@@ -729,26 +807,114 @@ class ImportConvoLabMedia extends Command
     }
 
     /**
-     * @param  list<array{card_id: string, path: string, created_at: mixed, updated_at: mixed}>  $pairs
+     * @param  list<array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null,
+     *     path: string,
+     *     created_at: mixed,
+     *     updated_at: mixed
+     * }>  $pairs
      * @param  array<string, string>  $mediaIdsByPath
      */
     private function persistCardMediaLinks(
         ConnectionInterface $target,
         array $pairs,
         array $mediaIdsByPath,
+        RecordCardMediaSyncFeedEntryAction $recordSyncFeedEntry,
     ): int {
         $created = 0;
+        $resourceIdsByPair = [];
+        $resourceUserIds = [];
 
-        foreach ($pairs as $pair) {
-            $created += $target->table('card_media')->insertOrIgnore([
+        foreach ($pairs as $key => $pair) {
+            $resourceIdsByPair[$key] = CardMediaSyncPayload::resourceId(
+                $pair['card_id'],
+                $mediaIdsByPath[$pair['path']],
+            );
+            $resourceUserIds[$resourceIdsByPair[$key]] = $pair['user_id'];
+        }
+
+        $existingFeedResourceIds = $this->existingCreateSyncResourceIds(
+            $target,
+            CardMediaSyncPayload::RESOURCE_TYPE,
+            $resourceUserIds,
+        );
+
+        foreach ($pairs as $key => $pair) {
+            $mediaAssetId = $mediaIdsByPath[$pair['path']];
+            $resourceId = $resourceIdsByPair[$key];
+            $inserted = $target->table('card_media')->insertOrIgnore([
                 'card_id' => $pair['card_id'],
-                'media_asset_id' => $mediaIdsByPath[$pair['path']],
+                'media_asset_id' => $mediaAssetId,
                 'created_at' => $pair['created_at'],
                 'updated_at' => $pair['updated_at'],
             ]);
+
+            if ($inserted === 1 || ! isset($existingFeedResourceIds[$resourceId])) {
+                $recordSyncFeedEntry->handle(
+                    userId: $pair['user_id'],
+                    operation: SyncFeedOperation::Create,
+                    cardId: $pair['card_id'],
+                    mediaAssetId: $mediaAssetId,
+                    deckId: $pair['deck_id'],
+                    courseId: $pair['course_id'],
+                    createdAt: $pair['created_at'],
+                    updatedAt: $pair['updated_at'],
+                );
+                $created++;
+            }
         }
 
         return $created;
+    }
+
+    /**
+     * @param  array<string, int>  $resourceUserIds
+     * @return array<string, true>
+     */
+    private function existingCreateSyncResourceIds(
+        ConnectionInterface $target,
+        string $resourceType,
+        array $resourceUserIds,
+    ): array {
+        $existing = [];
+        $resourceIdsByUser = [];
+
+        foreach ($resourceUserIds as $resourceId => $userId) {
+            $resourceIdsByUser[$userId][] = $resourceId;
+        }
+
+        foreach ($resourceIdsByUser as $userId => $resourceIds) {
+            foreach (array_chunk(array_values(array_unique($resourceIds)), 500) as $chunk) {
+                foreach ($target->table('sync_feed_entries')
+                    ->where('user_id', $userId)
+                    ->where('domain', MediaAssetSyncPayload::DOMAIN)
+                    ->where('resource_type', $resourceType)
+                    ->where('operation', SyncFeedOperation::Create->value)
+                    ->whereIn('resource_id', $chunk)
+                    ->pluck('resource_id') as $resourceId) {
+                    $existing[(string) $resourceId] = true;
+                }
+            }
+        }
+
+        return $existing;
+    }
+
+    private function recordMediaSyncEntry(
+        string $mediaAssetId,
+        int $userId,
+        RecordMediaAssetSyncFeedEntryAction $recordSyncFeedEntry,
+    ): void {
+        $mediaAsset = MediaAsset::query()->findOrFail($mediaAssetId);
+
+        $recordSyncFeedEntry->handle(
+            userId: $userId,
+            operation: SyncFeedOperation::Create,
+            mediaAsset: $mediaAsset,
+        );
     }
 
     private function boundedNullableString(

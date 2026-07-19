@@ -4,7 +4,11 @@ namespace Tests\Feature\Rehearsal;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Sync\CardMediaSyncPayload;
+use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,6 +105,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
             'card_id' => Card::query()->sole()->id,
             'media_asset_id' => $media->id,
         ]);
+        $this->assertImportedSyncFeed($media);
     }
 
     public function test_retry_reuses_verified_media_and_card_link(): void
@@ -116,7 +121,54 @@ class ConvoLabMediaImportCommandTest extends TestCase
 
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseCount('card_media', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
         $this->assertSame($mediaId, MediaAsset::query()->sole()->id);
+    }
+
+    public function test_backfills_missing_sync_entries_for_existing_media_and_card_links(): void
+    {
+        $contents = 'already-verified-bytes';
+        $path = 'study-media/source-user/neko.mp3';
+        $this->putSourceFile($path, $contents);
+        $card = Card::query()->sole();
+        $media = MediaAsset::query()->forceCreate([
+            'user_id' => User::query()->sole()->id,
+            'import_job_id' => StudyImportJob::query()->sole()->id,
+            'disk' => MediaAsset::DISK_MEDIA,
+            'path' => $path,
+            'mime_type' => 'audio/mpeg',
+            'size_bytes' => strlen($contents),
+            'checksum_sha256' => hash('sha256', $contents),
+            'original_filename' => 'neko.mp3',
+            'source_kind' => 'anki_import',
+            'source_media_ref' => '0',
+            'source_filename' => 'neko.mp3',
+        ]);
+        DB::table('card_media')->insert([
+            'card_id' => $card->id,
+            'media_asset_id' => $media->id,
+            'created_at' => '2026-07-19 10:00:00',
+            'updated_at' => '2026-07-19 10:00:00',
+        ]);
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->assertExitCode(0);
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->assertExitCode(0);
+
+        $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('card_media', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'resource_type' => MediaAssetSyncPayload::RESOURCE_TYPE,
+            'resource_id' => $media->id,
+            'operation' => SyncFeedOperation::Create->value,
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'resource_type' => CardMediaSyncPayload::RESOURCE_TYPE,
+            'resource_id' => CardMediaSyncPayload::resourceId($card->id, $media->id),
+            'operation' => SyncFeedOperation::Create->value,
+        ]);
     }
 
     public function test_rejects_a_concurrent_import_before_touching_storage_or_data(): void
@@ -140,6 +192,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
 
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
         Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing('study-media/source-user/neko.mp3');
     }
 
@@ -243,6 +296,34 @@ class ConvoLabMediaImportCommandTest extends TestCase
         $this->assertDatabaseCount('card_media', 1);
     }
 
+    public function test_imports_unlinked_source_media_without_inventing_a_card_link(): void
+    {
+        $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
+        DB::connection('convolab_media_test_source')
+            ->table('study_cards')
+            ->update([
+                'promptAudioMediaId' => null,
+                'answerAudioMediaId' => null,
+                'imageMediaId' => null,
+            ]);
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain('Verified 1 unique media files and 0 card media links.')
+            ->expectsOutputToContain('Convo Lab media import completed: 1 media assets, 0 new card links.')
+            ->assertExitCode(0);
+
+        $media = MediaAsset::query()->sole();
+        $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $media->user_id,
+            'domain' => MediaAssetSyncPayload::DOMAIN,
+            'resource_type' => MediaAssetSyncPayload::RESOURCE_TYPE,
+            'resource_id' => $media->id,
+            'operation' => SyncFeedOperation::Create->value,
+        ]);
+    }
+
     public function test_rejects_media_for_a_soft_deleted_target_card(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
@@ -310,6 +391,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
 
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
         Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing('study-media/source-user/neko.mp3');
     }
 
@@ -322,6 +404,49 @@ class ConvoLabMediaImportCommandTest extends TestCase
         $this->artisan('migration:import-convolab-media', $this->commandOptions())
             ->expectsOutputToContain('Convo Lab media [source-media-1] has an unsafe storage path.')
             ->assertExitCode(1);
+    }
+
+    public function test_rejects_a_source_connection_that_resolves_to_the_target_database(): void
+    {
+        $this->artisan('migration:import-convolab-media', [
+            ...$this->commandOptions(),
+            '--source-connection' => DB::getDefaultConnection(),
+        ])
+            ->expectsOutputToContain(
+                'Source and target databases resolve to the same database. Use a separate restored source copy.',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_rejects_a_source_symlink_that_escapes_the_media_root(): void
+    {
+        $path = 'study-media/source-user/neko.mp3';
+        $this->putSourceFile($path, 'placeholder');
+        $insidePath = $this->sourceMediaRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
+        $outsidePath = tempnam(storage_path('framework/testing'), 'convolab-media-outside-');
+        $this->assertIsString($outsidePath);
+        file_put_contents($outsidePath, 'outside-bytes');
+        unlink($insidePath);
+        $this->assertTrue(symlink($outsidePath, $insidePath));
+
+        try {
+            $this->artisan('migration:import-convolab-media', $this->commandOptions())
+                ->expectsOutputToContain(
+                    'Convo Lab media bytes are missing for [source-media-1] at ['.$path.'].',
+                )
+                ->assertExitCode(1);
+        } finally {
+            unlink($outsidePath);
+        }
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        Storage::disk(MediaAsset::DISK_MEDIA)->assertMissing($path);
     }
 
     public function test_preflight_rejects_source_metadata_that_exceeds_target_column_limits(): void
@@ -374,6 +499,21 @@ class ConvoLabMediaImportCommandTest extends TestCase
             ->assertExitCode(1);
 
         $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_production_refuses_to_run_without_the_explicit_override(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+
+        $this->artisan('migration:import-convolab-media', $this->commandOptions())
+            ->expectsOutputToContain(
+                'This command must not run in production without --allow-production.',
+            )
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_production_accepts_exact_database_confirmation(): void
@@ -495,5 +635,50 @@ class ConvoLabMediaImportCommandTest extends TestCase
         }
 
         file_put_contents($absolute, $contents);
+    }
+
+    private function assertImportedSyncFeed(MediaAsset $media): void
+    {
+        $card = Card::query()->sole();
+        $mediaEntry = SyncFeedEntry::query()
+            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
+            ->sole();
+        $cardMediaEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
+            ->sole();
+
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertSame($media->user_id, $mediaEntry->user_id);
+        $this->assertSame(MediaAssetSyncPayload::DOMAIN, $mediaEntry->domain);
+        $this->assertSame($media->id, $mediaEntry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $mediaEntry->operation);
+        $this->assertSame([
+            'id' => $media->id,
+            'import_job_id' => StudyImportJob::query()->sole()->id,
+            'source_kind' => 'anki_import',
+            'source_media_ref' => '0',
+            'source_filename' => 'neko.mp3',
+            'url' => null,
+            'content_url' => '/api/media-assets/'.$media->id.'/content',
+            'mime_type' => 'audio/mpeg',
+            'size_bytes' => strlen('verified-neko-bytes'),
+            'checksum_sha256' => hash('sha256', 'verified-neko-bytes'),
+            'original_filename' => 'neko.mp3',
+            'created_at' => '2026-07-19T10:00:00.000000Z',
+            'updated_at' => '2026-07-19T10:00:00.000000Z',
+        ], $mediaEntry->payload);
+
+        $this->assertSame($media->user_id, $cardMediaEntry->user_id);
+        $this->assertSame(CardMediaSyncPayload::DOMAIN, $cardMediaEntry->domain);
+        $this->assertSame("{$card->id}:{$media->id}", $cardMediaEntry->resource_id);
+        $this->assertSame(SyncFeedOperation::Create, $cardMediaEntry->operation);
+        $this->assertSame([
+            'card_id' => $card->id,
+            'media_asset_id' => $media->id,
+            'deck_id' => $card->deck_id,
+            'course_id' => null,
+            'created_at' => '2026-07-19T10:00:00.000000Z',
+            'updated_at' => '2026-07-19T10:00:00.000000Z',
+        ], $cardMediaEntry->payload);
     }
 }

@@ -142,16 +142,24 @@ php artisan migration:import-convolab-media \
   --source-media-root="$CONVOLAB_MEDIA_ROOT"
 ```
 
-The command preflights every source file, path, owner, target card, import job,
-byte size, SHA-256 checksum, and existing target file before it writes
-anything. It rejects path traversal, cross-user links, conflicting bytes, and
-metadata that cannot fit the Postgres target columns.
+The command imports every Convo Lab `study_media` row, including assets that
+are not currently attached to a card, so the cutover does not discard import
+provenance or temporarily unlinked files. For linked media, the target card
+must exist and remain active; the command never invents a link for unlinked
+media.
+
+Before writing anything, it preflights every source file, path, owner, linked
+target card, import job, byte size, SHA-256 checksum, and existing target file.
+It rejects path traversal, cross-user links, conflicting bytes, and metadata
+that cannot fit the Postgres target columns.
 
 The import is idempotent. A successful retry reuses matching media rows, files,
 and card links. If the database transaction fails, the command rolls it back
 and removes files created by that attempt; files that existed before the
 attempt are left untouched. A target-database lock also prevents concurrent
-import commands from racing over the same files.
+import commands from racing over the same files. Production must use a shared,
+lock-capable cache store such as the default database store; an in-process
+`array` cache cannot coordinate separate CLI processes.
 
 For the production Learning OS target, add both safeguards:
 

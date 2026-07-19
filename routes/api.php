@@ -11,6 +11,7 @@ use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
+use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
@@ -76,6 +77,7 @@ use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
+use App\Http\Controllers\Api\Study\DownloadDailyAudioPracticeTrackController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
 use App\Http\Controllers\Api\Study\ListDailyAudioPracticesController;
@@ -112,6 +114,7 @@ use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
+use App\Http\Controllers\Api\Study\StoreDailyAudioPracticeController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
@@ -218,11 +221,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     Route::post('/study/session/start', StartStudySessionController::class)
         ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+    Route::post('/daily-audio-practice', StoreDailyAudioPracticeController::class)
+        ->middleware('throttle:'.DailyAudioPracticeGenerationRateLimiter::NAME);
     Route::get('/daily-audio-practice', ListDailyAudioPracticesController::class);
     Route::get('/daily-audio-practice/{practiceId}', ShowDailyAudioPracticeController::class)
         ->whereUuid('practiceId');
     Route::get('/daily-audio-practice/{practiceId}/status', ShowDailyAudioPracticeStatusController::class)
         ->whereUuid('practiceId');
+    Route::get(
+        '/daily-audio-practice/{practiceId}/tracks/{trackId}/audio',
+        DownloadDailyAudioPracticeTrackController::class,
+    )
+        ->whereUuid('practiceId')
+        ->whereUuid('trackId');
     Route::get('/study/export', ShowStudyExportManifestController::class);
     Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)->name('api.study.export.card-drafts');
     Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');

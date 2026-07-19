@@ -364,6 +364,7 @@ class ImportConvoLabRehearsalData extends Command
                         'target_duration_minutes' => $practice->targetDurationMinutes,
                         'target_language' => $practice->targetLanguage,
                         'native_language' => $practice->nativeLanguage,
+                        // Historical compatibility payload: imported cards retain these UUIDs in convolab_id.
                         'source_card_ids_json' => $practice->sourceCardIdsJson,
                         'selection_summary_json' => $practice->selectionSummaryJson,
                         'error_message' => $practice->errorMessage,

@@ -12,6 +12,7 @@ class ListDailyAudioPracticesAction
     /** @return Collection<int, DailyAudioPractice> */
     public function handle(int $userId): Collection
     {
+        // Convo Lab lists the full practice-level JSON; only the large per-track generation payloads are omitted.
         return DailyAudioPractice::query()
             ->where('user_id', $userId)
             ->with(['tracks' => fn ($query) => $query

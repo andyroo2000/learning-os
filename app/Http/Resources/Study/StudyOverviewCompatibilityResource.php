@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Study;
 
 use App\Domain\Study\Models\StudyImportJob;
+use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -57,12 +58,12 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'preview' => $latestImport->preview_json,
             'summary' => $latestImport->summary_json,
             'errorMessage' => $latestImport->error_message,
-            'startedAt' => $latestImport->started_at?->toJSON(),
-            'uploadedAt' => $latestImport->uploaded_at?->toJSON(),
-            'uploadExpiresAt' => $latestImport->upload_expires_at?->toJSON(),
-            'completedAt' => $latestImport->completed_at?->toJSON(),
-            'createdAt' => $latestImport->created_at?->toJSON(),
-            'updatedAt' => $latestImport->updated_at?->toJSON(),
+            'startedAt' => ConvoLabTimestamp::serialize($latestImport->started_at),
+            'uploadedAt' => ConvoLabTimestamp::serialize($latestImport->uploaded_at),
+            'uploadExpiresAt' => ConvoLabTimestamp::serialize($latestImport->upload_expires_at),
+            'completedAt' => ConvoLabTimestamp::serialize($latestImport->completed_at),
+            'createdAt' => ConvoLabTimestamp::serialize($latestImport->created_at),
+            'updatedAt' => ConvoLabTimestamp::serialize($latestImport->updated_at),
         ];
     }
 

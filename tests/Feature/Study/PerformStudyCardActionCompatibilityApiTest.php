@@ -105,7 +105,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 ->assertJsonPath('card.prompt.text', '会社')
                 ->assertJsonPath('card.answer.text', 'company')
                 ->assertJsonPath('card.state.queueState', 'review')
-                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000000Z')
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000Z')
                 ->assertJsonPath('card.state.source.noteId', '501')
                 ->assertJsonPath('card.state.source.cardId', '701')
                 ->assertJsonPath('card.state.source.deckId', '301')
@@ -147,7 +147,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
                 'dueAt' => '2026-06-06T10:15:00-04:00',
             ])
                 ->assertOk()
-                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000000Z');
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T14:15:00.000Z');
 
             $this->assertDatabaseHas('cards', [
                 'id' => $card->id,
@@ -177,7 +177,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ])
                 ->assertOk()
                 ->assertJsonPath('card.state.queueState', 'review')
-                ->assertJsonPath('card.state.dueAt', '2026-06-07T09:00:00.000000Z');
+                ->assertJsonPath('card.state.dueAt', '2026-06-07T09:00:00.000Z');
         } finally {
             Carbon::setTestNow();
         }
@@ -197,7 +197,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('card.state.queueState', 'suspended')
-            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000Z')
             ->assertJsonPath('overview.reviewCount', 0)
             ->assertJsonPath('overview.suspendedCount', 1);
 
@@ -247,7 +247,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ])
                 ->assertOk()
                 ->assertJsonPath('card.state.queueState', 'review')
-                ->assertJsonPath('card.state.dueAt', '2026-06-05T15:30:00.000000Z')
+                ->assertJsonPath('card.state.dueAt', '2026-06-05T15:30:00.000Z')
                 ->assertJsonPath('overview.reviewCount', 1)
                 ->assertJsonPath('overview.newCount', 0);
         } finally {
@@ -313,7 +313,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
             ])
                 ->assertOk()
                 ->assertJsonPath('card.state.queueState', 'review')
-                ->assertJsonPath('card.state.dueAt', '2026-06-06T13:00:00.000000Z');
+                ->assertJsonPath('card.state.dueAt', '2026-06-06T13:00:00.000Z');
         } finally {
             Carbon::setTestNow();
         }
@@ -331,7 +331,7 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('card.state.queueState', 'review')
-            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000000Z')
+            ->assertJsonPath('card.state.dueAt', '2026-06-05T14:15:00.000Z')
             ->assertJsonPath('overview.reviewCount', 1)
             ->assertJsonPath('overview.suspendedCount', 0);
 

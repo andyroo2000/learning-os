@@ -83,7 +83,7 @@ class UndoStudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('reviewLogId', $reviewLogId)
                 ->assertJsonPath('card.id', $card->id)
                 ->assertJsonPath('card.state.queueState', 'learning')
-                ->assertJsonPath('card.state.dueAt', '2026-05-28T09:15:00.000000Z')
+                ->assertJsonPath('card.state.dueAt', '2026-05-28T09:15:00.000Z')
                 ->assertJsonPath('card.state.scheduler.state', 1)
                 ->assertJsonPath('overview.learningCount', 1)
                 ->assertJsonPath('overview.reviewCount', 0);

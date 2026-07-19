@@ -30,6 +30,8 @@ class ConvoLabMediaImportCommandTest extends TestCase
 
     private string $sourceMediaRoot;
 
+    private ?string $lockConnection = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -50,6 +52,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
         ]);
 
         DB::purge('convolab_media_test_source');
+        $this->configurePostgresLockConnection();
         $this->createSourceSchema();
         $this->seedTarget();
         $this->seedSource();
@@ -58,6 +61,11 @@ class ConvoLabMediaImportCommandTest extends TestCase
     protected function tearDown(): void
     {
         DB::purge('convolab_media_test_source');
+
+        if ($this->lockConnection !== null) {
+            app('cache')->forgetDriver('database');
+            DB::purge($this->lockConnection);
+        }
 
         if (isset($this->sourceDatabase) && is_file($this->sourceDatabase)) {
             unlink($this->sourceDatabase);
@@ -75,6 +83,26 @@ class ConvoLabMediaImportCommandTest extends TestCase
         }
 
         parent::tearDown();
+    }
+
+    private function configurePostgresLockConnection(): void
+    {
+        $defaultConnection = DB::getDefaultConnection();
+
+        if (DB::connection($defaultConnection)->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        $this->lockConnection = 'convolab_media_lock_test';
+        config([
+            "database.connections.{$this->lockConnection}" => config(
+                "database.connections.{$defaultConnection}",
+            ),
+            'cache.stores.database.connection' => $this->lockConnection,
+            'cache.stores.database.lock_connection' => $this->lockConnection,
+        ]);
+        DB::purge($this->lockConnection);
+        app('cache')->forgetDriver('database');
     }
 
     public function test_imports_verified_media_into_an_existing_learning_os_database(): void

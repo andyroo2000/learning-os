@@ -170,7 +170,6 @@ class DailyAudioDrillScriptGenerator
                     'form_transform',
                     $englishCue,
                 ),
-                ...$this->legacyVariations($item['variations'] ?? null, $englishCue),
             ];
 
             $enhancements[$cardId] = new DailyAudioDrillEnhancement(
@@ -280,37 +279,6 @@ PROMPT."\n".$cardsJson;
 
         $variations = [];
         foreach (array_slice($values, 0, self::MAX_PROVIDER_VARIATIONS_PER_KIND) as $value) {
-            $variation = $this->parseVariation($value, $kind, $englishCue);
-            if ($variation !== null) {
-                $variations[] = $variation;
-            }
-        }
-
-        return $variations;
-    }
-
-    /**
-     * @return list<DailyAudioDrillVariation>
-     */
-    private function legacyVariations(mixed $values, ?string $englishCue): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        $variations = [];
-        foreach (array_slice($values, 0, self::MAX_PROVIDER_VARIATIONS_PER_KIND) as $index => $value) {
-            if (! is_array($value)) {
-                continue;
-            }
-
-            $explicitKind = $this->stringField($value, 'kind');
-            if ($explicitKind !== null && ! in_array($explicitKind, self::VARIATION_KINDS, true)) {
-                continue;
-            }
-            $kind = $explicitKind ?? ($index < 2
-                ? 'grammar_substitution'
-                : 'form_transform');
             $variation = $this->parseVariation($value, $kind, $englishCue);
             if ($variation !== null) {
                 $variations[] = $variation;

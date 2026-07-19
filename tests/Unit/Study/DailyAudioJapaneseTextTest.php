@@ -37,6 +37,10 @@ class DailyAudioJapaneseTextTest extends TestCase
             'missing for kanji' => ['東京は高いです。', null],
             'romaji' => ['東京は高いです。', 'Tokyo wa takai desu.'],
             'bare kanji without furigana' => ['東京は高いです。', '東京は高いです。'],
+            'partial furigana coverage' => [
+                '物価が高いです。',
+                '物価[ぶっか]が高いです。',
+            ],
             'English mixed into reading' => ['東京は高いです。', '東京[とうきょう] wa 高[たか]いです。'],
         ];
     }

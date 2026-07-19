@@ -134,6 +134,11 @@ final class DailyAudioJapaneseText
     private static function isSafeReading(string $reading): bool
     {
         $reading = trim($reading);
+        $unannotatedText = preg_replace(
+            self::INLINE_BRACKET_READING_PATTERN,
+            '',
+            $reading,
+        );
 
         return $reading !== ''
             && preg_match(self::LATIN_PATTERN, $reading) !== 1
@@ -141,7 +146,11 @@ final class DailyAudioJapaneseText
             && preg_match(self::SAFE_READING_PATTERN, $reading) === 1
             && (
                 ! self::hasKanji($reading)
-                || preg_match(self::INLINE_BRACKET_READING_PATTERN, $reading) === 1
+                || (
+                    is_string($unannotatedText)
+                    && preg_match(self::INLINE_BRACKET_READING_PATTERN, $reading) === 1
+                    && ! self::hasKanji($unannotatedText)
+                )
             );
     }
 

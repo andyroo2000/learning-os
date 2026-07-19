@@ -10,7 +10,7 @@ class StudyCardPitchAccentRateLimiter
 {
     public const NAME = 'study-card-pitch-accent';
 
-    private const PER_MINUTE = 60;
+    private const PER_MINUTE = 30;
 
     public function limit(Request $request): Limit
     {

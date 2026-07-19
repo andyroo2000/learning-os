@@ -43,7 +43,7 @@ class PitchAccentPatternBuilder
     /**
      * @return list<string>
      */
-    private function morae(string $reading): array
+    public function morae(string $reading): array
     {
         $morae = [];
 

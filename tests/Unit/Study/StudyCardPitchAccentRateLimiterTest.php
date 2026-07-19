@@ -18,7 +18,7 @@ class StudyCardPitchAccentRateLimiterTest extends TestCase
 
         $limit = (new StudyCardPitchAccentRateLimiter)->limit($request);
 
-        $this->assertSame(60, $limit->maxAttempts);
+        $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame('study-card-pitch-accent:user:42', $limit->key);
     }
 
@@ -32,7 +32,7 @@ class StudyCardPitchAccentRateLimiterTest extends TestCase
 
         $limit = (new StudyCardPitchAccentRateLimiter)->limit($request);
 
-        $this->assertSame(60, $limit->maxAttempts);
+        $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame('study-card-pitch-accent:anon:203.0.113.8', $limit->key);
     }
 }

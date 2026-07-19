@@ -3,6 +3,7 @@
 namespace Tests\Unit\Japanese;
 
 use App\Domain\Japanese\Services\KanjiumPitchAccentStore;
+use App\Domain\Japanese\Services\PitchAccentPatternBuilder;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -15,7 +16,7 @@ class KanjiumPitchAccentStoreTest extends TestCase
         file_put_contents($path, "上手\tじょうず\t3,0\n上手\tうわて\t0\n上\tうえ\t0\n");
 
         try {
-            $candidates = (new KanjiumPitchAccentStore($path))->candidates('上手');
+            $candidates = $this->store($path)->candidates('上手');
         } finally {
             unlink($path);
         }
@@ -41,10 +42,10 @@ class KanjiumPitchAccentStoreTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'kanjium-');
         $this->assertIsString($path);
-        file_put_contents($path, "会社\tかいしゃ\t0,bad,-1\n");
+        file_put_contents($path, "会社\tかいしゃ\t0,4,bad,-1\n");
 
         try {
-            $candidates = (new KanjiumPitchAccentStore($path))->candidates('会社');
+            $candidates = $this->store($path)->candidates('会社');
         } finally {
             unlink($path);
         }
@@ -58,6 +59,19 @@ class KanjiumPitchAccentStoreTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Kanjium pitch accent data is unavailable.');
 
-        (new KanjiumPitchAccentStore('/missing/accents.txt'))->candidates('会社');
+        $this->store('/missing/accents.txt')->candidates('会社');
+    }
+
+    public function test_the_bundled_data_drops_pitch_numbers_beyond_the_reading_morae(): void
+    {
+        $candidates = $this->store()->candidates('言論機関');
+
+        $this->assertCount(1, $candidates);
+        $this->assertSame(7, $candidates[0]->pitchNumber);
+    }
+
+    private function store(?string $path = null): KanjiumPitchAccentStore
+    {
+        return new KanjiumPitchAccentStore(new PitchAccentPatternBuilder, $path);
     }
 }

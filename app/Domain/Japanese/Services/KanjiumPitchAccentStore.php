@@ -8,6 +8,7 @@ use RuntimeException;
 class KanjiumPitchAccentStore
 {
     public function __construct(
+        private readonly PitchAccentPatternBuilder $patterns,
         private readonly ?string $accentsPath = null,
     ) {}
 
@@ -61,8 +62,9 @@ class KanjiumPitchAccentStore
         }
 
         $candidates = [];
+        $moraCount = count($this->patterns->morae($fields[1]));
         foreach (explode(',', $fields[2]) as $pitchNumber) {
-            if (! ctype_digit($pitchNumber)) {
+            if (! ctype_digit($pitchNumber) || (int) $pitchNumber > $moraCount) {
                 continue;
             }
 

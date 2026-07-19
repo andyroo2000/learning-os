@@ -6,6 +6,12 @@ use InvalidArgumentException;
 
 final readonly class DailyAudioScriptUnit
 {
+    public const MIN_SPEECH_SPEED = 0.5;
+
+    public const MAX_SPEECH_SPEED = 2.0;
+
+    public const MAX_PAUSE_SECONDS = 60.0;
+
     private const SUPPORTED_TYPES = [
         'marker',
         'narration_L1',
@@ -89,7 +95,12 @@ final readonly class DailyAudioScriptUnit
             throw new InvalidArgumentException('Marker units must include a label.');
         }
 
-        if ($this->type === 'pause' && ($this->seconds === null || $this->seconds <= 0)) {
+        if ($this->type === 'pause' && (
+            $this->seconds === null
+            || ! is_finite($this->seconds)
+            || $this->seconds <= 0
+            || $this->seconds > self::MAX_PAUSE_SECONDS
+        )) {
             throw new InvalidArgumentException('Pause units must have a positive duration.');
         }
 
@@ -102,7 +113,12 @@ final readonly class DailyAudioScriptUnit
             }
         }
 
-        if ($this->type === 'L2' && ($this->speed === null || $this->speed <= 0)) {
+        if ($this->type === 'L2' && (
+            $this->speed === null
+            || ! is_finite($this->speed)
+            || $this->speed < self::MIN_SPEECH_SPEED
+            || $this->speed > self::MAX_SPEECH_SPEED
+        )) {
             throw new InvalidArgumentException('Target-language units must have a positive speed.');
         }
     }

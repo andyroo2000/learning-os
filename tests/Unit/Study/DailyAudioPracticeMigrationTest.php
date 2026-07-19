@@ -104,7 +104,7 @@ class DailyAudioPracticeMigrationTest extends TestCase
             $table->json('source_card_ids_json')->nullable();
             $table->json('selection_summary_json')->nullable();
             $table->text('error_message')->nullable();
-            $table->timestamps();
+            $table->timestamps(3);
             $table->unique(['user_id', 'practice_date']);
             $table->index(['user_id', 'status', 'practice_date']);
             $table->index('status');
@@ -127,7 +127,7 @@ class DailyAudioPracticeMigrationTest extends TestCase
             $table->unsignedInteger('approx_duration_seconds')->nullable();
             $table->json('generation_metadata_json')->nullable();
             $table->text('error_message')->nullable();
-            $table->timestamps();
+            $table->timestamps(3);
             $table->foreign('practice_id')->references('id')->on('daily_audio_practices')->cascadeOnDelete();
             $table->unique(['practice_id', 'mode']);
             $table->index(['practice_id', 'sort_order']);

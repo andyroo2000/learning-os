@@ -5,6 +5,8 @@ namespace Tests\Feature\Rehearsal;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\DailyAudioPractice;
+use App\Domain\Study\Models\DailyAudioPracticeTrack;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -104,6 +106,22 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'mode' => 'drill',
             'sort_order' => 0,
         ]);
+        $this->assertSame(
+            '2026-07-14 10:00:00.554',
+            DailyAudioPractice::query()->sole()->created_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            '2026-07-14 10:00:00.766',
+            DailyAudioPractice::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            '2026-07-14 10:00:00.561',
+            DailyAudioPracticeTrack::query()->sole()->created_at->format('Y-m-d H:i:s.v'),
+        );
+        $this->assertSame(
+            '2026-07-14 10:00:00.679',
+            DailyAudioPracticeTrack::query()->sole()->updated_at->format('Y-m-d H:i:s.v'),
+        );
         $this->assertDatabaseHas('decks', [
             'name' => '日本語',
             'is_manual_study_deck' => false,
@@ -910,8 +928,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'sourceCardIdsJson' => json_encode([self::SOURCE_CARD_ID]),
             'selectionSummaryJson' => json_encode(['selectedCount' => 1]),
             'errorMessage' => null,
-            'createdAt' => $now,
-            'updatedAt' => $now,
+            'createdAt' => '2026-07-14 10:00:00.554',
+            'updatedAt' => '2026-07-14 10:00:00.766',
         ]);
 
         $source->table('daily_audio_practice_tracks')->insert([
@@ -927,8 +945,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'approxDurationSeconds' => 1,
             'generationMetadataJson' => json_encode(['provider' => 'test']),
             'errorMessage' => null,
-            'createdAt' => $now,
-            'updatedAt' => $now,
+            'createdAt' => '2026-07-14 10:00:00.561',
+            'updatedAt' => '2026-07-14 10:00:00.679',
         ]);
 
         $source->table('study_import_jobs')->insert([

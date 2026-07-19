@@ -102,7 +102,7 @@ jobs:
             require "vendor/autoload.php";
             if (! class_exists("ZipArchive")) {
                 fwrite(STDERR, "ZipArchive is unavailable in the runtime image.\n");
-              exit(1);
+                exit(1);
             }
           '
           docker run --rm $TEST_IMAGE ffmpeg -version

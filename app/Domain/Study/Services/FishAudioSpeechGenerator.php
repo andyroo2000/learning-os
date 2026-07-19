@@ -7,6 +7,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 
 class FishAudioSpeechGenerator
 {
@@ -28,7 +29,7 @@ class FishAudioSpeechGenerator
         if (! is_finite($speed)
             || $speed < DailyAudioScriptUnit::MIN_SPEECH_SPEED
             || $speed > DailyAudioScriptUnit::MAX_SPEECH_SPEED) {
-            throw StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio');
+            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
         }
 
         $referenceId = preg_replace('/^fishaudio:/i', '', trim($voiceId));

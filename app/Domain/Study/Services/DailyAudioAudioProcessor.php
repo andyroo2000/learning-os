@@ -92,7 +92,7 @@ class DailyAudioAudioProcessor
                 'highpass=f=80',
                 'acompressor=threshold=-20dB:ratio=2:attack=20:release=250:makeup=2dB',
                 'equalizer=f=3000:t=q:w=1:g=2',
-                'dynaudnorm=f=150:g=15:p=0.9:m=10',
+                'alimiter=limit=0.841:attack=5:release=50',
             ]),
             '-ar',
             '44100',

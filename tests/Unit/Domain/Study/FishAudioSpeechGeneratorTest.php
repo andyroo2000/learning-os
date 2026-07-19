@@ -2,10 +2,10 @@
 
 namespace Tests\Unit\Domain\Study;
 
-use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class FishAudioSpeechGeneratorTest extends TestCase
@@ -53,9 +53,9 @@ class FishAudioSpeechGeneratorTest extends TestCase
                 2.01,
             );
             $this->fail('Expected an invalid Fish Audio speed to be rejected.');
-        } catch (StudyPreviewMediaGenerationException $exception) {
+        } catch (InvalidArgumentException $exception) {
             $this->assertSame(
-                'Fish Audio preview generation is unavailable.',
+                'Fish Audio speech speed is invalid.',
                 $exception->getMessage(),
             );
         }

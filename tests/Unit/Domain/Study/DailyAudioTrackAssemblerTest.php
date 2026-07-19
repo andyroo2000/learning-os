@@ -6,6 +6,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Services\DailyAudioAudioProcessor;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Mockery\MockInterface;
@@ -64,11 +65,11 @@ class DailyAudioTrackAssemblerTest extends TestCase
         $this->assertSame($expectedPath, $result->storagePath);
         $this->assertSame(12, $result->durationSeconds);
         $this->assertSame([
-            ['unitIndex' => 1, 'startTime' => 0, 'endTime' => 1250],
-            ['unitIndex' => 2, 'startTime' => 1250, 'endTime' => 2500],
-            ['unitIndex' => 3, 'startTime' => 2500, 'endTime' => 4500],
-            ['unitIndex' => 4, 'startTime' => 4500, 'endTime' => 6500],
-            ['unitIndex' => 5, 'startTime' => 6500, 'endTime' => 8000],
+            ['unitIndex' => 1, 'startTime' => 0, 'endTime' => 1938],
+            ['unitIndex' => 2, 'startTime' => 1938, 'endTime' => 3875],
+            ['unitIndex' => 3, 'startTime' => 3875, 'endTime' => 6975],
+            ['unitIndex' => 4, 'startTime' => 6975, 'endTime' => 10075],
+            ['unitIndex' => 5, 'startTime' => 10075, 'endTime' => 12400],
         ], $result->timingData);
         $this->assertSame([
             'unitCount' => 6,
@@ -174,6 +175,50 @@ class DailyAudioTrackAssemblerTest extends TestCase
         }
 
         Storage::disk('daily-audio-test')->assertDirectoryEmpty('daily-audio');
+    }
+
+    public function test_it_reports_storage_failure_when_the_disk_returns_false(): void
+    {
+        $speech = $this->mock(FishAudioSpeechGenerator::class);
+        $speech->shouldReceive('generate')->once()->andReturn('ID3speech');
+        $audio = $this->mock(DailyAudioAudioProcessor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('normalize')
+                ->once()
+                ->andReturnUsing(fn (string $input, string $output): bool => copy($input, $output));
+            $mock->shouldReceive('duration')
+                ->withArgs(fn (string $path): bool => ! str_ends_with($path, '/track.mp3'))
+                ->once()
+                ->andReturn(1.0);
+            $mock->shouldReceive('concatenate')
+                ->once()
+                ->andReturnUsing(function (array $segments, string $directory, string $output): void {
+                    file_put_contents($output, 'ID3assembled-track');
+                });
+            $mock->shouldReceive('duration')
+                ->withArgs(fn (string $path): bool => str_ends_with($path, '/track.mp3'))
+                ->once()
+                ->andReturn(1.0);
+        });
+        $disk = \Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('put')->once()->andReturnFalse();
+        Storage::shouldReceive('disk')
+            ->once()
+            ->with('daily-audio-test')
+            ->andReturn($disk);
+
+        try {
+            (new DailyAudioTrackAssembler($speech, $audio))->assemble(
+                $this->practiceId,
+                $this->trackId,
+                [DailyAudioScriptUnit::narration('Welcome.', 'fishaudio:narrator')],
+            );
+            $this->fail('Expected storage failure to be reported.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame(
+                'Daily Audio track could not be persisted.',
+                $exception->getMessage(),
+            );
+        }
     }
 
     public function test_it_rejects_invalid_ids_and_untyped_or_oversized_scripts(): void

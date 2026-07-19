@@ -141,7 +141,7 @@ class DailyAudioTrackAssembler
         return new DailyAudioTrackAssemblyResult(
             storagePath: $storagePath,
             durationSeconds: max(1, (int) round($actualDuration)),
-            timingData: $this->timingData($units, $durations),
+            timingData: $this->timingData($units, $durations, $actualDuration),
             metadata: [
                 'unitCount' => count($units),
                 'spokenUnitCount' => $spokenUnitCount,
@@ -196,10 +196,20 @@ class DailyAudioTrackAssembler
      * @param  array<int, float>  $durations
      * @return list<array{unitIndex: int, startTime: int, endTime: int}>
      */
-    private function timingData(array $units, array $durations): array
-    {
+    private function timingData(
+        array $units,
+        array $durations,
+        float $actualDuration,
+    ): array {
         $timingData = [];
         $elapsed = 0.0;
+        $measuredDuration = array_sum($durations);
+        if ($measuredDuration <= 0) {
+            throw new RuntimeException('Daily Audio segment duration is invalid.');
+        }
+        // Re-encoding can alter encoder padding. Reconcile every boundary to the
+        // authoritative final file so the last timing always matches its duration.
+        $durationScale = $actualDuration / $measuredDuration;
 
         foreach ($units as $index => $unit) {
             if ($unit->type === 'marker') {
@@ -209,7 +219,7 @@ class DailyAudioTrackAssembler
             $duration = $durations[$index]
                 ?? throw new RuntimeException('Daily Audio segment timing is incomplete.');
             $start = (int) round($elapsed * 1_000);
-            $elapsed += $duration;
+            $elapsed += $duration * $durationScale;
             $timingData[] = [
                 'unitIndex' => $index,
                 'startTime' => $start,

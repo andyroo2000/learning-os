@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -260,10 +261,16 @@ class ConvoLabMediaImportCommandTest extends TestCase
     public function test_removes_new_files_when_the_database_transaction_fails(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
-        DB::unprepared(
-            'CREATE TRIGGER reject_card_media BEFORE INSERT ON card_media '.
-            "BEGIN SELECT RAISE(FAIL, 'forced card media failure'); END",
-        );
+        $forceFailure = true;
+        DB::listen(function (QueryExecuted $query) use (&$forceFailure): void {
+            $sql = strtolower($query->sql);
+
+            if ($forceFailure && str_contains($sql, 'insert') && str_contains($sql, 'card_media')) {
+                $forceFailure = false;
+
+                throw new \RuntimeException('forced card media failure');
+            }
+        });
 
         $this->artisan('migration:import-convolab-media', $this->commandOptions())
             ->expectsOutputToContain('forced card media failure')

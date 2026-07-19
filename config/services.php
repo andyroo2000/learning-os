@@ -45,6 +45,8 @@ return [
         'study_card_model' => env('STUDY_CARD_GENERATOR_MODEL', 'gpt-5.5'),
         'study_card_reasoning_effort' => env('STUDY_CARD_GENERATOR_REASONING_EFFORT', 'medium'),
         'study_image_model' => env('STUDY_CARD_IMAGE_GENERATOR_MODEL', 'gpt-image-1'),
+        'pitch_accent_model' => env('PITCH_ACCENT_READING_MODEL', 'gpt-5.4-mini'),
+        'pitch_accent_reasoning_effort' => env('PITCH_ACCENT_READING_REASONING_EFFORT', 'low'),
     ],
 
     'fish_audio' => [

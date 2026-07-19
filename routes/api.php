@@ -18,6 +18,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
+use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
@@ -94,6 +95,7 @@ use App\Http\Controllers\Api\Study\PrepareStudyCardAnswerAudioController;
 use App\Http\Controllers\Api\Study\RegenerateStudyCardAnswerAudioController;
 use App\Http\Controllers\Api\Study\RegenerateStudyCardImageController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
+use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
@@ -273,6 +275,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
     Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
+    Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+        ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);
     Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);

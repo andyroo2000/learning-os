@@ -6,6 +6,7 @@
     "keywords": ["laravel", "learning", "api"],
     "license": "proprietary",
     "require": {
+        "ext-zlib": "*",
         "ext-zip": "*",
         "php": "^8.3",
         "laravel/framework": "^13.8",

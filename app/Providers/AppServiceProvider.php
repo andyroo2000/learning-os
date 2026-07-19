@@ -24,6 +24,7 @@ use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
+use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
@@ -167,6 +168,11 @@ class AppServiceProvider extends ServiceProvider
         $studyCardAudioPrepareRateLimiter = new StudyCardAudioPrepareRateLimiter;
         RateLimiter::for(StudyCardAudioPrepareRateLimiter::NAME, function (Request $request) use ($studyCardAudioPrepareRateLimiter): Limit {
             return $studyCardAudioPrepareRateLimiter->limit($request);
+        });
+
+        $studyCardPitchAccentRateLimiter = new StudyCardPitchAccentRateLimiter;
+        RateLimiter::for(StudyCardPitchAccentRateLimiter::NAME, function (Request $request) use ($studyCardPitchAccentRateLimiter): Limit {
+            return $studyCardPitchAccentRateLimiter->limit($request);
         });
 
         $studyCardDraftAutosaveRateLimiter = new StudyCardDraftAutosaveRateLimiter;

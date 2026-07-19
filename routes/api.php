@@ -92,6 +92,7 @@ use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\PrepareStudyCardAnswerAudioController;
 use App\Http\Controllers\Api\Study\RegenerateStudyCardAnswerAudioController;
+use App\Http\Controllers\Api\Study\RegenerateStudyCardImageController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
@@ -269,6 +270,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
         ->whereUlid('draftId');
     Route::post('/study/cards/{cardId}/regenerate-answer-audio', RegenerateStudyCardAnswerAudioController::class)
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
+    Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
     Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)

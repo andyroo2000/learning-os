@@ -10,6 +10,14 @@ class DailyAudioPracticeResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...$this->practiceFields(),
+            'tracks' => DailyAudioPracticeTrackResource::collection($this->whenLoaded('tracks')),
+        ];
+    }
+
+    protected function practiceFields(): array
+    {
+        return [
             'id' => $this->id,
             'userId' => $this->convolab_user_id ?? (string) $this->user_id,
             'practiceDate' => $this->practice_date?->format('Y-m-d'),
@@ -22,7 +30,6 @@ class DailyAudioPracticeResource extends JsonResource
             'errorMessage' => $this->error_message,
             'createdAt' => $this->created_at?->toJSON(),
             'updatedAt' => $this->updated_at?->toJSON(),
-            'tracks' => DailyAudioPracticeTrackResource::collection($this->whenLoaded('tracks')),
         ];
     }
 }

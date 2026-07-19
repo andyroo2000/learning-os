@@ -9,7 +9,7 @@ class DailyAudioPracticeSummaryResource extends DailyAudioPracticeResource
     public function toArray(Request $request): array
     {
         return [
-            ...parent::toArray($request),
+            ...$this->practiceFields(),
             'tracks' => DailyAudioPracticeSummaryTrackResource::collection($this->whenLoaded('tracks')),
         ];
     }

@@ -11,7 +11,6 @@ final readonly class DailyAudioCardSelectionResult
      * @param  Collection<int, Card>  $cards
      * @param  array{
      *     totalCandidates: int,
-     *     totalEligible: int,
      *     selectedCount: int,
      *     dueCount: int,
      *     learningCount: int,

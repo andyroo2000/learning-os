@@ -36,7 +36,6 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $this->assertTrue($result->cards->isEmpty());
         $this->assertSame([
             'totalCandidates' => 0,
-            'totalEligible' => 0,
             'selectedCount' => 0,
             'dueCount' => 0,
             'learningCount' => 0,
@@ -68,7 +67,6 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $this->assertSame([$eligible->id], $result->cards->modelKeys());
         $this->assertSame([
             'totalCandidates' => 1,
-            'totalEligible' => 1,
             'selectedCount' => 1,
             'dueCount' => 1,
             'learningCount' => 0,
@@ -88,7 +86,7 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
             'last_reviewed_at' => $now->subDays(30),
             'source_lapses' => 4,
         ]));
-        $newCards = collect(range(1, 12))->map(fn (): Card => $this->card($deck, [
+        $newCards = collect(range(1, 40))->map(fn (): Card => $this->card($deck, [
             'study_status' => CardStudyStatus::New,
             'due_at' => null,
             'introduced_at' => null,
@@ -106,6 +104,7 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
             $result->cards->modelKeys(),
             $overdue->pluck('id')->all(),
         ));
+        $this->assertSame(80, $result->summary['totalCandidates']);
         $this->assertSame(30, $result->summary['selectedCount']);
         $this->assertSame(21, $result->summary['dueCount']);
         $this->assertSame(21, $result->summary['recentMissCount']);

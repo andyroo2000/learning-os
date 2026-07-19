@@ -56,7 +56,6 @@ class SelectDailyAudioPracticeCardsAction
             cards: $selected,
             summary: [
                 'totalCandidates' => $candidates->count(),
-                'totalEligible' => $candidates->count(),
                 'selectedCount' => $selected->count(),
                 'dueCount' => $selected->filter(
                     fn (Card $card): bool => $card->due_at !== null && $card->due_at->lte($now),
@@ -93,7 +92,10 @@ class SelectDailyAudioPracticeCardsAction
             ->limit(self::NEWER_CANDIDATE_POOL_SIZE)
             ->get();
 
-        $remainingLimit = self::DEFAULT_CANDIDATE_POOL_SIZE - $newer->count();
+        $remainingLimit = max(
+            0,
+            self::DEFAULT_CANDIDATE_POOL_SIZE - $newer->count(),
+        );
         if ($remainingLimit === 0) {
             return $newer->values();
         }

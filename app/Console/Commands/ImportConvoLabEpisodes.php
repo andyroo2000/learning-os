@@ -26,6 +26,8 @@ class ImportConvoLabEpisodes extends Command
         'study_media',
         'audio_script_segments',
         'audio_script_renders',
+        'Course',
+        'CourseCoreItem',
         'CourseEpisode',
     ];
 
@@ -36,17 +38,20 @@ class ImportConvoLabEpisodes extends Command
         {--source-port= : Source database port; defaults to DB_PORT}
         {--source-username= : Source database username; defaults to DB_USERNAME}
         {--source-password= : Source database password; defaults to DB_PASSWORD}
-        {--truncate : Replace all imported Episode content}
+        {--truncate : Replace all imported Episode and Course content}
         {--allow-production : Permit the importer to run when APP_ENV=production}
         {--production-truncate-confirmation= : Required production phrase: TRUNCATE <target database>}';
 
-    protected $description = 'Import Convo Lab Episode read data into Learning OS.';
+    protected $description = 'Import Convo Lab Episode and Course read data into Learning OS.';
 
     /** @var array<string, int> */
     private array $userIds = [];
 
     /** @var array<string, true> */
     private array $episodeIds = [];
+
+    /** @var array<string, true> */
+    private array $courseIds = [];
 
     /** @var array<string, true> */
     private array $dialogueIds = [];
@@ -97,6 +102,8 @@ class ImportConvoLabEpisodes extends Command
                 $this->importAudioScriptMedia($source, $target);
                 $this->importAudioScriptSegments($source, $target);
                 $this->importAudioScriptRenders($source, $target);
+                $this->importCourses($source, $target);
+                $this->importCourseCoreItems($source, $target);
                 $this->importCourseEpisodes($source, $target);
             });
         } catch (Throwable $exception) {
@@ -105,7 +112,7 @@ class ImportConvoLabEpisodes extends Command
             return self::FAILURE;
         }
 
-        $this->info('Convo Lab Episode import completed.');
+        $this->info('Convo Lab Episode and Course import completed.');
 
         return self::SUCCESS;
     }
@@ -171,6 +178,7 @@ class ImportConvoLabEpisodes extends Command
     {
         $this->userIds = [];
         $this->episodeIds = [];
+        $this->courseIds = [];
         $this->dialogueIds = [];
         $this->speakerIds = [];
         $this->scriptIds = [];
@@ -386,14 +394,78 @@ class ImportConvoLabEpisodes extends Command
     {
         $this->copy($source, $target, 'CourseEpisode', 'content_episode_courses', function (object $row): ?array {
             $episodeId = $this->uuid($row->episodeId, 'course episode');
-            if (! isset($this->episodeIds[$episodeId])) {
+            $courseId = $this->uuid($row->courseId, 'course episode course');
+            if (! isset($this->episodeIds[$episodeId], $this->courseIds[$courseId])) {
                 return null;
             }
 
             return [
                 'id' => $this->uuid($row->id, 'course episode link'), 'episode_id' => $episodeId,
-                'convolab_course_id' => $this->uuid($row->courseId, 'course episode course'),
-                'sort_order' => $row->order,
+                'convolab_course_id' => $courseId, 'sort_order' => $row->order,
+            ];
+        });
+    }
+
+    private function importCourses(ConnectionInterface $source, ConnectionInterface $target): void
+    {
+        $this->copy($source, $target, 'Course', 'content_courses', function (object $row): array {
+            $id = $this->uuid($row->id, 'course');
+            $sourceUserId = $this->uuid($row->userId, 'course user');
+            $userId = $this->userIds[$sourceUserId]
+                ?? throw new RuntimeException("Course [{$id}] belongs to an unmapped user.");
+            $this->courseIds[$id] = true;
+
+            return [
+                'id' => $id,
+                'user_id' => $userId,
+                'convolab_user_id' => $sourceUserId,
+                'title' => $row->title,
+                'description' => $row->description,
+                'status' => $row->status,
+                'is_sample_content' => $row->isSampleContent,
+                'is_test_course' => $row->isTestCourse,
+                'native_language' => $row->nativeLanguage,
+                'target_language' => $row->targetLanguage,
+                'max_lesson_duration_minutes' => $row->maxLessonDurationMinutes,
+                'l1_voice_id' => $row->l1VoiceId,
+                'l1_voice_provider' => $row->l1VoiceProvider,
+                'jlpt_level' => $row->jlptLevel,
+                'speaker1_gender' => $row->speaker1Gender,
+                'speaker2_gender' => $row->speaker2Gender,
+                'speaker1_voice_id' => $row->speaker1VoiceId,
+                'speaker1_voice_provider' => $row->speaker1VoiceProvider,
+                'speaker2_voice_id' => $row->speaker2VoiceId,
+                'speaker2_voice_provider' => $row->speaker2VoiceProvider,
+                'script_json' => $row->scriptJson,
+                'script_units_json' => $row->scriptUnitsJson,
+                'approx_duration_seconds' => $row->approxDurationSeconds,
+                'audio_url' => $row->audioUrl,
+                'timing_data' => $row->timingData,
+                'created_at' => $row->createdAt,
+                'updated_at' => $row->updatedAt,
+            ];
+        });
+    }
+
+    private function importCourseCoreItems(ConnectionInterface $source, ConnectionInterface $target): void
+    {
+        $this->copy($source, $target, 'CourseCoreItem', 'content_course_core_items', function (object $row): ?array {
+            $courseId = $this->uuid($row->courseId, 'course core item course');
+            if (! isset($this->courseIds[$courseId])) {
+                return null;
+            }
+
+            return [
+                'id' => $this->uuid($row->id, 'course core item'),
+                'course_id' => $courseId,
+                'text_l2' => $row->textL2,
+                'reading_l2' => $row->readingL2,
+                'translation_l1' => $row->translationL1,
+                'complexity_score' => $row->complexityScore,
+                'source_episode_id' => $this->nullableUuid($row->sourceEpisodeId, 'course core item source episode'),
+                'source_sentence_id' => $this->nullableUuid($row->sourceSentenceId, 'course core item source sentence'),
+                'source_unit_index' => $row->sourceUnitIndex,
+                'components' => $row->components,
             ];
         });
     }
@@ -430,6 +502,11 @@ class ImportConvoLabEpisodes extends Command
         }
 
         return $uuid;
+    }
+
+    private function nullableUuid(mixed $value, string $label): ?string
+    {
+        return $value === null ? null : $this->uuid($value, $label);
     }
 
     private function contentType(mixed $value, string $episodeId): string

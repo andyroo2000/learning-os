@@ -72,6 +72,11 @@ class DatabaseRehearsalSmokeCheck
             'uri' => '/api/convolab/episodes?library=true&limit=1',
             'required' => [],
         ],
+        [
+            'name' => 'content courses',
+            'uri' => '/api/convolab/courses?library=true&limit=1',
+            'required' => [],
+        ],
     ];
 
     public function __construct(

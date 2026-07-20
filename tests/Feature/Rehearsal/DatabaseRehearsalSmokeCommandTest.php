@@ -38,6 +38,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
             ->expectsOutputToContain('[PASS] study imports')
             ->expectsOutputToContain('[PASS] current study import')
             ->expectsOutputToContain('[PASS] content episodes')
+            ->expectsOutputToContain('[PASS] content courses')
             ->assertExitCode(0);
 
         $this->assertDatabaseMissing('personal_access_tokens', [

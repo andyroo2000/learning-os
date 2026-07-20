@@ -37,7 +37,9 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
+use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
 use App\Http\Controllers\Api\Courses\DeleteCourseController;
 use App\Http\Controllers\Api\Courses\ListCoursesController;
@@ -160,6 +162,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::get('/convolab/episodes/{episodeId}', ShowContentEpisodeController::class)
         ->whereUuid('episodeId');
+    Route::get('/convolab/courses', ListContentCoursesController::class);
+    Route::get('/convolab/courses/{courseId}', ShowContentCourseController::class)
+        ->whereUuid('courseId');
     Route::get('/feature-flags', ShowFeatureFlagsController::class);
     Route::patch('/feature-flags', UpdateFeatureFlagsController::class)
         ->middleware('throttle:'.FeatureFlagUpdateRateLimiter::NAME);

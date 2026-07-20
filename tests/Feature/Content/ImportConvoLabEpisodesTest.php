@@ -60,6 +60,8 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->assertSame(0, $exitCode, $output);
         $this->assertStringContainsString('Imported 2 rows into content_episodes.', $output);
         $this->assertStringContainsString('Imported 1 rows into content_audio_script_media.', $output);
+        $this->assertStringContainsString('Imported 1 rows into content_courses.', $output);
+        $this->assertStringContainsString('Imported 1 rows into content_course_core_items.', $output);
 
         $this->assertDatabaseHas('content_episodes', [
             'id' => $ids['dialogueEpisode'],
@@ -75,6 +77,17 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->assertDatabaseHas('content_episode_courses', [
             'episode_id' => $ids['dialogueEpisode'],
             'convolab_course_id' => $ids['course'],
+        ]);
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $ids['course'],
+            'user_id' => $targetUser->id,
+            'convolab_user_id' => $ids['user'],
+            'status' => 'ready',
+        ]);
+        $this->assertDatabaseHas('content_course_core_items', [
+            'id' => $ids['coreItem'],
+            'course_id' => $ids['course'],
+            'source_episode_id' => $ids['dialogueEpisode'],
         ]);
         $this->assertDatabaseHas('content_images', [
             'id' => $ids['image'],
@@ -96,6 +109,12 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->getJson('/api/convolab/episodes/'.$ids['dialogueEpisode'])
             ->assertOk()
             ->assertJsonPath('courseEpisodes.0.courseId', $ids['course']);
+
+        $this->getJson('/api/convolab/courses/'.$ids['course'])
+            ->assertOk()
+            ->assertJsonPath('id', $ids['course'])
+            ->assertJsonPath('coreItems.0.id', $ids['coreItem'])
+            ->assertJsonPath('courseEpisodes.0.episode.id', $ids['dialogueEpisode']);
     }
 
     public function test_refuses_a_non_empty_target_without_truncate(): void
@@ -110,7 +129,7 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->artisan('content:import-convolab-episodes', [
             '--source-connection' => 'convolab_content_test',
         ])
-            ->expectsOutputToContain('Target table [content_episode_courses] is not empty; rerun with --truncate.')
+            ->expectsOutputToContain('Target table [content_course_core_items] is not empty; rerun with --truncate.')
             ->assertFailed();
 
         $this->assertDatabaseCount('content_episodes', 2);
@@ -215,6 +234,7 @@ class ImportConvoLabEpisodesTest extends TestCase
             'render' => (string) Str::uuid(),
             'courseEpisode' => (string) Str::uuid(),
             'course' => (string) Str::uuid(),
+            'coreItem' => (string) Str::uuid(),
         ];
         $source = DB::connection('convolab_content_test');
         $created = '2026-07-20 10:00:00.123';
@@ -286,6 +306,27 @@ class ImportConvoLabEpisodesTest extends TestCase
             'timingData' => json_encode([['startTime' => 0, 'endTime' => 800]]),
             'approxDurationSeconds' => 0.8, 'errorMessage' => null,
             'createdAt' => $created, 'updatedAt' => $created,
+        ]);
+        $source->table('Course')->insert([
+            'id' => $ids['course'], 'userId' => $ids['user'], 'title' => 'Cat course',
+            'description' => 'Learn about cats.', 'status' => 'ready', 'isSampleContent' => false,
+            'isTestCourse' => false, 'nativeLanguage' => 'en', 'targetLanguage' => 'ja',
+            'maxLessonDurationMinutes' => 30, 'l1VoiceId' => 'en-US-Neural2-J',
+            'l1VoiceProvider' => 'google', 'jlptLevel' => 'N5', 'speaker1Gender' => 'male',
+            'speaker2Gender' => 'female', 'speaker1VoiceId' => 'ja-JP-Neural2-B',
+            'speaker1VoiceProvider' => 'google', 'speaker2VoiceId' => 'ja-JP-Neural2-C',
+            'speaker2VoiceProvider' => 'google',
+            'scriptJson' => json_encode([['_pipelineStage' => 'complete']]),
+            'scriptUnitsJson' => json_encode([['type' => 'pause', 'seconds' => 1]]),
+            'approxDurationSeconds' => 120, 'audioUrl' => '/audio/course.mp3',
+            'timingData' => json_encode([['unitIndex' => 0, 'startTime' => 0, 'endTime' => 1]]),
+            'createdAt' => $created, 'updatedAt' => $created,
+        ]);
+        $source->table('CourseCoreItem')->insert([
+            'id' => $ids['coreItem'], 'courseId' => $ids['course'], 'textL2' => '猫',
+            'readingL2' => 'ねこ', 'translationL1' => 'cat', 'complexityScore' => 1.25,
+            'sourceEpisodeId' => $ids['dialogueEpisode'], 'sourceSentenceId' => $ids['sentence'],
+            'sourceUnitIndex' => 2, 'components' => json_encode([['text' => '猫']]),
         ]);
         $source->table('CourseEpisode')->insert([
             'id' => $ids['courseEpisode'], 'courseId' => $ids['course'],
@@ -436,6 +477,46 @@ class ImportConvoLabEpisodesTest extends TestCase
             $table->text('errorMessage')->nullable();
             $table->dateTime('createdAt');
             $table->dateTime('updatedAt');
+        });
+        $schema->create('Course', function (Blueprint $table): void {
+            $table->string('id')->primary();
+            $table->string('userId');
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->string('status');
+            $table->boolean('isSampleContent');
+            $table->boolean('isTestCourse');
+            $table->string('nativeLanguage');
+            $table->string('targetLanguage');
+            $table->integer('maxLessonDurationMinutes');
+            $table->string('l1VoiceId');
+            $table->string('l1VoiceProvider')->nullable();
+            $table->string('jlptLevel')->nullable();
+            $table->string('speaker1Gender');
+            $table->string('speaker2Gender');
+            $table->string('speaker1VoiceId')->nullable();
+            $table->string('speaker1VoiceProvider')->nullable();
+            $table->string('speaker2VoiceId')->nullable();
+            $table->string('speaker2VoiceProvider')->nullable();
+            $table->json('scriptJson')->nullable();
+            $table->json('scriptUnitsJson')->nullable();
+            $table->integer('approxDurationSeconds')->nullable();
+            $table->text('audioUrl')->nullable();
+            $table->json('timingData')->nullable();
+            $table->dateTime('createdAt');
+            $table->dateTime('updatedAt');
+        });
+        $schema->create('CourseCoreItem', function (Blueprint $table): void {
+            $table->string('id')->primary();
+            $table->string('courseId');
+            $table->text('textL2');
+            $table->text('readingL2')->nullable();
+            $table->text('translationL1');
+            $table->double('complexityScore');
+            $table->string('sourceEpisodeId')->nullable();
+            $table->string('sourceSentenceId')->nullable();
+            $table->integer('sourceUnitIndex')->nullable();
+            $table->json('components')->nullable();
         });
         $schema->create('CourseEpisode', function (Blueprint $table): void {
             $table->string('id')->primary();

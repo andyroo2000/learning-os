@@ -212,10 +212,10 @@ For production, add both safeguards:
 --production-confirmation="IMPORT DAILY AUDIO INTO learning_os"
 ```
 
-## 6. Import Episode Read Data
+## 6. Import Content Read Data
 
 After the base rehearsal import has created Learning OS users, copy the Episode
-read graph into its isolated compatibility tables:
+and Course read graphs into isolated compatibility tables:
 
 ```bash
 php artisan content:import-convolab-episodes \
@@ -223,10 +223,11 @@ php artisan content:import-convolab-episodes \
 ```
 
 The command maps Convo Lab users to existing Learning OS users by normalized
-email, preserves source Episode UUIDs, and imports dialogues, speakers,
-sentences, images, audio scripts, segment image metadata, renders, and course
-links. It refuses to run when any target compatibility table is non-empty. To
-replace a previous rehearsal import, add `--truncate`.
+email, preserves source UUIDs, and imports Episodes, dialogues, speakers,
+sentences, images, audio scripts, segment image metadata, renders, Courses,
+core items, and Episode-to-Course links. It refuses to run when any target
+compatibility table is non-empty. To replace a previous rehearsal import, add
+`--truncate`.
 
 The source and target databases must differ. In production, replacement also
 requires both safeguards:
@@ -258,6 +259,7 @@ The command checks:
 - authenticated `GET /api/study/imports?per_page=1`
 - authenticated `GET /api/study/imports/current`
 - authenticated `GET /api/convolab/episodes?library=true&limit=1`
+- authenticated `GET /api/convolab/courses?library=true&limit=1`
 
 For machine-readable output:
 

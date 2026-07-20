@@ -22,6 +22,12 @@ class StaticMediaPathTest extends TestCase
         $this->assertSame($expected, StaticMediaPath::isAvatar($path));
     }
 
+    #[DataProvider('toolAudioCases')]
+    public function test_tool_audio_paths_use_the_shared_allowlist(string $path, bool $expected): void
+    {
+        $this->assertSame($expected, StaticMediaPath::isToolAudio($path));
+    }
+
     /**
      * @return iterable<string, array{string, string}>
      */
@@ -53,6 +59,18 @@ class StaticMediaPathTest extends TestCase
         yield 'voice avatar' => ['voices/ja-shohei.jpg', true];
         yield 'root avatar' => ['ja-male-casual.jpg', true];
         yield 'traversal' => ['voices/../../secret.jpg', false];
+        yield 'trailing newline' => ["voices/ja-shohei.jpg\n", false];
         yield 'wrong extension' => ['voices/ja-shohei.png', false];
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function toolAudioCases(): iterable
+    {
+        yield 'allowlisted path' => ['/tools-audio/japanese/minute/44.mp3', true];
+        yield 'traversal' => ['/tools-audio/../../secret.mp3', false];
+        yield 'trailing newline' => ["/tools-audio/japanese/minute/44.mp3\n", false];
+        yield 'wrong extension' => ['/tools-audio/japanese/minute/44.wav', false];
     }
 }

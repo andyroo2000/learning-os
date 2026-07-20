@@ -8,9 +8,9 @@ final class StaticMediaPath
 
     public const MAX_TOOL_AUDIO_PATH_LENGTH = 300;
 
-    private const AVATAR_PATTERN = '#^(?:voices/)?[a-z]{2}-[a-z0-9-]+\.jpg$#';
+    private const AVATAR_PATTERN = '#^(?:voices/)?[a-z]{2}-[a-z0-9-]+\.jpg\z#';
 
-    private const TOOL_AUDIO_PATTERN = '#^/tools-audio/[A-Za-z0-9/_-]+\.mp3$#';
+    private const TOOL_AUDIO_PATTERN = '#^/tools-audio/[A-Za-z0-9/_-]+\.mp3\z#';
 
     public static function isAvatar(string $path): bool
     {

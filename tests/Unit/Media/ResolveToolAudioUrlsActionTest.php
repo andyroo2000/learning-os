@@ -47,6 +47,7 @@ class ResolveToolAudioUrlsActionTest extends TestCase
     {
         yield 'empty' => [[]];
         yield 'unsafe path' => [['/tools-audio/../../secret.mp3']];
+        yield 'trailing newline' => [["/tools-audio/valid.mp3\n"]];
         yield 'non-string path' => [[42]];
         yield 'too many paths' => [[
             ...array_map(

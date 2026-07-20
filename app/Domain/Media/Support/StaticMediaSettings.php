@@ -124,6 +124,7 @@ final class StaticMediaSettings
             }
         }
 
+        // Preserve Convo Lab's convention: a shared bucket enables both static-media signers.
         return $this->bucketName() !== null;
     }
 

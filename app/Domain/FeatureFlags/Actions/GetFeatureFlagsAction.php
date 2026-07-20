@@ -11,7 +11,7 @@ class GetFeatureFlagsAction
     {
         $featureFlags = FeatureFlag::query()
             ->orderByDesc('updatedAt')
-            ->orderBy('id')
+            ->orderByDesc('id')
             ->first();
 
         if ($featureFlags !== null) {

@@ -5,6 +5,7 @@ namespace App\Domain\FeatureFlags\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
+// This adopted table keeps Convo Lab's physical camelCase columns. New Learning OS domains use snake_case.
 #[Fillable([
     'dialoguesEnabled',
     'scriptsEnabled',

@@ -47,7 +47,7 @@ class ShowFeatureFlagsApiTest extends TestCase
             ]);
     }
 
-    public function test_show_uses_the_most_recent_row_if_legacy_data_contains_multiple_rows(): void
+    public function test_show_uses_the_most_recent_row_with_a_descending_id_tiebreak(): void
     {
         $this->signIn();
         Carbon::setTestNow('2026-07-20 16:15:12.345 UTC');
@@ -62,6 +62,15 @@ class ShowFeatureFlagsApiTest extends TestCase
         $olderFlags->save();
 
         Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
+        $tiedFlags = new FeatureFlag([
+            'dialoguesEnabled' => false,
+            'scriptsEnabled' => false,
+            'audioCourseEnabled' => false,
+            'flashcardsEnabled' => false,
+        ]);
+        $tiedFlags->id = 'aaa-current';
+        $tiedFlags->save();
+
         $currentFlags = new FeatureFlag([
             'dialoguesEnabled' => true,
             'scriptsEnabled' => true,

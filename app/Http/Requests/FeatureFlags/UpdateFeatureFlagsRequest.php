@@ -26,9 +26,7 @@ class UpdateFeatureFlagsRequest extends FormRequest
             return false;
         }
 
-        // Accept the deployed proxy's legacy scope until the next ConvoLab token rotation.
-        return in_array('feature-flags:write', $token->abilities, true)
-            || in_array('study:write', $token->abilities, true);
+        return in_array('feature-flags:write', $token->abilities, true);
     }
 
     /**

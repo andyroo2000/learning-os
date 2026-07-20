@@ -113,14 +113,15 @@ class UpdateFeatureFlagsApiTest extends TestCase
             ]);
     }
 
-    public function test_update_temporarily_accepts_the_deployed_proxy_write_scope(): void
+    public function test_update_rejects_the_deployed_proxy_legacy_study_write_scope(): void
     {
         $token = $this->proxyToken(['study:read', 'study:write']);
 
         $this->withToken($token)
             ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
-            ->assertOk()
-            ->assertJsonPath('flashcardsEnabled', false);
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('feature_flags', 0);
     }
 
     public function test_update_validates_each_known_flag_and_ignores_unknown_fields(): void

@@ -19,4 +19,9 @@ class ContentEpisodeCourse extends Model
     {
         return $this->belongsTo(ContentEpisode::class, 'episode_id');
     }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(ContentCourse::class, 'convolab_course_id');
+    }
 }

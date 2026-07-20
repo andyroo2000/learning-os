@@ -6,7 +6,9 @@ final class ConvoLabContentTables
 {
     /** @var list<string> */
     public const TARGET_IN_DELETE_ORDER = [
+        'content_course_core_items',
         'content_episode_courses',
+        'content_courses',
         'content_audio_script_renders',
         'content_audio_script_segments',
         'content_audio_script_media',

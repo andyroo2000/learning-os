@@ -152,17 +152,19 @@ class ImportConvoLabEpisodes extends Command
             ->mapWithKeys(fn (object $user): array => [strtolower(trim($user->email)) => (int) $user->id]);
         $sourceEmails = [];
 
-        foreach ($source->table('User')->get(['id', 'email']) as $user) {
-            $email = strtolower(trim((string) $user->email));
-            if ($email !== '' && isset($sourceEmails[$email])) {
-                throw new RuntimeException("Source contains duplicate normalized user email [{$email}].");
-            }
-            $sourceEmails[$email] = true;
+        $source->table('User')->orderBy('id')->chunk(200, function ($users) use ($targetUsers, &$sourceEmails): void {
+            foreach ($users as $user) {
+                $email = strtolower(trim((string) $user->email));
+                if ($email !== '' && isset($sourceEmails[$email])) {
+                    throw new RuntimeException("Source contains duplicate normalized user email [{$email}].");
+                }
+                $sourceEmails[$email] = true;
 
-            if ($email !== '' && $targetUsers->has($email)) {
-                $this->userIds[$this->uuid($user->id, 'user')] = (int) $targetUsers->get($email);
+                if ($email !== '' && $targetUsers->has($email)) {
+                    $this->userIds[$this->uuid($user->id, 'user')] = (int) $targetUsers->get($email);
+                }
             }
-        }
+        });
     }
 
     private function resetMappings(): void
@@ -193,7 +195,7 @@ class ImportConvoLabEpisodes extends Command
                 'source_text' => $row->sourceText,
                 'target_language' => $row->targetLanguage,
                 'native_language' => $row->nativeLanguage,
-                'content_type' => $row->contentType,
+                'content_type' => $this->contentType($row->contentType, $id),
                 'jlpt_level' => $row->jlptLevel,
                 'auto_generate_audio' => $row->autoGenerateAudio,
                 'status' => $row->status,
@@ -254,7 +256,8 @@ class ImportConvoLabEpisodes extends Command
             return [
                 'id' => $this->uuid($row->id, 'sentence'), 'dialogue_id' => $dialogueId,
                 'speaker_id' => $speakerId, 'sort_order' => $row->order, 'text' => $row->text,
-                'translation' => $row->translation, 'metadata' => $row->metadata,
+                'translation' => $row->translation,
+                'metadata' => $this->requiredSourceValue($row->metadata, "Sentence [{$row->id}] metadata"),
                 'audio_url' => $row->audioUrl, 'start_time' => $row->startTime, 'end_time' => $row->endTime,
                 'start_time_0_7' => $row->startTime_0_7, 'end_time_0_7' => $row->endTime_0_7,
                 'start_time_0_85' => $row->startTime_0_85, 'end_time_0_85' => $row->endTime_0_85,
@@ -275,7 +278,9 @@ class ImportConvoLabEpisodes extends Command
 
             return [
                 'id' => $this->uuid($row->id, 'image'), 'episode_id' => $episodeId,
-                'url' => $row->url, 'prompt' => $row->prompt, 'sort_order' => $row->order,
+                'url' => $this->requiredSourceValue($row->url, "Image [{$row->id}] URL"),
+                'prompt' => $this->requiredSourceValue($row->prompt, "Image [{$row->id}] prompt"),
+                'sort_order' => $row->order,
                 'sentence_start_id' => $row->sentenceStartId, 'sentence_end_id' => $row->sentenceEndId,
                 'created_at' => $row->createdAt,
             ];
@@ -425,5 +430,24 @@ class ImportConvoLabEpisodes extends Command
         }
 
         return $uuid;
+    }
+
+    private function contentType(mixed $value, string $episodeId): string
+    {
+        $contentType = strtolower(trim((string) $value));
+        if (! in_array($contentType, ['dialogue', 'script'], true)) {
+            throw new RuntimeException("Episode [{$episodeId}] has unsupported content type [{$value}].");
+        }
+
+        return $contentType;
+    }
+
+    private function requiredSourceValue(mixed $value, string $label): mixed
+    {
+        if ($value === null) {
+            throw new RuntimeException("{$label} must not be null.");
+        }
+
+        return $value;
     }
 }

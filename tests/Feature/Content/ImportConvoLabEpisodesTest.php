@@ -143,6 +143,40 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->assertDatabaseCount('content_episodes', 0);
     }
 
+    public function test_rejects_unexpected_nulls_in_source_required_fields_with_context(): void
+    {
+        User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+        DB::connection('convolab_content_test')->table('Sentence')
+            ->where('id', $ids['sentence'])
+            ->update(['metadata' => null]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])
+            ->expectsOutputToContain("Sentence [{$ids['sentence']}] metadata must not be null.")
+            ->assertFailed();
+
+        $this->assertDatabaseCount('content_episodes', 0);
+    }
+
+    public function test_rejects_unsupported_source_content_types_instead_of_hiding_imported_rows(): void
+    {
+        User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+        DB::connection('convolab_content_test')->table('Episode')
+            ->where('id', $ids['dialogueEpisode'])
+            ->update(['contentType' => 'quiz']);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])
+            ->expectsOutputToContain("Episode [{$ids['dialogueEpisode']}] has unsupported content type [quiz].")
+            ->assertFailed();
+
+        $this->assertDatabaseCount('content_episodes', 0);
+    }
+
     public function test_production_truncate_requires_the_exact_target_confirmation(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
@@ -187,7 +221,7 @@ class ImportConvoLabEpisodesTest extends TestCase
 
         $source->table('User')->insert(['id' => $ids['user'], 'email' => 'Ada@Example.com']);
         $source->table('Episode')->insert([
-            $this->episodeRow($ids['dialogueEpisode'], $ids['user'], 'dialogue', $created),
+            $this->episodeRow($ids['dialogueEpisode'], $ids['user'], 'Dialogue', $created),
             $this->episodeRow($ids['scriptEpisode'], $ids['user'], 'script', '2026-07-20 11:00:00.456'),
         ]);
         $source->table('Dialogue')->insert([
@@ -326,7 +360,7 @@ class ImportConvoLabEpisodesTest extends TestCase
             $table->integer('order');
             $table->text('text');
             $table->text('translation');
-            $table->json('metadata');
+            $table->json('metadata')->nullable();
             $table->text('audioUrl')->nullable();
             $table->integer('startTime')->nullable();
             $table->integer('endTime')->nullable();
@@ -341,8 +375,8 @@ class ImportConvoLabEpisodesTest extends TestCase
         $schema->create('Image', function (Blueprint $table): void {
             $table->string('id')->primary();
             $table->string('episodeId');
-            $table->text('url');
-            $table->text('prompt');
+            $table->text('url')->nullable();
+            $table->text('prompt')->nullable();
             $table->integer('order');
             $table->string('sentenceStartId')->nullable();
             $table->string('sentenceEndId')->nullable();

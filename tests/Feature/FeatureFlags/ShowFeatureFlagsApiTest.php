@@ -6,6 +6,7 @@ use App\Domain\FeatureFlags\Models\FeatureFlag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class ShowFeatureFlagsApiTest extends TestCase
@@ -66,6 +67,42 @@ class ShowFeatureFlagsApiTest extends TestCase
             'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
+    }
+
+    public function test_show_returns_the_winning_defaults_from_a_concurrent_first_read(): void
+    {
+        $this->signIn();
+        Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
+        $eventName = 'eloquent.creating: '.FeatureFlag::class;
+
+        Event::listen($eventName, static function (FeatureFlag $featureFlags): void {
+            DB::table('feature_flags')->insert([
+                'id' => $featureFlags->getKey(),
+                'dialoguesEnabled' => false,
+                'scriptsEnabled' => true,
+                'audioCourseEnabled' => false,
+                'flashcardsEnabled' => true,
+                'updatedAt' => now()->format('Y-m-d H:i:s.v'),
+            ]);
+        });
+
+        try {
+            $this->getJson('/api/feature-flags')
+                ->assertOk()
+                ->assertExactJson([
+                    'id' => FeatureFlag::DEFAULT_ID,
+                    'dialoguesEnabled' => false,
+                    'scriptsEnabled' => true,
+                    'audioCourseEnabled' => false,
+                    'flashcardsEnabled' => true,
+                    'updatedAt' => '2026-07-20T17:15:12.345Z',
+                ]);
+        } finally {
+            // This model has no production creating listeners; clear the injected test event.
+            Event::forget($eventName);
+        }
+
+        $this->assertDatabaseCount('feature_flags', 1);
     }
 
     public function test_show_existing_flags_uses_one_feature_flag_query(): void

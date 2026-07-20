@@ -67,6 +67,11 @@ class DatabaseRehearsalSmokeCheck
             'uri' => '/api/study/imports/current',
             'required' => ['data'],
         ],
+        [
+            'name' => 'content episodes',
+            'uri' => '/api/convolab/episodes?library=true&limit=1',
+            'required' => [],
+        ],
     ];
 
     public function __construct(

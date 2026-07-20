@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ConnectsToConvoLabSource;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Enums\StudyImportStatus;
+use App\Support\Content\ConvoLabContentTables;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
@@ -16,6 +18,8 @@ use Throwable;
 
 class ImportConvoLabRehearsalData extends Command
 {
+    use ConnectsToConvoLabSource;
+
     /**
      * Complete target reset boundary, including tables reached through user/deck/card foreign keys.
      * Keep this list synchronized when a migration adds a new foreign key into that ownership graph.
@@ -23,6 +27,7 @@ class ImportConvoLabRehearsalData extends Command
      * @var list<string>
      */
     private const TARGET_TABLES = [
+        ...ConvoLabContentTables::TARGET_IN_DELETE_ORDER,
         'card_media',
         'card_review_events',
         'sync_feed_entries',
@@ -112,7 +117,7 @@ class ImportConvoLabRehearsalData extends Command
 
         try {
             $target = DB::connection();
-            $this->assertProductionTruncateConfirmed($target);
+            $this->assertProductionTruncateConfirmed($target, 'truncation');
             $source = $this->sourceConnection();
 
             if ($this->sameDatabase($source, $target)) {
@@ -163,42 +168,6 @@ class ImportConvoLabRehearsalData extends Command
         return self::SUCCESS;
     }
 
-    private function sourceConnection(): ConnectionInterface
-    {
-        $database = $this->option('source-database');
-        $connectionName = trim((string) $this->option('source-connection'));
-
-        if ($connectionName === '') {
-            throw new \InvalidArgumentException('Source connection name must not be blank.');
-        }
-
-        if (! is_string($database) || trim($database) === '') {
-            if (config("database.connections.{$connectionName}") !== null) {
-                return DB::connection($connectionName);
-            }
-
-            throw new \InvalidArgumentException('Pass --source-database with the restored Convo Lab source database name.');
-        }
-
-        if ($connectionName === DB::getDefaultConnection()) {
-            throw new \InvalidArgumentException('Source connection name must differ from the target connection name.');
-        }
-
-        $targetConfig = config('database.connections.'.DB::getDefaultConnection(), []);
-        $sourceConfig = config('database.connections.pgsql');
-        $sourceConfig['host'] = $this->option('source-host') ?: ($targetConfig['host'] ?? '127.0.0.1');
-        $sourceConfig['port'] = $this->option('source-port') ?: ($targetConfig['port'] ?? '5432');
-        $sourceConfig['database'] = trim($database);
-        // A blank username means "reuse the target role"; a blank password is meaningful for trust auth.
-        $sourceConfig['username'] = $this->option('source-username') ?: ($targetConfig['username'] ?? null);
-        $sourceConfig['password'] = $this->option('source-password') ?? ($targetConfig['password'] ?? null);
-
-        config(["database.connections.{$connectionName}" => $sourceConfig]);
-        DB::purge($connectionName);
-
-        return DB::connection($connectionName);
-    }
-
     private function resetMappings(): void
     {
         $this->userIds = [];
@@ -209,28 +178,6 @@ class ImportConvoLabRehearsalData extends Command
         $this->mediaUserIds = [];
         $this->mediaPathIds = [];
         $this->mediaPathUserIds = [];
-    }
-
-    private function sameDatabase(ConnectionInterface $source, ConnectionInterface $target): bool
-    {
-        return $source->getDatabaseName() === $target->getDatabaseName()
-            && $source->getConfig('host') === $target->getConfig('host')
-            && (string) $source->getConfig('port') === (string) $target->getConfig('port');
-    }
-
-    private function assertProductionTruncateConfirmed(ConnectionInterface $target): void
-    {
-        if (! app()->isProduction() || ! $this->option('truncate')) {
-            return;
-        }
-
-        $expected = 'TRUNCATE '.$target->getDatabaseName();
-
-        if ($this->option('production-truncate-confirmation') !== $expected) {
-            throw new \RuntimeException(
-                "Production truncation requires --production-truncate-confirmation=\"{$expected}\".",
-            );
-        }
     }
 
     private function assertProductionMediaStrategy(ConnectionInterface $source): void

@@ -231,12 +231,8 @@ final class RepairLegacyStudyMediaReferencesAction
             $candidate = ['id' => (string) $asset->id];
             $kindFallbackKey = $kind."\0";
 
-            if (array_key_exists($kindFallbackKey, $candidates)
-                && $candidates[$kindFallbackKey] !== $candidate) {
-                $candidates[$kindFallbackKey] = null;
-            } elseif (! array_key_exists($kindFallbackKey, $candidates)) {
-                $candidates[$kindFallbackKey] = $candidate;
-            }
+            // Source card links remain authoritative when old payload filenames drift.
+            $this->recordCandidate($candidates, $kindFallbackKey, $candidate);
 
             $filenames = array_unique(array_filter(
                 [
@@ -250,15 +246,24 @@ final class RepairLegacyStudyMediaReferencesAction
             foreach ($filenames as $filename) {
                 $key = $kind."\0".$filename;
 
-                if (array_key_exists($key, $candidates) && $candidates[$key] !== $candidate) {
-                    $candidates[$key] = null;
-                } elseif (! array_key_exists($key, $candidates)) {
-                    $candidates[$key] = $candidate;
-                }
+                $this->recordCandidate($candidates, $key, $candidate);
             }
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param  array<string, array{id: string}|null>  $candidates
+     * @param  array{id: string}  $candidate
+     */
+    private function recordCandidate(array &$candidates, string $key, array $candidate): void
+    {
+        if (array_key_exists($key, $candidates) && $candidates[$key] !== $candidate) {
+            $candidates[$key] = null;
+        } elseif (! array_key_exists($key, $candidates)) {
+            $candidates[$key] = $candidate;
+        }
     }
 
     /**

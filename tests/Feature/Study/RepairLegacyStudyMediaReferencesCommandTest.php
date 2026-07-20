@@ -161,6 +161,33 @@ class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
         $this->assertSame("/api/study/media/{$media->id}", $card->prompt_json['cueAudio']['url']);
     }
 
+    public function test_apply_leaves_a_filename_mismatch_ambiguous_with_multiple_same_kind_assets(): void
+    {
+        $user = User::factory()->create();
+        $legacyId = 'e7b3e62f-33ec-4b54-99d0-ddfec07d80a0';
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'prompt_json' => [
+                'cueAudio' => $this->legacyReference(
+                    'audio',
+                    'manual-draft-audio.mp3',
+                    $legacyId,
+                ),
+            ],
+        ]);
+        $card->mediaAssets()->attach([
+            $this->mediaFor($user, 'audio/mpeg', 'first-generated.mp3')->id,
+            $this->mediaFor($user, 'audio/mpeg', 'second-generated.mp3')->id,
+        ]);
+
+        $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
+            ->expectsOutputToContain('Repair completed: 1 linked cards scanned, 0 cards changed, 0 references changed.')
+            ->expectsOutputToContain('0 stale references were unmatched; 1 were ambiguous and left unchanged.')
+            ->assertExitCode(0);
+
+        $this->assertSame($legacyId, $card->refresh()->prompt_json['cueAudio']['id']);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_apply_leaves_ambiguous_and_unmatched_references_unchanged(): void
     {
         $user = User::factory()->create();

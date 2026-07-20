@@ -6,9 +6,10 @@
     "keywords": ["laravel", "learning", "api"],
     "license": "proprietary",
     "require": {
-        "ext-zlib": "*",
-        "ext-zip": "*",
         "php": "^8.3",
+        "ext-zip": "*",
+        "ext-zlib": "*",
+        "google/cloud-storage": "^2.4",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0"

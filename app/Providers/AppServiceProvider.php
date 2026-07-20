@@ -12,9 +12,12 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
+use App\Domain\Media\Contracts\StaticMediaObjectStore;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Media\Services\GoogleCloudStaticMediaObjectStore;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
+use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -52,7 +55,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(
+            StaticMediaObjectStore::class,
+            GoogleCloudStaticMediaObjectStore::class,
+        );
     }
 
     /**
@@ -151,6 +157,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(MediaAssetRateLimiter::DELETE_NAME, function (Request $request) use ($mediaAssetDeleteRateLimiter): Limit {
             return $mediaAssetDeleteRateLimiter->limit($request);
         });
+
+        RateLimiter::for(
+            ToolAudioSignedUrlRateLimiter::NAME,
+            fn (Request $request): Limit => resolve(ToolAudioSignedUrlRateLimiter::class)->limit($request),
+        );
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;
         RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($studyCardCreateRateLimiter): Limit {

@@ -10,6 +10,7 @@ use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
+use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
@@ -66,6 +67,8 @@ use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
 use App\Http\Controllers\Api\Media\ListCardMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListDeckMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListMediaAssetsController;
+use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
+use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
 use App\Http\Controllers\Api\Media\ShowMediaAssetController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
 use App\Http\Controllers\Api\Reviews\ListCardReviewEventsController;
@@ -133,6 +136,12 @@ use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
+
+// Public static learning media stays path-allowlisted and rate-limited where URLs are batched.
+Route::get('/avatars/{avatarPath}', ShowAvatarAssetController::class)
+    ->where('avatarPath', '.*');
+Route::post('/tools-audio/signed-urls', ResolveToolAudioUrlsController::class)
+    ->middleware('throttle:'.ToolAudioSignedUrlRateLimiter::NAME);
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::post('/auth/register', RegisterMobileUserController::class)

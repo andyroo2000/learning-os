@@ -3,10 +3,13 @@
 namespace Tests\Feature\FeatureFlags;
 
 use App\Domain\FeatureFlags\Models\FeatureFlag;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 class ShowFeatureFlagsApiTest extends TestCase
@@ -42,6 +45,36 @@ class ShowFeatureFlagsApiTest extends TestCase
                 'flashcardsEnabled' => true,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
+    }
+
+    public function test_show_uses_the_most_recent_row_if_legacy_data_contains_multiple_rows(): void
+    {
+        $this->signIn();
+        Carbon::setTestNow('2026-07-20 16:15:12.345 UTC');
+
+        $olderFlags = new FeatureFlag([
+            'dialoguesEnabled' => false,
+            'scriptsEnabled' => false,
+            'audioCourseEnabled' => false,
+            'flashcardsEnabled' => false,
+        ]);
+        $olderFlags->id = 'aaa-older';
+        $olderFlags->save();
+
+        Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
+        $currentFlags = new FeatureFlag([
+            'dialoguesEnabled' => true,
+            'scriptsEnabled' => true,
+            'audioCourseEnabled' => true,
+            'flashcardsEnabled' => true,
+        ]);
+        $currentFlags->id = 'zzz-current';
+        $currentFlags->save();
+
+        $this->getJson('/api/feature-flags')
+            ->assertOk()
+            ->assertJsonPath('id', 'zzz-current')
+            ->assertJsonPath('updatedAt', '2026-07-20T17:15:12.345Z');
     }
 
     public function test_show_materializes_enabled_defaults_when_the_row_is_missing(): void
@@ -158,5 +191,23 @@ class ShowFeatureFlagsApiTest extends TestCase
             'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
+    }
+
+    public function test_adoption_migration_rejects_a_legacy_table_missing_required_columns(): void
+    {
+        Schema::drop('feature_flags');
+        Schema::create('feature_flags', function (Blueprint $table): void {
+            $table->string('id')->primary();
+            $table->boolean('dialoguesEnabled')->default(true);
+        });
+
+        $migration = require database_path('migrations/2026_07_20_170000_adopt_feature_flags_table.php');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Cannot adopt feature_flags table; missing columns: scriptsEnabled, audioCourseEnabled, flashcardsEnabled, updatedAt.',
+        );
+
+        $migration->up();
     }
 }

@@ -10,6 +10,7 @@ class GetFeatureFlagsAction
     public function handle(): FeatureFlag
     {
         $featureFlags = FeatureFlag::query()
+            ->orderByDesc('updatedAt')
             ->orderBy('id')
             ->first();
 

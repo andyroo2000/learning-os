@@ -6,9 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private const REQUIRED_COLUMNS = [
+        'id',
+        'dialoguesEnabled',
+        'scriptsEnabled',
+        'audioCourseEnabled',
+        'flashcardsEnabled',
+        'updatedAt',
+    ];
+
     public function up(): void
     {
         if (Schema::hasTable('feature_flags')) {
+            $missingColumns = array_values(array_diff(
+                self::REQUIRED_COLUMNS,
+                Schema::getColumnListing('feature_flags'),
+            ));
+
+            if ($missingColumns !== []) {
+                throw new RuntimeException(
+                    'Cannot adopt feature_flags table; missing columns: '.implode(', ', $missingColumns).'.',
+                );
+            }
+
             return;
         }
 

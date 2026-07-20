@@ -228,6 +228,12 @@ final class RepairLegacyStudyMediaReferencesAction
                 continue;
             }
 
+            $candidate = ['id' => (string) $asset->id];
+            $kindFallbackKey = $kind."\0";
+
+            // Source card links remain authoritative when old payload filenames drift.
+            $this->recordCandidate($candidates, $kindFallbackKey, $candidate);
+
             $filenames = array_unique(array_filter(
                 [
                     $this->normalizedFilename($asset->source_filename),
@@ -239,17 +245,25 @@ final class RepairLegacyStudyMediaReferencesAction
 
             foreach ($filenames as $filename) {
                 $key = $kind."\0".$filename;
-                $candidate = ['id' => (string) $asset->id];
 
-                if (array_key_exists($key, $candidates) && $candidates[$key] !== $candidate) {
-                    $candidates[$key] = null;
-                } elseif (! array_key_exists($key, $candidates)) {
-                    $candidates[$key] = $candidate;
-                }
+                $this->recordCandidate($candidates, $key, $candidate);
             }
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param  array<string, array{id: string}|null>  $candidates
+     * @param  array{id: string}  $candidate
+     */
+    private function recordCandidate(array &$candidates, string $key, array $candidate): void
+    {
+        if (array_key_exists($key, $candidates) && $candidates[$key] !== $candidate) {
+            $candidates[$key] = null;
+        } elseif (! array_key_exists($key, $candidates)) {
+            $candidates[$key] = $candidate;
+        }
     }
 
     /**
@@ -268,14 +282,16 @@ final class RepairLegacyStudyMediaReferencesAction
             $kind = (string) $value['mediaKind'];
             $filename = $this->normalizedFilename($value['filename']);
             $key = $kind."\0".$filename;
+            $fallbackKey = $kind."\0";
 
-            if (! array_key_exists($key, $candidates)) {
+            if (! array_key_exists($key, $candidates)
+                && ! array_key_exists($fallbackKey, $candidates)) {
                 $result->unmatchedReferences++;
 
                 return $value;
             }
 
-            $candidate = $candidates[$key];
+            $candidate = $candidates[$key] ?? $candidates[$fallbackKey];
 
             if ($candidate === null) {
                 $result->ambiguousReferences++;

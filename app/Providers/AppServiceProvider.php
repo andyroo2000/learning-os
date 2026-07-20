@@ -6,6 +6,7 @@ use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
+use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
@@ -109,6 +110,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(CourseRateLimiter::DELETE_NAME, function (Request $request) use ($courseDeleteRateLimiter): Limit {
             return $courseDeleteRateLimiter->limit($request);
         });
+
+        RateLimiter::for(
+            FeatureFlagUpdateRateLimiter::NAME,
+            fn (Request $request): Limit => FeatureFlagUpdateRateLimiter::limit($request),
+        );
 
         // Very large offline deck-create backlogs can still throttle before idempotent de-dupe.
         $deckCreateRateLimiter = DeckRateLimiter::forCreate();

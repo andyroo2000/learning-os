@@ -3,6 +3,7 @@
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
+use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
@@ -41,6 +42,7 @@ use App\Http\Controllers\Api\Courses\ShowCourseController;
 use App\Http\Controllers\Api\Courses\StoreCourseController;
 use App\Http\Controllers\Api\Courses\UpdateCourseController;
 use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
+use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
@@ -145,6 +147,8 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
     Route::get('/feature-flags', ShowFeatureFlagsController::class);
+    Route::patch('/feature-flags', UpdateFeatureFlagsController::class)
+        ->middleware('throttle:'.FeatureFlagUpdateRateLimiter::NAME);
     Route::put('/me', UpdateCurrentUserProfileController::class)
         ->middleware('throttle:'.AuthAccountRateLimiter::PROFILE_UPDATE);
     Route::put('/me/password', UpdateCurrentUserPasswordController::class)

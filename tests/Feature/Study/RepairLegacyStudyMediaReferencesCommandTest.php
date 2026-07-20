@@ -5,16 +5,58 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Study\Actions\RepairLegacyStudyMediaReferencesAction;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_standalone_scan_repairs_every_keyset_chunk(): void
+    {
+        $this->app->bind(
+            RepairLegacyStudyMediaReferencesAction::class,
+            fn (): RepairLegacyStudyMediaReferencesAction => new RepairLegacyStudyMediaReferencesAction(
+                app(RecordSyncFeedEntryAction::class),
+                chunkSize: 2,
+            ),
+        );
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $cards = collect(range(1, 5))->map(function (int $index) use ($deck, $user): Card {
+            $filename = "chunk-{$index}.mp3";
+            $legacyId = sprintf('7ff08851-1396-4960-8cfe-%012d', $index);
+            $card = Card::factory()->for($deck)->create([
+                'prompt_json' => [
+                    'cueAudio' => $this->legacyReference('audio', $filename, $legacyId),
+                ],
+            ]);
+            $card->mediaAssets()->attach($this->mediaFor($user, 'audio/mpeg', $filename));
+
+            return $card;
+        });
+
+        $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
+            ->expectsOutputToContain('Repair completed: 5 linked cards scanned, 5 cards changed, 5 references changed.')
+            ->assertExitCode(0);
+
+        $cards->each(function (Card $card): void {
+            $card->refresh();
+            $this->assertTrue(Str::isUlid($card->prompt_json['cueAudio']['id']));
+            $this->assertSame(
+                "/api/study/media/{$card->prompt_json['cueAudio']['id']}",
+                $card->prompt_json['cueAudio']['url'],
+            );
+        });
+        $this->assertDatabaseCount('sync_feed_entries', 5);
+    }
 
     public function test_dry_run_reports_repairs_without_changing_cards(): void
     {
@@ -65,6 +107,33 @@ class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
             ->expectsOutputToContain('Repair completed: 1 linked cards scanned, 0 cards changed, 0 references changed.')
             ->assertExitCode(0);
         $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_apply_repairs_disagreeing_current_media_ids_and_urls(): void
+    {
+        $user = User::factory()->create();
+        $media = $this->mediaFor($user, 'audio/mpeg', 'current.mp3');
+        $wrongMediaId = (string) Str::ulid();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'prompt_json' => [
+                'cueAudio' => [
+                    'id' => $media->id,
+                    'filename' => 'current.mp3',
+                    'url' => "/api/study/media/{$wrongMediaId}",
+                    'mediaKind' => 'audio',
+                    'source' => 'imported',
+                ],
+            ],
+        ]);
+        $card->mediaAssets()->attach($media);
+
+        $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
+            ->expectsOutputToContain('Repair completed: 1 linked cards scanned, 1 cards changed, 1 references changed.')
+            ->assertExitCode(0);
+
+        $card->refresh();
+        $this->assertSame($media->id, $card->prompt_json['cueAudio']['id']);
+        $this->assertSame("/api/study/media/{$media->id}", $card->prompt_json['cueAudio']['url']);
     }
 
     public function test_apply_leaves_ambiguous_and_unmatched_references_unchanged(): void

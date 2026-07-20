@@ -16,10 +16,11 @@ use RuntimeException;
 
 final class RepairLegacyStudyMediaReferencesAction
 {
-    private const CHUNK_SIZE = 250;
+    private const DEFAULT_CHUNK_SIZE = 250;
 
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly int $chunkSize = self::DEFAULT_CHUNK_SIZE,
     ) {}
 
     /**
@@ -33,7 +34,7 @@ final class RepairLegacyStudyMediaReferencesAction
         $result = new StudyMediaReferenceRepairResult;
 
         if ($cardIds !== null) {
-            foreach (array_chunk(array_values(array_unique($cardIds)), self::CHUNK_SIZE) as $chunk) {
+            foreach (array_chunk(array_values(array_unique($cardIds)), $this->chunkSize) as $chunk) {
                 $result->add($this->repairChunk($connection, $chunk, $apply));
             }
 
@@ -54,7 +55,7 @@ final class RepairLegacyStudyMediaReferencesAction
                         ->whereColumn('card_media.card_id', 'cards.id');
                 })
                 ->orderBy('cards.id')
-                ->limit(self::CHUNK_SIZE);
+                ->limit($this->chunkSize);
 
             if ($lastId !== null) {
                 $query->where('cards.id', '>', $lastId);
@@ -68,7 +69,7 @@ final class RepairLegacyStudyMediaReferencesAction
 
             $result->add($this->repairChunk($connection, $ids, $apply));
             $lastId = $ids[array_key_last($ids)];
-        } while (count($ids) === self::CHUNK_SIZE);
+        } while (count($ids) === $this->chunkSize);
 
         return $result;
     }
@@ -103,15 +104,27 @@ final class RepairLegacyStudyMediaReferencesAction
         bool $apply,
     ): StudyMediaReferenceRepairResult {
         $cardsQuery = $connection->table('cards')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->select([
-                'cards.*',
-                'decks.user_id as owner_user_id',
-                'decks.course_id as deck_course_id',
-            ])
+            ->select('cards.*')
+            ->selectSub(
+                $connection->table('decks')
+                    ->select('decks.user_id')
+                    ->whereColumn('decks.id', 'cards.deck_id'),
+                'owner_user_id',
+            )
+            ->selectSub(
+                $connection->table('decks')
+                    ->select('decks.course_id')
+                    ->whereColumn('decks.id', 'cards.deck_id'),
+                'deck_course_id',
+            )
             ->whereIn('cards.id', $cardIds)
             ->whereNull('cards.deleted_at')
-            ->whereNull('decks.deleted_at')
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('decks')
+                    ->whereColumn('decks.id', 'cards.deck_id')
+                    ->whereNull('decks.deleted_at');
+            })
             ->orderBy('cards.id');
 
         if ($apply) {
@@ -305,8 +318,9 @@ final class RepairLegacyStudyMediaReferencesAction
         }
 
         $id = $value['id'] ?? null;
+        $normalizedId = is_string($id) ? trim($id) : null;
 
-        if (is_string($id) && trim($id) !== '' && ! Str::isUlid(trim($id))) {
+        if ($normalizedId !== null && $normalizedId !== '' && ! Str::isUlid($normalizedId)) {
             return true;
         }
 
@@ -320,7 +334,13 @@ final class RepairLegacyStudyMediaReferencesAction
             return false;
         }
 
-        return ! Str::isUlid($matches[1]);
+        if (! Str::isUlid($matches[1])) {
+            return true;
+        }
+
+        return $normalizedId !== null
+            && Str::isUlid($normalizedId)
+            && strcasecmp($normalizedId, $matches[1]) !== 0;
     }
 
     private function mediaKind(string $mimeType): ?string

@@ -13,6 +13,13 @@ class UpdateFeatureFlagsApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
+    }
+
     public function test_update_requires_authentication(): void
     {
         $this->patchJson('/api/feature-flags', [
@@ -49,6 +56,32 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $token = User::factory()->create()
             ->createToken('mobile', ['feature-flags:write'])
             ->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('feature_flags', 0);
+    }
+
+    public function test_update_rejects_the_named_scoped_token_for_another_account(): void
+    {
+        $token = User::factory()
+            ->create(['email' => 'other@example.com'])
+            ->createToken('convolab-proxy', ['feature-flags:write'])
+            ->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('feature_flags', 0);
+    }
+
+    public function test_update_rejects_the_proxy_token_when_the_expected_account_is_not_configured(): void
+    {
+        $token = $this->proxyToken(['feature-flags:write']);
+        config()->set('services.convolab.proxy_user_email');
 
         $this->withToken($token)
             ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
@@ -149,7 +182,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
      */
     private function proxyToken(array $abilities): string
     {
-        return User::factory()->create()
+        return User::factory()->create(['email' => 'proxy@example.com'])
             ->createToken('convolab-proxy', $abilities)
             ->plainTextToken;
     }

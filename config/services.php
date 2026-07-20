@@ -39,6 +39,10 @@ return [
         'base_url' => env('WANIKANI_API_BASE_URL', 'https://api.wanikani.com/v2'),
     ],
 
+    'convolab' => [
+        'proxy_user_email' => env('CONVOLAB_PROXY_USER_EMAIL'),
+    ],
+
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'base_url' => env('OPENAI_API_BASE_URL', 'https://api.openai.com/v1'),

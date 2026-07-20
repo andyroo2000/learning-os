@@ -11,6 +11,6 @@ final class FeatureFlagUpdateRateLimiter
 
     public static function limit(Request $request): Limit
     {
-        return Limit::perMinute(30)->by('feature-flag-update:user:'.$request->user()->getAuthIdentifier());
+        return Limit::perMinute(30)->by(self::NAME.':user:'.$request->user()->getAuthIdentifier());
     }
 }

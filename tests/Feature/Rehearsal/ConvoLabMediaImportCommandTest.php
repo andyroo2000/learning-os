@@ -108,10 +108,31 @@ class ConvoLabMediaImportCommandTest extends TestCase
     public function test_imports_verified_media_into_an_existing_learning_os_database(): void
     {
         $this->putSourceFile('study-media/source-user/neko.mp3', 'verified-neko-bytes');
+        $card = Card::query()->sole();
+        $card->prompt_json = [
+            'cueAudio' => [
+                'id' => 'source-media-1',
+                'filename' => 'neko.mp3',
+                'url' => '/api/study/media/source-media-1',
+                'mediaKind' => 'audio',
+                'source' => 'imported',
+            ],
+        ];
+        $card->answer_json = [
+            'answerAudio' => [
+                'id' => 'source-media-duplicate',
+                'filename' => 'neko.mp3',
+                'url' => '/api/study/media/source-media-duplicate',
+                'mediaKind' => 'audio',
+                'source' => 'imported',
+            ],
+        ];
+        $card->saveOrFail();
 
         $this->artisan('migration:import-convolab-media', $this->commandOptions())
             ->expectsOutputToContain('Verified 1 unique media files and 1 card media links.')
             ->expectsOutputToContain('Convo Lab media import completed: 1 media assets, 1 new card links.')
+            ->expectsOutputToContain('Repaired 2 legacy media references across 1 cards.')
             ->assertExitCode(0);
 
         $media = MediaAsset::query()->sole();
@@ -133,6 +154,11 @@ class ConvoLabMediaImportCommandTest extends TestCase
             'card_id' => Card::query()->sole()->id,
             'media_asset_id' => $media->id,
         ]);
+        $card->refresh();
+        $this->assertSame($media->id, $card->prompt_json['cueAudio']['id']);
+        $this->assertSame("/api/study/media/{$media->id}", $card->prompt_json['cueAudio']['url']);
+        $this->assertSame($media->id, $card->answer_json['answerAudio']['id']);
+        $this->assertSame("/api/study/media/{$media->id}", $card->answer_json['answerAudio']['url']);
         $this->assertImportedSyncFeed($media);
     }
 
@@ -716,7 +742,7 @@ class ConvoLabMediaImportCommandTest extends TestCase
             ->where('resource_type', CardMediaSyncPayload::RESOURCE_TYPE)
             ->sole();
 
-        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 3);
         $this->assertSame($media->user_id, $mediaEntry->user_id);
         $this->assertSame(MediaAssetSyncPayload::DOMAIN, $mediaEntry->domain);
         $this->assertSame($media->id, $mediaEntry->resource_id);
@@ -749,5 +775,13 @@ class ConvoLabMediaImportCommandTest extends TestCase
             'created_at' => '2026-07-19T10:00:00.000000Z',
             'updated_at' => '2026-07-19T10:00:00.000000Z',
         ], $cardMediaEntry->payload);
+
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', 'card')
+            ->sole();
+        $this->assertSame($media->user_id, $cardEntry->user_id);
+        $this->assertSame(SyncFeedOperation::Update, $cardEntry->operation);
+        $this->assertSame($card->prompt_json, $cardEntry->payload['prompt_json']);
+        $this->assertSame($card->answer_json, $cardEntry->payload['answer_json']);
     }
 }

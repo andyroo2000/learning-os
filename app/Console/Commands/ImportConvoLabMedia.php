@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Media\Values\OriginalFilename;
+use App\Domain\Study\Actions\RepairLegacyStudyMediaReferencesAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Console\Command;
@@ -100,6 +101,7 @@ class ImportConvoLabMedia extends Command
     public function handle(
         RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
         RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
+        RepairLegacyStudyMediaReferencesAction $repairLegacyStudyMediaReferences,
     ): int {
         if (app()->isProduction() && ! $this->option('allow-production')) {
             $this->error('This command must not run in production without --allow-production.');
@@ -161,6 +163,7 @@ class ImportConvoLabMedia extends Command
                 $cardMediaPairs,
                 $recordMediaAssetSyncFeedEntry,
                 $recordCardMediaSyncFeedEntry,
+                $repairLegacyStudyMediaReferences,
             ): array {
                 $mediaIdsByPath = $this->persistMediaRows(
                     $target,
@@ -173,10 +176,17 @@ class ImportConvoLabMedia extends Command
                     $mediaIdsByPath,
                     $recordCardMediaSyncFeedEntry,
                 );
+                $repairResult = $repairLegacyStudyMediaReferences->handle(
+                    $target,
+                    apply: true,
+                    cardIds: array_values(array_unique(array_column($cardMediaPairs, 'card_id'))),
+                );
 
                 return [
                     'media' => count($mediaIdsByPath),
                     'links' => $createdLinks,
+                    'repaired_references' => $repairResult->referencesChanged,
+                    'repaired_cards' => $repairResult->cardsChanged,
                 ];
             });
             $databaseCommitted = true;
@@ -185,6 +195,11 @@ class ImportConvoLabMedia extends Command
                 'Convo Lab media import completed: %d media assets, %d new card links.',
                 $result['media'],
                 $result['links'],
+            ));
+            $this->line(sprintf(
+                'Repaired %d legacy media references across %d cards.',
+                $result['repaired_references'],
+                $result['repaired_cards'],
             ));
         } catch (Throwable $e) {
             if (! $databaseCommitted) {

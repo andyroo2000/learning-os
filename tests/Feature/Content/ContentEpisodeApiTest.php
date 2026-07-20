@@ -106,6 +106,20 @@ class ContentEpisodeApiTest extends TestCase
         $this->getJson('/api/convolab/episodes/'.Str::uuid())->assertNotFound();
     }
 
+    public function test_show_preserves_legacy_deep_links_for_owner_episodes_still_missing_generated_content(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $episode = ContentEpisode::query()->forceCreate($this->episodeAttributes($user, 'dialogue', now()));
+
+        $this->getJson('/api/convolab/episodes')->assertOk()->assertJsonCount(0);
+        $this->getJson('/api/convolab/episodes/'.$episode->id)
+            ->assertOk()
+            ->assertJsonStructure(['dialogue', 'audioScript'])
+            ->assertJsonPath('id', $episode->id)
+            ->assertJsonPath('dialogue', null);
+    }
+
     public function test_list_validates_boolean_and_bounded_offset_pagination(): void
     {
         Sanctum::actingAs(User::factory()->create());

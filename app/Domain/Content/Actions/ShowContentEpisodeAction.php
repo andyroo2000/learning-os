@@ -10,6 +10,7 @@ final class ShowContentEpisodeAction
 
     public function handle(int $userId, string $episodeId): ContentEpisode
     {
+        // Preserve Convo Lab deep links during generation; only its list route hides episodes missing content relations.
         return ContentEpisode::query()
             ->whereKey($episodeId)
             ->where('user_id', $userId)

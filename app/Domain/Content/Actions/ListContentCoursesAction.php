@@ -22,6 +22,7 @@ final class ListContentCoursesAction
             ->limit($limit)
             ->offset($offset);
 
+        // Legacy Convo Lab only recognizes admin all/draft toggles; every other value means the default view.
         if ($status === 'draft') {
             $query->where('status', 'draft');
         } elseif ($status !== 'all') {

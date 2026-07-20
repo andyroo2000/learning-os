@@ -134,23 +134,36 @@ class ContentCourseApiTest extends TestCase
     {
         $user = User::factory()->create();
         Sanctum::actingAs($user);
+        $expectedSentenceIds = [];
         foreach (range(1, 5) as $index) {
             $course = $this->course($user, 'ready', now()->subMinutes($index));
             $this->coreItem($course);
-            $this->linkEpisode($course, $this->episodeWithDialogue($user), 0);
+            $episode = $this->episodeWithDialogue($user);
+            $this->linkEpisode($course, $episode, 0);
+            $expectedSentenceIds[$course->id] = $episode->dialogue->sentences->sole()->id;
         }
 
         DB::enableQueryLog();
         DB::flushQueryLog();
 
         try {
-            $this->getJson('/api/convolab/courses?library=true&limit=20')->assertOk()->assertJsonCount(5);
+            $response = $this->getJson('/api/convolab/courses?library=true&limit=20')
+                ->assertOk()
+                ->assertJsonCount(5);
             $queries = DB::getQueryLog();
         } finally {
             DB::disableQueryLog();
         }
 
         $this->assertCount(5, $queries, 'Library reads must use a bounded eager-load query set.');
+        foreach ($response->json() as $course) {
+            $this->assertCount(1, $course['courseEpisodes']);
+            $this->assertSame(
+                $expectedSentenceIds[$course['id']],
+                $course['courseEpisodes'][0]['episode']['dialogue']['sentences'][0]['id'],
+                'The eager-load limit must select the first Episode independently for every Course.',
+            );
+        }
     }
 
     private function course(User $user, string $status, mixed $updatedAt): ContentCourse

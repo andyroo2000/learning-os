@@ -18,6 +18,8 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('feature_flags')) {
+            // Convo Lab migrations remain authoritative for legacy column types and timestamp
+            // precision; portable schema APIs do not report those types consistently by driver.
             $missingColumns = array_values(array_diff(
                 self::REQUIRED_COLUMNS,
                 Schema::getColumnListing('feature_flags'),
@@ -44,7 +46,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        // This table may predate Learning OS in a restored Convo Lab database.
-        // Retaining it is safer than deleting source-owned data during rollback.
+        // Rollbacks run in a later process, so this migration cannot know whether up() adopted
+        // or created the table. Always retain it rather than risk deleting source-owned data.
     }
 };

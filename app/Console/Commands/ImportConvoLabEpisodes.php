@@ -79,7 +79,7 @@ class ImportConvoLabEpisodes extends Command
             $this->assertDatabasesDiffer($source, $target);
             $this->assertSourceReady($source);
             $this->assertTargetReady($target);
-            $this->assertProductionTruncateConfirmed($target);
+            $this->assertProductionTruncateConfirmed($target, 'replacement');
 
             $target->transaction(function () use ($source, $target): void {
                 if ($this->option('truncate')) {
@@ -136,20 +136,6 @@ class ImportConvoLabEpisodes extends Command
             if (! $this->option('truncate') && $target->table($table)->exists()) {
                 throw new RuntimeException("Target table [{$table}] is not empty; rerun with --truncate.");
             }
-        }
-    }
-
-    private function assertProductionTruncateConfirmed(ConnectionInterface $target): void
-    {
-        if (! app()->isProduction() || ! $this->option('truncate')) {
-            return;
-        }
-
-        $expected = 'TRUNCATE '.$target->getDatabaseName();
-        if ($this->option('production-truncate-confirmation') !== $expected) {
-            throw new RuntimeException(
-                "Production replacement requires --production-truncate-confirmation=\"{$expected}\".",
-            );
         }
     }
 

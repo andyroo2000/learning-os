@@ -117,7 +117,7 @@ class ImportConvoLabRehearsalData extends Command
 
         try {
             $target = DB::connection();
-            $this->assertProductionTruncateConfirmed($target);
+            $this->assertProductionTruncateConfirmed($target, 'truncation');
             $source = $this->sourceConnection();
 
             if ($this->sameDatabase($source, $target)) {
@@ -178,21 +178,6 @@ class ImportConvoLabRehearsalData extends Command
         $this->mediaUserIds = [];
         $this->mediaPathIds = [];
         $this->mediaPathUserIds = [];
-    }
-
-    private function assertProductionTruncateConfirmed(ConnectionInterface $target): void
-    {
-        if (! app()->isProduction() || ! $this->option('truncate')) {
-            return;
-        }
-
-        $expected = 'TRUNCATE '.$target->getDatabaseName();
-
-        if ($this->option('production-truncate-confirmation') !== $expected) {
-            throw new \RuntimeException(
-                "Production truncation requires --production-truncate-confirmation=\"{$expected}\".",
-            );
-        }
     }
 
     private function assertProductionMediaStrategy(ConnectionInterface $source): void

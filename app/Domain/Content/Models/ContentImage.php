@@ -15,6 +15,11 @@ class ContentImage extends Model
 
     protected $keyType = 'string';
 
+    protected function casts(): array
+    {
+        return ['created_at' => 'datetime'];
+    }
+
     public function episode(): BelongsTo
     {
         return $this->belongsTo(ContentEpisode::class, 'episode_id');

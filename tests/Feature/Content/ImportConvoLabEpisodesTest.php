@@ -76,6 +76,10 @@ class ImportConvoLabEpisodesTest extends TestCase
             'episode_id' => $ids['dialogueEpisode'],
             'convolab_course_id' => $ids['course'],
         ]);
+        $this->assertDatabaseHas('content_images', [
+            'id' => $ids['image'],
+            'episode_id' => $ids['dialogueEpisode'],
+        ]);
 
         Sanctum::actingAs($targetUser);
         $this->getJson('/api/convolab/episodes')
@@ -85,7 +89,9 @@ class ImportConvoLabEpisodesTest extends TestCase
             ->assertJsonPath('0.audioScript.segments.0.imageMedia.id', $ids['media'])
             ->assertJsonPath('0.audioScript.segments.0.imageMedia.sourceFilename', 'scene.png')
             ->assertJsonPath('0.audioScript.renders.0.numericSpeed', 0.85)
-            ->assertJsonPath('1.dialogue.sentences.0.text', '猫です。');
+            ->assertJsonPath('1.dialogue.sentences.0.text', '猫です。')
+            ->assertJsonPath('1.images.0.id', $ids['image'])
+            ->assertJsonPath('1.images.0.createdAt', '2026-07-20T10:00:00.123Z');
 
         $this->getJson('/api/convolab/episodes/'.$ids['dialogueEpisode'])
             ->assertOk()
@@ -167,6 +173,7 @@ class ImportConvoLabEpisodesTest extends TestCase
             'dialogue' => (string) Str::uuid(),
             'speaker' => (string) Str::uuid(),
             'sentence' => (string) Str::uuid(),
+            'image' => (string) Str::uuid(),
             'script' => (string) Str::uuid(),
             'segment' => (string) Str::uuid(),
             'media' => (string) Str::uuid(),
@@ -205,6 +212,12 @@ class ImportConvoLabEpisodesTest extends TestCase
             'startTime_1_0' => null, 'endTime_1_0' => null,
             'variations' => json_encode(['猫だ。']), 'selected' => true,
             'createdAt' => $created, 'updatedAt' => $created,
+        ]);
+        $source->table('Image')->insert([
+            'id' => $ids['image'], 'episodeId' => $ids['dialogueEpisode'],
+            'url' => '/uploads/episode-images/dialogue.png', 'prompt' => 'A cat', 'order' => 1,
+            'sentenceStartId' => $ids['sentence'], 'sentenceEndId' => $ids['sentence'],
+            'createdAt' => $created,
         ]);
         $source->table('audio_scripts')->insert([
             'id' => $ids['script'], 'episodeId' => $ids['scriptEpisode'], 'status' => 'ready',
@@ -325,7 +338,16 @@ class ImportConvoLabEpisodesTest extends TestCase
             $table->dateTime('createdAt');
             $table->dateTime('updatedAt');
         });
-        $schema->create('Image', fn (Blueprint $table) => $table->string('id')->primary());
+        $schema->create('Image', function (Blueprint $table): void {
+            $table->string('id')->primary();
+            $table->string('episodeId');
+            $table->text('url');
+            $table->text('prompt');
+            $table->integer('order');
+            $table->string('sentenceStartId')->nullable();
+            $table->string('sentenceEndId')->nullable();
+            $table->dateTime('createdAt');
+        });
         $schema->create('audio_scripts', function (Blueprint $table): void {
             $table->string('id')->primary();
             $table->string('episodeId');

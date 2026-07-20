@@ -4,6 +4,7 @@ namespace App\Console\Concerns;
 
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 trait ConnectsToConvoLabSource
 {
@@ -47,5 +48,19 @@ trait ConnectsToConvoLabSource
         return $source->getDatabaseName() === $target->getDatabaseName()
             && $source->getConfig('host') === $target->getConfig('host')
             && (string) $source->getConfig('port') === (string) $target->getConfig('port');
+    }
+
+    private function assertProductionTruncateConfirmed(ConnectionInterface $target, string $operation): void
+    {
+        if (! app()->isProduction() || ! $this->option('truncate')) {
+            return;
+        }
+
+        $expected = 'TRUNCATE '.$target->getDatabaseName();
+        if ($this->option('production-truncate-confirmation') !== $expected) {
+            throw new RuntimeException(
+                "Production {$operation} requires --production-truncate-confirmation=\"{$expected}\".",
+            );
+        }
     }
 }

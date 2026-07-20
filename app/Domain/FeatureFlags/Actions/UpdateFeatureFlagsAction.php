@@ -14,6 +14,8 @@ class UpdateFeatureFlagsAction
      */
     public function handle(array $attributes): FeatureFlag
     {
+        // Legacy rows are immutable history; GetFeatureFlagsAction selects or materializes
+        // the one row this write surface will continue updating.
         $featureFlags = $this->getFeatureFlags->handle();
 
         return DB::transaction(function () use ($featureFlags, $attributes): FeatureFlag {

@@ -7,7 +7,6 @@ use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Auth\Exceptions\ConvoLabSignupException;
 use App\Domain\Auth\Results\RegisterConvoLabUserResult;
 use App\Domain\Auth\Support\ConvoLabAccountSource;
-use App\Domain\Auth\Support\ConvoLabAdminEmails;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -63,9 +62,8 @@ final class RegisterConvoLabUserAction
                 $user->password = $password;
                 $user->convolab_email_normalized = $email;
                 $user->remember_token = null;
-                $user->save();
 
-                $passwordHash = $user->getRawOriginal('password');
+                $passwordHash = $user->getAttribute('password');
                 if (! is_string($passwordHash) || $passwordHash === '') {
                     throw new \LogicException('Convo Lab signup did not produce a password hash.');
                 }
@@ -80,7 +78,7 @@ final class RegisterConvoLabUserAction
                 $account->display_name = null;
                 $account->avatar_color = 'indigo';
                 $account->avatar_url = null;
-                $account->role = ConvoLabAdminEmails::contains($email) ? 'admin' : 'user';
+                $account->role = 'user';
                 $account->preferred_study_language = 'ja';
                 $account->preferred_native_language = 'en';
                 $account->proficiency_level = 'beginner';

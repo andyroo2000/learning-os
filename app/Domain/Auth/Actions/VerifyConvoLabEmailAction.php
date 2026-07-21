@@ -5,6 +5,7 @@ namespace App\Domain\Auth\Actions;
 use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Auth\Exceptions\InvalidConvoLabVerificationTokenException;
 use App\Domain\Auth\Models\ConvoLabEmailVerificationToken;
+use App\Domain\Auth\Support\ConvoLabAdminEmails;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +46,7 @@ final class VerifyConvoLabEmailAction
             $verifiedAt = now();
             $account->email_verified = true;
             $account->email_verified_at = $verifiedAt;
+            $account->role = ConvoLabAdminEmails::contains($account->email) ? 'admin' : 'user';
             $account->updated_at = $verifiedAt;
             $account->save();
             $user->email_verified_at = $verifiedAt;

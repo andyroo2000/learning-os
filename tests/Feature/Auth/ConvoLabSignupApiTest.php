@@ -124,7 +124,7 @@ class ConvoLabSignupApiTest extends TestCase
                 'name' => 'Ada Lovelace',
                 'displayName' => null,
                 'avatarColor' => 'indigo',
-                'role' => 'admin',
+                'role' => 'user',
                 'preferredStudyLanguage' => 'ja',
                 'preferredNativeLanguage' => 'en',
                 'proficiencyLevel' => 'beginner',
@@ -267,6 +267,7 @@ class ConvoLabSignupApiTest extends TestCase
 
     public function test_verification_marks_both_account_records_and_rejects_expired_or_replayed_tokens(): void
     {
+        config()->set('services.convolab.admin_emails', ['ada@example.com']);
         $this->invite('VERIFY2');
         $account = app(RegisterConvoLabUserAction::class)->handle(
             'ada@example.com',
@@ -286,6 +287,7 @@ class ConvoLabSignupApiTest extends TestCase
         $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $account->convolab_id,
             'email_verified' => true,
+            'role' => 'admin',
         ]);
         $this->assertNotNull(User::query()->findOrFail($account->user_id)->email_verified_at);
         $this->assertDatabaseCount('convolab_email_verification_tokens', 0);

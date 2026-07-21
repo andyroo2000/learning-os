@@ -85,6 +85,7 @@ class SyncConvoLabAdminProjectionAction
                 &$seenEmails,
                 &$seenIds,
             ): void {
+                $normalizedUsers = [];
                 foreach ($users as $sourceUser) {
                     $convoLabId = strtolower(trim((string) $sourceUser->id));
                     $email = strtolower(trim((string) $sourceUser->email));
@@ -101,10 +102,17 @@ class SyncConvoLabAdminProjectionAction
 
                     $seenIds[$convoLabId] = true;
                     $seenEmails[$email] = true;
-                    $existingProjection = $target->table('admin_user_projections')
-                        ->where('convolab_id', $convoLabId)
-                        ->first();
-                    if ($existingProjection?->source_system === ConvoLabAccountSource::LEARNING_OS) {
+                    $normalizedUsers[] = [$sourceUser, $convoLabId, $email];
+                }
+
+                $learningOsOwnedIds = $target->table('admin_user_projections')
+                    ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
+                    ->whereIn('convolab_id', array_column($normalizedUsers, 1))
+                    ->pluck('convolab_id')
+                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+
+                foreach ($normalizedUsers as [$sourceUser, $convoLabId, $email]) {
+                    if ($learningOsOwnedIds->has($convoLabId)) {
                         $sourceUserIds[] = $convoLabId;
                         $count++;
 

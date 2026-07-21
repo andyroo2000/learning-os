@@ -11,6 +11,8 @@ final class ConvoLabVerificationRateLimiter
 
     public const VERIFY = 'convolab-verification-verify';
 
+    public const VERIFY_NETWORK = 'convolab-verification-verify-network';
+
     public static function forSend(): self
     {
         return new self(self::SEND, 6, true);
@@ -31,11 +33,20 @@ final class ConvoLabVerificationRateLimiter
     {
         $identity = $this->useUserHeader
             ? $request->header('X-Convo-Lab-User-Id')
-            : null;
+            : $request->route('token');
 
         return Limit::perMinute($this->perMinute)->by(self::keyFor(
             $this->name,
             is_string($identity) ? $identity : null,
+            $request->ip(),
+        ));
+    }
+
+    public function networkLimit(Request $request): Limit
+    {
+        return Limit::perMinute(120)->by(self::keyFor(
+            self::VERIFY_NETWORK,
+            null,
             $request->ip(),
         ));
     }

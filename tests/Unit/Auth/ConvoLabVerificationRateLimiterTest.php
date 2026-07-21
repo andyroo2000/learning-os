@@ -38,16 +38,30 @@ class ConvoLabVerificationRateLimiterTest extends TestCase
             'REMOTE_ADDR' => '127.0.0.1',
             'HTTP_X_CONVO_LAB_USER_ID' => '018f47ea-4b37-7f21-8d5a-90e157176b8a',
         ]);
+        $request->setRouteResolver(fn (): object => new class
+        {
+            public function parameter(string $name): ?string
+            {
+                return $name === 'token' ? str_repeat('a', 64) : null;
+            }
+        });
 
         $send = ConvoLabVerificationRateLimiter::forSend()->limit($request);
-        $verify = ConvoLabVerificationRateLimiter::forVerify()->limit($request);
+        $verifyLimiter = ConvoLabVerificationRateLimiter::forVerify();
+        $verify = $verifyLimiter->limit($request);
+        $verifyNetwork = $verifyLimiter->networkLimit($request);
 
         $this->assertSame(6, $send->maxAttempts);
         $this->assertSame(12, $verify->maxAttempts);
         $this->assertStringStartsWith(ConvoLabVerificationRateLimiter::SEND.':', $send->key);
         $this->assertSame(
-            ConvoLabVerificationRateLimiter::VERIFY.':missing:127.0.0.1',
+            ConvoLabVerificationRateLimiter::VERIFY.':'.hash('sha256', str_repeat('a', 64)).':127.0.0.1',
             $verify->key,
+        );
+        $this->assertSame(120, $verifyNetwork->maxAttempts);
+        $this->assertSame(
+            ConvoLabVerificationRateLimiter::VERIFY_NETWORK.':missing:127.0.0.1',
+            $verifyNetwork->key,
         );
     }
 }

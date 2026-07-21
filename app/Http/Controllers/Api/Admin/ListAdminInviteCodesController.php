@@ -4,18 +4,25 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Admin\Actions\ListAdminInviteCodesAction;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ConvoLabAdminReadRequest;
+use App\Http\Requests\Admin\ListAdminInviteCodesRequest;
 use App\Http\Resources\Admin\AdminInviteCodeResource;
 use Illuminate\Http\JsonResponse;
 
 class ListAdminInviteCodesController extends Controller
 {
     public function __invoke(
-        ConvoLabAdminReadRequest $request,
+        ListAdminInviteCodesRequest $request,
         ListAdminInviteCodesAction $action,
     ): JsonResponse {
-        return response()->json(
-            AdminInviteCodeResource::collection($action->handle())->resolve($request),
-        );
+        $inviteCodes = $action->handle($request->page(), $request->limit());
+
+        return response()
+            ->json(AdminInviteCodeResource::collection($inviteCodes->items())->resolve($request))
+            ->withHeaders([
+                'X-Pagination-Page' => (string) $inviteCodes->currentPage(),
+                'X-Pagination-Limit' => (string) $inviteCodes->perPage(),
+                'X-Pagination-Total' => (string) $inviteCodes->total(),
+                'X-Pagination-Pages' => (string) $inviteCodes->lastPage(),
+            ]);
     }
 }

@@ -3,17 +3,17 @@
 namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Models\AdminInviteCode;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ListAdminInviteCodesAction
 {
-    /** @return Collection<int, AdminInviteCode> */
-    public function handle(): Collection
+    /** @return LengthAwarePaginator<int, AdminInviteCode> */
+    public function handle(int $page, int $limit): LengthAwarePaginator
     {
         return AdminInviteCode::query()
             ->with('adminUserProjection')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get();
+            ->paginate(perPage: $limit, page: $page);
     }
 }

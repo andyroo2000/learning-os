@@ -288,6 +288,10 @@ class AdminReadApiTest extends TestCase
         $this->withToken($this->proxyToken())
             ->getJson('/api/convolab/admin/invite-codes')
             ->assertOk()
+            ->assertHeader('X-Pagination-Page', '1')
+            ->assertHeader('X-Pagination-Limit', '100')
+            ->assertHeader('X-Pagination-Total', '2')
+            ->assertHeader('X-Pagination-Pages', '1')
             ->assertExactJson([
                 [
                     'id' => $newer->id,
@@ -310,6 +314,37 @@ class AdminReadApiTest extends TestCase
                     'user' => null,
                 ],
             ]);
+    }
+
+    public function test_invite_code_pagination_is_bounded_and_preserves_the_array_contract(): void
+    {
+        $oldest = $this->insertInvite(null, ['created_at' => '2026-07-19 10:00:00.123']);
+        $middle = $this->insertInvite(null, ['created_at' => '2026-07-20 10:00:00.123']);
+        $newest = $this->insertInvite(null, ['created_at' => '2026-07-21 10:00:00.123']);
+        $token = $this->proxyToken();
+
+        $this->withToken($token)
+            ->getJson('/api/convolab/admin/invite-codes?limit=2&page=1')
+            ->assertOk()
+            ->assertHeader('X-Pagination-Total', '3')
+            ->assertHeader('X-Pagination-Pages', '2')
+            ->assertJsonCount(2)
+            ->assertJsonPath('0.id', $newest->id)
+            ->assertJsonPath('1.id', $middle->id);
+
+        $this->withToken($token)
+            ->getJson('/api/convolab/admin/invite-codes?limit=2&page=2')
+            ->assertOk()
+            ->assertHeader('X-Pagination-Page', '2')
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $oldest->id);
+
+        foreach (['page=0' => 'page', 'limit=101' => 'limit', 'limit%5B%5D=10' => 'limit'] as $query => $field) {
+            $this->withToken($token)
+                ->getJson('/api/convolab/admin/invite-codes?'.$query)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
     }
 
     public function test_projection_fields_are_not_mass_assignable(): void

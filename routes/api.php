@@ -3,6 +3,7 @@
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
+use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
@@ -41,8 +42,10 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Content\AnnotateContentAudioScriptController;
 use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
+use App\Http\Controllers\Api\Content\DownloadContentAudioScriptMediaController;
 use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
 use App\Http\Controllers\Api\Content\DownloadContentEpisodeAudioController;
 use App\Http\Controllers\Api\Content\GenerateAllSpeedsContentAudioController;
@@ -54,12 +57,15 @@ use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ResetContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\RetryContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\ShowContentAudioGenerationJobController;
+use App\Http\Controllers\Api\Content\ShowContentAudioScriptController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController;
 use App\Http\Controllers\Api\Content\ShowContentDialogueGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
+use App\Http\Controllers\Api\Content\StoreContentAudioScriptController;
 use App\Http\Controllers\Api\Content\StoreContentCourseController;
 use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
+use App\Http\Controllers\Api\Content\UpdateContentAudioScriptSegmentsController;
 use App\Http\Controllers\Api\Content\UpdateContentCourseController;
 use App\Http\Controllers\Api\Content\UpdateContentEpisodeController;
 use App\Http\Controllers\Api\Courses\DeleteCourseController;
@@ -205,6 +211,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/convolab/episodes/{episodeId}/audio/{track}', DownloadContentEpisodeAudioController::class)
         ->whereUuid('episodeId')
         ->whereIn('track', ['default', '0.7', '0.85', '1.0']);
+    Route::get('/convolab/scripts/media/{mediaId}', DownloadContentAudioScriptMediaController::class)
+        ->whereUuid('mediaId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::MEDIA_READ_NAME);
+    Route::post('/convolab/scripts', StoreContentAudioScriptController::class)
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME);
+    Route::post('/convolab/scripts/{episodeId}/annotate', AnnotateContentAudioScriptController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME);
+    Route::patch('/convolab/scripts/{episodeId}/segments', UpdateContentAudioScriptSegmentsController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::UPDATE_NAME);
+    Route::get('/convolab/scripts/{episodeId}/status', ShowContentAudioScriptController::class)
+        ->whereUuid('episodeId');
     Route::get('/convolab/courses', ListContentCoursesController::class);
     Route::post('/convolab/courses', StoreContentCourseController::class)
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);

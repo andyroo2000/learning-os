@@ -14,6 +14,7 @@ final class ConvoLabContentTables
         'content_audio_script_segments',
         'content_audio_script_media',
         'content_audio_scripts',
+        'content_image_generation_jobs',
         'content_images',
         'content_sentences',
         'content_speakers',

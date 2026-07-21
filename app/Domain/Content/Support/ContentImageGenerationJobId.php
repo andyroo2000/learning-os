@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Domain\Content\Support;
+
+use InvalidArgumentException;
+use Ramsey\Uuid\Uuid;
+
+final class ContentImageGenerationJobId
+{
+    public static function normalize(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if (! Uuid::isValid($value)) {
+            throw new InvalidArgumentException('Image generation job ID must be a UUID.');
+        }
+
+        return $value;
+    }
+}

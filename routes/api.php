@@ -7,6 +7,7 @@ use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
+use App\Domain\Content\Support\ContentImageRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
@@ -55,6 +56,7 @@ use App\Http\Controllers\Api\Content\GenerateContentAudioScriptImagesController;
 use App\Http\Controllers\Api\Content\GenerateContentAudioScriptRenderController;
 use App\Http\Controllers\Api\Content\GenerateContentCourseController;
 use App\Http\Controllers\Api\Content\GenerateContentDialogueController;
+use App\Http\Controllers\Api\Content\GenerateContentImagesController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ResetContentCourseGenerationController;
@@ -66,6 +68,7 @@ use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController;
 use App\Http\Controllers\Api\Content\ShowContentDialogueGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
+use App\Http\Controllers\Api\Content\ShowContentImageGenerationJobController;
 use App\Http\Controllers\Api\Content\StoreContentAudioScriptController;
 use App\Http\Controllers\Api\Content\StoreContentCourseController;
 use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
@@ -204,6 +207,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/convolab/dialogue/generate', GenerateContentDialogueController::class)
         ->middleware('throttle:'.ContentDialogueRateLimiter::GENERATION_NAME);
     Route::get('/convolab/dialogue/job/{jobId}', ShowContentDialogueGenerationJobController::class)
+        ->whereUuid('jobId');
+    Route::post('/convolab/images/generate', GenerateContentImagesController::class)
+        ->middleware('throttle:'.ContentImageRateLimiter::GENERATION_NAME);
+    Route::get('/convolab/images/job/{jobId}', ShowContentImageGenerationJobController::class)
         ->whereUuid('jobId');
     // Single and bulk synthesis deliberately share one per-user capacity bucket.
     Route::post('/convolab/audio/generate', GenerateContentAudioController::class)

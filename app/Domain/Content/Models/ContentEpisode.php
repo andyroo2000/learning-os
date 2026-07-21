@@ -56,6 +56,11 @@ class ContentEpisode extends Model
         return $this->hasMany(ContentImage::class, 'episode_id');
     }
 
+    public function imageGenerationJobs(): HasMany
+    {
+        return $this->hasMany(ContentImageGenerationJob::class, 'episode_id');
+    }
+
     public function courseEpisodes(): HasMany
     {
         return $this->hasMany(ContentEpisodeCourse::class, 'episode_id');

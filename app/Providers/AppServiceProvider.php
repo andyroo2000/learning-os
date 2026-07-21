@@ -9,6 +9,7 @@ use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
+use App\Domain\Content\Support\ContentImageRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
@@ -134,6 +135,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             ContentDialogueRateLimiter::GENERATION_NAME,
             fn (Request $request): Limit => ContentDialogueRateLimiter::generation($request),
+        );
+        RateLimiter::for(
+            ContentImageRateLimiter::GENERATION_NAME,
+            fn (Request $request): Limit => ContentImageRateLimiter::generation($request),
         );
         RateLimiter::for(
             ContentAudioRateLimiter::GENERATION_NAME,

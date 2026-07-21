@@ -145,10 +145,25 @@ class SyncConvoLabAdminProjectionAction
                             16,
                             'en',
                         ),
+                        'proficiency_level' => $this->requiredString(
+                            $sourceUser,
+                            'proficiencyLevel',
+                            32,
+                            'beginner',
+                        ),
                         'onboarding_completed' => (bool) $sourceUser->onboardingCompleted,
+                        'seen_sample_content_guide' => (bool) $sourceUser->seenSampleContentGuide,
+                        'seen_custom_content_guide' => (bool) $sourceUser->seenCustomContentGuide,
+                        'email_verified' => (bool) $sourceUser->emailVerified,
+                        'email_verified_at' => $sourceUser->emailVerifiedAt,
                         'created_at' => $sourceUser->createdAt,
                         'updated_at' => $sourceUser->updatedAt,
                     ];
+
+                    $passwordHash = $this->nullableString($sourceUser, 'password', 255);
+                    if ($passwordHash !== null && ! $this->isSupportedPasswordHash($passwordHash)) {
+                        throw new RuntimeException("Convo Lab user [{$convoLabId}] has an unsupported password hash.");
+                    }
 
                     if ($targetUser === null) {
                         $targetUserId = $target->table('users')->insertGetId([
@@ -157,6 +172,7 @@ class SyncConvoLabAdminProjectionAction
                             'email' => $projectionAttributes['email'],
                             'email_verified_at' => $sourceUser->emailVerifiedAt,
                             'password' => Hash::make(Str::random(64)),
+                            'convolab_password_hash' => $passwordHash,
                             'remember_token' => null,
                             'created_at' => $sourceUser->createdAt,
                             'updated_at' => $sourceUser->updatedAt,
@@ -165,6 +181,7 @@ class SyncConvoLabAdminProjectionAction
                         $targetUserId = $targetUser->id;
                         $target->table('users')->where('id', $targetUserId)->update([
                             'convolab_id' => $convoLabId,
+                            'convolab_password_hash' => $passwordHash,
                         ]);
                     }
 
@@ -262,5 +279,16 @@ class SyncConvoLabAdminProjectionAction
         }
 
         return $value;
+    }
+
+    private function isSupportedPasswordHash(string $passwordHash): bool
+    {
+        if (! preg_match('/^\$2[aby]\$(\d{2})\$[.\/A-Za-z0-9]{53}$/', $passwordHash, $matches)) {
+            return false;
+        }
+
+        $cost = (int) $matches[1];
+
+        return $cost >= 4 && $cost <= 31;
     }
 }

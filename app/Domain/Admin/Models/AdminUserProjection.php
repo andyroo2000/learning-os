@@ -22,10 +22,16 @@ class AdminUserProjection extends Model
 
     protected $keyType = 'string';
 
+    protected $hidden = ['convolab_password_hash'];
+
     protected function casts(): array
     {
         return [
             'onboarding_completed' => 'boolean',
+            'seen_sample_content_guide' => 'boolean',
+            'seen_custom_content_guide' => 'boolean',
+            'email_verified' => 'boolean',
+            'email_verified_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

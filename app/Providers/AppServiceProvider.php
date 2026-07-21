@@ -89,6 +89,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(AuthEmailRateLimiter::MOBILE_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->mobileTokens($request);
         });
+        RateLimiter::for(AuthEmailRateLimiter::CONVOLAB_LOGINS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->convoLabLogins($request);
+        });
         RateLimiter::for(AuthEmailRateLimiter::MOBILE_REGISTRATIONS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->mobileRegistrations($request);
         });

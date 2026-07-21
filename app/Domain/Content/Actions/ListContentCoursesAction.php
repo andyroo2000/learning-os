@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Support\ConvoLabUserId;
 use Illuminate\Database\Eloquent\Collection;
 
 final class ListContentCoursesAction
@@ -10,13 +11,17 @@ final class ListContentCoursesAction
     /** @return Collection<int, ContentCourse> */
     public function handle(
         int $userId,
+        string $convoLabUserId,
         int $limit,
         int $offset,
         bool $library,
         ?string $status,
     ): Collection {
+        $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
+
         $query = ContentCourse::query()
             ->where('user_id', $userId)
+            ->where('convolab_user_id', $convoLabUserId)
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->limit($limit)

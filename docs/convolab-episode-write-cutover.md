@@ -13,8 +13,10 @@ writes.
 Do not grant `content:write` or proxy Convo Lab Episode mutations until all of these are
 true:
 
-1. The production Episode/Course importer no longer truncates Learning-owned Episode
-   creates, updates, or deletes.
+1. **Complete:** the production Episode/Course importer replaces only Convo-imported
+   roots. Creates are marked as Learning-owned, updates promote imported Episodes and
+   their referenced media and Course links, and deletion tombstones prevent source rows
+   from returning.
 2. Course creation and generation can consume Episodes stored in Learning OS instead of
    assuming every Episode exists in the Convo Lab source database.
 3. The Convo Lab proxy preserves `blockDemoUser` behavior for create and delete.
@@ -23,14 +25,15 @@ true:
 
 The compatibility create route preserves the legacy non-idempotent contract because the
 client does not send an Episode ID. A transport retry can create another Episode. Delete
-is a hard delete; a retry returns a hidden `404` because ownership cannot be established
-after the row is gone.
+is a hard delete; a retry preserves the legacy hidden `404`. Its internal tombstone exists
+only to keep the source importer from recreating the row.
 
 ## Request Contract
 
-The trusted proxy must send `X-Convo-Lab-User-Id` with the effective Convo Lab user UUID.
-Learning OS stores that UUID as provenance and returns it as `userId`, while authorization
-and ownership continue to use the mapped Learning OS user.
+The trusted proxy must send `X-Convo-Lab-User-Id` with the effective Convo Lab user UUID
+for reads and writes. Learning OS stores that UUID as provenance and returns it as
+`userId`. Episode and Course reads and Episode mutations scope ownership by both the
+mapped Learning OS account and the effective Convo Lab user.
 
 Create, update, and delete have separate per-Convo-Lab-user rate-limit buckets. Every
 mutation scopes ownership by both the authenticated Learning OS account and the effective

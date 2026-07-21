@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use JsonException;
 use Laravel\Sanctum\NewAccessToken;
 use Throwable;
@@ -71,11 +72,13 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'content episodes',
             'uri' => '/api/convolab/episodes?library=true&limit=1',
             'required' => [],
+            'effective_convolab_user' => true,
         ],
         [
             'name' => 'content courses',
             'uri' => '/api/convolab/courses?library=true&limit=1',
             'required' => [],
+            'effective_convolab_user' => true,
         ],
     ];
 
@@ -122,7 +125,7 @@ class DatabaseRehearsalSmokeCheck
 
         try {
             foreach (self::ENDPOINTS as $endpoint) {
-                $checks[] = $this->checkEndpoint($endpoint, $token);
+                $checks[] = $this->checkEndpoint($endpoint, $token, $user);
             }
         } finally {
             try {
@@ -264,15 +267,20 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>}  $endpoint
+     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>, effective_convolab_user?: bool}  $endpoint
      * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
-    private function checkEndpoint(array $endpoint, NewAccessToken $token): array
+    private function checkEndpoint(array $endpoint, NewAccessToken $token, User $user): array
     {
-        $request = Request::create($endpoint['uri'], 'GET', server: [
+        $server = [
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_AUTHORIZATION' => 'Bearer '.$token->plainTextToken,
-        ]);
+        ];
+        if ($endpoint['effective_convolab_user'] ?? false) {
+            $server['HTTP_X_CONVO_LAB_USER_ID'] = $this->effectiveConvoLabUserId($user);
+        }
+
+        $request = Request::create($endpoint['uri'], 'GET', server: $server);
 
         try {
             Auth::forgetGuards();
@@ -343,6 +351,23 @@ class DatabaseRehearsalSmokeCheck
         }
 
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
+    }
+
+    private function effectiveConvoLabUserId(User $user): string
+    {
+        foreach (['content_episodes', 'content_courses'] as $table) {
+            $candidate = DB::table($table)
+                ->where('user_id', $user->getKey())
+                ->orderBy('id')
+                ->value('convolab_user_id');
+
+            if (is_string($candidate) && Str::isUuid($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        // Empty databases still need a syntactically valid effective-user scope to exercise the routes.
+        return '00000000-0000-4000-8000-000000000000';
     }
 
     /**

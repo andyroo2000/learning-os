@@ -20,6 +20,15 @@ class ContentCourseApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    private string $convoLabUserId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->convoLabUserId = (string) Str::uuid();
+    }
+
     public function test_course_reads_require_authentication(): void
     {
         $this->getJson('/api/convolab/courses')->assertUnauthorized();
@@ -32,15 +41,29 @@ class ContentCourseApiTest extends TestCase
         $this->assertSame(['*'], (new ContentCourseCoreItem)->getGuarded());
     }
 
+    public function test_course_reads_require_a_valid_effective_convolab_user(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/convolab/courses')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+        $this->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+            ->getJson('/api/convolab/courses/'.Str::uuid())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+    }
+
     public function test_library_list_preserves_compact_shape_filters_drafts_and_scopes_owners(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
 
         $ready = $this->course($user, 'ready', now());
         $this->course($user, 'draft', now()->addMinute());
         $this->course($otherUser, 'ready', now()->addMinutes(2));
+        $this->course($user, 'ready', now()->addMinutes(3), (string) Str::uuid());
         $this->coreItem($ready);
         $episode = $this->episodeWithDialogue($user);
         $this->linkEpisode($ready, $episode, 0);
@@ -59,7 +82,7 @@ class ContentCourseApiTest extends TestCase
     public function test_status_filters_preserve_admin_compatibility_semantics(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         $ready = $this->course($user, 'ready', now());
         $draft = $this->course($user, 'draft', now()->addMinute());
 
@@ -81,7 +104,7 @@ class ContentCourseApiTest extends TestCase
     public function test_full_list_and_show_return_nested_legacy_shape(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         $course = $this->course($user, 'ready', now());
         $coreItem = $this->coreItem($course);
         $episode = $this->episodeWithDialogue($user);
@@ -98,7 +121,7 @@ class ContentCourseApiTest extends TestCase
             ->assertJsonPath('0.courseEpisodes.0.episode.id', $episode->id)
             ->assertJsonMissingPath('0.courseEpisodes.0.episode.dialogue');
 
-        $this->getJson('/api/convolab/courses/'.$course->id)
+        $this->getJson('/api/convolab/courses/'.strtoupper($course->id))
             ->assertOk()
             ->assertHeader('Cache-Control', 'max-age=60, private')
             ->assertJsonPath('id', $course->id)
@@ -111,15 +134,17 @@ class ContentCourseApiTest extends TestCase
         $owner = User::factory()->create();
         $viewer = User::factory()->create();
         $course = $this->course($owner, 'ready', now());
-        Sanctum::actingAs($viewer);
+        $sameAccountOtherSource = $this->course($viewer, 'ready', now(), (string) Str::uuid());
+        $this->authenticate($viewer);
 
         $this->getJson('/api/convolab/courses/'.$course->id)->assertNotFound();
+        $this->getJson('/api/convolab/courses/'.$sameAccountOtherSource->id)->assertNotFound();
         $this->getJson('/api/convolab/courses/'.Str::uuid())->assertNotFound();
     }
 
     public function test_list_validates_boolean_status_and_bounded_offset_pagination(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->authenticate(User::factory()->create());
 
         $this->getJson('/api/convolab/courses?library=false&limit=1&offset=0')->assertOk();
         $this->getJson('/api/convolab/courses?library=maybe&limit=0&offset=-1&status[]=all')
@@ -133,7 +158,7 @@ class ContentCourseApiTest extends TestCase
     public function test_library_query_count_stays_bounded_as_course_count_grows(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         $expectedSentenceIds = [];
         foreach (range(1, 5) as $index) {
             $course = $this->course($user, 'ready', now()->subMinutes($index));
@@ -166,12 +191,16 @@ class ContentCourseApiTest extends TestCase
         }
     }
 
-    private function course(User $user, string $status, mixed $updatedAt): ContentCourse
-    {
+    private function course(
+        User $user,
+        string $status,
+        mixed $updatedAt,
+        ?string $convoLabUserId = null,
+    ): ContentCourse {
         return ContentCourse::query()->forceCreate([
             'id' => (string) Str::uuid(),
             'user_id' => $user->id,
-            'convolab_user_id' => (string) Str::uuid(),
+            'convolab_user_id' => $convoLabUserId ?? $this->convoLabUserId,
             'title' => ucfirst($status).' course',
             'description' => 'Course description',
             'status' => $status,
@@ -217,7 +246,7 @@ class ContentCourseApiTest extends TestCase
     {
         $episode = ContentEpisode::query()->forceCreate([
             'id' => (string) Str::uuid(), 'user_id' => $user->id,
-            'convolab_user_id' => (string) Str::uuid(), 'title' => 'Episode', 'source_text' => 'Source',
+            'convolab_user_id' => $this->convoLabUserId, 'title' => 'Episode', 'source_text' => 'Source',
             'target_language' => 'ja', 'native_language' => 'en', 'content_type' => 'dialogue',
             'auto_generate_audio' => true, 'status' => 'ready', 'is_sample_content' => false,
             'created_at' => now(), 'updated_at' => now(),
@@ -247,5 +276,11 @@ class ContentCourseApiTest extends TestCase
             'convolab_course_id' => $course->id,
             'sort_order' => $order,
         ]);
+    }
+
+    private function authenticate(User $user): void
+    {
+        Sanctum::actingAs($user);
+        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
     }
 }

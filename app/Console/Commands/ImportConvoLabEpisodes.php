@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ConnectsToConvoLabSource;
+use App\Domain\Content\Support\ContentSourceLock;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Support\Content\ConvoLabContentTables;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
@@ -68,6 +70,15 @@ class ImportConvoLabEpisodes extends Command
     /** @var array<string, true> */
     private array $referencedMediaIds = [];
 
+    /** @var array<string, true> */
+    private array $preservedEpisodeIds = [];
+
+    /** @var array<string, true> */
+    private array $preservedCourseIds = [];
+
+    /** @var array<string, int> */
+    private array $preservedMediaUserIds = [];
+
     public function handle(): int
     {
         $this->resetMappings();
@@ -83,12 +94,16 @@ class ImportConvoLabEpisodes extends Command
             $source = $this->sourceConnection();
             $this->assertDatabasesDiffer($source, $target);
             $this->assertSourceReady($source);
-            $this->assertTargetReady($target);
+            $this->assertTargetSchemaReady($target);
             $this->assertProductionTruncateConfirmed($target, 'replacement');
 
             $target->transaction(function () use ($source, $target): void {
+                ContentSourceLock::acquireConvoLab($target);
+                $this->assertTargetImportState($target);
+                $this->mapPreservedRecords($target);
+
                 if ($this->option('truncate')) {
-                    $this->truncateTarget($target);
+                    $this->replaceImportedTarget($target);
                 }
 
                 $this->mapUsers($source, $target);
@@ -133,23 +148,71 @@ class ImportConvoLabEpisodes extends Command
         }
     }
 
-    private function assertTargetReady(ConnectionInterface $target): void
+    private function assertTargetSchemaReady(ConnectionInterface $target): void
     {
-        foreach (ConvoLabContentTables::TARGET_IN_DELETE_ORDER as $table) {
+        foreach ([
+            ...ConvoLabContentTables::CONTENT_IN_DELETE_ORDER,
+            'content_episode_tombstones',
+            'content_source_locks',
+        ] as $table) {
             if (! $target->getSchemaBuilder()->hasTable($table)) {
                 throw new RuntimeException("Learning OS is missing target table [{$table}].");
             }
+        }
 
-            if (! $this->option('truncate') && $target->table($table)->exists()) {
-                throw new RuntimeException("Target table [{$table}] is not empty; rerun with --truncate.");
+        foreach (ConvoLabContentTables::IMPORT_OWNERSHIP_TABLES as $table) {
+            if (! $target->getSchemaBuilder()->hasColumn($table, 'source_system')) {
+                throw new RuntimeException("Learning OS target table [{$table}] has no source ownership column.");
             }
         }
     }
 
-    private function truncateTarget(ConnectionInterface $target): void
+    private function assertTargetImportState(ConnectionInterface $target): void
     {
-        foreach (ConvoLabContentTables::TARGET_IN_DELETE_ORDER as $table) {
-            $target->table($table)->delete();
+        foreach (ConvoLabContentTables::IMPORT_OWNERSHIP_TABLES as $table) {
+            if (
+                ! $this->option('truncate')
+                && $target->table($table)
+                    ->where('source_system', ContentSourceSystem::CONVOLAB)
+                    ->exists()
+            ) {
+                throw new RuntimeException("Target already contains imported content in [{$table}]; rerun with --truncate.");
+            }
+        }
+    }
+
+    private function replaceImportedTarget(ConnectionInterface $target): void
+    {
+        foreach (ConvoLabContentTables::IMPORTED_ROOTS_IN_DELETE_ORDER as $table) {
+            $count = $target->table($table)
+                ->where('source_system', ContentSourceSystem::CONVOLAB)
+                ->delete();
+            $this->line("Removed {$count} previously imported rows from {$table}.");
+        }
+    }
+
+    private function mapPreservedRecords(ConnectionInterface $target): void
+    {
+        foreach ($target->table('content_episodes')
+            ->where('source_system', ContentSourceSystem::LEARNING_OS)
+            ->pluck('id') as $episodeId) {
+            $this->preservedEpisodeIds[(string) $episodeId] = true;
+        }
+
+        foreach ($target->table('content_episode_tombstones')->pluck('episode_id') as $episodeId) {
+            $this->preservedEpisodeIds[(string) $episodeId] = true;
+        }
+
+        foreach ($target->table('content_courses')
+            ->where('source_system', ContentSourceSystem::LEARNING_OS)
+            ->pluck('id') as $courseId) {
+            $this->preservedCourseIds[(string) $courseId] = true;
+        }
+
+        foreach ($target->table('content_audio_script_media')
+            ->where('source_system', ContentSourceSystem::LEARNING_OS)
+            ->get(['id', 'user_id']) as $media) {
+            $this->preservedMediaUserIds[(string) $media->id] = (int) $media->user_id;
         }
     }
 
@@ -184,12 +247,19 @@ class ImportConvoLabEpisodes extends Command
         $this->scriptIds = [];
         $this->mediaIds = [];
         $this->referencedMediaIds = [];
+        $this->preservedEpisodeIds = [];
+        $this->preservedCourseIds = [];
+        $this->preservedMediaUserIds = [];
     }
 
     private function importEpisodes(ConnectionInterface $source, ConnectionInterface $target): void
     {
-        $this->copy($source, $target, 'Episode', 'content_episodes', function (object $row): array {
+        $this->copy($source, $target, 'Episode', 'content_episodes', function (object $row): ?array {
             $id = $this->uuid($row->id, 'episode');
+            if (isset($this->preservedEpisodeIds[$id])) {
+                return null;
+            }
+
             $sourceUserId = $this->uuid($row->userId, 'episode user');
             $userId = $this->userIds[$sourceUserId]
                 ?? throw new RuntimeException("Episode [{$id}] belongs to an unmapped user.");
@@ -199,6 +269,7 @@ class ImportConvoLabEpisodes extends Command
                 'id' => $id,
                 'user_id' => $userId,
                 'convolab_user_id' => $sourceUserId,
+                'source_system' => ContentSourceSystem::CONVOLAB,
                 'title' => $row->title,
                 'source_text' => $row->sourceText,
                 'target_language' => $row->targetLanguage,
@@ -324,13 +395,26 @@ class ImportConvoLabEpisodes extends Command
             }
 
             $sourceUserId = $this->uuid($row->userId, 'audio script media user');
-            if (! isset($this->userIds[$sourceUserId])) {
+            $targetUserId = $this->userIds[$sourceUserId] ?? null;
+            if ($targetUserId === null) {
                 throw new RuntimeException("Referenced audio script media [{$id}] belongs to an unmapped user.");
             }
+
+            if (isset($this->preservedMediaUserIds[$id])) {
+                if ($this->preservedMediaUserIds[$id] !== $targetUserId) {
+                    throw new RuntimeException("Preserved audio script media [{$id}] belongs to a different user.");
+                }
+
+                $this->mediaIds[$id] = true;
+
+                return null;
+            }
+
             $this->mediaIds[$id] = true;
 
             return [
-                'id' => $id, 'user_id' => $this->userIds[$sourceUserId], 'source_kind' => $row->sourceKind,
+                'id' => $id, 'user_id' => $targetUserId, 'source_kind' => $row->sourceKind,
+                'source_system' => ContentSourceSystem::CONVOLAB,
                 'source_filename' => $row->sourceFilename, 'normalized_filename' => $row->normalizedFilename,
                 'media_kind' => $row->mediaKind, 'content_type' => $row->contentType,
                 'storage_path' => $row->storagePath, 'public_url' => $row->publicUrl,
@@ -402,14 +486,19 @@ class ImportConvoLabEpisodes extends Command
             return [
                 'id' => $this->uuid($row->id, 'course episode link'), 'episode_id' => $episodeId,
                 'convolab_course_id' => $courseId, 'sort_order' => $row->order,
+                'source_system' => ContentSourceSystem::CONVOLAB,
             ];
         });
     }
 
     private function importCourses(ConnectionInterface $source, ConnectionInterface $target): void
     {
-        $this->copy($source, $target, 'Course', 'content_courses', function (object $row): array {
+        $this->copy($source, $target, 'Course', 'content_courses', function (object $row): ?array {
             $id = $this->uuid($row->id, 'course');
+            if (isset($this->preservedCourseIds[$id])) {
+                return null;
+            }
+
             $sourceUserId = $this->uuid($row->userId, 'course user');
             $userId = $this->userIds[$sourceUserId]
                 ?? throw new RuntimeException("Course [{$id}] belongs to an unmapped user.");
@@ -419,6 +508,7 @@ class ImportConvoLabEpisodes extends Command
                 'id' => $id,
                 'user_id' => $userId,
                 'convolab_user_id' => $sourceUserId,
+                'source_system' => ContentSourceSystem::CONVOLAB,
                 'title' => $row->title,
                 'description' => $row->description,
                 'status' => $row->status,

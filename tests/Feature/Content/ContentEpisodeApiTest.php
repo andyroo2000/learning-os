@@ -9,10 +9,12 @@ use App\Domain\Content\Models\ContentAudioScriptSegment;
 use App\Domain\Content\Models\ContentDialogue;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
+use App\Domain\Content\Models\ContentEpisodeTombstone;
 use App\Domain\Content\Models\ContentImage;
 use App\Domain\Content\Models\ContentSentence;
 use App\Domain\Content\Models\ContentSpeaker;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +24,15 @@ use Tests\TestCase;
 class ContentEpisodeApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    private string $convoLabUserId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->convoLabUserId = (string) Str::uuid();
+    }
 
     public function test_episode_reads_require_authentication(): void
     {
@@ -42,6 +53,7 @@ class ContentEpisodeApiTest extends TestCase
             ContentAudioScriptSegment::class,
             ContentAudioScriptRender::class,
             ContentEpisodeCourse::class,
+            ContentEpisodeTombstone::class,
         ];
 
         foreach ($models as $model) {
@@ -49,15 +61,29 @@ class ContentEpisodeApiTest extends TestCase
         }
     }
 
+    public function test_episode_reads_require_a_valid_effective_convolab_user(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/convolab/episodes')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+        $this->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+            ->getJson('/api/convolab/episodes/'.Str::uuid())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+    }
+
     public function test_library_list_preserves_compact_convolab_shape_and_owner_boundary(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
 
         $dialogueEpisode = $this->dialogueEpisode($user, now()->subMinute());
         $scriptEpisode = $this->scriptEpisode($user, now());
         $this->dialogueEpisode($otherUser, now()->addMinute());
+        $this->dialogueEpisode($user, now()->addMinutes(2), (string) Str::uuid());
         ContentEpisode::query()->forceCreate($this->episodeAttributes($user, 'dialogue', now()->addMinutes(2)));
 
         $this->getJson('/api/convolab/episodes?library=true&limit=10&offset=0')
@@ -77,8 +103,10 @@ class ContentEpisodeApiTest extends TestCase
     public function test_full_list_and_show_return_ordered_nested_compatibility_data(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         $episode = $this->dialogueEpisode($user, now());
+        $this->withoutMiddleware(TrimStrings::class);
+        $this->withHeader('X-Convo-Lab-User-Id', '  '.strtoupper($this->convoLabUserId).'  ');
 
         $listResponse = $this->getJson('/api/convolab/episodes');
         $listResponse
@@ -100,16 +128,18 @@ class ContentEpisodeApiTest extends TestCase
         $owner = User::factory()->create();
         $viewer = User::factory()->create();
         $episode = $this->dialogueEpisode($owner, now());
-        Sanctum::actingAs($viewer);
+        $sameAccountOtherSource = $this->dialogueEpisode($viewer, now(), (string) Str::uuid());
+        $this->authenticate($viewer);
 
         $this->getJson('/api/convolab/episodes/'.$episode->id)->assertNotFound();
+        $this->getJson('/api/convolab/episodes/'.$sameAccountOtherSource->id)->assertNotFound();
         $this->getJson('/api/convolab/episodes/'.Str::uuid())->assertNotFound();
     }
 
     public function test_show_preserves_legacy_deep_links_for_owner_episodes_still_missing_generated_content(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         $episode = ContentEpisode::query()->forceCreate($this->episodeAttributes($user, 'dialogue', now()));
 
         $this->getJson('/api/convolab/episodes')->assertOk()->assertJsonCount(0);
@@ -122,7 +152,7 @@ class ContentEpisodeApiTest extends TestCase
 
     public function test_list_validates_boolean_and_bounded_offset_pagination(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->authenticate(User::factory()->create());
 
         $this->getJson('/api/convolab/episodes?library=false&limit=1&offset=0')->assertOk();
 
@@ -138,7 +168,7 @@ class ContentEpisodeApiTest extends TestCase
     public function test_library_query_count_stays_bounded_as_episode_count_grows(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->authenticate($user);
         foreach (range(1, 5) as $index) {
             $this->dialogueEpisode($user, now()->subMinutes($index));
             $this->scriptEpisode($user, now()->subMinutes($index + 5));
@@ -157,9 +187,17 @@ class ContentEpisodeApiTest extends TestCase
         $this->assertCount(4, $queries, 'Library reads should use one episode query and three bounded eager-load queries.');
     }
 
-    private function dialogueEpisode(User $user, mixed $updatedAt): ContentEpisode
-    {
-        $episode = ContentEpisode::query()->forceCreate($this->episodeAttributes($user, 'dialogue', $updatedAt));
+    private function dialogueEpisode(
+        User $user,
+        mixed $updatedAt,
+        ?string $convoLabUserId = null,
+    ): ContentEpisode {
+        $episode = ContentEpisode::query()->forceCreate($this->episodeAttributes(
+            $user,
+            'dialogue',
+            $updatedAt,
+            $convoLabUserId,
+        ));
         $dialogue = ContentDialogue::query()->forceCreate([
             'id' => (string) Str::uuid(),
             'episode_id' => $episode->id,
@@ -241,12 +279,16 @@ class ContentEpisodeApiTest extends TestCase
         return $episode;
     }
 
-    private function episodeAttributes(User $user, string $contentType, mixed $updatedAt): array
-    {
+    private function episodeAttributes(
+        User $user,
+        string $contentType,
+        mixed $updatedAt,
+        ?string $convoLabUserId = null,
+    ): array {
         return [
             'id' => (string) Str::uuid(),
             'user_id' => $user->id,
-            'convolab_user_id' => (string) Str::uuid(),
+            'convolab_user_id' => $convoLabUserId ?? $this->convoLabUserId,
             'title' => ucfirst($contentType).' episode',
             'source_text' => 'Source text',
             'target_language' => 'ja',
@@ -260,6 +302,12 @@ class ContentEpisodeApiTest extends TestCase
             'created_at' => now()->subDay(),
             'updated_at' => $updatedAt,
         ];
+    }
+
+    private function authenticate(User $user): void
+    {
+        Sanctum::actingAs($user);
+        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
     }
 
     private function assertDialogueShape(mixed $response, ?string $prefix, ContentEpisode $episode): void

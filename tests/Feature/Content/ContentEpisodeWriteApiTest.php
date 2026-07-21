@@ -5,6 +5,7 @@ namespace Tests\Feature\Content;
 use App\Domain\Content\Models\ContentDialogue;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -92,6 +93,7 @@ class ContentEpisodeWriteApiTest extends TestCase
             'id' => $episodeId,
             'user_id' => $user->id,
             'convolab_user_id' => strtolower($sourceUserId),
+            'source_system' => ContentSourceSystem::LEARNING_OS,
             'title' => 'New Episode',
             'audio_speed' => 'slow',
             'jlpt_level' => 'N3',
@@ -172,6 +174,7 @@ class ContentEpisodeWriteApiTest extends TestCase
         $owned->refresh();
         $this->assertSame('Updated', $owned->title);
         $this->assertSame('draft', $owned->status);
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $owned->source_system);
 
         $this->withToken($token)
             ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
@@ -218,6 +221,7 @@ class ContentEpisodeWriteApiTest extends TestCase
         }
 
         $this->assertTrue($episode->fresh()->updated_at->isAfter($originalUpdatedAt));
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->fresh()->source_system);
     }
 
     public function test_proxy_deletes_owned_episode_graph_and_hides_retries_and_other_owners(): void
@@ -240,6 +244,11 @@ class ContentEpisodeWriteApiTest extends TestCase
             ->assertExactJson(['message' => 'Episode deleted successfully']);
         $this->assertDatabaseMissing('content_episodes', ['id' => $owned->id]);
         $this->assertDatabaseMissing('content_dialogues', ['id' => $dialogue->id]);
+        $this->assertDatabaseHas('content_episode_tombstones', [
+            'episode_id' => $owned->id,
+            'user_id' => $user->id,
+            'convolab_user_id' => $owned->convolab_user_id,
+        ]);
 
         $this->withToken($token)
             ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)

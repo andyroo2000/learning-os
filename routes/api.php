@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
@@ -50,6 +51,7 @@ use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
+use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
 use App\Http\Controllers\Api\Auth\VerifyConvoLabEmailController;
@@ -208,6 +210,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/convolab/auth/signup', RegisterConvoLabUserController::class)
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_SIGNUPS);
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
+    Route::patch('/convolab/auth/me', UpdateConvoLabCurrentUserController::class)
+        ->middleware('throttle:'.ConvoLabProfileRateLimiter::NAME);
     Route::post('/convolab/auth/verification/send', SendConvoLabVerificationController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::SEND);
     Route::post('/convolab/auth/verification', VerifyConvoLabEmailController::class)

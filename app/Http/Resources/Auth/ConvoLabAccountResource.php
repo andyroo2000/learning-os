@@ -16,6 +16,7 @@ class ConvoLabAccountResource extends JsonResource
             'name' => $this->name,
             'displayName' => $this->display_name,
             'avatarColor' => $this->avatar_color,
+            'avatarUrl' => $this->avatar_url,
             'role' => $this->role,
             'preferredStudyLanguage' => $this->preferred_study_language,
             'preferredNativeLanguage' => $this->preferred_native_language,

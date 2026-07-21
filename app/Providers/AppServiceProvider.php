@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
@@ -120,6 +121,11 @@ class AppServiceProvider extends ServiceProvider
                 $convoLabVerificationVerifyRateLimiter->networkLimit($request),
             ];
         });
+
+        RateLimiter::for(ConvoLabProfileRateLimiter::NAME, fn (Request $request): array => [
+            ConvoLabProfileRateLimiter::limit($request),
+            ConvoLabProfileRateLimiter::networkLimit($request),
+        ]);
 
         $accountProfileUpdateRateLimiter = AuthAccountRateLimiter::forProfileUpdate();
         RateLimiter::for(AuthAccountRateLimiter::PROFILE_UPDATE, function (Request $request) use ($accountProfileUpdateRateLimiter): Limit {

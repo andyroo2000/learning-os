@@ -10,6 +10,7 @@ use App\Domain\Content\Models\ContentSentence;
 use App\Domain\Content\Models\ContentSpeaker;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentSourceSystem;
+use App\Domain\Content\Support\ContentSpeakerProfile;
 use App\Jobs\ProcessContentDialogueGeneration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,25 +44,7 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
     {
         config()->set('services.openai.api_key', 'test-key');
         Http::fake([
-            '*' => Http::response(['output_text' => json_encode([
-                'title' => 'Travel Plans',
-                'sentences' => [
-                    [
-                        'speaker' => 'Aiko',
-                        'text' => '旅行に行こう。',
-                        'reading' => '旅行[りょこう]に 行[い]こう。',
-                        'translation' => 'Let us take a trip.',
-                        'variations' => ['旅に出よう。', '旅行しよう。'],
-                    ],
-                    [
-                        'speaker' => 'Ken',
-                        'text' => 'いいですね。',
-                        'reading' => 'いいですね。',
-                        'translation' => 'That sounds good.',
-                        'variations' => ['賛成です。', '楽しそうです。'],
-                    ],
-                ],
-            ], JSON_THROW_ON_ERROR)], 200),
+            '*' => Http::response(['output_text' => $this->providerOutput()], 200),
         ]);
         [$episode, $job] = $this->pendingAttempt();
         $oldDialogue = ContentDialogue::query()->forceCreate([
@@ -112,6 +95,7 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
         $this->assertSame('female', $speakers[0]->gender);
         $this->assertSame('/api/avatars/ja-female-casual.jpg', $speakers[0]->avatar_url);
         $this->assertSame('#F97316', $speakers[1]->color);
+        $this->assertNull(ContentSpeakerProfile::provider('typo-voice'));
 
         $sentences = $dialogue->sentences()->orderBy('sort_order')->get();
         $this->assertCount(2, $sentences);
@@ -141,6 +125,64 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
         $this->assertSame(ContentDialogueGeneration::STATE_COMPLETED, $terminal->fresh()->state);
         $this->assertSame('generating', $episode->fresh()->status);
         $this->assertSame(2, $episode->fresh()->dialogue_generation_attempt);
+    }
+
+    public function test_a_recent_active_redelivery_does_not_call_the_provider(): void
+    {
+        Http::fake();
+        [$episode, $job] = $this->pendingAttempt();
+        $job->state = ContentDialogueGeneration::STATE_ACTIVE;
+        $job->progress = 10;
+        $job->started_at = now();
+        $job->save();
+
+        app(ProcessContentDialogueGenerationAction::class)->handle($job->id);
+
+        Http::assertNothingSent();
+        $this->assertSame(ContentDialogueGeneration::STATE_ACTIVE, $job->fresh()->state);
+        $this->assertSame('generating', $episode->fresh()->status);
+    }
+
+    public function test_provider_failure_releases_the_claim_for_queue_retry(): void
+    {
+        config()->set('services.openai.api_key', 'test-key');
+        Http::fakeSequence()
+            ->push(['error' => ['message' => 'temporary']], 500)
+            ->push(['output_text' => $this->providerOutput()], 200);
+        [, $job] = $this->pendingAttempt();
+
+        try {
+            app(ProcessContentDialogueGenerationAction::class)->handle($job->id);
+            $this->fail('The first provider failure should be retried by the queue.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('OpenAI failed to generate Dialogue content.', $exception->getMessage());
+        }
+
+        $job->refresh();
+        $this->assertSame(ContentDialogueGeneration::STATE_WAITING, $job->state);
+        $this->assertSame(0, $job->progress);
+        $this->assertNull($job->started_at);
+
+        app(ProcessContentDialogueGenerationAction::class)->handle($job->id);
+        Http::assertSentCount(2);
+        $this->assertSame(ContentDialogueGeneration::STATE_COMPLETED, $job->fresh()->state);
+    }
+
+    public function test_a_timeout_stale_active_claim_can_be_recovered_after_a_hard_crash(): void
+    {
+        config()->set('services.openai.api_key', 'test-key');
+        Http::fake(['*' => Http::response(['output_text' => $this->providerOutput()], 200)]);
+        [$episode, $job] = $this->pendingAttempt();
+        $job->state = ContentDialogueGeneration::STATE_ACTIVE;
+        $job->progress = 10;
+        $job->started_at = now()->subSeconds(ContentDialogueGeneration::ACTIVE_STALE_AFTER_SECONDS + 1);
+        $job->save();
+
+        app(ProcessContentDialogueGenerationAction::class)->handle($job->id);
+
+        Http::assertSentCount(1);
+        $this->assertSame(ContentDialogueGeneration::STATE_COMPLETED, $job->fresh()->state);
+        $this->assertSame('ready', $episode->fresh()->status);
     }
 
     public function test_final_failure_is_generic_attempt_guarded_and_idempotent(): void
@@ -218,5 +260,28 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
             ],
             ...$attributes,
         ]);
+    }
+
+    private function providerOutput(): string
+    {
+        return json_encode([
+            'title' => 'Travel Plans',
+            'sentences' => [
+                [
+                    'speaker' => 'Aiko',
+                    'text' => '旅行に行こう。',
+                    'reading' => '旅行[りょこう]に 行[い]こう。',
+                    'translation' => 'Let us take a trip.',
+                    'variations' => ['旅に出よう。', '旅行しよう。'],
+                ],
+                [
+                    'speaker' => 'Ken',
+                    'text' => 'いいですね。',
+                    'reading' => 'いいですね。',
+                    'translation' => 'That sounds good.',
+                    'variations' => ['賛成です。', '楽しそうです。'],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
     }
 }

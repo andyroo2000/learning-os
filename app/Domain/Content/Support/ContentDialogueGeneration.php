@@ -16,6 +16,8 @@ final class ContentDialogueGeneration
 
     public const JOB_TIMEOUT_SECONDS = 180;
 
+    public const ACTIVE_STALE_AFTER_SECONDS = self::JOB_TIMEOUT_SECONDS;
+
     public const JOB_BACKOFF_SECONDS = 30;
 
     public const QUEUE_FAILED_MESSAGE = 'Dialogue generation could not be queued. Please try again.';

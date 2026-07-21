@@ -17,6 +17,7 @@ use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Content\Support\ContentSpeakerProfile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class ProcessContentDialogueGenerationAction
 {
@@ -30,8 +31,18 @@ final class ProcessContentDialogueGenerationAction
             return;
         }
 
-        $result = $this->generator->generate($claimed['episode'], $claimed['input']);
-        $this->complete($jobId, $result);
+        try {
+            $result = $this->generator->generate($claimed['episode'], $claimed['input']);
+            $this->complete($jobId, $result);
+        } catch (Throwable $exception) {
+            try {
+                $this->releaseClaim($jobId);
+            } catch (Throwable $releaseException) {
+                report($releaseException);
+            }
+
+            throw $exception;
+        }
     }
 
     /** @return null|array{episode: array{sourceText: string, targetLanguage: string, nativeLanguage: string, jlptLevel: string|null}, input: GenerateContentDialogueData} */
@@ -41,6 +52,13 @@ final class ProcessContentDialogueGenerationAction
             ContentSourceLock::acquireConvoLab(DB::connection());
             $job = ContentDialogueGenerationJob::query()->whereKey($jobId)->lockForUpdate()->first();
             if ($job === null || ContentDialogueGeneration::isTerminal($job->state)) {
+                return null;
+            }
+            if ($job->state === ContentDialogueGeneration::STATE_ACTIVE
+                && $job->started_at !== null
+                && $job->started_at->isAfter(
+                    now()->subSeconds(ContentDialogueGeneration::ACTIVE_STALE_AFTER_SECONDS),
+                )) {
                 return null;
             }
 
@@ -56,7 +74,7 @@ final class ProcessContentDialogueGenerationAction
 
             $job->state = ContentDialogueGeneration::STATE_ACTIVE;
             $job->progress = 10;
-            $job->started_at ??= now();
+            $job->started_at = now();
             $job->save();
 
             return [
@@ -68,6 +86,22 @@ final class ProcessContentDialogueGenerationAction
                 ],
                 'input' => GenerateContentDialogueData::fromInput($job->input),
             ];
+        });
+    }
+
+    private function releaseClaim(string $jobId): void
+    {
+        DB::transaction(function () use ($jobId): void {
+            ContentSourceLock::acquireConvoLab(DB::connection());
+            $job = ContentDialogueGenerationJob::query()->whereKey($jobId)->lockForUpdate()->first();
+            if ($job === null || $job->state !== ContentDialogueGeneration::STATE_ACTIVE) {
+                return;
+            }
+
+            $job->state = ContentDialogueGeneration::STATE_WAITING;
+            $job->progress = 0;
+            $job->started_at = null;
+            $job->save();
         });
     }
 

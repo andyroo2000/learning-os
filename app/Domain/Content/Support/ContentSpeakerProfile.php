@@ -36,7 +36,7 @@ final class ContentSpeakerProfile
             return 'google';
         }
 
-        return 'polly';
+        return null;
     }
 
     public static function gender(string $voiceId): ?string

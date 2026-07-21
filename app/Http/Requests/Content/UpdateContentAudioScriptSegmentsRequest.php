@@ -43,7 +43,7 @@ class UpdateContentAudioScriptSegmentsRequest extends ConvoLabContentWriteReques
     {
         return [
             ...$this->convoLabUserIdRules(),
-            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'title' => ['sometimes', 'required', 'string', 'max:'.ContentAudioScriptInput::MAX_TITLE_CHARACTERS],
             'voiceId' => ['sometimes', 'required', 'string', 'in:'.implode(',', ContentAudioScriptInput::VOICE_IDS)],
             'segments' => ['required', 'array', 'list', 'max:'.ContentAudioScriptInput::MAX_SEGMENTS],
             'segments.*' => ['required', 'array:text,reading,translation,imagePrompt'],

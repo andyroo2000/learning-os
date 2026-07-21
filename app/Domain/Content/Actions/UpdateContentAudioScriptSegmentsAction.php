@@ -38,9 +38,7 @@ final readonly class UpdateContentAudioScriptSegmentsAction
 
             $script->status = 'annotated';
             $script->voice_id = $data->voiceId ?? $script->voice_id;
-            if (data_get($script->generation_metadata, 'annotationAttempt') !== null) {
-                $script->generation_metadata = null;
-            }
+            $script->generation_metadata = null;
             $script->error_message = null;
             $script->save();
 

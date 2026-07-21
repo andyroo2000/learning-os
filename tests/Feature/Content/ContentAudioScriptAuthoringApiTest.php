@@ -170,7 +170,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
                     'metadata' => [
                         'japanese' => [
                             'kanji' => '駅に行きます。',
-                            'kana' => '駅[えき]に行[い]きます。',
+                            'kana' => 'えきにいきます。',
                             'furigana' => '駅[えき]に行[い]きます。',
                         ],
                     ],
@@ -283,14 +283,16 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
     public function test_segment_update_uses_only_validated_fields_and_resets_generated_artifacts(): void
     {
         $user = User::factory()->create();
-        [$episode, $script] = $this->script($user);
+        [$episode, $script] = $this->script($user, [
+            'script' => ['generation_metadata' => ['segmentCount' => 9]],
+        ]);
         $oldSegment = $this->segment($script, ['image_status' => 'ready']);
         $this->render($script);
         $this->authenticateWrite($user);
 
         $this->withoutMiddleware(TrimStrings::class)
             ->patchJson("/api/convolab/scripts/{$episode->id}/segments", [
-                'title' => '  '.str_repeat('題', 130).'  ',
+                'title' => '  '.str_repeat('題', ContentAudioScriptInput::MAX_TITLE_CHARACTERS).'  ',
                 'voiceId' => '  ja-JP-Neural2-C  ',
                 'segments' => [[
                     'text' => '  新しい文です。  ',
@@ -304,13 +306,14 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
             ->assertJsonPath('voiceId', 'ja-JP-Neural2-C')
             ->assertJsonPath('status', 'annotated')
             ->assertJsonPath('imageStatus', 'pending')
+            ->assertJsonPath('generationMetadataJson', null)
             ->assertJsonPath('segments.0.text', '新しい文です。')
             ->assertJsonPath('segments.0.reading', '新[あたら]しい文[ぶん]です。')
             ->assertJsonPath('segments.0.translation', 'This is a new sentence.')
             ->assertJsonPath('segments.0.imagePrompt', 'A new page.')
             ->assertJsonPath('renders', []);
 
-        $this->assertSame(120, mb_strlen($episode->fresh()->title));
+        $this->assertSame(ContentAudioScriptInput::MAX_TITLE_CHARACTERS, mb_strlen($episode->fresh()->title));
         $this->assertDatabaseMissing('content_audio_script_segments', ['id' => $oldSegment->id]);
         $this->assertDatabaseCount('content_audio_script_renders', 0);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->fresh()->source_system);
@@ -379,6 +382,10 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
             ['segments' => [['text' => 'English', 'translation' => 'English']]],
             ['segments' => [[...$this->segmentPayload(), 'unexpected' => 'value']]],
             ['segments' => [$this->segmentPayload()], 'voiceId' => 'Takumi'],
+            [
+                'segments' => [$this->segmentPayload()],
+                'title' => str_repeat('題', ContentAudioScriptInput::MAX_TITLE_CHARACTERS + 1),
+            ],
             ['segments' => 'not-an-array'],
         ] as $payload) {
             $this->patchJson("/api/convolab/scripts/{$episode->id}/segments", $payload)

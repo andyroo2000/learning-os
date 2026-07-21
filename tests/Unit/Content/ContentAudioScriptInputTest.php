@@ -57,6 +57,22 @@ class ContentAudioScriptInputTest extends TestCase
         $this->assertCount(ContentAudioScriptInput::MAX_SEGMENTS, $maximum->segments);
     }
 
+    #[DataProvider('invalidTitleProvider')]
+    public function test_update_data_rejects_an_invalid_title_at_the_direct_boundary(string $title): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->updateData([], $title);
+    }
+
+    public static function invalidTitleProvider(): array
+    {
+        return [
+            'blank' => ['   '],
+            'overlong' => [str_repeat('題', ContentAudioScriptInput::MAX_TITLE_CHARACTERS + 1)],
+        ];
+    }
+
     #[DataProvider('invalidSegmentsProvider')]
     public function test_update_data_rejects_invalid_direct_segment_shapes(array $segments): void
     {
@@ -79,13 +95,13 @@ class ContentAudioScriptInputTest extends TestCase
         ];
     }
 
-    private function updateData(array $segments): UpdateContentAudioScriptData
+    private function updateData(array $segments, ?string $title = null): UpdateContentAudioScriptData
     {
         return UpdateContentAudioScriptData::fromInput(
             42,
             (string) Str::uuid(),
             (string) Str::uuid(),
-            null,
+            $title,
             null,
             $segments,
         );

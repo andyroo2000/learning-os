@@ -10,6 +10,8 @@ final class ContentAudioScriptInput
 
     public const MAX_SOURCE_CHARACTERS = 6_000;
 
+    public const MAX_TITLE_CHARACTERS = 120;
+
     public const MAX_SEGMENTS = 200;
 
     public const VOICE_IDS = [
@@ -76,7 +78,7 @@ final class ContentAudioScriptInput
     {
         $value = trim($value ?? '');
 
-        return mb_substr($value === '' ? $fallback : $value, 0, 120);
+        return mb_substr($value === '' ? $fallback : $value, 0, self::MAX_TITLE_CHARACTERS);
     }
 
     public static function containsJapanese(string $value): bool

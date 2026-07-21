@@ -5,6 +5,7 @@ namespace App\Domain\Content\Actions;
 use App\Domain\Content\Models\ContentAudioScript;
 use App\Domain\Content\Models\ContentAudioScriptMedia;
 use App\Domain\Content\Models\ContentAudioScriptSegment;
+use App\Domain\Content\Support\ContentJapaneseMetadata;
 use Illuminate\Support\Str;
 
 final class ReplaceContentAudioScriptSegmentsAction
@@ -50,13 +51,7 @@ final class ReplaceContentAudioScriptSegmentsAction
             $model->translation = $segment['translation'];
             $model->image_prompt = $segment['imagePrompt'];
             $model->image_status = 'pending';
-            $model->metadata = [
-                'japanese' => [
-                    'kanji' => $segment['text'],
-                    'kana' => $segment['reading'] ?? $segment['text'],
-                    'furigana' => $segment['reading'] ?? $segment['text'],
-                ],
-            ];
+            $model->metadata = ContentJapaneseMetadata::fromText($segment['text'], $segment['reading']);
             $model->save();
         }
 

@@ -32,6 +32,16 @@ final readonly class UpdateContentAudioScriptData
         if ($userId <= 0) {
             throw new InvalidArgumentException('User ID must be a positive integer.');
         }
+        if ($title !== null) {
+            if (trim($title) === '') {
+                throw new InvalidArgumentException('Script title must not be blank when provided.');
+            }
+            if (mb_strlen(trim($title)) > ContentAudioScriptInput::MAX_TITLE_CHARACTERS) {
+                throw new InvalidArgumentException(
+                    'Script title must contain at most '.ContentAudioScriptInput::MAX_TITLE_CHARACTERS.' characters.',
+                );
+            }
+        }
         if (count($segments) > ContentAudioScriptInput::MAX_SEGMENTS) {
             throw new InvalidArgumentException(
                 'Scripts may contain at most '.ContentAudioScriptInput::MAX_SEGMENTS.' segments.',

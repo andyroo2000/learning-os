@@ -118,6 +118,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         ]);
         $this->assertDatabaseHas('users', [
             'id' => $existing->id,
+            'convolab_email_normalized' => 'ada@example.com',
             'convolab_password_hash' => '$2b$10$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
         ]);
         $this->assertDatabaseHas('users', [
@@ -163,6 +164,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
 
         $this->runSync()->assertSuccessful();
         DB::connection('convolab_admin_test')->table('User')->where('id', $userId)->update([
+            'email' => 'UPDATED@example.com',
             'displayName' => 'Updated Display',
             'updatedAt' => '2026-07-22 10:00:00.123',
         ]);
@@ -179,7 +181,12 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseCount('admin_invite_codes', 1);
         $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $userId,
+            'email' => 'UPDATED@example.com',
             'display_name' => 'Updated Display',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'convolab_id' => $userId,
+            'convolab_email_normalized' => 'updated@example.com',
         ]);
         $this->assertDatabaseHas('admin_invite_codes', [
             'id' => $inviteId,

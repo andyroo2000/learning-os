@@ -172,6 +172,7 @@ class SyncConvoLabAdminProjectionAction
                             'email' => $projectionAttributes['email'],
                             'email_verified_at' => $sourceUser->emailVerifiedAt,
                             'password' => Hash::make(Str::random(64)),
+                            'convolab_email_normalized' => $email,
                             'convolab_password_hash' => $passwordHash,
                             'remember_token' => null,
                             'created_at' => $sourceUser->createdAt,
@@ -181,6 +182,7 @@ class SyncConvoLabAdminProjectionAction
                         $targetUserId = $targetUser->id;
                         $target->table('users')->where('id', $targetUserId)->update([
                             'convolab_id' => $convoLabId,
+                            'convolab_email_normalized' => $email,
                             'convolab_password_hash' => $passwordHash,
                         ]);
                     }

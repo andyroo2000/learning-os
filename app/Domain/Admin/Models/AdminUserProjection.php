@@ -22,8 +22,6 @@ class AdminUserProjection extends Model
 
     protected $keyType = 'string';
 
-    protected $hidden = ['convolab_password_hash'];
-
     protected function casts(): array
     {
         return [

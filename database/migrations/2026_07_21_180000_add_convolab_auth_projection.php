@@ -11,7 +11,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {
+            // Existing canonical users receive this key during the post-migration source sync.
+            $table->string('convolab_email_normalized')->nullable();
             $table->string('convolab_password_hash')->nullable();
+            $table->unique('convolab_email_normalized', 'users_convolab_email_normalized_unique');
         });
 
         Schema::table('admin_user_projections', function (Blueprint $table): void {
@@ -36,7 +39,8 @@ return new class extends Migration
         });
 
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropColumn('convolab_password_hash');
+            $table->dropUnique('users_convolab_email_normalized_unique');
+            $table->dropColumn(['convolab_email_normalized', 'convolab_password_hash']);
         });
     }
 };

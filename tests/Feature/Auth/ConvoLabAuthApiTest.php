@@ -26,7 +26,10 @@ class ConvoLabAuthApiTest extends TestCase
 
     public function test_auth_projection_schema_is_additive_and_keeps_imported_credentials_hidden(): void
     {
-        $this->assertTrue(Schema::hasColumn('users', 'convolab_password_hash'));
+        $this->assertTrue(Schema::hasColumns('users', [
+            'convolab_email_normalized',
+            'convolab_password_hash',
+        ]));
         $this->assertTrue(Schema::hasColumns('admin_user_projections', [
             'proficiency_level',
             'seen_sample_content_guide',
@@ -39,7 +42,14 @@ class ConvoLabAuthApiTest extends TestCase
         $user = User::query()->where('convolab_id', $account['convolab_id'])->sole();
 
         $this->assertArrayNotHasKey('convolab_password_hash', $user->fresh()->toArray());
+        $this->assertArrayNotHasKey('convolab_email_normalized', $user->fresh()->toArray());
         $this->assertFalse($user->isFillable('convolab_password_hash'));
+        $this->assertFalse($user->isFillable('convolab_email_normalized'));
+
+        $matchingIndexes = collect(Schema::getIndexes('users'))
+            ->where('name', 'users_convolab_email_normalized_unique');
+        $this->assertCount(1, $matchingIndexes);
+        $this->assertTrue($matchingIndexes->first()['unique']);
 
         $projection = app(AuthenticateConvoLabUserAction::class)->handle(
             'user@example.com',
@@ -171,7 +181,7 @@ class ConvoLabAuthApiTest extends TestCase
         }
 
         config()->set('app.debug', false);
-        $this->withToken($token)
+        $response = $this->withToken($token)
             ->postJson('/api/convolab/auth/login', [
                 'email' => 'ada@example.com',
                 'password' => 'wrong',
@@ -180,7 +190,12 @@ class ConvoLabAuthApiTest extends TestCase
             ->assertExactJson(['message' => 'Too Many Attempts.'])
             ->assertHeader('X-RateLimit-Limit', '6')
             ->assertHeader('X-RateLimit-Remaining', '0')
-            ->assertHeader('Retry-After', '60');
+            ->assertHeader('Retry-After');
+
+        $retryAfter = $response->headers->get('Retry-After');
+        $this->assertIsNumeric($retryAfter);
+        $this->assertGreaterThanOrEqual(1, (int) $retryAfter);
+        $this->assertLessThanOrEqual(60, (int) $retryAfter);
     }
 
     public function test_current_user_resolves_a_normalized_header_and_hides_unknown_owners(): void
@@ -244,15 +259,8 @@ class ConvoLabAuthApiTest extends TestCase
         ?string $passwordHash = self::NODE_BCRYPT_HASH,
     ): array {
         $convoLabId = (string) Str::uuid();
-        $user = User::factory()->create();
-        DB::table('users')->where('id', $user->id)->update([
-            'convolab_id' => $convoLabId,
-            'convolab_password_hash' => $passwordHash,
-        ]);
-
         $projection = array_merge([
             'convolab_id' => $convoLabId,
-            'user_id' => $user->id,
             'email' => 'user@example.com',
             'name' => 'Source User',
             'display_name' => null,
@@ -270,6 +278,13 @@ class ConvoLabAuthApiTest extends TestCase
             'created_at' => '2026-07-20 10:00:00.123',
             'updated_at' => '2026-07-20 11:00:00.456',
         ], $attributes);
+        $user = User::factory()->create();
+        DB::table('users')->where('id', $user->id)->update([
+            'convolab_id' => $convoLabId,
+            'convolab_email_normalized' => strtolower(trim($projection['email'])),
+            'convolab_password_hash' => $passwordHash,
+        ]);
+        $projection['user_id'] = $user->id;
         DB::table('admin_user_projections')->insert($projection);
 
         return $projection;

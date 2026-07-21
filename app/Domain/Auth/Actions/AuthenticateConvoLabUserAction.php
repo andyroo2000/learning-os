@@ -17,7 +17,7 @@ final class AuthenticateConvoLabUserAction
             ->select('admin_user_projections.*')
             ->addSelect('users.convolab_password_hash')
             ->join('users', 'users.id', '=', 'admin_user_projections.user_id')
-            ->whereRaw('LOWER(admin_user_projections.email) = ?', [$email])
+            ->where('users.convolab_email_normalized', $email)
             ->first();
         $passwordHash = $projection?->getAttribute('convolab_password_hash');
 
@@ -27,11 +27,11 @@ final class AuthenticateConvoLabUserAction
             throw new InvalidConvoLabCredentialsException;
         }
 
-        // Laravel's strict bcrypt wrapper rejects Node bcrypt's valid $2b$ prefix.
+        // Laravel's configured bcrypt hasher rejects Node's $2b$ prefix during algorithm verification.
         if (! password_verify($password, $passwordHash)) {
             throw new InvalidConvoLabCredentialsException;
         }
 
-        return $projection;
+        return $projection->makeHidden('convolab_password_hash');
     }
 }

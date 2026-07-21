@@ -117,6 +117,35 @@ class ContentAudioGenerationApiTest extends TestCase
         Queue::assertPushed(ProcessContentAudioGeneration::class, 1);
     }
 
+    public function test_generation_rejects_cross_mode_dedup_in_both_directions(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        [$episode, $dialogue] = $this->episodeWithDialogue($user);
+        $this->authenticateWrite($user);
+        $payload = $this->payload($episode->id, $dialogue->id);
+
+        $single = $this->postJson('/api/convolab/audio/generate', [...$payload, 'speed' => 'medium'])
+            ->assertOk();
+        $this->postJson('/api/convolab/audio/generate-all-speeds', $payload)
+            ->assertConflict()
+            ->assertExactJson(['message' => 'Different audio generation is already in progress']);
+
+        $singleJob = ContentAudioGenerationJob::query()->findOrFail($single->json('jobId'));
+        $singleJob->state = ContentAudioGeneration::STATE_FAILED;
+        $singleJob->finished_at = now();
+        $singleJob->save();
+
+        $allSpeeds = $this->postJson('/api/convolab/audio/generate-all-speeds', $payload)->assertOk();
+        $this->postJson('/api/convolab/audio/generate', [...$payload, 'speed' => 'medium'])
+            ->assertConflict()
+            ->assertExactJson(['message' => 'Different audio generation is already in progress']);
+
+        $this->assertNotSame($single->json('jobId'), $allSpeeds->json('jobId'));
+        $this->assertDatabaseCount('content_audio_generation_jobs', 2);
+        Queue::assertPushed(ProcessContentAudioGeneration::class, 2);
+    }
+
     #[DataProvider('invalidPayloadProvider')]
     public function test_generation_rejects_invalid_input_without_side_effects(string $route, array $payload, array $errors): void
     {

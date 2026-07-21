@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Content;
 
 use App\Domain\Content\Actions\QueueContentAudioGenerationAction;
+use App\Domain\Content\Exceptions\ContentAudioGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentAudioGenerationQueueException;
 use App\Domain\Content\Support\ContentAudioGeneration;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,8 @@ final class GenerateAllSpeedsContentAudioController extends Controller
                 $request->convoLabUserId(),
                 $request->generationData(),
             );
+        } catch (ContentAudioGenerationConflictException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
         } catch (ContentAudioGenerationQueueException) {
             return response()->json(['message' => ContentAudioGeneration::QUEUE_FAILED_MESSAGE], 503);
         }

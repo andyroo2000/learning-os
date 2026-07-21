@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Support\Audio\AudioTrackAssembler;
 use App\Support\Audio\AudioTrackAssemblyResult;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -44,6 +45,14 @@ class ProcessContentAudioGenerationJobTest extends TestCase
         $this->assertSame(ContentAudioGeneration::JOB_TIMEOUT_SECONDS, $job->timeout);
         $this->assertTrue($job->failOnTimeout);
         $this->assertSame([ContentAudioGeneration::JOB_BACKOFF_SECONDS], $job->backoff());
+        $this->assertGreaterThan(
+            ContentAudioGeneration::JOB_TIMEOUT_SECONDS,
+            ContentAudioGeneration::ACTIVE_STALE_AFTER_SECONDS,
+        );
+        $this->assertLessThan(
+            ContentAudioGeneration::JOB_TIMEOUT_SECONDS + ContentAudioGeneration::JOB_BACKOFF_SECONDS,
+            ContentAudioGeneration::ACTIVE_STALE_AFTER_SECONDS,
+        );
 
         $this->expectException(InvalidArgumentException::class);
         new ProcessContentAudioGeneration('bad-id');
@@ -91,7 +100,16 @@ class ProcessContentAudioGenerationJobTest extends TestCase
                 });
         }
 
-        app(ProcessContentAudioGenerationAction::class)->handle(strtoupper($job->id));
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            app(ProcessContentAudioGenerationAction::class)->handle(strtoupper($job->id));
+            $sentenceUpdates = collect(DB::getQueryLog())->filter(
+                fn (array $query): bool => str_starts_with(strtolower($query['query']), 'update "content_sentences"'),
+            );
+        } finally {
+            DB::disableQueryLog();
+        }
         app(ProcessContentAudioGenerationAction::class)->handle($job->id);
 
         $job->refresh();
@@ -107,6 +125,7 @@ class ProcessContentAudioGenerationJobTest extends TestCase
         $this->assertSame(0, $sentences[0]->fresh()->start_time_0_7);
         $this->assertSame(1100, $sentences[1]->fresh()->start_time_0_7);
         $this->assertSame(1600, $sentences[1]->fresh()->end_time_0_85);
+        $this->assertCount(2, $sentenceUpdates, 'Each sentence should receive all speed timings in one update.');
 
         foreach ($oldPaths as $oldPath) {
             Storage::disk('media')->assertMissing($oldPath);
@@ -215,7 +234,9 @@ class ProcessContentAudioGenerationJobTest extends TestCase
             'mode' => 'single', 'speed' => 'normal', 'pauseMode' => false,
         ]);
         $job->state = ContentAudioGeneration::STATE_ACTIVE;
-        $job->started_at = now()->subSeconds(ContentAudioGeneration::ACTIVE_STALE_AFTER_SECONDS + 1);
+        $job->started_at = now()->subSeconds(
+            ContentAudioGeneration::JOB_TIMEOUT_SECONDS + ContentAudioGeneration::JOB_BACKOFF_SECONDS + 1,
+        );
         $job->save();
         $path = ContentEpisodeAudio::storagePath($episode->id, 2, 'default');
         $this->mock(AudioTrackAssembler::class)->shouldReceive('assemble')->once()->andReturnUsing(

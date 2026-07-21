@@ -18,7 +18,8 @@ final class ContentAudioGeneration
 
     public const JOB_BACKOFF_SECONDS = 10;
 
-    public const ACTIVE_STALE_AFTER_SECONDS = 1_000;
+    // A timed-out attempt must be reclaimable when its backoff retry arrives.
+    public const ACTIVE_STALE_AFTER_SECONDS = self::JOB_TIMEOUT_SECONDS + 5;
 
     public const FAILED_MESSAGE = 'Audio generation failed';
 

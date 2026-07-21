@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Data\GenerateContentAudioData;
+use App\Domain\Content\Exceptions\ContentAudioGenerationConflictException;
 use App\Domain\Content\Models\ContentAudioGenerationJob;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentAudioGeneration;
@@ -42,6 +43,10 @@ final class StartContentAudioGenerationAction
                 ->lockForUpdate()
                 ->first();
             if ($existing !== null) {
+                if (GenerateContentAudioData::fromInput($existing->input)->toArray() !== $data->toArray()) {
+                    throw ContentAudioGenerationConflictException::differentRequestInProgress();
+                }
+
                 return $existing;
             }
 

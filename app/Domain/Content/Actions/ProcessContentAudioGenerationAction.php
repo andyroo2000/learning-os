@@ -165,6 +165,7 @@ final readonly class ProcessContentAudioGenerationAction
 
             $oldPaths = [];
             $payload = [];
+            $sentenceUpdates = [];
             foreach ($results as $result) {
                 [$urlField, $pathField, $startField, $endField] = $this->fields($result->track);
                 if (is_string($episode->{$pathField})) {
@@ -174,16 +175,23 @@ final readonly class ProcessContentAudioGenerationAction
                 $episode->{$urlField} = $url;
                 $episode->{$pathField} = $result->storagePath;
                 foreach ($result->sentenceTimings as $sentenceId => $timing) {
-                    ContentSentence::query()
-                        ->whereKey($sentenceId)
-                        ->where('dialogue_id', $job->dialogue_id)
-                        ->update([$startField => $timing['startTime'], $endField => $timing['endTime']]);
+                    $sentenceUpdates[$sentenceId] = [
+                        ...($sentenceUpdates[$sentenceId] ?? []),
+                        $startField => $timing['startTime'],
+                        $endField => $timing['endTime'],
+                    ];
                 }
                 $payload[] = [
                     'speed' => $this->resultSpeed($result->track, $data->speed),
                     'audioUrl' => $url,
                     'duration' => $result->durationSeconds * 1_000,
                 ];
+            }
+            foreach ($sentenceUpdates as $sentenceId => $timings) {
+                ContentSentence::query()
+                    ->whereKey($sentenceId)
+                    ->where('dialogue_id', $job->dialogue_id)
+                    ->update($timings);
             }
 
             if ($data->mode === GenerateContentAudioData::MODE_SINGLE) {

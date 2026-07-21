@@ -134,6 +134,35 @@ class ContentImageGenerationApiTest extends TestCase
         $this->assertNotNull($job->finished_at);
     }
 
+    public function test_reposting_redispatches_waiting_or_stale_jobs_but_not_a_recent_active_job(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        [$episode, $dialogue] = $this->episodeWithDialogue($user);
+        $job = $this->job($episode, $dialogue, [
+            'state' => ContentImageGeneration::STATE_ACTIVE,
+            'progress' => 10,
+            'claim_token' => (string) Str::uuid(),
+            'started_at' => now(),
+        ]);
+        $this->authenticateWrite($user);
+
+        $this->postJson('/api/convolab/images/generate', $this->payload($episode, $dialogue))
+            ->assertOk()
+            ->assertJsonPath('jobId', $job->id);
+        Queue::assertNothingPushed();
+
+        $job->started_at = now()->subSeconds(ContentImageGeneration::ACTIVE_STALE_AFTER_SECONDS + 1);
+        $job->save();
+        $this->postJson('/api/convolab/images/generate', $this->payload($episode, $dialogue))
+            ->assertOk()
+            ->assertJsonPath('jobId', $job->id);
+        Queue::assertPushed(
+            ProcessContentImageGeneration::class,
+            fn (ProcessContentImageGeneration $queued): bool => $queued->jobId === $job->id,
+        );
+    }
+
     public function test_polling_is_owner_scoped_and_reveals_only_completed_results(): void
     {
         $user = User::factory()->create();
@@ -185,7 +214,7 @@ class ContentImageGenerationApiTest extends TestCase
         $this->assertNotNull($route);
         $this->assertContains('throttle:'.ContentImageRateLimiter::GENERATION_NAME, $route->gatherMiddleware());
 
-        foreach (['id', 'episode_id', 'dialogue_id', 'user_id', 'convolab_user_id', 'state', 'progress', 'image_count', 'result', 'error_message', 'started_at', 'finished_at'] as $field) {
+        foreach (['id', 'episode_id', 'dialogue_id', 'user_id', 'convolab_user_id', 'state', 'progress', 'image_count', 'claim_token', 'result', 'error_message', 'started_at', 'finished_at'] as $field) {
             try {
                 (new ContentImageGenerationJob)->fill([$field => 'untrusted']);
                 $this->fail("{$field} should not be mass assignable.");

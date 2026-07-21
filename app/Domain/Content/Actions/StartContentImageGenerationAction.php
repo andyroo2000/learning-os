@@ -43,6 +43,10 @@ final class StartContentImageGenerationAction
                 ->latest('id')
                 ->first();
             if ($existing !== null) {
+                if ($this->shouldRedispatch($existing)) {
+                    DB::afterCommit(static fn () => $afterCommit($existing->id));
+                }
+
                 return $existing;
             }
 
@@ -61,5 +65,18 @@ final class StartContentImageGenerationAction
 
             return $job;
         });
+    }
+
+    private function shouldRedispatch(ContentImageGenerationJob $job): bool
+    {
+        if ($job->state === ContentImageGeneration::STATE_WAITING) {
+            return true;
+        }
+
+        return $job->state === ContentImageGeneration::STATE_ACTIVE
+            && ($job->started_at === null
+                || $job->started_at->lessThanOrEqualTo(
+                    now()->subSeconds(ContentImageGeneration::ACTIVE_STALE_AFTER_SECONDS),
+                ));
     }
 }

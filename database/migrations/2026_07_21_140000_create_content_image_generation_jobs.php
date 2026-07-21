@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('state', 32);
             $table->unsignedTinyInteger('progress')->default(0);
             $table->unsignedTinyInteger('image_count');
+            $table->uuid('claim_token')->nullable();
             $table->json('result')->nullable();
             $table->text('error_message')->nullable();
             $table->timestampTz('started_at')->nullable();

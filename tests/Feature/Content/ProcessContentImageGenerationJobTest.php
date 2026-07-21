@@ -158,6 +158,55 @@ class ProcessContentImageGenerationJobTest extends TestCase
         $this->assertSame(0, $episode->images()->count());
     }
 
+    public function test_superseded_worker_cannot_complete_or_release_a_newer_claim(): void
+    {
+        [$episode, , , $completedLate] = $this->pendingJob(1);
+        $newerCompletionToken = (string) Str::uuid();
+        $this->mock(ContentOpenAiClient::class)
+            ->shouldReceive('generateText')
+            ->once()
+            ->andReturnUsing(function () use ($completedLate, $newerCompletionToken): string {
+                $completedLate->refresh();
+                $completedLate->claim_token = $newerCompletionToken;
+                $completedLate->started_at = now();
+                $completedLate->save();
+
+                return 'Late scene';
+            });
+
+        app(ProcessContentImageGenerationAction::class)->handle($completedLate->id);
+
+        $completedLate->refresh();
+        $this->assertSame(ContentImageGeneration::STATE_ACTIVE, $completedLate->state);
+        $this->assertSame($newerCompletionToken, $completedLate->claim_token);
+        $this->assertSame(0, $episode->images()->count());
+
+        [, , , $failedLate] = $this->pendingJob(1);
+        $newerFailureToken = (string) Str::uuid();
+        $this->forgetMock(ContentOpenAiClient::class);
+        $this->mock(ContentOpenAiClient::class)
+            ->shouldReceive('generateText')
+            ->once()
+            ->andReturnUsing(function () use ($failedLate, $newerFailureToken): never {
+                $failedLate->refresh();
+                $failedLate->claim_token = $newerFailureToken;
+                $failedLate->started_at = now();
+                $failedLate->save();
+                throw new RuntimeException('Old worker failed.');
+            });
+
+        try {
+            app(ProcessContentImageGenerationAction::class)->handle($failedLate->id);
+            $this->fail('The old worker failure should still be retried.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Old worker failed.', $exception->getMessage());
+        }
+
+        $failedLate->refresh();
+        $this->assertSame(ContentImageGeneration::STATE_ACTIVE, $failedLate->state);
+        $this->assertSame($newerFailureToken, $failedLate->claim_token);
+    }
+
     public function test_final_failure_is_generic_and_idempotent(): void
     {
         [, , , $job] = $this->pendingJob(1);

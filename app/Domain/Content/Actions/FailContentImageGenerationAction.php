@@ -27,6 +27,7 @@ final class FailContentImageGenerationAction
             }
 
             $job->state = ContentImageGeneration::STATE_FAILED;
+            $job->claim_token = null;
             $job->error_message = $message;
             $job->finished_at = now();
             $job->save();

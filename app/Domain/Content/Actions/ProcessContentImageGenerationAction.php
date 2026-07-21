@@ -8,8 +8,8 @@ use App\Domain\Content\Models\ContentImageGenerationJob;
 use App\Domain\Content\Services\ContentDialogueImagePlanner;
 use App\Domain\Content\Support\ContentImageGeneration;
 use App\Domain\Content\Support\ContentImageGenerationJobId;
+use App\Domain\Content\Support\ContentImagePayload;
 use App\Domain\Content\Support\ContentSourceLock;
-use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -141,16 +141,7 @@ final class ProcessContentImageGenerationAction
                 $image->created_at = now();
                 $image->save();
 
-                $result[] = [
-                    'id' => $image->id,
-                    'episodeId' => $image->episode_id,
-                    'url' => $image->url,
-                    'prompt' => $image->prompt,
-                    'order' => $image->sort_order,
-                    'sentenceStartId' => $image->sentence_start_id,
-                    'sentenceEndId' => $image->sentence_end_id,
-                    'createdAt' => ConvoLabTimestamp::serialize($image->created_at),
-                ];
+                $result[] = ContentImagePayload::fromModel($image);
             }
 
             $job->state = ContentImageGeneration::STATE_COMPLETED;

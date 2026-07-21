@@ -3,9 +3,12 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Actions\CreateContentCourseAction;
+use App\Domain\Content\Actions\DeleteContentCourseAction;
 use App\Domain\Content\Actions\DeleteContentEpisodeAction;
+use App\Domain\Content\Actions\UpdateContentCourseAction;
 use App\Domain\Content\Actions\UpdateContentEpisodeAction;
 use App\Domain\Content\Data\CreateContentCourseData;
+use App\Domain\Content\Data\UpdateContentCourseData;
 use App\Domain\Content\Data\UpdateContentEpisodeData;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
@@ -453,6 +456,69 @@ class ImportConvoLabEpisodesTest extends TestCase
             'episode_id' => $ids['dialogueEpisode'],
             'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
+    }
+
+    public function test_promoted_and_tombstoned_source_courses_are_not_overwritten_or_resurrected(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $this->assertTrue(app(UpdateContentCourseAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['course'],
+            UpdateContentCourseData::fromInput(['title' => 'Learning-owned Course']),
+        ));
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $ids['course'],
+            'title' => 'Learning-owned Course',
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $ids['courseEpisode'],
+            'convolab_course_id' => $ids['course'],
+        ]);
+
+        $this->assertTrue(app(DeleteContentCourseAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['course'],
+        ));
+        $this->assertDatabaseMissing('content_courses', ['id' => $ids['course']]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])->assertSuccessful();
+
+        $this->assertDatabaseMissing('content_courses', ['id' => $ids['course']]);
+        $this->assertDatabaseMissing('content_episode_courses', [
+            'convolab_course_id' => $ids['course'],
+        ]);
+        $this->assertDatabaseMissing('content_course_core_items', [
+            'course_id' => $ids['course'],
+        ]);
+        $this->assertDatabaseHas('content_course_tombstones', [
+            'course_id' => $ids['course'],
+            'user_id' => $targetUser->id,
+            'convolab_user_id' => $ids['user'],
+        ]);
+        $this->assertSame(
+            1,
+            DB::connection('convolab_content_test')->table('Course')
+                ->where('id', $ids['course'])
+                ->count(),
+        );
     }
 
     public function test_replacement_and_preserved_content_roll_back_together_on_late_import_failure(): void

@@ -29,6 +29,7 @@ class ContentOwnershipSchemaTest extends TestCase
         }
 
         $this->assertTrue(Schema::hasTable('content_episode_tombstones'));
+        $this->assertTrue(Schema::hasTable('content_course_tombstones'));
         $this->assertSame(
             ContentSourceSystem::CONVOLAB,
             DB::table('content_source_locks')->sole()->source_system,

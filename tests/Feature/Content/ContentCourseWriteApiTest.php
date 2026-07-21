@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
@@ -27,9 +28,12 @@ class ContentCourseWriteApiTest extends TestCase
         config()->set('services.convolab.proxy_user_email', self::PROXY_EMAIL);
     }
 
-    public function test_course_create_requires_authentication_and_the_dedicated_write_proxy(): void
+    public function test_course_writes_require_authentication_and_the_dedicated_write_proxy(): void
     {
+        $courseId = (string) Str::uuid();
         $this->postJson('/api/convolab/courses')->assertUnauthorized();
+        $this->patchJson('/api/convolab/courses/'.$courseId)->assertUnauthorized();
+        $this->deleteJson('/api/convolab/courses/'.$courseId)->assertUnauthorized();
 
         $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
         $sourceUserId = (string) Str::uuid();
@@ -44,6 +48,14 @@ class ContentCourseWriteApiTest extends TestCase
         $this->withToken($readToken)
             ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
             ->postJson('/api/convolab/courses', $this->inlinePayload())
+            ->assertForbidden();
+        $this->withToken($readToken)
+            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+            ->patchJson('/api/convolab/courses/'.$courseId, ['title' => 'Updated'])
+            ->assertForbidden();
+        $this->withToken($ordinaryToken)
+            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+            ->deleteJson('/api/convolab/courses/'.$courseId)
             ->assertForbidden();
 
         $this->assertDatabaseCount('content_courses', 0);
@@ -348,21 +360,133 @@ class ContentCourseWriteApiTest extends TestCase
             ->assertJsonPath('l1VoiceProvider', 'google');
     }
 
-    public function test_course_create_route_uses_its_own_named_rate_limiter(): void
+    public function test_proxy_updates_only_supplied_course_fields_and_hides_other_owners(): void
     {
-        $route = collect(Route::getRoutes()->getRoutes())->first(
-            fn ($route): bool => in_array('POST', $route->methods(), true)
-                && $route->uri() === 'api/convolab/courses',
-        );
+        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $owned = $this->courseFor($user, [
+            'title' => 'Original',
+            'description' => 'Keep this.',
+            'max_lesson_duration_minutes' => 30,
+        ]);
+        $other = $this->courseFor($user, ['title' => 'Other']);
+        $token = $this->proxyToken($user);
 
-        $this->assertNotNull($route);
-        $this->assertContains(
-            'throttle:'.ContentCourseRateLimiter::CREATE_NAME,
-            $route->gatherMiddleware(),
-        );
+        $this->withoutMiddleware(TrimStrings::class)
+            ->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', strtoupper($owned->convolab_user_id))
+            ->patchJson('/api/convolab/courses/'.strtoupper($owned->id), [
+                'title' => '  Updated  ',
+                'maxLessonDurationMinutes' => 45,
+            ])
+            ->assertOk()
+            ->assertExactJson(['message' => 'Course updated']);
+
+        $owned->refresh();
+        $this->assertSame('Updated', $owned->title);
+        $this->assertSame('Keep this.', $owned->description);
+        $this->assertSame(45, $owned->max_lesson_duration_minutes);
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $owned->source_system);
+
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+            ->patchJson('/api/convolab/courses/'.$other->id, ['title' => 'Hidden'])
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Course not found']);
+        $this->assertSame('Other', $other->fresh()->title);
     }
 
-    public function test_course_create_limiter_has_a_stable_operation_scoped_user_key(): void
+    public function test_empty_update_promotes_ownership_and_preserves_legacy_touch_behavior(): void
+    {
+        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $course = $this->courseFor($user);
+        $originalUpdatedAt = $course->updated_at;
+
+        $this->travel(1)->second();
+        try {
+            $this->withToken($this->proxyToken($user))
+                ->withHeader('X-Convo-Lab-User-Id', $course->convolab_user_id)
+                ->patchJson('/api/convolab/courses/'.$course->id, [])
+                ->assertOk();
+        } finally {
+            $this->travelBack();
+        }
+
+        $course->refresh();
+        $this->assertTrue($course->updated_at->isAfter($originalUpdatedAt));
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $course->source_system);
+    }
+
+    public function test_course_update_validates_provenance_and_mutable_field_domain(): void
+    {
+        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $course = $this->courseFor($user);
+        $token = $this->proxyToken($user);
+
+        $this->withToken($token)
+            ->patchJson('/api/convolab/courses/'.$course->id, ['title' => 'Updated'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $course->convolab_user_id)
+            ->patchJson('/api/convolab/courses/'.$course->id, [
+                'title' => '',
+                'description' => ['not a string'],
+                'maxLessonDurationMinutes' => 121,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['title', 'description', 'maxLessonDurationMinutes']);
+
+        $this->assertSame('Course', $course->fresh()->title);
+    }
+
+    public function test_proxy_deletes_owned_course_and_hides_retries_and_other_owners(): void
+    {
+        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $owned = $this->courseFor($user);
+        $other = $this->courseFor($user);
+        $token = $this->proxyToken($user);
+
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+            ->deleteJson('/api/convolab/courses/'.$owned->id)
+            ->assertOk()
+            ->assertExactJson(['message' => 'Course deleted successfully']);
+        $this->assertDatabaseMissing('content_courses', ['id' => $owned->id]);
+        $this->assertDatabaseHas('content_course_tombstones', [
+            'course_id' => $owned->id,
+            'user_id' => $user->id,
+            'convolab_user_id' => $owned->convolab_user_id,
+        ]);
+
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+            ->deleteJson('/api/convolab/courses/'.$owned->id)
+            ->assertNotFound();
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+            ->deleteJson('/api/convolab/courses/'.$other->id)
+            ->assertNotFound();
+        $this->assertDatabaseHas('content_courses', ['id' => $other->id]);
+    }
+
+    public function test_course_write_routes_use_separate_named_rate_limiters(): void
+    {
+        $routes = collect(Route::getRoutes()->getRoutes());
+
+        foreach ([
+            ['POST', 'api/convolab/courses', ContentCourseRateLimiter::CREATE_NAME],
+            ['PATCH', 'api/convolab/courses/{courseId}', ContentCourseRateLimiter::UPDATE_NAME],
+            ['DELETE', 'api/convolab/courses/{courseId}', ContentCourseRateLimiter::DELETE_NAME],
+        ] as [$method, $uri, $limiter]) {
+            $route = $routes->first(fn ($candidate): bool => in_array($method, $candidate->methods(), true)
+                && $candidate->uri() === $uri);
+            $this->assertNotNull($route);
+            $this->assertContains('throttle:'.$limiter, $route->gatherMiddleware());
+        }
+    }
+
+    public function test_course_write_limiters_have_stable_separate_operation_scoped_user_keys(): void
     {
         $sourceUserId = (string) Str::uuid();
         $request = Request::create('/api/convolab/courses', 'POST');
@@ -376,6 +500,21 @@ class ContentCourseWriteApiTest extends TestCase
             ContentCourseRateLimiter::CREATE_NAME.':user:'.$sourceUserId,
             $limit->key,
         );
+
+        $updateLimit = ContentCourseRateLimiter::forUpdate()->limit($request);
+        $deleteLimit = ContentCourseRateLimiter::forDelete()->limit($request);
+        $this->assertSame(60, $updateLimit->maxAttempts);
+        $this->assertSame(30, $deleteLimit->maxAttempts);
+        $this->assertSame(
+            ContentCourseRateLimiter::UPDATE_NAME.':user:'.$sourceUserId,
+            $updateLimit->key,
+        );
+        $this->assertSame(
+            ContentCourseRateLimiter::DELETE_NAME.':user:'.$sourceUserId,
+            $deleteLimit->key,
+        );
+        $this->assertNotSame($limit->key, $updateLimit->key);
+        $this->assertNotSame($updateLimit->key, $deleteLimit->key);
 
         $authenticatedFallback = Request::create('/api/convolab/courses', 'POST');
         $authenticatedUser = new User;
@@ -441,6 +580,31 @@ class ContentCourseWriteApiTest extends TestCase
             'audio_speed' => 'medium',
             'created_at' => now(),
             'updated_at' => now(),
+            ...$overrides,
+        ]);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function courseFor(User $user, array $overrides = []): ContentCourse
+    {
+        return ContentCourse::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'convolab_user_id' => (string) Str::uuid(),
+            'source_system' => ContentSourceSystem::CONVOLAB,
+            'title' => 'Course',
+            'description' => 'Description.',
+            'status' => 'draft',
+            'is_sample_content' => false,
+            'is_test_course' => false,
+            'native_language' => 'en',
+            'target_language' => 'ja',
+            'max_lesson_duration_minutes' => 30,
+            'l1_voice_id' => 'en-US-Neural2-J',
+            'speaker1_gender' => 'male',
+            'speaker2_gender' => 'female',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subHour(),
             ...$overrides,
         ]);
     }

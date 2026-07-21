@@ -28,6 +28,9 @@ class ContentCourseMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_030000_add_audio_storage_path_to_content_courses.php',
         );
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_040000_add_generation_lifecycle_to_content_courses.php',
+        );
     }
 
     #[DataProvider('generationRevisionGrammarProvider')]
@@ -74,6 +77,48 @@ class ContentCourseMigrationTest extends TestCase
         $downSql = strtolower(implode(' ', $down->toSql()));
         $this->assertStringContainsString('drop', $downSql);
         $this->assertStringContainsString('generation_revision', $downSql);
+    }
+
+    #[DataProvider('generationRevisionGrammarProvider')]
+    public function test_generation_lifecycle_compiles_up_and_down_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+
+        // Keep this compile-only fixture synchronized with the production lifecycle migration.
+        $up = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->unsignedBigInteger('generation_attempt')->default(0);
+            $table->string('generation_stage', 32)->nullable();
+            $table->unsignedInteger('generation_progress')->nullable();
+            $table->timestampTz('generation_heartbeat_at')->nullable();
+            $table->text('generation_error_message')->nullable();
+        });
+        $down = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->dropColumn([
+                'generation_attempt',
+                'generation_stage',
+                'generation_progress',
+                'generation_heartbeat_at',
+                'generation_error_message',
+            ]);
+        });
+
+        $upSql = strtolower(implode(' ', $up->toSql()));
+        $downSql = strtolower(implode(' ', $down->toSql()));
+        foreach ([
+            'generation_attempt',
+            'generation_stage',
+            'generation_progress',
+            'generation_heartbeat_at',
+            'generation_error_message',
+        ] as $column) {
+            $this->assertStringContainsString($column, $upSql);
+            $this->assertStringContainsString($column, $downSql);
+        }
+        $this->assertStringContainsString('default', $upSql);
+        $this->assertStringContainsString('drop', $downSql);
     }
 
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */

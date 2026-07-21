@@ -7,6 +7,7 @@ use App\Domain\Content\Support\ContentEpisodeAudio;
 use App\Domain\Content\Support\ConvoLabUserId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\DownloadContentEpisodeAudioRequest;
+use App\Support\Audio\AudioStreamResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -15,6 +16,7 @@ final class DownloadContentEpisodeAudioController extends Controller
 {
     public function __invoke(
         DownloadContentEpisodeAudioRequest $request,
+        AudioStreamResponse $stream,
         string $episodeId,
         string $track,
     ): StreamedResponse {
@@ -41,6 +43,6 @@ final class DownloadContentEpisodeAudioController extends Controller
             throw new NotFoundHttpException;
         }
 
-        return $disk->response($path, "episode-{$episode->id}-{$track}.mp3", ['Content-Type' => 'audio/mpeg']);
+        return $stream->make($request, $disk, $path, "episode-{$episode->id}-{$track}.mp3");
     }
 }

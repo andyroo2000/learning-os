@@ -145,6 +145,30 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $this->assertSame(1, ContentCourse::query()->where('user_id', $account->user_id)->count());
     }
 
+    public function test_another_users_copies_never_become_onboarding_templates(): void
+    {
+        $firstAccount = $this->projectedUser(['email' => 'first@example.com']);
+        $template = $this->sampleContentGraph();
+        $action = app(UpdateConvoLabCurrentUserAction::class);
+        $action->handle(
+            $firstAccount->convolab_id,
+            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+        );
+
+        $template['course']->delete();
+        $template['episode']->delete();
+        $secondAccount = $this->projectedUser(['email' => 'second@example.com']);
+        $action->handle(
+            $secondAccount->convolab_id,
+            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+        );
+
+        $this->assertSame(0, ContentEpisode::query()->where('user_id', $secondAccount->user_id)->count());
+        $this->assertSame(0, ContentCourse::query()->where('user_id', $secondAccount->user_id)->count());
+        $this->assertSame(1, ContentEpisode::query()->where('user_id', $firstAccount->user_id)->count());
+        $this->assertSame(1, ContentCourse::query()->where('user_id', $firstAccount->user_id)->count());
+    }
+
     public function test_sample_copy_failure_rolls_back_profile_and_content_changes(): void
     {
         $account = $this->projectedUser(['display_name' => 'Before']);

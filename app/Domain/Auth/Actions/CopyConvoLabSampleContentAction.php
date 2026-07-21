@@ -39,8 +39,8 @@ final class CopyConvoLabSampleContentAction
         }
 
         $episodeTemplates = $this->episodeTemplates($account);
-        [$episodeIds, $sentenceIds, $episodeTitles] = $this->copyEpisodes($account, $episodeTemplates);
-        $this->copyCourses($account, $episodeIds, $sentenceIds, $episodeTitles);
+        [$episodeIds, $sentenceIds, $episodeSignatures] = $this->copyEpisodes($account, $episodeTemplates);
+        $this->copyCourses($account, $episodeIds, $sentenceIds, $episodeSignatures);
     }
 
     /** @return Collection<int, ContentEpisode> */
@@ -48,6 +48,7 @@ final class CopyConvoLabSampleContentAction
     {
         return ContentEpisode::query()
             ->where('is_sample_content', true)
+            ->where('source_system', ContentSourceSystem::CONVOLAB)
             ->where('target_language', $account->preferred_study_language)
             ->where('user_id', '!=', $account->user_id)
             ->where('content_type', 'dialogue')
@@ -64,13 +65,7 @@ final class CopyConvoLabSampleContentAction
             ->orderBy('created_at')
             ->orderBy('id')
             ->get()
-            ->unique(fn (ContentEpisode $episode): string => implode("\0", [
-                $episode->title,
-                $episode->source_text,
-                $episode->target_language,
-                $episode->native_language,
-                (string) $episode->jlpt_level,
-            ]))
+            ->unique(fn (ContentEpisode $episode): string => $this->episodeSignature($episode))
             ->values();
     }
 
@@ -82,7 +77,7 @@ final class CopyConvoLabSampleContentAction
     {
         $episodeIds = [];
         $sentenceIds = [];
-        $episodeTitles = [];
+        $episodeSignatures = [];
 
         foreach ($templates as $template) {
             $episode = $template->replicate(['id', 'user_id', 'convolab_user_id', 'source_system', 'created_at', 'updated_at']);
@@ -93,7 +88,7 @@ final class CopyConvoLabSampleContentAction
             $episode->save();
 
             $episodeIds[$template->id] = $episode->id;
-            $episodeTitles[$template->title] = $episode->id;
+            $episodeSignatures[$this->episodeSignature($template)] = $episode->id;
 
             $templateDialogue = $template->dialogue;
             if (! $templateDialogue instanceof ContentDialogue) {
@@ -129,22 +124,23 @@ final class CopyConvoLabSampleContentAction
             }
         }
 
-        return [$episodeIds, $sentenceIds, $episodeTitles];
+        return [$episodeIds, $sentenceIds, $episodeSignatures];
     }
 
     /**
      * @param  array<string, string>  $episodeIds
      * @param  array<string, string>  $sentenceIds
-     * @param  array<string, string>  $episodeTitles
+     * @param  array<string, string>  $episodeSignatures
      */
     private function copyCourses(
         AdminUserProjection $account,
         array $episodeIds,
         array $sentenceIds,
-        array $episodeTitles,
+        array $episodeSignatures,
     ): void {
         $templates = ContentCourse::query()
             ->where('is_sample_content', true)
+            ->where('source_system', ContentSourceSystem::CONVOLAB)
             ->where('target_language', $account->preferred_study_language)
             ->where('jlpt_level', $account->proficiency_level)
             ->where('user_id', '!=', $account->user_id)
@@ -165,8 +161,9 @@ final class CopyConvoLabSampleContentAction
             $linkedEpisodes = [];
             foreach ($template->courseEpisodes as $templateLink) {
                 $mappedId = $episodeIds[$templateLink->episode_id]
-                    ?? $episodeTitles[$templateLink->episode?->title ?? '']
-                    ?? null;
+                    ?? ($templateLink->episode instanceof ContentEpisode
+                        ? ($episodeSignatures[$this->episodeSignature($templateLink->episode)] ?? null)
+                        : null);
                 if (! is_string($mappedId)) {
                     $linkedEpisodes = [];
                     break;
@@ -208,5 +205,16 @@ final class CopyConvoLabSampleContentAction
                 $item->save();
             }
         }
+    }
+
+    private function episodeSignature(ContentEpisode $episode): string
+    {
+        return implode("\0", [
+            $episode->title,
+            $episode->source_text,
+            $episode->target_language,
+            $episode->native_language,
+            (string) $episode->jlpt_level,
+        ]);
     }
 }

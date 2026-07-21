@@ -8,6 +8,15 @@ use InvalidArgumentException;
 
 final class ContentCourseVoiceNormalizer
 {
+    private const LEGACY_NARRATOR_VOICES = [
+        'en-US-Neural2-F',
+        'en-US-Neural2-J',
+        'en-US-Wavenet-F',
+        'en-US-Wavenet-J',
+        'en-US-Journey-D',
+        'en-US-Journey-F',
+    ];
+
     public function normalize(ContentCourseScriptUnit $unit): ContentCourseScriptUnit
     {
         if ($unit->voiceId === null) {
@@ -30,7 +39,7 @@ final class ContentCourseVoiceNormalizer
         if (preg_match('/^fishaudio:[a-f0-9]{32}$/i', $voiceId) === 1) {
             return $voiceId;
         }
-        if (str_starts_with(strtolower($voiceId), 'fishaudio:')) {
+        if (! in_array($voiceId, self::LEGACY_NARRATOR_VOICES, true)) {
             throw new InvalidArgumentException('Course script contains an unsupported speech voice ID.');
         }
 

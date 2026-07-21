@@ -42,4 +42,16 @@ class ContentCourseVoiceNormalizerTest extends TestCase
 
         (new ContentCourseVoiceNormalizer)->normalize($unit);
     }
+
+    public function test_it_rejects_unknown_non_prefixed_narrator_voice_ids(): void
+    {
+        $unit = ContentCourseScriptUnit::fromProvider([
+            'type' => 'narration_L1', 'text' => 'Listen.', 'voiceId' => 'english-voice-typo',
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Course script contains an unsupported speech voice ID.');
+
+        (new ContentCourseVoiceNormalizer)->normalize($unit);
+    }
 }

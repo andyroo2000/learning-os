@@ -74,7 +74,7 @@ class ContentCourseWriteApiTest extends TestCase
                 'speaker1Gender' => 'female',
                 'speaker2Gender' => 'male',
                 'speaker1VoiceId' => 'speaker-one',
-                'speaker2VoiceId' => 'speaker-two',
+                'speaker2VoiceId' => 'fishaudio:speaker-two',
             ])
             ->assertOk()
             ->assertJsonPath('userId', strtolower($sourceUserId))
@@ -88,6 +88,8 @@ class ContentCourseWriteApiTest extends TestCase
             ->assertJsonPath('jlptLevel', 'N3')
             ->assertJsonPath('speaker1Gender', 'female')
             ->assertJsonPath('speaker2Gender', 'male')
+            ->assertJsonPath('speaker1VoiceProvider', 'google')
+            ->assertJsonPath('speaker2VoiceProvider', 'fishaudio')
             ->assertJsonMissingPath('courseEpisodes');
 
         $courseId = $response->json('id');
@@ -128,10 +130,12 @@ class ContentCourseWriteApiTest extends TestCase
             ->assertJsonPath('description', 'Interactive JA audio course with spaced repetition and anticipation drills.')
             ->assertJsonPath('maxLessonDurationMinutes', 30)
             ->assertJsonPath('l1VoiceId', 'fishaudio:ac934b39586e475b83f3277cd97b5cd4')
-            ->assertJsonPath('l1VoiceProvider', 'google')
+            ->assertJsonPath('l1VoiceProvider', 'fishaudio')
             ->assertJsonPath('jlptLevel', null)
             ->assertJsonPath('speaker1Gender', 'male')
-            ->assertJsonPath('speaker2Gender', 'female');
+            ->assertJsonPath('speaker2Gender', 'female')
+            ->assertJsonPath('speaker1VoiceProvider', 'google')
+            ->assertJsonPath('speaker2VoiceProvider', 'google');
 
         $courseId = $response->json('id');
         $episode = ContentEpisode::query()->sole();
@@ -340,7 +344,8 @@ class ContentCourseWriteApiTest extends TestCase
                 'l1VoiceId' => 'en-US-Journey-D',
             ])
             ->assertOk()
-            ->assertJsonPath('l1VoiceId', 'en-US-Neural2-J');
+            ->assertJsonPath('l1VoiceId', 'en-US-Neural2-J')
+            ->assertJsonPath('l1VoiceProvider', 'google');
     }
 
     public function test_course_create_route_uses_its_own_named_rate_limiter(): void
@@ -363,7 +368,8 @@ class ContentCourseWriteApiTest extends TestCase
         $request = Request::create('/api/convolab/courses', 'POST');
         $request->headers->set('X-Convo-Lab-User-Id', strtoupper($sourceUserId));
 
-        $limit = ContentCourseRateLimiter::create($request);
+        $limiter = ContentCourseRateLimiter::create();
+        $limit = $limiter->limit($request);
 
         $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(
@@ -377,7 +383,7 @@ class ContentCourseWriteApiTest extends TestCase
         $authenticatedFallback->setUserResolver(fn (): User => $authenticatedUser);
         $this->assertSame(
             ContentCourseRateLimiter::CREATE_NAME.':user:42',
-            ContentCourseRateLimiter::create($authenticatedFallback)->key,
+            $limiter->limit($authenticatedFallback)->key,
         );
 
         $anonymousFallback = Request::create(
@@ -387,7 +393,7 @@ class ContentCourseWriteApiTest extends TestCase
         );
         $this->assertSame(
             ContentCourseRateLimiter::CREATE_NAME.':anon:192.0.2.10',
-            ContentCourseRateLimiter::create($anonymousFallback)->key,
+            $limiter->limit($anonymousFallback)->key,
         );
     }
 

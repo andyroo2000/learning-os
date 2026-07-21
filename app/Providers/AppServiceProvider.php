@@ -112,10 +112,10 @@ class AppServiceProvider extends ServiceProvider
             RateLimiter::for($name, fn (Request $request): Limit => $limiter->limit($request));
         }
 
-        RateLimiter::for(
-            ContentCourseRateLimiter::CREATE_NAME,
-            fn (Request $request): Limit => ContentCourseRateLimiter::create($request),
-        );
+        $contentCourseCreateRateLimiter = ContentCourseRateLimiter::create();
+        RateLimiter::for(ContentCourseRateLimiter::CREATE_NAME, function (Request $request) use ($contentCourseCreateRateLimiter): Limit {
+            return $contentCourseCreateRateLimiter->limit($request);
+        });
 
         $courseCreateRateLimiter = CourseRateLimiter::create();
         RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($courseCreateRateLimiter): Limit {

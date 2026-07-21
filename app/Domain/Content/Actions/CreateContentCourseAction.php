@@ -57,14 +57,14 @@ final class CreateContentCourseAction
             $course->target_language = $data->targetLanguage;
             $course->max_lesson_duration_minutes = $data->maxLessonDurationMinutes;
             $course->l1_voice_id = $data->l1VoiceId;
-            $course->l1_voice_provider = 'google';
+            $course->l1_voice_provider = ContentCourseDefaults::voiceProvider($data->l1VoiceId);
             $course->jlpt_level = $data->jlptLevel;
             $course->speaker1_gender = $data->speaker1Gender;
             $course->speaker2_gender = $data->speaker2Gender;
             $course->speaker1_voice_id = $data->speaker1VoiceId;
-            $course->speaker1_voice_provider = 'google';
+            $course->speaker1_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker1VoiceId);
             $course->speaker2_voice_id = $data->speaker2VoiceId;
-            $course->speaker2_voice_provider = 'google';
+            $course->speaker2_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker2VoiceId);
             $course->save();
 
             foreach ($episodes as $sortOrder => $episode) {

@@ -28,4 +28,11 @@ final class ContentCourseDefaults
             strtoupper($targetLanguage),
         );
     }
+
+    public static function voiceProvider(?string $voiceId): string
+    {
+        return $voiceId !== null && str_starts_with($voiceId, 'fishaudio:')
+            ? 'fishaudio'
+            : 'google';
+    }
 }

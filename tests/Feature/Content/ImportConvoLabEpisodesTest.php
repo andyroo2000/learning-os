@@ -235,6 +235,16 @@ class ImportConvoLabEpisodesTest extends TestCase
             $ids['scriptEpisode'],
             UpdateContentEpisodeData::fromInput(['title' => 'Learning-owned script']),
         ));
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $ids['courseEpisode'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        DB::connection('convolab_content_test')->table('CourseEpisode')
+            ->where('courseId', $ids['course'])->delete();
+        DB::connection('convolab_content_test')->table('CourseCoreItem')
+            ->where('courseId', $ids['course'])->delete();
+        DB::connection('convolab_content_test')->table('Course')
+            ->where('id', $ids['course'])->delete();
         $this->assertTrue(app(DeleteContentEpisodeAction::class)->handle(
             $targetUser->id,
             $ids['user'],
@@ -260,6 +270,10 @@ class ImportConvoLabEpisodesTest extends TestCase
         ]);
         $this->assertDatabaseHas('content_episode_courses', [
             'id' => $promotedLinkId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $ids['course'],
             'source_system' => ContentSourceSystem::LEARNING_OS,
         ]);
         $this->assertDatabaseMissing('content_episodes', ['id' => $ids['dialogueEpisode']]);

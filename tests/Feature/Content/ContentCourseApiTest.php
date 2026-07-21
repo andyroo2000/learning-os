@@ -9,6 +9,7 @@ use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
 use App\Domain\Content\Models\ContentSentence;
 use App\Domain\Content\Models\ContentSpeaker;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -201,6 +202,7 @@ class ContentCourseApiTest extends TestCase
             'id' => (string) Str::uuid(),
             'user_id' => $user->id,
             'convolab_user_id' => $convoLabUserId ?? $this->convoLabUserId,
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'title' => ucfirst($status).' course',
             'description' => 'Course description',
             'status' => $status,
@@ -247,6 +249,7 @@ class ContentCourseApiTest extends TestCase
         $episode = ContentEpisode::query()->forceCreate([
             'id' => (string) Str::uuid(), 'user_id' => $user->id,
             'convolab_user_id' => $this->convoLabUserId, 'title' => 'Episode', 'source_text' => 'Source',
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'target_language' => 'ja', 'native_language' => 'en', 'content_type' => 'dialogue',
             'auto_generate_audio' => true, 'status' => 'ready', 'is_sample_content' => false,
             'created_at' => now(), 'updated_at' => now(),
@@ -275,6 +278,7 @@ class ContentCourseApiTest extends TestCase
             'episode_id' => $episode->id,
             'convolab_course_id' => $course->id,
             'sort_order' => $order,
+            'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
     }
 

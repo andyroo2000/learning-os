@@ -340,6 +340,7 @@ class ContentEpisodeWriteApiTest extends TestCase
             'id' => (string) Str::uuid(),
             'user_id' => $user->id,
             'convolab_user_id' => (string) Str::uuid(),
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'title' => 'Episode',
             'source_text' => 'Source text',
             'target_language' => 'ja',

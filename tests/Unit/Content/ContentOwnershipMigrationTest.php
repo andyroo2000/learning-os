@@ -36,6 +36,7 @@ class ContentOwnershipMigrationTest extends TestCase
 
         $upSql = implode("\n", [
             ...$this->sourceColumnBlueprint($connection)->toSql(),
+            ...$this->requiredSourceColumnBlueprint($connection)->toSql(),
             ...$this->sourceLockBlueprint($connection)->toSql(),
             ...$this->tombstoneBlueprint($connection)->toSql(),
         ]);
@@ -101,7 +102,14 @@ class ContentOwnershipMigrationTest extends TestCase
     {
         // Keep this representative blueprint synchronized with the production migration.
         return new Blueprint($connection, 'content_episodes', function (Blueprint $table): void {
-            $table->string('source_system', 32)->default(ContentSourceSystem::CONVOLAB);
+            $table->string('source_system', 32)->nullable();
+        });
+    }
+
+    private function requiredSourceColumnBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'content_episodes', function (Blueprint $table): void {
+            $table->string('source_system', 32)->nullable(false)->change();
             $table->index('source_system', 'content_episodes_source_system_idx');
             $table->index(
                 ['user_id', 'convolab_user_id', 'updated_at', 'id'],

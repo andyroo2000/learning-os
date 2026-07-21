@@ -23,6 +23,9 @@ class ContentOwnershipSchemaTest extends TestCase
             'content_episode_courses',
         ] as $table) {
             $this->assertTrue(Schema::hasColumn($table, 'source_system'));
+            $column = collect(Schema::getColumns($table))->firstWhere('name', 'source_system');
+            $this->assertFalse($column['nullable']);
+            $this->assertNull($column['default']);
         }
 
         $this->assertTrue(Schema::hasTable('content_episode_tombstones'));

@@ -21,8 +21,11 @@ return new class extends Migration
         ]);
 
         Schema::table('content_episodes', function (Blueprint $table): void {
-            // Every row predating Learning-owned writes came from the Convo Lab importer.
-            $table->string('source_system', 32)->default(self::CONVOLAB_SOURCE);
+            $table->string('source_system', 32)->nullable();
+        });
+        DB::table('content_episodes')->update(['source_system' => self::CONVOLAB_SOURCE]);
+        Schema::table('content_episodes', function (Blueprint $table): void {
+            $table->string('source_system', 32)->nullable(false)->change();
             // Import replacement deletes by source system without scanning preserved rows.
             $table->index('source_system', 'content_episodes_source_system_idx');
             $table->index(
@@ -32,7 +35,11 @@ return new class extends Migration
         });
 
         Schema::table('content_courses', function (Blueprint $table): void {
-            $table->string('source_system', 32)->default(self::CONVOLAB_SOURCE);
+            $table->string('source_system', 32)->nullable();
+        });
+        DB::table('content_courses')->update(['source_system' => self::CONVOLAB_SOURCE]);
+        Schema::table('content_courses', function (Blueprint $table): void {
+            $table->string('source_system', 32)->nullable(false)->change();
             $table->index('source_system', 'content_courses_source_system_idx');
             $table->index(
                 ['user_id', 'convolab_user_id', 'updated_at', 'id'],
@@ -41,12 +48,20 @@ return new class extends Migration
         });
 
         Schema::table('content_audio_script_media', function (Blueprint $table): void {
-            $table->string('source_system', 32)->default(self::CONVOLAB_SOURCE);
+            $table->string('source_system', 32)->nullable();
+        });
+        DB::table('content_audio_script_media')->update(['source_system' => self::CONVOLAB_SOURCE]);
+        Schema::table('content_audio_script_media', function (Blueprint $table): void {
+            $table->string('source_system', 32)->nullable(false)->change();
             $table->index('source_system', 'content_audio_media_source_system_idx');
         });
 
         Schema::table('content_episode_courses', function (Blueprint $table): void {
-            $table->string('source_system', 32)->default(self::CONVOLAB_SOURCE);
+            $table->string('source_system', 32)->nullable();
+        });
+        DB::table('content_episode_courses')->update(['source_system' => self::CONVOLAB_SOURCE]);
+        Schema::table('content_episode_courses', function (Blueprint $table): void {
+            $table->string('source_system', 32)->nullable(false)->change();
             $table->index('source_system', 'content_episode_courses_source_system_idx');
         });
 

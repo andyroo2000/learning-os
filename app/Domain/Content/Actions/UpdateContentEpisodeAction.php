@@ -4,6 +4,7 @@ namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Data\UpdateContentEpisodeData;
 use App\Domain\Content\Models\ContentAudioScriptMedia;
+use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
 use App\Domain\Content\Support\ContentEpisodeId;
@@ -55,8 +56,22 @@ final class UpdateContentEpisodeAction
                 })
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
 
-            ContentEpisodeCourse::query()
+            $courseIds = ContentEpisodeCourse::query()
                 ->where('episode_id', $episodeId)
+                ->pluck('convolab_course_id');
+
+            $ownedCourseIds = ContentCourse::query()
+                ->whereKey($courseIds)
+                ->where('user_id', $userId)
+                ->where('convolab_user_id', $convoLabUserId)
+                ->pluck('id');
+
+            ContentCourse::query()
+                ->whereKey($ownedCourseIds)
+                ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
+
+            ContentEpisodeCourse::query()
+                ->whereIn('convolab_course_id', $ownedCourseIds)
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
 
             $episode->touch();

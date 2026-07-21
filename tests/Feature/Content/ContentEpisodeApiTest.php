@@ -13,6 +13,7 @@ use App\Domain\Content\Models\ContentEpisodeTombstone;
 use App\Domain\Content\Models\ContentImage;
 use App\Domain\Content\Models\ContentSentence;
 use App\Domain\Content\Models\ContentSpeaker;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -289,6 +290,7 @@ class ContentEpisodeApiTest extends TestCase
             'id' => (string) Str::uuid(),
             'user_id' => $user->id,
             'convolab_user_id' => $convoLabUserId ?? $this->convoLabUserId,
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'title' => ucfirst($contentType).' episode',
             'source_text' => 'Source text',
             'target_language' => 'ja',

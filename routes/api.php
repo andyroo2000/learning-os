@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
@@ -43,12 +44,16 @@ use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
 use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
 use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
+use App\Http\Controllers\Api\Content\DownloadContentEpisodeAudioController;
+use App\Http\Controllers\Api\Content\GenerateAllSpeedsContentAudioController;
+use App\Http\Controllers\Api\Content\GenerateContentAudioController;
 use App\Http\Controllers\Api\Content\GenerateContentCourseController;
 use App\Http\Controllers\Api\Content\GenerateContentDialogueController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ResetContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\RetryContentCourseGenerationController;
+use App\Http\Controllers\Api\Content\ShowContentAudioGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController;
 use App\Http\Controllers\Api\Content\ShowContentDialogueGenerationJobController;
@@ -190,6 +195,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.ContentDialogueRateLimiter::GENERATION_NAME);
     Route::get('/convolab/dialogue/job/{jobId}', ShowContentDialogueGenerationJobController::class)
         ->whereUuid('jobId');
+    // Single and bulk synthesis deliberately share one per-user capacity bucket.
+    Route::post('/convolab/audio/generate', GenerateContentAudioController::class)
+        ->middleware('throttle:'.ContentAudioRateLimiter::GENERATION_NAME);
+    Route::post('/convolab/audio/generate-all-speeds', GenerateAllSpeedsContentAudioController::class)
+        ->middleware('throttle:'.ContentAudioRateLimiter::GENERATION_NAME);
+    Route::get('/convolab/audio/job/{jobId}', ShowContentAudioGenerationJobController::class)
+        ->whereUuid('jobId');
+    Route::get('/convolab/episodes/{episodeId}/audio/{track}', DownloadContentEpisodeAudioController::class)
+        ->whereUuid('episodeId')
+        ->whereIn('track', ['default', '0.7', '0.85', '1.0']);
     Route::get('/convolab/courses', ListContentCoursesController::class);
     Route::post('/convolab/courses', StoreContentCourseController::class)
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);

@@ -16,6 +16,7 @@ final class ConvoLabContentTables
         'content_images',
         'content_sentences',
         'content_speakers',
+        'content_audio_generation_jobs',
         'content_dialogues',
         'content_dialogue_generation_jobs',
         'content_episodes',

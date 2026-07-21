@@ -3,7 +3,6 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Data\UpdateContentEpisodeData;
-use App\Domain\Content\Models\ContentAudioScriptMedia;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
@@ -15,6 +14,10 @@ use Illuminate\Support\Facades\DB;
 
 final class UpdateContentEpisodeAction
 {
+    public function __construct(
+        private readonly PromoteContentEpisodeOwnershipAction $promoteEpisodeOwnership,
+    ) {}
+
     /**
      * Even an empty legacy PATCH promotes imported ownership and must serialize with replacement imports.
      */
@@ -48,13 +51,7 @@ final class UpdateContentEpisodeAction
                 $episode->status = $data->status;
             }
 
-            $episode->source_system = ContentSourceSystem::LEARNING_OS;
-
-            ContentAudioScriptMedia::query()
-                ->whereHas('segments.script', function ($query) use ($episodeId): void {
-                    $query->where('episode_id', $episodeId);
-                })
-                ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
+            $this->promoteEpisodeOwnership->handle(DB::connection(), [$episode]);
 
             $courseIds = ContentEpisodeCourse::query()
                 ->where('episode_id', $episodeId)

@@ -115,7 +115,7 @@ class ContentCourseWriteApiTest extends TestCase
             'sort_order' => 1,
             'source_system' => ContentSourceSystem::LEARNING_OS,
         ]);
-        $this->assertSame(ContentSourceSystem::CONVOLAB, $imported->fresh()->source_system);
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $imported->fresh()->source_system);
     }
 
     public function test_inline_source_text_creates_the_episode_and_course_atomically_with_legacy_defaults(): void

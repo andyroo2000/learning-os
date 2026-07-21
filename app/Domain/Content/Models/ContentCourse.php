@@ -20,6 +20,7 @@ class ContentCourse extends Model
         return [
             'is_sample_content' => 'boolean',
             'is_test_course' => 'boolean',
+            'generation_revision' => 'integer',
             'script_json' => 'array',
             'script_units_json' => 'array',
             'timing_data' => 'array',

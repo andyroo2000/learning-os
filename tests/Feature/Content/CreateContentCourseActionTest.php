@@ -40,6 +40,7 @@ class CreateContentCourseActionTest extends TestCase
         $this->assertSame('Direct Course', $result->course->title);
         $this->assertSame('Direct description.', $result->course->description);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $result->course->source_system);
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $second->fresh()->source_system);
         $this->assertSame(
             [$second->id, $first->id],
             $result->course->courseEpisodes()->orderBy('sort_order')->pluck('episode_id')->all(),

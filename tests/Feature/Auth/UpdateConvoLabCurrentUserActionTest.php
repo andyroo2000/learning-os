@@ -207,6 +207,29 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $this->assertFalse($account->refresh()->onboarding_completed);
     }
 
+    public function test_dto_normalizes_laravel_accepted_boolean_representations(): void
+    {
+        $data = UpdateConvoLabProfileData::fromValidated([
+            'onboardingCompleted' => '1',
+            'seenSampleContentGuide' => 0,
+            'seenCustomContentGuide' => '0',
+        ]);
+
+        $this->assertSame([
+            'onboarding_completed' => true,
+            'seen_sample_content_guide' => false,
+            'seen_custom_content_guide' => false,
+        ], $data->attributes);
+    }
+
+    public function test_dto_rejects_invalid_boolean_values_from_direct_callers(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('onboardingCompleted must be a boolean.');
+
+        UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => 'yes']);
+    }
+
     public function test_unmappable_curated_course_links_are_logged_and_skipped(): void
     {
         Log::spy();

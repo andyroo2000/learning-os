@@ -23,13 +23,35 @@ final readonly class UpdateConvoLabProfileData
     public static function fromValidated(array $validated): self
     {
         $attributes = [];
+        $booleanFields = [
+            'onboardingCompleted',
+            'seenSampleContentGuide',
+            'seenCustomContentGuide',
+        ];
 
         foreach (self::FIELD_MAP as $input => $column) {
             if (array_key_exists($input, $validated)) {
-                $attributes[$column] = $validated[$input];
+                $value = $validated[$input];
+                if (in_array($input, $booleanFields, true)) {
+                    $value = self::normalizeBoolean($input, $value);
+                }
+
+                $attributes[$column] = $value;
             }
         }
 
         return new self($attributes);
+    }
+
+    private static function normalizeBoolean(string $field, mixed $value): bool
+    {
+        if (in_array($value, [true, 1, '1'], true)) {
+            return true;
+        }
+        if (in_array($value, [false, 0, '0'], true)) {
+            return false;
+        }
+
+        throw new \InvalidArgumentException($field.' must be a boolean.');
     }
 }

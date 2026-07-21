@@ -120,6 +120,27 @@ class ConvoLabProfileApiTest extends TestCase
             ->assertJsonPath('seenCustomContentGuide', true);
     }
 
+    public function test_laravel_accepted_boolean_completion_values_are_normalized(): void
+    {
+        foreach ([1, '1'] as $index => $value) {
+            $account = $this->projectedUser(['email' => 'boolean-'.$index.'@example.com']);
+
+            $this->withToken($this->proxyToken(['auth:write']))
+                ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+                ->patchJson('/api/convolab/auth/me', [
+                    'proficiencyLevel' => 'N5',
+                    'onboardingCompleted' => $value,
+                ])
+                ->assertOk()
+                ->assertJsonPath('onboardingCompleted', true);
+
+            $this->assertDatabaseHas('admin_user_projections', [
+                'convolab_id' => $account['convolab_id'],
+                'onboarding_completed' => true,
+            ]);
+        }
+    }
+
     public function test_profile_update_rejects_empty_and_malformed_payloads(): void
     {
         $account = $this->projectedUser();

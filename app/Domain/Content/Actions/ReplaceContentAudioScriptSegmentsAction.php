@@ -12,10 +12,11 @@ final class ReplaceContentAudioScriptSegmentsAction
 {
     /**
      * @param  list<array{text: string, reading: string|null, translation: string, imagePrompt: string|null}>  $segments
-     * @return list<string|null> Storage paths whose database rows were removed transactionally.
+     * @return array{mediaPaths: list<string|null>, renderPaths: list<string|null>}
      */
     public function handle(ContentAudioScript $script, array $segments): array
     {
+        $renderPaths = $script->renders()->pluck('audio_storage_path')->all();
         $replacedMediaIds = $script->segments()
             ->whereNotNull('image_media_id')
             ->pluck('image_media_id')
@@ -59,6 +60,9 @@ final class ReplaceContentAudioScriptSegmentsAction
         $script->image_error_message = null;
         $script->save();
 
-        return $orphanedMedia->pluck('storage_path')->all();
+        return [
+            'mediaPaths' => $orphanedMedia->pluck('storage_path')->all(),
+            'renderPaths' => $renderPaths,
+        ];
     }
 }

@@ -6,6 +6,7 @@ use App\Domain\Content\Exceptions\ContentAudioScriptConflictException;
 use App\Domain\Content\Models\ContentAudioScript;
 use App\Domain\Content\Services\ContentAudioScriptAnnotator;
 use App\Domain\Content\Services\ContentAudioScriptMediaCleaner;
+use App\Domain\Content\Services\ContentAudioScriptRenderCleaner;
 use App\Domain\Content\Support\ContentAudioScriptGeneration;
 use App\Domain\Content\Support\ContentEpisodeId;
 use App\Domain\Content\Support\ContentSourceLock;
@@ -22,6 +23,7 @@ final readonly class AnnotateContentAudioScriptAction
         private ReplaceContentAudioScriptSegmentsAction $replace,
         private ContentAudioScriptAnnotator $annotator,
         private ContentAudioScriptMediaCleaner $mediaCleaner,
+        private ContentAudioScriptRenderCleaner $renderCleaner,
     ) {}
 
     public function handle(int $userId, string $convoLabUserId, string $episodeId): ContentAudioScript
@@ -32,6 +34,9 @@ final readonly class AnnotateContentAudioScriptAction
         $claim = DB::transaction(function () use ($userId, $convoLabUserId, $episodeId): array {
             ContentSourceLock::acquireConvoLab(DB::connection());
             $script = $this->show->locked($userId, $convoLabUserId, $episodeId);
+            if ($script->hasGenerationInProgress()) {
+                throw new ContentAudioScriptConflictException('Script generation is already in progress.');
+            }
             if (ContentAudioScriptGeneration::isActive($script)) {
                 throw new ContentAudioScriptConflictException('Script annotation is already in progress.');
             }
@@ -53,7 +58,7 @@ final readonly class AnnotateContentAudioScriptAction
         try {
             $annotation = $this->annotator->annotate($claim['sourceText']);
 
-            $replacedMediaPaths = DB::transaction(function () use ($claim, $annotation): array {
+            $replacedPaths = DB::transaction(function () use ($claim, $annotation): array {
                 ContentSourceLock::acquireConvoLab(DB::connection());
                 $script = ContentAudioScript::query()
                     ->whereKey($claim['scriptId'])
@@ -65,7 +70,7 @@ final readonly class AnnotateContentAudioScriptAction
                     throw new ContentAudioScriptConflictException('Script annotation was superseded.');
                 }
 
-                $replacedMediaPaths = $this->replace->handle($script, $annotation['segments']);
+                $replacedPaths = $this->replace->handle($script, $annotation['segments']);
                 $script->status = 'annotated';
                 $script->generation_metadata = ['segmentCount' => count($annotation['segments'])];
                 $script->error_message = null;
@@ -75,9 +80,10 @@ final readonly class AnnotateContentAudioScriptAction
                 $script->episode->status = 'draft';
                 $script->episode->save();
 
-                return $replacedMediaPaths;
+                return $replacedPaths;
             });
-            $this->mediaCleaner->deleteFiles($replacedMediaPaths);
+            $this->mediaCleaner->deleteFiles($replacedPaths['mediaPaths']);
+            $this->renderCleaner->deleteFiles($episodeId, $replacedPaths['renderPaths']);
         } catch (Throwable $exception) {
             try {
                 $this->fail($claim['scriptId'], $claim['attempt'], $exception);

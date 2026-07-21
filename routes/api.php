@@ -46,10 +46,13 @@ use App\Http\Controllers\Api\Content\AnnotateContentAudioScriptController;
 use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
 use App\Http\Controllers\Api\Content\DownloadContentAudioScriptMediaController;
+use App\Http\Controllers\Api\Content\DownloadContentAudioScriptRenderController;
 use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
 use App\Http\Controllers\Api\Content\DownloadContentEpisodeAudioController;
 use App\Http\Controllers\Api\Content\GenerateAllSpeedsContentAudioController;
 use App\Http\Controllers\Api\Content\GenerateContentAudioController;
+use App\Http\Controllers\Api\Content\GenerateContentAudioScriptImagesController;
+use App\Http\Controllers\Api\Content\GenerateContentAudioScriptRenderController;
 use App\Http\Controllers\Api\Content\GenerateContentCourseController;
 use App\Http\Controllers\Api\Content\GenerateContentDialogueController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
@@ -58,6 +61,7 @@ use App\Http\Controllers\Api\Content\ResetContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\RetryContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\ShowContentAudioGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentAudioScriptController;
+use App\Http\Controllers\Api\Content\ShowContentAudioScriptGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController;
 use App\Http\Controllers\Api\Content\ShowContentDialogueGenerationJobController;
@@ -222,8 +226,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/convolab/scripts/{episodeId}/segments', UpdateContentAudioScriptSegmentsController::class)
         ->whereUuid('episodeId')
         ->middleware('throttle:'.ContentAudioScriptRateLimiter::UPDATE_NAME);
+    Route::post('/convolab/scripts/{episodeId}/render', GenerateContentAudioScriptRenderController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME);
+    Route::post('/convolab/scripts/{episodeId}/images', GenerateContentAudioScriptImagesController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME);
     Route::get('/convolab/scripts/{episodeId}/status', ShowContentAudioScriptController::class)
         ->whereUuid('episodeId');
+    Route::get('/convolab/scripts/job/{jobId}', ShowContentAudioScriptGenerationJobController::class)
+        ->whereUuid('jobId');
+    Route::get('/convolab/scripts/{episodeId}/audio/{renderId}', DownloadContentAudioScriptRenderController::class)
+        ->whereUuid('episodeId')
+        ->whereUuid('renderId')
+        ->middleware('throttle:'.ContentAudioScriptRateLimiter::MEDIA_READ_NAME);
     Route::get('/convolab/courses', ListContentCoursesController::class);
     Route::post('/convolab/courses', StoreContentCourseController::class)
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);

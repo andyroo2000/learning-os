@@ -9,6 +9,7 @@ final class ConvoLabContentTables
         'content_course_core_items',
         'content_episode_courses',
         'content_courses',
+        'content_audio_script_generation_jobs',
         'content_audio_script_renders',
         'content_audio_script_segments',
         'content_audio_script_media',

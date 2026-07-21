@@ -3,11 +3,12 @@
 namespace App\Domain\Study\Services;
 
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
+use App\Support\Images\ImageGenerator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class OpenAiStudyImageGenerator
+class OpenAiStudyImageGenerator implements ImageGenerator
 {
     public const TIMEOUT_SECONDS = 60;
 

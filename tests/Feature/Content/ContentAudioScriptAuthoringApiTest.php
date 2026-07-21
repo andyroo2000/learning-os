@@ -10,6 +10,7 @@ use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Services\ContentOpenAiClient;
 use App\Domain\Content\Support\ContentAudioScriptInput;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
+use App\Domain\Content\Support\ContentAudioScriptRenderAudio;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use App\Support\DateTime\ConvoLabTimestamp;
@@ -282,12 +283,19 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
 
     public function test_segment_update_uses_only_validated_fields_and_resets_generated_artifacts(): void
     {
+        Storage::fake('media');
+        config()->set('content_audio.disk', 'media');
         $user = User::factory()->create();
         [$episode, $script] = $this->script($user, [
             'script' => ['generation_metadata' => ['segmentCount' => 9]],
         ]);
         $oldSegment = $this->segment($script, ['image_status' => 'ready']);
-        $this->render($script);
+        $renderPath = ContentAudioScriptRenderAudio::storagePath($episode->id, 1, '0.85');
+        $this->render($script, [
+            'speed' => '0.85',
+            'audio_storage_path' => $renderPath,
+        ]);
+        Storage::disk('media')->put($renderPath, 'render');
         $this->authenticateWrite($user);
 
         $this->withoutMiddleware(TrimStrings::class)
@@ -316,6 +324,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $this->assertSame(ContentAudioScriptInput::MAX_TITLE_CHARACTERS, mb_strlen($episode->fresh()->title));
         $this->assertDatabaseMissing('content_audio_script_segments', ['id' => $oldSegment->id]);
         $this->assertDatabaseCount('content_audio_script_renders', 0);
+        Storage::disk('media')->assertMissing($renderPath);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->fresh()->source_system);
     }
 
@@ -483,9 +492,22 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
             'throttle:'.ContentAudioScriptRateLimiter::UPDATE_NAME,
             $routes->get('PATCH api/convolab/scripts/{episodeId}/segments')->gatherMiddleware(),
         );
+        foreach ([
+            'POST api/convolab/scripts/{episodeId}/render',
+            'POST api/convolab/scripts/{episodeId}/images',
+        ] as $route) {
+            $this->assertContains(
+                'throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME,
+                $routes->get($route)->gatherMiddleware(),
+            );
+        }
         $this->assertContains(
             'throttle:'.ContentAudioScriptRateLimiter::MEDIA_READ_NAME,
             $routes->get('GET|HEAD api/convolab/scripts/media/{mediaId}')->gatherMiddleware(),
+        );
+        $this->assertContains(
+            'throttle:'.ContentAudioScriptRateLimiter::MEDIA_READ_NAME,
+            $routes->get('GET|HEAD api/convolab/scripts/{episodeId}/audio/{renderId}')->gatherMiddleware(),
         );
 
         $request = Request::create('/api/convolab/scripts', 'POST', server: ['REMOTE_ADDR' => '203.0.113.4']);

@@ -299,6 +299,7 @@ class ConvoLabAuthApiTest extends TestCase
             'name' => $account['name'],
             'displayName' => $account['display_name'],
             'avatarColor' => $account['avatar_color'],
+            'avatarUrl' => $account['avatar_url'],
             'role' => $account['role'],
             'preferredStudyLanguage' => $account['preferred_study_language'],
             'preferredNativeLanguage' => $account['preferred_native_language'],

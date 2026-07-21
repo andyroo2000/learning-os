@@ -125,6 +125,7 @@ class ConvoLabSignupApiTest extends TestCase
                 'name' => 'Ada Lovelace',
                 'displayName' => null,
                 'avatarColor' => 'indigo',
+                'avatarUrl' => null,
                 'role' => 'user',
                 'preferredStudyLanguage' => 'ja',
                 'preferredNativeLanguage' => 'en',

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
@@ -92,6 +93,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(AuthEmailRateLimiter::CONVOLAB_LOGINS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->convoLabLogins($request);
         });
+        RateLimiter::for(AuthEmailRateLimiter::CONVOLAB_SIGNUPS, function (Request $request) use ($authEmailRateLimiter): Limit {
+            return $authEmailRateLimiter->convoLabSignups($request);
+        });
         RateLimiter::for(AuthEmailRateLimiter::MOBILE_REGISTRATIONS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->mobileRegistrations($request);
         });
@@ -100,6 +104,15 @@ class AppServiceProvider extends ServiceProvider
         });
         RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->passwordResetTokens($request);
+        });
+
+        $convoLabVerificationSendRateLimiter = ConvoLabVerificationRateLimiter::forSend();
+        RateLimiter::for(ConvoLabVerificationRateLimiter::SEND, function (Request $request) use ($convoLabVerificationSendRateLimiter): Limit {
+            return $convoLabVerificationSendRateLimiter->limit($request);
+        });
+        $convoLabVerificationVerifyRateLimiter = ConvoLabVerificationRateLimiter::forVerify();
+        RateLimiter::for(ConvoLabVerificationRateLimiter::VERIFY, function (Request $request) use ($convoLabVerificationVerifyRateLimiter): Limit {
+            return $convoLabVerificationVerifyRateLimiter->limit($request);
         });
 
         $accountProfileUpdateRateLimiter = AuthAccountRateLimiter::forProfileUpdate();

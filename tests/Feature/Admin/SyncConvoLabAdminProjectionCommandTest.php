@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Domain\Auth\Actions\RegisterConvoLabUserAction;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -193,6 +194,84 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'code' => 'SECOND12',
         ]);
         $this->assertDatabaseMissing('admin_invite_codes', ['id' => $staleInviteId]);
+    }
+
+    public function test_sync_preserves_learning_os_owned_accounts_and_invites(): void
+    {
+        $ownedInviteId = (string) Str::uuid();
+        DB::table('admin_invite_codes')->insert([
+            'id' => $ownedInviteId,
+            'code' => 'TARGET01',
+            'used_by' => null,
+            'convolab_used_by' => null,
+            'used_at' => null,
+            'created_at' => '2026-07-21 10:00:00.123',
+            'source_system' => 'convolab',
+        ]);
+        $owned = app(RegisterConvoLabUserAction::class)->handle(
+            'target@example.com',
+            'target password',
+            'Target User',
+            'TARGET01',
+        )->account;
+        $originalHash = User::query()->findOrFail($owned->user_id)->getAttribute('convolab_password_hash');
+
+        $targetOnlyInviteId = (string) Str::uuid();
+        DB::table('admin_invite_codes')->insert([
+            'id' => $targetOnlyInviteId,
+            'code' => 'TARGET02',
+            'used_by' => null,
+            'convolab_used_by' => null,
+            'used_at' => null,
+            'created_at' => '2026-07-21 10:00:00.123',
+            'source_system' => 'convolab',
+        ]);
+        $targetOnly = app(RegisterConvoLabUserAction::class)->handle(
+            'only-target@example.com',
+            'target password',
+            'Only Target',
+            'TARGET02',
+        )->account;
+
+        $this->insertSourceUser($owned->convolab_id, [
+            'email' => 'stale-source@example.com',
+            'password' => '$2b$10$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
+            'name' => 'Stale Source',
+        ]);
+        $this->insertSourceInvite(
+            $ownedInviteId,
+            'STALE001',
+            $owned->convolab_id,
+            '2026-07-21 11:00:00.123',
+        );
+
+        $this->runSync()
+            ->expectsOutput('Synchronized 1 users and 1 invite codes.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $owned->convolab_id,
+            'email' => 'target@example.com',
+            'name' => 'Target User',
+            'source_system' => 'learning_os',
+        ]);
+        $this->assertSame(
+            $originalHash,
+            User::query()->findOrFail($owned->user_id)->getAttribute('convolab_password_hash'),
+        );
+        $this->assertDatabaseHas('admin_invite_codes', [
+            'id' => $ownedInviteId,
+            'code' => 'TARGET01',
+            'source_system' => 'learning_os',
+        ]);
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $targetOnly->convolab_id,
+            'source_system' => 'learning_os',
+        ]);
+        $this->assertDatabaseHas('admin_invite_codes', [
+            'id' => $targetOnlyInviteId,
+            'source_system' => 'learning_os',
+        ]);
     }
 
     public function test_syncs_users_and_invites_across_multiple_id_cursor_chunks(): void

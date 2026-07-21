@@ -31,18 +31,21 @@ class AuthEmailRateLimiterTest extends TestCase
 
         $mobileTokens = $limiter->mobileTokens($request);
         $convoLabLogins = $limiter->convoLabLogins($request);
+        $convoLabSignups = $limiter->convoLabSignups($request);
         $mobileRegistrations = $limiter->mobileRegistrations($request);
         $passwordResetLinks = $limiter->passwordResetLinks($request);
         $passwordResetTokens = $limiter->passwordResetTokens($request);
 
         $this->assertSame(6, $mobileTokens->maxAttempts);
         $this->assertSame(6, $convoLabLogins->maxAttempts);
+        $this->assertSame(6, $convoLabSignups->maxAttempts);
         $this->assertSame(6, $mobileRegistrations->maxAttempts);
         $this->assertSame(6, $passwordResetLinks->maxAttempts);
         $this->assertSame(12, $passwordResetTokens->maxAttempts);
 
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileTokens->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $convoLabLogins->key);
+        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $convoLabSignups->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileRegistrations->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetLinks->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetTokens->key);

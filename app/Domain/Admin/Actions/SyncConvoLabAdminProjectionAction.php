@@ -3,6 +3,7 @@
 namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Results\AdminProjectionSyncResult;
+use App\Domain\Auth\Support\ConvoLabAccountSource;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -40,6 +41,7 @@ class SyncConvoLabAdminProjectionAction
         [$users, $sourceUserIds] = $this->syncUsers($source, $target);
         $inviteCodes = $this->syncInviteCodes($source, $target);
         $target->table('admin_user_projections')
+            ->where('source_system', ConvoLabAccountSource::CONVOLAB)
             ->when($sourceUserIds !== [], fn ($query) => $query->whereNotIn('convolab_id', $sourceUserIds))
             ->delete();
 
@@ -56,7 +58,9 @@ class SyncConvoLabAdminProjectionAction
         if (
             ! $allowEmptySource
             && ! $source->table($sourceTable)->exists()
-            && $target->table($targetTable)->exists()
+            && $target->table($targetTable)
+                ->where('source_system', ConvoLabAccountSource::CONVOLAB)
+                ->exists()
         ) {
             throw new RuntimeException(
                 "The Convo Lab source table [{$sourceTable}] is empty while [{$targetTable}] is not. "
@@ -97,6 +101,15 @@ class SyncConvoLabAdminProjectionAction
 
                     $seenIds[$convoLabId] = true;
                     $seenEmails[$email] = true;
+                    $existingProjection = $target->table('admin_user_projections')
+                        ->where('convolab_id', $convoLabId)
+                        ->first();
+                    if ($existingProjection?->source_system === ConvoLabAccountSource::LEARNING_OS) {
+                        $sourceUserIds[] = $convoLabId;
+                        $count++;
+
+                        continue;
+                    }
                     $targetById = $target->table('users')->where('convolab_id', $convoLabId)->first();
                     $targetEmailMatches = $target->table('users')
                         ->whereRaw('LOWER(email) = ?', [$email])
@@ -158,6 +171,7 @@ class SyncConvoLabAdminProjectionAction
                         'email_verified_at' => $sourceUser->emailVerifiedAt,
                         'created_at' => $sourceUser->createdAt,
                         'updated_at' => $sourceUser->updatedAt,
+                        'source_system' => ConvoLabAccountSource::CONVOLAB,
                     ];
 
                     $passwordHash = $this->nullableString($sourceUser, 'password', 255);
@@ -225,6 +239,14 @@ class SyncConvoLabAdminProjectionAction
                         throw new RuntimeException("Convo Lab invite code [{$id}] has an invalid code value.");
                     }
 
+                    $existingInvite = $target->table('admin_invite_codes')->where('id', $id)->first();
+                    if ($existingInvite?->source_system === ConvoLabAccountSource::LEARNING_OS) {
+                        $sourceIds[] = $id;
+                        $count++;
+
+                        continue;
+                    }
+
                     $usedBy = $convoLabUsedBy === null
                         ? null
                         : $target->table('users')->where('convolab_id', $convoLabUsedBy)->value('id');
@@ -240,6 +262,7 @@ class SyncConvoLabAdminProjectionAction
                             'convolab_used_by' => $convoLabUsedBy,
                             'used_at' => $inviteCode->usedAt,
                             'created_at' => $inviteCode->createdAt,
+                            'source_system' => ConvoLabAccountSource::CONVOLAB,
                         ],
                     );
                     $sourceIds[] = $id;
@@ -248,6 +271,7 @@ class SyncConvoLabAdminProjectionAction
             }, 'id');
 
         $target->table('admin_invite_codes')
+            ->where('source_system', ConvoLabAccountSource::CONVOLAB)
             ->when($sourceIds !== [], fn ($query) => $query->whereNotIn('id', $sourceIds))
             ->delete();
 

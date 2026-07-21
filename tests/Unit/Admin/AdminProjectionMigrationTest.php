@@ -22,6 +22,47 @@ class AdminProjectionMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_170000_add_convolab_admin_projection.php',
         );
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_190000_add_convolab_account_ownership.php',
+        );
+    }
+
+    #[DataProvider('grammarProvider')]
+    public function test_account_ownership_schema_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+
+        $upSql = implode("\n", [
+            ...$this->addProjectionSourceSystemBlueprint($connection)->toSql(),
+            ...$this->addInviteSourceSystemBlueprint($connection)->toSql(),
+            ...$this->verificationTokenBlueprint($connection)->toSql(),
+        ]);
+        $downSql = implode("\n", [
+            ...$this->dropTableBlueprint($connection, 'convolab_email_verification_tokens')->toSql(),
+            ...$this->dropInviteSourceSystemBlueprint($connection)->toSql(),
+            ...$this->dropProjectionSourceSystemBlueprint($connection)->toSql(),
+        ]);
+
+        foreach ([
+            'source_system',
+            'admin_users_source_system_idx',
+            'admin_invites_source_system_idx',
+            'convolab_email_verification_tokens',
+            'user_id',
+            'token_hash',
+            'expires_at',
+            'convolab_verification_tokens_user_idx',
+        ] as $fragment) {
+            $this->assertStringContainsString($fragment, $upSql);
+        }
+
+        $this->assertStringContainsString('convolab_email_verification_tokens', $downSql);
+        $this->assertStringContainsString('admin_invites_source_system_idx', $downSql);
+        $this->assertStringContainsString('admin_users_source_system_idx', $downSql);
+        $this->assertStringContainsString('source_system', $downSql);
     }
 
     #[DataProvider('grammarProvider')]
@@ -83,6 +124,11 @@ class AdminProjectionMigrationTest extends TestCase
             'admin_invite_codes_used_by_foreign',
             'admin_invites_created_id_idx',
             'admin_invites_convolab_user_idx',
+            'admin_users_source_system_idx',
+            'admin_invites_source_system_idx',
+            'convolab_email_verification_tokens_token_hash_unique',
+            'convolab_email_verification_tokens_user_id_foreign',
+            'convolab_verification_tokens_user_idx',
         ] as $name) {
             $this->assertLessThanOrEqual(63, strlen($name), "Database identifier [{$name}] is too long.");
         }
@@ -148,6 +194,52 @@ class AdminProjectionMigrationTest extends TestCase
             $table->timestampTz('created_at', 3);
             $table->index(['created_at', 'id'], 'admin_invites_created_id_idx');
             $table->index('convolab_used_by', 'admin_invites_convolab_user_idx');
+        });
+    }
+
+    private function addProjectionSourceSystemBlueprint(Connection $connection): Blueprint
+    {
+        // Keep this compile-only fixture aligned with the account-ownership migration.
+        return new Blueprint($connection, 'admin_user_projections', function (Blueprint $table): void {
+            $table->string('source_system', 32)->default('convolab');
+            $table->index('source_system', 'admin_users_source_system_idx');
+        });
+    }
+
+    private function addInviteSourceSystemBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'admin_invite_codes', function (Blueprint $table): void {
+            $table->string('source_system', 32)->default('convolab');
+            $table->index('source_system', 'admin_invites_source_system_idx');
+        });
+    }
+
+    private function verificationTokenBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'convolab_email_verification_tokens', function (Blueprint $table): void {
+            $table->create();
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->char('token_hash', 64)->unique();
+            $table->timestampTz('expires_at');
+            $table->timestampsTz();
+            $table->index('user_id', 'convolab_verification_tokens_user_idx');
+        });
+    }
+
+    private function dropInviteSourceSystemBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'admin_invite_codes', function (Blueprint $table): void {
+            $table->dropIndex('admin_invites_source_system_idx');
+            $table->dropColumn('source_system');
+        });
+    }
+
+    private function dropProjectionSourceSystemBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'admin_user_projections', function (Blueprint $table): void {
+            $table->dropIndex('admin_users_source_system_idx');
+            $table->dropColumn('source_system');
         });
     }
 

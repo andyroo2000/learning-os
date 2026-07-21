@@ -42,6 +42,11 @@ final class VerifyConvoLabEmailAction
 
                 return null;
             }
+            if ($record->consumed_at !== null) {
+                return $account->email_verified && $user->email_verified_at !== null
+                    ? $account
+                    : null;
+            }
 
             $verifiedAt = now();
             $account->email_verified = true;
@@ -51,7 +56,8 @@ final class VerifyConvoLabEmailAction
             $account->save();
             $user->email_verified_at = $verifiedAt;
             $user->save();
-            ConvoLabEmailVerificationToken::query()->where('user_id', $user->getKey())->delete();
+            $record->consumed_at = $verifiedAt;
+            $record->save();
 
             return $account->refresh();
         });

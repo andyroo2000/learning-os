@@ -25,6 +25,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->char('token_hash', 64)->unique();
             $table->timestampTz('expires_at');
+            $table->timestampTz('consumed_at')->nullable();
             $table->timestampsTz();
             $table->index('user_id', 'convolab_verification_tokens_user_idx');
         });

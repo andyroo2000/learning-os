@@ -33,7 +33,7 @@ final class RegisterConvoLabUserRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'string', 'max:1024', Password::min(8)],
+            'password' => ['required', 'string', 'max:1024', Password::defaults()],
             'name' => ['required', 'string', 'max:255'],
             'inviteCode' => ['required', 'string', 'max:20'],
         ];

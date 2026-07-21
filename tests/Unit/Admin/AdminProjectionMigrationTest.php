@@ -54,6 +54,7 @@ class AdminProjectionMigrationTest extends TestCase
             'user_id',
             'token_hash',
             'expires_at',
+            'consumed_at',
             'convolab_verification_tokens_user_idx',
         ] as $fragment) {
             $this->assertStringContainsString($fragment, $upSql);
@@ -222,6 +223,7 @@ class AdminProjectionMigrationTest extends TestCase
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->char('token_hash', 64)->unique();
             $table->timestampTz('expires_at');
+            $table->timestampTz('consumed_at')->nullable();
             $table->timestampsTz();
             $table->index('user_id', 'convolab_verification_tokens_user_idx');
         });

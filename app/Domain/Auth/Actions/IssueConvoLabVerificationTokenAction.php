@@ -21,9 +21,12 @@ final class IssueConvoLabVerificationTokenAction
                 ->where('user_id', $userId)
                 ->lockForUpdate()
                 ->first();
-            if (! $account instanceof AdminUserProjection || $account->email_verified) {
+            if (! $account instanceof AdminUserProjection) {
                 ConvoLabEmailVerificationToken::query()->whereKey($existingTokens->modelKeys())->delete();
 
+                return null;
+            }
+            if ($account->email_verified) {
                 return null;
             }
 

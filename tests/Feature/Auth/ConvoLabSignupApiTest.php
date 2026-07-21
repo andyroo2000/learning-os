@@ -43,6 +43,7 @@ class ConvoLabSignupApiTest extends TestCase
             'user_id',
             'token_hash',
             'expires_at',
+            'consumed_at',
         ]));
 
         $projectionIndexes = collect(Schema::getIndexes('admin_user_projections'));
@@ -290,12 +291,18 @@ class ConvoLabSignupApiTest extends TestCase
             'role' => 'admin',
         ]);
         $this->assertNotNull(User::query()->findOrFail($account->user_id)->email_verified_at);
-        $this->assertDatabaseCount('convolab_email_verification_tokens', 0);
+        $this->assertDatabaseHas('convolab_email_verification_tokens', [
+            'user_id' => $account->user_id,
+        ]);
+        $this->assertNotNull(DB::table('convolab_email_verification_tokens')->sole()->consumed_at);
 
         $this->withToken($this->proxyToken(['auth:verification']))
             ->getJson('/api/convolab/auth/verification/'.$token)
-            ->assertStatus(400)
-            ->assertExactJson(['message' => 'Invalid or expired verification token']);
+            ->assertOk()
+            ->assertExactJson([
+                'message' => 'Email verified successfully',
+                'email' => 'ada@example.com',
+            ]);
 
         $this->invite('EXPIRED1');
         $unverified = app(RegisterConvoLabUserAction::class)->handle(
@@ -306,12 +313,17 @@ class ConvoLabSignupApiTest extends TestCase
         )->account;
         $expired = app(IssueConvoLabVerificationTokenAction::class)->handle((int) $unverified->user_id);
         $this->assertIsString($expired);
-        DB::table('convolab_email_verification_tokens')->update(['expires_at' => now()->subSecond()]);
+        $expiredHash = hash('sha256', $expired);
+        DB::table('convolab_email_verification_tokens')
+            ->where('token_hash', $expiredHash)
+            ->update(['expires_at' => now()->subSecond()]);
         try {
             app(VerifyConvoLabEmailAction::class)->handle($expired);
             $this->fail('Expected an expired verification token to be rejected.');
         } catch (InvalidConvoLabVerificationTokenException) {
-            $this->assertDatabaseCount('convolab_email_verification_tokens', 0);
+            $this->assertDatabaseMissing('convolab_email_verification_tokens', [
+                'token_hash' => $expiredHash,
+            ]);
         }
     }
 
@@ -332,7 +344,7 @@ class ConvoLabSignupApiTest extends TestCase
         (new SendConvoLabVerificationEmail((int) $account->user_id))
             ->handle(app(IssueConvoLabVerificationTokenAction::class));
 
-        $this->assertDatabaseCount('convolab_email_verification_tokens', 0);
+        $this->assertDatabaseCount('convolab_email_verification_tokens', 1);
         Mail::assertNothingSent();
     }
 

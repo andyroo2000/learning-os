@@ -3,6 +3,7 @@
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
+use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
@@ -43,12 +44,14 @@ use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
 use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
 use App\Http\Controllers\Api\Content\GenerateContentCourseController;
+use App\Http\Controllers\Api\Content\GenerateContentDialogueController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ResetContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\RetryContentCourseGenerationController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController;
+use App\Http\Controllers\Api\Content\ShowContentDialogueGenerationJobController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
 use App\Http\Controllers\Api\Content\StoreContentCourseController;
 use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
@@ -183,6 +186,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/convolab/episodes/{episodeId}', DeleteContentEpisodeController::class)
         ->whereUuid('episodeId')
         ->middleware('throttle:'.ContentEpisodeRateLimiter::DELETE_NAME);
+    Route::post('/convolab/dialogue/generate', GenerateContentDialogueController::class)
+        ->middleware('throttle:'.ContentDialogueRateLimiter::GENERATION_NAME);
+    Route::get('/convolab/dialogue/job/{jobId}', ShowContentDialogueGenerationJobController::class)
+        ->whereUuid('jobId');
     Route::get('/convolab/courses', ListContentCoursesController::class);
     Route::post('/convolab/courses', StoreContentCourseController::class)
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);

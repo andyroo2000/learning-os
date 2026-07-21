@@ -205,6 +205,30 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertSame([['type' => 'pause', 'seconds' => 1]], $stuck->script_units_json);
     }
 
+    #[DataProvider('nonGeneratingStatusProvider')]
+    public function test_reset_rejects_courses_not_in_generating_status(string $status): void
+    {
+        $user = User::factory()->create();
+        $course = $this->course($user, ['status' => $status]);
+        $this->authenticateWrite($user);
+
+        $this->postJson("/api/convolab/courses/{$course->id}/reset")
+            ->assertBadRequest()
+            ->assertExactJson(['message' => 'Course is not in generating status']);
+
+        $this->assertSame($status, $course->fresh()->status);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function nonGeneratingStatusProvider(): array
+    {
+        return [
+            'draft' => ['draft'],
+            'ready' => ['ready'],
+            'error' => ['error'],
+        ];
+    }
+
     public function test_retry_resumes_audio_when_a_valid_script_reached_the_audio_stage(): void
     {
         Queue::fake();

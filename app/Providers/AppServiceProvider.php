@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
@@ -129,6 +130,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             ContentDialogueRateLimiter::GENERATION_NAME,
             fn (Request $request): Limit => ContentDialogueRateLimiter::generation($request),
+        );
+        RateLimiter::for(
+            ContentAudioRateLimiter::GENERATION_NAME,
+            fn (Request $request): Limit => ContentAudioRateLimiter::generation($request),
         );
 
         $courseCreateRateLimiter = CourseRateLimiter::create();

@@ -20,6 +20,7 @@ class ContentEpisode extends Model
     {
         return [
             'auto_generate_audio' => 'boolean',
+            'dialogue_generation_attempt' => 'integer',
             'is_sample_content' => 'boolean',
         ];
     }
@@ -32,6 +33,11 @@ class ContentEpisode extends Model
     public function dialogue(): HasOne
     {
         return $this->hasOne(ContentDialogue::class, 'episode_id');
+    }
+
+    public function dialogueGenerationJobs(): HasMany
+    {
+        return $this->hasMany(ContentDialogueGenerationJob::class, 'episode_id');
     }
 
     public function audioScript(): HasOne

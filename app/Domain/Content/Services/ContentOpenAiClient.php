@@ -11,21 +11,21 @@ class ContentOpenAiClient
 {
     public const TIMEOUT_SECONDS = 90;
 
-    public function generateText(string $systemInstruction, string $prompt): string
+    public function generateText(string $systemInstruction, string $prompt, string $contentLabel = 'Course'): string
     {
-        return $this->generate($systemInstruction, $prompt, 'text');
+        return $this->generate($systemInstruction, $prompt, 'text', $contentLabel);
     }
 
-    public function generateJson(string $systemInstruction, string $prompt): string
+    public function generateJson(string $systemInstruction, string $prompt, string $contentLabel = 'Course'): string
     {
-        return $this->generate($systemInstruction, $prompt, 'json_object');
+        return $this->generate($systemInstruction, $prompt, 'json_object', $contentLabel);
     }
 
-    private function generate(string $systemInstruction, string $prompt, string $format): string
+    private function generate(string $systemInstruction, string $prompt, string $format, string $contentLabel): string
     {
         $apiKey = trim((string) config('services.openai.api_key'));
         if ($apiKey === '') {
-            throw new RuntimeException('OPENAI_API_KEY is required for Course generation.');
+            throw new RuntimeException("OPENAI_API_KEY is required for {$contentLabel} generation.");
         }
 
         try {
@@ -52,11 +52,11 @@ class ContentOpenAiClient
                     'text' => ['format' => ['type' => $format]],
                 ]);
         } catch (ConnectionException $exception) {
-            throw new RuntimeException('OpenAI failed to generate Course content.', 0, $exception);
+            throw new RuntimeException("OpenAI failed to generate {$contentLabel} content.", 0, $exception);
         }
 
         if (! $response->successful()) {
-            throw $this->serviceException($response);
+            throw $this->serviceException($response, $contentLabel);
         }
 
         $text = $response->json('output_text');
@@ -80,10 +80,10 @@ class ContentOpenAiClient
             }
         }
 
-        throw new RuntimeException('OpenAI returned no Course content.');
+        throw new RuntimeException("OpenAI returned no {$contentLabel} content.");
     }
 
-    private function serviceException(Response $response): RuntimeException
+    private function serviceException(Response $response, string $contentLabel): RuntimeException
     {
         $message = strtolower((string) $response->json('error.message'));
 
@@ -91,9 +91,9 @@ class ContentOpenAiClient
             return new RuntimeException('AI generation provider rejected the configured credentials.');
         }
         if ($response->status() === 429) {
-            return new RuntimeException('OpenAI is rate limiting Course generation.');
+            return new RuntimeException("OpenAI is rate limiting {$contentLabel} generation.");
         }
 
-        return new RuntimeException('OpenAI failed to generate Course content.');
+        return new RuntimeException("OpenAI failed to generate {$contentLabel} content.");
     }
 }

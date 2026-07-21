@@ -159,6 +159,68 @@ class AssembleContentCourseAudioActionTest extends TestCase
         );
     }
 
+    public function test_a_stale_generation_attempt_returns_before_audio_assembly(): void
+    {
+        $user = User::factory()->create();
+        $course = $this->course($user);
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+        ])->save();
+        $revision = (int) $course->generation_revision;
+        $this->mock(AudioTrackAssembler::class)->shouldNotReceive('assemble');
+
+        $assembled = app(AssembleContentCourseAudioAction::class)->handle(
+            $user->id,
+            $this->convoLabUserId,
+            $course->id,
+            3,
+        );
+
+        $this->assertNull($assembled);
+        $this->assertSame($revision, $course->fresh()->generation_revision);
+        $this->assertNull($course->fresh()->audio_storage_path);
+    }
+
+    public function test_reset_during_assembly_rejects_and_removes_the_stale_audio(): void
+    {
+        $user = User::factory()->create();
+        $course = $this->course($user);
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+        ])->save();
+        $this->expectAssembly(function (array $units, string $disk, string $path) use ($course): AudioTrackAssemblyResult {
+            Storage::disk($disk)->put($path, 'stale-audio');
+            DB::table('content_courses')->where('id', $course->id)->update([
+                'status' => 'draft',
+                'generation_attempt' => 5,
+            ]);
+
+            return $this->assemblyResult($path);
+        });
+
+        try {
+            app(AssembleContentCourseAudioAction::class)->handle(
+                $user->id,
+                $this->convoLabUserId,
+                $course->id,
+                4,
+            );
+            $this->fail('Expected the reset Course audio result to be rejected.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Course changed while its audio was being assembled.', $exception->getMessage());
+        }
+
+        $course->refresh();
+        $this->assertSame('draft', $course->status);
+        $this->assertSame(5, $course->generation_attempt);
+        $this->assertNull($course->audio_storage_path);
+        Storage::disk('course-audio-test')->assertMissing(
+            ContentCourseAudio::storagePath($course->id, 2),
+        );
+    }
+
     public function test_invalid_or_missing_courses_never_start_audio_assembly(): void
     {
         $user = User::factory()->create();

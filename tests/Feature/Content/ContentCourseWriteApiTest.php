@@ -368,7 +368,7 @@ class ContentCourseWriteApiTest extends TestCase
         $request = Request::create('/api/convolab/courses', 'POST');
         $request->headers->set('X-Convo-Lab-User-Id', strtoupper($sourceUserId));
 
-        $limiter = ContentCourseRateLimiter::create();
+        $limiter = ContentCourseRateLimiter::forCreate();
         $limit = $limiter->limit($request);
 
         $this->assertSame(30, $limit->maxAttempts);

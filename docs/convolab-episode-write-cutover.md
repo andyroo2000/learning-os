@@ -29,8 +29,11 @@ true:
      revision-scoped Learning OS storage. Publication rejects stale results, preserves the
      previously published track on failure, and serves current audio through an authenticated,
      owner-scoped route.
-   - **Remaining:** add the queued Course status/reset/retry lifecycle before proxying Course
-     generation or activating Episode writes.
+   - **Complete:** Course generation has a durable queued lifecycle with persisted progress,
+     bounded retries, stale-job detection, reset/retry routes, and generation-attempt guards
+     that prevent an invalidated worker from publishing script or audio results.
+   - **Remaining:** proxy the Course generation lifecycle from Convo Lab and complete the
+     production write smoke rehearsal before activating Episode or Course writes.
 3. The Convo Lab proxy preserves `blockDemoUser` behavior for create and delete.
 4. Production smoke coverage creates, updates, reads, and deletes a disposable Episode
    through Convo Lab before the deployment is accepted.

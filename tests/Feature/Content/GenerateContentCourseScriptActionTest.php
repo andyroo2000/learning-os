@@ -127,6 +127,94 @@ class GenerateContentCourseScriptActionTest extends TestCase
         $this->assertDatabaseCount('content_course_core_items', 0);
     }
 
+    public function test_a_stale_generation_attempt_returns_before_calling_the_provider(): void
+    {
+        [$user, $sourceUserId, $course] = $this->course();
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+        ])->save();
+        $revision = (int) $course->generation_revision;
+        Http::fake();
+
+        $generated = app(GenerateContentCourseScriptAction::class)->handle(
+            $user->id,
+            $sourceUserId,
+            $course->id,
+            3,
+        );
+
+        $this->assertNull($generated);
+        $this->assertSame($revision, $course->fresh()->generation_revision);
+        $this->assertNull($course->fresh()->script_json);
+        $this->assertDatabaseCount('content_course_core_items', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_script_persistence_atomically_advances_an_active_attempt_to_audio(): void
+    {
+        [$user, $sourceUserId, $course] = $this->course();
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+            'generation_stage' => 'script',
+            'generation_progress' => 5,
+        ])->save();
+        Http::fake(['openai.test/v1/responses' => Http::response([
+            'output_text' => json_encode($this->providerPayload(), JSON_THROW_ON_ERROR),
+        ])]);
+
+        $generated = app(GenerateContentCourseScriptAction::class)->handle(
+            $user->id,
+            $sourceUserId,
+            $course->id,
+            4,
+        );
+
+        $this->assertNotNull($generated);
+        $this->assertSame('audio', $generated->generation_stage);
+        $this->assertSame(60, $generated->generation_progress);
+        $this->assertNotNull($generated->generation_heartbeat_at);
+        $this->assertNotNull($generated->script_json);
+    }
+
+    public function test_reset_during_provider_work_rejects_the_stale_script_result(): void
+    {
+        [$user, $sourceUserId, $course] = $this->course();
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+        ])->save();
+        Http::fake(function () use ($course) {
+            DB::table('content_courses')->where('id', $course->id)->update([
+                'status' => 'draft',
+                'generation_attempt' => 5,
+            ]);
+
+            return Http::response([
+                'output_text' => json_encode($this->providerPayload(), JSON_THROW_ON_ERROR),
+            ]);
+        });
+
+        try {
+            app(GenerateContentCourseScriptAction::class)->handle(
+                $user->id,
+                $sourceUserId,
+                $course->id,
+                4,
+            );
+            $this->fail('Expected the reset Course generation result to be rejected.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Course changed while its script was being generated.', $exception->getMessage());
+        }
+
+        $course->refresh();
+        $this->assertSame('draft', $course->status);
+        $this->assertSame(5, $course->generation_attempt);
+        $this->assertNull($course->script_json);
+        $this->assertDatabaseCount('content_course_core_items', 0);
+    }
+
     public function test_missing_and_cross_owner_courses_are_hidden_without_provider_calls(): void
     {
         [$user, $sourceUserId, $course] = $this->course();

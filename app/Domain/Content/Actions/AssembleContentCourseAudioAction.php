@@ -16,16 +16,23 @@ use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
-final readonly class AssembleContentCourseAudioAction
+class AssembleContentCourseAudioAction
 {
-    public function __construct(private ContentCourseAudioAssembler $assembler) {}
+    public function __construct(private readonly ContentCourseAudioAssembler $assembler) {}
 
     /** Caller-owned transactions must commit before this storage-writing action runs. */
-    public function handle(int $userId, string $convoLabUserId, string $courseId): ?ContentCourse
-    {
+    public function handle(
+        int $userId,
+        string $convoLabUserId,
+        string $courseId,
+        ?int $expectedAttempt = null,
+    ): ?ContentCourse {
         $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
         $courseId = ContentCourseId::normalize($courseId);
-        $prepared = DB::transaction(function () use ($userId, $convoLabUserId, $courseId): ?array {
+        if ($expectedAttempt !== null && $expectedAttempt < 1) {
+            throw new InvalidArgumentException('Course generation attempt must be positive.');
+        }
+        $prepared = DB::transaction(function () use ($userId, $convoLabUserId, $courseId, $expectedAttempt): ?array {
             ContentSourceLock::acquireConvoLab(DB::connection());
             $course = ContentCourse::query()
                 ->whereKey($courseId)
@@ -34,6 +41,10 @@ final readonly class AssembleContentCourseAudioAction
                 ->lockForUpdate()
                 ->first();
             if ($course === null) {
+                return null;
+            }
+            if ($expectedAttempt !== null && ($course->status !== 'generating'
+                || (int) $course->generation_attempt !== $expectedAttempt)) {
                 return null;
             }
 
@@ -68,6 +79,7 @@ final readonly class AssembleContentCourseAudioAction
                 $userId,
                 $convoLabUserId,
                 $courseId,
+                $expectedAttempt,
                 $prepared,
                 $assembled,
             ): ContentCourse {
@@ -78,7 +90,10 @@ final readonly class AssembleContentCourseAudioAction
                     ->where('convolab_user_id', $convoLabUserId)
                     ->lockForUpdate()
                     ->first();
-                if ($course === null || (int) $course->generation_revision !== $prepared['revision']) {
+                if ($course === null
+                    || (int) $course->generation_revision !== $prepared['revision']
+                    || ($expectedAttempt !== null && ($course->status !== 'generating'
+                        || (int) $course->generation_attempt !== $expectedAttempt))) {
                     throw new RuntimeException('Course changed while its audio was being assembled.');
                 }
 

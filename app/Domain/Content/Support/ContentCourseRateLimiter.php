@@ -10,11 +10,28 @@ final readonly class ContentCourseRateLimiter
 {
     public const CREATE_NAME = 'content-course-create';
 
-    private function __construct(private int $perMinute) {}
+    public const GENERATION_NAME = 'content-course-generation';
 
-    public static function create(): self
+    public const RESET_NAME = 'content-course-generation-reset';
+
+    private function __construct(
+        private int $perMinute,
+        private string $operation,
+    ) {}
+
+    public static function forCreate(): self
     {
-        return new self(30);
+        return new self(30, self::CREATE_NAME);
+    }
+
+    public static function forGeneration(): self
+    {
+        return new self(10, self::GENERATION_NAME);
+    }
+
+    public static function forReset(): self
+    {
+        return new self(10, self::RESET_NAME);
     }
 
     public function limit(Request $request): Limit
@@ -22,7 +39,7 @@ final readonly class ContentCourseRateLimiter
         $convoLabUserId = ConvoLabUserId::normalizeOrNull($request->header('X-Convo-Lab-User-Id'));
 
         return Limit::perMinute($this->perMinute)->by(RateLimitKey::scopedUserOrNetwork(
-            self::CREATE_NAME,
+            $this->operation,
             $convoLabUserId ?? $request->user()?->getAuthIdentifier(),
             $request->ip(),
         ));

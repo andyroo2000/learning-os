@@ -13,21 +13,29 @@ use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Content\Support\ConvoLabUserId;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
-final class GenerateContentCourseScriptAction
+class GenerateContentCourseScriptAction
 {
     public function __construct(
         private readonly PromoteContentEpisodeOwnershipAction $promoteEpisodeOwnership,
         private readonly ContentCourseScriptGenerator $generator,
     ) {}
 
-    public function handle(int $userId, string $convoLabUserId, string $courseId): ?ContentCourse
-    {
+    public function handle(
+        int $userId,
+        string $convoLabUserId,
+        string $courseId,
+        ?int $expectedAttempt = null,
+    ): ?ContentCourse {
         $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
         $courseId = ContentCourseId::normalize($courseId);
+        if ($expectedAttempt !== null && $expectedAttempt < 1) {
+            throw new InvalidArgumentException('Course generation attempt must be positive.');
+        }
 
-        $prepared = DB::transaction(function () use ($userId, $convoLabUserId, $courseId): ?array {
+        $prepared = DB::transaction(function () use ($userId, $convoLabUserId, $courseId, $expectedAttempt): ?array {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
             $course = ContentCourse::query()
@@ -37,6 +45,10 @@ final class GenerateContentCourseScriptAction
                 ->lockForUpdate()
                 ->first();
             if ($course === null) {
+                return null;
+            }
+            if ($expectedAttempt !== null && ($course->status !== 'generating'
+                || (int) $course->generation_attempt !== $expectedAttempt)) {
                 return null;
             }
 
@@ -96,7 +108,14 @@ final class GenerateContentCourseScriptAction
 
         $generated = $this->generator->generate($prepared['snapshot']);
 
-        return DB::transaction(function () use ($userId, $convoLabUserId, $courseId, $prepared, $generated): ContentCourse {
+        return DB::transaction(function () use (
+            $userId,
+            $convoLabUserId,
+            $courseId,
+            $expectedAttempt,
+            $prepared,
+            $generated,
+        ): ContentCourse {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
             $course = ContentCourse::query()
@@ -105,13 +124,21 @@ final class GenerateContentCourseScriptAction
                 ->where('convolab_user_id', $convoLabUserId)
                 ->lockForUpdate()
                 ->first();
-            if ($course === null || (int) $course->generation_revision !== $prepared['revision']) {
+            if ($course === null
+                || (int) $course->generation_revision !== $prepared['revision']
+                || ($expectedAttempt !== null && ($course->status !== 'generating'
+                    || (int) $course->generation_attempt !== $expectedAttempt))) {
                 throw new RuntimeException('Course changed while its script was being generated.');
             }
 
             $course->script_json = $generated->pipelinePayload();
             $course->script_units_json = $generated->scriptUnitsPayload();
             $course->approx_duration_seconds = $generated->estimatedDurationSeconds;
+            if ($expectedAttempt !== null) {
+                $course->generation_stage = 'audio';
+                $course->generation_progress = 60;
+                $course->generation_heartbeat_at = now();
+            }
             $course->save();
 
             $course->coreItems()->delete();

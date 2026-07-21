@@ -42,6 +42,8 @@ use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
 use App\Policies\DeckPolicy;
 use App\Policies\MediaAssetPolicy;
+use App\Support\Audio\AudioSpeechGenerator;
+use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -61,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
             StaticMediaObjectStore::class,
             GoogleCloudStaticMediaObjectStore::class,
         );
+        $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
     }
 
     /**

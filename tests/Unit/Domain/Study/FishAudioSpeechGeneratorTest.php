@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Domain\Study;
 
+use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class FishAudioSpeechGeneratorTest extends TestCase
@@ -61,5 +63,36 @@ class FishAudioSpeechGeneratorTest extends TestCase
         }
 
         Http::assertNothingSent();
+    }
+
+    #[DataProvider('providerFailureProvider')]
+    public function test_it_maps_neutral_provider_failures_to_the_study_http_contract(
+        int $providerStatus,
+        string $providerBody,
+        int $expectedHttpStatus,
+        string $expectedMessage,
+    ): void {
+        Http::fake([
+            'fish.test/v1/tts' => Http::response($providerBody, $providerStatus),
+        ]);
+
+        try {
+            app(FishAudioSpeechGenerator::class)->generate('音声', self::VOICE_ID);
+            $this->fail('Expected Fish Audio generation to fail.');
+        } catch (StudyPreviewMediaGenerationException $exception) {
+            $this->assertSame($expectedHttpStatus, $exception->httpStatus());
+            $this->assertSame($expectedMessage, $exception->getMessage());
+        }
+    }
+
+    /** @return array<string, array{int, string, int, string}> */
+    public static function providerFailureProvider(): array
+    {
+        return [
+            'unavailable' => [401, 'unauthorized', 503, 'Fish Audio preview generation is unavailable.'],
+            'rate limited' => [429, 'busy', 429, 'Fish Audio is rate limiting preview generation. Please try again shortly.'],
+            'provider failed' => [500, 'error', 502, 'Fish Audio failed to generate preview media.'],
+            'invalid output' => [200, 'not-an-mp3', 502, 'Fish Audio returned invalid preview media.'],
+        ];
     }
 }

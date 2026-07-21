@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
+use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
@@ -180,6 +181,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/convolab/courses', StoreContentCourseController::class)
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);
     Route::get('/convolab/courses/{courseId}', ShowContentCourseController::class)
+        ->whereUuid('courseId');
+    Route::get('/convolab/courses/{courseId}/audio', DownloadContentCourseAudioController::class)
         ->whereUuid('courseId');
     Route::get('/feature-flags', ShowFeatureFlagsController::class);
     Route::patch('/feature-flags', UpdateFeatureFlagsController::class)

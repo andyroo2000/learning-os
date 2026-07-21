@@ -3,99 +3,29 @@
 namespace App\Domain\Study\Services;
 
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
-use App\Domain\Study\Results\DailyAudioScriptUnit;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
-use InvalidArgumentException;
+use App\Support\Audio\AudioSpeechGenerationException;
+use App\Support\Audio\AudioSpeechGenerator;
+use App\Support\Audio\FishAudioSpeechGenerator as SharedFishAudioSpeechGenerator;
 
-class FishAudioSpeechGenerator
+class FishAudioSpeechGenerator implements AudioSpeechGenerator
 {
-    public const MAX_TEXT_LENGTH = 15_000;
+    public const MAX_TEXT_LENGTH = SharedFishAudioSpeechGenerator::MAX_TEXT_LENGTH;
 
-    public const TIMEOUT_SECONDS = 90;
+    public const TIMEOUT_SECONDS = SharedFishAudioSpeechGenerator::TIMEOUT_SECONDS;
+
+    public function __construct(private readonly SharedFishAudioSpeechGenerator $speech) {}
 
     public function generate(string $text, string $voiceId, float $speed = 1.0): string
     {
-        $apiKey = trim((string) config('services.fish_audio.api_key'));
-        if ($apiKey === '') {
-            throw StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio');
-        }
-
-        $text = trim($text);
-        if ($text === '' || mb_strlen($text, 'UTF-8') > self::MAX_TEXT_LENGTH) {
-            throw StudyPreviewMediaGenerationException::invalidProviderOutput('Fish Audio');
-        }
-        if (! is_finite($speed)
-            || $speed < DailyAudioScriptUnit::MIN_SPEECH_SPEED
-            || $speed > DailyAudioScriptUnit::MAX_SPEECH_SPEED) {
-            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
-        }
-
-        $referenceId = preg_replace('/^fishaudio:/i', '', trim($voiceId));
-        if (! is_string($referenceId) || preg_match('/^[a-f0-9]{32}$/i', $referenceId) !== 1) {
-            throw StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio');
-        }
-
         try {
-            $response = Http::baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
-                ->accept('audio/mpeg')
-                ->asJson()
-                ->withToken($apiKey)
-                ->withHeaders(['model' => (string) config('services.fish_audio.backend')])
-                ->timeout(self::TIMEOUT_SECONDS)
-                ->post('/v1/tts', [
-                    'text' => $text,
-                    'reference_id' => $referenceId,
-                    'format' => 'mp3',
-                    'mp3_bitrate' => 128,
-                    'sample_rate' => 44_100,
-                    'prosody' => [
-                        'speed' => floor($speed) === $speed ? (int) $speed : $speed,
-                        'volume' => 0,
-                    ],
-                ]);
-        } catch (ConnectionException $exception) {
-            throw StudyPreviewMediaGenerationException::providerFailed('Fish Audio', $exception);
+            return $this->speech->generate($text, $voiceId, $speed);
+        } catch (AudioSpeechGenerationException $exception) {
+            throw match ($exception->reason) {
+                AudioSpeechGenerationException::UNAVAILABLE => StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio', $exception),
+                AudioSpeechGenerationException::RATE_LIMITED => StudyPreviewMediaGenerationException::providerRateLimited('Fish Audio'),
+                AudioSpeechGenerationException::INVALID_OUTPUT => StudyPreviewMediaGenerationException::invalidProviderOutput('Fish Audio'),
+                default => StudyPreviewMediaGenerationException::providerFailed('Fish Audio', $exception),
+            };
         }
-
-        if (! $response->successful()) {
-            throw $this->serviceException($response);
-        }
-
-        $bytes = $response->body();
-        if (! $this->isMp3($bytes)) {
-            throw StudyPreviewMediaGenerationException::invalidProviderOutput('Fish Audio');
-        }
-
-        return $bytes;
-    }
-
-    private function isMp3(string $bytes): bool
-    {
-        if (strlen($bytes) < 3) {
-            return false;
-        }
-
-        if (substr($bytes, 0, 3) === 'ID3') {
-            return true;
-        }
-
-        return strlen($bytes) >= 2
-            && ord($bytes[0]) === 0xFF
-            && (ord($bytes[1]) & 0xE0) === 0xE0;
-    }
-
-    private function serviceException(Response $response): StudyPreviewMediaGenerationException
-    {
-        if (in_array($response->status(), [401, 402, 403], true)) {
-            return StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio');
-        }
-
-        if ($response->status() === 429) {
-            return StudyPreviewMediaGenerationException::providerRateLimited('Fish Audio');
-        }
-
-        return StudyPreviewMediaGenerationException::providerFailed('Fish Audio');
     }
 }

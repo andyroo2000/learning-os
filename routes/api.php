@@ -210,8 +210,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
     Route::post('/convolab/auth/verification/send', SendConvoLabVerificationController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::SEND);
-    Route::get('/convolab/auth/verification/{token}', VerifyConvoLabEmailController::class)
-        ->where('token', '[0-9a-f]{64}')
+    Route::post('/convolab/auth/verification', VerifyConvoLabEmailController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::VERIFY);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);

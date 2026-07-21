@@ -7,11 +7,6 @@ use Illuminate\Foundation\Http\FormRequest;
 
 final class VerifyConvoLabEmailRequest extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        $this->merge(['token' => $this->route('token')]);
-    }
-
     public function authorize(): bool
     {
         return ConvoLabProxyAuthorization::allows($this, 'auth:verification');

@@ -37,7 +37,7 @@ final class ConvoLabVerificationRateLimiter
     {
         $identity = $this->useUserHeader
             ? $request->header('X-Convo-Lab-User-Id')
-            : $request->route('token');
+            : $request->input('token');
 
         return Limit::perMinute($this->perMinute)->by(self::keyFor(
             $this->name,

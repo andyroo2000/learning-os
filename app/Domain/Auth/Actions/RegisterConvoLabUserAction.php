@@ -123,9 +123,6 @@ final class RegisterConvoLabUserAction
             throw ConvoLabSignupException::invalidRetryCredentials();
         }
 
-        return new RegisterConvoLabUserResult(
-            $account->makeHidden('convolab_password_hash'),
-            false,
-        );
+        return new RegisterConvoLabUserResult($account, false);
     }
 }

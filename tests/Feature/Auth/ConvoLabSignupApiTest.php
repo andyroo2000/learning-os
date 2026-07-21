@@ -96,7 +96,7 @@ class ConvoLabSignupApiTest extends TestCase
         );
         $this->assertContains(
             'throttle:'.ConvoLabVerificationRateLimiter::VERIFY,
-            $routes->get('GET|HEAD api/convolab/auth/verification/{token}')->gatherMiddleware(),
+            $routes->get('POST api/convolab/auth/verification')->gatherMiddleware(),
         );
     }
 
@@ -279,7 +279,7 @@ class ConvoLabSignupApiTest extends TestCase
         $token = app(IssueConvoLabVerificationTokenAction::class)->handle((int) $account->user_id);
 
         $this->withToken($this->proxyToken(['auth:verification']))
-            ->getJson('/api/convolab/auth/verification/'.$token)
+            ->postJson('/api/convolab/auth/verification', ['token' => $token])
             ->assertOk()
             ->assertExactJson([
                 'message' => 'Email verified successfully',
@@ -297,7 +297,7 @@ class ConvoLabSignupApiTest extends TestCase
         $this->assertNotNull(DB::table('convolab_email_verification_tokens')->sole()->consumed_at);
 
         $this->withToken($this->proxyToken(['auth:verification']))
-            ->getJson('/api/convolab/auth/verification/'.$token)
+            ->postJson('/api/convolab/auth/verification', ['token' => $token])
             ->assertOk()
             ->assertExactJson([
                 'message' => 'Email verified successfully',
@@ -324,6 +324,20 @@ class ConvoLabSignupApiTest extends TestCase
             $this->assertDatabaseMissing('convolab_email_verification_tokens', [
                 'token_hash' => $expiredHash,
             ]);
+        }
+    }
+
+    public function test_verification_requires_a_lowercase_hex_token_in_the_request_body(): void
+    {
+        $token = $this->proxyToken(['auth:verification']);
+
+        foreach ([null, ['token'], str_repeat('A', 64), str_repeat('a', 63)] as $invalidToken) {
+            $payload = $invalidToken === null ? [] : ['token' => $invalidToken];
+
+            $this->withToken($token)
+                ->postJson('/api/convolab/auth/verification', $payload)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('token');
         }
     }
 

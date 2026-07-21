@@ -34,17 +34,17 @@ class ConvoLabVerificationRateLimiterTest extends TestCase
 
     public function test_it_uses_separate_bounded_send_and_verify_limits(): void
     {
-        $request = Request::create('/api/convolab/auth/verification/send', 'POST', [], [], [], [
-            'REMOTE_ADDR' => '127.0.0.1',
-            'HTTP_X_CONVO_LAB_USER_ID' => '018f47ea-4b37-7f21-8d5a-90e157176b8a',
-        ]);
-        $request->setRouteResolver(fn (): object => new class
-        {
-            public function parameter(string $name): ?string
-            {
-                return $name === 'token' ? str_repeat('a', 64) : null;
-            }
-        });
+        $request = Request::create(
+            '/api/convolab/auth/verification/send',
+            'POST',
+            ['token' => str_repeat('a', 64)],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => '127.0.0.1',
+                'HTTP_X_CONVO_LAB_USER_ID' => '018f47ea-4b37-7f21-8d5a-90e157176b8a',
+            ],
+        );
 
         $sendLimiter = ConvoLabVerificationRateLimiter::forSend();
         $send = $sendLimiter->limit($request);

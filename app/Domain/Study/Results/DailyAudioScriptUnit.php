@@ -2,9 +2,10 @@
 
 namespace App\Domain\Study\Results;
 
+use App\Support\Audio\AudioScriptUnit;
 use InvalidArgumentException;
 
-final readonly class DailyAudioScriptUnit
+final readonly class DailyAudioScriptUnit implements AudioScriptUnit
 {
     public const MIN_SPEECH_SPEED = 0.5;
 
@@ -83,6 +84,31 @@ final readonly class DailyAudioScriptUnit
             'speed' => $this->speed,
             'seconds' => $this->seconds,
         ], fn (mixed $value): bool => $value !== null);
+    }
+
+    public function audioType(): string
+    {
+        return $this->type;
+    }
+
+    public function audioText(): ?string
+    {
+        return $this->text;
+    }
+
+    public function audioVoiceId(): ?string
+    {
+        return $this->voiceId;
+    }
+
+    public function audioSpeed(): ?float
+    {
+        return $this->speed;
+    }
+
+    public function audioPauseSeconds(): ?float
+    {
+        return $this->seconds;
     }
 
     private function validate(): void

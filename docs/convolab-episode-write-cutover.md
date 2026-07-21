@@ -25,8 +25,12 @@ true:
      validates bounded provider output, persists core-item mappings atomically, and rejects
      stale concurrent results. Attaching or generating a Course promotes its Episode graph so
      replacement imports cannot delete it.
-   - **Remaining:** add the queued Course status lifecycle and audio assembly before proxying
-     Course generation or activating Episode writes.
+   - **Complete:** Course scripts can be assembled through the shared audio pipeline into
+     revision-scoped Learning OS storage. Publication rejects stale results, preserves the
+     previously published track on failure, and serves current audio through an authenticated,
+     owner-scoped route.
+   - **Remaining:** add the queued Course status/reset/retry lifecycle before proxying Course
+     generation or activating Episode writes.
 3. The Convo Lab proxy preserves `blockDemoUser` behavior for create and delete.
 4. Production smoke coverage creates, updates, reads, and deletes a disposable Episode
    through Convo Lab before the deployment is accepted.

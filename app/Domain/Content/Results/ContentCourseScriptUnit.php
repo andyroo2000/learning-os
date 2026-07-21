@@ -2,9 +2,10 @@
 
 namespace App\Domain\Content\Results;
 
+use App\Support\Audio\AudioScriptUnit;
 use InvalidArgumentException;
 
-final readonly class ContentCourseScriptUnit
+final readonly class ContentCourseScriptUnit implements AudioScriptUnit
 {
     private const TYPES = ['marker', 'narration_L1', 'pause', 'L2'];
 
@@ -76,6 +77,45 @@ final readonly class ContentCourseScriptUnit
         }
 
         return 0;
+    }
+
+    public function withVoiceId(string $voiceId): self
+    {
+        return new self(
+            $this->type,
+            $this->label,
+            $this->text,
+            $this->reading,
+            $this->translation,
+            $voiceId,
+            $this->speed,
+            $this->seconds,
+        );
+    }
+
+    public function audioType(): string
+    {
+        return $this->type;
+    }
+
+    public function audioText(): ?string
+    {
+        return $this->text;
+    }
+
+    public function audioVoiceId(): ?string
+    {
+        return $this->voiceId;
+    }
+
+    public function audioSpeed(): ?float
+    {
+        return $this->speed;
+    }
+
+    public function audioPauseSeconds(): ?float
+    {
+        return $this->seconds;
     }
 
     private function validateShape(): void

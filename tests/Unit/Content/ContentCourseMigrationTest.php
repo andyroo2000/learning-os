@@ -25,6 +25,31 @@ class ContentCourseMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_020000_add_generation_revision_to_content_courses.php',
         );
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_030000_add_audio_storage_path_to_content_courses.php',
+        );
+    }
+
+    #[DataProvider('generationRevisionGrammarProvider')]
+    public function test_audio_storage_path_compiles_up_and_down_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+
+        $up = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->text('audio_storage_path')->nullable();
+        });
+        $down = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->dropColumn('audio_storage_path');
+        });
+
+        $upSql = strtolower(implode(' ', $up->toSql()));
+        $this->assertStringContainsString('audio_storage_path', $upSql);
+        $downSql = strtolower(implode(' ', $down->toSql()));
+        $this->assertStringContainsString('drop', $downSql);
+        $this->assertStringContainsString('audio_storage_path', $downSql);
     }
 
     #[DataProvider('generationRevisionGrammarProvider')]

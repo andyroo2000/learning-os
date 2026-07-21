@@ -4,12 +4,13 @@ namespace App\Domain\Study\Services;
 
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use App\Domain\Study\Results\DailyAudioScriptUnit;
+use App\Support\Audio\AudioSpeechGenerator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 
-class FishAudioSpeechGenerator
+class FishAudioSpeechGenerator implements AudioSpeechGenerator
 {
     public const MAX_TEXT_LENGTH = 15_000;
 

@@ -23,6 +23,7 @@ use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
+use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
@@ -42,6 +43,7 @@ use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
 use App\Policies\DeckPolicy;
 use App\Policies\MediaAssetPolicy;
+use App\Support\Audio\AudioSpeechGenerator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -61,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
             StaticMediaObjectStore::class,
             GoogleCloudStaticMediaObjectStore::class,
         );
+        $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
     }
 
     /**

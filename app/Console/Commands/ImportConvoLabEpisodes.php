@@ -496,6 +496,8 @@ class ImportConvoLabEpisodes extends Command
         $this->copy($source, $target, 'Course', 'content_courses', function (object $row): ?array {
             $id = $this->uuid($row->id, 'course');
             if (isset($this->preservedCourseIds[$id])) {
+                $this->courseIds[$id] = true;
+
                 return null;
             }
 
@@ -541,7 +543,7 @@ class ImportConvoLabEpisodes extends Command
     {
         $this->copy($source, $target, 'CourseCoreItem', 'content_course_core_items', function (object $row): ?array {
             $courseId = $this->uuid($row->courseId, 'course core item course');
-            if (! isset($this->courseIds[$courseId])) {
+            if (! isset($this->courseIds[$courseId]) || isset($this->preservedCourseIds[$courseId])) {
                 return null;
             }
 

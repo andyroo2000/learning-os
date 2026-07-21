@@ -71,6 +71,7 @@ final class UpdateContentEpisodeAction
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
 
             ContentEpisodeCourse::query()
+                ->where('episode_id', $episodeId)
                 ->whereIn('convolab_course_id', $ownedCourseIds)
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
 

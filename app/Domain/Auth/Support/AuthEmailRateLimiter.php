@@ -12,6 +12,8 @@ class AuthEmailRateLimiter
 
     public const CONVOLAB_LOGINS = 'convolab-logins';
 
+    public const CONVOLAB_SIGNUPS = 'convolab-signups';
+
     public const MOBILE_REGISTRATIONS = 'mobile-registrations';
 
     public const PASSWORD_RESET_LINKS = 'password-reset-links';
@@ -28,6 +30,11 @@ class AuthEmailRateLimiter
     }
 
     public function convoLabLogins(Request $request): Limit
+    {
+        return $this->perMinute($request, self::STANDARD_PER_MINUTE);
+    }
+
+    public function convoLabSignups(Request $request): Limit
     {
         return $this->perMinute($request, self::STANDARD_PER_MINUTE);
     }

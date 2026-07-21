@@ -6,9 +6,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AdminInviteCode extends Model
+class AdminUserProjection extends Model
 {
-    protected $table = 'admin_invite_codes';
+    protected $table = 'admin_user_projections';
+
+    protected $primaryKey = 'convolab_id';
 
     public $incrementing = false;
 
@@ -19,18 +21,14 @@ class AdminInviteCode extends Model
     protected function casts(): array
     {
         return [
-            'used_at' => 'immutable_datetime',
+            'onboarding_completed' => 'boolean',
             'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'used_by');
-    }
-
-    public function adminUserProjection(): BelongsTo
-    {
-        return $this->belongsTo(AdminUserProjection::class, 'convolab_used_by', 'convolab_id');
+        return $this->belongsTo(User::class);
     }
 }

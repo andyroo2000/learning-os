@@ -46,7 +46,13 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
 
     public function test_syncs_users_and_invites_into_the_canonical_projection(): void
     {
-        $existing = User::factory()->create(['email' => 'ADA@example.com', 'name' => 'Old Name']);
+        $existing = User::factory()->create([
+            'email' => 'ADA@example.com',
+            'name' => 'Old Name',
+            'email_verified_at' => '2026-07-01 08:00:00',
+            'created_at' => '2026-07-10 08:00:00',
+            'updated_at' => '2026-07-10 09:00:00',
+        ]);
         $adaId = (string) Str::uuid();
         $graceId = (string) Str::uuid();
         $adaInviteId = (string) Str::uuid();
@@ -81,7 +87,15 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $existing->id,
             'convolab_id' => $adaId,
-            'convolab_admin_visible' => true,
+            'email' => 'ADA@example.com',
+            'name' => 'Old Name',
+            'email_verified_at' => '2026-07-01 08:00:00',
+            'created_at' => '2026-07-10 08:00:00',
+            'updated_at' => '2026-07-10 09:00:00',
+        ]);
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $adaId,
+            'user_id' => $existing->id,
             'email' => 'ada@example.com',
             'name' => 'Ada Lovelace',
             'display_name' => 'Ada',
@@ -96,6 +110,9 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'convolab_id' => $graceId,
             'email' => 'grace@example.com',
             'name' => 'Grace Hopper',
+        ]);
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $graceId,
             'role' => 'moderator',
             'onboarding_completed' => false,
         ]);
@@ -144,8 +161,9 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             ->assertSuccessful();
 
         $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('admin_user_projections', 1);
         $this->assertDatabaseCount('admin_invite_codes', 1);
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $userId,
             'display_name' => 'Updated Display',
         ]);
@@ -158,7 +176,11 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
 
     public function test_empty_source_removes_invites_but_preserves_canonical_users(): void
     {
-        $user = User::factory()->create(['email' => 'canonical@example.com']);
+        $sourceId = (string) Str::uuid();
+        $this->insertSourceUser($sourceId, ['email' => 'canonical@example.com']);
+        $this->runSync()->assertSuccessful();
+        $user = User::query()->where('convolab_id', $sourceId)->sole();
+        DB::connection('convolab_admin_test')->table('User')->delete();
         DB::table('admin_invite_codes')->insert([
             'id' => (string) Str::uuid(),
             'code' => 'STALE123',
@@ -173,6 +195,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             ->assertSuccessful();
 
         $this->assertDatabaseHas('users', ['id' => $user->id]);
+        $this->assertDatabaseCount('admin_user_projections', 0);
         $this->assertDatabaseCount('admin_invite_codes', 0);
     }
 
@@ -189,8 +212,8 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $canonicalId,
             'convolab_id' => $sourceId,
-            'convolab_admin_visible' => false,
         ]);
+        $this->assertDatabaseMissing('admin_user_projections', ['convolab_id' => $sourceId]);
     }
 
     public function test_sync_rolls_back_all_target_changes_when_an_invite_references_an_unknown_user(): void
@@ -205,6 +228,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             ->assertFailed();
 
         $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
         $this->assertDatabaseCount('admin_invite_codes', 0);
     }
 
@@ -287,7 +311,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         ]);
 
         $this->runSync()->assertSuccessful();
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $userId,
             'display_name' => $accepted,
         ]);
@@ -299,10 +323,9 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             ->expectsOutputToContain('Convo Lab source field [displayName] exceeds 255 characters.')
             ->assertFailed();
 
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $userId,
             'display_name' => $accepted,
-            'convolab_admin_visible' => true,
         ]);
     }
 

@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Domain\Admin\Actions\GetAdminStatsAction;
 use App\Domain\Admin\Actions\ShowAdminUserAction;
 use App\Domain\Admin\Models\AdminInviteCode;
+use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -129,7 +130,9 @@ class AdminReadApiTest extends TestCase
         ]);
         User::factory()->create(['email' => 'canonical-only@example.com']);
         $this->insertEpisode($newer, ContentSourceSystem::CONVOLAB);
+        $this->insertEpisode($newer, ContentSourceSystem::LEARNING_OS);
         $this->insertCourse($newer, ContentSourceSystem::CONVOLAB);
+        $this->insertCourse($newer, ContentSourceSystem::LEARNING_OS);
 
         $response = $this->withToken($this->proxyToken())
             ->getJson('/api/convolab/admin/users?limit=1&page=1')
@@ -263,7 +266,7 @@ class AdminReadApiTest extends TestCase
             app(ShowAdminUserAction::class)->handle('not-a-uuid');
             $this->fail('Expected a model-not-found exception.');
         } catch (ModelNotFoundException $e) {
-            $this->assertSame(User::class, $e->getModel());
+            $this->assertSame(AdminUserProjection::class, $e->getModel());
             $this->assertSame([], $e->getIds());
             $queries = DB::getQueryLog();
         } finally {
@@ -313,32 +316,14 @@ class AdminReadApiTest extends TestCase
     {
         $user = new User([
             'convolab_id' => (string) Str::uuid(),
-            'convolab_admin_visible' => true,
-            'display_name' => 'Injected',
-            'avatar_color' => 'red',
-            'avatar_url' => 'https://example.com/injected.png',
-            'role' => 'admin',
-            'preferred_study_language' => 'fr',
-            'preferred_native_language' => 'de',
-            'onboarding_completed' => true,
         ]);
 
-        foreach ([
-            'convolab_id',
-            'convolab_admin_visible',
-            'display_name',
-            'avatar_color',
-            'avatar_url',
-            'role',
-            'preferred_study_language',
-            'preferred_native_language',
-            'onboarding_completed',
-        ] as $attribute) {
-            $this->assertArrayNotHasKey($attribute, $user->getAttributes());
-        }
+        $this->assertArrayNotHasKey('convolab_id', $user->getAttributes());
 
         $this->assertSame([], (new AdminInviteCode)->getFillable());
         $this->assertSame(['*'], (new AdminInviteCode)->getGuarded());
+        $this->assertSame([], (new AdminUserProjection)->getFillable());
+        $this->assertSame(['*'], (new AdminUserProjection)->getGuarded());
     }
 
     /** @param list<string> $abilities */
@@ -355,13 +340,19 @@ class AdminReadApiTest extends TestCase
     /** @param array<string, mixed> $attributes */
     private function projectedUser(array $attributes = []): User
     {
+        $convoLabId = (string) Str::uuid();
         $user = User::factory()->create([
             'email' => $attributes['email'] ?? fake()->unique()->safeEmail(),
             'name' => $attributes['name'] ?? 'Projected User',
         ]);
-        DB::table('users')->where('id', $user->id)->update(array_merge([
-            'convolab_id' => (string) Str::uuid(),
-            'convolab_admin_visible' => true,
+        DB::table('users')->where('id', $user->id)->update([
+            'convolab_id' => $convoLabId,
+        ]);
+        DB::table('admin_user_projections')->insert(array_merge([
+            'convolab_id' => $convoLabId,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'name' => $user->name,
             'display_name' => null,
             'avatar_color' => null,
             'avatar_url' => null,
@@ -369,6 +360,8 @@ class AdminReadApiTest extends TestCase
             'preferred_study_language' => 'ja',
             'preferred_native_language' => 'en',
             'onboarding_completed' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
         ], $attributes));
 
         return $user->refresh();

@@ -11,7 +11,7 @@ class ListAdminInviteCodesAction
     public function handle(): Collection
     {
         return AdminInviteCode::query()
-            ->with('user')
+            ->with('adminUserProjection')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();

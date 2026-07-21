@@ -16,11 +16,14 @@ class AdminInviteCodeResource extends JsonResource
             'usedBy' => $this->convolab_used_by,
             'usedAt' => ConvoLabTimestamp::serialize($this->used_at),
             'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
-            'user' => $this->whenLoaded('user', fn (): ?array => $this->user === null ? null : [
-                'id' => $this->user->convolab_id,
-                'email' => $this->user->email,
-                'name' => $this->user->name,
-            ]),
+            'user' => $this->whenLoaded(
+                'adminUserProjection',
+                fn (): ?array => $this->adminUserProjection === null ? null : [
+                    'id' => $this->adminUserProjection->convolab_id,
+                    'email' => $this->adminUserProjection->email,
+                    'name' => $this->adminUserProjection->name,
+                ],
+            ),
         ];
     }
 }

@@ -30,31 +30,32 @@ class AdminProjectionMigrationTest extends TestCase
         string $grammarClass,
     ): void {
         $connection = $this->connection($connectionClass);
-        $grammar = new $grammarClass($connection);
-        $connection->setSchemaGrammar($grammar);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
 
         $upSql = implode("\n", [
-            ...$this->addUserProjectionBlueprint($connection)->toSql(),
+            ...$this->addUserSourceIdBlueprint($connection)->toSql(),
+            ...$this->userProjectionBlueprint($connection)->toSql(),
             ...$this->inviteCodeBlueprint($connection)->toSql(),
         ]);
         $downSql = implode("\n", [
-            ...$this->dropInviteCodeBlueprint($connection)->toSql(),
-            ...$this->dropUserProjectionBlueprint($connection)->toSql(),
+            ...$this->dropTableBlueprint($connection, 'admin_invite_codes')->toSql(),
+            ...$this->dropTableBlueprint($connection, 'admin_user_projections')->toSql(),
+            ...$this->dropUserSourceIdBlueprint($connection)->toSql(),
         ]);
 
         foreach ([
+            'admin_user_projections',
             'convolab_id',
-            'convolab_admin_visible',
+            'user_id',
             'display_name',
             'avatar_color',
-            'avatar_url',
             'preferred_study_language',
             'preferred_native_language',
             'onboarding_completed',
             'admin_invite_codes',
             'convolab_used_by',
             'users_convolab_id_unique',
-            'users_convolab_visible_created_id_idx',
+            'admin_users_created_convolab_id_idx',
             'admin_invites_created_id_idx',
             'admin_invites_convolab_user_idx',
         ] as $fragment) {
@@ -62,8 +63,8 @@ class AdminProjectionMigrationTest extends TestCase
         }
 
         $this->assertStringContainsString('admin_invite_codes', $downSql);
+        $this->assertStringContainsString('admin_user_projections', $downSql);
         $this->assertStringContainsString('users_convolab_id_unique', $downSql);
-        $this->assertStringContainsString('users_convolab_visible_created_id_idx', $downSql);
         $this->assertStringContainsString('convolab_id', $downSql);
         if ($connectionClass !== SQLiteConnection::class) {
             $this->assertStringContainsString('timestamp(3)', $upSql);
@@ -74,7 +75,10 @@ class AdminProjectionMigrationTest extends TestCase
     {
         foreach ([
             'users_convolab_id_unique',
-            'users_convolab_visible_created_id_idx',
+            'admin_user_projections_pkey',
+            'admin_user_projections_user_id_unique',
+            'admin_user_projections_user_id_foreign',
+            'admin_users_created_convolab_id_idx',
             'admin_invite_codes_code_unique',
             'admin_invite_codes_used_by_foreign',
             'admin_invites_created_id_idx',
@@ -84,20 +88,6 @@ class AdminProjectionMigrationTest extends TestCase
         }
     }
 
-    #[DataProvider('precisionSqlProvider')]
-    public function test_user_timestamp_precision_and_rollback_compile_to_portable_sql(
-        string $connectionClass,
-        string $grammarClass,
-        array $expectedUpSql,
-        array $expectedDownSql,
-    ): void {
-        $connection = $this->connection($connectionClass);
-        $connection->setSchemaGrammar(new $grammarClass($connection));
-
-        $this->assertSame($expectedUpSql, $this->userTimestampBlueprint($connection, 3)->toSql());
-        $this->assertSame($expectedDownSql, $this->userTimestampBlueprint($connection, 0)->toSql());
-    }
-
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
     public static function grammarProvider(): array
     {
@@ -105,47 +95,6 @@ class AdminProjectionMigrationTest extends TestCase
             'sqlite' => [SQLiteConnection::class, SQLiteGrammar::class],
             'postgres' => [PostgresConnection::class, PostgresGrammar::class],
             'mysql' => [MySqlConnection::class, MySqlGrammar::class],
-        ];
-    }
-
-    /** @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}> */
-    public static function precisionSqlProvider(): array
-    {
-        return [
-            'postgres' => [
-                PostgresConnection::class,
-                PostgresGrammar::class,
-                [
-                    'alter table "users" alter column "email_verified_at" type timestamp(3) without time zone, alter column "email_verified_at" drop not null, alter column "email_verified_at" drop default, alter column "email_verified_at" drop identity if exists',
-                    'alter table "users" alter column "created_at" type timestamp(3) without time zone, alter column "created_at" drop not null, alter column "created_at" drop default, alter column "created_at" drop identity if exists',
-                    'alter table "users" alter column "updated_at" type timestamp(3) without time zone, alter column "updated_at" drop not null, alter column "updated_at" drop default, alter column "updated_at" drop identity if exists',
-                    'comment on column "users"."email_verified_at" is NULL',
-                    'comment on column "users"."created_at" is NULL',
-                    'comment on column "users"."updated_at" is NULL',
-                ],
-                [
-                    'alter table "users" alter column "email_verified_at" type timestamp(0) without time zone, alter column "email_verified_at" drop not null, alter column "email_verified_at" drop default, alter column "email_verified_at" drop identity if exists',
-                    'alter table "users" alter column "created_at" type timestamp(0) without time zone, alter column "created_at" drop not null, alter column "created_at" drop default, alter column "created_at" drop identity if exists',
-                    'alter table "users" alter column "updated_at" type timestamp(0) without time zone, alter column "updated_at" drop not null, alter column "updated_at" drop default, alter column "updated_at" drop identity if exists',
-                    'comment on column "users"."email_verified_at" is NULL',
-                    'comment on column "users"."created_at" is NULL',
-                    'comment on column "users"."updated_at" is NULL',
-                ],
-            ],
-            'mysql' => [
-                MySqlConnection::class,
-                MySqlGrammar::class,
-                [
-                    'alter table `users` modify `email_verified_at` timestamp(3) null',
-                    'alter table `users` modify `created_at` timestamp(3) null',
-                    'alter table `users` modify `updated_at` timestamp(3) null',
-                ],
-                [
-                    'alter table `users` modify `email_verified_at` timestamp null',
-                    'alter table `users` modify `created_at` timestamp null',
-                    'alter table `users` modify `updated_at` timestamp null',
-                ],
-            ],
         ];
     }
 
@@ -159,11 +108,21 @@ class AdminProjectionMigrationTest extends TestCase
             : new $connectionClass($pdo, 'testing');
     }
 
-    private function addUserProjectionBlueprint(Connection $connection): Blueprint
+    private function addUserSourceIdBlueprint(Connection $connection): Blueprint
     {
         return new Blueprint($connection, 'users', function (Blueprint $table): void {
             $table->uuid('convolab_id')->nullable()->unique('users_convolab_id_unique');
-            $table->boolean('convolab_admin_visible')->default(false);
+        });
+    }
+
+    private function userProjectionBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'admin_user_projections', function (Blueprint $table): void {
+            $table->create();
+            $table->uuid('convolab_id')->primary();
+            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->string('email');
+            $table->string('name');
             $table->string('display_name')->nullable();
             $table->string('avatar_color', 32)->nullable();
             $table->text('avatar_url')->nullable();
@@ -171,10 +130,9 @@ class AdminProjectionMigrationTest extends TestCase
             $table->string('preferred_study_language', 16)->default('ja');
             $table->string('preferred_native_language', 16)->default('en');
             $table->boolean('onboarding_completed')->default(false);
-            $table->index(
-                ['convolab_admin_visible', 'created_at', 'id'],
-                'users_convolab_visible_created_id_idx',
-            );
+            $table->timestampTz('created_at', 3);
+            $table->timestampTz('updated_at', 3);
+            $table->index(['created_at', 'convolab_id'], 'admin_users_created_convolab_id_idx');
         });
     }
 
@@ -193,38 +151,18 @@ class AdminProjectionMigrationTest extends TestCase
         });
     }
 
-    private function dropInviteCodeBlueprint(Connection $connection): Blueprint
+    private function dropTableBlueprint(Connection $connection, string $tableName): Blueprint
     {
-        return new Blueprint($connection, 'admin_invite_codes', function (Blueprint $table): void {
+        return new Blueprint($connection, $tableName, function (Blueprint $table): void {
             $table->drop();
         });
     }
 
-    private function dropUserProjectionBlueprint(Connection $connection): Blueprint
+    private function dropUserSourceIdBlueprint(Connection $connection): Blueprint
     {
         return new Blueprint($connection, 'users', function (Blueprint $table): void {
-            $table->dropIndex('users_convolab_visible_created_id_idx');
             $table->dropUnique('users_convolab_id_unique');
-            $table->dropColumn([
-                'convolab_id',
-                'convolab_admin_visible',
-                'display_name',
-                'avatar_color',
-                'avatar_url',
-                'role',
-                'preferred_study_language',
-                'preferred_native_language',
-                'onboarding_completed',
-            ]);
-        });
-    }
-
-    private function userTimestampBlueprint(Connection $connection, int $precision): Blueprint
-    {
-        return new Blueprint($connection, 'users', function (Blueprint $table) use ($precision): void {
-            $table->timestamp('email_verified_at', $precision)->nullable()->change();
-            $table->timestamp('created_at', $precision)->nullable()->change();
-            $table->timestamp('updated_at', $precision)->nullable()->change();
+            $table->dropColumn('convolab_id');
         });
     }
 }

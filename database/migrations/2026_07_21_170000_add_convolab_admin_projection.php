@@ -12,7 +12,13 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table): void {
             $table->uuid('convolab_id')->nullable()->unique('users_convolab_id_unique');
-            $table->boolean('convolab_admin_visible')->default(false);
+        });
+
+        Schema::create('admin_user_projections', function (Blueprint $table): void {
+            $table->uuid('convolab_id')->primary();
+            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->string('email');
+            $table->string('name');
             $table->string('display_name')->nullable();
             $table->string('avatar_color', 32)->nullable();
             $table->text('avatar_url')->nullable();
@@ -20,9 +26,11 @@ return new class extends Migration
             $table->string('preferred_study_language', 16)->default('ja');
             $table->string('preferred_native_language', 16)->default('en');
             $table->boolean('onboarding_completed')->default(false);
+            $table->timestampTz('created_at', self::CONVOLAB_TIMESTAMP_PRECISION);
+            $table->timestampTz('updated_at', self::CONVOLAB_TIMESTAMP_PRECISION);
             $table->index(
-                ['convolab_admin_visible', 'created_at', 'id'],
-                'users_convolab_visible_created_id_idx',
+                ['created_at', 'convolab_id'],
+                'admin_users_created_convolab_id_idx',
             );
         });
 
@@ -36,42 +44,16 @@ return new class extends Migration
             $table->index(['created_at', 'id'], 'admin_invites_created_id_idx');
             $table->index('convolab_used_by', 'admin_invites_convolab_user_idx');
         });
-
-        $this->changeUserTimestampPrecision(self::CONVOLAB_TIMESTAMP_PRECISION);
     }
 
     public function down(): void
     {
-        $this->changeUserTimestampPrecision(0);
         Schema::dropIfExists('admin_invite_codes');
+        Schema::dropIfExists('admin_user_projections');
 
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropIndex('users_convolab_visible_created_id_idx');
             $table->dropUnique('users_convolab_id_unique');
-            $table->dropColumn([
-                'convolab_id',
-                'convolab_admin_visible',
-                'display_name',
-                'avatar_color',
-                'avatar_url',
-                'role',
-                'preferred_study_language',
-                'preferred_native_language',
-                'onboarding_completed',
-            ]);
-        });
-    }
-
-    private function changeUserTimestampPrecision(int $precision): void
-    {
-        if (Schema::getConnection()->getDriverName() === 'sqlite') {
-            return;
-        }
-
-        Schema::table('users', function (Blueprint $table) use ($precision): void {
-            $table->timestamp('email_verified_at', $precision)->nullable()->change();
-            $table->timestamp('created_at', $precision)->nullable()->change();
-            $table->timestamp('updated_at', $precision)->nullable()->change();
+            $table->dropColumn('convolab_id');
         });
     }
 };

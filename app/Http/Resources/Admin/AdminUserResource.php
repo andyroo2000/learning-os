@@ -21,8 +21,8 @@ class AdminUserResource extends JsonResource
             'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
             'updatedAt' => ConvoLabTimestamp::serialize($this->updated_at),
             '_count' => [
-                'episodes' => (int) $this->episodes_count,
-                'courses' => (int) $this->courses_count,
+                'episodes' => (int) $this->user->episodes_count,
+                'courses' => (int) $this->user->courses_count,
             ],
         ];
     }

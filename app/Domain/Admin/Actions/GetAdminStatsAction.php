@@ -11,7 +11,7 @@ class GetAdminStatsAction
     public function handle(): array
     {
         $counts = DB::query()
-            ->selectRaw('(SELECT COUNT(*) FROM users WHERE convolab_admin_visible = TRUE) as users')
+            ->selectRaw('(SELECT COUNT(*) FROM admin_user_projections) as users')
             ->selectRaw(
                 '(SELECT COUNT(*) FROM content_episodes WHERE source_system = ?) as episodes',
                 [ContentSourceSystem::CONVOLAB],

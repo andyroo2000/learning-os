@@ -21,25 +21,33 @@ class SyncConvoLabAdminProjectionAction
             }
         }
 
-        $target->table('users')->whereNotNull('convolab_id')->update([
-            'convolab_admin_visible' => false,
-        ]);
-        $users = $this->syncUsers($source, $target);
+        [$users, $sourceUserIds] = $this->syncUsers($source, $target);
         $inviteCodes = $this->syncInviteCodes($source, $target);
+        $target->table('admin_user_projections')
+            ->when($sourceUserIds !== [], fn ($query) => $query->whereNotIn('convolab_id', $sourceUserIds))
+            ->delete();
 
         return new AdminProjectionSyncResult($users, $inviteCodes);
     }
 
-    private function syncUsers(ConnectionInterface $source, ConnectionInterface $target): int
+    /** @return array{int, list<string>} */
+    private function syncUsers(ConnectionInterface $source, ConnectionInterface $target): array
     {
         $count = 0;
+        $sourceUserIds = [];
         $seenEmails = [];
         $seenIds = [];
 
         $source->table('User')
             ->orderBy('createdAt')
             ->orderBy('id')
-            ->chunk(200, function ($users) use ($target, &$count, &$seenEmails, &$seenIds): void {
+            ->chunk(200, function ($users) use (
+                $target,
+                &$count,
+                &$sourceUserIds,
+                &$seenEmails,
+                &$seenIds,
+            ): void {
                 foreach ($users as $sourceUser) {
                     $convoLabId = strtolower(trim((string) $sourceUser->id));
                     $email = strtolower(trim((string) $sourceUser->email));
@@ -84,11 +92,10 @@ class SyncConvoLabAdminProjectionAction
                         );
                     }
 
-                    $attributes = [
-                        'convolab_id' => $convoLabId,
-                        'convolab_admin_visible' => true,
-                        'name' => $this->requiredString($sourceUser, 'name', 255, $sourceUser->email),
+                    $projectionAttributes = [
+                        'user_id' => $targetUser?->id,
                         'email' => trim((string) $sourceUser->email),
+                        'name' => $this->requiredString($sourceUser, 'name', 255, $sourceUser->email),
                         'display_name' => $this->nullableString($sourceUser, 'displayName', 255),
                         'avatar_color' => $this->nullableString($sourceUser, 'avatarColor', 32),
                         'avatar_url' => $this->nullableString($sourceUser, 'avatarUrl'),
@@ -106,24 +113,40 @@ class SyncConvoLabAdminProjectionAction
                             'en',
                         ),
                         'onboarding_completed' => (bool) $sourceUser->onboardingCompleted,
-                        'email_verified_at' => $sourceUser->emailVerifiedAt,
                         'created_at' => $sourceUser->createdAt,
                         'updated_at' => $sourceUser->updatedAt,
                     ];
 
                     if ($targetUser === null) {
-                        $attributes['password'] = Hash::make(Str::random(64));
-                        $attributes['remember_token'] = null;
-                        $target->table('users')->insert($attributes);
+                        $targetUserId = $target->table('users')->insertGetId([
+                            'convolab_id' => $convoLabId,
+                            'name' => $projectionAttributes['name'],
+                            'email' => $projectionAttributes['email'],
+                            'email_verified_at' => $sourceUser->emailVerifiedAt,
+                            'password' => Hash::make(Str::random(64)),
+                            'remember_token' => null,
+                            'created_at' => $sourceUser->createdAt,
+                            'updated_at' => $sourceUser->updatedAt,
+                        ]);
                     } else {
-                        $target->table('users')->where('id', $targetUser->id)->update($attributes);
+                        $targetUserId = $targetUser->id;
+                        $target->table('users')->where('id', $targetUserId)->update([
+                            'convolab_id' => $convoLabId,
+                        ]);
                     }
 
+                    $projectionAttributes['user_id'] = $targetUserId;
+                    $target->table('admin_user_projections')->updateOrInsert(
+                        ['convolab_id' => $convoLabId],
+                        $projectionAttributes,
+                    );
+
+                    $sourceUserIds[] = $convoLabId;
                     $count++;
                 }
             });
 
-        return $count;
+        return [$count, $sourceUserIds];
     }
 
     private function syncInviteCodes(ConnectionInterface $source, ConnectionInterface $target): int

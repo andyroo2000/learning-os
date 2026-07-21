@@ -2,16 +2,15 @@
 
 namespace App\Domain\Admin\Actions;
 
-use App\Models\User;
+use App\Domain\Admin\Models\AdminUserProjection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ListAdminUsersAction
 {
-    /** @return LengthAwarePaginator<int, User> */
+    /** @return LengthAwarePaginator<int, AdminUserProjection> */
     public function handle(int $page, int $limit, ?string $search): LengthAwarePaginator
     {
-        return User::query()
-            ->where('convolab_admin_visible', true)
+        return AdminUserProjection::query()
             ->when($search !== null, fn ($query) => $query->where(function ($query) use ($search): void {
                 $pattern = '%'.$this->escapeLike($search).'%';
 
@@ -19,12 +18,12 @@ class ListAdminUsersAction
                     ->orWhereRaw("LOWER(name) LIKE LOWER(?) ESCAPE '!'", [$pattern])
                     ->orWhereRaw("LOWER(display_name) LIKE LOWER(?) ESCAPE '!'", [$pattern]);
             }))
-            ->withCount([
-                'contentEpisodes as episodes_count',
-                'contentCourses as courses_count',
-            ])
+            ->with(['user' => fn ($query) => $query->withCount([
+                'convoLabContentEpisodes as episodes_count',
+                'convoLabContentCourses as courses_count',
+            ])])
             ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->orderByDesc('convolab_id')
             ->paginate(perPage: $limit, page: $page);
     }
 

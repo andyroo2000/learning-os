@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Content\Support\ContentEpisodeRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
@@ -37,10 +38,13 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
 use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
+use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
+use App\Http\Controllers\Api\Content\UpdateContentEpisodeController;
 use App\Http\Controllers\Api\Courses\DeleteCourseController;
 use App\Http\Controllers\Api\Courses\ListCoursesController;
 use App\Http\Controllers\Api\Courses\ShowCourseController;
@@ -160,8 +164,16 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
+    Route::post('/convolab/episodes', StoreContentEpisodeController::class)
+        ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);
     Route::get('/convolab/episodes/{episodeId}', ShowContentEpisodeController::class)
         ->whereUuid('episodeId');
+    Route::patch('/convolab/episodes/{episodeId}', UpdateContentEpisodeController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentEpisodeRateLimiter::UPDATE_NAME);
+    Route::delete('/convolab/episodes/{episodeId}', DeleteContentEpisodeController::class)
+        ->whereUuid('episodeId')
+        ->middleware('throttle:'.ContentEpisodeRateLimiter::DELETE_NAME);
     Route::get('/convolab/courses', ListContentCoursesController::class);
     Route::get('/convolab/courses/{courseId}', ShowContentCourseController::class)
         ->whereUuid('courseId');

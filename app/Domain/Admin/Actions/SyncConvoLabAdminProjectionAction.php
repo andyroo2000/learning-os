@@ -74,9 +74,7 @@ class SyncConvoLabAdminProjectionAction
         $seenIds = [];
 
         $source->table('User')
-            ->orderBy('createdAt')
-            ->orderBy('id')
-            ->chunk(200, function ($users) use (
+            ->chunkById(200, function ($users) use (
                 $target,
                 &$count,
                 &$sourceUserIds,
@@ -179,7 +177,7 @@ class SyncConvoLabAdminProjectionAction
                     $sourceUserIds[] = $convoLabId;
                     $count++;
                 }
-            });
+            }, 'id');
 
         return [$count, $sourceUserIds];
     }
@@ -190,9 +188,7 @@ class SyncConvoLabAdminProjectionAction
         $sourceIds = [];
 
         $source->table('InviteCode')
-            ->orderBy('createdAt')
-            ->orderBy('id')
-            ->chunk(200, function ($inviteCodes) use ($target, &$count, &$sourceIds): void {
+            ->chunkById(200, function ($inviteCodes) use ($target, &$count, &$sourceIds): void {
                 foreach ($inviteCodes as $inviteCode) {
                     $id = strtolower(trim((string) $inviteCode->id));
                     $convoLabUsedBy = $inviteCode->usedBy === null
@@ -230,7 +226,7 @@ class SyncConvoLabAdminProjectionAction
                     $sourceIds[] = $id;
                     $count++;
                 }
-            });
+            }, 'id');
 
         $target->table('admin_invite_codes')
             ->when($sourceIds !== [], fn ($query) => $query->whereNotIn('id', $sourceIds))

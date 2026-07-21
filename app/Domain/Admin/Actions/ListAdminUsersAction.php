@@ -18,10 +18,11 @@ class ListAdminUsersAction
                     ->orWhereRaw("LOWER(name) LIKE LOWER(?) ESCAPE '!'", [$pattern])
                     ->orWhereRaw("LOWER(display_name) LIKE LOWER(?) ESCAPE '!'", [$pattern]);
             }))
-            ->with(['user' => fn ($query) => $query->withCount([
-                'convoLabContentEpisodes as episodes_count',
-                'convoLabContentCourses as courses_count',
-            ])])
+            ->with('user')
+            ->withCount([
+                'contentEpisodes as episodes_count',
+                'contentCourses as courses_count',
+            ])
             ->orderByDesc('created_at')
             ->orderByDesc('convolab_id')
             ->paginate(perPage: $limit, page: $page);

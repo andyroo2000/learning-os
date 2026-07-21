@@ -174,6 +174,22 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseMissing('admin_invite_codes', ['id' => $staleInviteId]);
     }
 
+    public function test_syncs_users_and_invites_across_multiple_id_cursor_chunks(): void
+    {
+        foreach (range(1, 201) as $index) {
+            $userId = (string) Str::uuid();
+            $this->insertSourceUser($userId, ['email' => "user{$index}@example.com"]);
+            $this->insertSourceInvite((string) Str::uuid(), "CODE{$index}");
+        }
+
+        $this->runSync()
+            ->expectsOutput('Synchronized 201 users and 201 invite codes.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseCount('admin_user_projections', 201);
+        $this->assertDatabaseCount('admin_invite_codes', 201);
+    }
+
     public function test_empty_source_removes_invites_but_preserves_canonical_users(): void
     {
         $sourceId = (string) Str::uuid();

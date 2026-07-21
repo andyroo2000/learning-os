@@ -4,14 +4,10 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Domain\Admin\Models\AdminUserProjection;
-use App\Domain\Content\Models\ContentCourse;
-use App\Domain\Content\Models\ContentEpisode;
-use App\Domain\Content\Support\ContentSourceSystem;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -40,17 +36,5 @@ class User extends Authenticatable
     public function adminUserProjection(): HasOne
     {
         return $this->hasOne(AdminUserProjection::class);
-    }
-
-    public function convoLabContentEpisodes(): HasMany
-    {
-        return $this->hasMany(ContentEpisode::class)
-            ->where('source_system', ContentSourceSystem::CONVOLAB);
-    }
-
-    public function convoLabContentCourses(): HasMany
-    {
-        return $this->hasMany(ContentCourse::class)
-            ->where('source_system', ContentSourceSystem::CONVOLAB);
     }
 }

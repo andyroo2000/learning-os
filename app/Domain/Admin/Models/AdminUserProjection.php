@@ -2,9 +2,13 @@
 
 namespace App\Domain\Admin\Models;
 
+use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Models\ContentEpisode;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AdminUserProjection extends Model
 {
@@ -30,5 +34,17 @@ class AdminUserProjection extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function contentEpisodes(): HasMany
+    {
+        return $this->hasMany(ContentEpisode::class, 'convolab_user_id', 'convolab_id')
+            ->where('source_system', ContentSourceSystem::CONVOLAB);
+    }
+
+    public function contentCourses(): HasMany
+    {
+        return $this->hasMany(ContentCourse::class, 'convolab_user_id', 'convolab_id')
+            ->where('source_system', ContentSourceSystem::CONVOLAB);
     }
 }

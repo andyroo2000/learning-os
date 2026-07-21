@@ -125,7 +125,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
     {
         $user = User::factory()->create();
         [$episode, $script] = $this->script($user);
-        $media = $this->media($user);
+        $media = $this->media($user, ['source_kind' => 'upload']);
         $segment = $this->segment($script, ['image_media_id' => $media->id]);
         $this->render($script);
         $this->mockAnnotation([
@@ -314,6 +314,58 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $this->assertDatabaseMissing('content_audio_script_segments', ['id' => $oldSegment->id]);
         $this->assertDatabaseCount('content_audio_script_renders', 0);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->fresh()->source_system);
+    }
+
+    public function test_segment_update_recovers_a_stale_claim_and_cleans_only_orphaned_generated_media(): void
+    {
+        Storage::fake('media');
+        $user = User::factory()->create();
+        [$episode, $script] = $this->script($user, [
+            'script' => [
+                'status' => 'generating',
+                'generation_metadata' => ['annotationAttempt' => (string) Str::uuid()],
+            ],
+        ]);
+        DB::table('content_audio_scripts')
+            ->where('id', $script->id)
+            ->update(['updated_at' => now()->subMinutes(4)]);
+
+        $generated = $this->media($user);
+        $shared = $this->media($user, [
+            'source_filename' => 'shared.webp',
+            'normalized_filename' => 'shared.webp',
+            'storage_path' => 'study-media/user/shared.webp',
+            'public_url' => '/uploads/study-media/user/shared.webp',
+        ]);
+        $uploaded = $this->media($user, [
+            'source_kind' => 'upload',
+            'source_filename' => 'uploaded.webp',
+            'normalized_filename' => 'uploaded.webp',
+            'storage_path' => 'study-media/user/uploaded.webp',
+            'public_url' => '/uploads/study-media/user/uploaded.webp',
+        ]);
+        $this->segment($script, ['sort_order' => 0, 'image_media_id' => $generated->id]);
+        $this->segment($script, ['sort_order' => 1, 'image_media_id' => $uploaded->id]);
+        $this->segment($script, ['sort_order' => 2, 'image_media_id' => $shared->id]);
+        [, $otherScript] = $this->script($user);
+        $this->segment($otherScript, ['image_media_id' => $shared->id]);
+        Storage::disk('media')->put($generated->storage_path, 'generated-image');
+        Storage::disk('media')->put($shared->storage_path, 'shared-image');
+        Storage::disk('media')->put($uploaded->storage_path, 'uploaded-image');
+        $this->authenticateWrite($user);
+
+        $this->patchJson("/api/convolab/scripts/{$episode->id}/segments", [
+            'segments' => [$this->segmentPayload()],
+        ])->assertOk()
+            ->assertJsonPath('status', 'annotated')
+            ->assertJsonPath('generationMetadataJson', null);
+
+        $this->assertDatabaseMissing('content_audio_script_media', ['id' => $generated->id]);
+        Storage::disk('media')->assertMissing($generated->storage_path);
+        $this->assertDatabaseHas('content_audio_script_media', ['id' => $shared->id]);
+        Storage::disk('media')->assertExists($shared->storage_path);
+        $this->assertDatabaseHas('content_audio_script_media', ['id' => $uploaded->id]);
+        Storage::disk('media')->assertExists($uploaded->storage_path);
     }
 
     public function test_segment_update_rejects_unvalidated_nested_fields_and_bad_values_without_writes(): void

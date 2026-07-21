@@ -5,6 +5,8 @@ namespace App\Domain\Content\Actions;
 use App\Domain\Content\Exceptions\ContentAudioScriptConflictException;
 use App\Domain\Content\Models\ContentAudioScript;
 use App\Domain\Content\Services\ContentAudioScriptAnnotator;
+use App\Domain\Content\Services\ContentAudioScriptMediaCleaner;
+use App\Domain\Content\Support\ContentAudioScriptGeneration;
 use App\Domain\Content\Support\ContentEpisodeId;
 use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ConvoLabUserId;
@@ -14,13 +16,12 @@ use Throwable;
 
 final readonly class AnnotateContentAudioScriptAction
 {
-    private const STALE_AFTER_SECONDS = 180;
-
     public function __construct(
         private ShowContentAudioScriptAction $show,
         private PromoteContentEpisodeOwnershipAction $promote,
         private ReplaceContentAudioScriptSegmentsAction $replace,
         private ContentAudioScriptAnnotator $annotator,
+        private ContentAudioScriptMediaCleaner $mediaCleaner,
     ) {}
 
     public function handle(int $userId, string $convoLabUserId, string $episodeId): ContentAudioScript
@@ -31,8 +32,7 @@ final readonly class AnnotateContentAudioScriptAction
         $claim = DB::transaction(function () use ($userId, $convoLabUserId, $episodeId): array {
             ContentSourceLock::acquireConvoLab(DB::connection());
             $script = $this->show->locked($userId, $convoLabUserId, $episodeId);
-            if ($script->status === 'generating'
-                && $script->updated_at?->isAfter(now()->subSeconds(self::STALE_AFTER_SECONDS))) {
+            if (ContentAudioScriptGeneration::isActive($script)) {
                 throw new ContentAudioScriptConflictException('Script annotation is already in progress.');
             }
 
@@ -53,7 +53,7 @@ final readonly class AnnotateContentAudioScriptAction
         try {
             $annotation = $this->annotator->annotate($claim['sourceText']);
 
-            DB::transaction(function () use ($claim, $annotation): void {
+            $replacedMediaPaths = DB::transaction(function () use ($claim, $annotation): array {
                 ContentSourceLock::acquireConvoLab(DB::connection());
                 $script = ContentAudioScript::query()
                     ->whereKey($claim['scriptId'])
@@ -65,7 +65,7 @@ final readonly class AnnotateContentAudioScriptAction
                     throw new ContentAudioScriptConflictException('Script annotation was superseded.');
                 }
 
-                $this->replace->handle($script, $annotation['segments']);
+                $replacedMediaPaths = $this->replace->handle($script, $annotation['segments']);
                 $script->status = 'annotated';
                 $script->generation_metadata = ['segmentCount' => count($annotation['segments'])];
                 $script->error_message = null;
@@ -74,7 +74,10 @@ final readonly class AnnotateContentAudioScriptAction
                 $script->episode->title = $annotation['title'];
                 $script->episode->status = 'draft';
                 $script->episode->save();
+
+                return $replacedMediaPaths;
             });
+            $this->mediaCleaner->deleteFiles($replacedMediaPaths);
         } catch (Throwable $exception) {
             try {
                 $this->fail($claim['scriptId'], $claim['attempt'], $exception);

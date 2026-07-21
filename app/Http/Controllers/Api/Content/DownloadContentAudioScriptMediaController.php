@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Content;
 
 use App\Domain\Content\Models\ContentAudioScriptMedia;
+use App\Domain\Content\Support\ContentAudioScriptMediaPath;
 use App\Domain\Content\Support\ConvoLabUserId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\DownloadContentAudioScriptMediaRequest;
@@ -25,7 +26,7 @@ final class DownloadContentAudioScriptMediaController extends Controller
                 ->where('convolab_user_id', ConvoLabUserId::normalize($request->convoLabUserId()))
                 ->where('content_type', 'script'))
             ->first();
-        if ($media === null || ! $this->isSafePath($media->storage_path)) {
+        if ($media === null || ! ContentAudioScriptMediaPath::isSafe($media->storage_path)) {
             throw new NotFoundHttpException;
         }
 
@@ -49,19 +50,5 @@ final class DownloadContentAudioScriptMediaController extends Controller
             'Cross-Origin-Resource-Policy' => 'same-origin',
             'X-Content-Type-Options' => 'nosniff',
         ]);
-    }
-
-    private function isSafePath(mixed $path): bool
-    {
-        if (! is_string($path) || $path === '' || str_contains($path, "\0") || str_contains($path, '\\')) {
-            return false;
-        }
-
-        $normalized = ltrim($path, '/');
-
-        return $normalized === $path
-            && str_starts_with($normalized, 'study-media/')
-            && ! in_array('..', explode('/', $normalized), true)
-            && ! in_array('.', explode('/', $normalized), true);
     }
 }

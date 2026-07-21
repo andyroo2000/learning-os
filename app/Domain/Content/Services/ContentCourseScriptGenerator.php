@@ -16,9 +16,13 @@ class ContentCourseScriptGenerator
     public function generate(array $snapshot): ContentCourseScriptGenerationResult
     {
         $narratorVoiceId = $snapshot['course']['l1VoiceId'] ?? null;
+        $maxDurationMinutes = $snapshot['course']['maxLessonDurationMinutes'] ?? null;
         $speakerVoiceIds = $this->speakerVoiceIds($snapshot);
         if (! is_string($narratorVoiceId) || trim($narratorVoiceId) === '' || $speakerVoiceIds === []) {
             throw new RuntimeException('Course generation requires narrator and speaker voice IDs.');
+        }
+        if (! is_int($maxDurationMinutes) || $maxDurationMinutes < 1 || $maxDurationMinutes > 120) {
+            throw new RuntimeException('Course generation requires a valid maximum duration.');
         }
 
         try {
@@ -48,6 +52,9 @@ PROMPT;
             'You generate bounded, production-ready conversational language lesson scripts. Follow the JSON contract exactly.',
             $prompt,
         ));
+        if ($result->estimatedDurationSeconds > $maxDurationMinutes * 60) {
+            throw new RuntimeException('Course generator exceeded the maximum lesson duration.');
+        }
 
         foreach ($result->exchanges as $exchange) {
             if (! in_array($exchange['speakerVoiceId'], $speakerVoiceIds, true)) {

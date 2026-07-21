@@ -131,7 +131,7 @@ final class CreateContentCourseAction
             ->where('user_id', $data->userId)
             ->where('convolab_user_id', $data->convoLabUserId)
             ->lockForUpdate()
-            ->get(['id', 'title'])
+            ->get(['id', 'title', 'source_system'])
             ->keyBy('id');
 
         if ($episodes->count() !== count($data->episodeIds)) {

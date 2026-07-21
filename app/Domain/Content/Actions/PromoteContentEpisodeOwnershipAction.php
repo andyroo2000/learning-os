@@ -22,15 +22,20 @@ final class PromoteContentEpisodeOwnershipAction
             throw new LogicException('Content Episode ownership promotion requires an active transaction.');
         }
 
+        $episodeIds = [];
         foreach ($episodes as $episode) {
+            $episodeIds[] = $episode->id;
             if ($episode->source_system !== ContentSourceSystem::LEARNING_OS) {
                 $episode->source_system = ContentSourceSystem::LEARNING_OS;
                 $episode->save();
             }
 
+        }
+
+        if ($episodeIds !== []) {
             ContentAudioScriptMedia::query()
-                ->whereHas('segments.script', function ($query) use ($episode): void {
-                    $query->where('episode_id', $episode->id);
+                ->whereHas('segments.script', function ($query) use ($episodeIds): void {
+                    $query->whereIn('episode_id', $episodeIds);
                 })
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
         }

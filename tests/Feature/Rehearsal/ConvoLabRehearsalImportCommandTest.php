@@ -437,6 +437,30 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         StudyCardDraft::factory()->for($existingUser)->create();
         SyncFeedEntry::factory()->for($existingUser)->create();
         $now = now();
+        $convoLabUserId = (string) Str::uuid();
+        DB::table('admin_user_projections')->insert([
+            'convolab_id' => $convoLabUserId,
+            'user_id' => $existingUser->id,
+            'email' => $existingUser->email,
+            'name' => $existingUser->name,
+            'display_name' => null,
+            'avatar_color' => null,
+            'avatar_url' => null,
+            'role' => 'user',
+            'preferred_study_language' => 'ja',
+            'preferred_native_language' => 'en',
+            'onboarding_completed' => false,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('admin_invite_codes')->insert([
+            'id' => (string) Str::uuid(),
+            'code' => 'RESET123',
+            'used_by' => $existingUser->id,
+            'convolab_used_by' => $convoLabUserId,
+            'used_at' => $now,
+            'created_at' => $now,
+        ]);
         DB::table('japanese_knowledge_profiles')->insert([
             'user_id' => $existingUser->id,
             'knowledge_version' => 1,
@@ -489,6 +513,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('user_known_kanji', 0);
         $this->assertDatabaseCount('study_vocab_variant_sentences', 0);
         $this->assertDatabaseCount('study_vocab_variant_groups', 0);
+        $this->assertDatabaseCount('admin_invite_codes', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
         $this->assertDatabaseCount('users', 1);
     }
 

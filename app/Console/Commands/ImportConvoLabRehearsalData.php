@@ -48,6 +48,8 @@ class ImportConvoLabRehearsalData extends Command
         'personal_access_tokens',
         'sessions',
         'password_reset_tokens',
+        'admin_invite_codes',
+        'admin_user_projections',
         'users',
     ];
 

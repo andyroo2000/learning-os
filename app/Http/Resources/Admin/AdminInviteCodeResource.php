@@ -1,0 +1,29 @@
+<?php
+
+namespace App\Http\Resources\Admin;
+
+use App\Support\DateTime\ConvoLabTimestamp;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class AdminInviteCodeResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'code' => $this->code,
+            'usedBy' => $this->convolab_used_by,
+            'usedAt' => ConvoLabTimestamp::serialize($this->used_at),
+            'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
+            'user' => $this->whenLoaded(
+                'adminUserProjection',
+                fn (): ?array => $this->adminUserProjection === null ? null : [
+                    'id' => $this->adminUserProjection->convolab_id,
+                    'email' => $this->adminUserProjection->email,
+                    'name' => $this->adminUserProjection->name,
+                ],
+            ),
+        ];
+    }
+}

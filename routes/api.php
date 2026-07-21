@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\Content\ListContentCoursesController;
 use App\Http\Controllers\Api\Content\ListContentEpisodesController;
 use App\Http\Controllers\Api\Content\ShowContentCourseController;
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
+use App\Http\Controllers\Api\Content\StoreContentCourseController;
 use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
 use App\Http\Controllers\Api\Content\UpdateContentEpisodeController;
 use App\Http\Controllers\Api\Courses\DeleteCourseController;
@@ -175,6 +177,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUuid('episodeId')
         ->middleware('throttle:'.ContentEpisodeRateLimiter::DELETE_NAME);
     Route::get('/convolab/courses', ListContentCoursesController::class);
+    Route::post('/convolab/courses', StoreContentCourseController::class)
+        ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);
     Route::get('/convolab/courses/{courseId}', ShowContentCourseController::class)
         ->whereUuid('courseId');
     Route::get('/feature-flags', ShowFeatureFlagsController::class);

@@ -48,6 +48,8 @@ return [
         'base_url' => env('OPENAI_API_BASE_URL', 'https://api.openai.com/v1'),
         'study_card_model' => env('STUDY_CARD_GENERATOR_MODEL', 'gpt-5.5'),
         'study_card_reasoning_effort' => env('STUDY_CARD_GENERATOR_REASONING_EFFORT', 'medium'),
+        'content_model' => env('CORE_GENERATOR_MODEL', 'gpt-5.5'),
+        'content_reasoning_effort' => env('CORE_GENERATOR_REASONING_EFFORT', 'medium'),
         'daily_audio_model' => env('DAILY_AUDIO_GENERATOR_MODEL', 'gpt-5.5'),
         'daily_audio_reasoning_effort' => env('DAILY_AUDIO_GENERATOR_REASONING_EFFORT', 'medium'),
         'study_image_model' => env('STUDY_CARD_IMAGE_GENERATOR_MODEL', 'gpt-image-1'),

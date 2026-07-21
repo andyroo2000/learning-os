@@ -19,6 +19,10 @@ true:
    from returning.
 2. Course creation and generation can consume Episodes stored in Learning OS instead of
    assuming every Episode exists in the Convo Lab source database.
+   - **Complete:** Learning OS exposes a dormant Convo-compatible Course create route that
+     atomically links imported or Learning-owned Episodes and supports inline source text.
+   - **Remaining:** migrate Course generation and its status lifecycle to consume the new
+     Learning-owned Course graph before proxying Course create or activating Episode writes.
 3. The Convo Lab proxy preserves `blockDemoUser` behavior for create and delete.
 4. Production smoke coverage creates, updates, reads, and deletes a disposable Episode
    through Convo Lab before the deployment is accepted.

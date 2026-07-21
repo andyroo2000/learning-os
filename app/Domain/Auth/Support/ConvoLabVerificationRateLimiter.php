@@ -9,24 +9,28 @@ final class ConvoLabVerificationRateLimiter
 {
     public const SEND = 'convolab-verification-send';
 
+    public const SEND_NETWORK = 'convolab-verification-send-network';
+
     public const VERIFY = 'convolab-verification-verify';
 
     public const VERIFY_NETWORK = 'convolab-verification-verify-network';
 
     public static function forSend(): self
     {
-        return new self(self::SEND, 6, true);
+        return new self(self::SEND, 6, true, self::SEND_NETWORK, 60);
     }
 
     public static function forVerify(): self
     {
-        return new self(self::VERIFY, 12, false);
+        return new self(self::VERIFY, 12, false, self::VERIFY_NETWORK, 120);
     }
 
     private function __construct(
         private readonly string $name,
         private readonly int $perMinute,
         private readonly bool $useUserHeader,
+        private readonly string $networkName,
+        private readonly int $networkPerMinute,
     ) {}
 
     public function limit(Request $request): Limit
@@ -44,8 +48,8 @@ final class ConvoLabVerificationRateLimiter
 
     public function networkLimit(Request $request): Limit
     {
-        return Limit::perMinute(120)->by(self::keyFor(
-            self::VERIFY_NETWORK,
+        return Limit::perMinute($this->networkPerMinute)->by(self::keyFor(
+            $this->networkName,
             null,
             $request->ip(),
         ));

@@ -230,6 +230,7 @@ class SyncConvoLabAdminProjectionAction
 
         $source->table('InviteCode')
             ->chunkById(200, function ($inviteCodes) use ($target, &$count, &$sourceIds): void {
+                $normalizedInviteCodes = [];
                 foreach ($inviteCodes as $inviteCode) {
                     $id = strtolower(trim((string) $inviteCode->id));
                     $convoLabUsedBy = $inviteCode->usedBy === null
@@ -246,9 +247,17 @@ class SyncConvoLabAdminProjectionAction
                     if ($code === '' || mb_strlen($code) > 20) {
                         throw new RuntimeException("Convo Lab invite code [{$id}] has an invalid code value.");
                     }
+                    $normalizedInviteCodes[] = [$inviteCode, $id, $convoLabUsedBy, $code];
+                }
 
-                    $existingInvite = $target->table('admin_invite_codes')->where('id', $id)->first();
-                    if ($existingInvite?->source_system === ConvoLabAccountSource::LEARNING_OS) {
+                $learningOsOwnedIds = $target->table('admin_invite_codes')
+                    ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
+                    ->whereIn('id', array_column($normalizedInviteCodes, 1))
+                    ->pluck('id')
+                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+
+                foreach ($normalizedInviteCodes as [$inviteCode, $id, $convoLabUsedBy, $code]) {
+                    if ($learningOsOwnedIds->has($id)) {
                         $sourceIds[] = $id;
                         $count++;
 

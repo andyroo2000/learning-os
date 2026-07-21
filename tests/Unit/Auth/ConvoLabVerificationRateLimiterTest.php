@@ -46,7 +46,9 @@ class ConvoLabVerificationRateLimiterTest extends TestCase
             }
         });
 
-        $send = ConvoLabVerificationRateLimiter::forSend()->limit($request);
+        $sendLimiter = ConvoLabVerificationRateLimiter::forSend();
+        $send = $sendLimiter->limit($request);
+        $sendNetwork = $sendLimiter->networkLimit($request);
         $verifyLimiter = ConvoLabVerificationRateLimiter::forVerify();
         $verify = $verifyLimiter->limit($request);
         $verifyNetwork = $verifyLimiter->networkLimit($request);
@@ -54,6 +56,11 @@ class ConvoLabVerificationRateLimiterTest extends TestCase
         $this->assertSame(6, $send->maxAttempts);
         $this->assertSame(12, $verify->maxAttempts);
         $this->assertStringStartsWith(ConvoLabVerificationRateLimiter::SEND.':', $send->key);
+        $this->assertSame(60, $sendNetwork->maxAttempts);
+        $this->assertSame(
+            ConvoLabVerificationRateLimiter::SEND_NETWORK.':missing:127.0.0.1',
+            $sendNetwork->key,
+        );
         $this->assertSame(
             ConvoLabVerificationRateLimiter::VERIFY.':'.hash('sha256', str_repeat('a', 64)).':127.0.0.1',
             $verify->key,

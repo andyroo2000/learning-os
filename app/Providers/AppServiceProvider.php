@@ -107,8 +107,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $convoLabVerificationSendRateLimiter = ConvoLabVerificationRateLimiter::forSend();
-        RateLimiter::for(ConvoLabVerificationRateLimiter::SEND, function (Request $request) use ($convoLabVerificationSendRateLimiter): Limit {
-            return $convoLabVerificationSendRateLimiter->limit($request);
+        RateLimiter::for(ConvoLabVerificationRateLimiter::SEND, function (Request $request) use ($convoLabVerificationSendRateLimiter): array {
+            return [
+                $convoLabVerificationSendRateLimiter->limit($request),
+                $convoLabVerificationSendRateLimiter->networkLimit($request),
+            ];
         });
         $convoLabVerificationVerifyRateLimiter = ConvoLabVerificationRateLimiter::forVerify();
         RateLimiter::for(ConvoLabVerificationRateLimiter::VERIFY, function (Request $request) use ($convoLabVerificationVerifyRateLimiter): array {

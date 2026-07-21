@@ -34,16 +34,19 @@ final class RegisterConvoLabUserAction
                     throw ConvoLabSignupException::invalidInvite();
                 }
 
-                $account = AdminUserProjection::query()
-                    ->select('admin_user_projections.*')
-                    ->addSelect('users.convolab_password_hash')
-                    ->join('users', 'users.id', '=', 'admin_user_projections.user_id')
-                    ->where('users.convolab_email_normalized', $email)
+                $credentialUser = User::query()
+                    ->where('convolab_email_normalized', $email)
                     ->lockForUpdate()
                     ->first();
+                $account = $credentialUser instanceof User
+                    ? AdminUserProjection::query()
+                        ->where('user_id', $credentialUser->getKey())
+                        ->lockForUpdate()
+                        ->first()
+                    : null;
 
                 if ($account instanceof AdminUserProjection) {
-                    return $this->retryExistingSignup($account, $invite, $password);
+                    return $this->retryExistingSignup($account, $credentialUser, $invite, $password);
                 }
                 if ($invite->used_by !== null || $invite->convolab_used_by !== null) {
                     throw ConvoLabSignupException::usedInvite();
@@ -107,6 +110,7 @@ final class RegisterConvoLabUserAction
 
     private function retryExistingSignup(
         AdminUserProjection $account,
+        User $user,
         AdminInviteCode $invite,
         string $password,
     ): RegisterConvoLabUserResult {
@@ -114,7 +118,7 @@ final class RegisterConvoLabUserAction
             throw ConvoLabSignupException::accountExists();
         }
 
-        $passwordHash = $account->getAttribute('convolab_password_hash');
+        $passwordHash = $user->getAttribute('convolab_password_hash');
         if (! is_string($passwordHash) || ! password_verify($password, $passwordHash)) {
             throw ConvoLabSignupException::invalidRetryCredentials();
         }

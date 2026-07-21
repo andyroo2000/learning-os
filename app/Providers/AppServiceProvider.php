@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Content\Support\ContentEpisodeRateLimiter;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
@@ -101,6 +102,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(AuthAccountRateLimiter::TOKEN_REVOKE, function (Request $request) use ($accountTokenRevokeRateLimiter): Limit {
             return $accountTokenRevokeRateLimiter->limit($request);
         });
+
+        foreach ([
+            ContentEpisodeRateLimiter::CREATE_NAME => ContentEpisodeRateLimiter::create(),
+            ContentEpisodeRateLimiter::UPDATE_NAME => ContentEpisodeRateLimiter::update(),
+            ContentEpisodeRateLimiter::DELETE_NAME => ContentEpisodeRateLimiter::delete(),
+        ] as $name => $limiter) {
+            RateLimiter::for($name, fn (Request $request): Limit => $limiter->limit($request));
+        }
 
         $courseCreateRateLimiter = CourseRateLimiter::create();
         RateLimiter::for(CourseRateLimiter::CREATE_NAME, function (Request $request) use ($courseCreateRateLimiter): Limit {

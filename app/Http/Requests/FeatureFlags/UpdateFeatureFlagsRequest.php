@@ -2,31 +2,14 @@
 
 namespace App\Http\Requests\FeatureFlags;
 
+use App\Http\Support\ConvoLabProxyAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
-use Laravel\Sanctum\PersonalAccessToken;
 
 class UpdateFeatureFlagsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $token = $this->user()?->currentAccessToken();
-        $proxyUserEmail = config('services.convolab.proxy_user_email');
-
-        if (
-            ! $token instanceof PersonalAccessToken
-            || $token->name !== 'convolab-proxy'
-            || ! is_string($proxyUserEmail)
-            || $proxyUserEmail === ''
-            || ! hash_equals(
-                Str::lower(trim($proxyUserEmail)),
-                Str::lower(trim((string) $this->user()?->email)),
-            )
-        ) {
-            return false;
-        }
-
-        return in_array('feature-flags:write', $token->abilities, true);
+        return ConvoLabProxyAuthorization::allows($this, 'feature-flags:write');
     }
 
     /**

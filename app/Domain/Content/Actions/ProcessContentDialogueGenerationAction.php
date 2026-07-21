@@ -12,6 +12,7 @@ use App\Domain\Content\Results\ContentDialogueGenerationResult;
 use App\Domain\Content\Services\ContentDialogueGenerator;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentDialogueJobId;
+use App\Domain\Content\Support\ContentJapaneseMetadata;
 use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Content\Support\ContentSpeakerProfile;
@@ -184,20 +185,7 @@ final class ProcessContentDialogueGenerationAction
             return [];
         }
 
-        $furigana = $reading ?? $text;
-        $kana = preg_replace_callback(
-            '/[\p{Han}々〆ヵヶ0-9０-９]+\[([^\]]+)]/u',
-            static fn (array $matches): string => $matches[1],
-            $furigana,
-        );
-
-        return [
-            'japanese' => [
-                'kanji' => $text,
-                'kana' => is_string($kana) ? $kana : $text,
-                'furigana' => $furigana,
-            ],
-        ];
+        return ContentJapaneseMetadata::fromText($text, $reading);
     }
 
     private function ownsAttempt(?ContentEpisode $episode, ContentDialogueGenerationJob $job): bool

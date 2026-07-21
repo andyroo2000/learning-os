@@ -470,6 +470,27 @@ class ContentCourseWriteApiTest extends TestCase
         $this->assertDatabaseHas('content_courses', ['id' => $other->id]);
     }
 
+    public function test_course_delete_validates_provenance(): void
+    {
+        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $course = $this->courseFor($user);
+        $token = $this->proxyToken($user);
+
+        $this->withToken($token)
+            ->deleteJson('/api/convolab/courses/'.$course->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+            ->deleteJson('/api/convolab/courses/'.$course->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['convolabUserId']);
+
+        $this->assertDatabaseHas('content_courses', ['id' => $course->id]);
+        $this->assertDatabaseCount('content_course_tombstones', 0);
+    }
+
     public function test_course_write_routes_use_separate_named_rate_limiters(): void
     {
         $routes = collect(Route::getRoutes()->getRoutes());

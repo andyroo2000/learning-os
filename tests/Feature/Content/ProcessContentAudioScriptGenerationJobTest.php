@@ -317,6 +317,25 @@ class ProcessContentAudioScriptGenerationJobTest extends TestCase
         $this->assertSame(ContentAudioScriptJob::STATE_FAILED, $stale->fresh()->state);
     }
 
+    public function test_stale_active_image_job_is_reclaimed_and_completed(): void
+    {
+        [, $script, $job] = $this->pendingJob('images', ['force' => false]);
+        $this->segment($script);
+        $job->state = ContentAudioScriptJob::STATE_ACTIVE;
+        $job->started_at = now()->subSeconds(ContentAudioScriptJob::ACTIVE_STALE_AFTER_SECONDS + 1);
+        $job->save();
+        $this->mock(ImageGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('generate')->once()->andReturn($this->webp('recovered'));
+        });
+
+        app(ProcessContentAudioScriptGenerationAction::class)->handle($job->id);
+
+        $this->assertSame(ContentAudioScriptJob::STATE_COMPLETED, $job->fresh()->state);
+        $this->assertSame(100, $job->fresh()->progress);
+        $this->assertSame('ready', $job->fresh()->result['imageStatus']);
+        $this->assertSame('ready', $script->fresh()->image_status);
+    }
+
     public function test_terminal_failure_updates_only_the_attempt_that_still_owns_the_script(): void
     {
         [$episode, $script, $job] = $this->pendingJob('render');
@@ -336,6 +355,47 @@ class ProcessContentAudioScriptGenerationJobTest extends TestCase
         $this->assertTrue(app(FailContentAudioScriptGenerationAction::class)->handle($superseded->id, 'Old failure'));
         $this->assertSame('annotated', $newScript->fresh()->status);
         $this->assertSame('generating', $newEpisode->fresh()->status);
+    }
+
+    public function test_terminal_image_failure_deletes_only_unreferenced_attempt_files(): void
+    {
+        [$episode, $script, $job] = $this->pendingJob('images', ['force' => true]);
+        $segment = $this->segment($script, ['image_status' => 'generating']);
+        $referencedId = (string) Str::uuid();
+        $referencedPath = ContentAudioScriptGeneratedImagePath::storagePath(
+            $episode->id,
+            $segment->id,
+            2,
+            $referencedId,
+        );
+        $media = ContentAudioScriptMedia::query()->forceCreate([
+            'id' => $referencedId, 'user_id' => $job->user_id,
+            'source_system' => ContentSourceSystem::LEARNING_OS, 'source_kind' => 'generated',
+            'source_filename' => basename($referencedPath), 'normalized_filename' => basename($referencedPath),
+            'media_kind' => 'image', 'content_type' => 'image/webp',
+            'storage_path' => $referencedPath,
+            'public_url' => "/api/convolab/scripts/media/{$referencedId}",
+        ]);
+        $segment->image_media_id = $media->id;
+        $segment->save();
+        $orphanPath = ContentAudioScriptGeneratedImagePath::storagePath(
+            $episode->id,
+            $segment->id,
+            2,
+            (string) Str::uuid(),
+        );
+        Storage::disk('media')->put($referencedPath, 'referenced');
+        Storage::disk('media')->put($orphanPath, 'orphan');
+
+        $this->assertTrue(app(FailContentAudioScriptGenerationAction::class)->handle(
+            $job->id,
+            ContentAudioScriptJob::FAILED_MESSAGE,
+        ));
+
+        Storage::disk('media')->assertExists($referencedPath);
+        Storage::disk('media')->assertMissing($orphanPath);
+        $this->assertSame('error', $script->fresh()->image_status);
+        $this->assertSame('error', $segment->fresh()->image_status);
     }
 
     /** @return array{ContentEpisode, ContentAudioScript, ContentAudioScriptGenerationJob} */

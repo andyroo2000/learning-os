@@ -58,7 +58,7 @@ final readonly class AnnotateContentAudioScriptAction
         try {
             $annotation = $this->annotator->annotate($claim['sourceText']);
 
-            $replacedPaths = DB::transaction(function () use ($claim, $annotation): array {
+            $replacement = DB::transaction(function () use ($claim, $annotation): array {
                 ContentSourceLock::acquireConvoLab(DB::connection());
                 $script = ContentAudioScript::query()
                     ->whereKey($claim['scriptId'])
@@ -80,10 +80,10 @@ final readonly class AnnotateContentAudioScriptAction
                 $script->episode->status = 'draft';
                 $script->episode->save();
 
-                return $replacedPaths;
+                return ['episodeId' => $script->episode_id, 'paths' => $replacedPaths];
             });
-            $this->mediaCleaner->deleteFiles($replacedPaths['mediaPaths']);
-            $this->renderCleaner->deleteFiles($episodeId, $replacedPaths['renderPaths']);
+            $this->mediaCleaner->deleteFiles($replacement['paths']['mediaPaths']);
+            $this->renderCleaner->deleteFiles($replacement['episodeId'], $replacement['paths']['renderPaths']);
         } catch (Throwable $exception) {
             try {
                 $this->fail($claim['scriptId'], $claim['attempt'], $exception);

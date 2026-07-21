@@ -18,4 +18,15 @@ final class ContentAudioScriptGeneratedImagePath
             $path,
         ) === 1;
     }
+
+    public static function ownsAttemptPath(string $episodeId, int $attempt, mixed $path): bool
+    {
+        return is_string($path) && preg_match(
+            '/^study-media\/audio-scripts\/'.preg_quote($episodeId, '/').'\/'
+                .'[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-'
+                .preg_quote((string) $attempt, '/').'-'
+                .'[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/',
+            $path,
+        ) === 1;
+    }
 }

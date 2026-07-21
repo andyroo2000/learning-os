@@ -6,6 +6,7 @@ use App\Domain\Content\Models\ContentAudioScript;
 use App\Domain\Content\Models\ContentAudioScriptGenerationJob;
 use App\Domain\Content\Models\ContentAudioScriptRender;
 use App\Domain\Content\Models\ContentAudioScriptSegment;
+use App\Domain\Content\Services\ContentAudioScriptMediaCleaner;
 use App\Domain\Content\Support\ContentAudioScriptJob;
 use App\Domain\Content\Support\ContentAudioScriptJobId;
 use App\Domain\Content\Support\ContentAudioScriptRenderAudio;
@@ -17,6 +18,8 @@ use Throwable;
 
 final class FailContentAudioScriptGenerationAction
 {
+    public function __construct(private readonly ContentAudioScriptMediaCleaner $mediaCleaner) {}
+
     public function handle(string $jobId, string $message): bool
     {
         $jobId = ContentAudioScriptJobId::normalize($jobId);
@@ -57,7 +60,11 @@ final class FailContentAudioScriptGenerationAction
                     ->where('status', 'generating')
                     ->update(['status' => 'error', 'error_message' => $message]);
 
-                return [$script->episode_id, (int) $job->attempt];
+                return [
+                    'kind' => ContentAudioScriptJob::KIND_RENDER,
+                    'episodeId' => $script->episode_id,
+                    'attempt' => (int) $job->attempt,
+                ];
             }
 
             $script->image_status = 'error';
@@ -68,11 +75,16 @@ final class FailContentAudioScriptGenerationAction
                 ->where('image_status', 'generating')
                 ->update(['image_status' => 'error', 'image_error_message' => $message]);
 
-            return [];
+            return [
+                'kind' => ContentAudioScriptJob::KIND_IMAGES,
+                'episodeId' => $script->episode_id,
+                'attempt' => (int) $job->attempt,
+            ];
         });
 
-        if (count($cleanup ?? []) === 2) {
-            [$episodeId, $attempt] = $cleanup;
+        if (($cleanup['kind'] ?? null) === ContentAudioScriptJob::KIND_RENDER) {
+            $episodeId = $cleanup['episodeId'];
+            $attempt = $cleanup['attempt'];
             $disk = Storage::disk((string) config('content_audio.disk'));
             foreach (ContentAudioScriptRenderAudio::SPEEDS as $speed) {
                 try {
@@ -81,6 +93,8 @@ final class FailContentAudioScriptGenerationAction
                     report($exception);
                 }
             }
+        } elseif (($cleanup['kind'] ?? null) === ContentAudioScriptJob::KIND_IMAGES) {
+            $this->mediaCleaner->deleteAttemptOrphans($cleanup['episodeId'], $cleanup['attempt']);
         }
 
         return $cleanup !== null;

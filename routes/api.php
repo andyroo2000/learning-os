@@ -33,6 +33,10 @@ use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
+use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
+use App\Http\Controllers\Api\Admin\ListAdminUsersController;
+use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
+use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -193,6 +197,11 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
+    Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
+    Route::get('/convolab/admin/users', ListAdminUsersController::class);
+    Route::get('/convolab/admin/users/{convoLabUserId}/info', ShowAdminUserController::class)
+        ->whereUuid('convoLabUserId');
+    Route::get('/convolab/admin/invite-codes', ListAdminInviteCodesController::class);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

@@ -3,10 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domain\Admin\Models\AdminInviteCode;
+use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Models\ContentEpisode;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -28,6 +32,22 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'onboarding_completed' => 'boolean',
         ];
+    }
+
+    public function adminInviteCodes(): HasMany
+    {
+        return $this->hasMany(AdminInviteCode::class, 'used_by');
+    }
+
+    public function contentEpisodes(): HasMany
+    {
+        return $this->hasMany(ContentEpisode::class);
+    }
+
+    public function contentCourses(): HasMany
+    {
+        return $this->hasMany(ContentCourse::class);
     }
 }

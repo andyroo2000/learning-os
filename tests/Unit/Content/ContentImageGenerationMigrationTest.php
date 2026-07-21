@@ -26,7 +26,6 @@ class ContentImageGenerationMigrationTest extends TestCase
         foreach ([
             'content_image_generation_jobs',
             'content_image_jobs_dialogue_state_idx',
-            'content_image_jobs_owner_created_idx',
             'content_image_generation_jobs_episode_id_foreign',
             'content_image_generation_jobs_dialogue_id_foreign',
             'content_image_generation_jobs_user_id_foreign',
@@ -68,7 +67,6 @@ class ContentImageGenerationMigrationTest extends TestCase
             'started_at',
             'finished_at',
             'content_image_jobs_dialogue_state_idx',
-            'content_image_jobs_owner_created_idx',
         ] as $fragment) {
             $this->assertStringContainsString($fragment, $createSql);
         }
@@ -120,7 +118,6 @@ class ContentImageGenerationMigrationTest extends TestCase
             $table->timestampTz('finished_at')->nullable();
             $table->timestampsTz();
             $table->index(['dialogue_id', 'state'], 'content_image_jobs_dialogue_state_idx');
-            $table->index(['user_id', 'convolab_user_id', 'created_at'], 'content_image_jobs_owner_created_idx');
         });
     }
 

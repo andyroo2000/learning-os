@@ -25,7 +25,6 @@ return new class extends Migration
             $table->timestampsTz();
 
             $table->index(['dialogue_id', 'state'], 'content_image_jobs_dialogue_state_idx');
-            $table->index(['user_id', 'convolab_user_id', 'created_at'], 'content_image_jobs_owner_created_idx');
         });
     }
 

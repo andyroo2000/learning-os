@@ -91,6 +91,36 @@ class ProcessContentImageGenerationJobTest extends TestCase
         $this->assertSame(0, $dialogue->episode->images()->count());
     }
 
+    public function test_regeneration_replaces_the_previous_image_batch(): void
+    {
+        [$episode, $dialogue, , $firstJob] = $this->pendingJob(1);
+        $this->mock(ContentOpenAiClient::class)
+            ->shouldReceive('generateText')
+            ->twice()
+            ->andReturn('First scene', 'Replacement scene');
+
+        app(ProcessContentImageGenerationAction::class)->handle($firstJob->id);
+        $firstImageId = $episode->images()->sole()->id;
+        $secondJob = ContentImageGenerationJob::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'episode_id' => $episode->id,
+            'dialogue_id' => $dialogue->id,
+            'user_id' => $episode->user_id,
+            'convolab_user_id' => $episode->convolab_user_id,
+            'state' => ContentImageGeneration::STATE_WAITING,
+            'progress' => 0,
+            'image_count' => 1,
+        ]);
+
+        app(ProcessContentImageGenerationAction::class)->handle($secondJob->id);
+
+        $replacement = $episode->images()->sole();
+        $this->assertNotSame($firstImageId, $replacement->id);
+        $this->assertSame('Replacement scene', $replacement->prompt);
+        $this->assertDatabaseMissing('content_images', ['id' => $firstImageId]);
+        $this->assertSame(ContentImageGeneration::STATE_COMPLETED, $secondJob->fresh()->state);
+    }
+
     public function test_provider_failure_releases_the_claim_without_persisting_partial_images(): void
     {
         [$episode, , , $job] = $this->pendingJob(2);

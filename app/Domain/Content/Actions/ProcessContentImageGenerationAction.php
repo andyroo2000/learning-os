@@ -127,6 +127,7 @@ final class ProcessContentImageGenerationAction
                 return;
             }
 
+            ContentImage::query()->where('episode_id', $job->episode_id)->delete();
             $result = [];
             foreach ($plannedImages as $planned) {
                 $image = new ContentImage;

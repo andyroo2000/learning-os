@@ -76,6 +76,9 @@ class ImportConvoLabEpisodes extends Command
     /** @var array<string, true> */
     private array $preservedCourseIds = [];
 
+    /** @var array<string, true> */
+    private array $preservedCourseEpisodeIds = [];
+
     /** @var array<string, int> */
     private array $preservedMediaUserIds = [];
 
@@ -209,6 +212,12 @@ class ImportConvoLabEpisodes extends Command
             $this->preservedCourseIds[(string) $courseId] = true;
         }
 
+        foreach ($target->table('content_episode_courses')
+            ->where('source_system', ContentSourceSystem::LEARNING_OS)
+            ->pluck('id') as $courseEpisodeId) {
+            $this->preservedCourseEpisodeIds[(string) $courseEpisodeId] = true;
+        }
+
         foreach ($target->table('content_audio_script_media')
             ->where('source_system', ContentSourceSystem::LEARNING_OS)
             ->get(['id', 'user_id']) as $media) {
@@ -249,6 +258,7 @@ class ImportConvoLabEpisodes extends Command
         $this->referencedMediaIds = [];
         $this->preservedEpisodeIds = [];
         $this->preservedCourseIds = [];
+        $this->preservedCourseEpisodeIds = [];
         $this->preservedMediaUserIds = [];
     }
 
@@ -477,14 +487,19 @@ class ImportConvoLabEpisodes extends Command
     private function importCourseEpisodes(ConnectionInterface $source, ConnectionInterface $target): void
     {
         $this->copy($source, $target, 'CourseEpisode', 'content_episode_courses', function (object $row): ?array {
+            $id = $this->uuid($row->id, 'course episode link');
+            if (isset($this->preservedCourseEpisodeIds[$id])) {
+                return null;
+            }
             $episodeId = $this->uuid($row->episodeId, 'course episode');
             $courseId = $this->uuid($row->courseId, 'course episode course');
-            if (! isset($this->episodeIds[$episodeId], $this->courseIds[$courseId])) {
+            if ((! isset($this->episodeIds[$episodeId]) && ! isset($this->preservedEpisodeIds[$episodeId]))
+                || ! isset($this->courseIds[$courseId])) {
                 return null;
             }
 
             return [
-                'id' => $this->uuid($row->id, 'course episode link'), 'episode_id' => $episodeId,
+                'id' => $id, 'episode_id' => $episodeId,
                 'convolab_course_id' => $courseId, 'sort_order' => $row->order,
                 'source_system' => ContentSourceSystem::CONVOLAB,
             ];

@@ -23,6 +23,9 @@ class CreateContentCourseActionTest extends TestCase
         $sourceUserId = (string) Str::uuid();
         $first = $this->episodeFor($user, $sourceUserId, ContentSourceSystem::LEARNING_OS);
         $second = $this->episodeFor($user, $sourceUserId, ContentSourceSystem::CONVOLAB);
+        $first->updated_at = now()->subDay();
+        $first->save();
+        $originalFirstUpdatedAt = $first->fresh()->updated_at;
 
         $result = app(CreateContentCourseAction::class)->handle(CreateContentCourseData::fromInput(
             $user->id,
@@ -40,6 +43,8 @@ class CreateContentCourseActionTest extends TestCase
         $this->assertSame('Direct Course', $result->course->title);
         $this->assertSame('Direct description.', $result->course->description);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $result->course->source_system);
+        $this->assertSame(ContentSourceSystem::LEARNING_OS, $second->fresh()->source_system);
+        $this->assertTrue($first->fresh()->updated_at->equalTo($originalFirstUpdatedAt));
         $this->assertSame(
             [$second->id, $first->id],
             $result->course->courseEpisodes()->orderBy('sort_order')->pluck('episode_id')->all(),

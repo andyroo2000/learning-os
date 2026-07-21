@@ -20,6 +20,7 @@ final class CreateContentCourseAction
 {
     public function __construct(
         private readonly CreateContentEpisodeAction $createEpisode,
+        private readonly PromoteContentEpisodeOwnershipAction $promoteEpisodeOwnership,
         private readonly ContentCourseDescriptionGenerator $descriptionGenerator,
     ) {}
 
@@ -36,6 +37,8 @@ final class CreateContentCourseAction
             if ($episodes === null) {
                 return CreateContentCourseResult::episodesNotFound();
             }
+
+            $this->promoteEpisodeOwnership->handle(DB::connection(), $episodes);
 
             $episodeTitles = array_map(
                 static fn (ContentEpisode $episode): string => $episode->title,
@@ -128,7 +131,7 @@ final class CreateContentCourseAction
             ->where('user_id', $data->userId)
             ->where('convolab_user_id', $data->convoLabUserId)
             ->lockForUpdate()
-            ->get(['id', 'title'])
+            ->get(['id', 'title', 'source_system'])
             ->keyBy('id');
 
         if ($episodes->count() !== count($data->episodeIds)) {

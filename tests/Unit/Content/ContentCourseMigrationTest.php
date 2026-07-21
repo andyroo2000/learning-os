@@ -22,6 +22,43 @@ class ContentCourseMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_20_230000_create_content_course_tables.php',
         );
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_020000_add_generation_revision_to_content_courses.php',
+        );
+    }
+
+    #[DataProvider('generationRevisionGrammarProvider')]
+    public function test_generation_revision_compiles_up_and_down_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+
+        $up = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->unsignedBigInteger('generation_revision')->default(0);
+        });
+        $down = new Blueprint($connection, 'content_courses', function (Blueprint $table): void {
+            $table->dropColumn('generation_revision');
+        });
+
+        $upSql = strtolower(implode(' ', $up->toSql()));
+        $this->assertStringContainsString('generation_revision', $upSql);
+        $this->assertStringContainsString('default', $upSql);
+        $this->assertStringContainsString('0', $upSql);
+        $downSql = strtolower(implode(' ', $down->toSql()));
+        $this->assertStringContainsString('drop', $downSql);
+        $this->assertStringContainsString('generation_revision', $downSql);
+    }
+
+    /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
+    public static function generationRevisionGrammarProvider(): array
+    {
+        return [
+            'sqlite' => [SQLiteConnection::class, SQLiteGrammar::class],
+            'postgres' => [PostgresConnection::class, PostgresGrammar::class],
+            'mysql' => [MySqlConnection::class, MySqlGrammar::class],
+        ];
     }
 
     #[DataProvider('grammarProvider')]

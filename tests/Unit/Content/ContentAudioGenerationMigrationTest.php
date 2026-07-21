@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Content;
 
+use App\Support\Content\ConvoLabContentTables;
 use Illuminate\Database\Connection;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\PostgresConnection;
@@ -37,6 +38,19 @@ class ContentAudioGenerationMigrationTest extends TestCase
                 "Database identifier [{$identifier}] is too long for PostgreSQL.",
             );
         }
+    }
+
+    public function test_rehearsal_reset_deletes_audio_jobs_before_their_parent_tables(): void
+    {
+        $audioJob = array_search('content_audio_generation_jobs', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
+        $dialogue = array_search('content_dialogues', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
+        $episode = array_search('content_episodes', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
+
+        $this->assertIsInt($audioJob);
+        $this->assertIsInt($dialogue);
+        $this->assertIsInt($episode);
+        $this->assertLessThan($dialogue, $audioJob);
+        $this->assertLessThan($episode, $audioJob);
     }
 
     #[DataProvider('grammarProvider')]

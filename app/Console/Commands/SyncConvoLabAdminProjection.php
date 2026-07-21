@@ -23,7 +23,7 @@ class SyncConvoLabAdminProjection extends Command
         {--allow-empty-source : Confirm removal when a source table is empty and its projection is not}
         {--allow-production : Permit the sync to run when APP_ENV=production}';
 
-    protected $description = 'Synchronize Convo Lab users and invite codes into the Learning OS admin projection.';
+    protected $description = 'Synchronize Convo Lab account compatibility data and invite codes into Learning OS.';
 
     public function handle(SyncConvoLabAdminProjectionAction $action): int
     {

@@ -59,6 +59,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $availableInviteId = (string) Str::uuid();
         $this->insertSourceUser($adaId, [
             'email' => 'ada@example.com',
+            'password' => '$2b$10$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
             'name' => 'Ada Lovelace',
             'displayName' => 'Ada',
             'avatarColor' => 'teal',
@@ -66,7 +67,11 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'role' => 'admin',
             'preferredStudyLanguage' => 'ja',
             'preferredNativeLanguage' => 'en',
+            'proficiencyLevel' => 'N3',
             'onboardingCompleted' => true,
+            'seenSampleContentGuide' => true,
+            'seenCustomContentGuide' => true,
+            'emailVerified' => true,
             'emailVerifiedAt' => '2026-07-20 09:00:00.123',
         ]);
         $this->insertSourceUser($graceId, [
@@ -104,7 +109,17 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'role' => 'admin',
             'preferred_study_language' => 'ja',
             'preferred_native_language' => 'en',
+            'proficiency_level' => 'N3',
             'onboarding_completed' => true,
+            'seen_sample_content_guide' => true,
+            'seen_custom_content_guide' => true,
+            'email_verified' => true,
+            'email_verified_at' => '2026-07-20 09:00:00.123',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $existing->id,
+            'convolab_email_normalized' => 'ada@example.com',
+            'convolab_password_hash' => '$2b$10$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
         ]);
         $this->assertDatabaseHas('users', [
             'convolab_id' => $graceId,
@@ -149,6 +164,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
 
         $this->runSync()->assertSuccessful();
         DB::connection('convolab_admin_test')->table('User')->where('id', $userId)->update([
+            'email' => 'UPDATED@example.com',
             'displayName' => 'Updated Display',
             'updatedAt' => '2026-07-22 10:00:00.123',
         ]);
@@ -165,7 +181,12 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseCount('admin_invite_codes', 1);
         $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $userId,
+            'email' => 'UPDATED@example.com',
             'display_name' => 'Updated Display',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'convolab_id' => $userId,
+            'convolab_email_normalized' => 'updated@example.com',
         ]);
         $this->assertDatabaseHas('admin_invite_codes', [
             'id' => $inviteId,
@@ -408,6 +429,61 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         ]);
     }
 
+    public function test_sync_rejects_unsupported_password_hashes_without_changing_credentials(): void
+    {
+        $userId = (string) Str::uuid();
+        $this->insertSourceUser($userId, [
+            'email' => 'ada@example.com',
+            'password' => str_repeat('x', 60),
+        ]);
+
+        $this->runSync()
+            ->expectsOutputToContain("Convo Lab user [{$userId}] has an unsupported password hash.")
+            ->assertFailed();
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
+    }
+
+    public function test_sync_rejects_bcrypt_hashes_with_invalid_costs(): void
+    {
+        foreach (['03', '32'] as $cost) {
+            DB::connection('convolab_admin_test')->table('User')->delete();
+            $userId = (string) Str::uuid();
+            $this->insertSourceUser($userId, [
+                'email' => "cost-{$cost}@example.com",
+                'password' => '$2b$'.$cost.'$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
+            ]);
+
+            $this->runSync()
+                ->expectsOutputToContain("Convo Lab user [{$userId}] has an unsupported password hash.")
+                ->assertFailed();
+        }
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
+    }
+
+    public function test_sync_clears_the_compatibility_hash_when_source_account_disconnects_password_login(): void
+    {
+        $userId = (string) Str::uuid();
+        $this->insertSourceUser($userId, [
+            'email' => 'oauth@example.com',
+            'password' => '$2b$10$5607VcqBDio.lZukOb2s2euSQcUNC0ImK/yy8rn959xVUMn2g1DC6',
+        ]);
+        $this->runSync()->assertSuccessful();
+
+        DB::connection('convolab_admin_test')->table('User')->where('id', $userId)->update([
+            'password' => null,
+        ]);
+        $this->runSync()->assertSuccessful();
+
+        $this->assertDatabaseHas('users', [
+            'convolab_id' => $userId,
+            'convolab_password_hash' => null,
+        ]);
+    }
+
     public function test_sync_refuses_production_without_an_explicit_flag(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
@@ -439,6 +515,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         Schema::connection('convolab_admin_test')->create('User', function (Blueprint $table): void {
             $table->string('id')->primary();
             $table->string('email');
+            $table->string('password')->nullable();
             $table->string('name');
             $table->string('displayName')->nullable();
             $table->string('avatarColor')->nullable();
@@ -446,7 +523,11 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             $table->string('role');
             $table->string('preferredStudyLanguage');
             $table->string('preferredNativeLanguage');
+            $table->string('proficiencyLevel');
             $table->boolean('onboardingCompleted');
+            $table->boolean('seenSampleContentGuide');
+            $table->boolean('seenCustomContentGuide');
+            $table->boolean('emailVerified');
             $table->timestamp('emailVerifiedAt')->nullable();
             $table->timestamp('createdAt');
             $table->timestamp('updatedAt');
@@ -466,6 +547,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         DB::connection('convolab_admin_test')->table('User')->insert(array_merge([
             'id' => $id,
             'email' => 'user@example.com',
+            'password' => null,
             'name' => 'Source User',
             'displayName' => null,
             'avatarColor' => 'indigo',
@@ -473,7 +555,11 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'role' => 'user',
             'preferredStudyLanguage' => 'ja',
             'preferredNativeLanguage' => 'en',
+            'proficiencyLevel' => 'beginner',
             'onboardingCompleted' => false,
+            'seenSampleContentGuide' => false,
+            'seenCustomContentGuide' => false,
+            'emailVerified' => false,
             'emailVerifiedAt' => null,
             'createdAt' => '2026-07-20 10:00:00.123',
             'updatedAt' => '2026-07-20 11:00:00.456',

@@ -37,12 +37,14 @@ use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
+use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
+use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
@@ -197,6 +199,9 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
+    Route::post('/convolab/auth/login', AuthenticateConvoLabUserController::class)
+        ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
+    Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);
     Route::get('/convolab/admin/users/{convoLabUserId}/info', ShowAdminUserController::class)

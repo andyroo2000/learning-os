@@ -10,6 +10,8 @@ class AuthEmailRateLimiter
 {
     public const MOBILE_TOKENS = 'mobile-tokens';
 
+    public const CONVOLAB_LOGINS = 'convolab-logins';
+
     public const MOBILE_REGISTRATIONS = 'mobile-registrations';
 
     public const PASSWORD_RESET_LINKS = 'password-reset-links';
@@ -21,6 +23,11 @@ class AuthEmailRateLimiter
     private const PASSWORD_RESET_TOKEN_PER_MINUTE = 12;
 
     public function mobileTokens(Request $request): Limit
+    {
+        return $this->perMinute($request, self::STANDARD_PER_MINUTE);
+    }
+
+    public function convoLabLogins(Request $request): Limit
     {
         return $this->perMinute($request, self::STANDARD_PER_MINUTE);
     }

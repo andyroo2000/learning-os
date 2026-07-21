@@ -21,6 +21,7 @@ use App\Support\Audio\AudioTrackAssembler;
 use App\Support\Audio\AudioTrackAssemblyResult;
 use App\Support\Images\ImageGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -251,6 +252,36 @@ class ProcessContentAudioScriptGenerationJobTest extends TestCase
         $this->assertSame('error', $segment->fresh()->image_status);
         $this->assertSame(ProcessContentAudioScriptGenerationAction::IMAGE_FAILURE_MESSAGE, $segment->fresh()->image_error_message);
         $this->assertNull($segment->fresh()->image_media_id);
+        $this->assertDatabaseCount('content_audio_script_media', 0);
+        $this->assertSame([], Storage::disk('media')->allFiles());
+    }
+
+    public function test_image_persistence_failure_releases_claim_and_deletes_uncommitted_file_for_retry(): void
+    {
+        [, $script, $job] = $this->pendingJob('images', ['force' => false]);
+        $segment = $this->segment($script);
+        $this->mock(ImageGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('generate')->once()->andReturn($this->webp('generated'));
+        });
+        $event = 'eloquent.creating: '.ContentAudioScriptMedia::class;
+        Event::listen($event, static function (): never {
+            throw new RuntimeException('Database temporarily unavailable.');
+        });
+
+        try {
+            app(ProcessContentAudioScriptGenerationAction::class)->handle($job->id);
+            $this->fail('The queue should retry the transient persistence failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Database temporarily unavailable.', $exception->getMessage());
+        } finally {
+            Event::forget($event);
+        }
+
+        $this->assertSame(ContentAudioScriptJob::STATE_WAITING, $job->fresh()->state);
+        $this->assertSame(0, $job->fresh()->progress);
+        $this->assertNull($job->fresh()->started_at);
+        $this->assertSame('generating', $segment->fresh()->image_status);
+        $this->assertNull($segment->fresh()->image_error_message);
         $this->assertDatabaseCount('content_audio_script_media', 0);
         $this->assertSame([], Storage::disk('media')->allFiles());
     }

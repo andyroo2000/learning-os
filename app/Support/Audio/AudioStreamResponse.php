@@ -64,6 +64,12 @@ final class AudioStreamResponse
                         break;
                     }
                     echo $bytes;
+                    if (PHP_SAPI !== 'cli') {
+                        if (ob_get_level() > 0) {
+                            ob_flush();
+                        }
+                        flush();
+                    }
                     $remaining -= strlen($bytes);
                 }
             } finally {

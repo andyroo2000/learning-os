@@ -251,24 +251,34 @@ final readonly class ProcessContentAudioScriptGenerationAction
                 $attempt,
                 $mediaId,
             );
+
             try {
                 $bytes = $this->imageGenerator->generate($segment->image_prompt ?: $segment->text);
                 if (! $this->isWebp($bytes) || strlen($bytes) > self::MAX_IMAGE_BYTES) {
                     throw new \RuntimeException(self::IMAGE_FAILURE_MESSAGE);
                 }
+            } catch (Throwable $exception) {
+                report($exception);
+                $this->recordImageFailure($jobId, $segment->id);
+                $this->progressImages($jobId);
+
+                continue;
+            }
+
+            try {
                 if (! Storage::disk('media')->put($path, $bytes)) {
                     throw new \RuntimeException('Script image could not be persisted.');
                 }
                 $accepted = $this->persistImage($jobId, $segment->id, $mediaId, $path);
-                if (! $accepted) {
-                    $this->mediaCleaner->deleteFiles([$path]);
-
-                    return;
-                }
             } catch (Throwable $exception) {
-                report($exception);
                 $this->mediaCleaner->deleteFiles([$path]);
-                $this->recordImageFailure($jobId, $segment->id);
+
+                throw $exception;
+            }
+            if (! $accepted) {
+                $this->mediaCleaner->deleteFiles([$path]);
+
+                return;
             }
             $this->progressImages($jobId);
         }

@@ -3,7 +3,9 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Models\ContentEpisode;
+use App\Domain\Content\Models\ContentEpisodeTombstone;
 use App\Domain\Content\Support\ContentEpisodeId;
+use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ConvoLabUserId;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +20,8 @@ final class DeleteContentEpisodeAction
         $episodeId = ContentEpisodeId::normalize($episodeId);
 
         return DB::transaction(function () use ($userId, $convoLabUserId, $episodeId): bool {
+            ContentSourceLock::acquireConvoLab(DB::connection());
+
             $episode = ContentEpisode::query()
                 ->whereKey($episodeId)
                 ->where('user_id', $userId)
@@ -28,6 +32,27 @@ final class DeleteContentEpisodeAction
             if ($episode === null) {
                 return false;
             }
+
+            $tombstone = ContentEpisodeTombstone::query()
+                ->whereKey($episodeId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($tombstone !== null && (
+                $tombstone->user_id !== $userId
+                || ! hash_equals($tombstone->convolab_user_id, $convoLabUserId)
+            )) {
+                return false;
+            }
+
+            if ($tombstone === null) {
+                $tombstone = new ContentEpisodeTombstone;
+                $tombstone->episode_id = $episodeId;
+                $tombstone->user_id = $userId;
+                $tombstone->convolab_user_id = $convoLabUserId;
+            }
+            $tombstone->deleted_at = now();
+            $tombstone->save();
 
             $episode->delete();
 

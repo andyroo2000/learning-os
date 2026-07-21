@@ -226,8 +226,15 @@ The command maps Convo Lab users to existing Learning OS users by normalized
 email, preserves source UUIDs, and imports Episodes, dialogues, speakers,
 sentences, images, audio scripts, segment image metadata, renders, Courses,
 core items, and Episode-to-Course links. It refuses to run when any target
-compatibility table is non-empty. To replace a previous rehearsal import, add
-`--truncate`.
+record is already marked as Convo-imported. Learning-owned Episodes, Courses,
+media, and links can coexist with a first import.
+
+To replace a previous import, add `--truncate`. The option name is retained for
+deployment compatibility, but replacement now deletes only records marked as
+Convo-imported. Learning-owned records and Episode deletion tombstones survive,
+and source rows matching either one are skipped. The importer and Episode write
+actions serialize on the same database row lock so a concurrent mutation cannot
+be lost between replacement and import.
 
 The source and target databases must differ. In production, replacement also
 requires both safeguards:

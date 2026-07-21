@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Content\Actions\DeleteContentEpisodeAction;
+use App\Domain\Content\Actions\UpdateContentEpisodeAction;
+use App\Domain\Content\Data\UpdateContentEpisodeData;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +71,7 @@ class ImportConvoLabEpisodesTest extends TestCase
             'id' => $ids['dialogueEpisode'],
             'user_id' => $targetUser->id,
             'convolab_user_id' => $ids['user'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'content_type' => 'dialogue',
         ]);
         $this->assertDatabaseHas('content_audio_script_segments', [
@@ -74,14 +79,20 @@ class ImportConvoLabEpisodesTest extends TestCase
             'image_media_id' => $ids['media'],
         ]);
         $this->assertDatabaseCount('content_audio_script_media', 1);
+        $this->assertDatabaseHas('content_audio_script_media', [
+            'id' => $ids['media'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
         $this->assertDatabaseHas('content_episode_courses', [
             'episode_id' => $ids['dialogueEpisode'],
             'convolab_course_id' => $ids['course'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
         $this->assertDatabaseHas('content_courses', [
             'id' => $ids['course'],
             'user_id' => $targetUser->id,
             'convolab_user_id' => $ids['user'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
             'status' => 'ready',
         ]);
         $this->assertDatabaseHas('content_course_core_items', [
@@ -95,6 +106,7 @@ class ImportConvoLabEpisodesTest extends TestCase
         ]);
 
         Sanctum::actingAs($targetUser);
+        $this->withHeader('X-Convo-Lab-User-Id', $ids['user']);
         $this->getJson('/api/convolab/episodes')
             ->assertOk()
             ->assertJsonCount(2)
@@ -129,10 +141,300 @@ class ImportConvoLabEpisodesTest extends TestCase
         $this->artisan('content:import-convolab-episodes', [
             '--source-connection' => 'convolab_content_test',
         ])
-            ->expectsOutputToContain('Target table [content_course_core_items] is not empty; rerun with --truncate.')
+            ->expectsOutputToContain('Target already contains imported content in [content_episodes]; rerun with --truncate.')
             ->assertFailed();
 
         $this->assertDatabaseCount('content_episodes', 2);
+    }
+
+    public function test_replacement_preserves_learning_owned_graph_and_refreshes_imported_roots(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $sourceIds = $this->seedSourceData();
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $learningIds = $this->seedLearningOwnedGraph($targetUser, $sourceIds['user']);
+        DB::connection('convolab_content_test')->table('Episode')
+            ->where('id', $sourceIds['dialogueEpisode'])
+            ->update(['title' => 'Refreshed source episode']);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Removed 2 previously imported rows from content_episodes.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $sourceIds['dialogueEpisode'],
+            'title' => 'Refreshed source episode',
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $learningIds['episode'],
+            'title' => 'Learning-owned episode',
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_audio_script_media', [
+            'id' => $learningIds['media'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $learningIds['course'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $learningIds['courseEpisode'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseCount('content_episodes', 3);
+        $this->assertDatabaseCount('content_courses', 2);
+        $this->assertDatabaseCount('content_audio_script_media', 2);
+        $this->assertDatabaseCount('content_episode_courses', 2);
+    }
+
+    public function test_first_import_can_coexist_with_learning_owned_content_without_truncate(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $sourceIds = $this->seedSourceData();
+        $learningIds = $this->seedLearningOwnedGraph($targetUser, $sourceIds['user']);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('content_episodes', ['id' => $learningIds['episode']]);
+        $this->assertDatabaseHas('content_episodes', ['id' => $sourceIds['dialogueEpisode']]);
+        $this->assertDatabaseCount('content_episodes', 3);
+    }
+
+    public function test_promoted_and_tombstoned_source_episodes_are_not_overwritten_or_resurrected(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $promotedLinkId = (string) Str::uuid();
+        DB::table('content_episode_courses')->insert([
+            'id' => $promotedLinkId,
+            'convolab_course_id' => $ids['course'],
+            'episode_id' => $ids['scriptEpisode'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
+            'sort_order' => 1,
+        ]);
+
+        $this->assertTrue(app(UpdateContentEpisodeAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['scriptEpisode'],
+            UpdateContentEpisodeData::fromInput(['title' => 'Learning-owned script']),
+        ));
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $ids['courseEpisode'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+        DB::connection('convolab_content_test')->table('CourseEpisode')
+            ->where('courseId', $ids['course'])->delete();
+        DB::connection('convolab_content_test')->table('CourseCoreItem')
+            ->where('courseId', $ids['course'])->delete();
+        DB::connection('convolab_content_test')->table('Course')
+            ->where('id', $ids['course'])->delete();
+        $this->assertTrue(app(DeleteContentEpisodeAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['dialogueEpisode'],
+        ));
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain('Imported 0 rows into content_episodes.')
+            ->expectsOutputToContain('Imported 0 rows into content_episode_courses.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $ids['scriptEpisode'],
+            'title' => 'Learning-owned script',
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_audio_script_media', [
+            'id' => $ids['media'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $promotedLinkId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $ids['course'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseMissing('content_episodes', ['id' => $ids['dialogueEpisode']]);
+        $this->assertDatabaseHas('content_episode_tombstones', [
+            'episode_id' => $ids['dialogueEpisode'],
+            'user_id' => $targetUser->id,
+            'convolab_user_id' => $ids['user'],
+        ]);
+        $this->assertDatabaseCount('content_episodes', 1);
+    }
+
+    public function test_replacement_reuses_promoted_media_still_referenced_by_an_imported_episode(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+        $sharedEpisodeId = (string) Str::uuid();
+        $sharedScriptId = (string) Str::uuid();
+        $sharedSegmentId = (string) Str::uuid();
+        $created = '2026-07-20 10:00:00.123';
+        $source = DB::connection('convolab_content_test');
+
+        $source->table('Episode')->insert(
+            $this->episodeRow($sharedEpisodeId, $ids['user'], 'script', $created),
+        );
+        $source->table('audio_scripts')->insert([
+            'id' => $sharedScriptId, 'episodeId' => $sharedEpisodeId, 'status' => 'ready',
+            'imageStatus' => 'ready', 'imageErrorMessage' => null, 'voiceId' => 'ja-JP-Neural2-B',
+            'voiceProvider' => 'google', 'generationMetadataJson' => null, 'errorMessage' => null,
+            'createdAt' => $created, 'updatedAt' => $created,
+        ]);
+        $source->table('audio_script_segments')->insert([
+            'id' => $sharedSegmentId, 'scriptId' => $sharedScriptId, 'order' => 1,
+            'text' => '猫です。', 'reading' => 'ねこです。', 'translation' => 'It is a cat.',
+            'imagePrompt' => 'The same cat', 'imageStatus' => 'ready', 'imageErrorMessage' => null,
+            'imageMediaId' => $ids['media'], 'imageGeneratedAt' => $created,
+            'metadata' => null, 'createdAt' => $created, 'updatedAt' => $created,
+        ]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $this->assertTrue(app(UpdateContentEpisodeAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['scriptEpisode'],
+            UpdateContentEpisodeData::fromInput(['title' => 'Learning-owned script']),
+        ));
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('content_audio_script_media', [
+            'id' => $ids['media'],
+            'user_id' => $targetUser->id,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_audio_script_segments', [
+            'id' => $sharedSegmentId,
+            'image_media_id' => $ids['media'],
+        ]);
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $sharedEpisodeId,
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+        $this->assertDatabaseCount('content_audio_script_media', 1);
+    }
+
+    public function test_promoted_course_refreshes_untouched_episode_links_without_replacing_core_items(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+        $scriptCourseEpisodeId = (string) Str::uuid();
+        DB::connection('convolab_content_test')->table('CourseEpisode')->insert([
+            'id' => $scriptCourseEpisodeId,
+            'courseId' => $ids['course'],
+            'episodeId' => $ids['scriptEpisode'],
+            'order' => 4,
+        ]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+
+        $this->assertTrue(app(UpdateContentEpisodeAction::class)->handle(
+            $targetUser->id,
+            $ids['user'],
+            $ids['scriptEpisode'],
+            UpdateContentEpisodeData::fromInput(['title' => 'Learning-owned script']),
+        ));
+        DB::table('content_course_core_items')
+            ->where('id', $ids['coreItem'])
+            ->update(['translation_l1' => 'preserved cat']);
+
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $scriptCourseEpisodeId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $ids['courseEpisode'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $ids['course'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $scriptCourseEpisodeId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'id' => $ids['courseEpisode'],
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+        $this->assertDatabaseHas('content_course_core_items', [
+            'id' => $ids['coreItem'],
+            'translation_l1' => 'preserved cat',
+        ]);
+        $this->assertDatabaseCount('content_episode_courses', 2);
+        $this->assertDatabaseCount('content_course_core_items', 1);
+    }
+
+    public function test_replacement_and_preserved_content_roll_back_together_on_late_import_failure(): void
+    {
+        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
+        $ids = $this->seedSourceData();
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+        ])->assertSuccessful();
+        $learningIds = $this->seedLearningOwnedGraph($targetUser, $ids['user']);
+        DB::table('content_episodes')->where('id', $ids['dialogueEpisode'])
+            ->update(['title' => 'Existing imported title']);
+        DB::connection('convolab_content_test')->table('Sentence')->where('id', $ids['sentence'])
+            ->update(['metadata' => null]);
+
+        $this->artisan('content:import-convolab-episodes', [
+            '--source-connection' => 'convolab_content_test',
+            '--truncate' => true,
+        ])
+            ->expectsOutputToContain("Sentence [{$ids['sentence']}] metadata must not be null.")
+            ->assertFailed();
+
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $ids['dialogueEpisode'],
+            'title' => 'Existing imported title',
+            'source_system' => ContentSourceSystem::CONVOLAB,
+        ]);
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $learningIds['episode'],
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+        $this->assertDatabaseCount('content_episodes', 3);
     }
 
     public function test_rejects_the_target_database_as_the_source(): void
@@ -214,6 +516,71 @@ class ImportConvoLabEpisodesTest extends TestCase
             ->assertFailed();
 
         $this->assertDatabaseCount('content_episodes', 0);
+    }
+
+    /** @return array{episode: string, media: string, course: string, courseEpisode: string} */
+    private function seedLearningOwnedGraph(User $user, string $convoLabUserId): array
+    {
+        $ids = [
+            'episode' => (string) Str::uuid(),
+            'script' => (string) Str::uuid(),
+            'media' => (string) Str::uuid(),
+            'segment' => (string) Str::uuid(),
+            'course' => (string) Str::uuid(),
+            'courseEpisode' => (string) Str::uuid(),
+        ];
+        $now = now();
+
+        DB::table('content_episodes')->insert([
+            'id' => $ids['episode'], 'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+            'title' => 'Learning-owned episode', 'source_text' => 'Learning-owned source text',
+            'target_language' => 'ja', 'native_language' => 'en', 'content_type' => 'script',
+            'auto_generate_audio' => true, 'status' => 'ready', 'is_sample_content' => false,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('content_audio_scripts')->insert([
+            'id' => $ids['script'], 'episode_id' => $ids['episode'], 'status' => 'ready',
+            'image_status' => 'ready', 'voice_id' => 'ja-JP-Neural2-B',
+            'voice_provider' => 'google', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('content_audio_script_media')->insert([
+            'id' => $ids['media'], 'user_id' => $user->id, 'source_kind' => 'generated',
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+            'source_filename' => 'learning.png', 'normalized_filename' => 'learning.png',
+            'media_kind' => 'image', 'content_type' => 'image/png',
+            'storage_path' => 'learning/learning.png', 'public_url' => '/learning/learning.png',
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('content_audio_script_segments')->insert([
+            'id' => $ids['segment'], 'script_id' => $ids['script'], 'sort_order' => 0,
+            'text' => '猫です。', 'translation' => 'It is a cat.', 'image_status' => 'ready',
+            'image_media_id' => $ids['media'], 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('content_courses')->insert([
+            'id' => $ids['course'], 'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+            'title' => 'Learning-owned course', 'status' => 'ready',
+            'is_sample_content' => false, 'is_test_course' => false,
+            'native_language' => 'en', 'target_language' => 'ja',
+            'max_lesson_duration_minutes' => 30, 'l1_voice_id' => 'en-US-Neural2-J',
+            'speaker1_gender' => 'male', 'speaker2_gender' => 'female',
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('content_episode_courses')->insert([
+            'id' => $ids['courseEpisode'], 'episode_id' => $ids['episode'],
+            'convolab_course_id' => $ids['course'], 'sort_order' => 0,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+        ]);
+
+        return [
+            'episode' => $ids['episode'],
+            'media' => $ids['media'],
+            'course' => $ids['course'],
+            'courseEpisode' => $ids['courseEpisode'],
+        ];
     }
 
     /** @return array<string, string> */

@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Models\ContentEpisode;
+use App\Domain\Content\Support\ConvoLabUserId;
 use Illuminate\Database\Eloquent\Collection;
 
 final class ListContentEpisodesAction
@@ -10,10 +11,18 @@ final class ListContentEpisodesAction
     /**
      * @return Collection<int, ContentEpisode>
      */
-    public function handle(int $userId, int $limit, int $offset, bool $library): Collection
-    {
+    public function handle(
+        int $userId,
+        string $convoLabUserId,
+        int $limit,
+        int $offset,
+        bool $library,
+    ): Collection {
+        $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
+
         $query = ContentEpisode::query()
             ->where('user_id', $userId)
+            ->where('convolab_user_id', $convoLabUserId)
             ->where(function ($query): void {
                 $query
                     ->where(function ($query): void {

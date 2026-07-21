@@ -15,6 +15,7 @@ class ListContentCoursesController extends Controller
     {
         $courses = $action->handle(
             $request->user()->getKey(),
+            $request->convoLabUserId(),
             $request->limit(),
             $request->offset(),
             $request->library(),

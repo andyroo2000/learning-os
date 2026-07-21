@@ -2,12 +2,12 @@
 
 namespace App\Http\Requests\Content;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class ListContentEpisodesRequest extends FormRequest
+class ListContentEpisodesRequest extends ConvoLabContentUserRequest
 {
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [
             'limit' => $this->input('limit', 50),
             'offset' => $this->input('offset', 0),
@@ -28,6 +28,7 @@ class ListContentEpisodesRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->convoLabUserIdRules(),
             'library' => ['sometimes', 'boolean'],
             'limit' => ['required', 'integer', 'min:1', 'max:100'],
             'offset' => ['required', 'integer', 'min:0', 'max:1000000'],

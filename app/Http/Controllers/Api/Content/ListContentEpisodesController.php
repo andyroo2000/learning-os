@@ -17,6 +17,7 @@ class ListContentEpisodesController extends Controller
     ): JsonResponse {
         $episodes = $action->handle(
             $request->user()->getKey(),
+            $request->convoLabUserId(),
             $request->limit(),
             $request->offset(),
             $request->library(),

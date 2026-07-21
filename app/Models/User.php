@@ -3,7 +3,6 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Domain\Admin\Models\AdminInviteCode;
 use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
@@ -36,11 +35,6 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
-    }
-
-    public function adminInviteCodes(): HasMany
-    {
-        return $this->hasMany(AdminInviteCode::class, 'used_by');
     }
 
     public function adminUserProjection(): HasOne

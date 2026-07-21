@@ -2,7 +2,6 @@
 
 namespace App\Domain\Admin\Models;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -22,11 +21,6 @@ class AdminInviteCode extends Model
             'used_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
         ];
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'used_by');
     }
 
     public function adminUserProjection(): BelongsTo

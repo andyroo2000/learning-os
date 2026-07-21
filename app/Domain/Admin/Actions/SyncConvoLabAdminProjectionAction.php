@@ -14,11 +14,22 @@ class SyncConvoLabAdminProjectionAction
     public function handle(
         ConnectionInterface $source,
         ConnectionInterface $target,
+        bool $allowEmptySource = false,
     ): AdminProjectionSyncResult {
         foreach (['User', 'InviteCode'] as $table) {
             if (! $source->getSchemaBuilder()->hasTable($table)) {
                 throw new RuntimeException("Source database is missing expected Convo Lab table [{$table}].");
             }
+        }
+
+        $sourceIsEmpty = ! $source->table('User')->exists()
+            && ! $source->table('InviteCode')->exists();
+        $targetHasProjection = $target->table('admin_user_projections')->exists()
+            || $target->table('admin_invite_codes')->exists();
+        if ($sourceIsEmpty && $targetHasProjection && ! $allowEmptySource) {
+            throw new RuntimeException(
+                'The Convo Lab source is empty while the admin projection is not. Re-run with --allow-empty-source to confirm removal.',
+            );
         }
 
         [$users, $sourceUserIds] = $this->syncUsers($source, $target);

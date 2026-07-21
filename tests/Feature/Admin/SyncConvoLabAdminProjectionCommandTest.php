@@ -191,6 +191,15 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         ]);
 
         $this->runSync()
+            ->expectsOutputToContain(
+                'The Convo Lab source is empty while the admin projection is not. Re-run with --allow-empty-source to confirm removal.',
+            )
+            ->assertFailed();
+
+        $this->assertDatabaseHas('admin_user_projections', ['convolab_id' => $sourceId]);
+        $this->assertDatabaseCount('admin_invite_codes', 1);
+
+        $this->runSync(['--allow-empty-source' => true])
             ->expectsOutput('Synchronized 0 users and 0 invite codes.')
             ->assertSuccessful();
 
@@ -207,7 +216,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $canonicalId = User::query()->where('convolab_id', $sourceId)->value('id');
 
         DB::connection('convolab_admin_test')->table('User')->delete();
-        $this->runSync()->assertSuccessful();
+        $this->runSync(['--allow-empty-source' => true])->assertSuccessful();
 
         $this->assertDatabaseHas('users', [
             'id' => $canonicalId,
@@ -347,11 +356,12 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             ->assertFailed();
     }
 
-    private function runSync(): PendingCommand
+    /** @param array<string, mixed> $options */
+    private function runSync(array $options = []): PendingCommand
     {
-        return $this->artisan('admin:sync-convolab', [
+        return $this->artisan('admin:sync-convolab', array_merge([
             '--source-connection' => 'convolab_admin_test',
-        ]);
+        ], $options));
     }
 
     private function createSourceSchema(): void

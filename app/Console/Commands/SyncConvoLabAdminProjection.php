@@ -20,6 +20,7 @@ class SyncConvoLabAdminProjection extends Command
         {--source-port= : Source database port; defaults to DB_PORT}
         {--source-username= : Source database username; defaults to DB_USERNAME}
         {--source-password= : Source database password; defaults to DB_PASSWORD}
+        {--allow-empty-source : Confirm removal of a non-empty projection when both source tables are empty}
         {--allow-production : Permit the sync to run when APP_ENV=production}';
 
     protected $description = 'Synchronize Convo Lab users and invite codes into the Learning OS admin projection.';
@@ -42,7 +43,11 @@ class SyncConvoLabAdminProjection extends Command
             $result = $target->transaction(function () use ($action, $source, $target) {
                 ContentSourceLock::acquireConvoLab($target);
 
-                return $action->handle($source, $target);
+                return $action->handle(
+                    $source,
+                    $target,
+                    (bool) $this->option('allow-empty-source'),
+                );
             });
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());

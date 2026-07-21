@@ -77,6 +77,9 @@ class ImportConvoLabEpisodes extends Command
     private array $preservedCourseIds = [];
 
     /** @var array<string, true> */
+    private array $tombstonedCourseIds = [];
+
+    /** @var array<string, true> */
     private array $preservedCourseEpisodeIds = [];
 
     /** @var array<string, int> */
@@ -155,6 +158,7 @@ class ImportConvoLabEpisodes extends Command
     {
         foreach ([
             ...ConvoLabContentTables::CONTENT_IN_DELETE_ORDER,
+            'content_course_tombstones',
             'content_episode_tombstones',
             'content_source_locks',
         ] as $table) {
@@ -212,6 +216,12 @@ class ImportConvoLabEpisodes extends Command
             $this->preservedCourseIds[(string) $courseId] = true;
         }
 
+        foreach ($target->table('content_course_tombstones')->pluck('course_id') as $courseId) {
+            $courseId = (string) $courseId;
+            $this->preservedCourseIds[$courseId] = true;
+            $this->tombstonedCourseIds[$courseId] = true;
+        }
+
         foreach ($target->table('content_episode_courses')
             ->where('source_system', ContentSourceSystem::LEARNING_OS)
             ->pluck('id') as $courseEpisodeId) {
@@ -258,6 +268,7 @@ class ImportConvoLabEpisodes extends Command
         $this->referencedMediaIds = [];
         $this->preservedEpisodeIds = [];
         $this->preservedCourseIds = [];
+        $this->tombstonedCourseIds = [];
         $this->preservedCourseEpisodeIds = [];
         $this->preservedMediaUserIds = [];
     }
@@ -511,7 +522,9 @@ class ImportConvoLabEpisodes extends Command
         $this->copy($source, $target, 'Course', 'content_courses', function (object $row): ?array {
             $id = $this->uuid($row->id, 'course');
             if (isset($this->preservedCourseIds[$id])) {
-                $this->courseIds[$id] = true;
+                if (! isset($this->tombstonedCourseIds[$id])) {
+                    $this->courseIds[$id] = true;
+                }
 
                 return null;
             }

@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
 use App\Http\Controllers\Api\Content\DownloadContentCourseAudioController;
 use App\Http\Controllers\Api\Content\GenerateContentCourseController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\Api\Content\ShowContentCourseGenerationStatusController
 use App\Http\Controllers\Api\Content\ShowContentEpisodeController;
 use App\Http\Controllers\Api\Content\StoreContentCourseController;
 use App\Http\Controllers\Api\Content\StoreContentEpisodeController;
+use App\Http\Controllers\Api\Content\UpdateContentCourseController;
 use App\Http\Controllers\Api\Content\UpdateContentEpisodeController;
 use App\Http\Controllers\Api\Courses\DeleteCourseController;
 use App\Http\Controllers\Api\Courses\ListCoursesController;
@@ -186,6 +188,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.ContentCourseRateLimiter::CREATE_NAME);
     Route::get('/convolab/courses/{courseId}', ShowContentCourseController::class)
         ->whereUuid('courseId');
+    Route::patch('/convolab/courses/{courseId}', UpdateContentCourseController::class)
+        ->whereUuid('courseId')
+        ->middleware('throttle:'.ContentCourseRateLimiter::UPDATE_NAME);
+    Route::delete('/convolab/courses/{courseId}', DeleteContentCourseController::class)
+        ->whereUuid('courseId')
+        ->middleware('throttle:'.ContentCourseRateLimiter::DELETE_NAME);
     Route::post('/convolab/courses/{courseId}/generate', GenerateContentCourseController::class)
         ->whereUuid('courseId')
         ->middleware('throttle:'.ContentCourseRateLimiter::GENERATION_NAME);

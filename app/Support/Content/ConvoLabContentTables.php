@@ -22,6 +22,7 @@ final class ConvoLabContentTables
 
     /** @var list<string> */
     public const RESET_IN_DELETE_ORDER = [
+        'content_course_tombstones',
         'content_episode_tombstones',
         ...self::CONTENT_IN_DELETE_ORDER,
     ];

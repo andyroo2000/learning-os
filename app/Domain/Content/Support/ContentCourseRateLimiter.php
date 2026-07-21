@@ -10,6 +10,10 @@ final readonly class ContentCourseRateLimiter
 {
     public const CREATE_NAME = 'content-course-create';
 
+    public const UPDATE_NAME = 'content-course-update';
+
+    public const DELETE_NAME = 'content-course-delete';
+
     public const GENERATION_NAME = 'content-course-generation';
 
     public const RESET_NAME = 'content-course-generation-reset';
@@ -22,6 +26,16 @@ final readonly class ContentCourseRateLimiter
     public static function forCreate(): self
     {
         return new self(30, self::CREATE_NAME);
+    }
+
+    public static function forUpdate(): self
+    {
+        return new self(60, self::UPDATE_NAME);
+    }
+
+    public static function forDelete(): self
+    {
+        return new self(30, self::DELETE_NAME);
     }
 
     public static function forGeneration(): self

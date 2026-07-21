@@ -117,6 +117,8 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ([
             ContentCourseRateLimiter::CREATE_NAME => ContentCourseRateLimiter::forCreate(),
+            ContentCourseRateLimiter::UPDATE_NAME => ContentCourseRateLimiter::forUpdate(),
+            ContentCourseRateLimiter::DELETE_NAME => ContentCourseRateLimiter::forDelete(),
             ContentCourseRateLimiter::GENERATION_NAME => ContentCourseRateLimiter::forGeneration(),
             ContentCourseRateLimiter::RESET_NAME => ContentCourseRateLimiter::forReset(),
         ] as $name => $limiter) {

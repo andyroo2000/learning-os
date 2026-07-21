@@ -18,6 +18,7 @@ final class UpdateContentEpisodeController extends Controller
     ): JsonResponse {
         $updated = $action->handle(
             AuthenticatedUser::id($request),
+            $request->convoLabUserId(),
             $episodeId,
             UpdateContentEpisodeData::fromInput($request->validated()),
         );

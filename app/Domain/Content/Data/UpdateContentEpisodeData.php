@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Data;
 
+use App\Domain\Content\Support\ContentEpisodeInput;
 use InvalidArgumentException;
 
 final readonly class UpdateContentEpisodeData
@@ -24,8 +25,8 @@ final readonly class UpdateContentEpisodeData
         if ($hasTitle && ($title === null || $title === '' || mb_strlen($title) > 255)) {
             throw new InvalidArgumentException('Episode title must contain at most 255 characters.');
         }
-        if ($hasStatus && ($status === null || $status === '' || mb_strlen($status) > 32)) {
-            throw new InvalidArgumentException('Episode status must contain at most 32 characters.');
+        if ($hasStatus && ($status === null || ! in_array($status, ContentEpisodeInput::STATUSES, true))) {
+            throw new InvalidArgumentException('Episode status is invalid.');
         }
 
         return new self($hasTitle, $title, $hasStatus, $status);

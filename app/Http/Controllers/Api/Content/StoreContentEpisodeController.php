@@ -19,7 +19,7 @@ final class StoreContentEpisodeController extends Controller
         $data = $request->validated();
         $episode = $action->handle(CreateContentEpisodeData::fromInput(
             userId: AuthenticatedUser::id($request),
-            convoLabUserId: $data['convolabUserId'],
+            convoLabUserId: $request->convoLabUserId(),
             title: $data['title'],
             sourceText: $data['sourceText'],
             targetLanguage: $data['targetLanguage'],

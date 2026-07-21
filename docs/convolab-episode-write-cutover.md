@@ -32,6 +32,8 @@ The trusted proxy must send `X-Convo-Lab-User-Id` with the effective Convo Lab u
 Learning OS stores that UUID as provenance and returns it as `userId`, while authorization
 and ownership continue to use the mapped Learning OS user.
 
-Create, update, and delete have separate rate-limit buckets. The API keeps Convo Lab's
-camelCase payload and success-message shapes, normalizes UUID casing, and hides missing
-and cross-user records behind the same `404` response.
+Create, update, and delete have separate per-Convo-Lab-user rate-limit buckets. Every
+mutation scopes ownership by both the authenticated Learning OS account and the effective
+Convo Lab user UUID. The API keeps Convo Lab's camelCase payload and success-message
+shapes, normalizes UUID casing, and hides missing and cross-user records behind the same
+`404` response.

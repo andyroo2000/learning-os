@@ -7,6 +7,6 @@ class DeleteContentEpisodeRequest extends ConvoLabContentWriteRequest
     /** @return array<string, list<string>> */
     public function rules(): array
     {
-        return [];
+        return $this->convoLabUserIdRules();
     }
 }

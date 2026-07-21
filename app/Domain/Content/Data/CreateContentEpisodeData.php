@@ -2,13 +2,12 @@
 
 namespace App\Domain\Content\Data;
 
-use Illuminate\Support\Str;
+use App\Domain\Content\Support\ContentEpisodeInput;
+use App\Domain\Content\Support\ConvoLabUserId;
 use InvalidArgumentException;
 
 final readonly class CreateContentEpisodeData
 {
-    private const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
-
     private function __construct(
         public int $userId,
         public string $convoLabUserId,
@@ -32,16 +31,13 @@ final readonly class CreateContentEpisodeData
         ?string $jlptLevel = null,
         bool $autoGenerateAudio = true,
     ): self {
-        $convoLabUserId = strtolower(trim($convoLabUserId));
+        $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
         $title = trim($title);
         $sourceText = trim($sourceText);
         $audioSpeed = trim($audioSpeed);
 
         if ($userId <= 0) {
             throw new InvalidArgumentException('User ID must be a positive integer.');
-        }
-        if (! Str::isUuid($convoLabUserId)) {
-            throw new InvalidArgumentException('Convo Lab user ID must be a UUID.');
         }
         if ($title === '' || mb_strlen($title) > 255) {
             throw new InvalidArgumentException('Episode title must contain at most 255 characters.');
@@ -55,10 +51,10 @@ final readonly class CreateContentEpisodeData
         if ($nativeLanguage !== 'en') {
             throw new InvalidArgumentException('Episode native language must be English.');
         }
-        if ($audioSpeed === '' || mb_strlen($audioSpeed) > 32) {
-            throw new InvalidArgumentException('Episode audio speed must contain at most 32 characters.');
+        if (! in_array($audioSpeed, ContentEpisodeInput::AUDIO_SPEEDS, true)) {
+            throw new InvalidArgumentException('Episode audio speed is invalid.');
         }
-        if ($jlptLevel !== null && ! in_array($jlptLevel, self::JLPT_LEVELS, true)) {
+        if ($jlptLevel !== null && ! in_array($jlptLevel, ContentEpisodeInput::JLPT_LEVELS, true)) {
             throw new InvalidArgumentException('Episode JLPT level is invalid.');
         }
 

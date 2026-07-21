@@ -60,6 +60,7 @@ class ContentEpisodeDataTest extends TestCase
             'unsupported target language' => [['targetLanguage' => 'fr']],
             'unsupported native language' => [['nativeLanguage' => 'ja']],
             'blank audio speed' => [['audioSpeed' => ' ']],
+            'unsupported audio speed' => [['audioSpeed' => 'fast']],
             'invalid JLPT level' => [['jlptLevel' => 'N0']],
         ];
     }
@@ -93,6 +94,7 @@ class ContentEpisodeDataTest extends TestCase
             'null status' => [['status' => null]],
             'blank status' => [['status' => ' ']],
             'long status' => [['status' => str_repeat('a', 33)]],
+            'unknown status' => [['status' => 'completed']],
         ];
     }
 }

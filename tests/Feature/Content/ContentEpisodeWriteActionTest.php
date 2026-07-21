@@ -24,6 +24,7 @@ class ContentEpisodeWriteActionTest extends TestCase
 
         $updated = app(UpdateContentEpisodeAction::class)->handle(
             $user->id,
+            strtoupper($episode->convolab_user_id),
             strtoupper($episode->id),
             UpdateContentEpisodeData::fromInput(['status' => 'ready']),
         );
@@ -39,6 +40,7 @@ class ContentEpisodeWriteActionTest extends TestCase
         try {
             app(UpdateContentEpisodeAction::class)->handle(
                 1,
+                (string) Str::uuid(),
                 'not-a-uuid',
                 UpdateContentEpisodeData::fromInput(['status' => 'ready']),
             );
@@ -51,12 +53,32 @@ class ContentEpisodeWriteActionTest extends TestCase
         $this->assertDatabaseCount('content_episodes', 0);
     }
 
+    public function test_update_rejects_malformed_convolab_user_ids_before_opening_a_transaction(): void
+    {
+        $transactionLevel = DB::transactionLevel();
+
+        try {
+            app(UpdateContentEpisodeAction::class)->handle(
+                1,
+                'not-a-uuid',
+                (string) Str::uuid(),
+                UpdateContentEpisodeData::fromInput(['status' => 'ready']),
+            );
+            $this->fail('Expected malformed Convo Lab user ID to be rejected.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('Convo Lab user ID must be a UUID.', $exception->getMessage());
+        }
+
+        $this->assertSame($transactionLevel, DB::transactionLevel());
+        $this->assertDatabaseCount('content_episodes', 0);
+    }
+
     public function test_delete_rejects_malformed_ids_before_opening_a_transaction(): void
     {
         $transactionLevel = DB::transactionLevel();
 
         try {
-            app(DeleteContentEpisodeAction::class)->handle(1, 'not-a-uuid');
+            app(DeleteContentEpisodeAction::class)->handle(1, (string) Str::uuid(), 'not-a-uuid');
             $this->fail('Expected malformed Episode ID to be rejected.');
         } catch (InvalidArgumentException $exception) {
             $this->assertSame('Episode ID must be a UUID.', $exception->getMessage());

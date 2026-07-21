@@ -15,7 +15,11 @@ final class DeleteContentEpisodeController extends Controller
         string $episodeId,
         DeleteContentEpisodeAction $action,
     ): JsonResponse {
-        if (! $action->handle(AuthenticatedUser::id($request), $episodeId)) {
+        if (! $action->handle(
+            AuthenticatedUser::id($request),
+            $request->convoLabUserId(),
+            $episodeId,
+        )) {
             return response()->json(['message' => 'Episode not found'], 404);
         }
 

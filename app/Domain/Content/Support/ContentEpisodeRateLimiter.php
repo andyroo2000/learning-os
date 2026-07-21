@@ -36,9 +36,11 @@ final readonly class ContentEpisodeRateLimiter
 
     public function limit(Request $request): Limit
     {
+        $convoLabUserId = ConvoLabUserId::normalizeOrNull($request->header('X-Convo-Lab-User-Id'));
+
         return Limit::perMinute($this->perMinute)->by(self::keyFor(
             $this->name,
-            $request->user()?->getAuthIdentifier(),
+            $convoLabUserId ?? $request->user()?->getAuthIdentifier(),
             $request->ip(),
         ));
     }

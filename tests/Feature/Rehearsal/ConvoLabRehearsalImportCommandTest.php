@@ -437,6 +437,14 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         StudyCardDraft::factory()->for($existingUser)->create();
         SyncFeedEntry::factory()->for($existingUser)->create();
         $now = now();
+        DB::table('admin_invite_codes')->insert([
+            'id' => (string) Str::uuid(),
+            'code' => 'RESET123',
+            'used_by' => $existingUser->id,
+            'convolab_used_by' => (string) Str::uuid(),
+            'used_at' => $now,
+            'created_at' => $now,
+        ]);
         DB::table('japanese_knowledge_profiles')->insert([
             'user_id' => $existingUser->id,
             'knowledge_version' => 1,
@@ -489,6 +497,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('user_known_kanji', 0);
         $this->assertDatabaseCount('study_vocab_variant_sentences', 0);
         $this->assertDatabaseCount('study_vocab_variant_groups', 0);
+        $this->assertDatabaseCount('admin_invite_codes', 0);
         $this->assertDatabaseCount('users', 1);
     }
 

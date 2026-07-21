@@ -65,6 +65,9 @@ class AdminProjectionMigrationTest extends TestCase
         $this->assertStringContainsString('users_convolab_id_unique', $downSql);
         $this->assertStringContainsString('users_convolab_visible_created_id_idx', $downSql);
         $this->assertStringContainsString('convolab_id', $downSql);
+        if ($connectionClass !== SQLiteConnection::class) {
+            $this->assertStringContainsString('timestamp(3)', $upSql);
+        }
     }
 
     public function test_constraint_and_index_names_fit_the_postgres_identifier_limit(): void
@@ -81,6 +84,20 @@ class AdminProjectionMigrationTest extends TestCase
         }
     }
 
+    #[DataProvider('precisionSqlProvider')]
+    public function test_user_timestamp_precision_and_rollback_compile_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedUpSql,
+        array $expectedDownSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+
+        $this->assertSame($expectedUpSql, $this->userTimestampBlueprint($connection, 3)->toSql());
+        $this->assertSame($expectedDownSql, $this->userTimestampBlueprint($connection, 0)->toSql());
+    }
+
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
     public static function grammarProvider(): array
     {
@@ -88,6 +105,47 @@ class AdminProjectionMigrationTest extends TestCase
             'sqlite' => [SQLiteConnection::class, SQLiteGrammar::class],
             'postgres' => [PostgresConnection::class, PostgresGrammar::class],
             'mysql' => [MySqlConnection::class, MySqlGrammar::class],
+        ];
+    }
+
+    /** @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}> */
+    public static function precisionSqlProvider(): array
+    {
+        return [
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'alter table "users" alter column "email_verified_at" type timestamp(3) without time zone, alter column "email_verified_at" drop not null, alter column "email_verified_at" drop default, alter column "email_verified_at" drop identity if exists',
+                    'alter table "users" alter column "created_at" type timestamp(3) without time zone, alter column "created_at" drop not null, alter column "created_at" drop default, alter column "created_at" drop identity if exists',
+                    'alter table "users" alter column "updated_at" type timestamp(3) without time zone, alter column "updated_at" drop not null, alter column "updated_at" drop default, alter column "updated_at" drop identity if exists',
+                    'comment on column "users"."email_verified_at" is NULL',
+                    'comment on column "users"."created_at" is NULL',
+                    'comment on column "users"."updated_at" is NULL',
+                ],
+                [
+                    'alter table "users" alter column "email_verified_at" type timestamp(0) without time zone, alter column "email_verified_at" drop not null, alter column "email_verified_at" drop default, alter column "email_verified_at" drop identity if exists',
+                    'alter table "users" alter column "created_at" type timestamp(0) without time zone, alter column "created_at" drop not null, alter column "created_at" drop default, alter column "created_at" drop identity if exists',
+                    'alter table "users" alter column "updated_at" type timestamp(0) without time zone, alter column "updated_at" drop not null, alter column "updated_at" drop default, alter column "updated_at" drop identity if exists',
+                    'comment on column "users"."email_verified_at" is NULL',
+                    'comment on column "users"."created_at" is NULL',
+                    'comment on column "users"."updated_at" is NULL',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `users` modify `email_verified_at` timestamp(3) null',
+                    'alter table `users` modify `created_at` timestamp(3) null',
+                    'alter table `users` modify `updated_at` timestamp(3) null',
+                ],
+                [
+                    'alter table `users` modify `email_verified_at` timestamp null',
+                    'alter table `users` modify `created_at` timestamp null',
+                    'alter table `users` modify `updated_at` timestamp null',
+                ],
+            ],
         ];
     }
 
@@ -128,8 +186,8 @@ class AdminProjectionMigrationTest extends TestCase
             $table->string('code', 20)->unique();
             $table->foreignId('used_by')->nullable()->constrained('users')->nullOnDelete();
             $table->uuid('convolab_used_by')->nullable();
-            $table->timestampTz('used_at')->nullable();
-            $table->timestampTz('created_at');
+            $table->timestampTz('used_at', 3)->nullable();
+            $table->timestampTz('created_at', 3);
             $table->index(['created_at', 'id'], 'admin_invites_created_id_idx');
             $table->index('convolab_used_by', 'admin_invites_convolab_user_idx');
         });
@@ -158,6 +216,15 @@ class AdminProjectionMigrationTest extends TestCase
                 'preferred_native_language',
                 'onboarding_completed',
             ]);
+        });
+    }
+
+    private function userTimestampBlueprint(Connection $connection, int $precision): Blueprint
+    {
+        return new Blueprint($connection, 'users', function (Blueprint $table) use ($precision): void {
+            $table->timestamp('email_verified_at', $precision)->nullable()->change();
+            $table->timestamp('created_at', $precision)->nullable()->change();
+            $table->timestamp('updated_at', $precision)->nullable()->change();
         });
     }
 }

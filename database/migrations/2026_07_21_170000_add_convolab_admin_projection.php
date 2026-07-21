@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private const CONVOLAB_TIMESTAMP_PRECISION = 3;
+
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {
@@ -29,15 +31,18 @@ return new class extends Migration
             $table->string('code', 20)->unique();
             $table->foreignId('used_by')->nullable()->constrained('users')->nullOnDelete();
             $table->uuid('convolab_used_by')->nullable();
-            $table->timestampTz('used_at')->nullable();
-            $table->timestampTz('created_at');
+            $table->timestampTz('used_at', self::CONVOLAB_TIMESTAMP_PRECISION)->nullable();
+            $table->timestampTz('created_at', self::CONVOLAB_TIMESTAMP_PRECISION);
             $table->index(['created_at', 'id'], 'admin_invites_created_id_idx');
             $table->index('convolab_used_by', 'admin_invites_convolab_user_idx');
         });
+
+        $this->changeUserTimestampPrecision(self::CONVOLAB_TIMESTAMP_PRECISION);
     }
 
     public function down(): void
     {
+        $this->changeUserTimestampPrecision(0);
         Schema::dropIfExists('admin_invite_codes');
 
         Schema::table('users', function (Blueprint $table): void {
@@ -54,6 +59,19 @@ return new class extends Migration
                 'preferred_native_language',
                 'onboarding_completed',
             ]);
+        });
+    }
+
+    private function changeUserTimestampPrecision(int $precision): void
+    {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
+        Schema::table('users', function (Blueprint $table) use ($precision): void {
+            $table->timestamp('email_verified_at', $precision)->nullable()->change();
+            $table->timestamp('created_at', $precision)->nullable()->change();
+            $table->timestamp('updated_at', $precision)->nullable()->change();
         });
     }
 };

@@ -134,6 +134,11 @@ class GenerateContentCourseScriptAction
             $course->script_json = $generated->pipelinePayload();
             $course->script_units_json = $generated->scriptUnitsPayload();
             $course->approx_duration_seconds = $generated->estimatedDurationSeconds;
+            if ($expectedAttempt !== null) {
+                $course->generation_stage = 'audio';
+                $course->generation_progress = 60;
+                $course->generation_heartbeat_at = now();
+            }
             $course->save();
 
             $course->coreItems()->delete();

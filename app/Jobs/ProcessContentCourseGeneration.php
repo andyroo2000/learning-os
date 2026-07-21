@@ -12,7 +12,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use InvalidArgumentException;
 use Throwable;
 
-/** Duplicate work for one attempt is suppressed; newer reset/retry attempts remain queueable. */
+/** Duplicate dispatches are suppressed until processing; revision/attempt guards cover redelivery. */
 class ProcessContentCourseGeneration implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Queueable;

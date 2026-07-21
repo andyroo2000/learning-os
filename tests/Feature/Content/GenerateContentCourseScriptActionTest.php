@@ -151,6 +151,33 @@ class GenerateContentCourseScriptActionTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_script_persistence_atomically_advances_an_active_attempt_to_audio(): void
+    {
+        [$user, $sourceUserId, $course] = $this->course();
+        $course->forceFill([
+            'status' => 'generating',
+            'generation_attempt' => 4,
+            'generation_stage' => 'script',
+            'generation_progress' => 5,
+        ])->save();
+        Http::fake(['openai.test/v1/responses' => Http::response([
+            'output_text' => json_encode($this->providerPayload(), JSON_THROW_ON_ERROR),
+        ])]);
+
+        $generated = app(GenerateContentCourseScriptAction::class)->handle(
+            $user->id,
+            $sourceUserId,
+            $course->id,
+            4,
+        );
+
+        $this->assertNotNull($generated);
+        $this->assertSame('audio', $generated->generation_stage);
+        $this->assertSame(60, $generated->generation_progress);
+        $this->assertNotNull($generated->generation_heartbeat_at);
+        $this->assertNotNull($generated->script_json);
+    }
+
     public function test_reset_during_provider_work_rejects_the_stale_script_result(): void
     {
         [$user, $sourceUserId, $course] = $this->course();

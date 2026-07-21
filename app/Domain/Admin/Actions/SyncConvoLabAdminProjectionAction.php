@@ -22,15 +22,20 @@ class SyncConvoLabAdminProjectionAction
             }
         }
 
-        $sourceIsEmpty = ! $source->table('User')->exists()
-            && ! $source->table('InviteCode')->exists();
-        $targetHasProjection = $target->table('admin_user_projections')->exists()
-            || $target->table('admin_invite_codes')->exists();
-        if ($sourceIsEmpty && $targetHasProjection && ! $allowEmptySource) {
-            throw new RuntimeException(
-                'The Convo Lab source is empty while the admin projection is not. Re-run with --allow-empty-source to confirm removal.',
-            );
-        }
+        $this->guardAgainstEmptySourceTable(
+            $source,
+            $target,
+            'User',
+            'admin_user_projections',
+            $allowEmptySource,
+        );
+        $this->guardAgainstEmptySourceTable(
+            $source,
+            $target,
+            'InviteCode',
+            'admin_invite_codes',
+            $allowEmptySource,
+        );
 
         [$users, $sourceUserIds] = $this->syncUsers($source, $target);
         $inviteCodes = $this->syncInviteCodes($source, $target);
@@ -39,6 +44,25 @@ class SyncConvoLabAdminProjectionAction
             ->delete();
 
         return new AdminProjectionSyncResult($users, $inviteCodes);
+    }
+
+    private function guardAgainstEmptySourceTable(
+        ConnectionInterface $source,
+        ConnectionInterface $target,
+        string $sourceTable,
+        string $targetTable,
+        bool $allowEmptySource,
+    ): void {
+        if (
+            ! $allowEmptySource
+            && ! $source->table($sourceTable)->exists()
+            && $target->table($targetTable)->exists()
+        ) {
+            throw new RuntimeException(
+                "The Convo Lab source table [{$sourceTable}] is empty while [{$targetTable}] is not. "
+                .'Re-run with --allow-empty-source to confirm removal.',
+            );
+        }
     }
 
     /** @return array{int, list<string>} */

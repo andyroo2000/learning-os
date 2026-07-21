@@ -402,6 +402,66 @@ class ConvoLabSignupApiTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_verification_endpoints_do_not_mutate_convolab_owned_accounts(): void
+    {
+        Queue::fake();
+        $legacyUser = User::factory()->create([
+            'convolab_id' => (string) Str::uuid(),
+            'email_verified_at' => null,
+        ]);
+        DB::table('admin_user_projections')->insert([
+            'convolab_id' => $legacyUser->convolab_id,
+            'user_id' => $legacyUser->getKey(),
+            'email' => $legacyUser->email,
+            'name' => $legacyUser->name,
+            'display_name' => null,
+            'avatar_color' => null,
+            'avatar_url' => null,
+            'role' => 'user',
+            'preferred_study_language' => 'ja',
+            'preferred_native_language' => 'en',
+            'proficiency_level' => 'beginner',
+            'onboarding_completed' => false,
+            'seen_sample_content_guide' => false,
+            'seen_custom_content_guide' => false,
+            'email_verified' => false,
+            'email_verified_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'source_system' => 'convolab',
+        ]);
+
+        $this->withToken($this->proxyToken(['auth:verification']))
+            ->withHeader('X-Convo-Lab-User-Id', $legacyUser->convolab_id)
+            ->postJson('/api/convolab/auth/verification/send')
+            ->assertNotFound();
+        Queue::assertNothingPushed();
+
+        $rawToken = str_repeat('b', 64);
+        DB::table('convolab_email_verification_tokens')->insert([
+            'user_id' => $legacyUser->getKey(),
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDay(),
+            'consumed_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->withToken($this->proxyToken(['auth:verification']))
+            ->postJson('/api/convolab/auth/verification', ['token' => $rawToken])
+            ->assertStatus(400)
+            ->assertExactJson(['message' => 'Invalid or expired verification token']);
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $legacyUser->convolab_id,
+            'email_verified' => false,
+            'source_system' => 'convolab',
+        ]);
+        $this->assertNull($legacyUser->fresh()->email_verified_at);
+        $this->assertDatabaseMissing('convolab_email_verification_tokens', [
+            'user_id' => $legacyUser->getKey(),
+        ]);
+    }
+
     /** @return array<string, string> */
     private function signupPayload(string $inviteCode = 'WELCOME1'): array
     {

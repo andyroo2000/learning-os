@@ -5,6 +5,7 @@ namespace App\Domain\Auth\Actions;
 use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Auth\Exceptions\InvalidConvoLabVerificationTokenException;
 use App\Domain\Auth\Models\ConvoLabEmailVerificationToken;
+use App\Domain\Auth\Support\ConvoLabAccountSource;
 use App\Domain\Auth\Support\ConvoLabAdminEmails;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,7 @@ final class VerifyConvoLabEmailAction
 
             $account = AdminUserProjection::query()
                 ->where('user_id', $record->user_id)
+                ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
                 ->lockForUpdate()
                 ->first();
             if (! $account instanceof AdminUserProjection) {

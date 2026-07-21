@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 final class ShowConvoLabCurrentUserAction
 {
-    public function handle(string $convoLabUserId): AdminUserProjection
+    public function handle(string $convoLabUserId, ?string $sourceSystem = null): AdminUserProjection
     {
         $convoLabUserId = Str::lower(trim($convoLabUserId));
         if (! Str::isUuid($convoLabUserId)) {
@@ -17,6 +17,7 @@ final class ShowConvoLabCurrentUserAction
 
         return AdminUserProjection::query()
             ->where('convolab_id', $convoLabUserId)
+            ->when($sourceSystem !== null, fn ($query) => $query->where('source_system', $sourceSystem))
             ->firstOrFail();
     }
 }

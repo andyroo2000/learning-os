@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Auth\Actions\IssueConvoLabVerificationTokenAction;
+use App\Domain\Auth\Support\ConvoLabAccountSource;
 use App\Mail\ConvoLabVerificationMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -33,7 +34,10 @@ final class SendConvoLabVerificationEmail implements ShouldBeUnique, ShouldQueue
 
     public function handle(IssueConvoLabVerificationTokenAction $issueToken): void
     {
-        $account = AdminUserProjection::query()->where('user_id', $this->userId)->first();
+        $account = AdminUserProjection::query()
+            ->where('user_id', $this->userId)
+            ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
+            ->first();
         if (! $account instanceof AdminUserProjection || $account->email_verified) {
             return;
         }

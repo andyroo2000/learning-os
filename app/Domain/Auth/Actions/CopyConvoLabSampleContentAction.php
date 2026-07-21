@@ -9,6 +9,7 @@ use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ContentSourceSystem;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class CopyConvoLabSampleContentAction
@@ -165,6 +166,10 @@ final class CopyConvoLabSampleContentAction
                         ? ($episodeSignatures[$this->episodeSignature($templateLink->episode)] ?? null)
                         : null);
                 if (! is_string($mappedId)) {
+                    Log::warning('Skipping ConvoLab sample course because an episode link could not be mapped.', [
+                        'course_id' => $template->id,
+                        'episode_id' => $templateLink->episode_id,
+                    ]);
                     $linkedEpisodes = [];
                     break;
                 }

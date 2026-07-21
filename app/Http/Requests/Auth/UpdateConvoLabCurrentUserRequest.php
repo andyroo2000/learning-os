@@ -32,7 +32,7 @@ final class UpdateConvoLabCurrentUserRequest extends FormRequest
             'avatarUrl' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'preferredStudyLanguage' => ['sometimes', Rule::in(['ja'])],
             'preferredNativeLanguage' => ['sometimes', Rule::in(['en'])],
-            'proficiencyLevel' => ['sometimes', Rule::in(['N5', 'N4', 'N3', 'N2', 'N1'])],
+            'proficiencyLevel' => ['required_if:onboardingCompleted,true', Rule::in(['N5', 'N4', 'N3', 'N2', 'N1'])],
             'onboardingCompleted' => ['sometimes', 'boolean'],
             'seenSampleContentGuide' => ['sometimes', 'boolean'],
             'seenCustomContentGuide' => ['sometimes', 'boolean'],

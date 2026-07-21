@@ -138,6 +138,7 @@ class ConvoLabProfileApiTest extends TestCase
             [['preferredStudyLanguage' => 'en'], 'preferredStudyLanguage'],
             [['preferredNativeLanguage' => 'ja'], 'preferredNativeLanguage'],
             [['proficiencyLevel' => 'beginner'], 'proficiencyLevel'],
+            [['onboardingCompleted' => true], 'proficiencyLevel'],
             [['onboardingCompleted' => 'yes'], 'onboardingCompleted'],
             [['seenSampleContentGuide' => null], 'seenSampleContentGuide'],
             [['seenCustomContentGuide' => []], 'seenCustomContentGuide'],

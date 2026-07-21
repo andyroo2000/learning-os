@@ -18,6 +18,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -57,6 +58,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
             strtoupper($account->convolab_id),
             UpdateConvoLabProfileData::fromValidated([
                 'displayName' => 'Ada',
+                'proficiencyLevel' => 'N5',
                 'onboardingCompleted' => true,
             ]),
         );
@@ -73,6 +75,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $this->assertSame($account->convolab_id, $episode->convolab_user_id);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->source_system);
         $this->assertSame($template['episode']->title, $episode->title);
+        $this->assertSame('https://example.com/episode.mp3', $episode->audio_url);
 
         $dialogue = $episode->dialogue()->sole();
         $speaker = $dialogue->speakers()->sole();
@@ -83,6 +86,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $this->assertSame($dialogue->id, $speaker->dialogue_id);
         $this->assertSame($dialogue->id, $sentence->dialogue_id);
         $this->assertSame($speaker->id, $sentence->speaker_id);
+        $this->assertSame('https://example.com/sentence.mp3', $sentence->audio_url);
 
         $course = ContentCourse::query()
             ->where('user_id', $account->user_id)
@@ -93,6 +97,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $this->assertNotSame($template['course']->id, $course->id);
         $this->assertSame($account->convolab_id, $course->convolab_user_id);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $course->source_system);
+        $this->assertSame('https://example.com/course.mp3', $course->audio_url);
         $this->assertSame($episode->id, $link->episode_id);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $link->source_system);
         $this->assertSame($episode->id, $coreItem->source_episode_id);
@@ -110,12 +115,16 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
 
         $action->handle(
             $account->convolab_id,
-            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
         );
         $action->handle(
             $account->convolab_id,
             UpdateConvoLabProfileData::fromValidated([
                 'onboardingCompleted' => true,
+                'proficiencyLevel' => 'N5',
                 'seenSampleContentGuide' => true,
             ]),
         );
@@ -138,7 +147,10 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
 
         app(UpdateConvoLabCurrentUserAction::class)->handle(
             $account->convolab_id,
-            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
         );
 
         $this->assertSame(1, ContentEpisode::query()->where('user_id', $account->user_id)->count());
@@ -152,7 +164,10 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $action = app(UpdateConvoLabCurrentUserAction::class);
         $action->handle(
             $firstAccount->convolab_id,
-            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
         );
 
         $template['course']->delete();
@@ -160,13 +175,68 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
         $secondAccount = $this->projectedUser(['email' => 'second@example.com']);
         $action->handle(
             $secondAccount->convolab_id,
-            UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
         );
 
         $this->assertSame(0, ContentEpisode::query()->where('user_id', $secondAccount->user_id)->count());
         $this->assertSame(0, ContentCourse::query()->where('user_id', $secondAccount->user_id)->count());
         $this->assertSame(1, ContentEpisode::query()->where('user_id', $firstAccount->user_id)->count());
         $this->assertSame(1, ContentCourse::query()->where('user_id', $firstAccount->user_id)->count());
+    }
+
+    public function test_onboarding_requires_an_explicit_proficiency_level_at_the_action_boundary(): void
+    {
+        $account = $this->projectedUser(['proficiency_level' => 'beginner']);
+
+        try {
+            app(UpdateConvoLabCurrentUserAction::class)->handle(
+                $account->convolab_id,
+                UpdateConvoLabProfileData::fromValidated(['onboardingCompleted' => true]),
+            );
+            $this->fail('Expected onboarding without a proficiency level to fail.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertSame(
+                'proficiencyLevel is required when completing onboarding.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertFalse($account->refresh()->onboarding_completed);
+    }
+
+    public function test_unmappable_curated_course_links_are_logged_and_skipped(): void
+    {
+        Log::spy();
+        $account = $this->projectedUser();
+        $template = $this->sampleContentGraph();
+        $unmatched = $this->sampleContentGraph();
+        $unmatched['course']->delete();
+        $unmatched['episode']->jlpt_level = 'N4';
+        $unmatched['episode']->save();
+        $unmatched['speaker']->proficiency = 'N4';
+        $unmatched['speaker']->save();
+        $template['link']->episode_id = $unmatched['episode']->id;
+        $template['link']->save();
+
+        app(UpdateConvoLabCurrentUserAction::class)->handle(
+            $account->convolab_id,
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
+        );
+
+        $this->assertSame(1, ContentEpisode::query()->where('user_id', $account->user_id)->count());
+        $this->assertSame(0, ContentCourse::query()->where('user_id', $account->user_id)->count());
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with(
+                'Skipping ConvoLab sample course because an episode link could not be mapped.',
+                ['course_id' => $template['course']->id, 'episode_id' => $unmatched['episode']->id],
+            );
     }
 
     public function test_sample_copy_failure_rolls_back_profile_and_content_changes(): void
@@ -180,6 +250,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
                 $account->convolab_id,
                 UpdateConvoLabProfileData::fromValidated([
                     'displayName' => 'After',
+                    'proficiencyLevel' => 'N5',
                     'onboardingCompleted' => true,
                 ]),
             );
@@ -245,6 +316,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
             'auto_generate_audio' => false,
             'status' => 'ready',
             'is_sample_content' => true,
+            'audio_url' => 'https://example.com/episode.mp3',
             'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
         $dialogue = ContentDialogue::query()->forceCreate([
@@ -267,6 +339,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
             'text' => 'コーヒーをください。',
             'translation' => 'Coffee, please.',
             'metadata' => ['reading' => 'コーヒーをください。'],
+            'audio_url' => 'https://example.com/sentence.mp3',
             'selected' => true,
         ]);
         $course = ContentCourse::query()->forceCreate([
@@ -285,6 +358,7 @@ class UpdateConvoLabCurrentUserActionTest extends TestCase
             'jlpt_level' => 'N5',
             'speaker1_gender' => 'female',
             'speaker2_gender' => 'male',
+            'audio_url' => 'https://example.com/course.mp3',
             'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
         $link = ContentEpisodeCourse::query()->forceCreate([

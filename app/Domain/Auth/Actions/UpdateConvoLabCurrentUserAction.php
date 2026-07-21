@@ -30,6 +30,9 @@ final class UpdateConvoLabCurrentUserAction
                 ->firstOrFail();
             $completeOnboarding = ! $account->onboarding_completed
                 && ($data->attributes['onboarding_completed'] ?? false) === true;
+            if ($completeOnboarding && ! array_key_exists('proficiency_level', $data->attributes)) {
+                throw new \InvalidArgumentException('proficiencyLevel is required when completing onboarding.');
+            }
 
             foreach ($data->attributes as $column => $value) {
                 $account->setAttribute($column, $value);

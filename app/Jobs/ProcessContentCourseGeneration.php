@@ -37,7 +37,7 @@ class ProcessContentCourseGeneration implements ShouldBeUniqueUntilProcessing, S
     /** @return list<int> */
     public function backoff(): array
     {
-        return [30];
+        return [ContentCourseGeneration::JOB_BACKOFF_SECONDS];
     }
 
     public function handle(ProcessContentCourseGenerationAction $process): void

@@ -119,9 +119,19 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
 
         $this->getJson("/api/convolab/courses/{$active->id}/status")
-            ->assertExactJson(['status' => 'generating', 'progress' => 35, 'isStuck' => false]);
+            ->assertExactJson([
+                'status' => 'generating',
+                'progress' => 35,
+                'isStuck' => false,
+                'errorMessage' => null,
+            ]);
         $this->getJson("/api/convolab/courses/{$stuck->id}/status")
-            ->assertExactJson(['status' => 'generating', 'progress' => 60, 'isStuck' => true]);
+            ->assertExactJson([
+                'status' => 'generating',
+                'progress' => 60,
+                'isStuck' => true,
+                'errorMessage' => null,
+            ]);
 
         $stuck->generation_heartbeat_at = null;
         $stuck->save();
@@ -130,7 +140,25 @@ class ContentCourseGenerationApiTest extends TestCase
 
         $ready = $this->course($user, ['status' => 'ready']);
         $this->getJson("/api/convolab/courses/{$ready->id}/status")
-            ->assertExactJson(['status' => 'ready', 'progress' => null, 'isStuck' => false]);
+            ->assertExactJson([
+                'status' => 'ready',
+                'progress' => null,
+                'isStuck' => false,
+                'errorMessage' => null,
+            ]);
+
+        $failed = $this->course($user, [
+            'status' => 'error',
+            'generation_progress' => 60,
+            'generation_error_message' => ContentCourseGeneration::FAILED_MESSAGE,
+        ]);
+        $this->getJson("/api/convolab/courses/{$failed->id}/status")
+            ->assertExactJson([
+                'status' => 'error',
+                'progress' => 60,
+                'isStuck' => false,
+                'errorMessage' => ContentCourseGeneration::FAILED_MESSAGE,
+            ]);
     }
 
     public function test_reset_only_invalidates_a_stuck_attempt_and_preserves_generated_outputs(): void
@@ -163,7 +191,7 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$stuck->id}/reset")
             ->assertOk()
             ->assertExactJson([
-                'message' => 'Course reset successfully. You can now retry generation.',
+                'message' => 'Course reset successfully. You can now start generation again.',
                 'courseId' => $stuck->id,
             ]);
         $stuck->refresh();

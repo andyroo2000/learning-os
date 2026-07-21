@@ -29,7 +29,7 @@ final class ResetContentCourseGenerationController extends Controller
         return $course === null
             ? response()->json(['message' => 'Course not found'], 404)
             : response()->json([
-                'message' => 'Course reset successfully. You can now retry generation.',
+                'message' => 'Course reset successfully. You can now start generation again.',
                 'courseId' => $course->id,
             ]);
     }

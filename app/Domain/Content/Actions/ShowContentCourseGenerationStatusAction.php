@@ -20,6 +20,7 @@ class ShowContentCourseGenerationStatusAction
                 'status',
                 'generation_progress',
                 'generation_heartbeat_at',
+                'generation_error_message',
             ])
             ->whereKey(ContentCourseId::normalize($courseId))
             ->where('user_id', $userId)
@@ -33,6 +34,7 @@ class ShowContentCourseGenerationStatusAction
             status: $course->status,
             progress: $course->generation_progress,
             isStuck: ContentCourseGeneration::isStuck($course),
+            errorMessage: $course->generation_error_message,
         );
     }
 }

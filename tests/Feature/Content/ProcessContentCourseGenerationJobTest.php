@@ -49,9 +49,14 @@ class ProcessContentCourseGenerationJobTest extends TestCase
         $this->assertSame(ContentCourseGeneration::JOB_TRIES, $job->tries);
         $this->assertSame(ContentCourseGeneration::JOB_TIMEOUT_SECONDS, $job->timeout);
         $this->assertTrue($job->failOnTimeout);
-        $this->assertSame([30], $job->backoff());
+        $this->assertSame([ContentCourseGeneration::JOB_BACKOFF_SECONDS], $job->backoff());
         $this->assertSame('default', $job->queue);
-        $this->assertGreaterThan($job->timeout, ContentCourseGeneration::STALE_AFTER_SECONDS);
+        $this->assertSame(
+            (ContentCourseGeneration::JOB_TRIES * ContentCourseGeneration::JOB_TIMEOUT_SECONDS)
+                + ContentCourseGeneration::JOB_BACKOFF_SECONDS
+                + 60,
+            ContentCourseGeneration::STALE_AFTER_SECONDS,
+        );
     }
 
     public function test_job_rejects_malformed_identity_and_non_positive_attempts(): void

@@ -11,7 +11,11 @@ final class ContentCourseGeneration
 
     public const JOB_TIMEOUT_SECONDS = 3_500;
 
-    public const STALE_AFTER_SECONDS = 3_600;
+    public const JOB_BACKOFF_SECONDS = 30;
+
+    public const STALE_AFTER_SECONDS = (self::JOB_TRIES * self::JOB_TIMEOUT_SECONDS)
+        + self::JOB_BACKOFF_SECONDS
+        + 60;
 
     public const QUEUE_FAILED_MESSAGE = 'Course generation could not be queued. Please try again.';
 

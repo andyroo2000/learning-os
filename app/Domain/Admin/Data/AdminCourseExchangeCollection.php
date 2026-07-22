@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin\Data;
 
+use App\Domain\Admin\Support\AdminCoursePipelineMessage;
 use InvalidArgumentException;
 
 final readonly class AdminCourseExchangeCollection
@@ -27,7 +28,7 @@ final readonly class AdminCourseExchangeCollection
             || ! array_is_list($scriptJson['_exchanges'])
             || $scriptJson['_exchanges'] === []
             || count($scriptJson['_exchanges']) > self::MAX_EXCHANGES) {
-            throw new InvalidArgumentException('No dialogue exchanges found. Generate dialogue first.');
+            throw new InvalidArgumentException(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED);
         }
 
         $exchanges = [];
@@ -68,6 +69,7 @@ final readonly class AdminCourseExchangeCollection
             $exchanges[] = $exchange;
 
             foreach ($vocabulary as $item) {
+                // Legacy stores insertion order here as a placeholder, not a difficulty estimate.
                 $coreItems[] = [
                     'textL2' => $item['textL2'],
                     'readingL2' => $item['readingL2'] ?? null,

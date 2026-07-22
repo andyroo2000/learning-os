@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin\Exceptions;
 
+use App\Domain\Admin\Support\AdminCoursePipelineMessage;
 use RuntimeException;
 
 final class AdminMutationException extends RuntimeException
@@ -126,7 +127,7 @@ final class AdminMutationException extends RuntimeException
 
     public static function dialogueExchangesRequired(?\Throwable $previous = null): self
     {
-        return new self('No dialogue exchanges found. Generate dialogue first.', 400, $previous);
+        return new self(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED, 400, $previous);
     }
 
     public static function courseChangedDuringScriptGeneration(): self

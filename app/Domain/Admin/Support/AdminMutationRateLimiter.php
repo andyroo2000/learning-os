@@ -32,6 +32,8 @@ final class AdminMutationRateLimiter
 
     public const COURSE_SCRIPT_GENERATE = 'convolab-admin-course-script-generate';
 
+    public const COURSE_AUDIO_GENERATE = 'convolab-admin-course-audio-generate';
+
     public static function limit(string $operation, Request $request): Limit
     {
         return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(

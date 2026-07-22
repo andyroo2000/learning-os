@@ -25,4 +25,9 @@ final class ContentCourseGenerationConflictException extends RuntimeException
     {
         return new self('Only courses in error status can be retried');
     }
+
+    public static function scriptChanged(): self
+    {
+        return new self('Course script changed while audio generation was being queued');
+    }
 }

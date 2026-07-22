@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin\Results;
 
+use App\Domain\Content\Data\ContentCourseScriptUnits;
 use App\Domain\Content\Results\ContentCourseScriptUnit;
 use InvalidArgumentException;
 use JsonException;
@@ -9,8 +10,6 @@ use JsonException;
 final readonly class AdminCourseScriptResult
 {
     private const MAX_RESPONSE_BYTES = 1_000_000;
-
-    private const MAX_SCRIPT_UNITS = 1_000;
 
     /** @param list<ContentCourseScriptUnit> $units */
     private function __construct(
@@ -40,7 +39,7 @@ final readonly class AdminCourseScriptResult
         }
         $rawUnits = $decoded['scriptUnits'];
         if (! is_array($rawUnits) || ! array_is_list($rawUnits) || $rawUnits === []
-            || count($rawUnits) > self::MAX_SCRIPT_UNITS) {
+            || count($rawUnits) > ContentCourseScriptUnits::MAX_UNITS) {
             throw new InvalidArgumentException('Script provider units are invalid.');
         }
 

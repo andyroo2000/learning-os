@@ -3,6 +3,8 @@
 namespace App\Domain\Admin\Exceptions;
 
 use App\Domain\Admin\Support\AdminCoursePipelineMessage;
+use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
+use App\Domain\Content\Support\ContentCourseGeneration;
 use RuntimeException;
 
 final class AdminMutationException extends RuntimeException
@@ -148,6 +150,30 @@ final class AdminMutationException extends RuntimeException
     public static function invalidCourseScriptConfiguration(?\Throwable $previous = null): self
     {
         return new self('Course requires a narrator voice and a duration from 1 to 120 minutes', 400, $previous);
+    }
+
+    public static function courseScriptRequiredForAudio(): self
+    {
+        return new self('No script data found. Generate script first.', 400);
+    }
+
+    public static function invalidCourseAudioScript(?\Throwable $previous = null): self
+    {
+        return new self(
+            'Script data is not in the correct format for audio generation. Generate script first.',
+            400,
+            $previous,
+        );
+    }
+
+    public static function courseAudioGenerationConflict(ContentCourseGenerationConflictException $previous): self
+    {
+        return new self($previous->getMessage(), 409, $previous);
+    }
+
+    public static function courseAudioQueueFailed(?\Throwable $previous = null): self
+    {
+        return new self(ContentCourseGeneration::QUEUE_FAILED_MESSAGE, 503, $previous);
     }
 
     public function status(): int

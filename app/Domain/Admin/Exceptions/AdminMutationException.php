@@ -139,6 +139,11 @@ final class AdminMutationException extends RuntimeException
         return new self('Script provider returned an invalid response', 502, $previous);
     }
 
+    public static function invalidCourseScriptConfiguration(?\Throwable $previous = null): self
+    {
+        return new self('Course requires a narrator voice and a duration from 1 to 120 minutes', 400, $previous);
+    }
+
     public function status(): int
     {
         return $this->status;

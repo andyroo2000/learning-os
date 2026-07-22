@@ -3,11 +3,11 @@
 namespace App\Domain\Admin\Services;
 
 use App\Domain\Admin\Data\AdminCourseExchangeCollection;
+use App\Domain\Admin\Exceptions\AdminCourseScriptConfigurationException;
 use App\Domain\Admin\Results\AdminCourseScriptResult;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Services\ContentOpenAiClient;
 use JsonException;
-use RuntimeException;
 
 final readonly class AdminCourseScriptGenerator
 {
@@ -21,9 +21,10 @@ final readonly class AdminCourseScriptGenerator
         $narratorVoiceId = is_string($course->l1_voice_id) ? trim($course->l1_voice_id) : '';
         $speakerVoiceIds = $exchanges->speakerVoiceIds();
         $maximumDurationSeconds = (int) $course->max_lesson_duration_minutes * 60;
-        if ($narratorVoiceId === '' || $speakerVoiceIds === [] || $maximumDurationSeconds < 60
-            || $maximumDurationSeconds > 7_200) {
-            throw new RuntimeException('Course script generation requires valid voices and duration.');
+        if ($narratorVoiceId === '' || $maximumDurationSeconds < 60 || $maximumDurationSeconds > 7_200) {
+            throw new AdminCourseScriptConfigurationException(
+                'Course script generation requires a narrator voice and duration from 1 to 120 minutes.',
+            );
         }
 
         try {
@@ -38,10 +39,16 @@ final readonly class AdminCourseScriptGenerator
                 'exchanges' => $exchanges->exchanges,
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         } catch (JsonException $exception) {
-            throw new RuntimeException('Course exchanges could not be encoded for script generation.', 0, $exception);
+            throw new AdminCourseScriptConfigurationException(
+                'Course exchanges could not be encoded for script generation.',
+                0,
+                $exception,
+            );
         }
         if (strlen($source) > 500_000) {
-            throw new RuntimeException('Course exchanges are too large for script generation.');
+            throw new AdminCourseScriptConfigurationException(
+                'Course exchanges are too large for script generation.',
+            );
         }
 
         $prompt = <<<PROMPT

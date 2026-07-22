@@ -191,6 +191,31 @@ class AdminCourseScriptApiTest extends TestCase
         $this->assertSame('old', $course->coreItems()->sole()->text_l2);
     }
 
+    public function test_invalid_course_configuration_is_a_400_without_provider_work(): void
+    {
+        $user = User::factory()->create();
+        Http::fake();
+
+        foreach ([
+            ['l1_voice_id' => ''],
+            ['max_lesson_duration_minutes' => 0],
+            ['max_lesson_duration_minutes' => 121],
+        ] as $overrides) {
+            $course = $this->course($user, array_merge([
+                'script_json' => $this->exchangePipeline(),
+            ], $overrides));
+
+            $this->writeRequest()
+                ->postJson("/api/convolab/admin/courses/{$course->id}/generate-script")
+                ->assertBadRequest()
+                ->assertExactJson([
+                    'message' => 'Course requires a narrator voice and a duration from 1 to 120 minutes',
+                ]);
+        }
+
+        Http::assertNothingSent();
+    }
+
     public function test_provider_cannot_select_unknown_voices_or_exceed_duration(): void
     {
         $user = User::factory()->create();

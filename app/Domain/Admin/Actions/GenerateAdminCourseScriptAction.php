@@ -3,6 +3,7 @@
 namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Data\AdminCourseExchangeCollection;
+use App\Domain\Admin\Exceptions\AdminCourseScriptConfigurationException;
 use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Admin\Services\AdminCourseScriptGenerator;
 use App\Domain\Admin\Support\AdminCourseFirstEpisodeFinder;
@@ -48,6 +49,8 @@ final readonly class GenerateAdminCourseScriptAction
                 $this->episodeTitle($course, $episode),
                 $exchanges,
             );
+        } catch (AdminCourseScriptConfigurationException $exception) {
+            throw AdminMutationException::invalidCourseScriptConfiguration($exception);
         } catch (InvalidArgumentException $exception) {
             report($exception);
 

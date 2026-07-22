@@ -17,11 +17,11 @@ class DeleteCurrentUserApiTest extends TestCase
 
     public function test_it_deletes_the_authenticated_account(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['password' => 'correct-password123']);
         $token = $user->createToken('Ada iPhone')->plainTextToken;
 
         $this->withToken($token)
-            ->deleteJson('/api/me')
+            ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
             ->assertNoContent();
 
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
@@ -30,12 +30,50 @@ class DeleteCurrentUserApiTest extends TestCase
 
     public function test_it_requires_authentication(): void
     {
-        $this->deleteJson('/api/me')->assertUnauthorized();
+        $this->deleteJson('/api/me', ['current_password' => 'correct-password123'])
+            ->assertUnauthorized();
+    }
+
+    public function test_it_rejects_an_invalid_current_password(): void
+    {
+        $user = User::factory()->create(['password' => 'correct-password123']);
+        $token = $user->createToken('Ada iPhone')->plainTextToken;
+
+        $this->withToken($token)
+            ->deleteJson('/api/me', ['current_password' => 'wrong-password'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertDatabaseHas('users', ['id' => $user->id]);
+        $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $user->id]);
+    }
+
+    public function test_it_validates_the_current_password_payload(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('Ada iPhone')->plainTextToken;
+
+        $this->withToken($token)
+            ->deleteJson('/api/me')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->withToken($token)
+            ->deleteJson('/api/me', ['current_password' => ['not-a-string']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->withToken($token)
+            ->deleteJson('/api/me', ['current_password' => str_repeat('x', 1025)])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertDatabaseHas('users', ['id' => $user->id]);
     }
 
     public function test_it_enforces_the_account_delete_rate_limiter_before_deleting(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['password' => 'correct-password123']);
         $token = $user->createToken('Ada iPhone')->plainTextToken;
 
         $this->withAuthAccountRateLimitOverride(
@@ -47,13 +85,13 @@ class DeleteCurrentUserApiTest extends TestCase
                 });
 
                 $this->withToken($token)
-                    ->deleteJson('/api/me')
+                    ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
                     ->assertInternalServerError();
 
                 $this->app['auth']->forgetGuards();
 
                 $this->withToken($token)
-                    ->deleteJson('/api/me')
+                    ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
                     ->assertTooManyRequests()
                     ->assertHeader('X-RateLimit-Limit', '1')
                     ->assertHeader('X-RateLimit-Remaining', '0')

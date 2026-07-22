@@ -14,7 +14,11 @@ final class ListAdminSentenceScriptTestsController extends Controller
         ListAdminSentenceScriptTestsRequest $request,
         ListAdminSentenceScriptTestsAction $action,
     ): JsonResponse {
-        $page = $action->handle($request->limit(), $request->cursor());
+        $page = $action->handle(
+            $request->actorConvoLabUserId(),
+            $request->limit(),
+            $request->cursor(),
+        );
 
         return response()->json([
             'tests' => AdminSentenceScriptTestSummaryResource::collection($page['tests'])->resolve($request),

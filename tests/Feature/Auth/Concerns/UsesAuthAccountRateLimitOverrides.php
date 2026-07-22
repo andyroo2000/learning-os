@@ -54,6 +54,7 @@ trait UsesAuthAccountRateLimitOverrides
         return match ($limiterName) {
             AuthAccountRateLimiter::PROFILE_UPDATE => AuthAccountRateLimiter::forProfileUpdate(),
             AuthAccountRateLimiter::PASSWORD_UPDATE => AuthAccountRateLimiter::forPasswordUpdate(),
+            AuthAccountRateLimiter::ACCOUNT_DELETE => AuthAccountRateLimiter::forAccountDelete(),
             AuthAccountRateLimiter::TOKEN_REVOKE => AuthAccountRateLimiter::forTokenRevoke(),
             default => throw new InvalidArgumentException("Unknown auth account rate limiter [{$limiterName}]."),
         };

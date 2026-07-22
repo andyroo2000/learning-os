@@ -11,6 +11,8 @@ final class AuthAccountRateLimiter
 
     public const PASSWORD_UPDATE = 'account-password-update';
 
+    public const ACCOUNT_DELETE = 'account-delete';
+
     public const TOKEN_REVOKE = 'account-token-revoke';
 
     private function __construct(
@@ -28,6 +30,12 @@ final class AuthAccountRateLimiter
     {
         // Password changes are rare and sensitive; 5/min still covers short retry loops.
         return new self(self::PASSWORD_UPDATE, 5);
+    }
+
+    public static function forAccountDelete(): self
+    {
+        // Account deletion is destructive and should never be part of an automated retry loop.
+        return new self(self::ACCOUNT_DELETE, 5);
     }
 
     public static function forTokenRevoke(): self

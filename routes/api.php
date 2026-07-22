@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
+use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
@@ -306,6 +307,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.AuthAccountRateLimiter::PROFILE_UPDATE);
     Route::put('/me/password', UpdateCurrentUserPasswordController::class)
         ->middleware('throttle:'.AuthAccountRateLimiter::PASSWORD_UPDATE);
+    Route::delete('/me', DeleteCurrentUserController::class)
+        ->middleware('throttle:'.AuthAccountRateLimiter::ACCOUNT_DELETE);
     Route::get('/auth/tokens', ListAccessTokensController::class);
     // Current and by-id token revokes share one 30/min manual-cleanup bucket, separate from profile/password retries.
     Route::delete('/auth/tokens/current', DestroyCurrentAccessTokenController::class)

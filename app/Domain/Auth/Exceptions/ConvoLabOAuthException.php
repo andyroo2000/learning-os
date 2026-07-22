@@ -33,6 +33,15 @@ final class ConvoLabOAuthException extends RuntimeException
         );
     }
 
+    public static function identityResolutionConflict(): self
+    {
+        return new self(
+            'Google account linking conflicted with another request',
+            'identity_resolution_conflict',
+            409,
+        );
+    }
+
     public function reason(): string
     {
         return $this->reason;

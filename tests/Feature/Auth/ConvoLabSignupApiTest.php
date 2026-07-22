@@ -147,6 +147,7 @@ class ConvoLabSignupApiTest extends TestCase
             $this->assertDatabaseHas('admin_user_projections', [
                 'convolab_id' => $convoLabId,
                 'source_system' => 'learning_os',
+                'avatar_source_system' => 'learning_os',
             ]);
             $this->assertDatabaseHas('admin_invite_codes', [
                 'id' => $inviteId,

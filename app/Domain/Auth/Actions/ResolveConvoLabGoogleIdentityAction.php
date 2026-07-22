@@ -6,9 +6,8 @@ use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Auth\Exceptions\ConvoLabOAuthException;
 use App\Domain\Auth\Models\ConvoLabOAuthIdentity;
 use App\Domain\Auth\Results\ResolveConvoLabGoogleIdentityResult;
-use App\Domain\Auth\Support\ConvoLabAccountSource;
 use App\Models\User;
-use DateTimeInterface;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +15,12 @@ use LogicException;
 
 final class ResolveConvoLabGoogleIdentityAction
 {
+    private const MAX_RESOLUTION_ATTEMPTS = 3;
+
+    public function __construct(
+        private readonly CreateConvoLabAccountProjectionAction $createAccountProjection,
+    ) {}
+
     public function handle(
         string $providerId,
         string $email,
@@ -27,12 +32,18 @@ final class ResolveConvoLabGoogleIdentityAction
         $name = trim($name);
         $avatarUrl = $avatarUrl === null ? null : trim($avatarUrl);
 
-        try {
-            return $this->resolve($providerId, $email, $name, $avatarUrl);
-        } catch (UniqueConstraintViolationException) {
-            // A concurrent first login may win either the email or provider identity insert.
-            return $this->resolve($providerId, $email, $name, $avatarUrl);
+        for ($attempt = 1; $attempt <= self::MAX_RESOLUTION_ATTEMPTS; $attempt++) {
+            try {
+                return $this->resolve($providerId, $email, $name, $avatarUrl);
+            } catch (UniqueConstraintViolationException) {
+                // A concurrent first login may win either the email or provider identity insert.
+                if ($attempt === self::MAX_RESOLUTION_ATTEMPTS) {
+                    throw ConvoLabOAuthException::identityResolutionConflict();
+                }
+            }
         }
+
+        throw new LogicException('OAuth identity resolution exhausted without a result.');
     }
 
     private function resolve(
@@ -49,6 +60,7 @@ final class ResolveConvoLabGoogleIdentityAction
                 ->first();
 
             if ($identity instanceof ConvoLabOAuthIdentity) {
+                // Once linked, Convo Lab profile edits are authoritative; Google only proves identity.
                 return new ResolveConvoLabGoogleIdentityResult(
                     $this->accountForUser((int) $identity->user_id),
                     $identity->access_granted_at === null,
@@ -97,7 +109,16 @@ final class ResolveConvoLabGoogleIdentityAction
             }
             $user->save();
 
-            $account = $existingAccount ?? $this->createAccount($user, $email, $name, $avatarUrl, $now);
+            $account = $existingAccount ?? $this->createAccountProjection->handle(
+                user: $user,
+                convoLabId: (string) $user->convolab_id,
+                email: $email,
+                name: $name,
+                avatarUrl: $avatarUrl,
+                emailVerified: true,
+                emailVerifiedAt: $now,
+                now: $now,
+            );
             if (! $created && ! $account->email_verified) {
                 $account->email_verified = true;
                 $account->email_verified_at = $account->email_verified_at ?? $now;
@@ -123,42 +144,8 @@ final class ResolveConvoLabGoogleIdentityAction
             ->first();
 
         if (! $account instanceof AdminUserProjection) {
-            throw new LogicException('A Convo Lab OAuth identity has no account projection.');
+            throw (new ModelNotFoundException)->setModel(AdminUserProjection::class);
         }
-
-        return $account;
-    }
-
-    private function createAccount(
-        User $user,
-        string $email,
-        string $name,
-        ?string $avatarUrl,
-        DateTimeInterface $now,
-    ): AdminUserProjection {
-        $convoLabId = (string) $user->convolab_id;
-        $account = new AdminUserProjection;
-        $account->convolab_id = $convoLabId;
-        $account->user_id = $user->getKey();
-        $account->email = $email;
-        $account->name = $name;
-        $account->display_name = null;
-        $account->avatar_color = 'indigo';
-        $account->avatar_url = $avatarUrl;
-        $account->role = 'user';
-        $account->preferred_study_language = 'ja';
-        $account->preferred_native_language = 'en';
-        $account->proficiency_level = 'beginner';
-        $account->onboarding_completed = false;
-        $account->seen_sample_content_guide = false;
-        $account->seen_custom_content_guide = false;
-        $account->email_verified = true;
-        $account->email_verified_at = $now;
-        $account->created_at = $now;
-        $account->updated_at = $now;
-        $account->source_system = ConvoLabAccountSource::LEARNING_OS;
-        $account->avatar_source_system = ConvoLabAccountSource::LEARNING_OS;
-        $account->save();
 
         return $account;
     }

@@ -54,11 +54,11 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
         );
 
         $this->assertSame(
-            'convolab-oauth-claim|user:abc-123',
+            'convolab-oauth-claim|user:'.hash('sha256', 'abc-123'),
             $claimIdentity->key,
         );
         $this->assertSame(
-            'convolab-oauth-disconnect|user:abc-123',
+            'convolab-oauth-disconnect|user:'.hash('sha256', 'abc-123'),
             $disconnectIdentity->key,
         );
         $this->assertSame('convolab-oauth-claim-network|ip:198.51.100.7', $claimNetwork->key);
@@ -84,10 +84,17 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
         [$secondIdentity] = ConvoLabOAuthRateLimiter::authenticated(ConvoLabOAuthRateLimiter::CLAIM, $second);
         [$anonymousIdentity] = ConvoLabOAuthRateLimiter::authenticated(ConvoLabOAuthRateLimiter::CLAIM, $anonymous);
 
-        $this->assertSame('convolab-oauth-claim|user:user-one', $firstIdentity->key);
-        $this->assertSame('convolab-oauth-claim|user:user-two', $secondIdentity->key);
+        $this->assertSame(
+            'convolab-oauth-claim|user:'.hash('sha256', 'user-one'),
+            $firstIdentity->key,
+        );
+        $this->assertSame(
+            'convolab-oauth-claim|user:'.hash('sha256', 'user-two'),
+            $secondIdentity->key,
+        );
         $this->assertSame('convolab-oauth-claim|anon:ip:203.0.113.9', $anonymousIdentity->key);
         $this->assertNotSame($firstIdentity->key, $secondIdentity->key);
+        $this->assertStringNotContainsString('user-one', $firstIdentity->key);
     }
 
     /** @param array<string, mixed> $payload */

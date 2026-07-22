@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 final class RegisterConvoLabUserAction
 {
+    public function __construct(
+        private readonly CreateConvoLabAccountProjectionAction $createAccountProjection,
+    ) {}
+
     public function handle(
         string $email,
         string $password,
@@ -73,27 +77,16 @@ final class RegisterConvoLabUserAction
                 $user->convolab_password_hash = $passwordHash;
                 $user->save();
 
-                $account = new AdminUserProjection;
-                $account->convolab_id = $convoLabId;
-                $account->user_id = $user->getKey();
-                $account->email = $email;
-                $account->name = $name;
-                $account->display_name = null;
-                $account->avatar_color = 'indigo';
-                $account->avatar_url = null;
-                $account->role = 'user';
-                $account->preferred_study_language = 'ja';
-                $account->preferred_native_language = 'en';
-                $account->proficiency_level = 'beginner';
-                $account->onboarding_completed = false;
-                $account->seen_sample_content_guide = false;
-                $account->seen_custom_content_guide = false;
-                $account->email_verified = false;
-                $account->email_verified_at = null;
-                $account->created_at = $now;
-                $account->updated_at = $now;
-                $account->source_system = ConvoLabAccountSource::LEARNING_OS;
-                $account->save();
+                $account = $this->createAccountProjection->handle(
+                    user: $user,
+                    convoLabId: $convoLabId,
+                    email: $email,
+                    name: $name,
+                    avatarUrl: null,
+                    emailVerified: false,
+                    emailVerifiedAt: null,
+                    now: $now,
+                );
 
                 $invite->used_by = $user->getKey();
                 $invite->convolab_used_by = $convoLabId;

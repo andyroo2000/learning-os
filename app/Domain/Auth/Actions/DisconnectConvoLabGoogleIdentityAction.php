@@ -29,6 +29,7 @@ final class DisconnectConvoLabGoogleIdentityAction
                 ->lockForUpdate()
                 ->first();
             if (! $identity instanceof ConvoLabOAuthIdentity) {
+                // Preserve the legacy disconnect contract so clients can distinguish an absent link.
                 throw ConvoLabOAuthException::identityNotFound();
             }
 

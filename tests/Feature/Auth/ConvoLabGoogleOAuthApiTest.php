@@ -223,6 +223,25 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
         ]);
     }
 
+    public function test_an_orphaned_identity_is_hidden_as_not_found_instead_of_leaking_an_invariant_error(): void
+    {
+        $user = User::factory()->create();
+        DB::table('convolab_oauth_identities')->insert([
+            'user_id' => $user->id,
+            'provider' => 'google',
+            'provider_id' => 'orphaned-subject',
+            'access_granted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($this->proxyToken())
+            ->postJson('/api/convolab/auth/google', $this->googlePayload([
+                'providerId' => 'orphaned-subject',
+            ]))
+            ->assertNotFound();
+    }
+
     public function test_claim_invite_is_locked_retry_safe_and_grants_future_google_logins(): void
     {
         $result = app(ResolveConvoLabGoogleIdentityAction::class)->handle(

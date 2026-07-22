@@ -33,7 +33,9 @@ final class ConvoLabOAuthRateLimiter
         $userId = is_string($userId) ? Str::lower(trim($userId)) : '';
         $ip = $request->ip();
         $network = $ip === null || $ip === '' ? 'missing-ip' : 'ip:'.$ip;
-        $identity = $userId === '' ? 'anon:'.$network : 'user:'.$userId;
+        $identity = $userId === ''
+            ? 'anon:'.$network
+            : 'user:'.hash('sha256', $userId);
 
         return [
             Limit::perMinute(5)->by($operation.'|'.$identity),

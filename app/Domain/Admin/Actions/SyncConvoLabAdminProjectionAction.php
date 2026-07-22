@@ -371,6 +371,23 @@ class SyncConvoLabAdminProjectionAction
                     static fn (string $filename): array => [strtolower($filename) => true],
                 );
 
+                $sourceIdByFilename = collect($normalizedAvatars)->mapWithKeys(
+                    static fn (array $avatar): array => [$avatar[2] => $avatar[1]],
+                );
+                $rotatedSourceIds = $target->table('admin_speaker_avatars')
+                    ->where('source_system', ConvoLabAccountSource::CONVOLAB)
+                    ->whereIn('filename', $filenames)
+                    ->get(['id', 'filename'])
+                    ->filter(static fn (stdClass $avatar): bool => strtolower((string) $avatar->id)
+                        !== $sourceIdByFilename->get(strtolower((string) $avatar->filename)))
+                    ->pluck('id');
+                if ($rotatedSourceIds->isNotEmpty()) {
+                    $target->table('admin_speaker_avatars')
+                        ->where('source_system', ConvoLabAccountSource::CONVOLAB)
+                        ->whereIn('id', $rotatedSourceIds)
+                        ->delete();
+                }
+
                 foreach ($normalizedAvatars as [
                     $avatar,
                     $id,

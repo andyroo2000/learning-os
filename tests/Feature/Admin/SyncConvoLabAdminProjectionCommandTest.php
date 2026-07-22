@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Domain\Auth\Actions\RegisterConvoLabUserAction;
+use App\Domain\Auth\Support\ConvoLabAccountSource;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -270,6 +271,40 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseCount('admin_speaker_avatars', 1);
     }
 
+    public function test_sync_reconciles_a_source_id_rotation_for_the_same_filename(): void
+    {
+        $oldId = (string) Str::uuid();
+        $newId = (string) Str::uuid();
+        DB::table('admin_speaker_avatars')->insert([
+            'id' => $oldId,
+            'filename' => 'ja-female-casual.jpg',
+            'cropped_url' => 'https://storage.example/old-cropped.jpg',
+            'original_url' => 'https://storage.example/old-original.jpg',
+            'language' => 'ja',
+            'gender' => 'female',
+            'tone' => 'casual',
+            'source_system' => 'convolab',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->insertSourceAvatar($newId, [
+            'filename' => 'ja-female-casual.jpg',
+            'croppedUrl' => 'https://storage.example/new-cropped.jpg',
+        ]);
+
+        $this->runSync()
+            ->expectsOutput('Synchronized 0 users, 0 invite codes, and 1 speaker avatars.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('admin_speaker_avatars', ['id' => $oldId]);
+        $this->assertDatabaseHas('admin_speaker_avatars', [
+            'id' => $newId,
+            'filename' => 'ja-female-casual.jpg',
+            'cropped_url' => 'https://storage.example/new-cropped.jpg',
+        ]);
+        $this->assertDatabaseCount('admin_speaker_avatars', 1);
+    }
+
     public function test_speaker_avatar_ownership_is_checked_once_per_source_chunk(): void
     {
         foreach (['casual', 'polite', 'formal'] as $tone) {
@@ -295,7 +330,8 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $ownershipQueries = array_filter(
             $queries,
             static fn (array $query): bool => str_contains($query['query'], 'select "id", "filename"')
-                && str_contains($query['query'], 'from "admin_speaker_avatars"'),
+                && str_contains($query['query'], 'from "admin_speaker_avatars"')
+                && in_array(ConvoLabAccountSource::LEARNING_OS, $query['bindings'], true),
         );
 
         $this->assertCount(1, $ownershipQueries);

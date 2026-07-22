@@ -16,6 +16,6 @@ class ListAdminSpeakerAvatarsController extends Controller
     ): JsonResponse {
         return response()
             ->json(AdminSpeakerAvatarResource::collection($action->handle())->resolve($request))
-            ->header('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+            ->header('Cache-Control', 'private, max-age=3600');
     }
 }

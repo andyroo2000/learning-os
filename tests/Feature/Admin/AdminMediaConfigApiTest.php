@@ -45,7 +45,7 @@ class AdminMediaConfigApiTest extends TestCase
         $this->withToken($this->proxyToken())
             ->getJson('/api/convolab/admin/avatars/speakers')
             ->assertOk()
-            ->assertHeader('Cache-Control', 'max-age=3600, public, s-maxage=86400')
+            ->assertHeader('Cache-Control', 'max-age=3600, private')
             ->assertExactJson([
                 [
                     'id' => $first->id,

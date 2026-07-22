@@ -7,6 +7,7 @@ use App\Domain\Admin\Actions\ListAdminScriptLabCoursesAction;
 use App\Domain\Admin\Data\CreateAdminScriptLabCourseData;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Models\ContentCourseTombstone;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
 use App\Domain\Content\Support\ContentCourseDefaults;
@@ -109,6 +110,10 @@ class AdminScriptLabCourseApiTest extends TestCase
                 ->value('episode_id'),
         );
         $this->assertSame(2, ContentEpisode::query()->count());
+        $this->assertSame(
+            ContentSourceSystem::LEARNING_OS,
+            $ownedEpisode->fresh()->source_system,
+        );
 
         $this->withToken($token)
             ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
@@ -353,6 +358,54 @@ class AdminScriptLabCourseApiTest extends TestCase
             'convolab_user_id' => $user->convolab_id,
         ]);
         $this->assertDatabaseHas('content_course_tombstones', ['course_id' => $second->id]);
+    }
+
+    public function test_bulk_delete_batches_tombstones_and_rejects_cross_owner_reuse(): void
+    {
+        $user = $this->projectedUser();
+        $courses = collect([
+            $this->course($user),
+            $this->course($user),
+            $this->course($user),
+        ]);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            app(DeleteAdminScriptLabCoursesAction::class)->handle($courses->pluck('id')->all());
+            $queries = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+        }
+
+        $tombstoneQueries = array_values(array_filter(
+            $queries,
+            static fn (array $query): bool => str_contains($query['query'], 'content_course_tombstones'),
+        ));
+        $this->assertCount(2, $tombstoneQueries);
+        $this->assertDatabaseCount('content_course_tombstones', 3);
+
+        $course = $this->course($user);
+        $other = $this->projectedUser();
+        ContentCourseTombstone::query()->forceCreate([
+            'course_id' => $course->id,
+            'user_id' => $other->id,
+            'convolab_user_id' => $other->convolab_id,
+            'deleted_at' => now()->subDay(),
+        ]);
+
+        $this->withToken($this->proxyToken(['admin:write']))
+            ->withHeader('X-Convo-Lab-User-Id', $user->convolab_id)
+            ->deleteJson('/api/convolab/admin/script-lab/courses', [
+                'courseIds' => [$course->id],
+            ])
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('content_courses', ['id' => $course->id]);
+        $this->assertDatabaseHas('content_course_tombstones', [
+            'course_id' => $course->id,
+            'user_id' => $other->id,
+        ]);
     }
 
     public function test_bulk_delete_rejects_mixed_non_test_ids_atomically(): void

@@ -42,11 +42,16 @@ final class DeleteAdminScriptLabCoursesAction
                 throw AdminMutationException::nonTestScriptLabCourse();
             }
 
+            $existingTombstones = ContentCourseTombstone::query()
+                ->whereIn('course_id', $courses->modelKeys())
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('course_id');
+
             foreach ($courses as $course) {
-                $tombstone = ContentCourseTombstone::query()
-                    ->whereKey($course->id)
-                    ->lockForUpdate()
-                    ->first();
+                $tombstone = $existingTombstones->get($course->id);
+
+                // A restored/imported UUID must not overwrite another owner's deletion record.
                 if ($tombstone !== null && (
                     $tombstone->user_id !== $course->user_id
                     || ! hash_equals($tombstone->convolab_user_id, $course->convolab_user_id)
@@ -54,15 +59,20 @@ final class DeleteAdminScriptLabCoursesAction
                     throw AdminMutationException::scriptLabCourseNotFound();
                 }
 
-                $tombstone ??= new ContentCourseTombstone;
-                $tombstone->course_id = $course->id;
-                $tombstone->user_id = $course->user_id;
-                $tombstone->convolab_user_id = $course->convolab_user_id;
-                $tombstone->deleted_at = now();
-                $tombstone->save();
             }
 
             $existingIds = $courses->modelKeys();
+            $deletedAt = now();
+            ContentCourseTombstone::query()->upsert(
+                $courses->map(static fn (ContentCourse $course): array => [
+                    'course_id' => $course->id,
+                    'user_id' => $course->user_id,
+                    'convolab_user_id' => $course->convolab_user_id,
+                    'deleted_at' => $deletedAt,
+                ])->all(),
+                ['course_id'],
+                ['user_id', 'convolab_user_id', 'deleted_at'],
+            );
             ContentEpisodeCourse::query()->whereIn('convolab_course_id', $existingIds)->delete();
             ContentCourse::query()->whereIn('id', $existingIds)->delete();
 

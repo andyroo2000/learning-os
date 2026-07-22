@@ -6,6 +6,7 @@ use App\Domain\Admin\Data\CreateAdminScriptLabCourseData;
 use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Auth\Actions\ResolveConvoLabUserAction;
 use App\Domain\Content\Actions\CreateContentEpisodeAction;
+use App\Domain\Content\Actions\PromoteContentEpisodeOwnershipAction;
 use App\Domain\Content\Data\CreateContentEpisodeData;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
@@ -26,6 +27,7 @@ final readonly class CreateAdminScriptLabCourseAction
     public function __construct(
         private ResolveConvoLabUserAction $resolveUser,
         private CreateContentEpisodeAction $createEpisode,
+        private PromoteContentEpisodeOwnershipAction $promoteEpisodeOwnership,
     ) {}
 
     public function handle(
@@ -68,6 +70,8 @@ final readonly class CreateAdminScriptLabCourseAction
             if (! $episode instanceof ContentEpisode) {
                 throw AdminMutationException::scriptLabEpisodeNotFound();
             }
+
+            $this->promoteEpisodeOwnership->handle(DB::connection(), [$episode]);
 
             $course = new ContentCourse;
             $course->id = (string) Str::uuid();

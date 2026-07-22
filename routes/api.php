@@ -37,6 +37,7 @@ use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
+use App\Http\Controllers\Api\Admin\BuildAdminCourseScriptConfigController;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
@@ -46,12 +47,14 @@ use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\RecropAdminSpeakerAvatarController;
+use App\Http\Controllers\Api\Admin\ShowAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\ShowAdminScriptLabCourseController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Admin\StoreAdminScriptLabCourseController;
+use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
@@ -289,6 +292,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/script-lab/courses',
         DeleteAdminScriptLabCoursesController::class,
     )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE);
+    Route::get(
+        '/convolab/admin/courses/{courseId}/pipeline-data',
+        ShowAdminCoursePipelineController::class,
+    )->whereUuid('courseId');
+    Route::put(
+        '/convolab/admin/courses/{courseId}/pipeline-data',
+        UpdateAdminCoursePipelineController::class,
+    )->whereUuid('courseId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE);
+    Route::post(
+        '/convolab/admin/courses/{courseId}/build-script-config',
+        BuildAdminCourseScriptConfigController::class,
+    )->whereUuid('courseId');
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Admin;
 
+use App\Domain\Admin\Support\LegacyJavaScriptValue;
+
 final class AdminScriptLabCourseState
 {
     /**
@@ -15,8 +17,8 @@ final class AdminScriptLabCourseState
         $stage = $scriptData['_pipelineStage'] ?? null;
         $storedExchanges = $scriptData['_exchanges'] ?? null;
         $storedScriptUnits = $scriptData['_scriptUnits'] ?? null;
-        $hasExchanges = $stage === 'exchanges' || self::legacyTruthy($storedExchanges);
-        $hasScript = $stage === 'script' || self::legacyTruthy($storedScriptUnits);
+        $hasExchanges = $stage === 'exchanges' || LegacyJavaScriptValue::isTruthy($storedExchanges);
+        $hasScript = $stage === 'script' || LegacyJavaScriptValue::isTruthy($storedScriptUnits);
 
         if ($hasScript) {
             $hasExchanges = true;
@@ -24,21 +26,16 @@ final class AdminScriptLabCourseState
             $scriptUnits = $storedScriptUnits;
         } else {
             $exchanges = $hasExchanges
-                ? (self::legacyTruthy($storedExchanges) ? $storedExchanges : $scriptData)
+                ? (LegacyJavaScriptValue::isTruthy($storedExchanges) ? $storedExchanges : $scriptData)
                 : null;
             $scriptUnits = null;
         }
 
-        if (self::legacyTruthy($scriptUnitsJson)) {
+        if (LegacyJavaScriptValue::isTruthy($scriptUnitsJson)) {
             $hasScript = true;
             $scriptUnits = $scriptUnitsJson;
         }
 
         return compact('hasExchanges', 'hasScript', 'exchanges', 'scriptUnits');
-    }
-
-    private static function legacyTruthy(mixed $value): bool
-    {
-        return is_array($value) || is_object($value) || (bool) $value;
     }
 }

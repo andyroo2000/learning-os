@@ -81,6 +81,11 @@ final class AdminMutationException extends RuntimeException
         return new self('Speaker avatar changed while it was being re-cropped', 409);
     }
 
+    public static function speakerAvatarRequiresUpload(): self
+    {
+        return new self('Speaker avatar must be uploaded before it can be re-cropped', 409);
+    }
+
     public function status(): int
     {
         return $this->status;

@@ -3,6 +3,7 @@
 namespace App\Domain\Admin\Services;
 
 use App\Domain\Admin\Data\StoredAdminAvatarObject;
+use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Media\Contracts\StaticMediaObjectWriter;
 use App\Domain\Media\Support\StaticMediaSettings;
 use Illuminate\Support\Str;
@@ -47,7 +48,7 @@ final class AdminAvatarObjectStorage
     {
         $path = $this->settings->publicObjectPath($url);
         if ($path === null) {
-            throw new RuntimeException('Speaker avatar original URL is outside the configured avatar bucket.');
+            throw AdminMutationException::speakerAvatarRequiresUpload();
         }
 
         return $this->writer->read($path);

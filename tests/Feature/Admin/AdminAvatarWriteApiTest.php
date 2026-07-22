@@ -91,6 +91,21 @@ class AdminAvatarWriteApiTest extends TestCase
         $this->assertSame('learning_os', $avatar->source_system);
     }
 
+    public function test_speaker_recrop_returns_a_controlled_conflict_for_a_legacy_external_original(): void
+    {
+        $avatar = $this->insertAvatar(['original_url' => 'https://example.com/original.jpg']);
+        $this->mockProcessor()->shouldNotReceive('process');
+        $this->mockWriter()->shouldNotReceive('read', 'putPublic', 'delete');
+
+        $this->withToken($this->proxyToken())
+            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+            ->postJson("/api/convolab/admin/avatars/speaker/{$avatar->filename}/recrop", ['cropArea' => self::CROP])
+            ->assertConflict()
+            ->assertExactJson([
+                'message' => 'Speaker avatar must be uploaded before it can be re-cropped',
+            ]);
+    }
+
     public function test_user_upload_updates_the_projection_without_changing_sync_ownership(): void
     {
         $user = $this->projectedUser();

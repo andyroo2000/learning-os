@@ -119,8 +119,19 @@ class AdminAvatarActionsTest extends TestCase
         $this->mockProcessor()->shouldNotReceive('process');
         $this->mockWriter()->shouldNotReceive('read', 'putPublic', 'delete');
 
-        $this->expectException(RuntimeException::class);
-        app(RecropAdminSpeakerAvatarAction::class)->handle($avatar->filename, AdminAvatarCropArea::from(self::CROP));
+        try {
+            app(RecropAdminSpeakerAvatarAction::class)->handle(
+                $avatar->filename,
+                AdminAvatarCropArea::from(self::CROP),
+            );
+            $this->fail('Expected the legacy original to require a fresh upload.');
+        } catch (AdminMutationException $exception) {
+            $this->assertSame(409, $exception->status());
+            $this->assertSame(
+                'Speaker avatar must be uploaded before it can be re-cropped',
+                $exception->getMessage(),
+            );
+        }
     }
 
     #[DataProvider('missingUserIdProvider')]

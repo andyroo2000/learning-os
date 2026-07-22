@@ -178,6 +178,8 @@ class AppServiceProvider extends ServiceProvider
             AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD,
             AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP,
             AdminMutationRateLimiter::USER_AVATAR_UPLOAD,
+            AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE,
+            AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE,
         ] as $name) {
             RateLimiter::for(
                 $name,

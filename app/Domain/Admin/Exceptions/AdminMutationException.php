@@ -86,6 +86,24 @@ final class AdminMutationException extends RuntimeException
         return new self('Speaker avatar must be uploaded before it can be re-cropped', 409);
     }
 
+    public static function scriptLabCourseNotFound(): self
+    {
+        return new self('Test course not found', 404);
+    }
+
+    public static function scriptLabEpisodeNotFound(): self
+    {
+        return new self('Episode not found', 404);
+    }
+
+    public static function nonTestScriptLabCourse(): self
+    {
+        return new self(
+            'Cannot delete non-test courses via Script Lab. Use the standard admin interface.',
+            400,
+        );
+    }
+
     public function status(): int
     {
         return $this->status;

@@ -32,6 +32,8 @@ final class AdminMutationRateLimiter
 
     public const SCRIPT_LAB_LINE_SYNTHESIZE = 'convolab-admin-script-lab-line-synthesize';
 
+    public const SCRIPT_LAB_PRONUNCIATION_TEST = 'convolab-admin-script-lab-pronunciation-test';
+
     public const COURSE_PIPELINE_UPDATE = 'convolab-admin-course-pipeline-update';
 
     public const COURSE_DIALOGUE_GENERATE = 'convolab-admin-course-dialogue-generate';
@@ -50,6 +52,7 @@ final class AdminMutationRateLimiter
             self::COURSE_LINE_SYNTHESIZE,
             self::SENTENCE_SCRIPT_GENERATE,
             self::SCRIPT_LAB_LINE_SYNTHESIZE,
+            self::SCRIPT_LAB_PRONUNCIATION_TEST,
         ], true) ? 6 : 30;
 
         return Limit::perMinute($attempts)->by(ConvoLabProfileRateLimiter::key(

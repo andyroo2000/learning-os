@@ -29,7 +29,7 @@ final readonly class SynthesizeAdminCourseLineAction
         try {
             $bytes = $this->speechGenerator->generate($data->text, $data->voiceId, $data->speed);
         } catch (AudioSpeechGenerationException $exception) {
-            throw AdminMutationException::courseLineSynthesisUnavailable($exception);
+            throw AdminMutationException::lineSynthesisUnavailable($exception);
         }
 
         $renderingId = (string) Str::uuid();
@@ -39,7 +39,7 @@ final readonly class SynthesizeAdminCourseLineAction
 
         try {
             if (! $disk->put($path, $bytes)) {
-                throw AdminMutationException::courseLineSynthesisUnavailable();
+                throw AdminMutationException::lineSynthesisUnavailable();
             }
             $stored = true;
 

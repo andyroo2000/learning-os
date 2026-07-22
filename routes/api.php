@@ -68,6 +68,7 @@ use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Admin\StoreAdminScriptLabCourseController;
 use App\Http\Controllers\Api\Admin\SynthesizeAdminCourseLineController;
 use App\Http\Controllers\Api\Admin\SynthesizeAdminScriptLabLineController;
+use App\Http\Controllers\Api\Admin\TestAdminPronunciationController;
 use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
@@ -326,6 +327,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/script-lab/synthesize-line',
         SynthesizeAdminScriptLabLineController::class,
     )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_LINE_SYNTHESIZE);
+    Route::post(
+        '/convolab/admin/script-lab/test-pronunciation',
+        TestAdminPronunciationController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_PRONUNCIATION_TEST);
     Route::get(
         '/convolab/admin/script-lab/audio/{renderingId}',
         DownloadAdminScriptLabAudioController::class,

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
@@ -146,6 +147,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(AuthAccountRateLimiter::TOKEN_REVOKE, function (Request $request) use ($accountTokenRevokeRateLimiter): Limit {
             return $accountTokenRevokeRateLimiter->limit($request);
         });
+
+        foreach ([
+            AdminMutationRateLimiter::USER_DELETE,
+            AdminMutationRateLimiter::INVITE_CREATE,
+            AdminMutationRateLimiter::INVITE_DELETE,
+        ] as $name) {
+            RateLimiter::for(
+                $name,
+                fn (Request $request): Limit => AdminMutationRateLimiter::limit($name, $request),
+            );
+        }
 
         foreach ([
             ContentEpisodeRateLimiter::CREATE_NAME => ContentEpisodeRateLimiter::create(),

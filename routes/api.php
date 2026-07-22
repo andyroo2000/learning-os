@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
@@ -35,6 +36,9 @@ use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
+use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
+use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
+use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
@@ -219,9 +223,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::VERIFY);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);
+    Route::delete('/convolab/admin/users/{convoLabUserId}', DeleteAdminUserController::class)
+        ->whereUuid('convoLabUserId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::USER_DELETE);
     Route::get('/convolab/admin/users/{convoLabUserId}/info', ShowAdminUserController::class)
         ->whereUuid('convoLabUserId');
     Route::get('/convolab/admin/invite-codes', ListAdminInviteCodesController::class);
+    Route::post('/convolab/admin/invite-codes', CreateAdminInviteCodeController::class)
+        ->middleware('throttle:'.AdminMutationRateLimiter::INVITE_CREATE);
+    Route::delete('/convolab/admin/invite-codes/{inviteId}', DeleteAdminInviteCodeController::class)
+        ->whereUuid('inviteId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::INVITE_DELETE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

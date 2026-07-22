@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Domain\Auth\Actions\DeleteCurrentUserAction;
-use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\DeleteCurrentUserRequest;
 use App\Models\User;
 use Illuminate\Http\Response;
-use Illuminate\Validation\ValidationException;
 
 final class DeleteCurrentUserController extends Controller
 {
@@ -20,13 +18,7 @@ final class DeleteCurrentUserController extends Controller
 
         $data = $request->validated();
 
-        try {
-            $deleteUser->handle($user, $data['current_password']);
-        } catch (InvalidCurrentPasswordException $exception) {
-            throw ValidationException::withMessages([
-                'current_password' => [$exception->getMessage()],
-            ]);
-        }
+        $deleteUser->handle($user, $data['current_password']);
 
         return response()->noContent();
     }

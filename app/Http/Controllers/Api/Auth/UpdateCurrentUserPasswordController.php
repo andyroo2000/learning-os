@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Domain\Auth\Actions\UpdateCurrentUserPasswordAction;
-use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\UpdateCurrentUserPasswordRequest;
 use App\Models\User;
 use Illuminate\Http\Response;
-use Illuminate\Validation\ValidationException;
 
 class UpdateCurrentUserPasswordController extends Controller
 {
@@ -21,17 +19,11 @@ class UpdateCurrentUserPasswordController extends Controller
 
         $data = $request->validated();
 
-        try {
-            $updatePassword->handle(
-                user: $user,
-                currentPassword: $data['current_password'],
-                password: $data['password'],
-            );
-        } catch (InvalidCurrentPasswordException $exception) {
-            throw ValidationException::withMessages([
-                'current_password' => [$exception->getMessage()],
-            ]);
-        }
+        $updatePassword->handle(
+            user: $user,
+            currentPassword: $data['current_password'],
+            password: $data['password'],
+        );
 
         return response()->noContent();
     }

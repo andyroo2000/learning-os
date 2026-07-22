@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Admin\Exceptions\AdminMutationException;
+use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport(AdminMutationException::class);
+        $exceptions->dontReport(InvalidCurrentPasswordException::class);
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
         $exceptions->dontReport([WaniKaniApiException::class, WaniKaniSyncInProgressException::class]);
 
@@ -39,6 +41,19 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json(['message' => $exception->getMessage()], $exception->status());
+        });
+
+        $exceptions->render(function (InvalidCurrentPasswordException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => [
+                    'current_password' => [$exception->getMessage()],
+                ],
+            ], 422);
         });
 
         $exceptions->render(function (WaniKaniSyncInProgressException $exception, Request $request): ?JsonResponse {

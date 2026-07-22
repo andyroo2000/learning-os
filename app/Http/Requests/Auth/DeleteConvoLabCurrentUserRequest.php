@@ -6,17 +6,20 @@ use App\Http\Requests\Auth\Concerns\NormalizesConvoLabUserId;
 use App\Http\Support\ConvoLabProxyAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 
-final class ShowConvoLabCurrentUserRequest extends FormRequest
+final class DeleteConvoLabCurrentUserRequest extends FormRequest
 {
     use NormalizesConvoLabUserId;
 
     public function authorize(): bool
     {
-        return ConvoLabProxyAuthorization::allows($this, 'auth:read');
+        return ConvoLabProxyAuthorization::allows($this, 'auth:write');
     }
 
     public function rules(): array
     {
-        return ['convolabUserId' => ['required', 'uuid']];
+        return [
+            'convolabUserId' => ['required', 'uuid'],
+            'current_password' => ['required', 'string', 'max:1024'],
+        ];
     }
 }

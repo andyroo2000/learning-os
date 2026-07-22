@@ -3,6 +3,7 @@
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
@@ -44,6 +45,7 @@ use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
+use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
@@ -57,6 +59,7 @@ use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserController;
+use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
 use App\Http\Controllers\Api\Auth\VerifyConvoLabEmailController;
@@ -217,6 +220,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
     Route::patch('/convolab/auth/me', UpdateConvoLabCurrentUserController::class)
         ->middleware('throttle:'.ConvoLabProfileRateLimiter::NAME);
+    Route::put('/convolab/auth/me/password', UpdateConvoLabCurrentUserPasswordController::class)
+        ->middleware('throttle:'.ConvoLabAccountSecurityRateLimiter::PASSWORD_UPDATE);
+    Route::delete('/convolab/auth/me', DeleteConvoLabCurrentUserController::class)
+        ->middleware('throttle:'.ConvoLabAccountSecurityRateLimiter::ACCOUNT_DELETE);
     Route::post('/convolab/auth/verification/send', SendConvoLabVerificationController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::SEND);
     Route::post('/convolab/auth/verification', VerifyConvoLabEmailController::class)

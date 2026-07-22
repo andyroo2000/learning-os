@@ -43,20 +43,24 @@ use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminCourseLineRenderingController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
+use App\Http\Controllers\Api\Admin\DeleteAdminSentenceScriptTestsController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\DownloadAdminCourseLineRenderingController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseAudioController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseDialogueController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseScriptController;
+use App\Http\Controllers\Api\Admin\GenerateAdminSentenceScriptController;
 use App\Http\Controllers\Api\Admin\ListAdminCourseLineRenderingsController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
+use App\Http\Controllers\Api\Admin\ListAdminSentenceScriptTestsController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\RecropAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\ShowAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\ShowAdminScriptLabCourseController;
+use App\Http\Controllers\Api\Admin\ShowAdminSentenceScriptTestController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
@@ -300,6 +304,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/script-lab/courses',
         DeleteAdminScriptLabCoursesController::class,
     )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE);
+    Route::post(
+        '/convolab/admin/script-lab/sentence-script',
+        GenerateAdminSentenceScriptController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SENTENCE_SCRIPT_GENERATE);
+    Route::get(
+        '/convolab/admin/script-lab/sentence-tests',
+        ListAdminSentenceScriptTestsController::class,
+    );
+    Route::get(
+        '/convolab/admin/script-lab/sentence-tests/{testId}',
+        ShowAdminSentenceScriptTestController::class,
+    )->whereUuid('testId');
+    Route::delete(
+        '/convolab/admin/script-lab/sentence-tests',
+        DeleteAdminSentenceScriptTestsController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SENTENCE_SCRIPT_DELETE);
     Route::get(
         '/convolab/admin/courses/{courseId}/pipeline-data',
         ShowAdminCoursePipelineController::class,

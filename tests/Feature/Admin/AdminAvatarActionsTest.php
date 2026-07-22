@@ -176,7 +176,7 @@ class AdminAvatarActionsTest extends TestCase
         $this->expectException(AdminMutationException::class);
         $this->expectExceptionMessage('Invalid avatar filename format');
         app(UploadAdminSpeakerAvatarAction::class)->handle(
-            'ja-female-casual.png',
+            'ja-female-casual.gif',
             'source-image',
             AdminAvatarCropArea::from(self::CROP),
         );

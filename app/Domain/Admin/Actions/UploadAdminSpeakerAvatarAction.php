@@ -24,7 +24,7 @@ final class UploadAdminSpeakerAvatarAction
         string $imageBytes,
         AdminAvatarCropArea $cropArea,
     ): AdminSpeakerAvatar {
-        $avatarFilename = AdminSpeakerAvatarFilename::from($filename, jpgOnly: true);
+        $avatarFilename = AdminSpeakerAvatarFilename::from($filename);
         $processed = $this->imageProcessor->process($imageBytes, $cropArea);
         $stored = [];
 

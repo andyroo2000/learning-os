@@ -18,7 +18,9 @@ final class AdminAvatarObjectStorage
 
     public function putSpeakerCropped(string $filename, string $jpeg): StoredAdminAvatarObject
     {
-        return $this->put("speakers/{$this->uniqueName($filename)}", $jpeg, 'image/jpeg');
+        $baseName = pathinfo($filename, PATHINFO_FILENAME);
+
+        return $this->put("speakers/{$this->uniqueName("{$baseName}.jpg")}", $jpeg, 'image/jpeg');
     }
 
     public function putSpeakerOriginal(

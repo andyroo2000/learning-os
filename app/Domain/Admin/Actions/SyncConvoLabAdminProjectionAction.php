@@ -121,7 +121,8 @@ class SyncConvoLabAdminProjectionAction
                 $learningOsOwnedAvatars = $target->table('admin_user_projections')
                     ->where('avatar_source_system', ConvoLabAccountSource::LEARNING_OS)
                     ->whereIn('convolab_id', array_column($normalizedUsers, 1))
-                    ->pluck('avatar_url', 'convolab_id');
+                    ->pluck('avatar_url', 'convolab_id')
+                    ->mapWithKeys(static fn (?string $url, string $id): array => [strtolower($id) => $url]);
 
                 foreach ($normalizedUsers as [$sourceUser, $convoLabId, $email]) {
                     if ($learningOsOwnedIds->has($convoLabId)) {

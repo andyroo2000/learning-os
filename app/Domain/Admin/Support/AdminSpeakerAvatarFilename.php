@@ -15,13 +15,10 @@ final readonly class AdminSpeakerAvatarFilename
         public string $tone,
     ) {}
 
-    public static function from(string $filename, bool $jpgOnly = false): self
+    public static function from(string $filename): self
     {
         $normalized = strtolower(trim($filename));
         if (preg_match(self::PATTERN, $normalized, $matches) !== 1) {
-            throw AdminMutationException::invalidAvatarFilename();
-        }
-        if ($jpgOnly && $matches[3] !== 'jpg') {
             throw AdminMutationException::invalidAvatarFilename();
         }
 

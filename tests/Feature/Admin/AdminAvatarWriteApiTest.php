@@ -35,7 +35,7 @@ class AdminAvatarWriteApiTest extends TestCase
 
     public function test_speaker_upload_replaces_the_projection_and_returns_the_legacy_shape(): void
     {
-        $existing = $this->insertAvatar();
+        $existing = $this->insertAvatar(['filename' => 'ja-female-casual.png']);
         $this->mockProcessor();
         $writer = $this->mockWriter();
         $writer->shouldReceive('putPublic')->once()
@@ -49,18 +49,18 @@ class AdminAvatarWriteApiTest extends TestCase
 
         $response = $this->withToken($this->proxyToken())
             ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
-            ->post('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.JPG/upload', [
+            ->post('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.PNG/upload', [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
                 'image' => UploadedFile::fake()->image('avatar.png', 300, 300),
             ])
             ->assertOk()
             ->assertJsonPath('message', 'Speaker avatar uploaded successfully')
-            ->assertJsonPath('filename', 'ja-female-casual.jpg');
+            ->assertJsonPath('filename', 'ja-female-casual.png');
 
         $this->assertStringStartsWith('https://storage.googleapis.com/convolab-storage/avatars/speakers/', $response->json('croppedUrl'));
         $this->assertStringContainsString('original-ja-female-casual.png', $response->json('originalUrl'));
 
-        $avatar = AdminSpeakerAvatar::query()->where('filename', 'ja-female-casual.jpg')->sole();
+        $avatar = AdminSpeakerAvatar::query()->where('filename', 'ja-female-casual.png')->sole();
         $this->assertSame($existing->id, $avatar->id);
         $this->assertSame('learning_os', $avatar->source_system);
         $this->assertSame($response->json('croppedUrl'), $avatar->cropped_url);
@@ -70,6 +70,7 @@ class AdminAvatarWriteApiTest extends TestCase
     public function test_speaker_recrop_reuses_the_original_object_and_updates_only_the_crop(): void
     {
         $avatar = $this->insertAvatar([
+            'filename' => 'ja-female-casual.png',
             'original_url' => 'https://storage.googleapis.com/convolab-storage/avatars/speakers/original.jpg',
         ]);
         $this->mockProcessor();
@@ -80,7 +81,7 @@ class AdminAvatarWriteApiTest extends TestCase
 
         $response = $this->withToken($this->proxyToken())
             ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
-            ->postJson('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.JPG/recrop', ['cropArea' => self::CROP])
+            ->postJson('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.PNG/recrop', ['cropArea' => self::CROP])
             ->assertOk()
             ->assertJsonPath('message', 'Speaker avatar re-cropped successfully')
             ->assertJsonPath('originalUrl', $avatar->original_url);

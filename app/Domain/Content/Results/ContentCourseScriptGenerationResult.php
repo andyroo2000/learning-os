@@ -2,14 +2,13 @@
 
 namespace App\Domain\Content\Results;
 
+use App\Domain\Content\Data\ContentCourseScriptUnits;
 use InvalidArgumentException;
 use JsonException;
 
 final readonly class ContentCourseScriptGenerationResult
 {
     private const MAX_EXCHANGES = 100;
-
-    private const MAX_SCRIPT_UNITS = 1000;
 
     private const MAX_VOCABULARY_ITEMS = 500;
 
@@ -38,7 +37,7 @@ final readonly class ContentCourseScriptGenerationResult
         self::assertExactKeys($decoded, ['exchanges', 'scriptUnits'], 'response');
 
         $rawExchanges = self::boundedList($decoded, 'exchanges', 1, self::MAX_EXCHANGES);
-        $rawUnits = self::boundedList($decoded, 'scriptUnits', 1, self::MAX_SCRIPT_UNITS);
+        $rawUnits = self::boundedList($decoded, 'scriptUnits', 1, ContentCourseScriptUnits::MAX_UNITS);
 
         $exchanges = [];
         $coreItems = [];

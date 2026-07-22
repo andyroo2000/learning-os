@@ -4,6 +4,8 @@ namespace Tests\Feature\Admin;
 
 use App\Domain\Admin\Actions\GenerateAdminCourseAudioAction;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
+use App\Domain\Content\Actions\QueueContentCourseGenerationAction;
+use App\Domain\Content\Data\ContentCourseScriptUnits;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Jobs\ProcessContentCourseGeneration;
@@ -15,6 +17,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -167,6 +170,58 @@ class AdminCourseAudioApiTest extends TestCase
             ->assertExactJson(['message' => 'Course is already being generated']);
 
         $this->assertSame(3, $course->fresh()->generation_attempt);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_concurrent_script_change_maps_to_a_409_without_queueing_stale_audio(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $course = $this->course($user, ['script_json' => $this->scriptUnits()]);
+        $canonicalQueue = app(QueueContentCourseGenerationAction::class);
+        $newerScript = [
+            '_pipelineStage' => 'exchanges',
+            '_exchanges' => [['newer' => true]],
+        ];
+        $this->mock(
+            QueueContentCourseGenerationAction::class,
+            function (MockInterface $mock) use ($canonicalQueue, $course, $newerScript): void {
+                $mock->shouldReceive('handleAudioOnly')
+                    ->once()
+                    ->andReturnUsing(function (
+                        int $userId,
+                        string $convoLabUserId,
+                        string $courseId,
+                        ContentCourseScriptUnits $units,
+                        string $scriptHash,
+                    ) use ($canonicalQueue, $course, $newerScript) {
+                        ContentCourse::query()->whereKey($course->id)->update([
+                            'script_json' => $newerScript,
+                        ]);
+
+                        return $canonicalQueue->handleAudioOnly(
+                            $userId,
+                            $convoLabUserId,
+                            $courseId,
+                            $units,
+                            $scriptHash,
+                        );
+                    });
+            },
+        );
+
+        $this->writeRequest()
+            ->postJson("/api/convolab/admin/courses/{$course->id}/generate-audio")
+            ->assertConflict()
+            ->assertExactJson([
+                'message' => 'Course script changed while audio generation was being queued',
+            ]);
+
+        $course->refresh();
+        $this->assertSame($newerScript, $course->script_json);
+        $this->assertSame('draft', $course->status);
+        $this->assertSame(0, $course->generation_attempt);
+        $this->assertNull($course->script_units_json);
         Queue::assertNothingPushed();
     }
 

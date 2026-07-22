@@ -538,6 +538,23 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        DB::table('admin_sentence_script_tests')->insert([
+            'id' => (string) Str::uuid(),
+            'actor_convolab_user_id' => $convoLabUserId,
+            'sentence' => 'リセットします。',
+            'translation' => 'Reset it.',
+            'target_language' => 'ja',
+            'native_language' => 'en',
+            'jlpt_level' => 'N4',
+            'l1_voice_id' => 'fishaudio:ac934b39586e475b83f3277cd97b5cd4',
+            'l2_voice_id' => 'fishaudio:0dff3f6860294829b98f8c4501b2cf25',
+            'prompt_template' => 'Prompt',
+            'units_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'raw_response' => '{}',
+            'estimated_duration_secs' => 0,
+            'parse_error' => null,
+            'created_at' => $now,
+        ]);
 
         $this->artisan('rehearsal:import-convolab', [
             '--source-connection' => 'convolab_test_source',
@@ -545,6 +562,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         ])->assertExitCode(0);
 
         $this->assertDatabaseCount('courses', 0);
+        $this->assertDatabaseCount('admin_sentence_script_tests', 0);
         $this->assertDatabaseCount('admin_course_line_renderings', 0);
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);

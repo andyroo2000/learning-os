@@ -180,6 +180,8 @@ class AppServiceProvider extends ServiceProvider
             AdminMutationRateLimiter::USER_AVATAR_UPLOAD,
             AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE,
             AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE,
+            AdminMutationRateLimiter::SENTENCE_SCRIPT_GENERATE,
+            AdminMutationRateLimiter::SENTENCE_SCRIPT_DELETE,
             AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE,
             AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE,
             AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE,

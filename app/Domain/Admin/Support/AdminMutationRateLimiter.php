@@ -26,6 +26,10 @@ final class AdminMutationRateLimiter
 
     public const SCRIPT_LAB_COURSE_DELETE = 'convolab-admin-script-lab-course-delete';
 
+    public const SENTENCE_SCRIPT_GENERATE = 'convolab-admin-sentence-script-generate';
+
+    public const SENTENCE_SCRIPT_DELETE = 'convolab-admin-sentence-script-delete';
+
     public const COURSE_PIPELINE_UPDATE = 'convolab-admin-course-pipeline-update';
 
     public const COURSE_DIALOGUE_GENERATE = 'convolab-admin-course-dialogue-generate';
@@ -40,7 +44,10 @@ final class AdminMutationRateLimiter
 
     public static function limit(string $operation, Request $request): Limit
     {
-        $attempts = $operation === self::COURSE_LINE_SYNTHESIZE ? 6 : 30;
+        $attempts = in_array($operation, [
+            self::COURSE_LINE_SYNTHESIZE,
+            self::SENTENCE_SCRIPT_GENERATE,
+        ], true) ? 6 : 30;
 
         return Limit::perMinute($attempts)->by(ConvoLabProfileRateLimiter::key(
             $operation,

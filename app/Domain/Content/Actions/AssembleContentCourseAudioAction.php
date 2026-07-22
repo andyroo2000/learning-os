@@ -2,8 +2,8 @@
 
 namespace App\Domain\Content\Actions;
 
+use App\Domain\Content\Data\ContentCourseScriptUnits;
 use App\Domain\Content\Models\ContentCourse;
-use App\Domain\Content\Results\ContentCourseScriptUnit;
 use App\Domain\Content\Services\ContentCourseAudioAssembler;
 use App\Domain\Content\Support\ContentCourseAudio;
 use App\Domain\Content\Support\ContentCourseId;
@@ -48,7 +48,7 @@ class AssembleContentCourseAudioAction
                 return null;
             }
 
-            $units = $this->scriptUnits($course->script_units_json);
+            $units = ContentCourseScriptUnits::fromPayload($course->script_units_json)->units;
             $previousPath = $course->audio_storage_path;
             $course->source_system = ContentSourceSystem::LEARNING_OS;
             $course->generation_revision = ((int) $course->generation_revision) + 1;
@@ -115,22 +115,6 @@ class AssembleContentCourseAudioAction
         }
 
         return $course;
-    }
-
-    /** @return list<ContentCourseScriptUnit> */
-    private function scriptUnits(mixed $payload): array
-    {
-        if (! is_array($payload) || ! array_is_list($payload) || $payload === []) {
-            throw new InvalidArgumentException('Course audio requires a generated script.');
-        }
-
-        return array_map(static function (mixed $unit): ContentCourseScriptUnit {
-            if (! is_array($unit)) {
-                throw new InvalidArgumentException('Course script unit must be an object.');
-            }
-
-            return ContentCourseScriptUnit::fromProvider($unit);
-        }, $payload);
     }
 
     private function deleteOwnedPath(string $courseId, ?string $path): void

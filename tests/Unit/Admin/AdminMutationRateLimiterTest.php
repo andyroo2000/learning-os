@@ -78,5 +78,6 @@ class AdminMutationRateLimiterTest extends TestCase
         yield 'course pipeline update' => [AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE];
         yield 'course dialogue generate' => [AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE];
         yield 'course script generate' => [AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE];
+        yield 'course audio generate' => [AdminMutationRateLimiter::COURSE_AUDIO_GENERATE];
     }
 }

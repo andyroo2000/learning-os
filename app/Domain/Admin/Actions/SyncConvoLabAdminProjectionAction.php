@@ -255,9 +255,13 @@ class SyncConvoLabAdminProjectionAction
                     ->whereIn('id', array_column($normalizedInviteCodes, 1))
                     ->pluck('id')
                     ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+                $tombstonedIds = $target->table('admin_invite_code_tombstones')
+                    ->whereIn('invite_code_id', array_column($normalizedInviteCodes, 1))
+                    ->pluck('invite_code_id')
+                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
 
                 foreach ($normalizedInviteCodes as [$inviteCode, $id, $convoLabUsedBy, $code]) {
-                    if ($learningOsOwnedIds->has($id)) {
+                    if ($learningOsOwnedIds->has($id) || $tombstonedIds->has($id)) {
                         $sourceIds[] = $id;
                         $count++;
 

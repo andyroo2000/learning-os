@@ -4,6 +4,7 @@ use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
+use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
@@ -74,14 +75,17 @@ use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
+use App\Http\Controllers\Api\Auth\ClaimConvoLabGoogleInviteController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
 use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
+use App\Http\Controllers\Api\Auth\DisconnectConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterConvoLabUserController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
+use App\Http\Controllers\Api\Auth\ResolveConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
@@ -246,6 +250,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
     Route::post('/convolab/auth/signup', RegisterConvoLabUserController::class)
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_SIGNUPS);
+    Route::post('/convolab/auth/google', ResolveConvoLabGoogleIdentityController::class)
+        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::RESOLVE);
+    Route::post('/convolab/auth/google/invite', ClaimConvoLabGoogleInviteController::class)
+        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::CLAIM);
+    Route::delete('/convolab/auth/google', DisconnectConvoLabGoogleIdentityController::class)
+        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::DISCONNECT);
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
     Route::patch('/convolab/auth/me', UpdateConvoLabCurrentUserController::class)
         ->middleware('throttle:'.ConvoLabProfileRateLimiter::NAME);

@@ -6,6 +6,11 @@ trait NormalizesConvoLabUserId
 {
     protected function prepareForValidation(): void
     {
+        $this->prepareConvoLabUserIdForValidation();
+    }
+
+    protected function prepareConvoLabUserIdForValidation(): void
+    {
         $userId = $this->header('X-Convo-Lab-User-Id');
 
         $this->merge([

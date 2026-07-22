@@ -8,6 +8,7 @@ use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
+use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
@@ -147,6 +148,17 @@ class AppServiceProvider extends ServiceProvider
             RateLimiter::for(
                 $operation,
                 fn (Request $request): array => ConvoLabAccountSecurityRateLimiter::limits($operation, $request),
+            );
+        }
+
+        RateLimiter::for(
+            ConvoLabOAuthRateLimiter::RESOLVE,
+            fn (Request $request): array => ConvoLabOAuthRateLimiter::resolve($request),
+        );
+        foreach ([ConvoLabOAuthRateLimiter::CLAIM, ConvoLabOAuthRateLimiter::DISCONNECT] as $operation) {
+            RateLimiter::for(
+                $operation,
+                fn (Request $request): array => ConvoLabOAuthRateLimiter::authenticated($operation, $request),
             );
         }
 

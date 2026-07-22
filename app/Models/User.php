@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Domain\Admin\Models\AdminUserProjection;
+use App\Domain\Auth\Models\ConvoLabOAuthIdentity;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -36,5 +37,10 @@ class User extends Authenticatable
     public function adminUserProjection(): HasOne
     {
         return $this->hasOne(AdminUserProjection::class);
+    }
+
+    public function convoLabOAuthIdentity(): HasOne
+    {
+        return $this->hasOne(ConvoLabOAuthIdentity::class);
     }
 }

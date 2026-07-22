@@ -28,6 +28,10 @@ final class DeleteAdminInviteCodeAction
                 throw AdminMutationException::usedInvite();
             }
 
+            DB::table('admin_invite_code_tombstones')->insertOrIgnore([
+                'invite_code_id' => Str::lower($inviteId),
+                'deleted_at' => now(),
+            ]);
             $invite->delete();
         });
     }

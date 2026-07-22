@@ -378,6 +378,30 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
         $this->assertDatabaseHas('admin_invite_codes', ['id' => $inviteId]);
     }
 
+    public function test_sync_does_not_resurrect_a_tombstoned_source_invite(): void
+    {
+        $sourceId = (string) Str::uuid();
+        $inviteId = (string) Str::uuid();
+        $this->insertSourceUser($sourceId, ['email' => 'canonical@example.com']);
+        $this->insertSourceInvite($inviteId, 'DELETED1');
+        $this->runSync()->assertSuccessful();
+
+        DB::table('admin_invite_code_tombstones')->insert([
+            'invite_code_id' => $inviteId,
+            'deleted_at' => now(),
+        ]);
+        DB::table('admin_invite_codes')->where('id', $inviteId)->delete();
+
+        $this->runSync()
+            ->expectsOutput('Synchronized 1 users and 1 invite codes.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('admin_invite_codes', ['id' => $inviteId]);
+        $this->assertDatabaseHas('admin_invite_code_tombstones', [
+            'invite_code_id' => $inviteId,
+        ]);
+    }
+
     public function test_users_removed_from_the_source_are_hidden_without_deleting_canonical_accounts(): void
     {
         $sourceId = (string) Str::uuid();

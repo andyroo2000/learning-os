@@ -194,6 +194,9 @@ class AdminMutationApiTest extends TestCase
             ->assertOk()
             ->assertExactJson(['message' => 'Invite code deleted successfully']);
         $this->assertDatabaseMissing('admin_invite_codes', ['id' => $unused->id]);
+        $this->assertDatabaseHas('admin_invite_code_tombstones', [
+            'invite_code_id' => $unused->id,
+        ]);
 
         $user = $this->projectedUser();
         $used = $this->insertInvite([
@@ -206,6 +209,9 @@ class AdminMutationApiTest extends TestCase
             ->deleteJson("/api/convolab/admin/invite-codes/{$used->id}")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Cannot delete used invite codes']);
+        $this->assertDatabaseMissing('admin_invite_code_tombstones', [
+            'invite_code_id' => $used->id,
+        ]);
 
         $this->withToken($token)
             ->withHeader('X-Convo-Lab-User-Id', $actor)

@@ -181,6 +181,7 @@ class AppServiceProvider extends ServiceProvider
             AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE,
             AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE,
             AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE,
+            AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE,
         ] as $name) {
             RateLimiter::for(
                 $name,

@@ -33,21 +33,26 @@ class AuthEmailRateLimiterTest extends TestCase
         $convoLabLogins = $limiter->convoLabLogins($request);
         $convoLabSignups = $limiter->convoLabSignups($request);
         $mobileRegistrations = $limiter->mobileRegistrations($request);
-        $passwordResetLinks = $limiter->passwordResetLinks($request);
+        [$passwordResetEmail, $passwordResetNetwork] = $limiter->passwordResetLinks($request);
         $passwordResetTokens = $limiter->passwordResetTokens($request);
 
         $this->assertSame(6, $mobileTokens->maxAttempts);
         $this->assertSame(6, $convoLabLogins->maxAttempts);
         $this->assertSame(6, $convoLabSignups->maxAttempts);
         $this->assertSame(6, $mobileRegistrations->maxAttempts);
-        $this->assertSame(6, $passwordResetLinks->maxAttempts);
+        $this->assertSame(6, $passwordResetEmail->maxAttempts);
+        $this->assertSame(30, $passwordResetNetwork->maxAttempts);
         $this->assertSame(12, $passwordResetTokens->maxAttempts);
 
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileTokens->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $convoLabLogins->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $convoLabSignups->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $mobileRegistrations->key);
-        $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetLinks->key);
+        $this->assertSame(
+            'password-reset-email-network:email:ada@example.com|ip:127.0.0.1',
+            $passwordResetEmail->key,
+        );
+        $this->assertSame('password-reset-network:ip:127.0.0.1', $passwordResetNetwork->key);
         $this->assertSame('email:ada@example.com|ip:127.0.0.1', $passwordResetTokens->key);
     }
 }

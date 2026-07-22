@@ -18,6 +18,7 @@ use App\Domain\Content\Support\ContentSourceSystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 final readonly class GenerateAdminCourseScriptAction
 {
@@ -55,6 +56,10 @@ final readonly class GenerateAdminCourseScriptAction
             report($exception);
 
             throw AdminMutationException::invalidCourseScriptResponse($exception);
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            throw AdminMutationException::courseScriptProviderUnavailable($exception);
         }
 
         DB::transaction(function () use ($courseId, $snapshot, $exchanges, $result): void {

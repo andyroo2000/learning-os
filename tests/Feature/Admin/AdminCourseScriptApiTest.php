@@ -191,6 +191,30 @@ class AdminCourseScriptApiTest extends TestCase
         $this->assertSame('old', $course->coreItems()->sole()->text_l2);
     }
 
+    public function test_provider_failure_is_a_503_and_preserves_existing_state(): void
+    {
+        $user = User::factory()->create();
+        $pipeline = $this->exchangePipeline();
+        $course = $this->course($user, [
+            'script_json' => $pipeline,
+            'audio_url' => '/old.mp3',
+        ]);
+        $this->oldCoreItem($course);
+        Http::fake(['openai.test/v1/responses' => Http::response([
+            'error' => ['message' => 'Rate limit exceeded'],
+        ], 429)]);
+
+        $this->writeRequest()
+            ->postJson("/api/convolab/admin/courses/{$course->id}/generate-script")
+            ->assertServiceUnavailable()
+            ->assertExactJson(['message' => 'Script provider is temporarily unavailable']);
+
+        $course->refresh();
+        $this->assertSame($pipeline, $course->script_json);
+        $this->assertSame('/old.mp3', $course->audio_url);
+        $this->assertSame('old', $course->coreItems()->sole()->text_l2);
+    }
+
     public function test_invalid_course_configuration_is_a_400_without_provider_work(): void
     {
         $user = User::factory()->create();

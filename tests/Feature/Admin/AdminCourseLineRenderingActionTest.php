@@ -13,6 +13,7 @@ use App\Support\Audio\AudioSpeechGenerator;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -114,24 +115,16 @@ final class AdminCourseLineRenderingActionTest extends TestCase
         $this->mock(AudioSpeechGenerator::class, function (MockInterface $mock): void {
             $mock->shouldReceive('generate')->once()->andReturn('ID3audio');
         });
-        DB::unprepared(<<<'SQL'
-            CREATE TRIGGER reject_admin_line_rendering
-            BEFORE INSERT ON admin_course_line_renderings
-            BEGIN
-                SELECT RAISE(ABORT, 'forced persistence failure');
-            END
-            SQL);
+        Schema::drop('admin_course_line_renderings');
 
         try {
             app(SynthesizeAdminCourseLineAction::class)->handle($course->id, $this->data());
             $this->fail('Expected persistence to fail.');
         } catch (QueryException) {
             // The storage assertion below is the contract under test.
-        } finally {
-            DB::unprepared('DROP TRIGGER IF EXISTS reject_admin_line_rendering');
         }
 
-        $this->assertDatabaseCount('admin_course_line_renderings', 0);
+        $this->assertFalse(Schema::hasTable('admin_course_line_renderings'));
         $this->assertSame([], Storage::disk('media')->allFiles());
     }
 

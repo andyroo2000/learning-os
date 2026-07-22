@@ -4,15 +4,15 @@ namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Admin\Models\AdminCourseLineRendering;
-use App\Domain\Admin\Support\AdminCourseLineAudio;
+use App\Domain\Admin\Support\AdminCourseLineRenderingStorage;
 use App\Domain\Content\Support\ContentCourseId;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Throwable;
 
 final readonly class DeleteAdminCourseLineRenderingAction
 {
+    public function __construct(private AdminCourseLineRenderingStorage $storage) {}
+
     public function handle(string $courseId, string $renderingId): void
     {
         $courseId = ContentCourseId::normalize($courseId);
@@ -35,19 +35,9 @@ final readonly class DeleteAdminCourseLineRenderingAction
             return $rendering;
         });
 
-        if (! AdminCourseLineAudio::ownsPath(
-            $rendering->course_id,
-            $rendering->id,
-            $rendering->audio_storage_path,
-        )) {
-            return;
-        }
-
-        try {
-            Storage::disk((string) config('content_courses.audio_disk'))
-                ->delete($rendering->audio_storage_path);
-        } catch (Throwable $exception) {
-            report($exception);
+        $path = $this->storage->ownedPath($rendering);
+        if ($path !== null) {
+            $this->storage->deletePaths([$path]);
         }
     }
 }

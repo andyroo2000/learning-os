@@ -38,23 +38,21 @@ final readonly class SynthesizeAdminCourseLineAction
         $stored = false;
 
         try {
+            if (! $disk->put($path, $bytes)) {
+                throw AdminMutationException::courseLineSynthesisUnavailable();
+            }
+            $stored = true;
+
             return DB::transaction(function () use (
                 $courseId,
                 $data,
-                $bytes,
                 $renderingId,
                 $path,
-                $disk,
-                &$stored,
             ): AdminCourseLineRendering {
                 $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
                 if (! $course instanceof ContentCourse) {
                     throw AdminMutationException::courseNotFound();
                 }
-                if (! $disk->put($path, $bytes)) {
-                    throw AdminMutationException::courseLineSynthesisUnavailable();
-                }
-                $stored = true;
 
                 return AdminCourseLineRendering::query()->forceCreate([
                     'id' => $renderingId,

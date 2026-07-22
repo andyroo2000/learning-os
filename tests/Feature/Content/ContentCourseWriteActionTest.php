@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Admin\Models\AdminCourseLineRendering;
+use App\Domain\Admin\Support\AdminCourseLineAudio;
 use App\Domain\Content\Actions\DeleteContentCourseAction;
 use App\Domain\Content\Actions\UpdateContentCourseAction;
 use App\Domain\Content\Data\UpdateContentCourseData;
@@ -13,6 +15,7 @@ use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -150,8 +153,24 @@ class ContentCourseWriteActionTest extends TestCase
 
     public function test_delete_removes_the_course_graph_and_records_a_tombstone(): void
     {
+        config()->set('content_courses.audio_disk', 'media');
+        Storage::fake('media');
         $user = User::factory()->create();
         $course = $this->courseFor($user);
+        $renderingId = (string) Str::uuid();
+        $renderingPath = AdminCourseLineAudio::storagePath($course->id, $renderingId);
+        AdminCourseLineRendering::query()->forceCreate([
+            'id' => $renderingId,
+            'course_id' => $course->id,
+            'unit_index' => 0,
+            'text' => 'Delete this line.',
+            'speed' => 1,
+            'voice_id' => 'fishaudio:0123456789abcdef0123456789abcdef',
+            'audio_url' => AdminCourseLineAudio::audioUrl($course->id, $renderingId),
+            'audio_storage_path' => $renderingPath,
+            'created_at' => now(),
+        ]);
+        Storage::disk('media')->put($renderingPath, 'audio');
         $episode = $this->episodeFor($user, $course->convolab_user_id);
         ContentEpisodeCourse::query()->forceCreate([
             'id' => (string) Str::uuid(),
@@ -178,6 +197,8 @@ class ContentCourseWriteActionTest extends TestCase
         $this->assertDatabaseMissing('content_courses', ['id' => $course->id]);
         $this->assertDatabaseMissing('content_episode_courses', ['convolab_course_id' => $course->id]);
         $this->assertDatabaseMissing('content_course_core_items', ['course_id' => $course->id]);
+        $this->assertDatabaseMissing('admin_course_line_renderings', ['id' => $renderingId]);
+        Storage::disk('media')->assertMissing($renderingPath);
         $this->assertDatabaseHas('content_course_tombstones', [
             'course_id' => $course->id,
             'user_id' => $user->id,

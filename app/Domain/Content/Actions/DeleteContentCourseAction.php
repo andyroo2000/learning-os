@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Actions;
 
+use App\Domain\Admin\Support\AdminCourseLineRenderingStorage;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentCourseTombstone;
 use App\Domain\Content\Models\ContentEpisodeCourse;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 final class DeleteContentCourseAction
 {
+    public function __construct(private readonly AdminCourseLineRenderingStorage $lineRenderingStorage) {}
+
     /**
      * A successful hard delete leaves a tombstone so replacement imports cannot resurrect the Course.
      * A retry returns false because ownership can no longer be proven; the original tombstone remains durable.
@@ -21,7 +24,7 @@ final class DeleteContentCourseAction
         $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
         $courseId = ContentCourseId::normalize($courseId);
 
-        return DB::transaction(function () use ($userId, $convoLabUserId, $courseId): bool {
+        [$deleted, $lineRenderingPaths] = DB::transaction(function () use ($userId, $convoLabUserId, $courseId): array {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
             $course = ContentCourse::query()
@@ -32,7 +35,7 @@ final class DeleteContentCourseAction
                 ->first();
 
             if ($course === null) {
-                return false;
+                return [false, []];
             }
 
             $tombstone = ContentCourseTombstone::query()
@@ -44,8 +47,10 @@ final class DeleteContentCourseAction
                 $tombstone->user_id !== $userId
                 || ! hash_equals($tombstone->convolab_user_id, $convoLabUserId)
             )) {
-                return false;
+                return [false, []];
             }
+
+            $lineRenderingPaths = $this->lineRenderingStorage->ownedPathsForCourses([$courseId]);
 
             if ($tombstone === null) {
                 $tombstone = new ContentCourseTombstone;
@@ -62,7 +67,11 @@ final class DeleteContentCourseAction
                 ->delete();
             $course->delete();
 
-            return true;
+            return [true, $lineRenderingPaths];
         });
+
+        $this->lineRenderingStorage->deletePaths($lineRenderingPaths);
+
+        return $deleted;
     }
 }

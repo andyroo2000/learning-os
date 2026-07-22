@@ -124,6 +124,21 @@ final class AdminMutationException extends RuntimeException
         return new self('Dialogue provider returned an invalid response', 502, $previous);
     }
 
+    public static function dialogueExchangesRequired(?\Throwable $previous = null): self
+    {
+        return new self('No dialogue exchanges found. Generate dialogue first.', 400, $previous);
+    }
+
+    public static function courseChangedDuringScriptGeneration(): self
+    {
+        return new self('Course changed while script was being generated', 409);
+    }
+
+    public static function invalidCourseScriptResponse(?\Throwable $previous = null): self
+    {
+        return new self('Script provider returned an invalid response', 502, $previous);
+    }
+
     public function status(): int
     {
         return $this->status;

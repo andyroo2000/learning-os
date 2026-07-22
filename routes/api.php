@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseDialogueController;
+use App\Http\Controllers\Api\Admin\GenerateAdminCourseScriptController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
@@ -317,6 +318,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         GenerateAdminCourseDialogueController::class,
     )->whereUuid('courseId')
         ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE);
+    Route::post(
+        '/convolab/admin/courses/{courseId}/generate-script',
+        GenerateAdminCourseScriptController::class,
+    )->whereUuid('courseId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

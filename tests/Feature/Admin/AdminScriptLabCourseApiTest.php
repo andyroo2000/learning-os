@@ -92,6 +92,8 @@ class AdminScriptLabCourseApiTest extends TestCase
         $other = $this->projectedUser();
         $ownedEpisode = $this->episode($actor);
         $otherEpisode = $this->episode($other);
+        $realEpisode = $this->episode($actor);
+        $this->link($this->course($actor, ['is_test_course' => false]), $realEpisode, 0);
         $token = $this->proxyToken(['admin:write']);
 
         $response = $this->withToken($token)
@@ -109,7 +111,7 @@ class AdminScriptLabCourseApiTest extends TestCase
                 ->where('convolab_course_id', $response->json('courseId'))
                 ->value('episode_id'),
         );
-        $this->assertSame(2, ContentEpisode::query()->count());
+        $this->assertSame(3, ContentEpisode::query()->count());
         $this->assertSame(
             ContentSourceSystem::LEARNING_OS,
             $ownedEpisode->fresh()->source_system,
@@ -125,7 +127,18 @@ class AdminScriptLabCourseApiTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('message', 'Episode not found');
 
-        $this->assertDatabaseCount('content_courses', 1);
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+            ->postJson('/api/convolab/admin/script-lab/courses', [
+                'title' => 'Real Course Episode',
+                'sourceText' => 'Compatibility source text',
+                'episodeId' => $realEpisode->id,
+            ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Episode not found');
+
+        $this->assertSame(ContentSourceSystem::CONVOLAB, $realEpisode->fresh()->source_system);
+        $this->assertDatabaseCount('content_courses', 2);
     }
 
     public function test_create_validates_actor_and_bounded_legacy_inputs_before_writing(): void

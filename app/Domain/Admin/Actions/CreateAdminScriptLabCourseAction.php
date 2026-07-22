@@ -38,6 +38,8 @@ final readonly class CreateAdminScriptLabCourseAction
         $convoLabUserId = (string) $user->convolab_id;
 
         return DB::transaction(function () use ($user, $convoLabUserId, $data): ContentCourse {
+            ContentSourceLock::acquireConvoLab(DB::connection());
+
             $user = User::query()
                 ->whereKey($user->getKey())
                 ->where('convolab_id', $convoLabUserId)
@@ -46,8 +48,6 @@ final readonly class CreateAdminScriptLabCourseAction
             if (! $user instanceof User) {
                 throw AdminMutationException::userNotFound();
             }
-
-            ContentSourceLock::acquireConvoLab(DB::connection());
 
             $episode = $data->episodeId === null
                 ? $this->createEpisode->handle(CreateContentEpisodeData::fromInput(
@@ -64,6 +64,10 @@ final readonly class CreateAdminScriptLabCourseAction
                     ->whereKey($data->episodeId)
                     ->where('user_id', $user->getKey())
                     ->where('convolab_user_id', $convoLabUserId)
+                    ->whereDoesntHave(
+                        'courseEpisodes.course',
+                        static fn ($query) => $query->where('is_test_course', false),
+                    )
                     ->lockForUpdate()
                     ->first();
 

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Admin\Contracts\AdminAvatarImageProcessor;
+use App\Domain\Admin\Services\InterventionAdminAvatarImageProcessor;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
@@ -23,6 +25,7 @@ use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Contracts\StaticMediaObjectStore;
+use App\Domain\Media\Contracts\StaticMediaObjectWriter;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Services\GoogleCloudStaticMediaObjectStore;
 use App\Domain\Media\Support\CardMediaRateLimiter;
@@ -72,6 +75,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             StaticMediaObjectStore::class,
             GoogleCloudStaticMediaObjectStore::class,
+        );
+        $this->app->singleton(
+            StaticMediaObjectWriter::class,
+            GoogleCloudStaticMediaObjectStore::class,
+        );
+        $this->app->singleton(
+            AdminAvatarImageProcessor::class,
+            InterventionAdminAvatarImageProcessor::class,
         );
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
@@ -164,6 +175,9 @@ class AppServiceProvider extends ServiceProvider
             AdminMutationRateLimiter::INVITE_CREATE,
             AdminMutationRateLimiter::INVITE_DELETE,
             AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE,
+            AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD,
+            AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP,
+            AdminMutationRateLimiter::USER_AVATAR_UPLOAD,
         ] as $name) {
             RateLimiter::for(
                 $name,

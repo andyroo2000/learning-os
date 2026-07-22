@@ -108,6 +108,7 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'display_name' => 'Ada',
             'avatar_color' => 'teal',
             'avatar_url' => 'https://example.com/ada.png',
+            'avatar_source_system' => ConvoLabAccountSource::CONVOLAB,
             'role' => 'admin',
             'preferred_study_language' => 'ja',
             'preferred_native_language' => 'en',
@@ -146,6 +147,35 @@ class SyncConvoLabAdminProjectionCommandTest extends TestCase
             'convolab_used_by' => null,
         ]);
         $this->assertNotNull(User::query()->where('convolab_id', $graceId)->value('password'));
+    }
+
+    public function test_sync_preserves_learning_os_owned_avatar_while_updating_other_user_fields(): void
+    {
+        $userId = (string) Str::uuid();
+        $this->insertSourceUser($userId, [
+            'email' => 'avatar-owner@example.com',
+            'name' => 'Before Sync',
+            'avatarUrl' => 'https://example.com/legacy-avatar.jpg',
+        ]);
+        $this->runSync()->assertSuccessful();
+
+        DB::table('admin_user_projections')->where('convolab_id', $userId)->update([
+            'avatar_url' => 'https://storage.googleapis.com/convolab-storage/avatars/new-avatar.jpg',
+            'avatar_source_system' => ConvoLabAccountSource::LEARNING_OS,
+        ]);
+        DB::connection('convolab_admin_test')->table('User')->where('id', $userId)->update([
+            'name' => 'After Sync',
+            'avatarUrl' => 'https://example.com/stale-avatar.jpg',
+        ]);
+
+        $this->runSync()->assertSuccessful();
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $userId,
+            'name' => 'After Sync',
+            'avatar_url' => 'https://storage.googleapis.com/convolab-storage/avatars/new-avatar.jpg',
+            'avatar_source_system' => ConvoLabAccountSource::LEARNING_OS,
+        ]);
     }
 
     public function test_sync_is_idempotent_updates_rows_and_removes_stale_invites(): void

@@ -23,6 +23,7 @@ class AuthAccountRateLimiterTest extends TestCase
         $this->assertSame('account-profile-update:user:42', AuthAccountRateLimiter::keyFor(AuthAccountRateLimiter::PROFILE_UPDATE, '42', ''));
         $this->assertSame('account-profile-update:user:str-id', AuthAccountRateLimiter::keyFor(AuthAccountRateLimiter::PROFILE_UPDATE, 'str-id', ''));
         $this->assertSame('account-password-update:user:42', AuthAccountRateLimiter::keyFor(AuthAccountRateLimiter::PASSWORD_UPDATE, 42, '127.0.0.1'));
+        $this->assertSame('account-delete:user:42', AuthAccountRateLimiter::keyFor(AuthAccountRateLimiter::ACCOUNT_DELETE, 42, '127.0.0.1'));
         $this->assertSame('account-token-revoke:user:42', AuthAccountRateLimiter::keyFor(AuthAccountRateLimiter::TOKEN_REVOKE, 42, '127.0.0.1'));
     }
 
@@ -51,6 +52,15 @@ class AuthAccountRateLimiterTest extends TestCase
         $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
         $this->assertSame('account-token-revoke:user:42', $limit->key);
+    }
+
+    public function test_account_delete_uses_5_attempts_per_minute_by_default(): void
+    {
+        $limit = AuthAccountRateLimiter::forAccountDelete()->limit($this->requestWithUserId(42, 'DELETE', '/api/me'));
+
+        $this->assertSame(5, $limit->maxAttempts);
+        $this->assertSame(60, $limit->decaySeconds);
+        $this->assertSame('account-delete:user:42', $limit->key);
     }
 
     private function requestWithUserId(int $userId, string $method, string $uri): Request

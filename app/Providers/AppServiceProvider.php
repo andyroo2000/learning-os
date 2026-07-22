@@ -137,6 +137,11 @@ class AppServiceProvider extends ServiceProvider
             return $accountPasswordUpdateRateLimiter->limit($request);
         });
 
+        $accountDeleteRateLimiter = AuthAccountRateLimiter::forAccountDelete();
+        RateLimiter::for(AuthAccountRateLimiter::ACCOUNT_DELETE, function (Request $request) use ($accountDeleteRateLimiter): Limit {
+            return $accountDeleteRateLimiter->limit($request);
+        });
+
         $accountTokenRevokeRateLimiter = AuthAccountRateLimiter::forTokenRevoke();
         RateLimiter::for(AuthAccountRateLimiter::TOKEN_REVOKE, function (Request $request) use ($accountTokenRevokeRateLimiter): Limit {
             return $accountTokenRevokeRateLimiter->limit($request);

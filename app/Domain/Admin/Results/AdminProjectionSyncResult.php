@@ -7,5 +7,6 @@ final readonly class AdminProjectionSyncResult
     public function __construct(
         public int $users,
         public int $inviteCodes,
+        public int $speakerAvatars,
     ) {}
 }

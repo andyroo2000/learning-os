@@ -41,9 +41,13 @@ use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
+use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
+use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
+use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
+use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
@@ -241,6 +245,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/convolab/admin/invite-codes/{inviteId}', DeleteAdminInviteCodeController::class)
         ->whereUuid('inviteId')
         ->middleware('throttle:'.AdminMutationRateLimiter::INVITE_DELETE);
+    Route::get(
+        '/convolab/admin/avatars/speaker/{filename}/original',
+        ShowAdminSpeakerAvatarOriginalController::class,
+    );
+    Route::get('/convolab/admin/avatars/speakers', ListAdminSpeakerAvatarsController::class);
+    Route::get(
+        '/convolab/admin/pronunciation-dictionaries',
+        ShowAdminPronunciationDictionaryController::class,
+    );
+    Route::put(
+        '/convolab/admin/pronunciation-dictionaries',
+        UpdateAdminPronunciationDictionaryController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

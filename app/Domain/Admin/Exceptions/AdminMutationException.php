@@ -46,6 +46,21 @@ final class AdminMutationException extends RuntimeException
         return new self('Cannot delete used invite codes', 400);
     }
 
+    public static function invalidPronunciationDictionary(string $message): self
+    {
+        return new self($message, 400);
+    }
+
+    public static function invalidAvatarFilename(): self
+    {
+        return new self('Invalid avatar filename format', 400);
+    }
+
+    public static function speakerAvatarNotFound(): self
+    {
+        return new self('Speaker avatar not found', 404);
+    }
+
     public function status(): int
     {
         return $this->status;

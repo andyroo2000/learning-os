@@ -40,12 +40,15 @@ use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Admin\BuildAdminCoursePromptController;
 use App\Http\Controllers\Api\Admin\BuildAdminCourseScriptConfigController;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
+use App\Http\Controllers\Api\Admin\DeleteAdminCourseLineRenderingController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
+use App\Http\Controllers\Api\Admin\DownloadAdminCourseLineRenderingController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseAudioController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseDialogueController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseScriptController;
+use App\Http\Controllers\Api\Admin\ListAdminCourseLineRenderingsController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
@@ -58,6 +61,7 @@ use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Admin\StoreAdminScriptLabCourseController;
+use App\Http\Controllers\Api\Admin\SynthesizeAdminCourseLineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
@@ -329,6 +333,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
         GenerateAdminCourseAudioController::class,
     )->whereUuid('courseId')
         ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_AUDIO_GENERATE);
+    Route::post(
+        '/convolab/admin/courses/{courseId}/synthesize-line',
+        SynthesizeAdminCourseLineController::class,
+    )->whereUuid('courseId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_LINE_SYNTHESIZE);
+    Route::get(
+        '/convolab/admin/courses/{courseId}/line-renderings',
+        ListAdminCourseLineRenderingsController::class,
+    )->whereUuid('courseId');
+    Route::get(
+        '/convolab/admin/courses/{courseId}/line-renderings/{renderingId}/audio',
+        DownloadAdminCourseLineRenderingController::class,
+    )->whereUuid('courseId')->whereUuid('renderingId');
+    Route::delete(
+        '/convolab/admin/courses/{courseId}/line-renderings/{renderingId}',
+        DeleteAdminCourseLineRenderingController::class,
+    )->whereUuid('courseId')->whereUuid('renderingId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_LINE_DELETE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

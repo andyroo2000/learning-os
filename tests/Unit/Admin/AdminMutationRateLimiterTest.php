@@ -10,8 +10,10 @@ use PHPUnit\Framework\TestCase;
 class AdminMutationRateLimiterTest extends TestCase
 {
     #[DataProvider('operationProvider')]
-    public function test_mutations_use_the_admin_default_and_operation_scoped_identity_key(string $operation): void
-    {
+    public function test_mutations_use_operation_quotas_and_scoped_identity_keys(
+        string $operation,
+        int $attempts,
+    ): void {
         $actor = '01a1f0db-a4c8-4caa-adf6-d3801fdd7061';
         $request = Request::create('/api/convolab/admin/pronunciation-dictionaries', 'PUT');
         $request->headers->set('X-Convo-Lab-User-Id', $actor);
@@ -22,7 +24,7 @@ class AdminMutationRateLimiterTest extends TestCase
             $request,
         );
 
-        $this->assertSame(30, $limit->maxAttempts);
+        $this->assertSame($attempts, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
         $this->assertStringStartsWith(
             $operation.':',
@@ -66,18 +68,20 @@ class AdminMutationRateLimiterTest extends TestCase
         );
     }
 
-    /** @return iterable<string, array{string}> */
+    /** @return iterable<string, array{string, int}> */
     public static function operationProvider(): iterable
     {
-        yield 'pronunciation dictionary' => [AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE];
-        yield 'speaker upload' => [AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD];
-        yield 'speaker recrop' => [AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP];
-        yield 'user upload' => [AdminMutationRateLimiter::USER_AVATAR_UPLOAD];
-        yield 'Script Lab course create' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE];
-        yield 'Script Lab course delete' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE];
-        yield 'course pipeline update' => [AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE];
-        yield 'course dialogue generate' => [AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE];
-        yield 'course script generate' => [AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE];
-        yield 'course audio generate' => [AdminMutationRateLimiter::COURSE_AUDIO_GENERATE];
+        yield 'pronunciation dictionary' => [AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE, 30];
+        yield 'speaker upload' => [AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD, 30];
+        yield 'speaker recrop' => [AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP, 30];
+        yield 'user upload' => [AdminMutationRateLimiter::USER_AVATAR_UPLOAD, 30];
+        yield 'Script Lab course create' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE, 30];
+        yield 'Script Lab course delete' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE, 30];
+        yield 'course pipeline update' => [AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE, 30];
+        yield 'course dialogue generate' => [AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE, 30];
+        yield 'course script generate' => [AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE, 30];
+        yield 'course audio generate' => [AdminMutationRateLimiter::COURSE_AUDIO_GENERATE, 30];
+        yield 'course line synthesis' => [AdminMutationRateLimiter::COURSE_LINE_SYNTHESIZE, 6];
+        yield 'course line delete' => [AdminMutationRateLimiter::COURSE_LINE_DELETE, 30];
     }
 }

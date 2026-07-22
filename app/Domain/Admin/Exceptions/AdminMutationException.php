@@ -112,6 +112,16 @@ final class AdminMutationException extends RuntimeException
         return new self('Course not found', 404);
     }
 
+    public static function courseLineRenderingNotFound(): self
+    {
+        return new self('Rendering not found', 404);
+    }
+
+    public static function courseLineSynthesisUnavailable(?\Throwable $previous = null): self
+    {
+        return new self('Line synthesis is temporarily unavailable', 503, $previous);
+    }
+
     public static function courseSourceRequired(): self
     {
         return new self('Course has no episode with source text', 400);

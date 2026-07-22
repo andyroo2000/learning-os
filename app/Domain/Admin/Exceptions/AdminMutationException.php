@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin\Exceptions;
 
+use App\Domain\Admin\Support\AdminCoursePipelineMessage;
 use RuntimeException;
 
 final class AdminMutationException extends RuntimeException
@@ -122,6 +123,31 @@ final class AdminMutationException extends RuntimeException
     public static function invalidDialogueResponse(?\Throwable $previous = null): self
     {
         return new self('Dialogue provider returned an invalid response', 502, $previous);
+    }
+
+    public static function dialogueExchangesRequired(?\Throwable $previous = null): self
+    {
+        return new self(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED, 400, $previous);
+    }
+
+    public static function courseChangedDuringScriptGeneration(): self
+    {
+        return new self('Course changed while script was being generated', 409);
+    }
+
+    public static function invalidCourseScriptResponse(?\Throwable $previous = null): self
+    {
+        return new self('Script provider returned an invalid response', 502, $previous);
+    }
+
+    public static function courseScriptProviderUnavailable(?\Throwable $previous = null): self
+    {
+        return new self('Script provider is temporarily unavailable', 503, $previous);
+    }
+
+    public static function invalidCourseScriptConfiguration(?\Throwable $previous = null): self
+    {
+        return new self('Course requires a narrator voice and a duration from 1 to 120 minutes', 400, $previous);
     }
 
     public function status(): int

@@ -3,7 +3,7 @@
 namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Models\AdminSentenceScriptTest;
-use App\Domain\Admin\Support\AdminSentenceScriptTestId;
+use App\Domain\Admin\Support\AdminSentenceScriptCursor;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 
@@ -19,24 +19,18 @@ final class ListAdminSentenceScriptTestsAction
         if ($limit < 1 || $limit > self::MAX_LIMIT) {
             throw new InvalidArgumentException('Sentence test limit must be between 1 and 100.');
         }
-        $cursor = $cursor === null ? null : AdminSentenceScriptTestId::normalize($cursor);
 
         $query = AdminSentenceScriptTest::query();
 
         if ($cursor !== null) {
-            $cursorTest = AdminSentenceScriptTest::query()->find($cursor);
-            if ($cursorTest instanceof AdminSentenceScriptTest) {
-                $cursorCreatedAt = $cursorTest->created_at->format('Y-m-d H:i:s.v');
-                $query->where(function ($query) use ($cursorTest, $cursorCreatedAt): void {
-                    $query->where('created_at', '<', $cursorCreatedAt)
-                        ->orWhere(function ($query) use ($cursorTest, $cursorCreatedAt): void {
-                            $query->where('created_at', $cursorCreatedAt)
-                                ->where('id', '<', $cursorTest->id);
-                        });
-                });
-            } else {
-                return ['tests' => new Collection, 'nextCursor' => null];
-            }
+            $boundary = AdminSentenceScriptCursor::decode($cursor);
+            $query->where(function ($query) use ($boundary): void {
+                $query->where('created_at', '<', $boundary['createdAt'])
+                    ->orWhere(function ($query) use ($boundary): void {
+                        $query->where('created_at', $boundary['createdAt'])
+                            ->where('id', '<', $boundary['id']);
+                    });
+            });
         }
 
         $tests = $query
@@ -58,7 +52,7 @@ final class ListAdminSentenceScriptTestsAction
 
         return [
             'tests' => $tests,
-            'nextCursor' => $hasMore ? $tests->last()?->id : null,
+            'nextCursor' => $hasMore ? AdminSentenceScriptCursor::encode($tests->last()) : null,
         ];
     }
 }

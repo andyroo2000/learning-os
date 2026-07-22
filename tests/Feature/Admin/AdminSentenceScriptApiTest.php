@@ -244,12 +244,16 @@ final class AdminSentenceScriptApiTest extends TestCase
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2')
             ->assertOk();
         $this->assertSame([$newest->id, $sameTimeLowerId->id], array_column($first->json('tests'), 'id'));
-        $first->assertJsonPath('nextCursor', $sameTimeLowerId->id)
-            ->assertJsonStructure(['tests' => [['id', 'sentence', 'translation', 'estimatedDurationSecs', 'parseError', 'createdAt']]]);
+        $cursor = $first->json('nextCursor');
+        $this->assertIsString($cursor);
+        $this->assertNotSame($sameTimeLowerId->id, $cursor);
+        $first->assertJsonStructure(['tests' => [['id', 'sentence', 'translation', 'estimatedDurationSecs', 'parseError', 'createdAt']]]);
+
+        $sameTimeLowerId->delete();
 
         $this->app['auth']->forgetGuards();
         $second = $this->readRequest()
-            ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2&cursor='.$sameTimeLowerId->id)
+            ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2&cursor='.$cursor)
             ->assertOk();
         $this->assertSame([$sameTimeLowestId->id, $oldest->id], array_column($second->json('tests'), 'id'));
         $second->assertJsonPath('nextCursor', null);
@@ -357,11 +361,13 @@ final class AdminSentenceScriptApiTest extends TestCase
             }
         }
 
-        try {
-            $list->handle(50, 'not-a-uuid');
-            $this->fail('Malformed cursor should have been rejected.');
-        } catch (InvalidArgumentException $exception) {
-            $this->assertSame('Sentence test ID must be a UUID.', $exception->getMessage());
+        foreach (['not-a-uuid', str_repeat('a', 161)] as $cursor) {
+            try {
+                $list->handle(50, $cursor);
+                $this->fail('Malformed cursor should have been rejected.');
+            } catch (InvalidArgumentException $exception) {
+                $this->assertSame('Sentence test cursor is invalid.', $exception->getMessage());
+            }
         }
 
         foreach ([[], array_fill(0, 101, (string) Str::uuid()), [123]] as $ids) {

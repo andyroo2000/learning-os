@@ -3,6 +3,9 @@
 namespace App\Http\Requests\Admin;
 
 use App\Domain\Admin\Actions\ListAdminSentenceScriptTestsAction;
+use App\Domain\Admin\Support\AdminSentenceScriptCursor;
+use Closure;
+use InvalidArgumentException;
 
 final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminReadRequest
 {
@@ -12,7 +15,7 @@ final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminReadRequest
         foreach (['limit', 'cursor'] as $field) {
             $value = $this->input($field);
             if (is_string($value)) {
-                $normalized[$field] = strtolower(trim($value));
+                $normalized[$field] = trim($value);
             }
         }
         if ($normalized !== []) {
@@ -24,7 +27,16 @@ final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminReadRequest
     {
         return [
             'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.ListAdminSentenceScriptTestsAction::MAX_LIMIT],
-            'cursor' => ['sometimes', 'filled', 'string', 'uuid'],
+            'cursor' => ['sometimes', 'filled', 'string', 'max:160', function (string $attribute, mixed $value, Closure $fail): void {
+                if (! is_string($value)) {
+                    return;
+                }
+                try {
+                    AdminSentenceScriptCursor::decode($value);
+                } catch (InvalidArgumentException) {
+                    $fail('The cursor is invalid.');
+                }
+            }],
         ];
     }
 

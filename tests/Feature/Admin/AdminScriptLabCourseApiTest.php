@@ -5,6 +5,8 @@ namespace Tests\Feature\Admin;
 use App\Domain\Admin\Actions\DeleteAdminScriptLabCoursesAction;
 use App\Domain\Admin\Actions\ListAdminScriptLabCoursesAction;
 use App\Domain\Admin\Data\CreateAdminScriptLabCourseData;
+use App\Domain\Admin\Models\AdminCourseLineRendering;
+use App\Domain\Admin\Support\AdminCourseLineAudio;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentCourseTombstone;
@@ -17,6 +19,7 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -348,9 +351,25 @@ class AdminScriptLabCourseApiTest extends TestCase
 
     public function test_bulk_delete_removes_only_existing_test_courses_and_writes_tombstones(): void
     {
+        config()->set('content_courses.audio_disk', 'media');
+        Storage::fake('media');
         $user = $this->projectedUser();
         $first = $this->course($user);
         $second = $this->course($user);
+        $renderingId = (string) Str::uuid();
+        $renderingPath = AdminCourseLineAudio::storagePath($first->id, $renderingId);
+        AdminCourseLineRendering::query()->forceCreate([
+            'id' => $renderingId,
+            'course_id' => $first->id,
+            'unit_index' => 0,
+            'text' => 'Delete this test line.',
+            'speed' => 1,
+            'voice_id' => 'fishaudio:0123456789abcdef0123456789abcdef',
+            'audio_url' => AdminCourseLineAudio::audioUrl($first->id, $renderingId),
+            'audio_storage_path' => $renderingPath,
+            'created_at' => now(),
+        ]);
+        Storage::disk('media')->put($renderingPath, 'audio');
         $episode = $this->episode($user);
         $this->link($first, $episode, 0);
 
@@ -364,6 +383,8 @@ class AdminScriptLabCourseApiTest extends TestCase
 
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('content_episode_courses', 0);
+        $this->assertDatabaseCount('admin_course_line_renderings', 0);
+        Storage::disk('media')->assertMissing($renderingPath);
         $this->assertDatabaseHas('content_episodes', ['id' => $episode->id]);
         $this->assertDatabaseHas('content_course_tombstones', [
             'course_id' => $first->id,

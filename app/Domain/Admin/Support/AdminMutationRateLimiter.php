@@ -34,9 +34,15 @@ final class AdminMutationRateLimiter
 
     public const COURSE_AUDIO_GENERATE = 'convolab-admin-course-audio-generate';
 
+    public const COURSE_LINE_SYNTHESIZE = 'convolab-admin-course-line-synthesize';
+
+    public const COURSE_LINE_DELETE = 'convolab-admin-course-line-delete';
+
     public static function limit(string $operation, Request $request): Limit
     {
-        return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(
+        $attempts = $operation === self::COURSE_LINE_SYNTHESIZE ? 6 : 30;
+
+        return Limit::perMinute($attempts)->by(ConvoLabProfileRateLimiter::key(
             $operation,
             $request->header('X-Convo-Lab-User-Id'),
             $request->ip(),

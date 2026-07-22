@@ -3,6 +3,7 @@
 namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Exceptions\AdminMutationException;
+use App\Domain\Admin\Support\AdminCourseLineRenderingStorage;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentCourseTombstone;
 use App\Domain\Content\Models\ContentEpisodeCourse;
@@ -13,6 +14,8 @@ use InvalidArgumentException;
 
 final class DeleteAdminScriptLabCoursesAction
 {
+    public function __construct(private readonly AdminCourseLineRenderingStorage $lineRenderingStorage) {}
+
     /** @param list<string> $courseIds */
     public function handle(array $courseIds): int
     {
@@ -30,7 +33,7 @@ final class DeleteAdminScriptLabCoursesAction
             throw new InvalidArgumentException('Script Lab course IDs must be distinct.');
         }
 
-        return DB::transaction(function () use ($courseIds): int {
+        [$deleted, $lineRenderingPaths] = DB::transaction(function () use ($courseIds): array {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
             $courses = ContentCourse::query()
@@ -62,6 +65,7 @@ final class DeleteAdminScriptLabCoursesAction
             }
 
             $existingIds = $courses->modelKeys();
+            $lineRenderingPaths = $this->lineRenderingStorage->ownedPathsForCourses($existingIds);
             $deletedAt = now();
             ContentCourseTombstone::query()->upsert(
                 $courses->map(static fn (ContentCourse $course): array => [
@@ -76,7 +80,11 @@ final class DeleteAdminScriptLabCoursesAction
             ContentEpisodeCourse::query()->whereIn('convolab_course_id', $existingIds)->delete();
             ContentCourse::query()->whereIn('id', $existingIds)->delete();
 
-            return count($existingIds);
+            return [count($existingIds), $lineRenderingPaths];
         });
+
+        $this->lineRenderingStorage->deletePaths($lineRenderingPaths);
+
+        return $deleted;
     }
 }

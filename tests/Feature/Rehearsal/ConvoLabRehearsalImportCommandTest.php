@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Rehearsal;
 
+use App\Domain\Admin\Models\AdminCourseLineRendering;
+use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -434,6 +437,35 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->seedConvoLabSourceData();
         $existingUser = User::factory()->create();
         Course::factory()->for($existingUser)->create();
+        $contentCourse = ContentCourse::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $existingUser->id,
+            'convolab_user_id' => (string) Str::uuid(),
+            'source_system' => ContentSourceSystem::CONVOLAB,
+            'title' => 'Reset boundary course',
+            'status' => 'draft',
+            'is_sample_content' => false,
+            'is_test_course' => true,
+            'native_language' => 'en',
+            'target_language' => 'ja',
+            'max_lesson_duration_minutes' => 15,
+            'l1_voice_id' => 'fishaudio:0123456789abcdef0123456789abcdef',
+            'speaker1_gender' => 'male',
+            'speaker2_gender' => 'female',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        AdminCourseLineRendering::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'course_id' => $contentCourse->id,
+            'unit_index' => 0,
+            'text' => 'Reset this rendering.',
+            'speed' => 1,
+            'voice_id' => 'fishaudio:0123456789abcdef0123456789abcdef',
+            'audio_url' => '/api/convolab/admin/courses/'.$contentCourse->id.'/line-renderings/audio',
+            'audio_storage_path' => 'admin/course-lines/reset.mp3',
+            'created_at' => now(),
+        ]);
         StudyCardDraft::factory()->for($existingUser)->create();
         SyncFeedEntry::factory()->for($existingUser)->create();
         $now = now();
@@ -513,6 +545,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         ])->assertExitCode(0);
 
         $this->assertDatabaseCount('courses', 0);
+        $this->assertDatabaseCount('admin_course_line_renderings', 0);
+        $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);

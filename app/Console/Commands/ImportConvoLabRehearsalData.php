@@ -27,6 +27,7 @@ class ImportConvoLabRehearsalData extends Command
      * @var list<string>
      */
     private const TARGET_TABLES = [
+        'admin_course_line_renderings',
         ...ConvoLabContentTables::RESET_IN_DELETE_ORDER,
         'card_media',
         'card_review_events',

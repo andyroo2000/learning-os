@@ -13,7 +13,7 @@ class SendPasswordResetLinkController extends Controller
     {
         $sendPasswordResetLink->handle($request->validated('email'));
 
-        // Avoid exposing whether an email exists; broker throttles only happen after finding a user.
+        // The queued job performs account lookup and mail delivery away from the public timing boundary.
         return response()->noContent();
     }
 }

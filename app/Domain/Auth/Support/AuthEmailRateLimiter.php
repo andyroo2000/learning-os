@@ -24,6 +24,8 @@ class AuthEmailRateLimiter
 
     private const PASSWORD_RESET_TOKEN_PER_MINUTE = 12;
 
+    private const PASSWORD_RESET_LINK_IP_PER_MINUTE = 30;
+
     public function mobileTokens(Request $request): Limit
     {
         return $this->perMinute($request, self::STANDARD_PER_MINUTE);
@@ -44,9 +46,18 @@ class AuthEmailRateLimiter
         return $this->perMinute($request, self::STANDARD_PER_MINUTE);
     }
 
-    public function passwordResetLinks(Request $request): Limit
+    /** @return list<Limit> */
+    public function passwordResetLinks(Request $request): array
     {
-        return $this->perMinute($request, self::STANDARD_PER_MINUTE);
+        $ip = $request->ip();
+        $ipKey = $ip !== null && $ip !== '' ? 'ip:'.$ip : 'missing-ip';
+
+        return [
+            Limit::perMinute(self::STANDARD_PER_MINUTE)
+                ->by('password-reset-email-network:'.$this->keyFor($request->input('email'), $ip)),
+            Limit::perMinute(self::PASSWORD_RESET_LINK_IP_PER_MINUTE)
+                ->by('password-reset-network:'.$ipKey),
+        ];
     }
 
     public function passwordResetTokens(Request $request): Limit

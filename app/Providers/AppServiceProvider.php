@@ -100,7 +100,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(AuthEmailRateLimiter::MOBILE_REGISTRATIONS, function (Request $request) use ($authEmailRateLimiter): Limit {
             return $authEmailRateLimiter->mobileRegistrations($request);
         });
-        RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_LINKS, function (Request $request) use ($authEmailRateLimiter): Limit {
+        RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_LINKS, function (Request $request) use ($authEmailRateLimiter): array {
             return $authEmailRateLimiter->passwordResetLinks($request);
         });
         RateLimiter::for(AuthEmailRateLimiter::PASSWORD_RESET_TOKENS, function (Request $request) use ($authEmailRateLimiter): Limit {

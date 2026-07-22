@@ -2,19 +2,14 @@
 
 namespace App\Domain\Auth\Actions;
 
-use Illuminate\Support\Facades\Password;
+use App\Jobs\SendPasswordResetLink;
 use Illuminate\Support\Str;
 
 class SendPasswordResetLinkAction
 {
-    /**
-     * @return string Password broker status code.
-     */
-    public function handle(string $email): string
+    public function handle(string $email): void
     {
-        // Keep actions defensive for non-HTTP callers; FormRequests normalize the API path too.
-        return Password::sendResetLink([
-            'email' => Str::lower(trim($email)),
-        ]);
+        // Keep direct callers on the same normalization boundary as the FormRequest.
+        SendPasswordResetLink::dispatch(Str::lower(trim($email)));
     }
 }

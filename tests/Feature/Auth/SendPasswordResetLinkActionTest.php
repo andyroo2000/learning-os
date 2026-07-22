@@ -3,27 +3,21 @@
 namespace Tests\Feature\Auth;
 
 use App\Domain\Auth\Actions\SendPasswordResetLinkAction;
-use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
+use App\Jobs\SendPasswordResetLink;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class SendPasswordResetLinkActionTest extends TestCase
 {
-    use RefreshDatabase;
-
-    public function test_it_sends_a_password_reset_notification_to_a_normalized_email(): void
+    public function test_it_queues_a_password_reset_for_a_normalized_email(): void
     {
-        Notification::fake();
-        $user = User::factory()->create([
-            'email' => 'ada@example.com',
-        ]);
+        Queue::fake();
 
-        $status = app(SendPasswordResetLinkAction::class)->handle(' ADA@example.com ');
+        app(SendPasswordResetLinkAction::class)->handle(' ADA@example.com ');
 
-        $this->assertSame(Password::RESET_LINK_SENT, $status);
-        Notification::assertSentTo($user, ResetPassword::class);
+        Queue::assertPushed(
+            SendPasswordResetLink::class,
+            fn (SendPasswordResetLink $job): bool => $job->email === 'ada@example.com',
+        );
     }
 }

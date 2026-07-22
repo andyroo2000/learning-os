@@ -13,6 +13,9 @@ final class DeleteAdminSentenceScriptTestsController extends Controller
         DeleteAdminSentenceScriptTestsRequest $request,
         DeleteAdminSentenceScriptTestsAction $action,
     ): JsonResponse {
-        return response()->json(['deleted' => $action->handle($request->testIds())]);
+        return response()->json(['deleted' => $action->handle(
+            $request->actorConvoLabUserId(),
+            $request->testIds(),
+        )]);
     }
 }

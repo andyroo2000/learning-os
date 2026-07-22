@@ -226,21 +226,28 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     public function test_list_uses_stable_cursor_order_and_summary_shapes(): void
     {
+        $actorId = (string) Str::uuid();
         $newest = $this->sentenceTest([
             'id' => 'ffffffff-ffff-4fff-bfff-ffffffffffff',
             'created_at' => '2026-07-22 12:00:00.500',
+            'actor_convolab_user_id' => $actorId,
         ]);
         $sameTimeLowerId = $this->sentenceTest([
             'id' => '11111111-1111-4111-8111-111111111111',
             'created_at' => '2026-07-22 12:00:00.500',
+            'actor_convolab_user_id' => $actorId,
         ]);
         $sameTimeLowestId = $this->sentenceTest([
             'id' => '00000000-0000-4000-8000-000000000000',
             'created_at' => '2026-07-22 12:00:00.500',
+            'actor_convolab_user_id' => $actorId,
         ]);
-        $oldest = $this->sentenceTest(['created_at' => '2026-07-21 12:00:00.500']);
+        $oldest = $this->sentenceTest([
+            'created_at' => '2026-07-21 12:00:00.500',
+            'actor_convolab_user_id' => $actorId,
+        ]);
 
-        $first = $this->readRequest()
+        $first = $this->readRequest($actorId)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2')
             ->assertOk();
         $this->assertSame([$newest->id, $sameTimeLowerId->id], array_column($first->json('tests'), 'id'));
@@ -252,18 +259,18 @@ final class AdminSentenceScriptApiTest extends TestCase
         $sameTimeLowerId->delete();
 
         $this->app['auth']->forgetGuards();
-        $second = $this->readRequest()
+        $second = $this->readRequest($actorId)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2&cursor='.$cursor)
             ->assertOk();
         $this->assertSame([$sameTimeLowestId->id, $oldest->id], array_column($second->json('tests'), 'id'));
         $second->assertJsonPath('nextCursor', null);
 
         $this->app['auth']->forgetGuards();
-        $this->readRequest()
+        $this->readRequest($actorId)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=100')
             ->assertOk();
         $this->app['auth']->forgetGuards();
-        $this->readRequest()
+        $this->readRequest($actorId)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=101&cursor=not-a-uuid')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit', 'cursor']);
@@ -273,7 +280,7 @@ final class AdminSentenceScriptApiTest extends TestCase
     {
         $test = $this->sentenceTest();
 
-        $response = $this->readRequest()
+        $response = $this->readRequest($test->actor_convolab_user_id)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests/'.strtoupper($test->id))
             ->assertOk();
         $response->assertExactJson([
@@ -295,7 +302,7 @@ final class AdminSentenceScriptApiTest extends TestCase
         ]);
 
         $this->app['auth']->forgetGuards();
-        $this->readRequest()
+        $this->readRequest($test->actor_convolab_user_id)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests/'.Str::uuid())
             ->assertNotFound()
             ->assertExactJson(['message' => 'Sentence test not found']);
@@ -303,10 +310,11 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     public function test_bulk_delete_is_bounded_normalized_and_retry_safe(): void
     {
-        $first = $this->sentenceTest();
-        $second = $this->sentenceTest();
+        $actorId = (string) Str::uuid();
+        $first = $this->sentenceTest(['actor_convolab_user_id' => $actorId]);
+        $second = $this->sentenceTest(['actor_convolab_user_id' => $actorId]);
 
-        $this->writeRequest()
+        $this->writeRequest($actorId)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', [
                 'ids' => [strtoupper($first->id), $second->id],
             ])
@@ -315,24 +323,24 @@ final class AdminSentenceScriptApiTest extends TestCase
         $this->assertDatabaseCount('admin_sentence_script_tests', 0);
 
         $this->app['auth']->forgetGuards();
-        $this->writeRequest()
+        $this->writeRequest($actorId)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', ['ids' => [$first->id]])
             ->assertOk()
             ->assertExactJson(['deleted' => 0]);
         $this->app['auth']->forgetGuards();
-        $this->writeRequest()
+        $this->writeRequest($actorId)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', ['ids' => []])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('ids');
         $this->app['auth']->forgetGuards();
-        $this->writeRequest()
+        $this->writeRequest($actorId)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', [
                 'ids' => array_map(fn (): string => (string) Str::uuid(), range(1, 100)),
             ])
             ->assertOk()
             ->assertExactJson(['deleted' => 0]);
         $this->app['auth']->forgetGuards();
-        $this->writeRequest()
+        $this->writeRequest($actorId)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', [
                 'ids' => array_fill(0, 101, (string) Str::uuid()),
             ])
@@ -345,16 +353,68 @@ final class AdminSentenceScriptApiTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Sentence test ID must be a UUID.');
 
-        app(DeleteAdminSentenceScriptTestsAction::class)->handle(['not-a-uuid']);
+        app(DeleteAdminSentenceScriptTestsAction::class)->handle((string) Str::uuid(), ['not-a-uuid']);
+    }
+
+    public function test_history_is_hidden_between_convo_lab_actors(): void
+    {
+        $actorId = (string) Str::uuid();
+        $otherActorId = (string) Str::uuid();
+        $owned = $this->sentenceTest(['actor_convolab_user_id' => $actorId]);
+        $other = $this->sentenceTest(['actor_convolab_user_id' => $otherActorId]);
+
+        $this->readRequest($actorId)
+            ->getJson('/api/convolab/admin/script-lab/sentence-tests')
+            ->assertOk()
+            ->assertJsonCount(1, 'tests')
+            ->assertJsonPath('tests.0.id', $owned->id);
+
+        $this->app['auth']->forgetGuards();
+        $this->readRequest($actorId)
+            ->getJson("/api/convolab/admin/script-lab/sentence-tests/{$other->id}")
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Sentence test not found']);
+
+        $this->app['auth']->forgetGuards();
+        $this->writeRequest($actorId)
+            ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', [
+                'ids' => [$owned->id, $other->id],
+            ])
+            ->assertOk()
+            ->assertExactJson(['deleted' => 1]);
+        $this->assertDatabaseMissing('admin_sentence_script_tests', ['id' => $owned->id]);
+        $this->assertDatabaseHas('admin_sentence_script_tests', ['id' => $other->id]);
+    }
+
+    public function test_history_reads_require_a_valid_actor_identity(): void
+    {
+        $this->withToken($this->proxyToken(['admin:read']))
+            ->getJson('/api/convolab/admin/script-lab/sentence-tests')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('actorConvoLabUserId');
+
+        $this->app['auth']->forgetGuards();
+        $this->readRequest('not-a-uuid')
+            ->getJson('/api/convolab/admin/script-lab/sentence-tests')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('actorConvoLabUserId');
     }
 
     public function test_actions_enforce_direct_caller_bounds_and_uuid_contracts(): void
     {
         $list = app(ListAdminSentenceScriptTestsAction::class);
+        $actorId = (string) Str::uuid();
+
+        try {
+            $list->handle('not-a-uuid', 50, null);
+            $this->fail('Malformed actor should have been rejected.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('Convo Lab user ID must be a UUID.', $exception->getMessage());
+        }
 
         foreach ([0, 101] as $limit) {
             try {
-                $list->handle($limit, null);
+                $list->handle($actorId, $limit, null);
                 $this->fail("Limit {$limit} should have been rejected.");
             } catch (InvalidArgumentException $exception) {
                 $this->assertSame('Sentence test limit must be between 1 and 100.', $exception->getMessage());
@@ -363,7 +423,7 @@ final class AdminSentenceScriptApiTest extends TestCase
 
         foreach (['not-a-uuid', str_repeat('a', 161)] as $cursor) {
             try {
-                $list->handle(50, $cursor);
+                $list->handle($actorId, 50, $cursor);
                 $this->fail('Malformed cursor should have been rejected.');
             } catch (InvalidArgumentException $exception) {
                 $this->assertSame('Sentence test cursor is invalid.', $exception->getMessage());
@@ -372,7 +432,7 @@ final class AdminSentenceScriptApiTest extends TestCase
 
         foreach ([[], array_fill(0, 101, (string) Str::uuid()), [123]] as $ids) {
             try {
-                app(DeleteAdminSentenceScriptTestsAction::class)->handle($ids);
+                app(DeleteAdminSentenceScriptTestsAction::class)->handle($actorId, $ids);
                 $this->fail('Invalid delete IDs should have been rejected.');
             } catch (InvalidArgumentException) {
                 $this->assertDatabaseCount('admin_sentence_script_tests', 0);
@@ -387,9 +447,10 @@ final class AdminSentenceScriptApiTest extends TestCase
         );
     }
 
-    private function readRequest(): static
+    private function readRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:read']));
+        return $this->withToken($this->proxyToken(['admin:read']))
+            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
     }
 
     private function writeRequest(?string $actorId = null): static
@@ -414,7 +475,7 @@ final class AdminSentenceScriptApiTest extends TestCase
     {
         return AdminSentenceScriptTest::query()->forceCreate([
             'id' => $overrides['id'] ?? (string) Str::uuid(),
-            'actor_convolab_user_id' => (string) Str::uuid(),
+            'actor_convolab_user_id' => $overrides['actor_convolab_user_id'] ?? (string) Str::uuid(),
             'sentence' => '東京に行きました',
             'translation' => 'I went to Tokyo.',
             'target_language' => 'ja',

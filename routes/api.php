@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\DeleteAdminSentenceScriptTestsController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\DownloadAdminCourseLineRenderingController;
+use App\Http\Controllers\Api\Admin\DownloadAdminScriptLabAudioController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseAudioController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseDialogueController;
 use App\Http\Controllers\Api\Admin\GenerateAdminCourseScriptController;
@@ -66,6 +67,7 @@ use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Admin\StoreAdminScriptLabCourseController;
 use App\Http\Controllers\Api\Admin\SynthesizeAdminCourseLineController;
+use App\Http\Controllers\Api\Admin\SynthesizeAdminScriptLabLineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
@@ -320,6 +322,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/script-lab/sentence-tests',
         DeleteAdminSentenceScriptTestsController::class,
     )->middleware('throttle:'.AdminMutationRateLimiter::SENTENCE_SCRIPT_DELETE);
+    Route::post(
+        '/convolab/admin/script-lab/synthesize-line',
+        SynthesizeAdminScriptLabLineController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_LINE_SYNTHESIZE);
+    Route::get(
+        '/convolab/admin/script-lab/audio/{renderingId}',
+        DownloadAdminScriptLabAudioController::class,
+    )->whereUuid('renderingId');
     Route::get(
         '/convolab/admin/courses/{courseId}/pipeline-data',
         ShowAdminCoursePipelineController::class,

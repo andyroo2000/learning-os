@@ -79,6 +79,7 @@ class AdminMutationRateLimiterTest extends TestCase
         yield 'Script Lab course delete' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE, 30];
         yield 'sentence script generate' => [AdminMutationRateLimiter::SENTENCE_SCRIPT_GENERATE, 6];
         yield 'sentence script delete' => [AdminMutationRateLimiter::SENTENCE_SCRIPT_DELETE, 30];
+        yield 'Script Lab line synthesis' => [AdminMutationRateLimiter::SCRIPT_LAB_LINE_SYNTHESIZE, 6];
         yield 'course pipeline update' => [AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE, 30];
         yield 'course dialogue generate' => [AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE, 30];
         yield 'course script generate' => [AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE, 30];

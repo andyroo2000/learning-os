@@ -4,6 +4,7 @@ namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Models\AdminSentenceScriptTest;
 use App\Domain\Admin\Support\AdminSentenceScriptCursor;
+use App\Domain\Content\Support\ConvoLabUserId;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 
@@ -14,13 +15,15 @@ final class ListAdminSentenceScriptTestsAction
     public const MAX_LIMIT = 100;
 
     /** @return array{tests: Collection<int, AdminSentenceScriptTest>, nextCursor: ?string} */
-    public function handle(int $limit, ?string $cursor): array
+    public function handle(string $actorConvoLabUserId, int $limit, ?string $cursor): array
     {
+        $actorConvoLabUserId = ConvoLabUserId::normalize($actorConvoLabUserId);
         if ($limit < 1 || $limit > self::MAX_LIMIT) {
             throw new InvalidArgumentException('Sentence test limit must be between 1 and 100.');
         }
 
-        $query = AdminSentenceScriptTest::query();
+        $query = AdminSentenceScriptTest::query()
+            ->where('actor_convolab_user_id', $actorConvoLabUserId);
 
         if ($cursor !== null) {
             $boundary = AdminSentenceScriptCursor::decode($cursor);

@@ -7,10 +7,12 @@ use App\Domain\Admin\Support\AdminSentenceScriptCursor;
 use Closure;
 use InvalidArgumentException;
 
-final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminReadRequest
+final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminActorReadRequest
 {
     protected function prepareForValidation(): void
     {
+        parent::prepareForValidation();
+
         $normalized = [];
         foreach (['limit', 'cursor'] as $field) {
             $value = $this->input($field);
@@ -26,6 +28,7 @@ final class ListAdminSentenceScriptTestsRequest extends ConvoLabAdminReadRequest
     public function rules(): array
     {
         return [
+            ...parent::rules(),
             'limit' => ['sometimes', 'filled', 'integer', 'min:1', 'max:'.ListAdminSentenceScriptTestsAction::MAX_LIMIT],
             'cursor' => ['sometimes', 'filled', 'string', 'max:160', function (string $attribute, mixed $value, Closure $fail): void {
                 if (! is_string($value)) {

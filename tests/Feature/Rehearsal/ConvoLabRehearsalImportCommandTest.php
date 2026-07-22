@@ -500,6 +500,14 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        DB::table('convolab_oauth_identities')->insert([
+            'user_id' => $existingUser->id,
+            'provider' => 'google',
+            'provider_id' => 'reset-boundary-subject',
+            'access_granted_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
         DB::table('japanese_knowledge_profiles')->insert([
             'user_id' => $existingUser->id,
             'knowledge_version' => 1,
@@ -573,6 +581,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('study_vocab_variant_sentences', 0);
         $this->assertDatabaseCount('study_vocab_variant_groups', 0);
         $this->assertDatabaseCount('convolab_email_verification_tokens', 0);
+        $this->assertDatabaseCount('convolab_oauth_identities', 0);
         $this->assertDatabaseCount('admin_invite_codes', 0);
         $this->assertDatabaseCount('admin_user_projections', 0);
         $this->assertDatabaseCount('users', 1);

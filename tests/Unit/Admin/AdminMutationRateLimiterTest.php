@@ -73,5 +73,7 @@ class AdminMutationRateLimiterTest extends TestCase
         yield 'speaker upload' => [AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD];
         yield 'speaker recrop' => [AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP];
         yield 'user upload' => [AdminMutationRateLimiter::USER_AVATAR_UPLOAD];
+        yield 'Script Lab course create' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE];
+        yield 'Script Lab course delete' => [AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE];
     }
 }

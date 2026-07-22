@@ -39,15 +39,19 @@ use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
+use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
+use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
 use App\Http\Controllers\Api\Admin\RecropAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
+use App\Http\Controllers\Api\Admin\ShowAdminScriptLabCourseController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
+use App\Http\Controllers\Api\Admin\StoreAdminScriptLabCourseController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
@@ -274,6 +278,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/pronunciation-dictionaries',
         UpdateAdminPronunciationDictionaryController::class,
     )->middleware('throttle:'.AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE);
+    Route::get('/convolab/admin/script-lab/courses', ListAdminScriptLabCoursesController::class);
+    Route::post('/convolab/admin/script-lab/courses', StoreAdminScriptLabCourseController::class)
+        ->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE);
+    Route::get(
+        '/convolab/admin/script-lab/courses/{courseId}',
+        ShowAdminScriptLabCourseController::class,
+    )->whereUuid('courseId');
+    Route::delete(
+        '/convolab/admin/script-lab/courses',
+        DeleteAdminScriptLabCoursesController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

@@ -22,6 +22,10 @@ final class AdminMutationRateLimiter
 
     public const USER_AVATAR_UPLOAD = 'convolab-admin-user-avatar-upload';
 
+    public const SCRIPT_LAB_COURSE_CREATE = 'convolab-admin-script-lab-course-create';
+
+    public const SCRIPT_LAB_COURSE_DELETE = 'convolab-admin-script-lab-course-delete';
+
     public static function limit(string $operation, Request $request): Limit
     {
         return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(

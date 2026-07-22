@@ -4,12 +4,13 @@ namespace App\Domain\Auth\Actions;
 
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
 class ResetUserPasswordAction
 {
+    public function __construct(private readonly SetUserPasswordAction $setUserPassword) {}
+
     /**
      * @return string Password broker status code.
      */
@@ -22,10 +23,7 @@ class ResetUserPasswordAction
             'password' => $password,
             'password_confirmation' => $password,
         ], function (User $user, string $password): void {
-            $user->forceFill([
-                'password' => Hash::make($password),
-                'remember_token' => Str::random(60),
-            ])->save();
+            $this->setUserPassword->handle($user, $password, Str::random(60));
 
             event(new PasswordResetEvent($user));
 

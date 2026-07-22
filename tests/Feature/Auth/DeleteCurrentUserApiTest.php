@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Models\User;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
@@ -75,32 +76,40 @@ class DeleteCurrentUserApiTest extends TestCase
     {
         $user = User::factory()->create(['password' => 'correct-password123']);
         $token = $user->createToken('Ada iPhone')->plainTextToken;
+        $originalDispatcher = User::getEventDispatcher();
+        User::setEventDispatcher(new Dispatcher($this->app));
 
-        $this->withAuthAccountRateLimitOverride(
-            AuthAccountRateLimiter::ACCOUNT_DELETE,
-            [$user->id],
-            function () use ($token, $user): void {
-                User::deleting(function (): never {
-                    throw new RuntimeException('Keep the account available for the limiter retry.');
-                });
+        try {
+            $this->withAuthAccountRateLimitOverride(
+                AuthAccountRateLimiter::ACCOUNT_DELETE,
+                [$user->id],
+                function () use ($token, $user): void {
+                    User::deleting(function (): never {
+                        throw new RuntimeException('Keep the account available for the limiter retry.');
+                    });
 
-                $this->withToken($token)
-                    ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
-                    ->assertInternalServerError();
+                    $this->withToken($token)
+                        ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
+                        ->assertInternalServerError();
 
-                $this->app['auth']->forgetGuards();
+                    $this->app['auth']->forgetGuards();
 
-                $this->withToken($token)
-                    ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
-                    ->assertTooManyRequests()
-                    ->assertHeader('X-RateLimit-Limit', '1')
-                    ->assertHeader('X-RateLimit-Remaining', '0')
-                    ->assertHeader('Retry-After');
+                    $this->withToken($token)
+                        ->deleteJson('/api/me', ['current_password' => 'correct-password123'])
+                        ->assertTooManyRequests()
+                        ->assertHeader('X-RateLimit-Limit', '1')
+                        ->assertHeader('X-RateLimit-Remaining', '0')
+                        ->assertHeader('Retry-After');
 
-                $this->assertDatabaseHas('users', ['id' => $user->id]);
-            },
-            perMinute: 1,
-        );
+                    $this->assertDatabaseHas('users', ['id' => $user->id]);
+                },
+                perMinute: 1,
+            );
+        } finally {
+            $originalDispatcher === null
+                ? User::unsetEventDispatcher()
+                : User::setEventDispatcher($originalDispatcher);
+        }
     }
 
     public function test_the_route_uses_the_account_delete_rate_limiter(): void

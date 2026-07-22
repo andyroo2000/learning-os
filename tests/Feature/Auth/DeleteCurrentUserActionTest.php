@@ -6,6 +6,7 @@ use App\Domain\Auth\Actions\DeleteCurrentUserAction;
 use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -64,22 +65,31 @@ class DeleteCurrentUserActionTest extends TestCase
             'token' => 'ada-token',
             'created_at' => now(),
         ]);
-        User::deleting(function (): never {
-            throw new RuntimeException('Delete failed after authentication cleanup.');
-        });
+        $originalDispatcher = User::getEventDispatcher();
+        User::setEventDispatcher(new Dispatcher($this->app));
 
         try {
-            app(DeleteCurrentUserAction::class)->handle($user, 'correct-password123');
+            User::deleting(function (): never {
+                throw new RuntimeException('Delete failed after authentication cleanup.');
+            });
 
-            $this->fail('Expected the user delete to fail.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame('Delete failed after authentication cleanup.', $exception->getMessage());
+            try {
+                app(DeleteCurrentUserAction::class)->handle($user, 'correct-password123');
+
+                $this->fail('Expected the user delete to fail.');
+            } catch (RuntimeException $exception) {
+                $this->assertSame('Delete failed after authentication cleanup.', $exception->getMessage());
+            }
+
+            $this->assertDatabaseHas('users', ['id' => $user->id]);
+            $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $user->id]);
+            $this->assertDatabaseHas('sessions', ['id' => 'ada-session']);
+            $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
+        } finally {
+            $originalDispatcher === null
+                ? User::unsetEventDispatcher()
+                : User::setEventDispatcher($originalDispatcher);
         }
-
-        $this->assertDatabaseHas('users', ['id' => $user->id]);
-        $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $user->id]);
-        $this->assertDatabaseHas('sessions', ['id' => 'ada-session']);
-        $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
     }
 
     public function test_it_rejects_an_invalid_current_password_without_deleting_anything(): void

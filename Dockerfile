@@ -21,7 +21,7 @@ FROM dunglas/frankenphp:1-php8.4-bookworm
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && install-php-extensions pdo_pgsql opcache zip \
+    && install-php-extensions gd pdo_pgsql opcache zip \
     && printf '%s\n' \
         'opcache.validate_timestamps=0' \
         'opcache.revalidate_freq=0' \

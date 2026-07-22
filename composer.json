@@ -10,6 +10,7 @@
         "ext-zip": "*",
         "ext-zlib": "*",
         "google/cloud-storage": "^2.4",
+        "intervention/image": "^3.0",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",

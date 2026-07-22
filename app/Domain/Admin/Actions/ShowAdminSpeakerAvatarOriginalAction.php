@@ -4,17 +4,16 @@ namespace App\Domain\Admin\Actions;
 
 use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Admin\Models\AdminSpeakerAvatar;
+use App\Domain\Admin\Support\AdminSpeakerAvatarFilename;
 
 class ShowAdminSpeakerAvatarOriginalAction
 {
     public function handle(string $filename): string
     {
-        if (preg_match('/^ja-(male|female)-(casual|polite|formal)\.(jpg|jpeg|png|webp)$/i', $filename) !== 1) {
-            throw AdminMutationException::invalidAvatarFilename();
-        }
+        $avatarFilename = AdminSpeakerAvatarFilename::from($filename);
 
         $originalUrl = AdminSpeakerAvatar::query()
-            ->where('filename', strtolower($filename))
+            ->where('filename', $avatarFilename->value)
             ->value('original_url');
 
         if (! is_string($originalUrl)) {

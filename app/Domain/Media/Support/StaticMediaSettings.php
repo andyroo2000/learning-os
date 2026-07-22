@@ -111,6 +111,40 @@ final class StaticMediaSettings
         return "https://storage.googleapis.com/{$bucket}/{$encodedPath}";
     }
 
+    public function publicObjectPath(string $url): ?string
+    {
+        $bucket = $this->bucketName();
+        $parts = parse_url($url);
+        if ($bucket === null || $parts === false
+            || ($parts['scheme'] ?? null) !== 'https'
+            || ($parts['host'] ?? null) !== 'storage.googleapis.com'
+            || isset($parts['query']) || isset($parts['fragment'])) {
+            return null;
+        }
+
+        $encodedPrefix = '/'.rawurlencode($bucket).'/';
+        $path = $parts['path'] ?? '';
+        if (! str_starts_with($path, $encodedPrefix)) {
+            return null;
+        }
+
+        $encodedSegments = explode('/', substr($path, strlen($encodedPrefix)));
+        $segments = array_map(rawurldecode(...), $encodedSegments);
+        if (in_array('', $segments, true) || in_array('.', $segments, true) || in_array('..', $segments, true)) {
+            return null;
+        }
+        foreach ($segments as $segment) {
+            if (str_contains($segment, '/') || str_contains($segment, '\\')) {
+                return null;
+            }
+        }
+
+        $objectPath = implode('/', $segments);
+        $avatarRoot = rtrim($this->avatarObjectPath(''), '/').'/';
+
+        return str_starts_with($objectPath, $avatarRoot) ? $objectPath : null;
+    }
+
     private function signingEnabled(mixed $configured): bool
     {
         if (is_bool($configured)) {

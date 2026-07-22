@@ -103,6 +103,34 @@ class StaticMediaSettingsTest extends TestCase
         );
     }
 
+    public function test_public_object_path_accepts_only_configured_avatar_bucket_urls(): void
+    {
+        config([
+            'static_media.gcs.bucket' => 'convolab-storage',
+            'static_media.avatars.gcs_root' => 'public avatars',
+        ]);
+
+        $this->assertSame(
+            'public avatars/speakers/original avatar.jpg',
+            $this->settings->publicObjectPath(
+                'https://storage.googleapis.com/convolab-storage/public%20avatars/speakers/original%20avatar.jpg',
+            ),
+        );
+
+        foreach ([
+            'http://storage.googleapis.com/convolab-storage/public%20avatars/avatar.jpg',
+            'https://example.com/convolab-storage/public%20avatars/avatar.jpg',
+            'https://storage.googleapis.com/other-bucket/public%20avatars/avatar.jpg',
+            'https://storage.googleapis.com/convolab-storage/outside/avatar.jpg',
+            'https://storage.googleapis.com/convolab-storage/public%20avatars/avatar.jpg?download=1',
+            'https://storage.googleapis.com/convolab-storage/public%20avatars/avatar.jpg#fragment',
+            'https://storage.googleapis.com/convolab-storage/public%20avatars/%2E%2E/avatar.jpg',
+            'https://storage.googleapis.com/convolab-storage/public%20avatars%2Foutside/avatar.jpg',
+        ] as $url) {
+            $this->assertNull($this->settings->publicObjectPath($url), $url);
+        }
+    }
+
     /**
      * @return iterable<string, array{mixed, int}>
      */

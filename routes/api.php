@@ -43,11 +43,14 @@ use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
+use App\Http\Controllers\Api\Admin\RecropAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
+use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
+use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
@@ -249,6 +252,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/avatars/speaker/{filename}/original',
         ShowAdminSpeakerAvatarOriginalController::class,
     );
+    Route::post(
+        '/convolab/admin/avatars/speaker/{filename}/upload',
+        UploadAdminSpeakerAvatarController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD);
+    Route::post(
+        '/convolab/admin/avatars/speaker/{filename}/recrop',
+        RecropAdminSpeakerAvatarController::class,
+    )->middleware('throttle:'.AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP);
+    Route::post(
+        '/convolab/admin/avatars/user/{convoLabUserId}/upload',
+        UploadAdminUserAvatarController::class,
+    )->whereUuid('convoLabUserId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::USER_AVATAR_UPLOAD);
     Route::get('/convolab/admin/avatars/speakers', ListAdminSpeakerAvatarsController::class);
     Route::get(
         '/convolab/admin/pronunciation-dictionaries',

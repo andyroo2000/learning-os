@@ -16,6 +16,12 @@ final class AdminMutationRateLimiter
 
     public const PRONUNCIATION_DICTIONARY_UPDATE = 'convolab-admin-pronunciation-dictionary-update';
 
+    public const SPEAKER_AVATAR_UPLOAD = 'convolab-admin-speaker-avatar-upload';
+
+    public const SPEAKER_AVATAR_RECROP = 'convolab-admin-speaker-avatar-recrop';
+
+    public const USER_AVATAR_UPLOAD = 'convolab-admin-user-avatar-upload';
+
     public static function limit(string $operation, Request $request): Limit
     {
         return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(

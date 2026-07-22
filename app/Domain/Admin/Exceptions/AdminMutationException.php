@@ -61,6 +61,26 @@ final class AdminMutationException extends RuntimeException
         return new self('Speaker avatar not found', 404);
     }
 
+    public static function invalidAvatarCrop(): self
+    {
+        return new self('Invalid crop area', 400);
+    }
+
+    public static function invalidAvatarImage(): self
+    {
+        return new self('Invalid image file', 400);
+    }
+
+    public static function missingAvatarImage(): self
+    {
+        return new self('No image file provided', 400);
+    }
+
+    public static function speakerAvatarChanged(): self
+    {
+        return new self('Speaker avatar changed while it was being re-cropped', 409);
+    }
+
     public function status(): int
     {
         return $this->status;

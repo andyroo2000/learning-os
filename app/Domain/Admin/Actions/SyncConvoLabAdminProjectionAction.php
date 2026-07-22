@@ -118,6 +118,10 @@ class SyncConvoLabAdminProjectionAction
                     ->whereIn('convolab_id', array_column($normalizedUsers, 1))
                     ->pluck('convolab_id')
                     ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+                $learningOsOwnedAvatars = $target->table('admin_user_projections')
+                    ->where('avatar_source_system', ConvoLabAccountSource::LEARNING_OS)
+                    ->whereIn('convolab_id', array_column($normalizedUsers, 1))
+                    ->pluck('avatar_url', 'convolab_id');
 
                 foreach ($normalizedUsers as [$sourceUser, $convoLabId, $email]) {
                     if ($learningOsOwnedIds->has($convoLabId)) {
@@ -161,6 +165,7 @@ class SyncConvoLabAdminProjectionAction
                         'display_name' => $this->nullableString($sourceUser, 'displayName', 255),
                         'avatar_color' => $this->nullableString($sourceUser, 'avatarColor', 32),
                         'avatar_url' => $this->nullableString($sourceUser, 'avatarUrl'),
+                        'avatar_source_system' => ConvoLabAccountSource::CONVOLAB,
                         'role' => $this->requiredString($sourceUser, 'role', 32, 'user'),
                         'preferred_study_language' => $this->requiredString(
                             $sourceUser,
@@ -189,6 +194,10 @@ class SyncConvoLabAdminProjectionAction
                         'updated_at' => $sourceUser->updatedAt,
                         'source_system' => ConvoLabAccountSource::CONVOLAB,
                     ];
+                    if ($learningOsOwnedAvatars->has($convoLabId)) {
+                        $projectionAttributes['avatar_url'] = $learningOsOwnedAvatars->get($convoLabId);
+                        $projectionAttributes['avatar_source_system'] = ConvoLabAccountSource::LEARNING_OS;
+                    }
 
                     $passwordHash = $this->nullableString($sourceUser, 'password', 255);
                     if ($passwordHash !== null && ! $this->isSupportedPasswordHash($passwordHash)) {

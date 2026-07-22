@@ -4,11 +4,13 @@ namespace Tests\Unit\Admin;
 
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use Illuminate\Http\Request;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AdminMutationRateLimiterTest extends TestCase
 {
-    public function test_pronunciation_update_uses_the_admin_default_and_operation_scoped_identity_key(): void
+    #[DataProvider('operationProvider')]
+    public function test_mutations_use_the_admin_default_and_operation_scoped_identity_key(string $operation): void
     {
         $actor = '01a1f0db-a4c8-4caa-adf6-d3801fdd7061';
         $request = Request::create('/api/convolab/admin/pronunciation-dictionaries', 'PUT');
@@ -16,14 +18,14 @@ class AdminMutationRateLimiterTest extends TestCase
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
         $limit = AdminMutationRateLimiter::limit(
-            AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE,
+            $operation,
             $request,
         );
 
         $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
         $this->assertStringStartsWith(
-            AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE.':',
+            $operation.':',
             $limit->key,
         );
         $this->assertStringContainsString(hash('sha256', $actor), $limit->key);
@@ -47,5 +49,29 @@ class AdminMutationRateLimiterTest extends TestCase
         );
 
         $this->assertNotSame($firstLimit->key, $secondLimit->key);
+    }
+
+    public function test_missing_actor_and_ip_have_stable_fallback_keys(): void
+    {
+        $request = Request::create('/', 'POST');
+        $request->server->remove('REMOTE_ADDR');
+        $limit = AdminMutationRateLimiter::limit(
+            AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD,
+            $request,
+        );
+
+        $this->assertSame(
+            AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD.':missing:unknown-ip',
+            $limit->key,
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function operationProvider(): iterable
+    {
+        yield 'pronunciation dictionary' => [AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE];
+        yield 'speaker upload' => [AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD];
+        yield 'speaker recrop' => [AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP];
+        yield 'user upload' => [AdminMutationRateLimiter::USER_AVATAR_UPLOAD];
     }
 }

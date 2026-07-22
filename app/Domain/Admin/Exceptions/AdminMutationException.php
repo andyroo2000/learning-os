@@ -117,9 +117,14 @@ final class AdminMutationException extends RuntimeException
         return new self('Rendering not found', 404);
     }
 
-    public static function courseLineSynthesisUnavailable(?\Throwable $previous = null): self
+    public static function lineSynthesisUnavailable(?\Throwable $previous = null): self
     {
         return new self('Line synthesis is temporarily unavailable', 503, $previous);
+    }
+
+    public static function pronunciationTestUnavailable(?\Throwable $previous = null): self
+    {
+        return new self('Pronunciation test is temporarily unavailable', 503, $previous);
     }
 
     public static function sentenceScriptTestNotFound(): self

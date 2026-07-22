@@ -51,8 +51,9 @@ final readonly class AdminCourseDialogueResult
             }
 
             $speakerName = self::string($rawExchange['speakerName'] ?? null, 'Dialogue speaker name', 100);
-            if (! array_key_exists($speakerName, $voiceMap)) {
-                $voiceMap[$speakerName] = self::existingVoice($existingVoices, $speakerName)
+            $voiceMapKey = mb_strtolower($speakerName);
+            if (! array_key_exists($voiceMapKey, $voiceMap)) {
+                $voiceMap[$voiceMapKey] = self::existingVoice($existingVoices, $speakerName)
                     ?? $defaults[$voiceIndex++ % count($defaults)];
             }
 
@@ -64,7 +65,7 @@ final readonly class AdminCourseDialogueResult
                     'Dialogue relationship name',
                     255,
                 ) ?? $speakerName,
-                'speakerVoiceId' => $voiceMap[$speakerName],
+                'speakerVoiceId' => $voiceMap[$voiceMapKey],
                 'textL2' => self::string($rawExchange['textL2'] ?? null, 'Dialogue text', 5_000),
                 'readingL2' => self::optionalString(
                     $rawExchange['reading'] ?? null,

@@ -13,7 +13,7 @@ class AdminCourseDialogueResultTest extends TestCase
     {
         $json = <<<'JSON'
 ```json
-{"exchanges":[{"order":0,"speakerName":"Aiko","relationshipName":"","textL2":"猫です。","reading":"","translation":"It is a cat.","vocabulary":[{"word":"猫 (neko)","reading":"","translation":"cat","jlptLevel":""}]},{"order":1,"speakerName":"Ken","textL2":"はい。","translation":"Yes."}]}
+{"exchanges":[{"order":0,"speakerName":"Aiko","relationshipName":"","textL2":"猫です。","reading":"","translation":"It is a cat.","vocabulary":[{"word":"猫 (neko)","reading":"","translation":"cat","jlptLevel":""}]},{"order":1,"speakerName":"Ken","textL2":"はい。","translation":"Yes."},{"order":2,"speakerName":"ken","textL2":"そうです。","translation":"That is right."}]}
 ```
 JSON;
 
@@ -34,6 +34,8 @@ JSON;
         $this->assertSame('speaker-one', $result->exchanges[1]['speakerVoiceId']);
         $this->assertSame('Ken', $result->exchanges[1]['relationshipName']);
         $this->assertArrayHasKey('readingL2', $result->exchanges[1]);
+        $this->assertSame('speaker-one', $result->exchanges[2]['speakerVoiceId']);
+        $this->assertSame('ken', $result->exchanges[2]['speakerName']);
     }
 
     #[DataProvider('invalidResponseProvider')]

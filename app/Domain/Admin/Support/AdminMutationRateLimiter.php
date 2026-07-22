@@ -14,6 +14,8 @@ final class AdminMutationRateLimiter
 
     public const INVITE_DELETE = 'convolab-admin-invite-delete';
 
+    public const PRONUNCIATION_DICTIONARY_UPDATE = 'convolab-admin-pronunciation-dictionary-update';
+
     public static function limit(string $operation, Request $request): Limit
     {
         return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(

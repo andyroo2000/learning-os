@@ -163,6 +163,7 @@ class AppServiceProvider extends ServiceProvider
             AdminMutationRateLimiter::USER_DELETE,
             AdminMutationRateLimiter::INVITE_CREATE,
             AdminMutationRateLimiter::INVITE_DELETE,
+            AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE,
         ] as $name) {
             RateLimiter::for(
                 $name,

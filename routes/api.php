@@ -37,11 +37,13 @@ use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
+use App\Http\Controllers\Api\Admin\BuildAdminCoursePromptController;
 use App\Http\Controllers\Api\Admin\BuildAdminCourseScriptConfigController;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
+use App\Http\Controllers\Api\Admin\GenerateAdminCourseDialogueController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminScriptLabCoursesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
@@ -305,6 +307,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         '/convolab/admin/courses/{courseId}/build-script-config',
         BuildAdminCourseScriptConfigController::class,
     )->whereUuid('courseId');
+    // Legacy uses POST, but prompt building is a local read with no provider spend.
+    Route::post(
+        '/convolab/admin/courses/{courseId}/build-prompt',
+        BuildAdminCoursePromptController::class,
+    )->whereUuid('courseId');
+    Route::post(
+        '/convolab/admin/courses/{courseId}/generate-dialogue',
+        GenerateAdminCourseDialogueController::class,
+    )->whereUuid('courseId')
+        ->middleware('throttle:'.AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE);
     Route::get('/convolab/episodes', ListContentEpisodesController::class);
     Route::post('/convolab/episodes', StoreContentEpisodeController::class)
         ->middleware('throttle:'.ContentEpisodeRateLimiter::CREATE_NAME);

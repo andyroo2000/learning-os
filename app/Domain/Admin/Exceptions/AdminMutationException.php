@@ -6,9 +6,9 @@ use RuntimeException;
 
 final class AdminMutationException extends RuntimeException
 {
-    private function __construct(string $message, private readonly int $status)
+    private function __construct(string $message, private readonly int $status, ?\Throwable $previous = null)
     {
-        parent::__construct($message);
+        parent::__construct($message, 0, $previous);
     }
 
     public static function selfDeletion(): self
@@ -107,6 +107,21 @@ final class AdminMutationException extends RuntimeException
     public static function courseNotFound(): self
     {
         return new self('Course not found', 404);
+    }
+
+    public static function courseSourceRequired(): self
+    {
+        return new self('Course has no episode with source text', 400);
+    }
+
+    public static function courseChangedDuringGeneration(): self
+    {
+        return new self('Course changed while dialogue was being generated', 409);
+    }
+
+    public static function invalidDialogueResponse(?\Throwable $previous = null): self
+    {
+        return new self('Dialogue provider returned an invalid response', 502, $previous);
     }
 
     public function status(): int

@@ -28,6 +28,8 @@ final class AdminMutationRateLimiter
 
     public const COURSE_PIPELINE_UPDATE = 'convolab-admin-course-pipeline-update';
 
+    public const COURSE_DIALOGUE_GENERATE = 'convolab-admin-course-dialogue-generate';
+
     public static function limit(string $operation, Request $request): Limit
     {
         return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(

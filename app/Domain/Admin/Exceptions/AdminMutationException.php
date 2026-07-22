@@ -104,6 +104,11 @@ final class AdminMutationException extends RuntimeException
         );
     }
 
+    public static function courseNotFound(): self
+    {
+        return new self('Course not found', 404);
+    }
+
     public function status(): int
     {
         return $this->status;

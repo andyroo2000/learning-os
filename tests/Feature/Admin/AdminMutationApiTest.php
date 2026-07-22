@@ -141,6 +141,47 @@ class AdminMutationApiTest extends TestCase
         $this->assertDatabaseCount('admin_invite_codes', 1);
     }
 
+    public function test_generated_invite_collisions_are_retried_without_blame_the_admin(): void
+    {
+        $this->insertInvite(['code' => 'COLLIDE1']);
+        $codes = ['COLLIDE1', 'FRESH123'];
+        $action = new CreateAdminInviteCodeAction(
+            static function () use (&$codes): string {
+                return array_shift($codes) ?? throw new \LogicException('Unexpected generation call.');
+            },
+        );
+
+        $invite = $action->handle(null);
+
+        $this->assertSame('FRESH123', $invite->code);
+        $this->assertSame([], $codes);
+        $this->assertDatabaseCount('admin_invite_codes', 2);
+    }
+
+    public function test_generated_invite_collision_retries_are_bounded(): void
+    {
+        $this->insertInvite(['code' => 'COLLIDE1']);
+        $calls = 0;
+        $action = new CreateAdminInviteCodeAction(
+            static function () use (&$calls): string {
+                $calls++;
+
+                return 'COLLIDE1';
+            },
+        );
+
+        try {
+            $action->handle(null);
+            $this->fail('Expected generated invite attempts to be exhausted.');
+        } catch (AdminMutationException $exception) {
+            $this->assertSame('Unable to generate invite code', $exception->getMessage());
+            $this->assertSame(503, $exception->status());
+        }
+
+        $this->assertSame(3, $calls);
+        $this->assertDatabaseCount('admin_invite_codes', 1);
+    }
+
     public function test_it_deletes_an_unused_invite_and_rejects_used_or_missing_invites(): void
     {
         $actor = (string) Str::uuid();

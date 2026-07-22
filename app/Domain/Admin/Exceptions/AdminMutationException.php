@@ -31,6 +31,11 @@ final class AdminMutationException extends RuntimeException
         return new self('This code already exists', 400);
     }
 
+    public static function inviteGenerationFailed(): self
+    {
+        return new self('Unable to generate invite code', 503);
+    }
+
     public static function inviteNotFound(): self
     {
         return new self('Invite code not found', 404);

@@ -43,7 +43,7 @@ final readonly class GenerateAdminSentenceScriptAction
             'raw_response' => $result->rawResponse,
             'estimated_duration_secs' => $result->estimatedDurationSeconds,
             'parse_error' => $result->parseError,
-            'created_at' => now(),
+            'created_at' => now()->format('Y-m-d H:i:s.v'),
         ]);
 
         return ['test' => $test, 'result' => $result];

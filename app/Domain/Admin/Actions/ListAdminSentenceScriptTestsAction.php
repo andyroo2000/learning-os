@@ -26,10 +26,11 @@ final class ListAdminSentenceScriptTestsAction
         if ($cursor !== null) {
             $cursorTest = AdminSentenceScriptTest::query()->find($cursor);
             if ($cursorTest instanceof AdminSentenceScriptTest) {
-                $query->where(function ($query) use ($cursorTest): void {
-                    $query->where('created_at', '<', $cursorTest->created_at)
-                        ->orWhere(function ($query) use ($cursorTest): void {
-                            $query->where('created_at', $cursorTest->created_at)
+                $cursorCreatedAt = $cursorTest->created_at->format('Y-m-d H:i:s.v');
+                $query->where(function ($query) use ($cursorTest, $cursorCreatedAt): void {
+                    $query->where('created_at', '<', $cursorCreatedAt)
+                        ->orWhere(function ($query) use ($cursorTest, $cursorCreatedAt): void {
+                            $query->where('created_at', $cursorCreatedAt)
                                 ->where('id', '<', $cursorTest->id);
                         });
                 });

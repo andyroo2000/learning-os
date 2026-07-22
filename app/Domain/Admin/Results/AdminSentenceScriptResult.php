@@ -117,7 +117,7 @@ final readonly class AdminSentenceScriptResult
             return array_filter([
                 'type' => 'L2',
                 'text' => $text,
-                'reading' => $reading ?? ($data->targetLanguage === 'ja' ? $text : null),
+                'reading' => $reading,
                 'translation' => $translation,
                 'voiceId' => $data->l2VoiceId,
                 'speed' => $speed !== null && $speed >= 0.5 && $speed <= 2 ? $speed : null,

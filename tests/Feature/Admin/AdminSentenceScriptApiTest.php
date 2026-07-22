@@ -44,6 +44,14 @@ final class AdminSentenceScriptApiTest extends TestCase
             ->getJson("/api/convolab/admin/script-lab/sentence-tests/{$testId}")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
+        $this->withToken($this->proxyToken(['admin:write']))
+            ->getJson('/api/convolab/admin/script-lab/sentence-tests')
+            ->assertForbidden();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($this->proxyToken(['admin:read']))
+            ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', ['ids' => [$testId]])
+            ->assertForbidden();
+        $this->app['auth']->forgetGuards();
         $this->withToken($this->proxyToken(['admin:read']))
             ->postJson('/api/convolab/admin/script-lab/sentence-script', ['sentence' => '文'])
             ->assertForbidden();
@@ -74,7 +82,7 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     public function test_it_generates_normalizes_and_persists_a_sentence_script(): void
     {
-        Carbon::setTestNow('2026-07-22 18:45:12.123456');
+        Carbon::setTestNow(Carbon::parse('2026-07-22 18:45:12')->setMicrosecond(123_456));
         $actorId = (string) Str::uuid();
         $this->mock(ContentOpenAiClient::class, function (MockInterface $mock): void {
             $mock->shouldReceive('generateJson')
@@ -125,7 +133,26 @@ final class AdminSentenceScriptApiTest extends TestCase
         $this->assertSame('en', $test->native_language);
         $this->assertSame(self::L1_VOICE_ID, $test->l1_voice_id);
         $this->assertSame(self::L2_VOICE_ID, $test->l2_voice_id);
+        $this->assertSame('2026-07-22 18:45:12.123', $test->created_at->format('Y-m-d H:i:s.v'));
         $this->assertNull($test->parse_error);
+    }
+
+    public function test_it_does_not_claim_a_japanese_reading_when_the_provider_omits_it(): void
+    {
+        $this->mock(ContentOpenAiClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('generateJson')->once()->andReturn(json_encode([
+                'units' => [['type' => 'L2', 'text' => '東京']],
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        });
+
+        $this->writeRequest()
+            ->postJson('/api/convolab/admin/script-lab/sentence-script', ['sentence' => '東京'])
+            ->assertOk()
+            ->assertJsonMissingPath('units.0.reading');
+        $this->assertArrayNotHasKey(
+            'reading',
+            AdminSentenceScriptTest::query()->sole()->units_json[0],
+        );
     }
 
     public function test_parse_errors_are_returned_and_persisted_for_prompt_iteration(): void
@@ -207,6 +234,10 @@ final class AdminSentenceScriptApiTest extends TestCase
             'id' => '11111111-1111-4111-8111-111111111111',
             'created_at' => '2026-07-22 12:00:00.500',
         ]);
+        $sameTimeLowestId = $this->sentenceTest([
+            'id' => '00000000-0000-4000-8000-000000000000',
+            'created_at' => '2026-07-22 12:00:00.500',
+        ]);
         $oldest = $this->sentenceTest(['created_at' => '2026-07-21 12:00:00.500']);
 
         $first = $this->readRequest()
@@ -220,7 +251,7 @@ final class AdminSentenceScriptApiTest extends TestCase
         $second = $this->readRequest()
             ->getJson('/api/convolab/admin/script-lab/sentence-tests?limit=2&cursor='.$sameTimeLowerId->id)
             ->assertOk();
-        $this->assertSame([$oldest->id], array_column($second->json('tests'), 'id'));
+        $this->assertSame([$sameTimeLowestId->id, $oldest->id], array_column($second->json('tests'), 'id'));
         $second->assertJsonPath('nextCursor', null);
 
         $this->app['auth']->forgetGuards();

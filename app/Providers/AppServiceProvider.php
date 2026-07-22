@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
+use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
@@ -127,6 +128,16 @@ class AppServiceProvider extends ServiceProvider
             ConvoLabProfileRateLimiter::limit($request),
             ConvoLabProfileRateLimiter::networkLimit($request),
         ]);
+
+        foreach ([
+            ConvoLabAccountSecurityRateLimiter::PASSWORD_UPDATE,
+            ConvoLabAccountSecurityRateLimiter::ACCOUNT_DELETE,
+        ] as $operation) {
+            RateLimiter::for(
+                $operation,
+                fn (Request $request): array => ConvoLabAccountSecurityRateLimiter::limits($operation, $request),
+            );
+        }
 
         $accountProfileUpdateRateLimiter = AuthAccountRateLimiter::forProfileUpdate();
         RateLimiter::for(AuthAccountRateLimiter::PROFILE_UPDATE, function (Request $request) use ($accountProfileUpdateRateLimiter): Limit {

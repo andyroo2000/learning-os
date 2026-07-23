@@ -20,7 +20,7 @@ final class DownloadContentCourseAudioController extends Controller
     ): StreamedResponse {
         $course = ContentCourse::query()
             ->whereKey(ContentCourseId::normalize($courseId))
-            ->where('user_id', $request->user()->getKey())
+            ->where('user_id', $request->contentUserId())
             ->where('convolab_user_id', ConvoLabUserId::normalize($request->convoLabUserId()))
             ->whereNotNull('audio_storage_path')
             ->first();

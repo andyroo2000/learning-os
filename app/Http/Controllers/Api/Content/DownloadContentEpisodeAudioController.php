@@ -29,7 +29,7 @@ final class DownloadContentEpisodeAudioController extends Controller
         };
         $episode = ContentEpisode::query()
             ->whereKey(strtolower(trim($episodeId)))
-            ->where('user_id', $request->user()->getKey())
+            ->where('user_id', $request->contentUserId())
             ->where('convolab_user_id', ConvoLabUserId::normalize($request->convoLabUserId()))
             ->whereNotNull($pathField)
             ->first();

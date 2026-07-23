@@ -16,7 +16,7 @@ class ShowContentEpisodeController extends Controller
         ShowContentEpisodeAction $action,
     ): JsonResponse {
         $episode = $action->handle(
-            $request->user()->getKey(),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $episodeId,
         );

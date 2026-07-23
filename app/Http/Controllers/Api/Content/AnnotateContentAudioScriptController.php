@@ -8,7 +8,6 @@ use App\Domain\Content\Exceptions\ContentAudioScriptGenerationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\MutateContentAudioScriptRequest;
 use App\Http\Resources\Content\ContentAudioScriptResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class AnnotateContentAudioScriptController extends Controller
@@ -20,7 +19,7 @@ final class AnnotateContentAudioScriptController extends Controller
     ): JsonResponse {
         try {
             $script = $action->handle(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $episodeId,
             );

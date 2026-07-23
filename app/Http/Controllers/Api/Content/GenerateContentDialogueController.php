@@ -11,7 +11,6 @@ use App\Domain\Content\Exceptions\ContentDialogueGenerationQueueException;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\GenerateContentDialogueRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class GenerateContentDialogueController extends Controller
@@ -26,7 +25,7 @@ final class GenerateContentDialogueController extends Controller
 
         try {
             if (! $eligibility->dialogue(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $data->episodeId,
             )) {
@@ -38,7 +37,7 @@ final class GenerateContentDialogueController extends Controller
                 ContentGenerationType::Dialogue,
                 $data->episodeId,
                 fn () => $queue->handle(
-                    AuthenticatedUser::id($request),
+                    $request->contentUserId(),
                     $request->convoLabUserId(),
                     $data,
                 ),

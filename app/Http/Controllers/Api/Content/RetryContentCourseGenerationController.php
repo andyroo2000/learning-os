@@ -11,7 +11,6 @@ use App\Domain\Content\Exceptions\ContentCourseGenerationQueueException;
 use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\MutateContentCourseGenerationRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class RetryContentCourseGenerationController extends Controller
@@ -25,7 +24,7 @@ final class RetryContentCourseGenerationController extends Controller
     ): JsonResponse {
         try {
             if (! $eligibility->course(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $courseId,
                 retryOnly: true,
@@ -38,7 +37,7 @@ final class RetryContentCourseGenerationController extends Controller
                 ContentGenerationType::Course,
                 null,
                 fn () => $queue->handle(
-                    AuthenticatedUser::id($request),
+                    $request->contentUserId(),
                     $request->convoLabUserId(),
                     $courseId,
                     retryOnly: true,

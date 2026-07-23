@@ -6,7 +6,6 @@ use App\Domain\Content\Actions\UpdateContentCourseAction;
 use App\Domain\Content\Data\UpdateContentCourseData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\UpdateContentCourseRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class UpdateContentCourseController extends Controller
@@ -17,7 +16,7 @@ final class UpdateContentCourseController extends Controller
         UpdateContentCourseAction $action,
     ): JsonResponse {
         $updated = $action->handle(
-            AuthenticatedUser::id($request),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $courseId,
             UpdateContentCourseData::fromInput($request->validated()),

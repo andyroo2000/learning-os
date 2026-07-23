@@ -493,6 +493,17 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'used_at' => $now,
             'created_at' => $now,
         ]);
+        DB::table('content_generation_cooldowns')->insert([
+            'convolab_user_id' => $convoLabUserId,
+            'available_at' => $now->copy()->addSeconds(30),
+        ]);
+        DB::table('generation_logs')->insert([
+            'id' => (string) Str::uuid(),
+            'userId' => $convoLabUserId,
+            'contentType' => 'dialogue',
+            'contentId' => null,
+            'createdAt' => $now,
+        ]);
         DB::table('convolab_email_verification_tokens')->insert([
             'user_id' => $existingUser->id,
             'token_hash' => hash('sha256', 'reset-boundary-token'),
@@ -583,6 +594,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('convolab_email_verification_tokens', 0);
         $this->assertDatabaseCount('convolab_oauth_identities', 0);
         $this->assertDatabaseCount('admin_invite_codes', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
+        $this->assertDatabaseCount('generation_logs', 0);
         $this->assertDatabaseCount('admin_user_projections', 0);
         $this->assertDatabaseCount('users', 1);
     }

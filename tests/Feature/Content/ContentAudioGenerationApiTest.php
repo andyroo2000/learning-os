@@ -259,7 +259,10 @@ class ContentAudioGenerationApiTest extends TestCase
 
         $this->get('/api/convolab/episodes/'.strtoupper($episode->id).'/audio/1.0')
             ->assertOk()
-            ->assertHeader('content-type', 'audio/mpeg');
+            ->assertHeader('Content-Type', 'audio/mpeg')
+            ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'")
+            ->assertHeader('Cross-Origin-Resource-Policy', 'same-origin')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
             ->get('/api/convolab/episodes/'.$episode->id.'/audio/1.0')
             ->assertNotFound();

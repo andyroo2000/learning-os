@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Content;
 
+use App\Domain\Content\Actions\CheckContentGenerationEligibilityAction;
 use App\Domain\Content\Actions\QueueContentDialogueGenerationAction;
 use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
 use App\Domain\Content\Enums\ContentGenerationType;
@@ -18,11 +19,20 @@ final class GenerateContentDialogueController extends Controller
     public function __invoke(
         GenerateContentDialogueRequest $request,
         QueueContentDialogueGenerationAction $queue,
+        CheckContentGenerationEligibilityAction $eligibility,
         RunQuotaLimitedContentGenerationAction $generation,
     ): JsonResponse {
         $data = $request->generationData();
 
         try {
+            if (! $eligibility->dialogue(
+                AuthenticatedUser::id($request),
+                $request->convoLabUserId(),
+                $data->episodeId,
+            )) {
+                return response()->json(['message' => 'Episode not found'], 404);
+            }
+
             $job = $generation->handle(
                 $request->convoLabUserId(),
                 ContentGenerationType::Dialogue,

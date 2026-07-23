@@ -101,10 +101,10 @@ class ContentDialogueGenerationApiTest extends TestCase
             fn (ProcessContentDialogueGeneration $queued): bool => $queued->jobId === $jobId,
         );
 
-        $this->travel(31)->seconds();
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Dialogue is already being generated']);
+        $this->assertDatabaseCount('generation_logs', 1);
         Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
     }
 
@@ -155,6 +155,8 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertNotFound();
         $this->assertDatabaseCount('content_dialogue_generation_jobs', 0);
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
 
         $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
         Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('Redis secret.'));

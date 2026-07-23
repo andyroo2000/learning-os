@@ -51,6 +51,7 @@ class ContentGenerationQuotaMigrationTest extends TestCase
         foreach ([
             'content_generation_cooldowns',
             'convolab_user_id',
+            'generation_log_id',
             'available_at',
             'admin_user_projections',
         ] as $fragment) {
@@ -120,6 +121,7 @@ class ContentGenerationQuotaMigrationTest extends TestCase
         return new Blueprint($connection, 'content_generation_cooldowns', function (Blueprint $table): void {
             $table->create();
             $table->uuid('convolab_user_id')->primary();
+            $table->uuid('generation_log_id')->nullable();
             $table->timestampTz('available_at', 3);
             $table->foreign('convolab_user_id', 'generation_cooldowns_user_fk')
                 ->references('convolab_id')

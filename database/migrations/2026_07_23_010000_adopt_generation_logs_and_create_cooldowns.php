@@ -57,6 +57,8 @@ return new class extends Migration
 
         Schema::create('content_generation_cooldowns', function (Blueprint $table): void {
             $table->uuid('convolab_user_id')->primary();
+            // Cleanup always starts with the user primary key and compares this ownership token.
+            $table->uuid('generation_log_id')->nullable();
             $table->timestampTz('available_at', 3);
             $table->foreign('convolab_user_id', 'generation_cooldowns_user_fk')
                 ->references('convolab_id')
@@ -69,7 +71,8 @@ return new class extends Migration
     {
         Schema::dropIfExists('content_generation_cooldowns');
 
-        // The log table may predate Learning OS and contains source-system usage history.
-        // Retain it on rollback rather than risk deleting adopted Convo Lab data.
+        // Rollbacks run in a later process and cannot know whether up() adopted or created
+        // generation_logs. Retain the table and any compatibility index in both cases rather
+        // than risk deleting source-system usage history from an adopted Convo Lab database.
     }
 };

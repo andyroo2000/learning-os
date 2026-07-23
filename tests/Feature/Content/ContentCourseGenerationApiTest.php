@@ -3,7 +3,6 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Models\ContentCourse;
-use App\Domain\Content\Models\ContentGenerationCooldown;
 use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
@@ -100,10 +99,10 @@ class ContentCourseGenerationApiTest extends TestCase
                 && $job->attempt === 1,
         );
 
-        $this->travel(31)->seconds();
         $this->postJson("/api/convolab/courses/{$course->id}/generate")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Course is already being generated']);
+        $this->assertDatabaseCount('generation_logs', 1);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 1);
     }
 
@@ -275,14 +274,13 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertSame('queued', $scriptFailure->generation_stage);
         $this->assertSame(0, $scriptFailure->generation_progress);
 
-        $this->travel(31)->seconds();
         $this->postJson("/api/convolab/courses/{$ready->id}/retry")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Only courses in error status can be retried']);
-        $this->travel(31)->seconds();
         $this->postJson("/api/convolab/courses/{$audioFailure->id}/retry")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Only courses in error status can be retried']);
+        $this->assertDatabaseCount('generation_logs', 2);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 2);
     }
 
@@ -319,12 +317,11 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->authenticateWrite($other);
 
         foreach (['generate', 'reset', 'retry'] as $operation) {
-            if ($operation === 'retry') {
-                $this->travel(31)->seconds();
-            }
             $this->postJson("/api/convolab/courses/{$course->id}/{$operation}")
                 ->assertNotFound();
         }
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
         $this->getJson("/api/convolab/courses/{$course->id}/status")->assertNotFound();
         Queue::assertNothingPushed();
 
@@ -373,7 +370,6 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$firstCourse->id}/generate")
             ->assertOk();
         for ($attempt = 1; $attempt < 10; $attempt++) {
-            ContentGenerationCooldown::query()->whereKey($this->convoLabUserId)->delete();
             $this->postJson("/api/convolab/courses/{$firstCourse->id}/generate")
                 ->assertBadRequest();
         }

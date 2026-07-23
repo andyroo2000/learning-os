@@ -5,6 +5,7 @@ namespace Tests\Feature\Content;
 use App\Domain\Content\Actions\ManageContentGenerationQuotaAction;
 use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
 use App\Domain\Content\Enums\ContentGenerationType;
+use App\Domain\Content\Exceptions\ContentDialogueGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentGenerationCooldownException;
 use App\Domain\Content\Exceptions\ContentGenerationQuotaExceededException;
 use App\Domain\Content\Models\ContentGenerationCooldown;
@@ -204,6 +205,7 @@ class ContentGenerationQuotaApiTest extends TestCase
             fn (): string => 'unused',
         ));
         $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
 
         $this->travel(31)->seconds();
         $generated = $runner->handle(
@@ -217,6 +219,49 @@ class ContentGenerationQuotaApiTest extends TestCase
         $this->assertDatabaseHas('generation_logs', [
             'contentType' => 'script',
             'contentId' => 'script-id',
+        ]);
+    }
+
+    public function test_rejected_generation_clears_only_its_own_cooldown(): void
+    {
+        $user = User::factory()->create();
+        $this->convoLabProjectionFor($user, $this->convoLabUserId);
+        $runner = app(RunQuotaLimitedContentGenerationAction::class);
+
+        try {
+            $runner->handle(
+                $this->convoLabUserId,
+                ContentGenerationType::Dialogue,
+                null,
+                fn (): never => throw ContentDialogueGenerationConflictException::alreadyGenerating(),
+                fn (): string => 'unused',
+            );
+            $this->fail('The domain rejection should be rethrown.');
+        } catch (ContentDialogueGenerationConflictException) {
+            $this->addToAssertionCount(1);
+        }
+
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
+
+        $reservation = app(ManageContentGenerationQuotaAction::class)->reserve(
+            $this->convoLabUserId,
+            ContentGenerationType::Course,
+        );
+        $this->assertNotNull($reservation);
+        $newerReservationId = (string) Str::uuid();
+        DB::table('content_generation_cooldowns')
+            ->where('convolab_user_id', $this->convoLabUserId)
+            ->update(['generation_log_id' => $newerReservationId]);
+
+        app(ManageContentGenerationQuotaAction::class)->cancel(
+            $reservation,
+            clearCooldown: true,
+        );
+
+        $this->assertDatabaseHas('content_generation_cooldowns', [
+            'convolab_user_id' => $this->convoLabUserId,
+            'generation_log_id' => $newerReservationId,
         ]);
     }
 
@@ -272,6 +317,7 @@ class ContentGenerationQuotaApiTest extends TestCase
             [ContentGenerationLog::class, 'contentType'],
             [ContentGenerationLog::class, 'createdAt'],
             [ContentGenerationCooldown::class, 'available_at'],
+            [ContentGenerationCooldown::class, 'generation_log_id'],
         ] as [$model, $field]) {
             try {
                 (new $model)->fill([$field => 'untrusted']);

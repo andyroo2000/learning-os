@@ -52,19 +52,21 @@ final class ManageContentGenerationQuotaAction
                 throw new ContentGenerationQuotaExceededException($status);
             }
 
-            $cooldown = ContentGenerationCooldown::query()
-                ->whereKey($projection->convolab_id)
-                ->first() ?? new ContentGenerationCooldown;
-            $cooldown->convolab_user_id = $projection->convolab_id;
-            $cooldown->available_at = $now->addSeconds($this->cooldownSeconds());
-            $cooldown->save();
-
             $log = new ContentGenerationLog;
             $log->id = (string) Str::uuid();
             $log->setAttribute('userId', $projection->convolab_id);
             $log->setAttribute('contentType', $type->value);
             $log->setAttribute('contentId', $contentId);
             $log->setAttribute('createdAt', $now);
+
+            $cooldown = ContentGenerationCooldown::query()
+                ->whereKey($projection->convolab_id)
+                ->first() ?? new ContentGenerationCooldown;
+            $cooldown->convolab_user_id = $projection->convolab_id;
+            $cooldown->generation_log_id = $log->id;
+            $cooldown->available_at = $now->addSeconds($this->cooldownSeconds());
+            $cooldown->save();
+
             $log->save();
 
             return $log;
@@ -82,11 +84,24 @@ final class ManageContentGenerationQuotaAction
             ->update(['contentId' => $contentId]);
     }
 
-    public function cancel(?ContentGenerationLog $reservation): void
-    {
-        if ($reservation !== null) {
-            ContentGenerationLog::query()->whereKey($reservation->getKey())->delete();
+    public function cancel(
+        ?ContentGenerationLog $reservation,
+        bool $clearCooldown = false,
+    ): void {
+        if ($reservation === null) {
+            return;
         }
+
+        DB::transaction(function () use ($clearCooldown, $reservation): void {
+            if ($clearCooldown) {
+                ContentGenerationCooldown::query()
+                    ->whereKey($reservation->getAttribute('userId'))
+                    ->where('generation_log_id', $reservation->getKey())
+                    ->delete();
+            }
+
+            ContentGenerationLog::query()->whereKey($reservation->getKey())->delete();
+        });
     }
 
     private function statusFor(

@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Enums\ContentGenerationType;
+use App\Domain\Content\Exceptions\ContentGenerationRejectedException;
 use App\Domain\Content\Models\ContentGenerationLog;
 use Throwable;
 
@@ -31,13 +32,16 @@ final class RunQuotaLimitedContentGenerationAction
         try {
             $result = $operation();
         } catch (Throwable $exception) {
-            $this->cancel($reservation);
+            $this->cancel(
+                $reservation,
+                clearCooldown: $exception instanceof ContentGenerationRejectedException,
+            );
 
             throw $exception;
         }
 
         if ($result === null) {
-            $this->cancel($reservation);
+            $this->cancel($reservation, clearCooldown: true);
 
             return null;
         }
@@ -53,10 +57,12 @@ final class RunQuotaLimitedContentGenerationAction
         return $result;
     }
 
-    private function cancel(?ContentGenerationLog $reservation): void
-    {
+    private function cancel(
+        ?ContentGenerationLog $reservation,
+        bool $clearCooldown = false,
+    ): void {
         try {
-            $this->quota->cancel($reservation);
+            $this->quota->cancel($reservation, $clearCooldown);
         } catch (Throwable $exception) {
             report($exception);
         }

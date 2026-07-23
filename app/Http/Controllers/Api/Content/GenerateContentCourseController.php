@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Content;
 
+use App\Domain\Content\Actions\CheckContentGenerationEligibilityAction;
 use App\Domain\Content\Actions\QueueContentCourseGenerationAction;
 use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
 use App\Domain\Content\Enums\ContentGenerationType;
@@ -18,10 +19,20 @@ final class GenerateContentCourseController extends Controller
     public function __invoke(
         MutateContentCourseGenerationRequest $request,
         QueueContentCourseGenerationAction $queue,
+        CheckContentGenerationEligibilityAction $eligibility,
         RunQuotaLimitedContentGenerationAction $generation,
         string $courseId,
     ): JsonResponse {
         try {
+            if (! $eligibility->course(
+                AuthenticatedUser::id($request),
+                $request->convoLabUserId(),
+                $courseId,
+                retryOnly: false,
+            )) {
+                return response()->json(['message' => 'Course not found'], 404);
+            }
+
             $result = $generation->handle(
                 $request->convoLabUserId(),
                 ContentGenerationType::Course,

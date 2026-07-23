@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api\Content;
 
+use App\Domain\Content\Actions\CheckContentGenerationEligibilityAction;
 use App\Domain\Content\Actions\QueueContentCourseGenerationAction;
+use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
+use App\Domain\Content\Enums\ContentGenerationType;
 use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentCourseGenerationQueueException;
 use App\Domain\Content\Support\ContentCourseGeneration;
@@ -16,14 +19,31 @@ final class RetryContentCourseGenerationController extends Controller
     public function __invoke(
         MutateContentCourseGenerationRequest $request,
         QueueContentCourseGenerationAction $queue,
+        CheckContentGenerationEligibilityAction $eligibility,
+        RunQuotaLimitedContentGenerationAction $generation,
         string $courseId,
     ): JsonResponse {
         try {
-            $result = $queue->handle(
+            if (! $eligibility->course(
                 AuthenticatedUser::id($request),
                 $request->convoLabUserId(),
                 $courseId,
                 retryOnly: true,
+            )) {
+                return response()->json(['message' => 'Course not found'], 404);
+            }
+
+            $result = $generation->handle(
+                $request->convoLabUserId(),
+                ContentGenerationType::Course,
+                null,
+                fn () => $queue->handle(
+                    AuthenticatedUser::id($request),
+                    $request->convoLabUserId(),
+                    $courseId,
+                    retryOnly: true,
+                ),
+                fn ($started): string => $started->course->id,
             );
         } catch (ContentCourseGenerationConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 400);

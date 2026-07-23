@@ -88,6 +88,11 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertNull($course->generation_error_message);
         $this->assertSame('/old.mp3', $course->audio_url);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $course->source_system);
+        $this->assertDatabaseHas('generation_logs', [
+            'userId' => $this->convoLabUserId,
+            'contentType' => 'course',
+            'contentId' => $course->id,
+        ]);
         Queue::assertPushed(
             ProcessContentCourseGeneration::class,
             fn (ProcessContentCourseGeneration $job): bool => $job->courseId === $course->id
@@ -97,6 +102,7 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$course->id}/generate")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Course is already being generated']);
+        $this->assertDatabaseCount('generation_logs', 1);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 1);
     }
 
@@ -260,6 +266,7 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertSame('audio', $audioFailure->generation_stage);
         $this->assertSame(60, $audioFailure->generation_progress);
 
+        $this->travel(31)->seconds();
         $this->postJson("/api/convolab/courses/{$scriptFailure->id}/retry")
             ->assertOk();
         $scriptFailure->refresh();
@@ -273,6 +280,7 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$audioFailure->id}/retry")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Only courses in error status can be retried']);
+        $this->assertDatabaseCount('generation_logs', 2);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 2);
     }
 
@@ -291,6 +299,10 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertSame('error', $course->status);
         $this->assertSame(1, $course->generation_attempt);
         $this->assertSame(ContentCourseGeneration::QUEUE_FAILED_MESSAGE, $course->generation_error_message);
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseHas('content_generation_cooldowns', [
+            'convolab_user_id' => $this->convoLabUserId,
+        ]);
     }
 
     public function test_lifecycle_routes_hide_other_owners_and_use_operation_scoped_limiters(): void
@@ -308,6 +320,8 @@ class ContentCourseGenerationApiTest extends TestCase
             $this->postJson("/api/convolab/courses/{$course->id}/{$operation}")
                 ->assertNotFound();
         }
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseCount('content_generation_cooldowns', 0);
         $this->getJson("/api/convolab/courses/{$course->id}/status")->assertNotFound();
         Queue::assertNothingPushed();
 
@@ -370,6 +384,7 @@ class ContentCourseGenerationApiTest extends TestCase
             ->assertJsonPath('message', 'Course has an active generation job. Cannot reset.');
 
         $this->convoLabUserId = (string) Str::uuid();
+        $this->convoLabProjectionFor(User::factory()->create(), $this->convoLabUserId);
         $secondCourse = $this->course($firstUser);
         $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
         $this->postJson("/api/convolab/courses/{$secondCourse->id}/generate")
@@ -400,6 +415,7 @@ class ContentCourseGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
+        $this->convoLabProjectionFor($user, $this->convoLabUserId);
         config()->set('services.convolab.proxy_user_email', $user->email);
         $token = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
         $this->withToken($token);

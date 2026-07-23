@@ -53,6 +53,8 @@ class ImportConvoLabRehearsalData extends Command
         'convolab_oauth_identities',
         'convolab_email_verification_tokens',
         'admin_invite_codes',
+        'content_generation_cooldowns',
+        'generation_logs',
         'admin_user_projections',
         'users',
     ];

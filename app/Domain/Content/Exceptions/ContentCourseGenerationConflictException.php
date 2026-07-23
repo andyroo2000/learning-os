@@ -4,7 +4,7 @@ namespace App\Domain\Content\Exceptions;
 
 use RuntimeException;
 
-final class ContentCourseGenerationConflictException extends RuntimeException
+final class ContentCourseGenerationConflictException extends RuntimeException implements ContentGenerationRejectedException
 {
     public static function alreadyGenerating(): self
     {

@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
@@ -32,6 +33,27 @@ abstract class TestCase extends BaseTestCase
         Sanctum::actingAs($user);
 
         return $user;
+    }
+
+    /** @param array<string, mixed> $attributes */
+    protected function convoLabProjectionFor(
+        User $user,
+        string $convoLabUserId,
+        array $attributes = [],
+    ): AdminUserProjection {
+        $user->convolab_id = $convoLabUserId;
+        $user->save();
+
+        return AdminUserProjection::query()->forceCreate([
+            'convolab_id' => $convoLabUserId,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'name' => $user->name,
+            'role' => 'user',
+            'created_at' => now(),
+            'updated_at' => now(),
+            ...$attributes,
+        ]);
     }
 
     protected function assertUrlQueryParameter(string $url, string $key, string $expected): void

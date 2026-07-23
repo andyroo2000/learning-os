@@ -91,6 +91,7 @@ use App\Http\Controllers\Api\Auth\ResolveConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
+use App\Http\Controllers\Api\Auth\ShowConvoLabGenerationQuotaController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserController;
@@ -261,6 +262,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/convolab/auth/google', DisconnectConvoLabGoogleIdentityController::class)
         ->middleware('throttle:'.ConvoLabOAuthRateLimiter::DISCONNECT);
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
+    Route::get('/convolab/auth/me/quota', ShowConvoLabGenerationQuotaController::class);
     Route::patch('/convolab/auth/me', UpdateConvoLabCurrentUserController::class)
         ->middleware('throttle:'.ConvoLabProfileRateLimiter::NAME);
     Route::put('/convolab/auth/me/password', UpdateConvoLabCurrentUserPasswordController::class)

@@ -11,6 +11,8 @@ final class JsonLineToolAnalyticsLogger implements ToolAnalyticsLogger
 
     public function write(array $event): void
     {
+        // This intentionally bypasses Monolog: downstream analytics expects one
+        // unprefixed JSON object per line, while the container captures stdout.
         $line = json_encode($event, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES).PHP_EOL;
         $stream = fopen($this->streamUri, 'ab');
 

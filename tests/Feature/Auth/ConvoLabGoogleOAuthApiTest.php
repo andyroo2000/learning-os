@@ -6,6 +6,7 @@ use App\Domain\Admin\Models\AdminInviteCode;
 use App\Domain\Auth\Actions\ClaimConvoLabGoogleInviteAction;
 use App\Domain\Auth\Actions\DisconnectConvoLabGoogleIdentityAction;
 use App\Domain\Auth\Actions\ResolveConvoLabGoogleIdentityAction;
+use App\Domain\Auth\Exceptions\ConvoLabOAuthException;
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -127,12 +128,13 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
     public function test_unclaimed_identity_retries_remain_invite_gated_and_do_not_duplicate_accounts(): void
     {
         $action = app(ResolveConvoLabGoogleIdentityAction::class);
-        $first = $action->handle('subject-1', 'new@example.com', 'First Name', null);
+        $first = $action->handle('subject-1', 'new@example.com', 'First Name', null, true);
         $second = $action->handle(
             'subject-1',
             'changed@example.com',
             'Changed Name',
             'https://example.com/changed.png',
+            true,
         );
 
         $this->assertTrue($first->created);
@@ -143,6 +145,33 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
         $this->assertSame('new@example.com', $second->account->email);
         $this->assertDatabaseCount('convolab_oauth_identities', 1);
         $this->assertDatabaseCount('admin_user_projections', 1);
+    }
+
+    public function test_unverified_google_email_is_rejected_at_http_and_direct_action_boundaries(): void
+    {
+        $this->withToken($this->proxyToken())
+            ->postJson('/api/convolab/auth/google', $this->googlePayload([
+                'emailVerified' => false,
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('emailVerified');
+
+        try {
+            app(ResolveConvoLabGoogleIdentityAction::class)->handle(
+                'unverified-subject',
+                'unverified@example.com',
+                'Unverified User',
+                null,
+                false,
+            );
+            $this->fail('Expected an unverified Google email to be rejected.');
+        } catch (ConvoLabOAuthException $exception) {
+            $this->assertSame('unverified_email', $exception->reason());
+            $this->assertSame(422, $exception->status());
+        }
+
+        $this->assertDatabaseCount('convolab_oauth_identities', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
     }
 
     public function test_existing_projected_email_is_linked_with_immediate_access_and_verified(): void
@@ -186,6 +215,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'mobile@example.com',
             'Mobile User',
             null,
+            true,
         );
 
         $this->assertTrue($result->created);
@@ -203,6 +233,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'linked@example.com',
             'Linked',
             null,
+            true,
         );
 
         $this->withToken($this->proxyToken())
@@ -249,6 +280,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'claim@example.com',
             'Claim User',
             null,
+            true,
         );
         $invite = $this->invite('WELCOME123');
         $token = $this->proxyToken();
@@ -303,6 +335,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'claim@example.com',
             'Claim User',
             null,
+            true,
         );
         $this->assertFalse($retry->requiresInvite);
         $this->assertDatabaseCount('admin_invite_codes', 1);
@@ -315,12 +348,14 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'first@example.com',
             'First',
             null,
+            true,
         );
         $second = app(ResolveConvoLabGoogleIdentityAction::class)->handle(
             'second-subject',
             'second@example.com',
             'Second',
             null,
+            true,
         );
         $used = $this->invite('USED123', $first->account->user_id, $first->account->convolab_id);
         $available = $this->invite('AVAILABLE123');
@@ -361,6 +396,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'linked@example.com',
             'Linked',
             null,
+            true,
         );
         $token = $this->proxyToken();
 
@@ -472,6 +508,7 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
         return array_merge([
             'providerId' => 'google-subject-123',
             'email' => 'ada@example.com',
+            'emailVerified' => true,
             'name' => 'Ada Lovelace',
             'avatarUrl' => null,
         ], $overrides);

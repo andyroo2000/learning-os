@@ -42,6 +42,15 @@ final class ConvoLabOAuthException extends RuntimeException
         );
     }
 
+    public static function unverifiedEmail(): self
+    {
+        return new self(
+            'Google email must be verified',
+            'unverified_email',
+            422,
+        );
+    }
+
     public function reason(): string
     {
         return $this->reason;

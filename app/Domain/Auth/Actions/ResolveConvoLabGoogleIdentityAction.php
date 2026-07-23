@@ -26,7 +26,12 @@ final class ResolveConvoLabGoogleIdentityAction
         string $email,
         string $name,
         ?string $avatarUrl,
+        bool $emailVerified,
     ): ResolveConvoLabGoogleIdentityResult {
+        if (! $emailVerified) {
+            throw ConvoLabOAuthException::unverifiedEmail();
+        }
+
         $providerId = trim($providerId);
         $email = Str::lower(trim($email));
         $name = trim($name);

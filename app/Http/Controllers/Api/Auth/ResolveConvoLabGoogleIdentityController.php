@@ -22,6 +22,7 @@ final class ResolveConvoLabGoogleIdentityController extends Controller
                 email: $data['email'],
                 name: $data['name'],
                 avatarUrl: $data['avatarUrl'] ?? null,
+                emailVerified: $data['emailVerified'],
             );
         } catch (ConvoLabOAuthException $exception) {
             return response()->json([

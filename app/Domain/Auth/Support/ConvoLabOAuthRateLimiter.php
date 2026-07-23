@@ -11,6 +11,10 @@ final class ConvoLabOAuthRateLimiter
 {
     public const RESOLVE = 'convolab-oauth-resolve';
 
+    public const BROWSER_START = 'convolab-oauth-browser-start';
+
+    public const BROWSER_CALLBACK = 'convolab-oauth-browser-callback';
+
     public const CLAIM = 'convolab-oauth-claim';
 
     public const DISCONNECT = 'convolab-oauth-disconnect';
@@ -42,6 +46,16 @@ final class ConvoLabOAuthRateLimiter
             Limit::perMinute(5)->by($operation.'|'.$identity),
             Limit::perMinute(60)->by($operation.'-network|'.$network),
         ];
+    }
+
+    public static function browser(string $operation, Request $request): array
+    {
+        $sessionId = $request->hasSession() ? $request->session()->getId() : '';
+        $identity = $sessionId === ''
+            ? 'missing-session'
+            : 'session:'.hash('sha256', $sessionId);
+
+        return self::limits($operation, $identity, $request->ip(), 20);
     }
 
     private static function limits(

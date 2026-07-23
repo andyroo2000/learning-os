@@ -39,6 +39,16 @@ return [
         'base_url' => env('WANIKANI_API_BASE_URL', 'https://api.wanikani.com/v2'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env(
+            'GOOGLE_REDIRECT_URI',
+            rtrim((string) env('APP_URL', 'http://localhost'), '/')
+                .'/api/convolab/browser/auth/google/callback',
+        ),
+    ],
+
     'convolab' => [
         'proxy_user_email' => env('CONVOLAB_PROXY_USER_EMAIL'),
         'client_url' => env('CONVOLAB_CLIENT_URL', 'http://localhost:5173'),

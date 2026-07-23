@@ -60,6 +60,15 @@ final class ConvoLabOAuthException extends RuntimeException
         );
     }
 
+    public static function invalidProfile(): self
+    {
+        return new self(
+            'Google returned an invalid profile',
+            'invalid_profile',
+            422,
+        );
+    }
+
     public function reason(): string
     {
         return $this->reason;

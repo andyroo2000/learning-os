@@ -13,6 +13,6 @@ final class StartConvoLabBrowserSessionAction
         $user = $account->user()->firstOrFail();
 
         Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        $request->session()->regenerate(true);
     }
 }

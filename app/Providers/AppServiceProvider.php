@@ -8,6 +8,8 @@ use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Analytics\Contracts\ToolAnalyticsLogger;
 use App\Domain\Analytics\Services\JsonLineToolAnalyticsLogger;
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
+use App\Domain\Auth\Contracts\ConvoLabGoogleOAuthClient;
+use App\Domain\Auth\Services\SocialiteConvoLabGoogleOAuthClient;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
@@ -89,6 +91,10 @@ class AppServiceProvider extends ServiceProvider
             InterventionAdminAvatarImageProcessor::class,
         );
         $this->app->bind(ToolAnalyticsLogger::class, JsonLineToolAnalyticsLogger::class);
+        $this->app->bind(
+            ConvoLabGoogleOAuthClient::class,
+            SocialiteConvoLabGoogleOAuthClient::class,
+        );
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
     }
@@ -159,6 +165,18 @@ class AppServiceProvider extends ServiceProvider
             ConvoLabOAuthRateLimiter::RESOLVE,
             fn (Request $request): array => ConvoLabOAuthRateLimiter::resolve($request),
         );
+        foreach ([
+            ConvoLabOAuthRateLimiter::BROWSER_START,
+            ConvoLabOAuthRateLimiter::BROWSER_CALLBACK,
+        ] as $operation) {
+            RateLimiter::for(
+                $operation,
+                fn (Request $request): array => ConvoLabOAuthRateLimiter::browser(
+                    $operation,
+                    $request,
+                ),
+            );
+        }
         foreach ([ConvoLabOAuthRateLimiter::CLAIM, ConvoLabOAuthRateLimiter::DISCONNECT] as $operation) {
             RateLimiter::for(
                 $operation,

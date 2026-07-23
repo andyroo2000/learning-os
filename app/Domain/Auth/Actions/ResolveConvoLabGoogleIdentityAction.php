@@ -85,6 +85,10 @@ final class ResolveConvoLabGoogleIdentityAction
                 : null;
             $created = ! $existingAccount instanceof AdminUserProjection;
 
+            if ($existingAccount instanceof AdminUserProjection && ! $existingAccount->email_verified) {
+                throw ConvoLabOAuthException::existingAccountUnverified();
+            }
+
             if ($user instanceof User) {
                 $otherIdentity = ConvoLabOAuthIdentity::query()
                     ->where('user_id', $user->getKey())
@@ -124,13 +128,6 @@ final class ResolveConvoLabGoogleIdentityAction
                 emailVerifiedAt: $now,
                 now: $now,
             );
-            if (! $created && ! $account->email_verified) {
-                $account->email_verified = true;
-                $account->email_verified_at = $account->email_verified_at ?? $now;
-                $account->updated_at = $now;
-                $account->save();
-            }
-
             $identity = new ConvoLabOAuthIdentity;
             $identity->user_id = $user->getKey();
             $identity->provider = ConvoLabOAuthIdentity::GOOGLE_PROVIDER;

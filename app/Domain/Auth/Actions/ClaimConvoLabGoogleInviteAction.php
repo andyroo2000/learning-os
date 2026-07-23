@@ -21,8 +21,20 @@ final class ClaimConvoLabGoogleInviteAction
         if (! Str::isUuid($convoLabUserId)) {
             throw (new ModelNotFoundException)->setModel(AdminUserProjection::class);
         }
+        if (! AdminUserProjection::query()->whereKey($convoLabUserId)->exists()) {
+            throw (new ModelNotFoundException)->setModel(AdminUserProjection::class);
+        }
 
         return DB::transaction(function () use ($convoLabUserId, $inviteCode): AdminUserProjection {
+            // Signup also consumes invites, so every invite-consumption path locks the invite first.
+            $invite = AdminInviteCode::query()
+                ->where('code', $inviteCode)
+                ->lockForUpdate()
+                ->first();
+            if (! $invite instanceof AdminInviteCode) {
+                throw ConvoLabSignupException::invalidInvite();
+            }
+
             $account = AdminUserProjection::query()
                 ->whereKey($convoLabUserId)
                 ->lockForUpdate()
@@ -34,14 +46,6 @@ final class ClaimConvoLabGoogleInviteAction
                 ->first();
             if (! $identity instanceof ConvoLabOAuthIdentity) {
                 throw ConvoLabOAuthException::identityNotFound();
-            }
-
-            $invite = AdminInviteCode::query()
-                ->where('code', $inviteCode)
-                ->lockForUpdate()
-                ->first();
-            if (! $invite instanceof AdminInviteCode) {
-                throw ConvoLabSignupException::invalidInvite();
             }
 
             $claimedByUser = (int) $invite->used_by === (int) $account->user_id

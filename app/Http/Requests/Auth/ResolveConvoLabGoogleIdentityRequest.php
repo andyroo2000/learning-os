@@ -33,7 +33,7 @@ final class ResolveConvoLabGoogleIdentityRequest extends FormRequest
         return [
             'providerId' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
-            'emailVerified' => ['required', 'boolean', 'accepted'],
+            'emailVerified' => ['required', 'boolean'],
             'name' => ['required', 'string', 'max:255'],
             'avatarUrl' => ['nullable', 'string', 'url:http,https', 'max:2048'],
         ];

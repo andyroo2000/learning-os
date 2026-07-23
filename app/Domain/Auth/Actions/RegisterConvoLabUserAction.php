@@ -95,7 +95,7 @@ final class RegisterConvoLabUserAction
                 $invite->save();
 
                 return new RegisterConvoLabUserResult($account, true);
-            });
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             throw ConvoLabSignupException::accountExists();
         }

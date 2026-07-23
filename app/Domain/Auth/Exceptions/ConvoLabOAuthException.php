@@ -33,6 +33,15 @@ final class ConvoLabOAuthException extends RuntimeException
         );
     }
 
+    public static function existingAccountUnverified(): self
+    {
+        return new self(
+            'The existing account must verify its email before Google can be connected',
+            'existing_account_unverified',
+            409,
+        );
+    }
+
     public static function identityResolutionConflict(): self
     {
         return new self(

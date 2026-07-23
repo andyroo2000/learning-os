@@ -154,7 +154,10 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
                 'emailVerified' => false,
             ]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('emailVerified');
+            ->assertExactJson([
+                'message' => 'Google email must be verified',
+                'reason' => 'unverified_email',
+            ]);
 
         try {
             app(ResolveConvoLabGoogleIdentityAction::class)->handle(
@@ -174,12 +177,10 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
         $this->assertDatabaseCount('admin_user_projections', 0);
     }
 
-    public function test_existing_projected_email_is_linked_with_immediate_access_and_verified(): void
+    public function test_existing_verified_projected_email_is_linked_with_immediate_access(): void
     {
         $account = $this->projectedUser([
             'email' => 'existing@example.com',
-            'email_verified' => false,
-            'email_verified_at' => null,
         ]);
 
         $response = $this->withToken($this->proxyToken())
@@ -200,6 +201,32 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
             'provider_id' => 'google-subject-123',
             'access_granted_at' => Carbon::now()->toDateTimeString(),
         ]);
+    }
+
+    public function test_existing_unverified_password_account_cannot_be_claimed_by_google_email_match(): void
+    {
+        $account = $this->projectedUser([
+            'email' => 'unverified-existing@example.com',
+            'email_verified' => false,
+            'email_verified_at' => null,
+        ]);
+        $user = User::query()->findOrFail($account['user_id']);
+        $passwordHash = Hash::make('existing-password');
+        $user->forceFill(['convolab_password_hash' => $passwordHash])->save();
+
+        $this->withToken($this->proxyToken())
+            ->postJson('/api/convolab/auth/google', $this->googlePayload([
+                'email' => 'unverified-existing@example.com',
+            ]))
+            ->assertConflict()
+            ->assertExactJson([
+                'message' => 'The existing account must verify its email before Google can be connected',
+                'reason' => 'existing_account_unverified',
+            ]);
+
+        $this->assertDatabaseCount('convolab_oauth_identities', 0);
+        $this->assertSame($passwordHash, $user->refresh()->convolab_password_hash);
+        $this->assertNull($user->email_verified_at);
     }
 
     public function test_existing_canonical_user_becomes_a_new_invite_gated_convolab_account_without_losing_password(): void

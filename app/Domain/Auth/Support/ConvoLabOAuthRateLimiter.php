@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auth\Support;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,7 +30,7 @@ final class ConvoLabOAuthRateLimiter
 
     public static function authenticated(string $operation, Request $request): array
     {
-        $userId = $request->header('X-Convo-Lab-User-Id');
+        $userId = ConvoLabRequestIdentity::userId($request);
         $userId = is_string($userId) ? Str::lower(trim($userId)) : '';
         $ip = $request->ip();
         $network = $ip === null || $ip === '' ? 'missing-ip' : 'ip:'.$ip;

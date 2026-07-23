@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auth\Support;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -36,7 +37,7 @@ final class ConvoLabVerificationRateLimiter
     public function limit(Request $request): Limit
     {
         $identity = $this->useUserHeader
-            ? $request->header('X-Convo-Lab-User-Id')
+            ? ConvoLabRequestIdentity::userId($request)
             : $request->input('token');
 
         return Limit::perMinute($this->perMinute)->by(self::keyFor(

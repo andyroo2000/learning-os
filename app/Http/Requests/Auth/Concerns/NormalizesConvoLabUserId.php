@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth\Concerns;
 
+use App\Http\Support\ConvoLabRequestIdentity;
+
 trait NormalizesConvoLabUserId
 {
     protected function prepareForValidation(): void
@@ -11,10 +13,8 @@ trait NormalizesConvoLabUserId
 
     protected function prepareConvoLabUserIdForValidation(): void
     {
-        $userId = $this->header('X-Convo-Lab-User-Id');
-
         $this->merge([
-            'convolabUserId' => is_string($userId) ? strtolower(trim($userId)) : $userId,
+            'convolabUserId' => ConvoLabRequestIdentity::userId($this),
         ]);
     }
 

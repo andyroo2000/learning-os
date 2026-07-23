@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\Auth\Concerns\NormalizesConvoLabUserId;
-use App\Http\Support\ConvoLabProxyAuthorization;
+use App\Http\Support\ConvoLabRequestIdentity;
 
 final class UpdateConvoLabCurrentUserPasswordRequest extends UpdateCurrentUserPasswordRequest
 {
@@ -11,7 +11,7 @@ final class UpdateConvoLabCurrentUserPasswordRequest extends UpdateCurrentUserPa
 
     public function authorize(): bool
     {
-        return ConvoLabProxyAuthorization::allows($this, 'auth:write');
+        return ConvoLabRequestIdentity::allows($this, 'auth:write');
     }
 
     public function rules(): array

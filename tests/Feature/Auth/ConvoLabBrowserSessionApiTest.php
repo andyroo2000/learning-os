@@ -14,6 +14,7 @@ use Illuminate\Session\Store;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -169,6 +170,164 @@ class ConvoLabBrowserSessionApiTest extends TestCase
             ->assertJsonPath('seenCustomContentGuide', false);
     }
 
+    public function test_browser_session_can_use_the_account_compatibility_api_without_a_proxy_header(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('email', 'ada@example.com');
+
+        $this->statefulJson(
+            'PATCH',
+            '/api/convolab/auth/me',
+            ['displayName' => 'Ada Updated'],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('displayName', 'Ada Updated');
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $account['convolab_id'],
+            'display_name' => 'Ada Updated',
+        ]);
+    }
+
+    public function test_account_compatibility_api_ignores_a_spoofed_proxy_identity_header(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $other = $this->projectedUser(['email' => 'grace@example.com']);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->withHeader('X-Convo-Lab-User-Id', $other['convolab_id']);
+        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('email', 'ada@example.com');
+
+        $this->statefulJson(
+            'PATCH',
+            '/api/convolab/auth/me',
+            ['displayName' => 'Ada Updated'],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('displayName', 'Ada Updated');
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $account['convolab_id'],
+            'display_name' => 'Ada Updated',
+        ]);
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $other['convolab_id'],
+            'display_name' => null,
+        ]);
+    }
+
+    public function test_browser_session_can_use_account_security_and_support_endpoints(): void
+    {
+        Queue::fake();
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $user = User::query()->findOrFail($account['user_id']);
+        DB::table('convolab_oauth_identities')->insert([
+            'user_id' => $user->id,
+            'provider' => 'google',
+            'provider_id' => 'ada-google-subject',
+            'access_granted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/auth/me/quota', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('unlimited', false)
+            ->assertJsonStructure([
+                'quota' => ['used', 'limit', 'remaining', 'resetsAt'],
+                'cooldown' => ['remainingSeconds'],
+            ]);
+
+        $this->statefulJson(
+            'POST',
+            '/api/convolab/auth/verification/send',
+            [],
+            $cookies,
+        )->assertOk()
+            ->assertExactJson(['message' => 'Verification email sent']);
+        Queue::assertPushed(
+            SendConvoLabVerificationEmail::class,
+            fn (SendConvoLabVerificationEmail $job): bool => $job->userId === $user->id,
+        );
+
+        $this->statefulJson('DELETE', '/api/convolab/auth/google', [], $cookies)
+            ->assertOk()
+            ->assertExactJson([
+                'success' => true,
+                'message' => 'Google account disconnected',
+            ]);
+        $this->assertDatabaseMissing('convolab_oauth_identities', ['user_id' => $user->id]);
+
+        $this->statefulJson(
+            'PUT',
+            '/api/convolab/auth/me/password',
+            [
+                'current_password' => 'password',
+                'password' => 'new-password123',
+                'password_confirmation' => 'new-password123',
+            ],
+            $cookies,
+        )->assertNoContent();
+        $this->assertTrue(Hash::check('new-password123', $user->refresh()->password));
+    }
+
+    public function test_browser_session_can_delete_its_account(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson(
+            'DELETE',
+            '/api/convolab/auth/me',
+            ['current_password' => 'password'],
+            $cookies,
+        )->assertNoContent();
+
+        $this->assertDatabaseMissing('users', ['id' => $account['user_id']]);
+        $this->assertDatabaseMissing('admin_user_projections', [
+            'convolab_id' => $account['convolab_id'],
+        ]);
+    }
+
     public function test_browser_current_user_ignores_bearer_tokens(): void
     {
         $bearer = User::factory()->create()->createToken('mobile')->plainTextToken;
@@ -176,6 +335,19 @@ class ConvoLabBrowserSessionApiTest extends TestCase
         $this->withToken($bearer)
             ->getJson('/api/convolab/browser/auth/me')
             ->assertUnauthorized();
+    }
+
+    public function test_account_compatibility_api_rejects_bearer_tokens_with_a_stateful_origin(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $user = User::query()->findOrFail($account['user_id']);
+        $bearer = $user->createToken('mobile', ['auth:read'])->plainTextToken;
+
+        $this->withStatefulHeaders()
+            ->withToken($bearer)
+            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+            ->getJson('/api/convolab/auth/me')
+            ->assertForbidden();
     }
 
     public function test_browser_logout_invalidates_the_authenticated_session_and_rotates_anonymous_state(): void

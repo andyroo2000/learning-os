@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auth\Support;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -15,7 +16,7 @@ final class ConvoLabProfileRateLimiter
     {
         return Limit::perMinute(30)->by(self::key(
             self::NAME,
-            $request->header('X-Convo-Lab-User-Id'),
+            ConvoLabRequestIdentity::userId($request),
             $request->ip(),
         ));
     }

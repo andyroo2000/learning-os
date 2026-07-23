@@ -4,7 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use App\Domain\Auth\Data\UpdateConvoLabProfileData;
 use App\Http\Requests\Auth\Concerns\NormalizesConvoLabUserId;
-use App\Http\Support\ConvoLabProxyAuthorization;
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -15,7 +15,7 @@ final class UpdateConvoLabCurrentUserRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return ConvoLabProxyAuthorization::allows($this, 'auth:write');
+        return ConvoLabRequestIdentity::allows($this, 'auth:write');
     }
 
     public function rules(): array

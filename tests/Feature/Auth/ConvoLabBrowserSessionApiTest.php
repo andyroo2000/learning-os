@@ -83,6 +83,18 @@ class ConvoLabBrowserSessionApiTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_anonymous_browser_session_returns_json_unauthorized_without_an_accept_header(): void
+    {
+        $csrf = $this->csrfSession();
+
+        $this->withStatefulHeaders()
+            ->withCredentials()
+            ->withCookies($csrf['cookies'])
+            ->get('/api/convolab/auth/me')
+            ->assertUnauthorized()
+            ->assertExactJson(['message' => 'Unauthenticated.']);
+    }
+
     public function test_stateful_api_uses_csrf_middleware_that_rejects_a_missing_token(): void
     {
         $this->assertSame(

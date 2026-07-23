@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Content;
 use App\Domain\Content\Actions\ShowContentCourseGenerationStatusAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\ShowContentCourseRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class ShowContentCourseGenerationStatusController extends Controller
@@ -16,7 +15,7 @@ final class ShowContentCourseGenerationStatusController extends Controller
         string $courseId,
     ): JsonResponse {
         $status = $show->handle(
-            AuthenticatedUser::id($request),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $courseId,
         );

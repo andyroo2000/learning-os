@@ -7,7 +7,6 @@ use App\Domain\Content\Support\ContentAudioScriptMediaPath;
 use App\Domain\Content\Support\ConvoLabUserId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\DownloadContentAudioScriptMediaRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -20,9 +19,9 @@ final class DownloadContentAudioScriptMediaController extends Controller
     ): StreamedResponse {
         $media = ContentAudioScriptMedia::query()
             ->whereKey(strtolower(trim($mediaId)))
-            ->where('user_id', AuthenticatedUser::id($request))
+            ->where('user_id', $request->contentUserId())
             ->whereHas('segments.script.episode', fn ($query) => $query
-                ->where('user_id', AuthenticatedUser::id($request))
+                ->where('user_id', $request->contentUserId())
                 ->where('convolab_user_id', ConvoLabUserId::normalize($request->convoLabUserId()))
                 ->where('content_type', 'script'))
             ->first();

@@ -8,7 +8,6 @@ use App\Domain\Content\Exceptions\ContentAudioGenerationQueueException;
 use App\Domain\Content\Support\ContentAudioGeneration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\GenerateContentAudioRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class GenerateContentAudioController extends Controller
@@ -19,7 +18,7 @@ final class GenerateContentAudioController extends Controller
     ): JsonResponse {
         try {
             $job = $queue->handle(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $request->generationData(),
             );

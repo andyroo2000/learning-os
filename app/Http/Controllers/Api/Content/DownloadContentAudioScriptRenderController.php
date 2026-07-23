@@ -7,7 +7,6 @@ use App\Domain\Content\Support\ContentAudioScriptRenderAudio;
 use App\Domain\Content\Support\ConvoLabUserId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\DownloadContentAudioScriptRenderRequest;
-use App\Http\Support\AuthenticatedUser;
 use App\Support\Audio\AudioStreamResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -26,7 +25,7 @@ final class DownloadContentAudioScriptRenderController extends Controller
             ->whereKey(strtolower(trim($renderId)))
             ->whereHas('script.episode', fn ($query) => $query
                 ->whereKey($episodeId)
-                ->where('user_id', AuthenticatedUser::id($request))
+                ->where('user_id', $request->contentUserId())
                 ->where('convolab_user_id', ConvoLabUserId::normalize($request->convoLabUserId()))
                 ->where('content_type', 'script'))
             ->first();

@@ -7,7 +7,6 @@ use App\Domain\Content\Data\CreateContentEpisodeData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\StoreContentEpisodeRequest;
 use App\Http\Resources\Content\ContentEpisodeResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class StoreContentEpisodeController extends Controller
@@ -18,7 +17,7 @@ final class StoreContentEpisodeController extends Controller
     ): JsonResponse {
         $data = $request->validated();
         $episode = $action->handle(CreateContentEpisodeData::fromInput(
-            userId: AuthenticatedUser::id($request),
+            userId: $request->contentUserId(),
             convoLabUserId: $request->convoLabUserId(),
             title: $data['title'],
             sourceText: $data['sourceText'],

@@ -6,7 +6,6 @@ use App\Domain\Content\Actions\ResetContentCourseGenerationAction;
 use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\MutateContentCourseGenerationRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class ResetContentCourseGenerationController extends Controller
@@ -18,7 +17,7 @@ final class ResetContentCourseGenerationController extends Controller
     ): JsonResponse {
         try {
             $course = $reset->handle(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $courseId,
             );

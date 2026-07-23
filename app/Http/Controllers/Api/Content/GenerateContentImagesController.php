@@ -7,7 +7,6 @@ use App\Domain\Content\Exceptions\ContentImageGenerationQueueException;
 use App\Domain\Content\Support\ContentImageGeneration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\GenerateContentImagesRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class GenerateContentImagesController extends Controller
@@ -18,7 +17,7 @@ final class GenerateContentImagesController extends Controller
     ): JsonResponse {
         try {
             $job = $queue->handle(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $request->generationData(),
             );

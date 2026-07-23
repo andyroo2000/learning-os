@@ -6,7 +6,6 @@ use App\Domain\Content\Actions\ShowContentAudioScriptAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\ShowContentAudioScriptRequest;
 use App\Http\Resources\Content\ContentAudioScriptResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class ShowContentAudioScriptController extends Controller
@@ -17,7 +16,7 @@ final class ShowContentAudioScriptController extends Controller
         ShowContentAudioScriptAction $action,
     ): JsonResponse {
         $script = $action->handle(
-            AuthenticatedUser::id($request),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $episodeId,
         );

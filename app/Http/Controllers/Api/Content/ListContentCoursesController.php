@@ -14,7 +14,7 @@ class ListContentCoursesController extends Controller
     public function __invoke(ListContentCoursesRequest $request, ListContentCoursesAction $action): JsonResponse
     {
         $courses = $action->handle(
-            $request->user()->getKey(),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $request->limit(),
             $request->offset(),

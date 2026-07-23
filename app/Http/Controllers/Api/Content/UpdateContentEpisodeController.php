@@ -6,7 +6,6 @@ use App\Domain\Content\Actions\UpdateContentEpisodeAction;
 use App\Domain\Content\Data\UpdateContentEpisodeData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\UpdateContentEpisodeRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class UpdateContentEpisodeController extends Controller
@@ -17,7 +16,7 @@ final class UpdateContentEpisodeController extends Controller
         UpdateContentEpisodeAction $action,
     ): JsonResponse {
         $updated = $action->handle(
-            AuthenticatedUser::id($request),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $episodeId,
             UpdateContentEpisodeData::fromInput($request->validated()),

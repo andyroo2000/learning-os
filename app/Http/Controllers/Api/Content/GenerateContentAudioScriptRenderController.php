@@ -9,7 +9,6 @@ use App\Domain\Content\Exceptions\ContentAudioScriptQueueException;
 use App\Domain\Content\Support\ContentAudioScriptJob;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\GenerateContentAudioScriptRenderRequest;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class GenerateContentAudioScriptRenderController extends Controller
@@ -21,7 +20,7 @@ final class GenerateContentAudioScriptRenderController extends Controller
     ): JsonResponse {
         try {
             $job = $queue->handle(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $episodeId,
                 GenerateContentAudioScriptData::render(),

@@ -8,7 +8,6 @@ use App\Domain\Content\Exceptions\ContentAudioScriptConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\UpdateContentAudioScriptSegmentsRequest;
 use App\Http\Resources\Content\ContentAudioScriptResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class UpdateContentAudioScriptSegmentsController extends Controller
@@ -22,7 +21,7 @@ final class UpdateContentAudioScriptSegmentsController extends Controller
 
         try {
             $script = $action->handle(UpdateContentAudioScriptData::fromInput(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $episodeId,
                 $input['title'] ?? null,

@@ -9,7 +9,6 @@ use App\Domain\Content\Enums\ContentGenerationType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\StoreContentAudioScriptRequest;
 use App\Http\Resources\Content\ContentEpisodeResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class StoreContentAudioScriptController extends Controller
@@ -25,7 +24,7 @@ final class StoreContentAudioScriptController extends Controller
             ContentGenerationType::Script,
             null,
             fn () => $action->handle(CreateContentAudioScriptData::fromInput(
-                AuthenticatedUser::id($request),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $data['sourceText'],
                 $data['voiceId'] ?? null,

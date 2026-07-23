@@ -7,6 +7,11 @@ use Illuminate\Validation\Rule;
 
 class StoreContentEpisodeRequest extends ConvoLabContentWriteRequest
 {
+    protected function blocksDemoMutation(): bool
+    {
+        return true;
+    }
+
     /** @return array<string, list<mixed>> */
     public function rules(): array
     {

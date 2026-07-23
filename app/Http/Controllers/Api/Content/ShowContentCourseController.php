@@ -17,7 +17,7 @@ class ShowContentCourseController extends Controller
     ): JsonResponse {
         return response()->json(
             (new ContentCourseResource($action->handle(
-                $request->user()->getKey(),
+                $request->contentUserId(),
                 $request->convoLabUserId(),
                 $courseId,
             )))->resolve($request),

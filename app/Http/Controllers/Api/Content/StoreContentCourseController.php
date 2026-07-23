@@ -7,7 +7,6 @@ use App\Domain\Content\Data\CreateContentCourseData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Content\StoreContentCourseRequest;
 use App\Http\Resources\Content\ContentCourseResource;
-use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
 final class StoreContentCourseController extends Controller
@@ -17,7 +16,7 @@ final class StoreContentCourseController extends Controller
         CreateContentCourseAction $action,
     ): JsonResponse {
         $result = $action->handle(CreateContentCourseData::fromInput(
-            AuthenticatedUser::id($request),
+            $request->contentUserId(),
             $request->convoLabUserId(),
             $request->validated(),
         ));

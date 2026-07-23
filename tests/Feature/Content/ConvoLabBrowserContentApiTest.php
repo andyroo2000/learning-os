@@ -235,6 +235,36 @@ class ConvoLabBrowserContentApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_view_as_demo_retains_legacy_support_mutation_access(): void
+    {
+        [$admin] = $this->projectedUser('admin');
+        [$demo, $demoConvoLabId] = $this->projectedUser('demo');
+        $existing = $this->episodeFor($demo, $demoConvoLabId, 'Demo episode');
+
+        $response = $this->asBrowser($admin)
+            ->postJson('/api/convolab/episodes?viewAs='.$demoConvoLabId, [
+                'title' => 'Admin support create',
+                'sourceText' => 'Source text',
+                'targetLanguage' => 'ja',
+                'nativeLanguage' => 'en',
+            ])
+            ->assertOk()
+            ->assertJsonPath('userId', $demoConvoLabId);
+
+        $this->asBrowser($admin)
+            ->deleteJson('/api/convolab/episodes/'.$existing->id.'?viewAs='.$demoConvoLabId)
+            ->assertOk()
+            ->assertJsonPath('message', 'Episode deleted successfully');
+
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $response->json('id'),
+            'user_id' => $demo->id,
+            'convolab_user_id' => $demoConvoLabId,
+        ]);
+        $this->assertDatabaseMissing('content_episodes', ['id' => $existing->id]);
+        $this->assertDatabaseCount('admin_audit_logs', 2);
+    }
+
     public function test_browser_session_without_a_projected_identity_fails_before_writing(): void
     {
         $user = User::factory()->create();

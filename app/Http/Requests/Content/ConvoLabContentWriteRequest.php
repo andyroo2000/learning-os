@@ -37,6 +37,8 @@ abstract class ConvoLabContentWriteRequest extends ConvoLabContentUserRequest
 
     private function isBlockedDemoMutation(): bool
     {
+        // Legacy Express applies blockDemoUser before resolving admin viewAs. Keep the
+        // authenticated actor authoritative so admins can support a demo account.
         return $this->blocksDemoMutation() && $this->actorIdentity()->role === 'demo';
     }
 }

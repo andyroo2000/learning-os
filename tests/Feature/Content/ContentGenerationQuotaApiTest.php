@@ -172,7 +172,7 @@ class ContentGenerationQuotaApiTest extends TestCase
         ]);
     }
 
-    public function test_runner_releases_failed_and_noop_reservations_but_keeps_the_cooldown(): void
+    public function test_runner_keeps_failed_attempt_cooldown_but_clears_noop_reservation_and_cooldown(): void
     {
         $user = User::factory()->create();
         $this->convoLabProjectionFor($user, $this->convoLabUserId);

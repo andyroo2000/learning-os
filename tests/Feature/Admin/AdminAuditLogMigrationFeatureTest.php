@@ -12,7 +12,7 @@ final class AdminAuditLogMigrationFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_migration_adopts_the_existing_convo_lab_table(): void
+    public function test_down_intentionally_keeps_a_freshly_created_table_for_adoption_safety(): void
     {
         $migration = require database_path(
             'migrations/2026_07_23_120000_adopt_admin_audit_logs_table.php',

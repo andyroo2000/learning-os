@@ -15,9 +15,18 @@ abstract class ConvoLabContentUserRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $hasViewAsQuery = $this->query->has('viewAs');
+        if ($hasViewAsQuery) {
+            // Legacy impersonation reads viewAs from req.query. Make that same source
+            // authoritative before validation when a body contains a conflicting key.
+            $this->merge(['viewAs' => $this->query->all()['viewAs']]);
+        } else {
+            $this->offsetUnset('viewAs');
+        }
+
         $actor = app(ConvoLabContentIdentityResolver::class)->actor(
             $this,
-            $this->requiresActorRole() || $this->query->has('viewAs'),
+            $this->requiresActorRole() || $hasViewAsQuery,
         );
         $this->attributes->set(self::ACTOR_ATTRIBUTE, $actor);
 

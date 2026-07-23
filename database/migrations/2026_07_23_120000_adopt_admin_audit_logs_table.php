@@ -52,5 +52,6 @@ return new class extends Migration
     {
         // A restored Convo Lab database may own this table. Keep it on rollback because a
         // later process cannot know whether up() adopted existing data or created the table.
+        // This intentionally leaves fresh-install tables too; migrate:fresh is the safe reset.
     }
 };

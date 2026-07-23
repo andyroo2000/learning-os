@@ -151,6 +151,47 @@ class ConvoLabBrowserContentApiTest extends TestCase
         ], json_decode($audit->metadata, true, flags: JSON_THROW_ON_ERROR));
     }
 
+    public function test_view_as_uses_only_the_legacy_query_parameter_source(): void
+    {
+        [$admin, $adminConvoLabId] = $this->projectedUser('admin');
+        [$queryTarget, $queryTargetConvoLabId] = $this->projectedUser();
+        [, $bodyTargetConvoLabId] = $this->projectedUser();
+
+        $bodyOnly = $this->asBrowser($admin)
+            ->postJson('/api/convolab/episodes', [
+                'viewAs' => $bodyTargetConvoLabId,
+                'title' => 'Actor-owned episode',
+                'sourceText' => 'Source text',
+                'targetLanguage' => 'ja',
+                'nativeLanguage' => 'en',
+            ])
+            ->assertOk()
+            ->assertJsonPath('userId', $adminConvoLabId);
+
+        $queryWins = $this->asBrowser($admin)
+            ->postJson('/api/convolab/episodes?viewAs='.$queryTargetConvoLabId, [
+                'viewAs' => $bodyTargetConvoLabId,
+                'title' => 'Query-target episode',
+                'sourceText' => 'Source text',
+                'targetLanguage' => 'ja',
+                'nativeLanguage' => 'en',
+            ])
+            ->assertOk()
+            ->assertJsonPath('userId', $queryTargetConvoLabId);
+
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $bodyOnly->json('id'),
+            'user_id' => $admin->id,
+            'convolab_user_id' => $adminConvoLabId,
+        ]);
+        $this->assertDatabaseHas('content_episodes', [
+            'id' => $queryWins->json('id'),
+            'user_id' => $queryTarget->id,
+            'convolab_user_id' => $queryTargetConvoLabId,
+        ]);
+        $this->assertDatabaseCount('admin_audit_logs', 1);
+    }
+
     public function test_view_as_rejects_non_admin_actor_without_an_audit_row(): void
     {
         [$user] = $this->projectedUser();

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
+use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
@@ -74,6 +75,7 @@ use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
+use App\Http\Controllers\Api\Analytics\StoreToolAnalyticsEventController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
 use App\Http\Controllers\Api\Auth\ClaimConvoLabGoogleInviteController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
@@ -246,6 +248,8 @@ Route::post('/auth/tokens', StoreMobileTokenController::class)
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
+    Route::post('/convolab/tools/analytics', StoreToolAnalyticsEventController::class)
+        ->middleware('throttle:'.ToolAnalyticsRateLimiter::NAME);
     Route::post('/convolab/auth/login', AuthenticateConvoLabUserController::class)
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
     Route::post('/convolab/auth/signup', RegisterConvoLabUserController::class)

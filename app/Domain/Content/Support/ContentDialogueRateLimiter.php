@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Support;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -12,7 +13,9 @@ final class ContentDialogueRateLimiter
 
     public static function generation(Request $request): Limit
     {
-        $convoLabUserId = ConvoLabUserId::normalizeOrNull($request->header('X-Convo-Lab-User-Id'));
+        $convoLabUserId = ConvoLabUserId::normalizeOrNull(
+            ConvoLabRequestIdentity::userId($request),
+        );
 
         return Limit::perMinute(10)->by(RateLimitKey::scopedUserOrNetwork(
             self::GENERATION_NAME,

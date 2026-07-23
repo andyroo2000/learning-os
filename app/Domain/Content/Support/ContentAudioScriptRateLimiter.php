@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Support;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use App\Support\RateLimiting\RateLimitKey;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -31,7 +32,9 @@ final class ContentAudioScriptRateLimiter
 
     private static function perMinute(Request $request, string $name, int $attempts): Limit
     {
-        $convoLabUserId = ConvoLabUserId::normalizeOrNull($request->header('X-Convo-Lab-User-Id'));
+        $convoLabUserId = ConvoLabUserId::normalizeOrNull(
+            ConvoLabRequestIdentity::userId($request),
+        );
 
         return Limit::perMinute($attempts)->by(RateLimitKey::scopedUserOrNetwork(
             $name,

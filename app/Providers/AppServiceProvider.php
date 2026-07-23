@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Domain\Admin\Contracts\AdminAvatarImageProcessor;
 use App\Domain\Admin\Services\InterventionAdminAvatarImageProcessor;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
+use App\Domain\Analytics\Contracts\ToolAnalyticsLogger;
+use App\Domain\Analytics\Services\JsonLineToolAnalyticsLogger;
+use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Domain\Auth\Support\AuthAccountRateLimiter;
 use App\Domain\Auth\Support\AuthEmailRateLimiter;
 use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
@@ -85,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
             AdminAvatarImageProcessor::class,
             InterventionAdminAvatarImageProcessor::class,
         );
+        $this->app->bind(ToolAnalyticsLogger::class, JsonLineToolAnalyticsLogger::class);
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
     }
@@ -270,6 +274,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             FeatureFlagUpdateRateLimiter::NAME,
             fn (Request $request): Limit => FeatureFlagUpdateRateLimiter::limit($request),
+        );
+        RateLimiter::for(
+            ToolAnalyticsRateLimiter::NAME,
+            fn (Request $request): Limit => ToolAnalyticsRateLimiter::limit($request),
         );
 
         // Very large offline deck-create backlogs can still throttle before idempotent de-dupe.

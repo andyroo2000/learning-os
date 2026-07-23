@@ -36,6 +36,22 @@ final class ResolveConvoLabGoogleIdentityAction
         $email = Str::lower(trim($email));
         $name = trim($name);
         $avatarUrl = $avatarUrl === null ? null : trim($avatarUrl);
+        if (
+            $providerId === ''
+            || mb_strlen($providerId) > 255
+            || $email === ''
+            || mb_strlen($email) > 255
+            || filter_var($email, FILTER_VALIDATE_EMAIL) === false
+            || $name === ''
+            || mb_strlen($name) > 255
+            || ($avatarUrl !== null && (
+                mb_strlen($avatarUrl) > 2048
+                || filter_var($avatarUrl, FILTER_VALIDATE_URL) === false
+                || ! in_array(parse_url($avatarUrl, PHP_URL_SCHEME), ['http', 'https'], true)
+            ))
+        ) {
+            throw ConvoLabOAuthException::invalidProfile();
+        }
 
         for ($attempt = 1; $attempt <= self::MAX_RESOLUTION_ATTEMPTS; $attempt++) {
             try {

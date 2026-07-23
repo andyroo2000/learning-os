@@ -4,6 +4,8 @@ namespace Tests\Unit\Auth;
 
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use Illuminate\Http\Request;
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
 use PHPUnit\Framework\TestCase;
 
 class ConvoLabOAuthRateLimiterTest extends TestCase
@@ -95,6 +97,48 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
         $this->assertSame('convolab-oauth-claim|anon:ip:203.0.113.9', $anonymousIdentity->key);
         $this->assertNotSame($firstIdentity->key, $secondIdentity->key);
         $this->assertStringNotContainsString('user-one', $firstIdentity->key);
+    }
+
+    public function test_browser_limits_hash_session_identity_and_keep_start_and_callback_separate(): void
+    {
+        $request = $this->request([], '192.0.2.40');
+        $session = new Store(
+            'oauth-rate-limit-test',
+            new ArraySessionHandler(120),
+            'browser-session-id',
+        );
+        $session->start();
+        $request->setLaravelSession($session);
+
+        [$start, $startNetwork] = ConvoLabOAuthRateLimiter::browser(
+            ConvoLabOAuthRateLimiter::BROWSER_START,
+            $request,
+        );
+        [$callback, $callbackNetwork] = ConvoLabOAuthRateLimiter::browser(
+            ConvoLabOAuthRateLimiter::BROWSER_CALLBACK,
+            $request,
+        );
+        [$claim, $claimNetwork] = ConvoLabOAuthRateLimiter::browserClaim($request);
+
+        $this->assertNotSame($start->key, $callback->key);
+        $this->assertNotSame($start->key, $claim->key);
+        $this->assertNotSame($callback->key, $claim->key);
+        $this->assertStringContainsString(
+            hash('sha256', $request->session()->getId()),
+            $start->key,
+        );
+        $this->assertStringContainsString(
+            hash('sha256', $request->session()->getId()),
+            $claim->key,
+        );
+        $this->assertStringNotContainsString('192.0.2.40', $claim->key);
+        $this->assertStringContainsString('192.0.2.40', $claimNetwork->key);
+        $this->assertSame(20, $start->maxAttempts);
+        $this->assertSame(20, $callback->maxAttempts);
+        $this->assertSame(5, $claim->maxAttempts);
+        $this->assertSame(60, $startNetwork->maxAttempts);
+        $this->assertSame(60, $callbackNetwork->maxAttempts);
+        $this->assertSame(60, $claimNetwork->maxAttempts);
     }
 
     /** @param array<string, mixed> $payload */

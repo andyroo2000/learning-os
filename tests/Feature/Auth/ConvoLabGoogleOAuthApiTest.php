@@ -177,6 +177,34 @@ class ConvoLabGoogleOAuthApiTest extends TestCase
         $this->assertDatabaseCount('admin_user_projections', 0);
     }
 
+    public function test_direct_identity_resolution_rejects_invalid_provider_profile_boundaries(): void
+    {
+        $action = app(ResolveConvoLabGoogleIdentityAction::class);
+
+        foreach ([
+            ['', 'ada@example.com', 'Ada', null],
+            [str_repeat('a', 256), 'ada@example.com', 'Ada', null],
+            ['subject', 'not-an-email', 'Ada', null],
+            ['subject', str_repeat('a', 256).'@example.com', 'Ada', null],
+            ['subject', 'ada@example.com', '', null],
+            ['subject', 'ada@example.com', str_repeat('a', 256), null],
+            ['subject', 'ada@example.com', 'Ada', 'javascript:alert(1)'],
+            ['subject', 'ada@example.com', 'Ada', 'ftp://example.com/ada.png'],
+            ['subject', 'ada@example.com', 'Ada', 'https://example.com/'.str_repeat('a', 2048)],
+        ] as [$providerId, $email, $name, $avatarUrl]) {
+            try {
+                $action->handle($providerId, $email, $name, $avatarUrl, true);
+                $this->fail('Expected an invalid Google profile to be rejected.');
+            } catch (ConvoLabOAuthException $exception) {
+                $this->assertSame('invalid_profile', $exception->reason());
+                $this->assertSame(422, $exception->status());
+            }
+        }
+
+        $this->assertDatabaseCount('convolab_oauth_identities', 0);
+        $this->assertDatabaseCount('admin_user_projections', 0);
+    }
+
     public function test_existing_verified_projected_email_is_linked_with_immediate_access(): void
     {
         $account = $this->projectedUser([

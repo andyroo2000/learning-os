@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use App\Http\Controllers\Api\Analytics\StoreToolAnalyticsEventController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabBrowserUserController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
+use App\Http\Controllers\Api\Auth\ClaimConvoLabBrowserGoogleInviteController;
 use App\Http\Controllers\Api\Auth\ClaimConvoLabGoogleInviteController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
@@ -91,6 +92,7 @@ use App\Http\Controllers\Api\Auth\RegisterConvoLabUserController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
 use App\Http\Controllers\Api\Auth\ResolveConvoLabGoogleIdentityController;
+use App\Http\Controllers\Api\Auth\SendConvoLabBrowserVerificationController;
 use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabBrowserCurrentUserController;
@@ -102,6 +104,7 @@ use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
+use App\Http\Controllers\Api\Auth\VerifyConvoLabBrowserEmailController;
 use App\Http\Controllers\Api\Auth\VerifyConvoLabEmailController;
 use App\Http\Controllers\Api\Content\AnnotateContentAudioScriptController;
 use App\Http\Controllers\Api\Content\DeleteContentCourseController;
@@ -256,10 +259,18 @@ Route::prefix('/convolab/browser/auth')->group(function (): void {
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
     Route::post('/signup', RegisterConvoLabBrowserUserController::class)
         ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_SIGNUPS);
+    Route::post('/verification', VerifyConvoLabBrowserEmailController::class)
+        ->middleware('throttle:'.ConvoLabVerificationRateLimiter::VERIFY);
+    Route::post('/google/invite', ClaimConvoLabBrowserGoogleInviteController::class)
+        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::BROWSER_CLAIM);
 
     Route::middleware('auth:web')->group(function (): void {
         Route::get('/me', ShowConvoLabBrowserCurrentUserController::class);
         Route::post('/logout', DestroyConvoLabBrowserSessionController::class);
+        Route::post(
+            '/verification/send',
+            SendConvoLabBrowserVerificationController::class,
+        )->middleware('throttle:'.ConvoLabVerificationRateLimiter::SEND);
     });
 });
 

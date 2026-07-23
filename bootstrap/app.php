@@ -2,6 +2,8 @@
 
 use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
+use App\Domain\Content\Exceptions\ContentGenerationCooldownException;
+use App\Domain\Content\Exceptions\ContentGenerationQuotaExceededException;
 use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
@@ -24,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport(AdminMutationException::class);
         $exceptions->dontReport(InvalidCurrentPasswordException::class);
+        $exceptions->dontReport([
+            ContentGenerationCooldownException::class,
+            ContentGenerationQuotaExceededException::class,
+        ]);
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
         $exceptions->dontReport([WaniKaniApiException::class, WaniKaniSyncInProgressException::class]);
 
@@ -54,6 +60,34 @@ return Application::configure(basePath: dirname(__DIR__))
                     'current_password' => [$exception->getMessage()],
                 ],
             ], 422);
+        });
+
+        $exceptions->render(function (ContentGenerationCooldownException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'cooldown' => $exception->cooldown(),
+            ], 429, ['Retry-After' => (string) $exception->remainingSeconds()]);
+        });
+
+        $exceptions->render(function (ContentGenerationQuotaExceededException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            $quota = $exception->quota();
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'quota' => $quota,
+            ], 429, [
+                'X-RateLimit-Limit' => (string) $quota['limit'],
+                'X-RateLimit-Remaining' => (string) $quota['remaining'],
+                'X-RateLimit-Reset' => $quota['resetsAt'],
+            ]);
         });
 
         $exceptions->render(function (WaniKaniSyncInProgressException $exception, Request $request): ?JsonResponse {

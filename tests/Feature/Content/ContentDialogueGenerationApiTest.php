@@ -91,11 +91,17 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->assertSame('generating', $episode->status);
         $this->assertSame(1, $episode->dialogue_generation_attempt);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->source_system);
+        $this->assertDatabaseHas('generation_logs', [
+            'userId' => $this->convoLabUserId,
+            'contentType' => 'dialogue',
+            'contentId' => $episode->id,
+        ]);
         Queue::assertPushed(
             ProcessContentDialogueGeneration::class,
             fn (ProcessContentDialogueGeneration $queued): bool => $queued->jobId === $jobId,
         );
 
+        $this->travel(31)->seconds();
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Dialogue is already being generated']);
@@ -161,6 +167,10 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->assertSame(ContentDialogueGeneration::QUEUE_FAILED_MESSAGE, $job->error_message);
         $this->assertNotNull($job->finished_at);
         $this->assertSame('error', $episode->fresh()->status);
+        $this->assertDatabaseCount('generation_logs', 0);
+        $this->assertDatabaseHas('content_generation_cooldowns', [
+            'convolab_user_id' => $this->convoLabUserId,
+        ]);
     }
 
     public function test_polling_is_owner_scoped_and_returns_durable_state_or_completed_result(): void
@@ -274,6 +284,7 @@ class ContentDialogueGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
+        $this->convoLabProjectionFor($user, $this->convoLabUserId);
         config()->set('services.convolab.proxy_user_email', $user->email);
         $this->withToken($user->createToken('convolab-proxy', ['content:write'])->plainTextToken);
         $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);

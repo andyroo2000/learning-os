@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Content;
 
 use App\Domain\Content\Actions\QueueContentDialogueGenerationAction;
+use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
+use App\Domain\Content\Enums\ContentGenerationType;
 use App\Domain\Content\Exceptions\ContentDialogueGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentDialogueGenerationQueueException;
 use App\Domain\Content\Support\ContentDialogueGeneration;
@@ -16,12 +18,21 @@ final class GenerateContentDialogueController extends Controller
     public function __invoke(
         GenerateContentDialogueRequest $request,
         QueueContentDialogueGenerationAction $queue,
+        RunQuotaLimitedContentGenerationAction $generation,
     ): JsonResponse {
+        $data = $request->generationData();
+
         try {
-            $job = $queue->handle(
-                AuthenticatedUser::id($request),
+            $job = $generation->handle(
                 $request->convoLabUserId(),
-                $request->generationData(),
+                ContentGenerationType::Dialogue,
+                $data->episodeId,
+                fn () => $queue->handle(
+                    AuthenticatedUser::id($request),
+                    $request->convoLabUserId(),
+                    $data,
+                ),
+                fn ($result): string => $result->episode_id,
             );
         } catch (ContentDialogueGenerationConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 400);

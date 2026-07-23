@@ -169,6 +169,58 @@ class ConvoLabBrowserSessionApiTest extends TestCase
             ->assertJsonPath('seenCustomContentGuide', false);
     }
 
+    public function test_browser_session_can_use_the_account_compatibility_api_without_a_proxy_header(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('email', 'ada@example.com');
+
+        $this->statefulJson(
+            'PATCH',
+            '/api/convolab/auth/me',
+            ['displayName' => 'Ada Updated'],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('displayName', 'Ada Updated');
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $account['convolab_id'],
+            'display_name' => 'Ada Updated',
+        ]);
+    }
+
+    public function test_account_compatibility_api_ignores_a_spoofed_proxy_identity_header(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $other = $this->projectedUser(['email' => 'grace@example.com']);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->withHeader('X-Convo-Lab-User-Id', $other['convolab_id']);
+        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('email', 'ada@example.com');
+    }
+
     public function test_browser_current_user_ignores_bearer_tokens(): void
     {
         $bearer = User::factory()->create()->createToken('mobile')->plainTextToken;

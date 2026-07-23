@@ -2,12 +2,12 @@
 
 namespace App\Http\Requests\Content;
 
-use App\Http\Support\ConvoLabProxyAuthorization;
+use App\Http\Support\ConvoLabRequestIdentity;
 
 abstract class ConvoLabContentWriteRequest extends ConvoLabContentUserRequest
 {
     public function authorize(): bool
     {
-        return ConvoLabProxyAuthorization::allows($this, 'content:write');
+        return ConvoLabRequestIdentity::allows($this, 'content:write');
     }
 }

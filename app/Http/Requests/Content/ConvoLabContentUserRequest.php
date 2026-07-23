@@ -2,18 +2,15 @@
 
 namespace App\Http\Requests\Content;
 
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 
 abstract class ConvoLabContentUserRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
-        $convoLabUserId = $this->header('X-Convo-Lab-User-Id');
-
         $this->merge([
-            'convolabUserId' => is_string($convoLabUserId)
-                ? strtolower(trim($convoLabUserId))
-                : $convoLabUserId,
+            'convolabUserId' => ConvoLabRequestIdentity::userId($this),
         ]);
     }
 

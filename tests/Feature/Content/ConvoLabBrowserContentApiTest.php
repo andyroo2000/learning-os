@@ -59,8 +59,10 @@ class ConvoLabBrowserContentApiTest extends TestCase
     public function test_browser_session_creates_content_with_its_projected_identity(): void
     {
         [$user, $convoLabId] = $this->projectedUser();
+        [, $otherConvoLabId] = $this->projectedUser();
 
         $response = $this->asBrowser($user)
+            ->withHeader('X-Convo-Lab-User-Id', $otherConvoLabId)
             ->postJson('/api/convolab/episodes', [
                 'title' => 'Browser Episode',
                 'sourceText' => 'Source text',

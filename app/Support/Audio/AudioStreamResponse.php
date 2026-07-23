@@ -11,6 +11,12 @@ final class AudioStreamResponse
 {
     private const CHUNK_BYTES = 64 * 1024;
 
+    private const SECURITY_HEADERS = [
+        'Content-Security-Policy' => "sandbox; default-src 'none'",
+        'Cross-Origin-Resource-Policy' => 'same-origin',
+        'X-Content-Type-Options' => 'nosniff',
+    ];
+
     /** @param array<string, string> $headers */
     public function make(
         Request $request,
@@ -28,7 +34,7 @@ final class AudioStreamResponse
                 'Accept-Ranges' => 'bytes',
                 'Content-Range' => "bytes */{$size}",
                 'Content-Type' => 'audio/mpeg',
-                'X-Content-Type-Options' => 'nosniff',
+                ...self::SECURITY_HEADERS,
             ]);
         }
 
@@ -42,7 +48,7 @@ final class AudioStreamResponse
             'Content-Disposition' => 'inline; filename="'.$this->safeFilename($filename).'"',
             'Content-Length' => (string) $length,
             'Content-Type' => 'audio/mpeg',
-            'X-Content-Type-Options' => 'nosniff',
+            ...self::SECURITY_HEADERS,
             ...($range === null ? [] : ['Content-Range' => "bytes {$start}-{$end}/{$size}"]),
         ];
 

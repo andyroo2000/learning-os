@@ -221,18 +221,25 @@ class ContentAudioScriptGenerationApiTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'audio/mpeg')
             ->assertHeader('Accept-Ranges', 'bytes')
+            ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'")
+            ->assertHeader('Cross-Origin-Resource-Policy', 'same-origin')
             ->assertHeader('X-Content-Type-Options', 'nosniff');
 
         $range = $this->withHeader('Range', 'bytes=2-5')
             ->get("/api/convolab/scripts/{$episode->id}/audio/{$render->id}")
             ->assertStatus(206)
             ->assertHeader('Content-Range', 'bytes 2-5/10')
-            ->assertHeader('Content-Length', '4');
+            ->assertHeader('Content-Length', '4')
+            ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'")
+            ->assertHeader('Cross-Origin-Resource-Policy', 'same-origin');
         $this->assertSame('2345', $range->streamedContent());
         $this->withHeader('Range', 'bytes=20-30')
             ->get("/api/convolab/scripts/{$episode->id}/audio/{$render->id}")
             ->assertStatus(416)
-            ->assertHeader('Content-Range', 'bytes */10');
+            ->assertHeader('Content-Range', 'bytes */10')
+            ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'")
+            ->assertHeader('Cross-Origin-Resource-Policy', 'same-origin')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->withoutHeader('Range');
 
         $render->audio_storage_path = 'content-audio-scripts/../secret.mp3';

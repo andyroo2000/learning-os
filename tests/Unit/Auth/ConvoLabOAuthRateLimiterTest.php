@@ -131,6 +131,8 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
             hash('sha256', $request->session()->getId()),
             $claim->key,
         );
+        $this->assertStringNotContainsString('192.0.2.40', $claim->key);
+        $this->assertStringContainsString('192.0.2.40', $claimNetwork->key);
         $this->assertSame(20, $start->maxAttempts);
         $this->assertSame(20, $callback->maxAttempts);
         $this->assertSame(5, $claim->maxAttempts);

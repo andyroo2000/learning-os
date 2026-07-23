@@ -9,6 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Socialite's full-page redirect and callback need the web session for OAuth state.
 Route::get(
     '/api/convolab/browser/auth/google',
     BeginConvoLabGoogleOAuthController::class,

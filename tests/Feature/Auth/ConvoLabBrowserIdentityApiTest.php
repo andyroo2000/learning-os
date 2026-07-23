@@ -239,6 +239,7 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
 
         for ($attempt = 2; $attempt <= 5; $attempt++) {
             $this->withHeader('X-Convo-Lab-User-Id', 'spoofed-user-'.$attempt)
+                ->withServerVariables(['REMOTE_ADDR' => '192.0.2.'.$attempt])
                 ->postJson('/api/convolab/browser/auth/google/invite', [
                     'inviteCode' => 'NOPE',
                 ])
@@ -246,6 +247,7 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
         }
 
         $this->withHeader('X-Convo-Lab-User-Id', 'spoofed-user-6')
+            ->withServerVariables(['REMOTE_ADDR' => '192.0.2.6'])
             ->postJson('/api/convolab/browser/auth/google/invite', [
                 'inviteCode' => 'NOPE',
             ])

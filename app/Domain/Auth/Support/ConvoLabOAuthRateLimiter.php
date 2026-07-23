@@ -69,8 +69,13 @@ final class ConvoLabOAuthRateLimiter
         $identity = $sessionId === ''
             ? 'missing-session'
             : 'session:'.hash('sha256', $sessionId);
+        $ip = $request->ip();
+        $network = $ip === null || $ip === '' ? 'missing-ip' : 'ip:'.$ip;
 
-        return self::limits($operation, $identity, $request->ip(), $identityPerMinute);
+        return [
+            Limit::perMinute($identityPerMinute)->by($operation.'|'.$identity),
+            Limit::perMinute(60)->by($operation.'-network|'.$network),
+        ];
     }
 
     private static function limits(

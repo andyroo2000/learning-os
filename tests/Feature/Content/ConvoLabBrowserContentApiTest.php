@@ -99,6 +99,27 @@ class ConvoLabBrowserContentApiTest extends TestCase
         $this->assertDatabaseCount('content_episodes', 0);
     }
 
+    public function test_content_api_rejects_bearer_tokens_with_a_stateful_origin(): void
+    {
+        [$user, $convoLabId] = $this->projectedUser();
+        $bearer = $user->createToken('mobile', ['content:write'])->plainTextToken;
+
+        $this->withHeader('Origin', self::FRONTEND_ORIGIN)
+            ->withHeader('Referer', self::FRONTEND_ORIGIN.'/')
+            ->withHeader('X-Convo-Lab-User-Id', $convoLabId)
+            ->withToken($bearer)
+            ->postJson('/api/convolab/episodes', [
+                'title' => 'Bearer Episode',
+                'sourceText' => 'Source text',
+                'targetLanguage' => 'ja',
+                'nativeLanguage' => 'en',
+                'contentType' => 'dialogue',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('content_episodes', 0);
+    }
+
     private function asBrowser(User $user): static
     {
         return $this->actingAs($user, 'web')

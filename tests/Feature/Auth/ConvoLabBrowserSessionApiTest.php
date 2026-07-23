@@ -337,6 +337,19 @@ class ConvoLabBrowserSessionApiTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_account_compatibility_api_rejects_bearer_tokens_with_a_stateful_origin(): void
+    {
+        $account = $this->projectedUser(['email' => 'ada@example.com']);
+        $user = User::query()->findOrFail($account['user_id']);
+        $bearer = $user->createToken('mobile', ['auth:read'])->plainTextToken;
+
+        $this->withStatefulHeaders()
+            ->withToken($bearer)
+            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+            ->getJson('/api/convolab/auth/me')
+            ->assertForbidden();
+    }
+
     public function test_browser_logout_invalidates_the_authenticated_session_and_rotates_anonymous_state(): void
     {
         $this->projectedUser(['email' => 'ada@example.com']);

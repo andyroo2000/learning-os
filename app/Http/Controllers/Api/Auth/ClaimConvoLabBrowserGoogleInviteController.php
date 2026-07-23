@@ -33,7 +33,16 @@ final class ClaimConvoLabBrowserGoogleInviteController extends Controller
                 $convoLabUserId,
                 $request->validated('inviteCode'),
             );
-        } catch (ConvoLabSignupException|ConvoLabOAuthException $exception) {
+        } catch (ConvoLabSignupException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
+            ], $exception->status());
+        } catch (ConvoLabOAuthException $exception) {
+            if ($exception->reason() === ConvoLabOAuthException::IDENTITY_NOT_FOUND_REASON) {
+                ConvoLabBrowserOAuthSession::forget($request);
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => $exception->reason(),

@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Domain\Auth\Contracts\ConvoLabGoogleOAuthClient;
 use App\Domain\Auth\Data\ConvoLabGoogleProfile;
+use App\Domain\Auth\Exceptions\ConvoLabOAuthException;
 use App\Domain\Auth\Support\ConvoLabBrowserOAuthSession;
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Jobs\SendConvoLabVerificationEmail;
@@ -217,6 +218,27 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
                 ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
                 fn (array $value): bool => $value['convolab_user_id']
                     === $account['convolab_id'],
+            );
+
+        $this->assertGuest('web');
+    }
+
+    public function test_missing_google_identity_clears_the_unrecoverable_pending_session(): void
+    {
+        $account = $this->projectedUser(['email' => 'missing-identity@example.com']);
+        $this->invite('WELCOME1');
+
+        $this->withPendingGoogleAccount($account['convolab_id'])
+            ->postJson('/api/convolab/browser/auth/google/invite', [
+                'inviteCode' => 'WELCOME1',
+            ])
+            ->assertNotFound()
+            ->assertJsonPath(
+                'reason',
+                ConvoLabOAuthException::IDENTITY_NOT_FOUND_REASON,
+            )
+            ->assertSessionMissing(
+                ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
             );
 
         $this->assertGuest('web');

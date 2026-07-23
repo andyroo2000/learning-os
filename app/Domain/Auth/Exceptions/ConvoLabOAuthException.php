@@ -6,6 +6,8 @@ use RuntimeException;
 
 final class ConvoLabOAuthException extends RuntimeException
 {
+    public const IDENTITY_NOT_FOUND_REASON = 'identity_not_found';
+
     private function __construct(
         string $message,
         private readonly string $reason,
@@ -16,7 +18,7 @@ final class ConvoLabOAuthException extends RuntimeException
 
     public static function identityNotFound(): self
     {
-        return new self('No Google account connected', 'identity_not_found', 404);
+        return new self('No Google account connected', self::IDENTITY_NOT_FOUND_REASON, 404);
     }
 
     public static function inviteAlreadyClaimed(): self

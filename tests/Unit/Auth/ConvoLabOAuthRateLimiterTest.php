@@ -118,16 +118,25 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
             ConvoLabOAuthRateLimiter::BROWSER_CALLBACK,
             $request,
         );
+        [$claim, $claimNetwork] = ConvoLabOAuthRateLimiter::browserClaim($request);
 
         $this->assertNotSame($start->key, $callback->key);
+        $this->assertNotSame($start->key, $claim->key);
+        $this->assertNotSame($callback->key, $claim->key);
         $this->assertStringContainsString(
             hash('sha256', $request->session()->getId()),
             $start->key,
         );
+        $this->assertStringContainsString(
+            hash('sha256', $request->session()->getId()),
+            $claim->key,
+        );
         $this->assertSame(20, $start->maxAttempts);
         $this->assertSame(20, $callback->maxAttempts);
+        $this->assertSame(5, $claim->maxAttempts);
         $this->assertSame(60, $startNetwork->maxAttempts);
         $this->assertSame(60, $callbackNetwork->maxAttempts);
+        $this->assertSame(60, $claimNetwork->maxAttempts);
     }
 
     /** @param array<string, mixed> $payload */

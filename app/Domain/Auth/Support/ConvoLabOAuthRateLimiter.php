@@ -15,6 +15,8 @@ final class ConvoLabOAuthRateLimiter
 
     public const BROWSER_CALLBACK = 'convolab-oauth-browser-callback';
 
+    public const BROWSER_CLAIM = 'convolab-oauth-browser-claim';
+
     public const CLAIM = 'convolab-oauth-claim';
 
     public const DISCONNECT = 'convolab-oauth-disconnect';
@@ -50,12 +52,25 @@ final class ConvoLabOAuthRateLimiter
 
     public static function browser(string $operation, Request $request): array
     {
+        return self::browserLimits($operation, $request, 20);
+    }
+
+    public static function browserClaim(Request $request): array
+    {
+        return self::browserLimits(self::BROWSER_CLAIM, $request, 5);
+    }
+
+    private static function browserLimits(
+        string $operation,
+        Request $request,
+        int $identityPerMinute,
+    ): array {
         $sessionId = $request->hasSession() ? $request->session()->getId() : '';
         $identity = $sessionId === ''
             ? 'missing-session'
             : 'session:'.hash('sha256', $sessionId);
 
-        return self::limits($operation, $identity, $request->ip(), 20);
+        return self::limits($operation, $identity, $request->ip(), $identityPerMinute);
     }
 
     private static function limits(

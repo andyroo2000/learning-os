@@ -222,6 +222,36 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_invite_claim_rate_limit_uses_the_pending_session_not_a_spoofed_header(): void
+    {
+        $account = $this->pendingGoogleAccount();
+
+        $first = $this->withPendingGoogleAccount($account['convolab_id'])
+            ->withHeader('X-Convo-Lab-User-Id', 'spoofed-user-1')
+            ->postJson('/api/convolab/browser/auth/google/invite', [
+                'inviteCode' => 'NOPE',
+            ])
+            ->assertBadRequest();
+        $session = $first->getCookie('learning_os_session');
+        $this->assertNotNull($session);
+        $this->withCredentials()
+            ->withCookie('learning_os_session', $session->getValue());
+
+        for ($attempt = 2; $attempt <= 5; $attempt++) {
+            $this->withHeader('X-Convo-Lab-User-Id', 'spoofed-user-'.$attempt)
+                ->postJson('/api/convolab/browser/auth/google/invite', [
+                    'inviteCode' => 'NOPE',
+                ])
+                ->assertBadRequest();
+        }
+
+        $this->withHeader('X-Convo-Lab-User-Id', 'spoofed-user-6')
+            ->postJson('/api/convolab/browser/auth/google/invite', [
+                'inviteCode' => 'NOPE',
+            ])
+            ->assertTooManyRequests();
+    }
+
     public function test_invite_claim_requires_a_stateful_pending_oauth_session(): void
     {
         $this->postJson('/api/convolab/browser/auth/google/invite', [
@@ -376,7 +406,7 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
             )->gatherMiddleware(),
         );
         $this->assertContains(
-            'throttle:convolab-oauth-claim',
+            'throttle:'.ConvoLabOAuthRateLimiter::BROWSER_CLAIM,
             $postRoutes->first(
                 fn ($route) => $route->uri() === 'api/convolab/browser/auth/google/invite',
             )->gatherMiddleware(),

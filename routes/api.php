@@ -262,7 +262,7 @@ Route::prefix('/convolab/browser/auth')->group(function (): void {
     Route::post('/verification', VerifyConvoLabBrowserEmailController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::VERIFY);
     Route::post('/google/invite', ClaimConvoLabBrowserGoogleInviteController::class)
-        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::CLAIM);
+        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::BROWSER_CLAIM);
 
     Route::middleware('auth:web')->group(function (): void {
         Route::get('/me', ShowConvoLabBrowserCurrentUserController::class);

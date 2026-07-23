@@ -177,6 +177,10 @@ class AppServiceProvider extends ServiceProvider
                 ),
             );
         }
+        RateLimiter::for(
+            ConvoLabOAuthRateLimiter::BROWSER_CLAIM,
+            fn (Request $request): array => ConvoLabOAuthRateLimiter::browserClaim($request),
+        );
         foreach ([ConvoLabOAuthRateLimiter::CLAIM, ConvoLabOAuthRateLimiter::DISCONNECT] as $operation) {
             RateLimiter::for(
                 $operation,

@@ -22,8 +22,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->redirectGuestsTo(static fn (): null => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            static fn (Request $request, Throwable $exception): bool => $request->is('api/*')
+                || $request->expectsJson(),
+        );
         $exceptions->dontReport(AdminMutationException::class);
         $exceptions->dontReport(InvalidCurrentPasswordException::class);
         $exceptions->dontReport([

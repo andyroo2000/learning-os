@@ -15,7 +15,6 @@ final class BeginConvoLabGoogleOAuthController extends Controller
         ConvoLabGoogleOAuthClient $google,
     ): RedirectResponse {
         ConvoLabBrowserOAuthSession::forget($request);
-        $request->session()->regenerate(true);
 
         return $google->redirect();
     }

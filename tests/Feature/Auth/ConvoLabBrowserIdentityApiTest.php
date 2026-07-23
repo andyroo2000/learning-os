@@ -39,7 +39,7 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
         $this->app->instance(ConvoLabGoogleOAuthClient::class, $this->google);
     }
 
-    public function test_google_start_rotates_anonymous_state_and_uses_the_oauth_client(): void
+    public function test_google_start_clears_stale_pending_identity_and_uses_the_oauth_client(): void
     {
         $response = $this->withSession([
             ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT => (string) Str::uuid(),
@@ -50,6 +50,24 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
             ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
         );
         $this->assertSame(1, $this->google->redirectCalls);
+    }
+
+    public function test_google_start_rate_limit_accumulates_for_the_anonymous_session(): void
+    {
+        $first = $this->get('/api/convolab/browser/auth/google')
+            ->assertRedirect('https://accounts.google.test/authorize');
+        $session = $first->getCookie('learning_os_session');
+        $this->assertNotNull($session);
+        $this->withCookie('learning_os_session', $session->getValue());
+
+        for ($attempt = 2; $attempt <= 20; $attempt++) {
+            $this->get('/api/convolab/browser/auth/google')->assertRedirect(
+                'https://accounts.google.test/authorize',
+            );
+        }
+
+        $this->get('/api/convolab/browser/auth/google')
+            ->assertTooManyRequests();
     }
 
     public function test_google_callback_starts_a_browser_session_for_an_existing_account(): void
@@ -83,13 +101,30 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
     public function test_new_google_account_is_kept_anonymous_until_it_claims_an_invite(): void
     {
         $this->google->profile = $this->profile(email: 'new@example.com');
+        $start = $this->get('/api/convolab/browser/auth/google')
+            ->assertRedirect('https://accounts.google.test/authorize');
+        $anonymousSession = $start->getCookie('learning_os_session');
+        $this->assertNotNull($anonymousSession);
 
-        $response = $this->get('/api/convolab/browser/auth/google/callback')
+        $response = $this->withCookie(
+            'learning_os_session',
+            $anonymousSession->getValue(),
+        )->get('/api/convolab/browser/auth/google/callback')
             ->assertRedirect(self::FRONTEND_ORIGIN.'/claim-invite')
             ->assertSessionHas(ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT);
 
         $user = User::query()->where('email', 'new@example.com')->sole();
+        $pendingSession = $response->getCookie('learning_os_session');
+        $this->assertNotNull($pendingSession);
+        $this->assertNotSame($anonymousSession->getValue(), $pendingSession->getValue());
         $this->assertGuest('web');
+        $this->assertDatabaseMissing('sessions', [
+            'id' => $anonymousSession->getValue(),
+        ]);
+        $this->assertDatabaseHas('sessions', [
+            'id' => $pendingSession->getValue(),
+            'user_id' => null,
+        ]);
         $this->assertDatabaseHas('convolab_oauth_identities', [
             'user_id' => $user->id,
             'access_granted_at' => null,
@@ -105,6 +140,26 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
             ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT => (string) Str::uuid(),
         ])->get('/api/convolab/browser/auth/google/callback')
             ->assertRedirect(self::FRONTEND_ORIGIN.'/login?error=oauth_failed')
+            ->assertSessionMissing(
+                ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
+            );
+
+        $this->assertGuest('web');
+        $this->assertDatabaseCount('convolab_oauth_identities', 0);
+    }
+
+    public function test_google_callback_surfaces_expected_identity_rejection_reason(): void
+    {
+        $this->google->profile = new ConvoLabGoogleProfile(
+            providerId: 'unverified-subject',
+            email: 'unverified@example.com',
+            name: 'Unverified User',
+            avatarUrl: null,
+            emailVerified: false,
+        );
+
+        $this->get('/api/convolab/browser/auth/google/callback')
+            ->assertRedirect(self::FRONTEND_ORIGIN.'/login?error=unverified_email')
             ->assertSessionMissing(
                 ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
             );

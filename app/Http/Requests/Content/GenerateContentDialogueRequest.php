@@ -6,7 +6,7 @@ use App\Domain\Content\Data\GenerateContentDialogueData;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class GenerateContentDialogueRequest extends ConvoLabContentWriteRequest
+class GenerateContentDialogueRequest extends ConvoLabVerifiedGenerationRequest
 {
     protected function prepareForValidation(): void
     {

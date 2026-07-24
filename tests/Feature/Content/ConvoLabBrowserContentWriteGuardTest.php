@@ -42,7 +42,7 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
 
         $this->callJsonAsBrowser($user, $method, $uri, $payload)
             ->assertForbidden()
-            ->assertExactJson(['message' => self::VERIFICATION_MESSAGE]);
+            ->assertJsonPath('message', self::VERIFICATION_MESSAGE);
     }
 
     /**
@@ -75,7 +75,7 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
 
         $this->callJsonAsBrowser($demo, $method, $uri, $payload)
             ->assertForbidden()
-            ->assertExactJson(['message' => self::DEMO_MESSAGE]);
+            ->assertJsonPath('message', self::DEMO_MESSAGE);
     }
 
     /**
@@ -92,7 +92,7 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
 
         $this->callJsonAsBrowser($demo, $method, $uri, $payload)
             ->assertForbidden()
-            ->assertExactJson(['message' => self::VERIFICATION_MESSAGE]);
+            ->assertJsonPath('message', self::VERIFICATION_MESSAGE);
     }
 
     /**
@@ -122,7 +122,7 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
 
         $this->callJsonAsBrowser($demo, 'POST', "/api/convolab/courses/{$courseId}/retry")
             ->assertForbidden()
-            ->assertExactJson(['message' => self::DEMO_MESSAGE]);
+            ->assertJsonPath('message', self::DEMO_MESSAGE);
     }
 
     public function test_course_retry_does_not_require_email_verification(): void

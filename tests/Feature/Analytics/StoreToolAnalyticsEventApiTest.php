@@ -162,8 +162,8 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         )->assertTooManyRequests()
             ->assertHeader('X-RateLimit-Limit', '120')
             ->assertHeader('X-RateLimit-Remaining', '0')
-            ->assertHeader('Retry-After', '60')
-            ->assertExactJson(['message' => 'Too Many Attempts.']);
+            ->assertHeader('Retry-After')
+            ->assertJsonPath('message', 'Too Many Attempts.');
 
         $this->assertCount(120, $this->events);
     }

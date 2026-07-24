@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use JsonException;
 use Laravel\Sanctum\NewAccessToken;
+use RuntimeException;
 use Throwable;
 
 class DatabaseRehearsalSmokeCheck
@@ -273,22 +274,21 @@ class DatabaseRehearsalSmokeCheck
     private function checkEndpoint(array $endpoint, NewAccessToken $token, User $user): array
     {
         $firstPartySession = $endpoint['first_party_session'] ?? false;
-        $server = ['HTTP_ACCEPT' => 'application/json'];
-        $cookies = [];
-        if ($firstPartySession) {
-            $server += [
-                'HTTP_HOST' => 'localhost',
-                'HTTP_ORIGIN' => 'http://localhost',
-                'HTTP_REFERER' => 'http://localhost/',
-            ];
-            $cookies = $this->browserSessionCookie($user);
-        } else {
-            $server['HTTP_AUTHORIZATION'] = 'Bearer '.$token->plainTextToken;
-        }
-
-        $request = Request::create($endpoint['uri'], 'GET', cookies: $cookies, server: $server);
+        $browserSessionId = null;
+        $cleanupException = null;
 
         try {
+            $server = ['HTTP_ACCEPT' => 'application/json'];
+            $cookies = [];
+            if ($firstPartySession) {
+                $server += $this->firstPartyServer();
+                [$cookies, $browserSessionId] = $this->browserSessionCookie($user);
+            } else {
+                $server['HTTP_AUTHORIZATION'] = 'Bearer '.$token->plainTextToken;
+            }
+
+            $request = Request::create($endpoint['uri'], 'GET', cookies: $cookies, server: $server);
+
             Auth::forgetGuards();
             $response = $this->app->handle($request);
         } catch (Throwable $exception) {
@@ -296,6 +296,24 @@ class DatabaseRehearsalSmokeCheck
                 'uri' => $endpoint['uri'],
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
+            ]);
+        } finally {
+            if ($browserSessionId !== null) {
+                try {
+                    $this->app->make('session.store')->getHandler()->destroy($browserSessionId);
+                } catch (Throwable $exception) {
+                    $cleanupException = $exception;
+                }
+            }
+
+            Auth::forgetGuards();
+        }
+
+        if ($cleanupException !== null) {
+            return $this->fail($endpoint['name'], 'Unable to delete the temporary browser session.', [
+                'uri' => $endpoint['uri'],
+                'exception' => $cleanupException::class,
+                'message' => $cleanupException->getMessage(),
             ]);
         }
 
@@ -359,7 +377,34 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, int|string>
+     */
+    private function firstPartyServer(): array
+    {
+        $clientUrl = config('services.convolab.client_url');
+        $parts = is_string($clientUrl) ? parse_url($clientUrl) : false;
+        $scheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+
+        if (! in_array($scheme, ['http', 'https'], true) || ! is_string($host) || $host === '') {
+            throw new RuntimeException('CONVOLAB_CLIENT_URL must be an absolute HTTP(S) URL.');
+        }
+
+        $port = $parts['port'] ?? null;
+        $authority = $host.($port === null ? '' : ':'.$port);
+        $origin = $scheme.'://'.$authority;
+
+        return [
+            'HTTP_HOST' => $authority,
+            'HTTP_ORIGIN' => $origin,
+            'HTTP_REFERER' => $origin.'/',
+            'HTTPS' => $scheme === 'https' ? 'on' : 'off',
+            'SERVER_PORT' => $port ?? ($scheme === 'https' ? 443 : 80),
+        ];
+    }
+
+    /**
+     * @return array{0: array<string, string>, 1: string}
      */
     private function browserSessionCookie(User $user): array
     {
@@ -372,10 +417,13 @@ class DatabaseRehearsalSmokeCheck
         $cookieValue = CookieValuePrefix::create($cookieName, $this->app['encrypter']->getKey()).$session->getId();
 
         return [
-            $cookieName => $this->app['encrypter']->encrypt(
-                $cookieValue,
-                EncryptCookies::serialized($cookieName),
-            ),
+            [
+                $cookieName => $this->app['encrypter']->encrypt(
+                    $cookieValue,
+                    EncryptCookies::serialized($cookieName),
+                ),
+            ],
+            $session->getId(),
         ];
     }
 

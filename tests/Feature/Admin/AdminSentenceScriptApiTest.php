@@ -28,12 +28,6 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     private const L2_VOICE_ID = 'fishaudio:0dff3f6860294829b98f8c4501b2cf25';
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-    }
-
     public function test_routes_enforce_browser_admin_auth_uuid_constraints_and_limiters(): void
     {
         $testId = (string) Str::uuid();

@@ -20,12 +20,6 @@ class AdminMediaConfigApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-    }
-
     public function test_speaker_avatar_list_returns_the_legacy_shape_and_cache_headers_in_stable_order(): void
     {
         $later = $this->insertAvatar([

@@ -23,6 +23,13 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 
     public function test_smoke_command_exercises_read_oriented_api_shapes_for_a_selected_user(): void
     {
+        config([
+            'services.convolab.client_url' => 'https://convo-lab.example.test',
+            'sanctum.stateful' => ['convo-lab.example.test'],
+            'session.driver' => 'database',
+        ]);
+        $this->app->make('session')->forgetDrivers();
+
         $user = $this->rehearsalUser();
 
         $this->artisan('rehearsal:smoke', [
@@ -46,6 +53,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
         $this->assertDatabaseMissing('personal_access_tokens', [
             'name' => DatabaseRehearsalSmokeCheck::TOKEN_NAME,
         ]);
+        $this->assertDatabaseCount('sessions', 0);
     }
 
     public function test_smoke_command_fails_when_the_requested_user_does_not_exist(): void

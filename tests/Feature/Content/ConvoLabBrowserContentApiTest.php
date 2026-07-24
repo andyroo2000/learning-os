@@ -108,6 +108,34 @@ class ConvoLabBrowserContentApiTest extends TestCase
         ]);
     }
 
+    public function test_browser_session_updates_a_course_with_the_legacy_response(): void
+    {
+        [$user, $convoLabId] = $this->projectedUser();
+
+        $course = $this->asBrowser($user)
+            ->postJson('/api/convolab/courses', [
+                'title' => 'Browser Course',
+                'sourceText' => 'Temporary browser Course source text.',
+                'targetLanguage' => 'ja',
+                'nativeLanguage' => 'en',
+            ])
+            ->assertOk();
+
+        $this->asBrowser($user)
+            ->patchJson('/api/convolab/courses/'.$course->json('id'), [
+                'title' => 'Updated Browser Course',
+            ])
+            ->assertOk()
+            ->assertExactJson(['message' => 'Course updated successfully']);
+
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $course->json('id'),
+            'user_id' => $user->id,
+            'convolab_user_id' => $convoLabId,
+            'title' => 'Updated Browser Course',
+        ]);
+    }
+
     public function test_admin_browser_session_can_read_and_create_for_a_view_as_target(): void
     {
         [$admin, $adminConvoLabId] = $this->projectedUser('admin');

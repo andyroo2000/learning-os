@@ -27,7 +27,7 @@ class AdminMutationApiTest extends TestCase
         config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
     }
 
-    public function test_admin_writes_require_the_dedicated_proxy_identity_and_write_scope(): void
+    public function test_admin_writes_reject_untrusted_bearer_tokens_and_missing_proxy_scope(): void
     {
         $actor = (string) Str::uuid();
         $target = (string) Str::uuid();
@@ -59,7 +59,7 @@ class AdminMutationApiTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_writes_validate_and_normalize_the_actor_header(): void
+    public function test_proxy_admin_writes_validate_and_normalize_the_actor_header(): void
     {
         $token = $this->proxyToken();
 

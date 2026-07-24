@@ -3,12 +3,13 @@
 namespace App\Http\Requests\Admin;
 
 use App\Domain\Content\Support\ConvoLabUserId;
+use App\Http\Support\ConvoLabRequestIdentity;
 
 class ConvoLabAdminActorReadRequest extends ConvoLabAdminReadRequest
 {
     protected function prepareForValidation(): void
     {
-        $this->merge(['actorConvoLabUserId' => $this->header('X-Convo-Lab-User-Id')]);
+        $this->merge(['actorConvoLabUserId' => ConvoLabRequestIdentity::userId($this)]);
     }
 
     public function rules(): array

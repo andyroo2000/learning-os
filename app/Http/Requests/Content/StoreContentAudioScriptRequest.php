@@ -5,7 +5,7 @@ namespace App\Http\Requests\Content;
 use App\Domain\Content\Support\ContentAudioScriptInput;
 use Closure;
 
-class StoreContentAudioScriptRequest extends ConvoLabContentWriteRequest
+class StoreContentAudioScriptRequest extends ConvoLabVerifiedGenerationRequest
 {
     protected function prepareForValidation(): void
     {

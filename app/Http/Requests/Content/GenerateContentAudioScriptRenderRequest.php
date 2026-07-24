@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Content;
 
-final class GenerateContentAudioScriptRenderRequest extends ConvoLabContentWriteRequest
+final class GenerateContentAudioScriptRenderRequest extends ConvoLabVerifiedGenerationRequest
 {
     /** @return array<string, list<string>> */
     public function rules(): array

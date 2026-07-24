@@ -10,13 +10,13 @@ use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentCourseGenerationQueueException;
 use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Content\MutateContentCourseGenerationRequest;
+use App\Http\Requests\Content\RetryContentCourseGenerationRequest;
 use Illuminate\Http\JsonResponse;
 
 final class RetryContentCourseGenerationController extends Controller
 {
     public function __invoke(
-        MutateContentCourseGenerationRequest $request,
+        RetryContentCourseGenerationRequest $request,
         QueueContentCourseGenerationAction $queue,
         CheckContentGenerationEligibilityAction $eligibility,
         RunQuotaLimitedContentGenerationAction $generation,

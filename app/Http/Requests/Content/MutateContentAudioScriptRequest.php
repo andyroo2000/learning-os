@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Content;
 
-class MutateContentAudioScriptRequest extends ConvoLabContentWriteRequest
+class MutateContentAudioScriptRequest extends ConvoLabVerifiedGenerationRequest
 {
     /** @return array<string, list<string>> */
     public function rules(): array

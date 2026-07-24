@@ -5,7 +5,7 @@ namespace App\Http\Requests\Content;
 use App\Domain\Content\Data\GenerateContentAudioScriptData;
 use Closure;
 
-final class GenerateContentAudioScriptImagesRequest extends ConvoLabContentWriteRequest
+final class GenerateContentAudioScriptImagesRequest extends ConvoLabVerifiedGenerationRequest
 {
     /** @return array<string, list<mixed>> */
     public function rules(): array

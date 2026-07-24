@@ -6,7 +6,9 @@ use App\Domain\FeatureFlags\Models\FeatureFlag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class UpdateFeatureFlagsApiTest extends TestCase
@@ -18,6 +20,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
         parent::setUp();
 
         config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
+        config()->set('sanctum.stateful', ['convo-lab.test']);
     }
 
     public function test_update_requires_authentication(): void
@@ -113,6 +116,52 @@ class UpdateFeatureFlagsApiTest extends TestCase
             ]);
     }
 
+    public function test_update_accepts_a_live_admin_browser_session(): void
+    {
+        $admin = $this->projectedUser('admin');
+
+        $this->asBrowser($admin)
+            ->patchJson('/api/feature-flags', [
+                'dialoguesEnabled' => false,
+                'scriptsEnabled' => true,
+                'audioCourseEnabled' => false,
+                'flashcardsEnabled' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('dialoguesEnabled', false)
+            ->assertJsonPath('audioCourseEnabled', false);
+    }
+
+    public function test_update_rejects_an_ordinary_browser_session(): void
+    {
+        $user = $this->projectedUser('user');
+
+        $this->asBrowser($user)
+            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('feature_flags', 0);
+    }
+
+    public function test_update_observes_browser_admin_role_revocation_on_the_next_request(): void
+    {
+        $admin = $this->projectedUser('admin');
+
+        $this->asBrowser($admin)
+            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->assertOk();
+
+        DB::table('admin_user_projections')
+            ->where('user_id', $admin->id)
+            ->update(['role' => 'user']);
+
+        $this->asBrowser($admin)
+            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => true])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('feature_flags', ['dialoguesEnabled' => false]);
+    }
+
     public function test_update_rejects_the_deployed_proxy_legacy_study_write_scope(): void
     {
         $token = $this->proxyToken(['study:read', 'study:write']);
@@ -186,6 +235,24 @@ class UpdateFeatureFlagsApiTest extends TestCase
         return User::factory()->create(['email' => 'proxy@example.com'])
             ->createToken('convolab-proxy', $abilities)
             ->plainTextToken;
+    }
+
+    private function asBrowser(User $user): static
+    {
+        return $this->actingAs($user, 'web')
+            ->withHeader('Origin', 'https://convo-lab.test')
+            ->withHeader('Referer', 'https://convo-lab.test/');
+    }
+
+    private function projectedUser(string $role): User
+    {
+        $user = User::factory()->create();
+
+        $this->convoLabProjectionFor($user, (string) Str::uuid(), [
+            'role' => $role,
+        ]);
+
+        return $user->refresh();
     }
 
     private function storeFlags(

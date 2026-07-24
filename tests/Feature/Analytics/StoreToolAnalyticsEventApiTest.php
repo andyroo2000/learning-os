@@ -5,7 +5,11 @@ namespace Tests\Feature\Analytics;
 use App\Domain\Analytics\Contracts\ToolAnalyticsLogger;
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -52,6 +56,40 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->assertSame([], $this->events);
     }
 
+    public function test_browser_store_accepts_anonymous_events_with_the_legacy_shape(): void
+    {
+        Carbon::setTestNow('2026-07-22 18:15:12.345 UTC');
+        try {
+            $this->postJson(
+                '/api/convolab/browser/tools/analytics',
+                $this->validPayload(),
+            )->assertNoContent();
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertCount(1, $this->events);
+        $properties = $this->events[0]['properties'];
+        unset($this->events[0]['properties']);
+
+        $this->assertSame([
+            'type' => 'tool_analytics',
+            'at' => '2026-07-22T18:15:12.345Z',
+            'tool' => 'kana:trainer',
+            'event' => 'answer_passed',
+            'context' => 'app',
+            'mode' => 'fsrs',
+            'sessionId' => 'session_123',
+        ], $this->events[0]);
+        $this->assertEquals((object) [
+            'correct' => true,
+            'duration_ms' => 1250,
+            'source' => 'keyboard',
+            'score' => 0.98,
+            'detail' => null,
+        ], $properties);
+    }
+
     public function test_store_route_uses_the_named_limiter(): void
     {
         $route = collect(Route::getRoutes())->first(
@@ -64,6 +102,70 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
             'throttle:'.ToolAnalyticsRateLimiter::NAME,
             $route->gatherMiddleware(),
         );
+    }
+
+    public function test_browser_store_route_uses_the_dedicated_limiter_without_authentication(): void
+    {
+        $route = collect(Route::getRoutes())->first(
+            fn ($route): bool => $route->uri() === 'api/convolab/browser/tools/analytics'
+                && in_array('POST', $route->methods(), true),
+        );
+
+        $this->assertNotNull($route);
+        $middleware = $route->gatherMiddleware();
+        $this->assertContains(
+            'throttle:'.ToolAnalyticsRateLimiter::BROWSER_NAME,
+            $middleware,
+        );
+        $this->assertNotContains('auth:sanctum', $middleware);
+    }
+
+    public function test_browser_store_is_explicitly_exempt_from_stateful_csrf_validation(): void
+    {
+        $request = Request::create(
+            '/api/convolab/browser/tools/analytics',
+            'POST',
+        );
+        $session = new Store('browser-test', new ArraySessionHandler(120));
+        $session->start();
+        $request->setLaravelSession($session);
+        $middleware = new class(app(), app('encrypter')) extends PreventRequestForgery
+        {
+            protected function runningUnitTests(): bool
+            {
+                return false;
+            }
+        };
+
+        $response = $middleware->handle(
+            $request,
+            fn () => response()->noContent(),
+        );
+
+        $this->assertSame(204, $response->getStatusCode());
+    }
+
+    public function test_browser_store_enforces_its_network_quota(): void
+    {
+        $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.99']);
+
+        foreach (range(1, 120) as $attempt) {
+            $this->postJson(
+                '/api/convolab/browser/tools/analytics',
+                $this->validPayload(),
+            )->assertNoContent();
+        }
+
+        $this->postJson(
+            '/api/convolab/browser/tools/analytics',
+            $this->validPayload(),
+        )->assertTooManyRequests()
+            ->assertHeader('X-RateLimit-Limit', '120')
+            ->assertHeader('X-RateLimit-Remaining', '0')
+            ->assertHeader('Retry-After', '60')
+            ->assertExactJson(['message' => 'Too Many Attempts.']);
+
+        $this->assertCount(120, $this->events);
     }
 
     public function test_store_rejects_wildcard_non_proxy_and_wrong_account_tokens(): void
@@ -191,6 +293,23 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
     }
 
     /**
+     * @param  array<string, mixed>  $changes
+     */
+    #[DataProvider('invalidPayloads')]
+    public function test_browser_store_rejects_the_same_invalid_bounded_contracts(
+        array $changes,
+        string $field,
+    ): void {
+        $this->postJson(
+            '/api/convolab/browser/tools/analytics',
+            array_replace($this->validPayload(), $changes),
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors($field);
+
+        $this->assertSame([], $this->events);
+    }
+
+    /**
      * @return array<string, array{array<string, mixed>, string}>
      */
     public static function invalidPayloads(): array
@@ -240,6 +359,14 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->assertSame(
             'tool-analytics-store:anon:127.0.0.1',
             ToolAnalyticsRateLimiter::keyFor(null, '127.0.0.1'),
+        );
+        $this->assertSame(
+            'browser-tool-analytics-store:anon:127.0.0.1',
+            ToolAnalyticsRateLimiter::browserKeyFor('127.0.0.1'),
+        );
+        $this->assertSame(
+            'browser-tool-analytics-store:anon:unknown-ip',
+            ToolAnalyticsRateLimiter::browserKeyFor(null),
         );
     }
 

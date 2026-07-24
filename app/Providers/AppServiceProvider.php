@@ -302,6 +302,10 @@ class AppServiceProvider extends ServiceProvider
             ToolAnalyticsRateLimiter::NAME,
             fn (Request $request): Limit => ToolAnalyticsRateLimiter::limit($request),
         );
+        RateLimiter::for(
+            ToolAnalyticsRateLimiter::BROWSER_NAME,
+            fn (Request $request): Limit => ToolAnalyticsRateLimiter::browserLimit($request),
+        );
 
         // Very large offline deck-create backlogs can still throttle before idempotent de-dupe.
         $deckCreateRateLimiter = DeckRateLimiter::forCreate();

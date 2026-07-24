@@ -54,11 +54,12 @@ class StartStudySessionApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.overview.new_cards_per_day', 2)
-            ->assertJsonPath('data.overview.new_cards_available_today', 2)
-            ->assertJsonPath('data.cards.0.id', $firstNewCard->id)
-            ->assertJsonPath('data.cards.1.id', $secondNewCard->id)
-            ->assertJsonCount(2, 'data.cards');
+            ->assertJsonMissingPath('data')
+            ->assertJsonPath('overview.newCardsPerDay', 2)
+            ->assertJsonPath('overview.newCardsAvailableToday', 2)
+            ->assertJsonPath('cards.0.id', $firstNewCard->id)
+            ->assertJsonPath('cards.1.id', $secondNewCard->id)
+            ->assertJsonCount(2, 'cards');
     }
 
     public function test_start_returns_convolab_compatible_card_summaries(): void
@@ -130,31 +131,31 @@ class StartStudySessionApiTest extends TestCase
 
             $response
                 ->assertOk()
-                ->assertJsonPath('data.cards.0.id', $convoLabCardId)
-                ->assertJsonPath('data.cards.0.syncId', $card->id)
-                ->assertJsonPath('data.cards.0.noteId', $convoLabNoteId)
-                ->assertJsonPath('data.cards.0.cardType', 'production')
-                ->assertJsonPath('data.cards.0.prompt.text', '会社')
-                ->assertJsonPath('data.cards.0.prompt.cueAudio.filename', 'company.mp3')
-                ->assertJsonPath('data.cards.0.answer.text', 'company')
-                ->assertJsonPath('data.cards.0.state.queueState', 'review')
-                ->assertJsonPath('data.cards.0.state.dueAt', '2026-07-16T15:00:00.000Z')
-                ->assertJsonPath('data.cards.0.state.scheduler.reps', 7)
-                ->assertJsonPath('data.cards.0.state.source.noteId', '501')
-                ->assertJsonPath('data.cards.0.state.source.noteGuid', 'guid-501')
-                ->assertJsonPath('data.cards.0.state.source.cardId', '701')
-                ->assertJsonPath('data.cards.0.state.source.deckName', '日本語')
-                ->assertJsonPath('data.cards.0.state.source.notetypeId', '601')
-                ->assertJsonPath('data.cards.0.state.source.odid', '901')
-                ->assertJsonPath('data.cards.0.state.rawFsrs.stability', 4.2)
-                ->assertJsonPath('data.cards.0.variantGroupId', 'group-1')
-                ->assertJsonPath('data.cards.0.variantUnlockedAt', '2026-07-12T12:00:00.000Z')
-                ->assertJsonPath('data.cards.0.answerAudioSource', 'imported')
-                ->assertJsonMissingPath('data.cards.0.deck_id')
-                ->assertJsonMissingPath('data.cards.0.prompt_json')
-                ->assertJsonCount(1, 'data.cards');
+                ->assertJsonPath('cards.0.id', $convoLabCardId)
+                ->assertJsonPath('cards.0.syncId', $card->id)
+                ->assertJsonPath('cards.0.noteId', $convoLabNoteId)
+                ->assertJsonPath('cards.0.cardType', 'production')
+                ->assertJsonPath('cards.0.prompt.text', '会社')
+                ->assertJsonPath('cards.0.prompt.cueAudio.filename', 'company.mp3')
+                ->assertJsonPath('cards.0.answer.text', 'company')
+                ->assertJsonPath('cards.0.state.queueState', 'review')
+                ->assertJsonPath('cards.0.state.dueAt', '2026-07-16T15:00:00.000Z')
+                ->assertJsonPath('cards.0.state.scheduler.reps', 7)
+                ->assertJsonPath('cards.0.state.source.noteId', '501')
+                ->assertJsonPath('cards.0.state.source.noteGuid', 'guid-501')
+                ->assertJsonPath('cards.0.state.source.cardId', '701')
+                ->assertJsonPath('cards.0.state.source.deckName', '日本語')
+                ->assertJsonPath('cards.0.state.source.notetypeId', '601')
+                ->assertJsonPath('cards.0.state.source.odid', '901')
+                ->assertJsonPath('cards.0.state.rawFsrs.stability', 4.2)
+                ->assertJsonPath('cards.0.variantGroupId', 'group-1')
+                ->assertJsonPath('cards.0.variantUnlockedAt', '2026-07-12T12:00:00.000Z')
+                ->assertJsonPath('cards.0.answerAudioSource', 'imported')
+                ->assertJsonMissingPath('cards.0.deck_id')
+                ->assertJsonMissingPath('cards.0.prompt_json')
+                ->assertJsonCount(1, 'cards');
 
-            $payload = $response->json('data.cards.0');
+            $payload = $response->json('cards.0');
             $this->assertIsArray($payload);
             $this->assertStudyCardSummaryCompatibilityPayloadHasShape($payload, 'session card payload');
             $this->assertNotSame($card->id, $payload['id']);
@@ -180,11 +181,11 @@ class StartStudySessionApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.cards.0.id', $card->id)
-            ->assertJsonPath('data.cards.0.syncId', $card->id)
-            ->assertJsonPath('data.cards.0.noteId', null)
-            ->assertJsonPath('data.cards.0.state.source.deckName', null)
-            ->assertJsonPath('data.cards.0.state.source.noteId', null)
+            ->assertJsonPath('cards.0.id', $card->id)
+            ->assertJsonPath('cards.0.syncId', $card->id)
+            ->assertJsonPath('cards.0.noteId', null)
+            ->assertJsonPath('cards.0.state.source.deckName', null)
+            ->assertJsonPath('cards.0.state.source.noteId', null)
             ->assertJsonFragment(['noteId' => null])
             ->assertJsonFragment(['deckName' => null]);
     }
@@ -208,12 +209,12 @@ class StartStudySessionApiTest extends TestCase
 
         $this->postJson('/api/study/session/start')
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 2)
-            ->assertJsonPath('data.overview.new_cards_available_today', 2)
-            ->assertJsonPath('data.cards.0.id', $firstPositionedCard->id)
-            ->assertJsonPath('data.cards.1.id', $secondPositionedCard->id)
+            ->assertJsonPath('overview.newCount', 2)
+            ->assertJsonPath('overview.newCardsAvailableToday', 2)
+            ->assertJsonPath('cards.0.id', $firstPositionedCard->id)
+            ->assertJsonPath('cards.1.id', $secondPositionedCard->id)
             ->assertJsonMissing(['id' => $legacyNullPositionCard->id])
-            ->assertJsonCount(2, 'data.cards');
+            ->assertJsonCount(2, 'cards');
     }
 
     public function test_start_is_rate_limited_by_user_without_throttling_overview_reads(): void
@@ -228,8 +229,8 @@ class StartStudySessionApiTest extends TestCase
                     $this
                         ->postJson('/api/study/session/start', ['time_zone' => 'America/New_York'])
                         ->assertOk()
-                        ->assertJsonPath('data.overview.total_cards', 0)
-                        ->assertJsonCount(0, 'data.cards');
+                        ->assertJsonPath('overview.totalCards', 0)
+                        ->assertJsonCount(0, 'cards');
                 }
 
                 $this->signIn($otherUser);
@@ -237,7 +238,7 @@ class StartStudySessionApiTest extends TestCase
                 $this
                     ->postJson('/api/study/session/start')
                     ->assertOk()
-                    ->assertJsonPath('data.overview.total_cards', 0);
+                    ->assertJsonPath('overview.totalCards', 0);
 
                 $this->signIn($user);
 
@@ -251,7 +252,7 @@ class StartStudySessionApiTest extends TestCase
                 $this
                     ->getJson('/api/study/overview')
                     ->assertOk()
-                    ->assertJsonPath('data.total_cards', 0);
+                    ->assertJsonPath('totalCards', 0);
             },
         );
     }
@@ -275,10 +276,10 @@ class StartStudySessionApiTest extends TestCase
             'deck_id' => $deck->id,
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 1)
-            ->assertJsonPath('data.overview.total_cards', 1)
-            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'data.cards');
+            ->assertJsonPath('overview.newCount', 1)
+            ->assertJsonPath('overview.totalCards', 1)
+            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'cards');
     }
 
     public function test_start_filters_ready_cards_by_course_id(): void
@@ -305,11 +306,11 @@ class StartStudySessionApiTest extends TestCase
             'courseId' => $course->id,
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 2)
-            ->assertJsonPath('data.overview.total_cards', 2)
-            ->assertJsonPath('data.cards.0.id', $firstCourseCard->id)
-            ->assertJsonPath('data.cards.1.id', $secondCourseCard->id)
-            ->assertJsonCount(2, 'data.cards');
+            ->assertJsonPath('overview.newCount', 2)
+            ->assertJsonPath('overview.totalCards', 2)
+            ->assertJsonPath('cards.0.id', $firstCourseCard->id)
+            ->assertJsonPath('cards.1.id', $secondCourseCard->id)
+            ->assertJsonCount(2, 'cards');
     }
 
     public function test_start_normalizes_deck_id_without_global_trim_middleware(): void
@@ -333,9 +334,9 @@ class StartStudySessionApiTest extends TestCase
             'deck_id' => '  '.strtoupper($deck->id).'  ',
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 1)
-            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'data.cards');
+            ->assertJsonPath('overview.newCount', 1)
+            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'cards');
     }
 
     public function test_start_normalizes_scope_filter_aliases_without_global_trim_middleware(): void
@@ -361,9 +362,9 @@ class StartStudySessionApiTest extends TestCase
             'deckId' => '  '.strtoupper($deck->id).'  ',
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 1)
-            ->assertJsonPath('data.cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'data.cards');
+            ->assertJsonPath('overview.newCount', 1)
+            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
+            ->assertJsonCount(1, 'cards');
     }
 
     public function test_start_returns_empty_session_when_course_and_deck_filters_do_not_match(): void
@@ -383,9 +384,9 @@ class StartStudySessionApiTest extends TestCase
             'deckId' => $deck->id,
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.new_count', 0)
-            ->assertJsonPath('data.overview.total_cards', 0)
-            ->assertJsonCount(0, 'data.cards');
+            ->assertJsonPath('overview.newCount', 0)
+            ->assertJsonPath('overview.totalCards', 0)
+            ->assertJsonCount(0, 'cards');
     }
 
     public function test_start_returns_empty_session_for_another_users_deck_id(): void
@@ -401,9 +402,9 @@ class StartStudySessionApiTest extends TestCase
             'deck_id' => $otherDeck->id,
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.due_count', 0)
-            ->assertJsonPath('data.overview.total_cards', 0)
-            ->assertJsonCount(0, 'data.cards');
+            ->assertJsonPath('overview.dueCount', 0)
+            ->assertJsonPath('overview.totalCards', 0)
+            ->assertJsonCount(0, 'cards');
     }
 
     public function test_start_returns_empty_session_for_another_users_course_id(): void
@@ -421,9 +422,9 @@ class StartStudySessionApiTest extends TestCase
             'courseId' => $otherCourse->id,
         ])
             ->assertOk()
-            ->assertJsonPath('data.overview.due_count', 0)
-            ->assertJsonPath('data.overview.total_cards', 0)
-            ->assertJsonCount(0, 'data.cards');
+            ->assertJsonPath('overview.dueCount', 0)
+            ->assertJsonPath('overview.totalCards', 0)
+            ->assertJsonCount(0, 'cards');
     }
 
     public function test_start_validates_time_zone_without_coercing_malformed_values(): void
@@ -562,10 +563,10 @@ class StartStudySessionApiTest extends TestCase
                 'time_zone' => 'America/New_York',
             ])
                 ->assertOk()
-                ->assertJsonPath('data.overview.new_cards_introduced_today', 1)
-                ->assertJsonPath('data.overview.new_cards_available_today', 1)
-                ->assertJsonPath('data.cards.0.id', $newCard->id)
-                ->assertJsonCount(1, 'data.cards');
+                ->assertJsonPath('overview.newCardsIntroducedToday', 1)
+                ->assertJsonPath('overview.newCardsAvailableToday', 1)
+                ->assertJsonPath('cards.0.id', $newCard->id)
+                ->assertJsonCount(1, 'cards');
         } finally {
             Carbon::setTestNow();
         }
@@ -591,12 +592,12 @@ class StartStudySessionApiTest extends TestCase
 
             $this->postJson('/api/study/session/start')
                 ->assertOk()
-                ->assertJsonPath('data.overview.due_count', 0)
-                ->assertJsonPath('data.overview.failed_count', 1)
-                ->assertJsonPath('data.overview.new_cards_available_today', 0)
-                ->assertJsonMissingPath('data.overview.failed_due_count')
-                ->assertJsonPath('data.cards.0.id', $readyFailedCard->id)
-                ->assertJsonCount(1, 'data.cards');
+                ->assertJsonPath('overview.dueCount', 0)
+                ->assertJsonPath('overview.failedCount', 1)
+                ->assertJsonPath('overview.newCardsAvailableToday', 0)
+                ->assertJsonMissingPath('overview.failedDueCount')
+                ->assertJsonPath('cards.0.id', $readyFailedCard->id)
+                ->assertJsonCount(1, 'cards');
         } finally {
             Carbon::setTestNow();
         }

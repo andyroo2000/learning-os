@@ -542,7 +542,7 @@ class StartStudySessionActionTest extends TestCase
                 userId: $user->id,
                 now: $now,
             );
-            $payload = StudySessionResource::make($result)->response()->getData(true)['data'];
+            $payload = StudySessionResource::make($result)->response()->getData(true);
             $queries = collect(DB::getQueryLog());
         } finally {
             DB::disableQueryLog();

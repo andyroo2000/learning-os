@@ -20,7 +20,9 @@ class AdminMutationRateLimiterTest extends TestCase
     ): void {
         $actor = '01a1f0db-a4c8-4caa-adf6-d3801fdd7061';
         $request = Request::create('/api/convolab/admin/pronunciation-dictionaries', 'PUT');
-        $request->headers->set('X-Convo-Lab-User-Id', $actor);
+        $request->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => $actor,
+        ]));
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
         $limit = AdminMutationRateLimiter::limit(
@@ -41,9 +43,13 @@ class AdminMutationRateLimiterTest extends TestCase
     public function test_pronunciation_update_separates_actor_buckets(): void
     {
         $first = Request::create('/', 'PUT', server: ['REMOTE_ADDR' => '127.0.0.1']);
-        $first->headers->set('X-Convo-Lab-User-Id', 'first-actor');
+        $first->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => 'first-actor',
+        ]));
         $second = Request::create('/', 'PUT', server: ['REMOTE_ADDR' => '127.0.0.1']);
-        $second->headers->set('X-Convo-Lab-User-Id', 'second-actor');
+        $second->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => 'second-actor',
+        ]));
 
         $firstLimit = AdminMutationRateLimiter::limit(
             AdminMutationRateLimiter::PRONUNCIATION_DICTIONARY_UPDATE,

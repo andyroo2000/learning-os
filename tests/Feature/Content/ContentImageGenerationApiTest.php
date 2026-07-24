@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -113,14 +112,17 @@ class ContentImageGenerationApiTest extends TestCase
         [$episode, $dialogue] = $this->episodeWithDialogue($user);
         $this->authenticateWrite($user);
 
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $other = User::factory()->create();
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($other)
             ->postJson('/api/convolab/images/generate', $this->payload($episode, $dialogue))
             ->assertNotFound();
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
-            ->postJson('/api/convolab/images/generate', [
-                'episodeId' => $episode->id,
-                'dialogueId' => (string) Str::uuid(),
-            ])->assertNotFound();
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
+        $this->postJson('/api/convolab/images/generate', [
+            'episodeId' => $episode->id,
+            'dialogueId' => (string) Str::uuid(),
+        ])->assertNotFound();
         $this->assertDatabaseCount('content_image_generation_jobs', 0);
 
         Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('Redis password.'));
@@ -172,8 +174,7 @@ class ContentImageGenerationApiTest extends TestCase
             'progress' => 40,
             'result' => [['prompt' => 'must remain hidden']],
         ]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson('/api/convolab/images/job/'.strtoupper($job->id))->assertExactJson([
             'id' => $job->id,
@@ -181,7 +182,8 @@ class ContentImageGenerationApiTest extends TestCase
             'progress' => 40,
             'result' => null,
         ]);
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson('/api/convolab/images/job/'.$job->id)
             ->assertNotFound();
 
@@ -189,15 +191,20 @@ class ContentImageGenerationApiTest extends TestCase
         $job->progress = 100;
         $job->result = [['prompt' => 'safe result']];
         $job->save();
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
-            ->getJson('/api/convolab/images/job/'.$job->id)
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
+        $this->getJson('/api/convolab/images/job/'.$job->id)
             ->assertJsonPath('result.0.prompt', 'safe result');
     }
 
     public function test_generation_has_a_per_user_rate_limit_and_server_fields_are_guarded(): void
     {
         $request = Request::create('/api/convolab/images/generate', 'POST');
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($this->convoLabUserId));
+        $request->setUserResolver(
+            fn (): User => User::factory()->make([
+                'convolab_id' => strtoupper($this->convoLabUserId),
+            ]),
+        );
         $limit = ContentImageRateLimiter::generation($request);
         $this->assertSame(10, $limit->maxAttempts);
         $this->assertSame(ContentImageRateLimiter::GENERATION_NAME.':user:'.$this->convoLabUserId, $limit->key);
@@ -226,9 +233,7 @@ class ContentImageGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $this->withToken($user->createToken('convolab-proxy', ['content:write'])->plainTextToken);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @return array{ContentEpisode, ContentDialogue} */

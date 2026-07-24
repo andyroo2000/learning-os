@@ -95,26 +95,6 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
             ->assertJsonPath('message', self::VERIFICATION_MESSAGE);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    #[DataProvider('verifiedGenerationEndpointProvider')]
-    public function test_proxy_requests_do_not_repeat_the_legacy_email_verification_check(
-        string $method,
-        string $uri,
-        array $payload,
-        int $allowedStatus,
-    ): void {
-        [$user, $convoLabUserId] = $this->projectedUser('user', verified: false);
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $token = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $convoLabUserId)
-            ->json($method, $uri, $payload)
-            ->assertStatus($allowedStatus);
-    }
-
     public function test_course_retry_blocks_demo_users(): void
     {
         $courseId = (string) Str::uuid();

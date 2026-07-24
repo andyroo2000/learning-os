@@ -25,6 +25,12 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SOURCE_USER_ID = '21a610da-f528-4b58-afef-8a6f8f847a86';
+
+    private const SOURCE_OTHER_USER_ID = 'ba860112-41be-4277-89f6-a357633f6dab';
+
+    private const SOURCE_DUPLICATE_EMAIL_USER_ID = '5d45335f-55e9-467d-a645-13e9018b21c1';
+
     private const SOURCE_IMPORT_ID = '98f42a62-8303-410e-ad4d-5a69c55911bb';
 
     private const SOURCE_CARD_ID = 'c358732a-2cd0-4b18-9cce-c474297863f9';
@@ -96,10 +102,11 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'ada@example.com',
+            'convolab_id' => self::SOURCE_USER_ID,
         ]);
         $this->assertDatabaseHas('daily_audio_practices', [
             'id' => self::SOURCE_DAILY_AUDIO_ID,
-            'convolab_user_id' => 'source-user-1',
+            'convolab_user_id' => self::SOURCE_USER_ID,
             'status' => 'ready',
             'target_duration_minutes' => 30,
         ]);
@@ -165,7 +172,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.id', self::SOURCE_DAILY_AUDIO_ID)
-            ->assertJsonPath('0.userId', 'source-user-1')
+            ->assertJsonPath('0.userId', self::SOURCE_USER_ID)
             ->assertJsonPath('0.tracks.0.id', self::SOURCE_DAILY_AUDIO_TRACK_ID)
             ->assertJsonMissingPath('0.tracks.0.scriptUnitsJson');
         $this->getJson('/api/daily-audio-practice/'.self::SOURCE_DAILY_AUDIO_ID)
@@ -218,7 +225,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseHas('media_assets', [
             'disk' => 'media',
-            'path' => 'study-media/source-user-1/neko.mp3',
+            'path' => 'study-media/'.self::SOURCE_USER_ID.'/neko.mp3',
         ]);
         $this->assertDatabaseCount('card_media', 1);
         $this->assertDatabaseHas('card_review_events', [
@@ -335,7 +342,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
     {
         $this->seedConvoLabSourceData();
         DB::connection('convolab_test_source')->table('User')->insert([
-            'id' => 'source-user-duplicate-email',
+            'id' => self::SOURCE_DUPLICATE_EMAIL_USER_ID,
             'email' => 'ADA@example.com',
             'password' => null,
             'name' => 'Other Ada',
@@ -364,7 +371,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             '--source-connection' => 'convolab_test_source',
             '--truncate' => true,
         ])
-            ->expectsOutputToContain('Convo Lab user [source-user-1] has an unsupported password hash.')
+            ->expectsOutputToContain('Convo Lab user ['.self::SOURCE_USER_ID.'] has an unsupported password hash.')
             ->assertExitCode(1);
 
         $this->assertDatabaseCount('users', 0);
@@ -391,7 +398,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->seedConvoLabSourceData();
         $source = DB::connection('convolab_test_source');
         $source->table('User')->insert([
-            'id' => 'source-user-2',
+            'id' => self::SOURCE_OTHER_USER_ID,
             'email' => 'grace@example.com',
             'password' => null,
             'name' => 'Grace',
@@ -400,7 +407,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'createdAt' => '2026-07-14 10:00:00',
             'updatedAt' => '2026-07-14 10:00:00',
         ]);
-        $source->table('study_media')->update(['userId' => 'source-user-2']);
+        $source->table('study_media')->update(['userId' => self::SOURCE_OTHER_USER_ID]);
 
         $this->artisan('rehearsal:import-convolab', [
             '--source-connection' => 'convolab_test_source',
@@ -783,7 +790,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->seedConvoLabSourceData();
         $source = DB::connection('convolab_test_source');
         $source->table('User')->insert([
-            'id' => 'source-user-2',
+            'id' => self::SOURCE_OTHER_USER_ID,
             'email' => 'grace@example.com',
             'password' => null,
             'name' => 'Grace',
@@ -796,7 +803,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $source->table('study_media')->insert([
             ...$media,
             'id' => 'source-media-other-user',
-            'userId' => 'source-user-2',
+            'userId' => self::SOURCE_OTHER_USER_ID,
             'importJobId' => null,
         ]);
 
@@ -804,7 +811,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             '--source-connection' => 'convolab_test_source',
             '--truncate' => true,
         ])
-            ->expectsOutputToContain('Media path [study-media/source-user-1/neko.mp3] is shared by multiple Convo Lab users.')
+            ->expectsOutputToContain('Media path [study-media/'.self::SOURCE_USER_ID.'/neko.mp3] is shared by multiple Convo Lab users.')
             ->assertExitCode(1);
 
         $this->assertDatabaseCount('users', 0);
@@ -1008,7 +1015,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $noteUpdatedAt = '2026-07-13 09:08:07.654';
 
         $source->table('User')->insert([
-            'id' => 'source-user-1',
+            'id' => self::SOURCE_USER_ID,
             'email' => 'ada@example.com',
             'password' => null,
             'name' => 'Ada',
@@ -1019,7 +1026,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         ]);
 
         $source->table('study_settings')->insert([
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'newCardsPerDay' => 12,
             'createdAt' => $now,
             'updatedAt' => $now,
@@ -1027,7 +1034,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $source->table('daily_audio_practices')->insert([
             'id' => self::SOURCE_DAILY_AUDIO_ID,
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'practiceDate' => '2026-07-14',
             'status' => 'ready',
             'targetDurationMinutes' => 30,
@@ -1059,7 +1066,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $source->table('study_import_jobs')->insert([
             'id' => self::SOURCE_IMPORT_ID,
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'status' => 'completed',
             'sourceType' => 'anki_colpkg',
             'sourceFilename' => 'deck.colpkg',
@@ -1081,7 +1088,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         foreach (['source-media-1', 'source-media-duplicate'] as $mediaId) {
             $source->table('study_media')->insert([
                 'id' => $mediaId,
-                'userId' => 'source-user-1',
+                'userId' => self::SOURCE_USER_ID,
                 'importJobId' => self::SOURCE_IMPORT_ID,
                 'sourceKind' => 'anki_import',
                 'sourceMediaKey' => $mediaId,
@@ -1089,7 +1096,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
                 'normalizedFilename' => 'neko.mp3',
                 'mediaKind' => 'audio',
                 'contentType' => 'audio/mpeg',
-                'storagePath' => 'study-media/source-user-1/neko.mp3',
+                'storagePath' => 'study-media/'.self::SOURCE_USER_ID.'/neko.mp3',
                 'publicUrl' => null,
                 'createdAt' => $now,
                 'updatedAt' => $now,
@@ -1098,7 +1105,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $source->table('study_notes')->insert([
             'id' => self::SOURCE_NOTE_ID,
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'sourceKind' => 'anki_import',
             'sourceNoteId' => 321,
             'sourceGuid' => 'source-note-guid',
@@ -1118,7 +1125,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $source->table('study_cards')->insert([
             'id' => self::SOURCE_CARD_ID,
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'noteId' => self::SOURCE_NOTE_ID,
             'importJobId' => self::SOURCE_IMPORT_ID,
             'sourceKind' => 'anki_import',
@@ -1172,7 +1179,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
 
         $source->table('study_review_logs')->insert([
             'id' => 'source-review-1',
-            'userId' => 'source-user-1',
+            'userId' => self::SOURCE_USER_ID,
             'cardId' => self::SOURCE_CARD_ID,
             'importJobId' => self::SOURCE_IMPORT_ID,
             'source' => 'convolab',

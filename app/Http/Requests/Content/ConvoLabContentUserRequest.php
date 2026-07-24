@@ -4,6 +4,7 @@ namespace App\Http\Requests\Content;
 
 use App\Http\Support\ConvoLabContentIdentity;
 use App\Http\Support\ConvoLabContentIdentityResolver;
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 use LogicException;
 
@@ -47,7 +48,7 @@ abstract class ConvoLabContentUserRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return true;
+        return ConvoLabRequestIdentity::allows($this);
     }
 
     protected function requiresActorRole(): bool

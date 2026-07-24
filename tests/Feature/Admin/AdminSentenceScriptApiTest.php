@@ -28,38 +28,29 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     private const L2_VOICE_ID = 'fishaudio:0dff3f6860294829b98f8c4501b2cf25';
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_routes_enforce_scopes_actor_identity_uuid_constraints_and_limiters(): void
+    public function test_routes_enforce_browser_admin_auth_uuid_constraints_and_limiters(): void
     {
         $testId = (string) Str::uuid();
 
         $this->getJson('/api/convolab/admin/script-lab/sentence-tests')->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:write']))
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->getJson("/api/convolab/admin/script-lab/sentence-tests/{$testId}")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->withToken($token)
             ->getJson('/api/convolab/admin/script-lab/sentence-tests')
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->deleteJson('/api/convolab/admin/script-lab/sentence-tests', ['ids' => [$testId]])
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->postJson('/api/convolab/admin/script-lab/sentence-script', ['sentence' => '文'])
             ->assertForbidden();
-        $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->postJson('/api/convolab/admin/script-lab/sentence-script', ['sentence' => '文'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
         $this->app['auth']->forgetGuards();
         $this->readRequest()
             ->getJson('/api/convolab/admin/script-lab/sentence-tests/not-a-uuid')
@@ -386,14 +377,8 @@ final class AdminSentenceScriptApiTest extends TestCase
         $this->assertDatabaseHas('admin_sentence_script_tests', ['id' => $other->id]);
     }
 
-    public function test_history_reads_require_a_valid_actor_identity(): void
+    public function test_history_reads_require_a_valid_session_actor_identity(): void
     {
-        $this->withToken($this->proxyToken(['admin:read']))
-            ->getJson('/api/convolab/admin/script-lab/sentence-tests')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
-
-        $this->app['auth']->forgetGuards();
         $this->readRequest('not-a-uuid')
             ->getJson('/api/convolab/admin/script-lab/sentence-tests')
             ->assertUnprocessable()
@@ -449,25 +434,12 @@ final class AdminSentenceScriptApiTest extends TestCase
 
     private function readRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:read']))
-            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
+        return $this->asConvoLabAdminBrowser(convoLabUserId: $actorId);
     }
 
     private function writeRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabAdminBrowser(convoLabUserId: $actorId);
     }
 
     /** @param array<string, mixed> $overrides */

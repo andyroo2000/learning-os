@@ -261,6 +261,7 @@ class ImportConvoLabRehearsalData extends Command
             ->orderBy('id')
             ->chunk(200, function ($users) use ($target, &$count, &$sourceUserIdsByEmail): void {
                 foreach ($users as $user) {
+                    $convoLabUserId = $this->sourceUuid($user->id, 'user');
                     $normalizedEmail = strtolower(trim((string) $user->email));
 
                     if ($normalizedEmail === '') {
@@ -278,6 +279,7 @@ class ImportConvoLabRehearsalData extends Command
                     $targetId = $target->table('users')->insertGetId([
                         'name' => $user->displayName ?: $user->name ?: $user->email,
                         'email' => $user->email,
+                        'convolab_id' => $convoLabUserId,
                         'email_verified_at' => $user->emailVerifiedAt,
                         'password' => $password,
                         'remember_token' => null,

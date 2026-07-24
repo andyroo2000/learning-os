@@ -28,29 +28,25 @@ class AdminScriptLabCourseApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_routes_require_the_dedicated_admin_proxy_scopes(): void
+    public function test_routes_require_a_first_party_admin_session(): void
     {
         $courseId = (string) Str::uuid();
 
         $this->getJson('/api/convolab/admin/script-lab/courses')->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:write']))
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->getJson('/api/convolab/admin/script-lab/courses/'.$courseId)
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->postJson('/api/convolab/admin/script-lab/courses', [])
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->deleteJson('/api/convolab/admin/script-lab/courses', [])
             ->assertForbidden();
     }
@@ -59,8 +55,7 @@ class AdminScriptLabCourseApiTest extends TestCase
     {
         $actor = $this->projectedUser();
 
-        $response = $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($actor->convolab_id))
+        $response = $this->asConvoLabAdminBrowser($actor, strtoupper($actor->convolab_id))
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => '  Ordering Food  ',
                 'sourceText' => '  A short restaurant dialogue.  ',
@@ -97,10 +92,9 @@ class AdminScriptLabCourseApiTest extends TestCase
         $otherEpisode = $this->episode($other);
         $realEpisode = $this->episode($actor);
         $this->link($this->course($actor, ['is_test_course' => false]), $realEpisode, 0);
-        $token = $this->proxyToken(['admin:write']);
+        $this->asConvoLabAdminBrowser($actor, $actor->convolab_id);
 
-        $response = $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $response = $this
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => 'Existing Episode',
                 'sourceText' => 'Compatibility source text',
@@ -120,8 +114,7 @@ class AdminScriptLabCourseApiTest extends TestCase
             $ownedEpisode->fresh()->source_system,
         );
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => 'Wrong Owner',
                 'sourceText' => 'Compatibility source text',
@@ -130,8 +123,7 @@ class AdminScriptLabCourseApiTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('message', 'Episode not found');
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => 'Real Course Episode',
                 'sourceText' => 'Compatibility source text',
@@ -147,18 +139,9 @@ class AdminScriptLabCourseApiTest extends TestCase
     public function test_create_validates_actor_and_bounded_legacy_inputs_before_writing(): void
     {
         $actor = $this->projectedUser();
-        $token = $this->proxyToken(['admin:write']);
+        $this->asConvoLabAdminBrowser($actor, $actor->convolab_id);
 
-        $this->withToken($token)
-            ->postJson('/api/convolab/admin/script-lab/courses', [
-                'title' => 'Course',
-                'sourceText' => 'Source',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => '',
                 'sourceText' => '',
@@ -189,9 +172,8 @@ class AdminScriptLabCourseApiTest extends TestCase
     {
         $actor = $this->projectedUser();
 
-        $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this->asConvoLabAdminBrowser($actor, $actor->convolab_id)
+            ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/convolab/admin/script-lab/courses', [
                 'title' => '   ',
                 'sourceText' => '   ',
@@ -260,7 +242,7 @@ class AdminScriptLabCourseApiTest extends TestCase
         ]);
         $this->course($firstUser, ['is_test_course' => false, 'title' => 'Real course']);
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/script-lab/courses')
             ->assertOk()
             ->assertExactJson(['courses' => [
@@ -314,7 +296,7 @@ class AdminScriptLabCourseApiTest extends TestCase
         $this->link($course, $later, 1);
         $this->link($course, $first, 0);
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/script-lab/courses/'.strtoupper($course->id))
             ->assertOk()
             ->assertJsonStructure([
@@ -338,13 +320,13 @@ class AdminScriptLabCourseApiTest extends TestCase
     {
         $user = $this->projectedUser();
         $realCourse = $this->course($user, ['is_test_course' => false]);
-        $token = $this->proxyToken(['admin:read']);
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/script-lab/courses/'.$realCourse->id)
             ->assertNotFound()
             ->assertJsonPath('message', 'Test course not found');
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/script-lab/courses/'.Str::uuid())
             ->assertNotFound();
     }
@@ -373,8 +355,7 @@ class AdminScriptLabCourseApiTest extends TestCase
         $episode = $this->episode($user);
         $this->link($first, $episode, 0);
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $user->convolab_id)
+        $this->asConvoLabAdminBrowser($user, $user->convolab_id)
             ->deleteJson('/api/convolab/admin/script-lab/courses', [
                 'courseIds' => [strtoupper($first->id), $second->id, (string) Str::uuid()],
             ])
@@ -428,8 +409,7 @@ class AdminScriptLabCourseApiTest extends TestCase
             'deleted_at' => now()->subDay(),
         ]);
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $user->convolab_id)
+        $this->asConvoLabAdminBrowser($user, $user->convolab_id)
             ->deleteJson('/api/convolab/admin/script-lab/courses', [
                 'courseIds' => [$course->id],
             ])
@@ -448,8 +428,7 @@ class AdminScriptLabCourseApiTest extends TestCase
         $testCourse = $this->course($user);
         $realCourse = $this->course($user, ['is_test_course' => false]);
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $user->convolab_id)
+        $this->asConvoLabAdminBrowser($user, $user->convolab_id)
             ->deleteJson('/api/convolab/admin/script-lab/courses', [
                 'courseIds' => [$testCourse->id, $realCourse->id],
             ])
@@ -468,8 +447,7 @@ class AdminScriptLabCourseApiTest extends TestCase
     {
         $actor = $this->projectedUser();
         $id = (string) Str::uuid();
-        $request = $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id);
+        $request = $this->asConvoLabAdminBrowser($actor, $actor->convolab_id);
 
         $request->deleteJson('/api/convolab/admin/script-lab/courses', ['courseIds' => []])
             ->assertUnprocessable()
@@ -522,17 +500,6 @@ class AdminScriptLabCourseApiTest extends TestCase
         }
 
         $this->assertCount(2, array_unique($expected));
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     private function projectedUser(): User

@@ -33,22 +33,19 @@ final class AdminPronunciationTestApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         config()->set('content_courses.audio_disk', 'media');
         Storage::fake('media');
     }
 
-    public function test_route_enforces_auth_scope_actor_and_its_own_provider_quota(): void
+    public function test_route_enforces_browser_admin_auth_and_its_own_provider_quota(): void
     {
         $uri = '/api/convolab/admin/script-lab/test-pronunciation';
 
         $this->postJson($uri)->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:read']))->postJson($uri)->assertForbidden();
-        $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->postJson($uri, $this->payload())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)->postJson($uri, $this->payload())->assertForbidden();
 
         $route = collect(Route::getRoutes())->first(fn ($route): bool => $route->uri() === ltrim($uri, '/'));
         $this->assertNotNull($route);
@@ -301,18 +298,6 @@ final class AdminPronunciationTestApiTest extends TestCase
 
     private function writeRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabAdminBrowser(convoLabUserId: $actorId);
     }
 }

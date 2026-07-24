@@ -16,7 +16,7 @@ class ConvoLabAdminWriteRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return ConvoLabAdminAuthorization::allows($this, 'admin:write');
+        return ConvoLabAdminAuthorization::allows($this);
     }
 
     public function rules(): array

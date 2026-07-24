@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -124,15 +123,17 @@ class ContentAudioScriptGenerationApiTest extends TestCase
             ->assertExactJson(['message' => 'Review script segments before starting generation.']);
 
         $this->segment($script);
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $other = User::factory()->create();
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($other)
             ->postJson("/api/convolab/scripts/{$episode->id}/render")
             ->assertNotFound();
 
-        $other = User::factory()->create();
-        config()->set('services.convolab.proxy_user_email', 'different@example.com');
         $token = $other->createToken('mobile', ['content:write'])->plainTextToken;
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+            ->withoutHeader('Origin')
+            ->withoutHeader('Referer')
             ->postJson("/api/convolab/scripts/{$episode->id}/render")
             ->assertForbidden();
         Queue::assertNothingPushed();
@@ -187,8 +188,7 @@ class ContentAudioScriptGenerationApiTest extends TestCase
         $job = $this->job($user, $episode, $script, [
             'kind' => 'render', 'state' => 'active', 'progress' => 45,
         ]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson('/api/convolab/scripts/job/'.strtoupper($job->id))->assertExactJson([
             'id' => $job->id,
@@ -203,7 +203,8 @@ class ContentAudioScriptGenerationApiTest extends TestCase
         $this->getJson("/api/convolab/scripts/job/{$job->id}")
             ->assertJsonPath('result.status', 'ready');
 
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson("/api/convolab/scripts/job/{$job->id}")
             ->assertNotFound();
     }
@@ -214,8 +215,7 @@ class ContentAudioScriptGenerationApiTest extends TestCase
         [$episode, $script] = $this->script($user);
         $render = $this->render($script, 1, '0.85');
         Storage::disk('media')->put($render->audio_storage_path, '0123456789');
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->get('/api/convolab/scripts/'.strtoupper($episode->id).'/audio/'.strtoupper($render->id))
             ->assertOk()
@@ -252,9 +252,7 @@ class ContentAudioScriptGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $this->withToken($user->createToken('convolab-proxy', ['content:write'])->plainTextToken);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @return array{ContentEpisode, ContentAudioScript} */

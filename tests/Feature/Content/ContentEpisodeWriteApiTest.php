@@ -19,15 +19,6 @@ class ContentEpisodeWriteApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PROXY_EMAIL = 'proxy@example.com';
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', self::PROXY_EMAIL);
-    }
-
     public function test_episode_writes_require_authentication(): void
     {
         $episodeId = (string) Str::uuid();
@@ -37,9 +28,9 @@ class ContentEpisodeWriteApiTest extends TestCase
         $this->deleteJson('/api/convolab/episodes/'.$episodeId)->assertUnauthorized();
     }
 
-    public function test_episode_writes_require_the_dedicated_proxy_token_and_content_scope(): void
+    public function test_episode_writes_reject_api_tokens(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $episodeId = (string) Str::uuid();
 
         $ordinaryToken = $user->createToken('mobile', ['content:write'])->plainTextToken;
@@ -47,25 +38,21 @@ class ContentEpisodeWriteApiTest extends TestCase
             ->postJson('/api/convolab/episodes', $this->validPayload())
             ->assertForbidden();
 
-        $readOnlyProxyToken = $user->createToken('convolab-proxy', ['study:read'])->plainTextToken;
-        $this->withToken($readOnlyProxyToken)
+        $this->withToken($ordinaryToken)
             ->patchJson('/api/convolab/episodes/'.$episodeId, ['title' => 'Updated'])
             ->assertForbidden();
 
-        config()->set('services.convolab.proxy_user_email', 'different@example.com');
-        $writeProxyToken = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
-        $this->withToken($writeProxyToken)
+        $this->withToken($ordinaryToken)
             ->deleteJson('/api/convolab/episodes/'.$episodeId)
             ->assertForbidden();
     }
 
-    public function test_proxy_creates_a_convolab_compatible_episode_with_normalized_provenance(): void
+    public function test_browser_session_creates_a_convolab_compatible_episode_with_normalized_provenance(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = strtoupper((string) Str::uuid());
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', '  '.$sourceUserId.'  ')
+        $response = $this->asConvoLabBrowser($user, convoLabUserId: '  '.$sourceUserId.'  ')
             ->postJson('/api/convolab/episodes', [
                 ...$this->validPayload(),
                 'audioSpeed' => 'slow',
@@ -104,10 +91,9 @@ class ContentEpisodeWriteApiTest extends TestCase
 
     public function test_create_applies_legacy_defaults(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabBrowser($user)
             ->postJson('/api/convolab/episodes', $this->validPayload())
             ->assertOk()
             ->assertJsonPath('audioSpeed', 'medium')
@@ -122,19 +108,13 @@ class ContentEpisodeWriteApiTest extends TestCase
         ]);
     }
 
-    public function test_create_validates_the_trusted_user_header_and_legacy_input_domain(): void
+    public function test_create_uses_session_provenance_and_validates_the_legacy_input_domain(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
-        $token = $this->proxyToken($user);
+        $user = User::factory()->create();
 
-        $this->withToken($token)
-            ->postJson('/api/convolab/episodes', $this->validPayload())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+        $this->asConvoLabBrowser($user)
             ->postJson('/api/convolab/episodes', [
+                'convolabUserId' => 'not-a-uuid',
                 'title' => ['not a string'],
                 'sourceText' => null,
                 'targetLanguage' => 'fr',
@@ -145,7 +125,6 @@ class ContentEpisodeWriteApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'convolabUserId',
                 'title',
                 'sourceText',
                 'targetLanguage',
@@ -153,20 +132,19 @@ class ContentEpisodeWriteApiTest extends TestCase
                 'audioSpeed',
                 'jlptLevel',
                 'autoGenerateAudio',
-            ]);
+            ])
+            ->assertJsonMissingValidationErrors(['convolabUserId']);
 
         $this->assertDatabaseCount('content_episodes', 0);
     }
 
-    public function test_proxy_updates_only_supplied_fields_and_hides_other_owners(): void
+    public function test_browser_session_updates_only_supplied_fields_and_hides_other_owners(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $owned = $this->episodeFor($user, ['title' => 'Original', 'status' => 'draft']);
         $other = $this->episodeFor($user, ['title' => 'Other']);
-        $token = $this->proxyToken($user);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($owned->convolab_user_id))
+        $this->asConvoLabBrowser($user, convoLabUserId: strtoupper($owned->convolab_user_id))
             ->patchJson('/api/convolab/episodes/'.strtoupper($owned->id), ['title' => 'Updated'])
             ->assertOk()
             ->assertExactJson(['message' => 'Episode updated successfully']);
@@ -176,44 +154,39 @@ class ContentEpisodeWriteApiTest extends TestCase
         $this->assertSame('draft', $owned->status);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $owned->source_system);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->patchJson('/api/convolab/episodes/'.$other->id, ['status' => 'ready'])
             ->assertNotFound()
             ->assertExactJson(['message' => 'Episode not found']);
         $this->assertSame('draft', $other->fresh()->status);
     }
 
-    public function test_update_requires_effective_user_provenance_and_rejects_unknown_statuses(): void
+    public function test_update_uses_session_provenance_and_rejects_unknown_statuses(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $episode = $this->episodeFor($user);
-        $token = $this->proxyToken($user);
 
-        $this->withToken($token)
-            ->patchJson('/api/convolab/episodes/'.$episode->id, ['status' => 'ready'])
+        $this->asConvoLabBrowser($user, convoLabUserId: $episode->convolab_user_id)
+            ->patchJson('/api/convolab/episodes/'.$episode->id, [
+                'convolabUserId' => (string) Str::uuid(),
+                'status' => 'completed',
+            ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $episode->convolab_user_id)
-            ->patchJson('/api/convolab/episodes/'.$episode->id, ['status' => 'completed'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['status']);
+            ->assertJsonValidationErrors(['status'])
+            ->assertJsonMissingValidationErrors(['convolabUserId']);
 
         $this->assertSame('draft', $episode->fresh()->status);
     }
 
     public function test_empty_update_preserves_legacy_touch_behavior(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $episode = $this->episodeFor($user);
         $originalUpdatedAt = $episode->updated_at;
 
         $this->travel(1)->second();
         try {
-            $this->withToken($this->proxyToken($user))
-                ->withHeader('X-Convo-Lab-User-Id', $episode->convolab_user_id)
+            $this->asConvoLabBrowser($user, convoLabUserId: $episode->convolab_user_id)
                 ->patchJson('/api/convolab/episodes/'.$episode->id, [])
                 ->assertOk();
         } finally {
@@ -224,9 +197,9 @@ class ContentEpisodeWriteApiTest extends TestCase
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->fresh()->source_system);
     }
 
-    public function test_proxy_deletes_owned_episode_graph_and_hides_retries_and_other_owners(): void
+    public function test_browser_session_deletes_owned_episode_graph_and_hides_retries_and_other_owners(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $owned = $this->episodeFor($user);
         $dialogue = ContentDialogue::query()->forceCreate([
             'id' => (string) Str::uuid(),
@@ -235,10 +208,7 @@ class ContentEpisodeWriteApiTest extends TestCase
             'updated_at' => now(),
         ]);
         $other = $this->episodeFor($user);
-        $token = $this->proxyToken($user);
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/episodes/'.$owned->id)
             ->assertOk()
             ->assertExactJson(['message' => 'Episode deleted successfully']);
@@ -250,12 +220,10 @@ class ContentEpisodeWriteApiTest extends TestCase
             'convolab_user_id' => $owned->convolab_user_id,
         ]);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/episodes/'.$owned->id)
             ->assertNotFound();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/episodes/'.$other->id)
             ->assertNotFound();
         $this->assertDatabaseHas('content_episodes', ['id' => $other->id]);
@@ -278,35 +246,33 @@ class ContentEpisodeWriteApiTest extends TestCase
 
     public function test_create_and_update_rate_limits_do_not_share_a_bucket(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
-        $episode = $this->episodeFor($user);
-        $token = $this->proxyToken($user);
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $otherSourceUserId = (string) Str::uuid();
+        $episode = $this->episodeFor($user, ['convolab_user_id' => $sourceUserId]);
         $testBucket = 'episode-write-test-'.Str::uuid();
 
         RateLimiter::for(ContentEpisodeRateLimiter::CREATE_NAME, function (Request $request) use ($testBucket): Limit {
-            return Limit::perMinute(1)->by($testBucket.'|create|'.strtolower(trim((string) $request->header('X-Convo-Lab-User-Id'))));
+            return Limit::perMinute(1)->by($testBucket.'|create|'.strtolower((string) $request->user()?->convolab_id));
         });
         RateLimiter::for(ContentEpisodeRateLimiter::UPDATE_NAME, function (Request $request) use ($testBucket): Limit {
-            return Limit::perMinute(1)->by($testBucket.'|update|'.strtolower(trim((string) $request->header('X-Convo-Lab-User-Id'))));
+            return Limit::perMinute(1)->by($testBucket.'|update|'.strtolower((string) $request->user()?->convolab_id));
         });
 
         try {
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
                 ->postJson('/api/convolab/episodes', $this->validPayload())
                 ->assertOk();
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
                 ->postJson('/api/convolab/episodes', $this->validPayload())
                 ->assertTooManyRequests();
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $otherSourceUserId)
+            $this->app['auth']->forgetGuards();
+            $this->asConvoLabBrowser($otherUser, convoLabUserId: $otherSourceUserId)
                 ->postJson('/api/convolab/episodes', $this->validPayload())
                 ->assertOk();
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $episode->convolab_user_id)
+            $this->app['auth']->forgetGuards();
+            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
                 ->patchJson('/api/convolab/episodes/'.$episode->id, ['status' => 'ready'])
                 ->assertOk();
         } finally {
@@ -315,11 +281,6 @@ class ContentEpisodeWriteApiTest extends TestCase
             RateLimiter::clear($testBucket.'|update|'.$episode->convolab_user_id);
             $this->restoreEpisodeRateLimiters();
         }
-    }
-
-    private function proxyToken(User $user): string
-    {
-        return $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
     }
 
     /** @return array<string, string> */

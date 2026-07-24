@@ -4,7 +4,6 @@ namespace Tests\Feature\Analytics;
 
 use App\Domain\Analytics\Contracts\ToolAnalyticsLogger;
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
-use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -30,8 +29,6 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-
         $this->logger = new class($this->events) implements ToolAnalyticsLogger
         {
             /**
@@ -48,10 +45,10 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->app->instance(ToolAnalyticsLogger::class, $this->logger);
     }
 
-    public function test_store_requires_authentication(): void
+    public function test_retired_proxy_store_is_not_exposed(): void
     {
         $this->postJson('/api/convolab/tools/analytics', $this->validPayload())
-            ->assertUnauthorized();
+            ->assertNotFound();
 
         $this->assertSame([], $this->events);
     }
@@ -90,18 +87,14 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         ], $properties);
     }
 
-    public function test_store_route_uses_the_named_limiter(): void
+    public function test_retired_proxy_store_route_is_absent(): void
     {
         $route = collect(Route::getRoutes())->first(
             fn ($route): bool => $route->uri() === 'api/convolab/tools/analytics'
                 && in_array('POST', $route->methods(), true),
         );
 
-        $this->assertNotNull($route);
-        $this->assertContains(
-            'throttle:'.ToolAnalyticsRateLimiter::NAME,
-            $route->gatherMiddleware(),
-        );
+        $this->assertNull($route);
     }
 
     public function test_browser_store_route_uses_the_dedicated_limiter_without_authentication(): void
@@ -168,55 +161,11 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->assertCount(120, $this->events);
     }
 
-    public function test_store_rejects_wildcard_non_proxy_and_wrong_account_tokens(): void
+    public function test_browser_store_records_the_legacy_json_line_shape(): void
     {
-        $wildcard = User::factory()->create(['email' => 'proxy@example.com'])
-            ->createToken('convolab-proxy', ['*'])
-            ->plainTextToken;
-        $nonProxy = User::factory()->create()
-            ->createToken('mobile', ['tools:analytics'])
-            ->plainTextToken;
-        $wrongAccount = User::factory()->create(['email' => 'other@example.com'])
-            ->createToken('convolab-proxy', ['tools:analytics'])
-            ->plainTextToken;
-
-        foreach ([$wildcard, $nonProxy, $wrongAccount] as $token) {
-            $this->withToken($token)
-                ->postJson('/api/convolab/tools/analytics', $this->validPayload())
-                ->assertForbidden();
-        }
-
-        $this->assertSame([], $this->events);
-    }
-
-    public function test_store_rejects_a_proxy_token_without_the_dedicated_scope(): void
-    {
-        $this->withToken($this->proxyToken(['study:write']))
-            ->postJson('/api/convolab/tools/analytics', $this->validPayload())
-            ->assertForbidden();
-
-        $this->assertSame([], $this->events);
-    }
-
-    public function test_store_rejects_the_proxy_token_when_the_account_is_not_configured(): void
-    {
-        config()->set('services.convolab.proxy_user_email');
-
-        $this->withToken($this->proxyToken(['tools:analytics']))
-            ->postJson('/api/convolab/tools/analytics', $this->validPayload())
-            ->assertForbidden();
-
-        $this->assertSame([], $this->events);
-    }
-
-    public function test_store_records_the_legacy_json_line_shape(): void
-    {
-        $token = $this->proxyToken(['tools:analytics']);
-
         Carbon::setTestNow('2026-07-22 18:15:12.345 UTC');
         try {
-            $this->withToken($token)
-                ->postJson('/api/convolab/tools/analytics', $this->validPayload())
+            $this->postJson('/api/convolab/browser/tools/analytics', $this->validPayload())
                 ->assertNoContent();
         } finally {
             Carbon::setTestNow();
@@ -245,15 +194,14 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         ], $properties);
     }
 
-    public function test_store_omits_nullable_dimensions_and_keeps_empty_properties_an_object(): void
+    public function test_browser_store_omits_nullable_dimensions_and_keeps_empty_properties_an_object(): void
     {
         $payload = $this->validPayload();
         $payload['mode'] = null;
         $payload['sessionId'] = null;
         $payload['properties'] = [];
 
-        $this->withToken($this->proxyToken(['tools:analytics']))
-            ->postJson('/api/convolab/tools/analytics', $payload)
+        $this->postJson('/api/convolab/browser/tools/analytics', $payload)
             ->assertNoContent();
 
         $this->assertArrayNotHasKey('mode', $this->events[0]);
@@ -261,13 +209,12 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->assertSame('{}', json_encode($this->events[0]['properties']));
     }
 
-    public function test_store_keeps_numeric_property_keys_in_a_json_object(): void
+    public function test_browser_store_keeps_numeric_property_keys_in_a_json_object(): void
     {
         $payload = $this->validPayload();
         $payload['properties'] = ['0' => true];
 
-        $this->withToken($this->proxyToken(['tools:analytics']))
-            ->postJson('/api/convolab/tools/analytics', $payload)
+        $this->postJson('/api/convolab/browser/tools/analytics', $payload)
             ->assertNoContent();
 
         $this->assertSame('{"0":true}', json_encode($this->events[0]['properties']));
@@ -277,15 +224,14 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
      * @param  array<string, mixed>  $changes
      */
     #[DataProvider('invalidPayloads')]
-    public function test_store_rejects_invalid_bounded_contracts(
+    public function test_browser_store_rejects_invalid_bounded_contracts(
         array $changes,
         string $field,
     ): void {
-        $this->withToken($this->proxyToken(['tools:analytics']))
-            ->postJson(
-                '/api/convolab/tools/analytics',
-                array_replace($this->validPayload(), $changes),
-            )
+        $this->postJson(
+            '/api/convolab/browser/tools/analytics',
+            array_replace($this->validPayload(), $changes),
+        )
             ->assertUnprocessable()
             ->assertJsonValidationErrors($field);
 
@@ -295,20 +241,6 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
     /**
      * @param  array<string, mixed>  $changes
      */
-    #[DataProvider('invalidPayloads')]
-    public function test_browser_store_rejects_the_same_invalid_bounded_contracts(
-        array $changes,
-        string $field,
-    ): void {
-        $this->postJson(
-            '/api/convolab/browser/tools/analytics',
-            array_replace($this->validPayload(), $changes),
-        )->assertUnprocessable()
-            ->assertJsonValidationErrors($field);
-
-        $this->assertSame([], $this->events);
-    }
-
     /**
      * @return array<string, array{array<string, mixed>, string}>
      */
@@ -338,13 +270,12 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         ];
     }
 
-    public function test_store_ignores_unknown_top_level_fields(): void
+    public function test_browser_store_ignores_unknown_top_level_fields(): void
     {
         $payload = $this->validPayload();
         $payload['internal'] = 'not-logged';
 
-        $this->withToken($this->proxyToken(['tools:analytics']))
-            ->postJson('/api/convolab/tools/analytics', $payload)
+        $this->postJson('/api/convolab/browser/tools/analytics', $payload)
             ->assertNoContent();
 
         $this->assertArrayNotHasKey('internal', $this->events[0]);
@@ -389,15 +320,5 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
                 'detail' => null,
             ],
         ];
-    }
-
-    /**
-     * @param  list<string>  $abilities
-     */
-    private function proxyToken(array $abilities): string
-    {
-        return User::factory()->create(['email' => 'proxy@example.com'])
-            ->createToken('convolab-proxy', $abilities)
-            ->plainTextToken;
     }
 }

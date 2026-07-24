@@ -19,7 +19,6 @@ class UpdateFeatureFlagsApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         config()->set('sanctum.stateful', ['convo-lab.test']);
     }
 
@@ -41,20 +40,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $this->assertContains('throttle:feature-flag-update', $route->gatherMiddleware());
     }
 
-    public function test_update_rejects_an_ordinary_wildcard_mobile_token(): void
-    {
-        $token = User::factory()->create()
-            ->createToken('convolab-proxy', ['*'])
-            ->plainTextToken;
-
-        $this->withToken($token)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
-            ->assertForbidden();
-
-        $this->assertDatabaseCount('feature_flags', 0);
-    }
-
-    public function test_update_rejects_a_non_proxy_token_with_the_write_scope(): void
+    public function test_update_rejects_api_tokens(): void
     {
         $token = User::factory()->create()
             ->createToken('mobile', ['feature-flags:write'])
@@ -67,38 +53,11 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $this->assertDatabaseCount('feature_flags', 0);
     }
 
-    public function test_update_rejects_the_named_scoped_token_for_another_account(): void
-    {
-        $token = User::factory()
-            ->create(['email' => 'other@example.com'])
-            ->createToken('convolab-proxy', ['feature-flags:write'])
-            ->plainTextToken;
-
-        $this->withToken($token)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
-            ->assertForbidden();
-
-        $this->assertDatabaseCount('feature_flags', 0);
-    }
-
-    public function test_update_rejects_the_proxy_token_when_the_expected_account_is_not_configured(): void
-    {
-        $token = $this->proxyToken(['feature-flags:write']);
-        config()->set('services.convolab.proxy_user_email');
-
-        $this->withToken($token)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
-            ->assertForbidden();
-
-        $this->assertDatabaseCount('feature_flags', 0);
-    }
-
-    public function test_update_accepts_the_dedicated_proxy_write_scope(): void
+    public function test_update_accepts_an_admin_browser_session(): void
     {
         Carbon::setTestNow('2026-07-20 18:15:12.345 UTC');
-        $token = $this->proxyToken(['feature-flags:write']);
 
-        $this->withToken($token)
+        $this->asConvoLabAdminBrowser()
             ->patchJson('/api/feature-flags', [
                 'dialoguesEnabled' => false,
                 'scriptsEnabled' => true,
@@ -162,29 +121,18 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $this->assertDatabaseHas('feature_flags', ['dialoguesEnabled' => false]);
     }
 
-    public function test_update_rejects_the_deployed_proxy_legacy_study_write_scope(): void
-    {
-        $token = $this->proxyToken(['study:read', 'study:write']);
-
-        $this->withToken($token)
-            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
-            ->assertForbidden();
-
-        $this->assertDatabaseCount('feature_flags', 0);
-    }
-
     public function test_update_validates_each_known_flag_and_ignores_unknown_fields(): void
     {
-        $token = $this->proxyToken(['feature-flags:write']);
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
+        $this
             ->patchJson('/api/feature-flags', [
                 'dialoguesEnabled' => 'false',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('dialoguesEnabled');
 
-        $this->withToken($token)
+        $this
             ->patchJson('/api/feature-flags', [
                 'scriptsEnabled' => false,
                 'internalValue' => true,
@@ -196,11 +144,10 @@ class UpdateFeatureFlagsApiTest extends TestCase
 
     public function test_update_changes_the_same_latest_legacy_row_returned_by_show(): void
     {
-        $token = $this->proxyToken(['feature-flags:write']);
         $older = $this->storeFlags('older', '2026-07-20 16:15:12.345 UTC', false);
         $latest = $this->storeFlags('latest', '2026-07-20 17:15:12.345 UTC', true);
 
-        $this->withToken($token)
+        $this->asConvoLabAdminBrowser()
             ->patchJson('/api/feature-flags', ['scriptsEnabled' => false])
             ->assertOk()
             ->assertJsonPath('id', 'latest')
@@ -212,11 +159,10 @@ class UpdateFeatureFlagsApiTest extends TestCase
 
     public function test_empty_update_returns_the_current_contract_without_changing_timestamp(): void
     {
-        $token = $this->proxyToken(['feature-flags:write']);
         $featureFlags = $this->storeFlags('current', '2026-07-20 17:15:12.345 UTC', true);
         Carbon::setTestNow('2026-07-20 18:15:12.345 UTC');
 
-        $this->withToken($token)
+        $this->asConvoLabAdminBrowser()
             ->patchJson('/api/feature-flags')
             ->assertOk()
             ->assertJsonPath('updatedAt', '2026-07-20T17:15:12.345Z');
@@ -225,16 +171,6 @@ class UpdateFeatureFlagsApiTest extends TestCase
             '2026-07-20 17:15:12.345',
             $featureFlags->refresh()->updatedAt->format('Y-m-d H:i:s.v'),
         );
-    }
-
-    /**
-     * @param  list<string>  $abilities
-     */
-    private function proxyToken(array $abilities): string
-    {
-        return User::factory()->create(['email' => 'proxy@example.com'])
-            ->createToken('convolab-proxy', $abilities)
-            ->plainTextToken;
     }
 
     private function asBrowser(User $user): static

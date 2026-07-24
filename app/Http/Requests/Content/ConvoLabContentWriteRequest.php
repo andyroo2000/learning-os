@@ -10,7 +10,7 @@ abstract class ConvoLabContentWriteRequest extends ConvoLabContentUserRequest
 {
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allows($this, 'content:write')
+        return ConvoLabRequestIdentity::allows($this)
             && ! $this->isUnverifiedBrowserMutation()
             && ! $this->isBlockedDemoMutation();
     }
@@ -58,8 +58,7 @@ abstract class ConvoLabContentWriteRequest extends ConvoLabContentUserRequest
             return false;
         }
 
-        // Proxy requests already passed the legacy app's verification middleware.
-        // For direct browser requests, verify the actor before applying admin viewAs.
+        // Verify the authenticated actor before applying admin viewAs.
         $user = $this->user();
 
         return $user instanceof User && $user->email_verified_at === null;

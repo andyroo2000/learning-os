@@ -20,13 +20,6 @@ class AdminMediaConfigApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
     public function test_speaker_avatar_list_returns_the_legacy_shape_and_cache_headers_in_stable_order(): void
     {
         $later = $this->insertAvatar([
@@ -42,7 +35,7 @@ class AdminMediaConfigApiTest extends TestCase
             'updated_at' => '2026-07-21 11:00:00.456',
         ]);
 
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/avatars/speakers')
             ->assertOk()
             ->assertHeader('Cache-Control', 'max-age=3600, private')
@@ -75,25 +68,25 @@ class AdminMediaConfigApiTest extends TestCase
     public function test_speaker_avatar_original_lookup_normalizes_case_and_returns_controlled_errors(): void
     {
         $this->insertAvatar(['filename' => 'ja-female-casual.jpg']);
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.JPG/original')
             ->assertOk()
             ->assertExactJson(['originalUrl' => 'https://storage.example/original.jpg']);
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/avatars/speaker/not-an-avatar.jpg/original')
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Invalid avatar filename format']);
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/avatars/speaker/ja-male-casual.jpg/original')
             ->assertNotFound()
             ->assertExactJson(['message' => 'Speaker avatar not found']);
     }
 
-    public function test_media_config_reads_require_the_proxy_identity_and_read_scope(): void
+    public function test_media_config_reads_require_a_first_party_admin_session(): void
     {
         $this->getJson('/api/convolab/admin/pronunciation-dictionaries')->assertUnauthorized();
 
@@ -104,14 +97,14 @@ class AdminMediaConfigApiTest extends TestCase
             ->getJson('/api/convolab/admin/avatars/speakers')
             ->assertForbidden();
 
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson('/api/convolab/admin/pronunciation-dictionaries')
             ->assertForbidden();
     }
 
     public function test_pronunciation_dictionary_starts_with_the_legacy_defaults_without_a_fake_update_timestamp(): void
     {
-        $response = $this->withToken($this->proxyToken())
+        $response = $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/pronunciation-dictionaries')
             ->assertOk()
             ->assertJsonPath('verbKana.話す', 'はなす')
@@ -126,9 +119,8 @@ class AdminMediaConfigApiTest extends TestCase
         $actor = (string) Str::uuid();
 
         $this->freezeTime(function () use ($actor): void {
-            $response = $this->withoutMiddleware(TrimStrings::class)
-                ->withToken($this->proxyToken(['admin:write']))
-                ->withHeader('X-Convo-Lab-User-Id', $actor)
+            $response = $this->asConvoLabAdminBrowser(convoLabUserId: $actor)
+                ->withoutMiddleware(TrimStrings::class)
                 ->putJson('/api/convolab/admin/pronunciation-dictionaries', [
                     'keepKanji' => [' 日本 ', '「橋」', '日本'],
                     'forceKana' => [' 北 海 道 ' => ' ほっかいどう '],
@@ -156,10 +148,9 @@ class AdminMediaConfigApiTest extends TestCase
 
     public function test_pronunciation_dictionary_allows_explicit_empty_maps_and_replaces_verb_map(): void
     {
-        $token = $this->proxyToken(['admin:read', 'admin:write']);
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this
             ->putJson('/api/convolab/admin/pronunciation-dictionaries', [
                 'keepKanji' => [],
                 'forceKana' => (object) [],
@@ -170,7 +161,7 @@ class AdminMediaConfigApiTest extends TestCase
             ->assertJsonPath('forceKana', [])
             ->assertJsonPath('verbKana', []);
 
-        $response = $this->withToken($token)
+        $response = $this
             ->getJson('/api/convolab/admin/pronunciation-dictionaries')
             ->assertOk();
         $this->assertSame([], $response->json('forceKana'));
@@ -194,9 +185,8 @@ class AdminMediaConfigApiTest extends TestCase
         ];
 
         foreach ($cases as [$payload, $message]) {
-            $this->withoutMiddleware(TrimStrings::class)
-                ->withToken($this->proxyToken(['admin:write']))
-                ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+            $this->asConvoLabAdminBrowser()
+                ->withoutMiddleware(TrimStrings::class)
                 ->putJson('/api/convolab/admin/pronunciation-dictionaries', $payload)
                 ->assertBadRequest()
                 ->assertExactJson(['message' => $message]);
@@ -212,8 +202,7 @@ class AdminMediaConfigApiTest extends TestCase
         $tooManyKeep = array_fill(0, PronunciationDictionaryData::MAX_KEEP_KANJI_ENTRIES + 1, '橋');
         $payload = ['keepKanji' => $tooManyKeep, 'forceKana' => []];
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->putJson('/api/convolab/admin/pronunciation-dictionaries', $payload)
             ->assertBadRequest()
             ->assertExactJson(['message' => 'keepKanji must contain no more than 500 entries']);
@@ -221,20 +210,17 @@ class AdminMediaConfigApiTest extends TestCase
         $this->assertNull(AdminPronunciationDictionary::query()->findOrFail('ja')->updated_at);
     }
 
-    public function test_pronunciation_write_requires_actor_and_write_scope(): void
+    public function test_pronunciation_write_requires_a_first_party_admin_session(): void
     {
         $payload = ['keepKanji' => [], 'forceKana' => []];
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->putJson('/api/convolab/admin/pronunciation-dictionaries', $payload)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
+        $this->putJson('/api/convolab/admin/pronunciation-dictionaries', $payload)
+            ->assertUnauthorized();
 
-        $readOnlyUser = User::factory()->create(['email' => 'read-proxy@example.com']);
-        config()->set('services.convolab.proxy_user_email', 'read-proxy@example.com');
-        $readOnlyToken = $readOnlyUser->createToken('convolab-proxy', ['admin:read'])->plainTextToken;
-        $this->withToken($readOnlyToken)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->putJson('/api/convolab/admin/pronunciation-dictionaries', $payload)
             ->assertForbidden();
     }
@@ -278,17 +264,6 @@ class AdminMediaConfigApiTest extends TestCase
 
             $this->assertCount(1, $queries, "{$action} should use one database query.");
         }
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities = ['admin:read']): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $attributes */

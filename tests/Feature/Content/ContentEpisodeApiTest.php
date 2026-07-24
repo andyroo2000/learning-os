@@ -19,7 +19,6 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ContentEpisodeApiTest extends TestCase
@@ -62,17 +61,18 @@ class ContentEpisodeApiTest extends TestCase
         }
     }
 
-    public function test_episode_reads_require_a_valid_effective_convolab_user(): void
+    public function test_episode_reads_reject_api_tokens(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $user = User::factory()->create();
+        $token = $user->createToken('mobile', ['content:read'])->plainTextToken;
 
-        $this->getJson('/api/convolab/episodes')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-        $this->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+        $this->withToken($token)
+            ->getJson('/api/convolab/episodes')
+            ->assertForbidden();
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
             ->getJson('/api/convolab/episodes/'.Str::uuid())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_library_list_preserves_compact_convolab_shape_and_owner_boundary(): void
@@ -308,8 +308,7 @@ class ContentEpisodeApiTest extends TestCase
 
     private function authenticate(User $user): void
     {
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     private function assertDialogueShape(mixed $response, ?string $prefix, ContentEpisode $episode): void

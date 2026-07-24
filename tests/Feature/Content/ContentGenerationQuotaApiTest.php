@@ -23,8 +23,6 @@ class ContentGenerationQuotaApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PROXY_EMAIL = 'quota-proxy@example.com';
-
     private string $convoLabUserId;
 
     protected function setUp(): void
@@ -32,40 +30,32 @@ class ContentGenerationQuotaApiTest extends TestCase
         parent::setUp();
 
         $this->convoLabUserId = (string) Str::uuid();
-        config()->set('services.convolab.proxy_user_email', self::PROXY_EMAIL);
         Carbon::setTestNow('2026-07-22T12:00:00Z');
     }
 
-    public function test_status_requires_the_named_proxy_and_read_ability(): void
+    public function test_status_requires_a_first_party_browser_session(): void
     {
         $user = User::factory()->create();
         $this->convoLabProjectionFor($user, $this->convoLabUserId);
 
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
-            ->getJson('/api/convolab/auth/me/quota')
+        $this->getJson('/api/convolab/auth/me/quota')
             ->assertUnauthorized();
 
-        $this->withToken($this->proxyToken(['content:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
-            ->getJson('/api/convolab/auth/me/quota')
-            ->assertForbidden();
-
-        $ordinary = User::factory()->create()
-            ->createToken('mobile', ['auth:read'])
-            ->plainTextToken;
-        $this->withToken($ordinary)
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
+        $token = $user->createToken('mobile', ['auth:read'])->plainTextToken;
+        $this->withToken($token)
             ->getJson('/api/convolab/auth/me/quota')
             ->assertForbidden();
     }
 
-    public function test_status_validates_the_browser_user_identity(): void
+    public function test_status_ignores_spoofed_identity_headers(): void
     {
-        $this->withToken($this->proxyToken(['auth:read']))
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+        $user = User::factory()->create();
+        $this->convoLabProjectionFor($user, $this->convoLabUserId);
+
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId)
+            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
             ->getJson('/api/convolab/auth/me/quota')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertOk();
     }
 
     public function test_status_returns_the_existing_quota_shape_and_counts_only_the_current_utc_month(): void
@@ -77,8 +67,7 @@ class ContentGenerationQuotaApiTest extends TestCase
         $this->generationLog('2026-07-20T10:00:00.000Z', ContentGenerationType::Course);
         $this->generationLog('2026-08-01T00:00:00.000Z', ContentGenerationType::Script);
 
-        $this->withToken($this->proxyToken(['auth:read']))
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($this->convoLabUserId))
+        $this->asConvoLabBrowser($user, convoLabUserId: strtoupper($this->convoLabUserId))
             ->getJson('/api/convolab/auth/me/quota')
             ->assertExactJson([
                 'unlimited' => false,
@@ -112,8 +101,7 @@ class ContentGenerationQuotaApiTest extends TestCase
         $this->assertDatabaseCount('generation_logs', 0);
         $this->assertDatabaseCount('content_generation_cooldowns', 0);
 
-        $this->withToken($this->proxyToken(['auth:read']))
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
+        $this->asConvoLabBrowser($user, role: 'admin', convoLabUserId: $this->convoLabUserId)
             ->getJson('/api/convolab/auth/me/quota')
             ->assertExactJson([
                 'unlimited' => true,
@@ -272,8 +260,7 @@ class ContentGenerationQuotaApiTest extends TestCase
         $this->convoLabProjectionFor($browserUser, $this->convoLabUserId);
         $this->generationLog('2026-07-20T10:00:00.000Z', ContentGenerationType::Dialogue);
 
-        $this->withToken($this->proxyToken(['content:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
+        $this->asConvoLabBrowser($browserUser, convoLabUserId: $this->convoLabUserId)
             ->postJson('/api/convolab/scripts', ['sourceText' => '日本語です。'])
             ->assertTooManyRequests()
             ->assertHeader('X-RateLimit-Limit', '1')
@@ -296,8 +283,7 @@ class ContentGenerationQuotaApiTest extends TestCase
         $cooldown->available_at = now()->addSeconds(12);
         $cooldown->save();
 
-        $this->withToken($this->proxyToken(['content:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
+        $this->asConvoLabBrowser($browserUser, convoLabUserId: $this->convoLabUserId)
             ->postJson('/api/convolab/scripts', ['sourceText' => '日本語です。'])
             ->assertTooManyRequests()
             ->assertHeader('Retry-After', '12')
@@ -339,14 +325,5 @@ class ContentGenerationQuotaApiTest extends TestCase
             'contentId' => null,
             'createdAt' => $createdAt,
         ]);
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $proxy = User::query()->where('email', self::PROXY_EMAIL)->first()
-            ?? User::factory()->create(['email' => self::PROXY_EMAIL]);
-
-        return $proxy->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 }

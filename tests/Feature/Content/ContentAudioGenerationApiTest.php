@@ -22,7 +22,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -39,7 +38,7 @@ class ContentAudioGenerationApiTest extends TestCase
         $this->convoLabUserId = (string) Str::uuid();
     }
 
-    public function test_routes_require_authentication_and_generation_requires_proxy_write_ability(): void
+    public function test_routes_require_a_first_party_browser_session(): void
     {
         $this->postJson('/api/convolab/audio/generate', [])->assertUnauthorized();
         $this->postJson('/api/convolab/audio/generate-all-speeds', [])->assertUnauthorized();
@@ -47,18 +46,13 @@ class ContentAudioGenerationApiTest extends TestCase
         $this->getJson('/api/convolab/episodes/'.Str::uuid().'/audio/1.0')->assertUnauthorized();
 
         $user = User::factory()->create();
-        config()->set('services.convolab.proxy_user_email', 'another@example.com');
         $token = $user->createToken('mobile', ['content:write'])->plainTextToken;
         $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
             ->postJson('/api/convolab/audio/generate', $this->payload(Str::uuid(), Str::uuid()))
             ->assertForbidden();
-
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', '')
+        $this->withToken($token)
             ->getJson('/api/convolab/audio/job/'.Str::uuid())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_single_generation_normalizes_validated_input_and_queues_a_durable_attempt(): void
@@ -180,10 +174,13 @@ class ContentAudioGenerationApiTest extends TestCase
         $this->authenticateWrite($user);
         $payload = $this->payload($episode->id, $dialogue->id);
 
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $other = User::factory()->create();
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($other)
             ->postJson('/api/convolab/audio/generate-all-speeds', $payload)
             ->assertNotFound();
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
         $payload['dialogueId'] = (string) Str::uuid();
         $this->postJson('/api/convolab/audio/generate-all-speeds', $payload)->assertNotFound();
         $this->assertDatabaseCount('content_audio_generation_jobs', 0);
@@ -207,8 +204,7 @@ class ContentAudioGenerationApiTest extends TestCase
         $user = User::factory()->create();
         [$episode, $dialogue] = $this->episodeWithDialogue($user, ['audio_generation_attempt' => 1]);
         $job = $this->job($episode, $dialogue, ['state' => 'active', 'progress' => 35]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson('/api/convolab/audio/job/'.strtoupper($job->id))->assertExactJson([
             'id' => $job->id,
@@ -216,7 +212,8 @@ class ContentAudioGenerationApiTest extends TestCase
             'progress' => 35,
             'result' => null,
         ]);
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson('/api/convolab/audio/job/'.$job->id)
             ->assertNotFound();
 
@@ -239,8 +236,9 @@ class ContentAudioGenerationApiTest extends TestCase
         $job->progress = 100;
         $job->result = [['speed' => 'normal', 'audioUrl' => '/audio', 'duration' => 1000]];
         $job->save();
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
-            ->getJson('/api/convolab/audio/job/'.$job->id)
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
+        $this->getJson('/api/convolab/audio/job/'.$job->id)
             ->assertJsonPath('result.0.speed', 'normal');
     }
 
@@ -254,8 +252,7 @@ class ContentAudioGenerationApiTest extends TestCase
         $episode->audio_storage_path_1_0 = $path;
         $episode->save();
         Storage::disk('media')->put($path, 'mp3-bytes');
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->get('/api/convolab/episodes/'.strtoupper($episode->id).'/audio/1.0')
             ->assertOk()
@@ -263,10 +260,12 @@ class ContentAudioGenerationApiTest extends TestCase
             ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'")
             ->assertHeader('Cross-Origin-Resource-Policy', 'same-origin')
             ->assertHeader('X-Content-Type-Options', 'nosniff');
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
             ->get('/api/convolab/episodes/'.$episode->id.'/audio/1.0')
             ->assertNotFound();
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
         Storage::disk('media')->delete($path);
         $this->get('/api/convolab/episodes/'.$episode->id.'/audio/1.0')->assertNotFound();
         $this->get('/api/convolab/episodes/'.$episode->id.'/audio/unknown')->assertNotFound();
@@ -275,7 +274,11 @@ class ContentAudioGenerationApiTest extends TestCase
     public function test_generation_rate_limit_and_server_owned_fields_are_protected(): void
     {
         $request = Request::create('/api/convolab/audio/generate', 'POST');
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($this->convoLabUserId));
+        $request->setUserResolver(
+            fn (): User => User::factory()->make([
+                'convolab_id' => strtoupper($this->convoLabUserId),
+            ]),
+        );
         $limit = ContentAudioRateLimiter::generation($request);
         $this->assertSame(6, $limit->maxAttempts);
         $this->assertSame(
@@ -345,8 +348,10 @@ class ContentAudioGenerationApiTest extends TestCase
         $this->postJson('/api/convolab/audio/generate-all-speeds', $payload)->assertTooManyRequests();
 
         $this->convoLabUserId = (string) Str::uuid();
-        [$secondEpisode, $secondDialogue] = $this->episodeWithDialogue($firstUser);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $secondUser = User::factory()->create();
+        [$secondEpisode, $secondDialogue] = $this->episodeWithDialogue($secondUser);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($secondUser);
         $this->postJson(
             '/api/convolab/audio/generate-all-speeds',
             $this->payload($secondEpisode->id, $secondDialogue->id),
@@ -355,9 +360,7 @@ class ContentAudioGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $this->withToken($user->createToken('convolab-proxy', ['content:write'])->plainTextToken);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @param array<string, mixed> $episodeAttributes

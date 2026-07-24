@@ -9,7 +9,7 @@ class ConvoLabAdminReadRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return ConvoLabAdminAuthorization::allows($this, 'admin:read');
+        return ConvoLabAdminAuthorization::allows($this);
     }
 
     public function rules(): array

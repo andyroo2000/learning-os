@@ -32,29 +32,23 @@ final class AdminScriptLabAudioApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         config()->set('content_courses.audio_disk', 'media');
         Storage::fake('media');
     }
 
-    public function test_routes_enforce_scopes_actor_identity_uuid_constraints_and_limiter(): void
+    public function test_routes_enforce_browser_admin_auth_uuid_constraints_and_limiter(): void
     {
         $renderingId = (string) Str::uuid();
 
         $this->postJson('/api/convolab/admin/script-lab/synthesize-line')->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:read']))
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->postJson('/api/convolab/admin/script-lab/synthesize-line')
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->postJson('/api/convolab/admin/script-lab/synthesize-line', [
-                'text' => 'Text',
-                'voiceId' => self::VOICE_ID,
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
-        $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->withToken($token)
             ->getJson("/api/convolab/admin/script-lab/audio/{$renderingId}")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
@@ -260,25 +254,12 @@ final class AdminScriptLabAudioApiTest extends TestCase
 
     private function readRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:read']))
-            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
+        return $this->asConvoLabAdminBrowser(convoLabUserId: $actorId);
     }
 
     private function writeRequest(?string $actorId = null): static
     {
-        return $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $actorId ?? (string) Str::uuid());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabAdminBrowser(convoLabUserId: $actorId);
     }
 
     private function rendering(string $actorId): AdminScriptLabAudioRendering

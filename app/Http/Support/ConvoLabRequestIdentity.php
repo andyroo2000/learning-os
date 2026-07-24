@@ -18,17 +18,15 @@ final class ConvoLabRequestIdentity
             && $request->user()->currentAccessToken() instanceof TransientToken;
     }
 
-    public static function allows(Request $request, string $proxyAbility): bool
+    public static function allows(Request $request): bool
     {
-        return self::allowsFirstPartySession($request)
-            || ConvoLabProxyAuthorization::allows($request, $proxyAbility);
+        return self::allowsFirstPartySession($request);
     }
 
     public static function userId(Request $request): mixed
     {
-        $value = self::allowsFirstPartySession($request)
-            ? $request->user()?->getAttribute('convolab_id')
-            : $request->header('X-Convo-Lab-User-Id');
+        $user = $request->user();
+        $value = $user instanceof User ? $user->getAttribute('convolab_id') : null;
 
         return is_string($value) ? strtolower(trim($value)) : $value;
     }

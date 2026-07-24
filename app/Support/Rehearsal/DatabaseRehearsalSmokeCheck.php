@@ -3,15 +3,17 @@
 namespace App\Support\Rehearsal;
 
 use App\Models\User;
+use Illuminate\Cookie\CookieValuePrefix;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use JsonException;
 use Laravel\Sanctum\NewAccessToken;
+use RuntimeException;
 use Throwable;
 
 class DatabaseRehearsalSmokeCheck
@@ -21,9 +23,8 @@ class DatabaseRehearsalSmokeCheck
     /**
      * @var list<array{name: string, uri: string, required: list<string>}>
      *
-     * These endpoints must stay stateless. The smoke harness dispatches them through the HTTP kernel without
-     * running the terminate phase, so session-dependent or throttle-protected endpoints can leak state across
-     * loop iterations.
+     * The canonical endpoints use a temporary bearer token. Convo Lab compatibility
+     * endpoints use the selected user's first-party browser session.
      */
     private const ENDPOINTS = [
         [
@@ -72,13 +73,13 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'content episodes',
             'uri' => '/api/convolab/episodes?library=true&limit=1',
             'required' => [],
-            'effective_convolab_user' => true,
+            'first_party_session' => true,
         ],
         [
             'name' => 'content courses',
             'uri' => '/api/convolab/courses?library=true&limit=1',
             'required' => [],
-            'effective_convolab_user' => true,
+            'first_party_session' => true,
         ],
     ];
 
@@ -267,30 +268,52 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>, effective_convolab_user?: bool}  $endpoint
+     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>, first_party_session?: bool}  $endpoint
      * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkEndpoint(array $endpoint, NewAccessToken $token, User $user): array
     {
-        $server = [
-            'HTTP_ACCEPT' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$token->plainTextToken,
-        ];
-        if ($endpoint['effective_convolab_user'] ?? false) {
-            $server['HTTP_X_CONVO_LAB_USER_ID'] = $this->effectiveConvoLabUserId($user);
-        }
-
-        $request = Request::create($endpoint['uri'], 'GET', server: $server);
+        $firstPartySession = $endpoint['first_party_session'] ?? false;
+        $browserSessionId = null;
+        $cleanupException = null;
 
         try {
-            Auth::forgetGuards();
+            $server = ['HTTP_ACCEPT' => 'application/json'];
+            $cookies = [];
+            if ($firstPartySession) {
+                $server += $this->firstPartyServer();
+                [$cookies, $browserSessionId] = $this->browserSessionCookie($user);
+            } else {
+                $server['HTTP_AUTHORIZATION'] = 'Bearer '.$token->plainTextToken;
+            }
 
+            $request = Request::create($endpoint['uri'], 'GET', cookies: $cookies, server: $server);
+
+            Auth::forgetGuards();
             $response = $this->app->handle($request);
         } catch (Throwable $exception) {
             return $this->fail($endpoint['name'], 'Endpoint threw before returning a response.', [
                 'uri' => $endpoint['uri'],
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
+            ]);
+        } finally {
+            if ($browserSessionId !== null) {
+                try {
+                    $this->app->make('session.store')->getHandler()->destroy($browserSessionId);
+                } catch (Throwable $exception) {
+                    $cleanupException = $exception;
+                }
+            }
+
+            Auth::forgetGuards();
+        }
+
+        if ($cleanupException !== null) {
+            return $this->fail($endpoint['name'], 'Unable to delete the temporary browser session.', [
+                'uri' => $endpoint['uri'],
+                'exception' => $cleanupException::class,
+                'message' => $cleanupException->getMessage(),
             ]);
         }
 
@@ -353,21 +376,55 @@ class DatabaseRehearsalSmokeCheck
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
     }
 
-    private function effectiveConvoLabUserId(User $user): string
+    /**
+     * @return array<string, int|string>
+     */
+    private function firstPartyServer(): array
     {
-        foreach (['content_episodes', 'content_courses'] as $table) {
-            $candidate = DB::table($table)
-                ->where('user_id', $user->getKey())
-                ->orderBy('id')
-                ->value('convolab_user_id');
+        $clientUrl = config('services.convolab.client_url');
+        $parts = is_string($clientUrl) ? parse_url($clientUrl) : false;
+        $scheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
 
-            if (is_string($candidate) && Str::isUuid($candidate)) {
-                return strtolower($candidate);
-            }
+        if (! in_array($scheme, ['http', 'https'], true) || ! is_string($host) || $host === '') {
+            throw new RuntimeException('CONVOLAB_CLIENT_URL must be an absolute HTTP(S) URL.');
         }
 
-        // Empty databases still need a syntactically valid effective-user scope to exercise the routes.
-        return '00000000-0000-4000-8000-000000000000';
+        $port = $parts['port'] ?? null;
+        $authority = $host.($port === null ? '' : ':'.$port);
+        $origin = $scheme.'://'.$authority;
+
+        return [
+            'HTTP_HOST' => $authority,
+            'HTTP_ORIGIN' => $origin,
+            'HTTP_REFERER' => $origin.'/',
+            'HTTPS' => $scheme === 'https' ? 'on' : 'off',
+            'SERVER_PORT' => $port ?? ($scheme === 'https' ? 443 : 80),
+        ];
+    }
+
+    /**
+     * @return array{0: array<string, string>, 1: string}
+     */
+    private function browserSessionCookie(User $user): array
+    {
+        Auth::guard('web')->login($user);
+
+        $session = $this->app->make('session.store');
+        $session->save();
+
+        $cookieName = config('session.cookie');
+        $cookieValue = CookieValuePrefix::create($cookieName, $this->app['encrypter']->getKey()).$session->getId();
+
+        return [
+            [
+                $cookieName => $this->app['encrypter']->encrypt(
+                    $cookieValue,
+                    EncryptCookies::serialized($cookieName),
+                ),
+            ],
+            $session->getId(),
+        ];
     }
 
     /**

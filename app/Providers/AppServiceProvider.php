@@ -51,6 +51,7 @@ use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
@@ -341,6 +342,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             ToolAudioSignedUrlRateLimiter::NAME,
             fn (Request $request): Limit => resolve(ToolAudioSignedUrlRateLimiter::class)->limit($request),
+        );
+
+        RateLimiter::for(
+            StudyCompatibilityTrafficRateLimiter::NETWORK_NAME,
+            fn (Request $request): Limit => StudyCompatibilityTrafficRateLimiter::networkLimit($request),
+        );
+        RateLimiter::for(
+            StudyCompatibilityTrafficRateLimiter::READ_NAME,
+            fn (Request $request): Limit => StudyCompatibilityTrafficRateLimiter::readLimit($request),
+        );
+        RateLimiter::for(
+            StudyCompatibilityTrafficRateLimiter::MEDIA_NAME,
+            fn (Request $request): Limit => StudyCompatibilityTrafficRateLimiter::mediaLimit($request),
         );
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;

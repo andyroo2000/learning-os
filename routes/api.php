@@ -35,6 +35,7 @@ use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
+use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
@@ -588,136 +589,184 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class)
         ->middleware('throttle:'.MediaAssetRateLimiter::DELETE_NAME);
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
-    Route::post('/study/session/start', StartStudySessionController::class)
-        ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
-    Route::post('/daily-audio-practice', StoreDailyAudioPracticeController::class)
-        ->middleware('throttle:'.DailyAudioPracticeGenerationRateLimiter::NAME);
-    Route::get('/daily-audio-practice', ListDailyAudioPracticesController::class);
-    Route::get('/daily-audio-practice/{practiceId}', ShowDailyAudioPracticeController::class)
-        ->whereUuid('practiceId');
-    Route::get('/daily-audio-practice/{practiceId}/status', ShowDailyAudioPracticeStatusController::class)
-        ->whereUuid('practiceId');
-    Route::get(
-        '/daily-audio-practice/{practiceId}/tracks/{trackId}/audio',
-        DownloadDailyAudioPracticeTrackController::class,
-    )
-        ->whereUuid('practiceId')
-        ->whereUuid('trackId');
-    Route::get('/study/export', ShowStudyExportManifestController::class);
-    Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)->name('api.study.export.card-drafts');
-    Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)->name('api.study.export.card-media');
-    Route::get('/study/export/cards', ListStudyExportCardsController::class)->name('api.study.export.cards');
-    Route::get('/study/export/courses', ListStudyExportCoursesController::class)->name('api.study.export.courses');
-    Route::get('/study/export/decks', ListStudyExportDecksController::class)->name('api.study.export.decks');
-    Route::get('/study/export/imports', ListStudyExportImportJobsController::class)->name('api.study.export.imports');
-    Route::get('/study/export/media', ListStudyExportMediaAssetsController::class)->name('api.study.export.media');
-    Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)->name('api.study.export.media-assets');
-    Route::get('/study/export/review-logs', ListStudyExportReviewEventsController::class)->name('api.study.export.review-logs');
-    Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)->name('api.study.export.review-events');
-    Route::get('/study/export/settings', ShowStudyExportSettingsController::class)->name('api.study.export.settings');
-    Route::get('/study/imports', ListStudyImportJobsController::class);
-    // Study import lifecycle writes have separate quotas so upload retries do not starve cancel/complete.
-    Route::post('/study/imports', StoreStudyImportController::class)
-        ->middleware('throttle:'.StudyImportRateLimiter::CREATE_NAME);
-    Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class);
-    Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class);
-    Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
-        ->whereUlid('studyImportJobId')
-        ->name('api.study.imports.upload')
-        ->middleware('throttle:'.StudyImportRateLimiter::UPLOAD_NAME);
-    Route::post('/study/imports/{studyImportJobId}/complete', CompleteStudyImportUploadController::class)
-        ->whereUlid('studyImportJobId')
-        ->middleware('throttle:'.StudyImportRateLimiter::COMPLETE_NAME);
-    Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
-        ->whereUlid('studyImportJobId')
-        ->middleware('throttle:'.StudyImportRateLimiter::CANCEL_NAME);
-    Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)
-        // Copied ConvoLab jobs retain UUIDs; jobs created by Learning OS use ULIDs.
-        ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})');
-    Route::get('/study/browser', ListStudyBrowserController::class);
-    // Supports numeric Anki IDs, native ULIDs, and copied ConvoLab UUIDs.
-    Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)->where('noteId', '[A-Za-z0-9-]+');
-    Route::get('/study/card-drafts', ListStudyCardDraftsController::class);
-    Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)->whereUlid('draftId');
-    // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.
-    Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    // ConvoLab path alias; this backend still requires a client card ID for retry-safe commits.
-    Route::post('/study/card-drafts/{draftId}/create-card', StoreStudyCardFromDraftController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
-        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    Route::post('/study/card-candidates/vocab-bundle/drafts', StoreStudyVocabBundleDraftsController::class)
-        ->middleware('throttle:'.StudyVocabBundleDraftRateLimiter::NAME);
-    Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
-    // Provider actions consume one shared 10/min user spend budget after payload validation.
-    Route::post('/study/card-drafts/{draftId}/preview-audio', GenerateStudyCardDraftPreviewAudioController::class)
-        ->whereUlid('draftId');
-    Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
-        ->whereUlid('draftId');
-    Route::post('/study/cards/{cardId}/regenerate-answer-audio', RegenerateStudyCardAnswerAudioController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
-    Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
-    Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);
-    Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);
-    // Manual generation retries use their own 30/min user bucket so create/autosave retries cannot starve them.
-    Route::post('/study/card-drafts/{draftId}/retry', RetryStudyCardDraftController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyCardDraftRetryRateLimiter::NAME);
-    Route::delete('/study/card-drafts/{draftId}', DeleteStudyCardDraftController::class)
-        ->whereUlid('draftId')
-        ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
-    Route::get('/study/new-queue', ListStudyNewCardQueueController::class);
-    // Shares the canonical new-card queue reorder quota above.
-    Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
-        ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
-    Route::get('/study/overview', ShowStudyOverviewController::class);
-    // Shares the canonical review-create quota above.
-    Route::post('/study/reviews', StoreStudyReviewController::class)
-        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
-    // Shares the canonical review-undo quota above, separate from review creates.
-    Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class)
-        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
-    Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)
-        ->whereUlid('reviewLogId')
-        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
-    // Shares the study-card creation quota with draft creation and draft commits.
-    Route::post('/study/cards', StoreStudyCardController::class)
-        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
-    // Manual card actions can be retried independently from create/update/delete writes.
-    Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
-    // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
-    Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
-    Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)->whereUlid('mediaAsset');
-    Route::get('/study/settings', ShowStudySettingsController::class);
-    // Settings sync can retry updates; keep that quota separate from card writes.
-    Route::patch('/study/settings', UpdateStudySettingsController::class)
-        ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
-    Route::get('/study/known-kanji', ShowKnownKanjiController::class);
-    Route::patch('/study/known-kanji/manual', SetManualKnownKanjiController::class)
-        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::MANUAL_NAME);
-    Route::put('/study/wanikani', ConnectWaniKaniController::class)
-        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
-    Route::delete('/study/wanikani', DisconnectWaniKaniController::class)
-        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
-    Route::post('/study/wanikani/sync', SyncWaniKaniKanjiController::class)
-        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::SYNC_NAME);
+    // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
+    // network bucket, while reads consume an additional actor-scoped read or media bucket.
+    Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
+        ->group(function (): void {
+            Route::post('/study/session/start', StartStudySessionController::class)
+                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+            Route::post('/daily-audio-practice', StoreDailyAudioPracticeController::class)
+                ->middleware('throttle:'.DailyAudioPracticeGenerationRateLimiter::NAME);
+            Route::get('/daily-audio-practice', ListDailyAudioPracticesController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/daily-audio-practice/{practiceId}', ShowDailyAudioPracticeController::class)
+                ->whereUuid('practiceId')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/daily-audio-practice/{practiceId}/status', ShowDailyAudioPracticeStatusController::class)
+                ->whereUuid('practiceId')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get(
+                '/daily-audio-practice/{practiceId}/tracks/{trackId}/audio',
+                DownloadDailyAudioPracticeTrackController::class,
+            )
+                ->whereUuid('practiceId')
+                ->whereUuid('trackId')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);
+            Route::get('/study/export', ShowStudyExportManifestController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)
+                ->name('api.study.export.card-drafts')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)
+                ->name('api.study.export.card-media')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/cards', ListStudyExportCardsController::class)
+                ->name('api.study.export.cards')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/courses', ListStudyExportCoursesController::class)
+                ->name('api.study.export.courses')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/decks', ListStudyExportDecksController::class)
+                ->name('api.study.export.decks')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/imports', ListStudyExportImportJobsController::class)
+                ->name('api.study.export.imports')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/media', ListStudyExportMediaAssetsController::class)
+                ->name('api.study.export.media')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)
+                ->name('api.study.export.media-assets')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/review-logs', ListStudyExportReviewEventsController::class)
+                ->name('api.study.export.review-logs')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)
+                ->name('api.study.export.review-events')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/export/settings', ShowStudyExportSettingsController::class)
+                ->name('api.study.export.settings')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/imports', ListStudyImportJobsController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Study import lifecycle writes have separate quotas so upload retries do not starve cancel/complete.
+            Route::post('/study/imports', StoreStudyImportController::class)
+                ->middleware('throttle:'.StudyImportRateLimiter::CREATE_NAME);
+            Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
+                ->whereUlid('studyImportJobId')
+                ->name('api.study.imports.upload')
+                ->middleware('throttle:'.StudyImportRateLimiter::UPLOAD_NAME);
+            Route::post('/study/imports/{studyImportJobId}/complete', CompleteStudyImportUploadController::class)
+                ->whereUlid('studyImportJobId')
+                ->middleware('throttle:'.StudyImportRateLimiter::COMPLETE_NAME);
+            Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
+                ->whereUlid('studyImportJobId')
+                ->middleware('throttle:'.StudyImportRateLimiter::CANCEL_NAME);
+            Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)
+                // Copied ConvoLab jobs retain UUIDs; jobs created by Learning OS use ULIDs.
+                ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/browser', ListStudyBrowserController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Supports numeric Anki IDs, native ULIDs, and copied ConvoLab UUIDs.
+            Route::get('/study/browser/{noteId}', ShowStudyBrowserNoteController::class)
+                ->where('noteId', '[A-Za-z0-9-]+')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/card-drafts', ListStudyCardDraftsController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.
+            Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+            // ConvoLab path alias; this backend still requires a client card ID for retry-safe commits.
+            Route::post('/study/card-drafts/{draftId}/create-card', StoreStudyCardFromDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+            Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
+                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+            Route::post('/study/card-candidates/vocab-bundle/drafts', StoreStudyVocabBundleDraftsController::class)
+                ->middleware('throttle:'.StudyVocabBundleDraftRateLimiter::NAME);
+            Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
+            // Provider actions consume one shared 10/min user spend budget after payload validation.
+            Route::post('/study/card-drafts/{draftId}/preview-audio', GenerateStudyCardDraftPreviewAudioController::class)
+                ->whereUlid('draftId');
+            Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
+                ->whereUlid('draftId');
+            Route::post('/study/cards/{cardId}/regenerate-answer-audio', RegenerateStudyCardAnswerAudioController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
+            Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
+            Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);
+            Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);
+            // Manual generation retries use their own 30/min user bucket so create/autosave retries cannot starve them.
+            Route::post('/study/card-drafts/{draftId}/retry', RetryStudyCardDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCardDraftRetryRateLimiter::NAME);
+            Route::delete('/study/card-drafts/{draftId}', DeleteStudyCardDraftController::class)
+                ->whereUlid('draftId')
+                ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
+            Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Shares the canonical new-card queue reorder quota above.
+            Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
+                ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
+            Route::get('/study/overview', ShowStudyOverviewController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Shares the canonical review-create quota above.
+            Route::post('/study/reviews', StoreStudyReviewController::class)
+                ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
+            // Shares the canonical review-undo quota above, separate from review creates.
+            Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class)
+                ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
+            Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)
+                ->whereUlid('reviewLogId')
+                ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
+            // Shares the study-card creation quota with draft creation and draft commits.
+            Route::post('/study/cards', StoreStudyCardController::class)
+                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
+            Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
+            // Manual card actions can be retried independently from create/update/delete writes.
+            Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
+            // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
+            Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+            Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)
+                ->whereUlid('mediaAsset')
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);
+            Route::get('/study/settings', ShowStudySettingsController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Settings sync can retry updates; keep that quota separate from card writes.
+            Route::patch('/study/settings', UpdateStudySettingsController::class)
+                ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
+            Route::get('/study/known-kanji', ShowKnownKanjiController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::patch('/study/known-kanji/manual', SetManualKnownKanjiController::class)
+                ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::MANUAL_NAME);
+            Route::put('/study/wanikani', ConnectWaniKaniController::class)
+                ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
+            Route::delete('/study/wanikani', DisconnectWaniKaniController::class)
+                ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
+            Route::post('/study/wanikani/sync', SyncWaniKaniKanjiController::class)
+                ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::SYNC_NAME);
+        });
     // Deck updates and deletes use separate buckets from deck creation so replay pressure cannot starve deletes.
     Route::prefix('/decks/{deck}')
         ->whereUlid('deck')

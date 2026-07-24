@@ -50,13 +50,14 @@ class ShowStudyOverviewApiTest extends TestCase
 
             $this->getJson('/api/study/overview?time_zone=America/New_York')
                 ->assertOk()
-                ->assertJsonPath('data.new_cards_per_day', 2)
-                ->assertJsonPath('data.new_cards_introduced_today', 1)
-                ->assertJsonPath('data.new_cards_available_today', 1)
-                ->assertJsonPath('data.next_due_at', '2026-06-05T00:00:00.000000Z')
-                ->assertJsonPath('data.latest_import', null)
-                ->assertJsonFragment(['latest_import' => null])
-                ->assertJsonPath('data.total_cards', 3);
+                ->assertJsonMissingPath('data')
+                ->assertJsonPath('newCardsPerDay', 2)
+                ->assertJsonPath('newCardsIntroducedToday', 1)
+                ->assertJsonPath('newCardsAvailableToday', 1)
+                ->assertJsonPath('nextDueAt', '2026-06-05T00:00:00.000000Z')
+                ->assertJsonPath('latestImport', null)
+                ->assertJsonFragment(['latestImport' => null])
+                ->assertJsonPath('totalCards', 3);
         } finally {
             Carbon::setTestNow();
         }
@@ -81,31 +82,28 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson('/api/study/overview')
             ->assertOk()
-            ->assertJsonPath('data.latest_import.id', self::CONVOLAB_IMPORT_ID)
-            ->assertJsonPath('data.latest_import.status', StudyImportStatus::Failed->value)
-            ->assertJsonPath('data.latest_import.source_filename', 'latest.colpkg')
-            ->assertJsonPath('data.latest_import.error_message', 'Import failed.')
+            ->assertJsonPath('latestImport.id', self::CONVOLAB_IMPORT_ID)
+            ->assertJsonPath('latestImport.status', StudyImportStatus::Failed->value)
+            ->assertJsonPath('latestImport.sourceFilename', 'latest.colpkg')
+            ->assertJsonPath('latestImport.errorMessage', 'Import failed.')
             ->assertJsonStructure([
-                'data' => [
-                    'latest_import' => [
-                        'id',
-                        'status',
-                        'source_type',
-                        'source_filename',
-                        'source_content_type',
-                        'source_size_bytes',
-                        'deck_name',
-                        'preview',
-                        'summary',
-                        'error_message',
-                        'started_at',
-                        'uploaded_at',
-                        'upload_completed_at',
-                        'upload_expires_at',
-                        'completed_at',
-                        'created_at',
-                        'updated_at',
-                    ],
+                'latestImport' => [
+                    'id',
+                    'status',
+                    'sourceType',
+                    'sourceFilename',
+                    'sourceContentType',
+                    'sourceSizeBytes',
+                    'deckName',
+                    'preview',
+                    'summary',
+                    'errorMessage',
+                    'startedAt',
+                    'uploadedAt',
+                    'uploadExpiresAt',
+                    'completedAt',
+                    'createdAt',
+                    'updatedAt',
                 ],
             ]);
     }
@@ -133,8 +131,8 @@ class ShowStudyOverviewApiTest extends TestCase
 
             $this->getJson('/api/study/overview?time_zone=America/New_York')
                 ->assertOk()
-                ->assertJsonPath('data.next_due_at', '2026-07-03T13:12:56.844000Z')
-                ->assertJsonPath('data.latest_import.completed_at', '2026-04-24T17:35:14.108000Z');
+                ->assertJsonPath('nextDueAt', '2026-07-03T13:12:56.844000Z')
+                ->assertJsonPath('latestImport.completedAt', '2026-04-24T17:35:14.108Z');
         } finally {
             Carbon::setTestNow();
         }
@@ -167,11 +165,11 @@ class ShowStudyOverviewApiTest extends TestCase
 
             $this->getJson("/api/study/overview?deck_id={$deck->id}&time_zone=UTC")
                 ->assertOk()
-                ->assertJsonPath('data.due_count', 0)
-                ->assertJsonPath('data.new_count', 2)
-                ->assertJsonPath('data.new_cards_introduced_today', 1)
-                ->assertJsonPath('data.new_cards_available_today', 1)
-                ->assertJsonPath('data.total_cards', 2);
+                ->assertJsonPath('dueCount', 0)
+                ->assertJsonPath('newCount', 2)
+                ->assertJsonPath('newCardsIntroducedToday', 1)
+                ->assertJsonPath('newCardsAvailableToday', 1)
+                ->assertJsonPath('totalCards', 2);
         } finally {
             Carbon::setTestNow();
         }
@@ -203,12 +201,12 @@ class ShowStudyOverviewApiTest extends TestCase
 
             $this->getJson("/api/study/overview?courseId={$course->id}&time_zone=UTC")
                 ->assertOk()
-                ->assertJsonPath('data.due_count', 0)
-                ->assertJsonPath('data.review_count', 1)
-                ->assertJsonPath('data.new_count', 1)
-                ->assertJsonPath('data.new_cards_introduced_today', 1)
-                ->assertJsonPath('data.new_cards_available_today', 1)
-                ->assertJsonPath('data.total_cards', 2);
+                ->assertJsonPath('dueCount', 0)
+                ->assertJsonPath('reviewCount', 1)
+                ->assertJsonPath('newCount', 1)
+                ->assertJsonPath('newCardsIntroducedToday', 1)
+                ->assertJsonPath('newCardsAvailableToday', 1)
+                ->assertJsonPath('totalCards', 2);
         } finally {
             Carbon::setTestNow();
         }
@@ -234,10 +232,10 @@ class ShowStudyOverviewApiTest extends TestCase
 
             $this->getJson('/api/study/overview')
                 ->assertOk()
-                ->assertJsonPath('data.due_count', 0)
-                ->assertJsonPath('data.failed_count', 1)
-                ->assertJsonPath('data.new_cards_available_today', 0)
-                ->assertJsonMissingPath('data.failed_due_count');
+                ->assertJsonPath('dueCount', 0)
+                ->assertJsonPath('failedCount', 1)
+                ->assertJsonPath('newCardsAvailableToday', 0)
+                ->assertJsonMissingPath('failedDueCount');
         } finally {
             Carbon::setTestNow();
         }
@@ -260,8 +258,8 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson('/api/study/overview?deck_id=%20'.strtoupper($deck->id).'%20')
             ->assertOk()
-            ->assertJsonPath('data.new_count', 1)
-            ->assertJsonPath('data.total_cards', 1);
+            ->assertJsonPath('newCount', 1)
+            ->assertJsonPath('totalCards', 1);
     }
 
     public function test_show_normalizes_scope_filter_aliases_without_global_trim_middleware(): void
@@ -282,8 +280,8 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson('/api/study/overview?course_id=%20'.strtoupper($course->id).'%20&deckId=%20'.strtoupper($deck->id).'%20')
             ->assertOk()
-            ->assertJsonPath('data.new_count', 1)
-            ->assertJsonPath('data.total_cards', 1);
+            ->assertJsonPath('newCount', 1)
+            ->assertJsonPath('totalCards', 1);
 
         $this->assertSame($deck->id, $targetCard->refresh()->deck_id);
     }
@@ -300,8 +298,8 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson("/api/study/overview?courseId={$course->id}&deckId={$deck->id}")
             ->assertOk()
-            ->assertJsonPath('data.new_count', 0)
-            ->assertJsonPath('data.total_cards', 0);
+            ->assertJsonPath('newCount', 0)
+            ->assertJsonPath('totalCards', 0);
     }
 
     public function test_show_returns_empty_overview_for_another_users_deck_id(): void
@@ -315,9 +313,9 @@ class ShowStudyOverviewApiTest extends TestCase
 
         $this->getJson("/api/study/overview?deck_id={$otherDeck->id}")
             ->assertOk()
-            ->assertJsonPath('data.due_count', 0)
-            ->assertJsonPath('data.new_count', 0)
-            ->assertJsonPath('data.total_cards', 0);
+            ->assertJsonPath('dueCount', 0)
+            ->assertJsonPath('newCount', 0)
+            ->assertJsonPath('totalCards', 0);
     }
 
     public function test_show_validates_time_zone_without_coercing_malformed_values(): void

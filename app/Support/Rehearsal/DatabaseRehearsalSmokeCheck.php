@@ -41,11 +41,11 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'study overview',
             'uri' => '/api/study/overview',
             'required' => [
-                'data.due_count',
-                'data.failed_count',
-                'data.new_count',
-                'data.total_cards',
-                'data.latest_import',
+                'dueCount',
+                'failedCount',
+                'newCount',
+                'totalCards',
+                'latestImport',
             ],
         ],
         [

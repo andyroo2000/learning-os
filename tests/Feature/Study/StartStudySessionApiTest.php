@@ -252,7 +252,7 @@ class StartStudySessionApiTest extends TestCase
                 $this
                     ->getJson('/api/study/overview')
                     ->assertOk()
-                    ->assertJsonPath('data.total_cards', 0);
+                    ->assertJsonPath('totalCards', 0);
             },
         );
     }

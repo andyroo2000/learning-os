@@ -3,7 +3,11 @@
 namespace Tests\Unit\Admin;
 
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
+use Laravel\Sanctum\TransientToken;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -51,6 +55,28 @@ class AdminMutationRateLimiterTest extends TestCase
         );
 
         $this->assertNotSame($firstLimit->key, $secondLimit->key);
+    }
+
+    public function test_browser_session_uses_its_authenticated_actor_instead_of_a_proxy_header(): void
+    {
+        $sessionActor = '01a1f0db-a4c8-4caa-adf6-d3801fdd7061';
+        $spoofedActor = '9a362eff-925c-4e26-88b6-f6fb1bf73aa5';
+        $user = (new User)
+            ->forceFill(['convolab_id' => $sessionActor])
+            ->withAccessToken(new TransientToken);
+        $request = Request::create('/', 'POST', server: ['REMOTE_ADDR' => '127.0.0.1']);
+        $request->attributes->set('sanctum', true);
+        $request->setLaravelSession(new Store('admin-rate-limit', new ArraySessionHandler(120)));
+        $request->setUserResolver(fn (): User => $user);
+        $request->headers->set('X-Convo-Lab-User-Id', $spoofedActor);
+
+        $limit = AdminMutationRateLimiter::limit(
+            AdminMutationRateLimiter::INVITE_CREATE,
+            $request,
+        );
+
+        $this->assertStringContainsString(hash('sha256', $sessionActor), $limit->key);
+        $this->assertStringNotContainsString(hash('sha256', $spoofedActor), $limit->key);
     }
 
     public function test_missing_actor_and_ip_have_stable_fallback_keys(): void

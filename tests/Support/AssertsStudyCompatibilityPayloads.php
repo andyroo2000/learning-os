@@ -41,6 +41,7 @@ trait AssertsStudyCompatibilityPayloads
     {
         return [
             'id',
+            'syncId',
             'noteId',
             'cardType',
             'prompt',

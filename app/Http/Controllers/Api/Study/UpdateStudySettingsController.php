@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\UpdateStudySettingsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\UpdateStudySettingsRequest;
-use App\Http\Resources\Study\StudySettingsResource;
+use App\Http\Resources\Study\StudySettingsCompatibilityResource;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
 
@@ -15,12 +15,10 @@ class UpdateStudySettingsController extends Controller
         UpdateStudySettingsRequest $request,
         UpdateStudySettingsAction $updateStudySettings,
     ): JsonResponse {
-        $data = $request->validated();
-
-        return StudySettingsResource::make(
+        return StudySettingsCompatibilityResource::make(
             $updateStudySettings->handle(
                 userId: AuthenticatedUser::id($request),
-                newCardsPerDay: (int) $data['new_cards_per_day'],
+                newCardsPerDay: $request->newCardsPerDay(),
             ),
         )->response()->setStatusCode(200);
     }

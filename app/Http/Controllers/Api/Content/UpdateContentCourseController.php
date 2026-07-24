@@ -26,6 +26,6 @@ final class UpdateContentCourseController extends Controller
             return response()->json(['message' => 'Course not found'], 404);
         }
 
-        return response()->json(['message' => 'Course updated']);
+        return response()->json(['message' => 'Course updated successfully']);
     }
 }

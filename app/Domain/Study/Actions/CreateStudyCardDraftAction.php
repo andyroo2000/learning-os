@@ -110,15 +110,16 @@ class CreateStudyCardDraftAction
 
         try {
             $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Create);
+
+            if ($afterCommit !== null) {
+                DB::afterCommit(static fn () => $afterCommit($draft->id));
+            }
+
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();
 
             throw $exception;
-        }
-
-        if ($afterCommit !== null) {
-            $afterCommit($draft->id);
         }
 
         return $draft;

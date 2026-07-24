@@ -176,6 +176,41 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 1);
     }
 
+    public function test_it_treats_reordered_nested_json_object_keys_as_the_same_retry_data(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        $created = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: $user->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: [
+                'cueText' => '犬',
+                'cueImage' => ['id' => 'image-1', 'url' => '/media/image-1'],
+            ],
+            answerJson: ['meaning' => 'dog', 'expression' => '犬'],
+            id: $id,
+        ));
+
+        $retried = app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: $user->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: [
+                'cueImage' => ['url' => '/media/image-1', 'id' => 'image-1'],
+                'cueText' => '犬',
+            ],
+            answerJson: ['expression' => '犬', 'meaning' => 'dog'],
+            id: $id,
+        ));
+
+        $this->assertSame($created->id, $retried->id);
+        $this->assertFalse($retried->wasRecentlyCreated);
+        $this->assertDatabaseCount('study_card_drafts', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
     public function test_it_rejects_invalid_client_ids_for_direct_callers_before_side_effects(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);

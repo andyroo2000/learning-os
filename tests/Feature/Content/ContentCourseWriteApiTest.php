@@ -379,7 +379,7 @@ class ContentCourseWriteApiTest extends TestCase
                 'maxLessonDurationMinutes' => 45,
             ])
             ->assertOk()
-            ->assertExactJson(['message' => 'Course updated']);
+            ->assertExactJson(['message' => 'Course updated successfully']);
 
         $owned->refresh();
         $this->assertSame('Updated', $owned->title);

@@ -88,6 +88,18 @@ class CreateStudyCardDraftAction
         try {
             $this->prepareStudyCardDraftQueueSlot->handle($data->userId);
             $draft->save();
+        } catch (StudyCardDraftConflictException $exception) {
+            DB::rollBack();
+
+            // A matching concurrent request can fill the user's final queue slot
+            // before this retry acquires the user lock. Existing retry identity wins.
+            $existingDraft = StudyCardDraft::query()->find($data->id);
+
+            if ($existingDraft !== null) {
+                return $this->matchingExistingDraft($existingDraft, $data);
+            }
+
+            throw $exception;
         } catch (QueryException $exception) {
             DB::rollBack();
 

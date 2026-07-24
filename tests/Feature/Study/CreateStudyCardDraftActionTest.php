@@ -264,6 +264,36 @@ class CreateStudyCardDraftActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_a_matching_concurrent_retry_wins_when_the_first_request_fills_the_final_queue_slot(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $action = new CreateStudyCardDraftAction(
+            app(PrepareStudyCardDraftQueueSlotAction::class),
+            app(RecordStudyCardDraftSyncEntryAction::class),
+            afterClientIdPrecheckMiss: function () use ($id, $user): void {
+                $this->insertCappedDraftRowsFor($user, $id);
+            },
+        );
+
+        $draft = $action->handle(CreateStudyCardDraftData::fromInput(
+            userId: $user->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            id: $id,
+        ));
+
+        $this->assertSame($id, $draft->id);
+        $this->assertFalse($draft->wasRecentlyCreated);
+        $this->assertDatabaseCount(
+            'study_card_drafts',
+            PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER,
+        );
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_defaults_image_fields_for_direct_callers(): void
     {
         $user = User::factory()->create();

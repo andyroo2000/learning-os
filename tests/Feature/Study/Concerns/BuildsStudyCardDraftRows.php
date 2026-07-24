@@ -16,14 +16,16 @@ trait BuildsStudyCardDraftRows
     /**
      * @return list<array<string, mixed>>
      */
-    private function cappedDraftRowsFor(User $user): array
+    private function cappedDraftRowsFor(User $user, ?string $firstDraftId = null): array
     {
         $now = now();
         $rows = [];
 
         for ($index = 0; $index < PrepareStudyCardDraftQueueSlotAction::MAX_DRAFTS_PER_USER; $index++) {
             $rows[] = [
-                'id' => strtolower((string) Str::ulid()),
+                'id' => $index === 0 && $firstDraftId !== null
+                    ? $firstDraftId
+                    : strtolower((string) Str::ulid()),
                 'user_id' => $user->id,
                 'status' => StudyManualCardDraftStatus::Generating->value,
                 'creation_kind' => StudyCardCreationKind::TextRecognition->value,
@@ -47,9 +49,9 @@ trait BuildsStudyCardDraftRows
     /**
      * @return list<array<string, mixed>>
      */
-    private function insertCappedDraftRowsFor(User $user): array
+    private function insertCappedDraftRowsFor(User $user, ?string $firstDraftId = null): array
     {
-        $rows = $this->cappedDraftRowsFor($user);
+        $rows = $this->cappedDraftRowsFor($user, $firstDraftId);
 
         // 60 rows x 15 columns leaves headroom under SQLite's 999 bind-parameter cap.
         foreach (array_chunk($rows, 60) as $chunk) {

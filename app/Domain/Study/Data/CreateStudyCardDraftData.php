@@ -11,6 +11,7 @@ use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
+use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use LogicException;
 
@@ -32,6 +33,7 @@ final readonly class CreateStudyCardDraftData
         public ?int $variantStage,
         public ?VocabVariantStatus $variantStatus,
         public ?DateTimeInterface $variantUnlockedAt,
+        public ?string $id,
     ) {}
 
     public static function fromInput(
@@ -48,6 +50,7 @@ final readonly class CreateStudyCardDraftData
         ?int $variantStage = null,
         VocabVariantStatus|string|null $variantStatus = null,
         ?DateTimeInterface $variantUnlockedAt = null,
+        ?string $id = null,
     ): self {
         if ($userId < 1) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
@@ -79,6 +82,8 @@ final readonly class CreateStudyCardDraftData
             variantStage: $variantStage,
             variantStatus: VocabVariantMetadataInput::statusFromInput($variantStatus),
             variantUnlockedAt: VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
+            // HTTP normalizes this too; repeat canonicalization for direct callers.
+            id: $id === null ? null : CanonicalUlid::normalize($id),
         );
     }
 

@@ -25,26 +25,15 @@ class AdminCourseAudioApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_route_enforces_write_scope_actor_uuid_and_operation_limiter(): void
+    public function test_route_enforces_browser_admin_auth_and_operation_limiter(): void
     {
         $courseId = (string) Str::uuid();
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $user = User::factory()->create();
+        $token = $user->createToken('mobile', ['admin:write'])->plainTextToken;
+        $this->withToken($token)
             ->postJson("/api/convolab/admin/courses/{$courseId}/generate-audio")
             ->assertForbidden();
-        $this->app['auth']->forgetGuards();
-
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->postJson("/api/convolab/admin/courses/{$courseId}/generate-audio")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
         $this->app['auth']->forgetGuards();
 
         $this->writeRequest()
@@ -276,19 +265,7 @@ class AdminCourseAudioApiTest extends TestCase
 
     private function writeRequest(): static
     {
-        return $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabAdminBrowser();
     }
 
     /** @param array<string, mixed> $overrides */

@@ -14,7 +14,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ContentCourseApiTest extends TestCase
@@ -42,17 +41,18 @@ class ContentCourseApiTest extends TestCase
         $this->assertSame(['*'], (new ContentCourseCoreItem)->getGuarded());
     }
 
-    public function test_course_reads_require_a_valid_effective_convolab_user(): void
+    public function test_course_reads_reject_api_tokens(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $user = User::factory()->create();
+        $token = $user->createToken('mobile', ['content:read'])->plainTextToken;
 
-        $this->getJson('/api/convolab/courses')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-        $this->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+        $this->withToken($token)
+            ->getJson('/api/convolab/courses')
+            ->assertForbidden();
+        $this->withToken($token)
+            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
             ->getJson('/api/convolab/courses/'.Str::uuid())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_library_list_preserves_compact_shape_filters_drafts_and_scopes_owners(): void
@@ -284,7 +284,6 @@ class ContentCourseApiTest extends TestCase
 
     private function authenticate(User $user): void
     {
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 }

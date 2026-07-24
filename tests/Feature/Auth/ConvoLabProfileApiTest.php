@@ -14,41 +14,22 @@ class ConvoLabProfileApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_profile_update_requires_the_named_proxy_identity_and_exact_write_scope(): void
+    public function test_profile_update_requires_a_first_party_browser_session(): void
     {
         $account = $this->projectedUser();
         $path = '/api/convolab/auth/me';
 
-        $this->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
-            ->patchJson($path, ['displayName' => 'Ada'])
+        $this->patchJson($path, ['displayName' => 'Ada'])
             ->assertUnauthorized();
-
-        $this->withToken($this->proxyToken(['auth:read']))
-            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
-            ->patchJson($path, ['displayName' => 'Ada'])
-            ->assertForbidden();
 
         $ordinaryToken = User::factory()->create()
             ->createToken('mobile', ['auth:write'])
             ->plainTextToken;
         $this->withToken($ordinaryToken)
-            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
             ->patchJson($path, ['displayName' => 'Ada'])
             ->assertForbidden();
 
-        $wildcardToken = User::factory()->create(['email' => 'wildcard@example.com'])
-            ->createToken('convolab-proxy', ['*'])
-            ->plainTextToken;
-        config()->set('services.convolab.proxy_user_email', 'wildcard@example.com');
-        $this->withToken($wildcardToken)
-            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+        $this->asConvoLabBrowser(User::factory()->create())
             ->patchJson($path, ['displayName' => 'Ada'])
             ->assertForbidden();
     }
@@ -60,9 +41,9 @@ class ConvoLabProfileApiTest extends TestCase
             'seen_sample_content_guide' => true,
         ]);
 
-        $response = $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken(['auth:write']))
-            ->withHeader('X-Convo-Lab-User-Id', "  \t".strtoupper($account['convolab_id'])."\n ")
+        $response = $this->authenticate($account)
+            ->withoutMiddleware(TrimStrings::class)
+            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
             ->patchJson('/api/convolab/auth/me', [
                 'displayName' => 'Ada',
                 'avatarColor' => 'teal',
@@ -107,8 +88,7 @@ class ConvoLabProfileApiTest extends TestCase
             'seen_sample_content_guide' => true,
         ]);
 
-        $this->withToken($this->proxyToken(['auth:write']))
-            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+        $this->authenticate($account)
             ->patchJson('/api/convolab/auth/me', ['seenCustomContentGuide' => true])
             ->assertOk()
             ->assertJsonPath('displayName', 'Original')
@@ -125,8 +105,9 @@ class ConvoLabProfileApiTest extends TestCase
         foreach ([1, '1'] as $index => $value) {
             $account = $this->projectedUser(['email' => 'boolean-'.$index.'@example.com']);
 
-            $this->withToken($this->proxyToken(['auth:write']))
-                ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+            $this->flushSession();
+            $this->app['auth']->forgetGuards();
+            $this->authenticate($account)
                 ->patchJson('/api/convolab/auth/me', [
                     'proficiencyLevel' => 'N5',
                     'onboardingCompleted' => $value,
@@ -144,10 +125,9 @@ class ConvoLabProfileApiTest extends TestCase
     public function test_profile_update_rejects_empty_and_malformed_payloads(): void
     {
         $account = $this->projectedUser();
-        $token = $this->proxyToken(['auth:write']);
+        $this->authenticate($account);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+        $this
             ->patchJson('/api/convolab/auth/me')
             ->assertUnprocessable()
             ->assertJsonValidationErrors('profile');
@@ -164,55 +144,34 @@ class ConvoLabProfileApiTest extends TestCase
             [['seenSampleContentGuide' => null], 'seenSampleContentGuide'],
             [['seenCustomContentGuide' => []], 'seenCustomContentGuide'],
         ] as [$payload, $field]) {
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+            $this
                 ->patchJson('/api/convolab/auth/me', $payload)
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors($field);
         }
     }
 
-    public function test_profile_update_rejects_missing_malformed_and_unknown_identity_headers(): void
-    {
-        $token = $this->proxyToken(['auth:write']);
-
-        $this->withToken($token)
-            ->patchJson('/api/convolab/auth/me', ['displayName' => 'Ada'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('convolabUserId');
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
-            ->patchJson('/api/convolab/auth/me', ['displayName' => 'Ada'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('convolabUserId');
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
-            ->patchJson('/api/convolab/auth/me', ['displayName' => 'Ada'])
-            ->assertNotFound();
-    }
-
     public function test_profile_updates_are_rate_limited_per_identity(): void
     {
         $account = $this->projectedUser();
-        $token = $this->proxyToken(['auth:write']);
+        $this->authenticate($account);
 
         foreach (range(1, 30) as $attempt) {
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $account['convolab_id'])
+            $this
                 ->patchJson('/api/convolab/auth/me', ['displayName' => 'Ada '.$attempt])
                 ->assertOk();
         }
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($account['convolab_id']))
+        $this
             ->patchJson('/api/convolab/auth/me', ['displayName' => 'Blocked'])
             ->assertTooManyRequests()
             ->assertHeader('X-RateLimit-Limit', '30')
             ->assertHeader('X-RateLimit-Remaining', '0');
 
         $other = $this->projectedUser(['email' => 'other@example.com']);
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $other['convolab_id'])
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
+        $this->authenticate($other)
             ->patchJson('/api/convolab/auth/me', ['displayName' => 'Available'])
             ->assertOk();
     }
@@ -249,12 +208,12 @@ class ConvoLabProfileApiTest extends TestCase
         return $projection;
     }
 
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
+    /** @param array<string, mixed> $account */
+    private function authenticate(array $account): static
     {
-        $proxy = User::query()->where('email', 'proxy@example.com')->first()
-            ?? User::factory()->create(['email' => 'proxy@example.com']);
-
-        return $proxy->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabBrowser(
+            User::query()->findOrFail($account['user_id']),
+            convoLabUserId: $account['convolab_id'],
+        );
     }
 }

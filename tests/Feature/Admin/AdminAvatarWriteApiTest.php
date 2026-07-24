@@ -29,7 +29,6 @@ class AdminAvatarWriteApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         config()->set('static_media.gcs.bucket', 'convolab-storage');
     }
 
@@ -47,8 +46,7 @@ class AdminAvatarWriteApiTest extends TestCase
                 'image/png',
             );
 
-        $response = $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabAdminBrowser()
             ->post('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.PNG/upload', [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
                 'image' => UploadedFile::fake()->image('avatar.png', 300, 300),
@@ -79,8 +77,7 @@ class AdminAvatarWriteApiTest extends TestCase
         $writer->shouldReceive('putPublic')->once()
             ->with(Mockery::pattern('#^avatars/speakers/[a-f0-9-]+-ja-female-casual\.jpg$#'), 'cropped-jpeg', 'image/jpeg');
 
-        $response = $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabAdminBrowser()
             ->postJson('/api/convolab/admin/avatars/speaker/JA-FEMALE-CASUAL.PNG/recrop', ['cropArea' => self::CROP])
             ->assertOk()
             ->assertJsonPath('message', 'Speaker avatar re-cropped successfully')
@@ -97,8 +94,7 @@ class AdminAvatarWriteApiTest extends TestCase
         $this->mockProcessor()->shouldNotReceive('process');
         $this->mockWriter()->shouldNotReceive('read', 'putPublic', 'delete');
 
-        $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/avatars/speaker/{$avatar->filename}/recrop", ['cropArea' => self::CROP])
             ->assertConflict()
             ->assertExactJson([
@@ -115,8 +111,7 @@ class AdminAvatarWriteApiTest extends TestCase
         $writer->shouldReceive('putPublic')->once()
             ->with(Mockery::pattern("#^avatars/[a-f0-9-]+-user-{$convoLabUserId}\\.jpg$#"), 'cropped-jpeg', 'image/jpeg');
 
-        $response = $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabAdminBrowser()
             ->post("/api/convolab/admin/avatars/user/{$convoLabUserId}/upload", [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
                 'image' => UploadedFile::fake()->image('avatar.jpg', 300, 300),
@@ -132,8 +127,8 @@ class AdminAvatarWriteApiTest extends TestCase
 
     public function test_upload_validation_preserves_legacy_messages_and_has_no_side_effects(): void
     {
-        $token = $this->proxyToken();
         $actor = (string) Str::uuid();
+        $this->asConvoLabAdminBrowser(convoLabUserId: $actor);
         $processor = $this->mockProcessor();
         $processor->shouldReceive('process')
             ->once()
@@ -141,21 +136,18 @@ class AdminAvatarWriteApiTest extends TestCase
             ->andThrow(AdminMutationException::invalidAvatarImage());
         $this->mockWriter()->shouldNotReceive('putPublic', 'read', 'delete');
 
-        $this->withToken($token)->withHeader('Accept', 'application/json')
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this->withHeader('Accept', 'application/json')
             ->post('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/upload', [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
             ])->assertBadRequest()->assertExactJson(['message' => 'No image file provided']);
 
-        $this->withToken($token)->withHeader('Accept', 'application/json')
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this->withHeader('Accept', 'application/json')
             ->post('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/upload', [
                 'cropArea' => '{bad-json',
                 'image' => UploadedFile::fake()->image('avatar.jpg'),
             ])->assertBadRequest()->assertExactJson(['message' => 'Invalid crop area']);
 
-        $this->withToken($token)->withHeader('Accept', 'application/json')
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this->withHeader('Accept', 'application/json')
             ->post('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/upload', [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
                 'image' => UploadedFile::fake()->createWithContent('avatar.jpg', 'not-an-image'),
@@ -168,31 +160,22 @@ class AdminAvatarWriteApiTest extends TestCase
         $writer = $this->mockWriter();
         $writer->shouldReceive('putPublic')->twice();
 
-        $this->withToken($this->proxyToken())->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->post('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/upload', [
                 'cropArea' => json_encode(self::CROP, JSON_THROW_ON_ERROR),
                 'image' => UploadedFile::fake()->create('avatar.png', 10 * 1024, 'image/png'),
             ])->assertOk();
     }
 
-    public function test_writes_require_actor_write_scope_and_use_distinct_rate_limiters(): void
+    public function test_writes_require_a_first_party_admin_session_and_use_distinct_rate_limiters(): void
     {
-        $this->withToken($this->proxyToken())
-            ->postJson('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/recrop', ['cropArea' => self::CROP])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
+        $this->postJson('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/recrop', ['cropArea' => self::CROP])
+            ->assertUnauthorized();
 
-        $this->withToken($this->proxyToken())
-            ->withHeader('Accept', 'application/json')
-            ->post('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/upload')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
-
-        $readOnlyToken = User::factory()->create(['email' => 'read-proxy@example.com'])
-            ->createToken('convolab-proxy', ['admin:read'])->plainTextToken;
-        config()->set('services.convolab.proxy_user_email', 'read-proxy@example.com');
-        $this->withToken($readOnlyToken)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->postJson('/api/convolab/admin/avatars/speaker/ja-female-casual.jpg/recrop', ['cropArea' => self::CROP])
             ->assertForbidden();
 
@@ -228,17 +211,6 @@ class AdminAvatarWriteApiTest extends TestCase
         $this->app->instance(StaticMediaObjectWriter::class, $writer);
 
         return $writer;
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities = ['admin:write']): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $attributes */

@@ -3,6 +3,7 @@
 namespace Tests\Unit\Content;
 
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
+use App\Models\User;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -27,12 +28,8 @@ class ContentEpisodeRateLimiterTest extends TestCase
         );
     }
 
-    public function test_invalid_or_missing_headers_fall_back_to_the_authenticated_account(): void
+    public function test_missing_canonical_identity_falls_back_to_the_authenticated_account(): void
     {
-        $this->assertSame(
-            'content-episode-create:user:42',
-            ContentEpisodeRateLimiter::create()->limit($this->request('not-a-uuid'))->key,
-        );
         $this->assertSame(
             'content-episode-create:user:42',
             ContentEpisodeRateLimiter::create()->limit($this->request(null))->key,
@@ -50,19 +47,15 @@ class ContentEpisodeRateLimiterTest extends TestCase
 
     private function request(?string $convoLabUserId): Request
     {
-        $server = ['REMOTE_ADDR' => '127.0.0.1'];
-        if ($convoLabUserId !== null) {
-            $server['HTTP_X_CONVO_LAB_USER_ID'] = $convoLabUserId;
-        }
-
-        $request = Request::create('/api/convolab/episodes', 'POST', [], [], [], $server);
-        $request->setUserResolver(fn () => new class
-        {
-            public function getAuthIdentifier(): int
-            {
-                return 42;
-            }
-        });
+        $request = Request::create(
+            '/api/convolab/episodes',
+            'POST',
+            server: ['REMOTE_ADDR' => '127.0.0.1'],
+        );
+        $user = new User;
+        $user->setAttribute('id', 42);
+        $user->setAttribute('convolab_id', $convoLabUserId);
+        $request->setUserResolver(fn (): User => $user);
 
         return $request;
     }

@@ -10,6 +10,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use UnexpectedValueException;
 
@@ -33,6 +34,62 @@ abstract class TestCase extends BaseTestCase
         Sanctum::actingAs($user);
 
         return $user;
+    }
+
+    protected function asConvoLabBrowser(
+        User $user,
+        string $role = 'user',
+        ?string $convoLabUserId = null,
+    ): static {
+        $convoLabUserId ??= is_string($user->convolab_id) && $user->convolab_id !== ''
+            ? $user->convolab_id
+            : (string) Str::uuid();
+        $convoLabUserId = strtolower(trim($convoLabUserId));
+
+        $user->forceFill([
+            'convolab_id' => $convoLabUserId,
+            'email_verified_at' => $user->email_verified_at ?? now(),
+        ])->save();
+
+        if (! AdminUserProjection::query()->whereKey($convoLabUserId)->exists()) {
+            $this->convoLabProjectionFor($user, $convoLabUserId, [
+                'role' => $role,
+                'email_verified' => $user->email_verified_at !== null,
+                'email_verified_at' => $user->email_verified_at,
+            ]);
+        }
+
+        config()->set('sanctum.stateful', ['convo-lab.test']);
+
+        return $this->actingAs($user, 'web')
+            ->withHeader('Origin', 'https://convo-lab.test')
+            ->withHeader('Referer', 'https://convo-lab.test/');
+    }
+
+    protected function asConvoLabAdminBrowser(
+        ?User $user = null,
+        ?string $convoLabUserId = null,
+    ): static {
+        $normalizedId = is_string($convoLabUserId)
+            ? strtolower(trim($convoLabUserId))
+            : null;
+        $user ??= $normalizedId === null
+            ? AdminUserProjection::query()->whereNotNull('user_id')->first()?->user
+                ?? User::factory()->create()
+            : User::query()->where('convolab_id', $normalizedId)->first()
+                ?? User::factory()->create();
+
+        $this->asConvoLabBrowser(
+            $user,
+            role: 'admin',
+            convoLabUserId: $normalizedId,
+        );
+
+        AdminUserProjection::query()
+            ->where('user_id', $user->id)
+            ->update(['role' => 'admin']);
+
+        return $this;
     }
 
     /** @param array<string, mixed> $attributes */

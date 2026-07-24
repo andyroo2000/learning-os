@@ -26,39 +26,34 @@ class AdminCoursePipelineApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_routes_require_the_matching_admin_proxy_scope_and_actor_header(): void
+    public function test_routes_require_a_first_party_admin_session(): void
     {
         $courseId = (string) Str::uuid();
 
         $this->getJson("/api/convolab/admin/courses/{$courseId}/pipeline-data")
             ->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:write']))
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->getJson("/api/convolab/admin/courses/{$courseId}/pipeline-data")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->withToken($token)
             ->putJson("/api/convolab/admin/courses/{$courseId}/pipeline-data", [
                 'stage' => 'exchanges',
                 'data' => [],
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
+            ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->putJson("/api/convolab/admin/courses/{$courseId}/pipeline-data", [])
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->withToken($token)
             ->postJson("/api/convolab/admin/courses/{$courseId}/build-script-config")
             ->assertForbidden();
     }
@@ -66,14 +61,14 @@ class AdminCoursePipelineApiTest extends TestCase
     public function test_show_preserves_null_keys_and_legacy_pipeline_shapes(): void
     {
         $user = User::factory()->create();
-        $token = $this->proxyToken(['admin:read']);
+        $this->asConvoLabAdminBrowser();
         $empty = $this->course($user, [
             'status' => 'draft',
             'audio_url' => null,
             'approx_duration_seconds' => null,
         ]);
 
-        $this->withToken($token)
+        $this
             ->getJson("/api/convolab/admin/courses/{$empty->id}/pipeline-data")
             ->assertOk()
             ->assertExactJson([
@@ -89,7 +84,7 @@ class AdminCoursePipelineApiTest extends TestCase
         $exchanges = $this->course($user, [
             'script_json' => ['_pipelineStage' => 'exchanges', '_exchanges' => []],
         ]);
-        $this->withToken($token)
+        $this
             ->getJson("/api/convolab/admin/courses/{$exchanges->id}/pipeline-data")
             ->assertOk()
             ->assertJsonPath('stage', 'exchanges')
@@ -106,7 +101,7 @@ class AdminCoursePipelineApiTest extends TestCase
             'audio_url' => '/audio/course.mp3',
             'approx_duration_seconds' => 75,
         ]);
-        $this->withToken($token)
+        $this
             ->getJson("/api/convolab/admin/courses/{$script->id}/pipeline-data")
             ->assertOk()
             ->assertJsonPath('stage', 'script')
@@ -119,7 +114,7 @@ class AdminCoursePipelineApiTest extends TestCase
     public function test_show_supports_flat_legacy_units_and_the_canonical_fallback(): void
     {
         $user = User::factory()->create();
-        $token = $this->proxyToken(['admin:read']);
+        $this->asConvoLabAdminBrowser();
         $flat = $this->course($user, [
             'script_json' => [['type' => 'L2', 'text' => 'legacy']],
         ]);
@@ -128,12 +123,12 @@ class AdminCoursePipelineApiTest extends TestCase
             'script_units_json' => [],
         ]);
 
-        $this->withToken($token)
+        $this
             ->getJson("/api/convolab/admin/courses/{$flat->id}/pipeline-data")
             ->assertOk()
             ->assertJsonPath('stage', 'script')
             ->assertJsonPath('scriptUnits.0.text', 'legacy');
-        $this->withToken($token)
+        $this
             ->getJson("/api/convolab/admin/courses/{$fallback->id}/pipeline-data")
             ->assertOk()
             ->assertJsonPath('stage', 'script')
@@ -151,8 +146,7 @@ class AdminCoursePipelineApiTest extends TestCase
         ]);
         $data = [['speaker' => 'A', 'textL2' => 'こんにちは']];
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->putJson("/api/convolab/admin/courses/{$course->id}/pipeline-data", [
                 'stage' => 'exchanges',
                 'data' => $data,
@@ -180,8 +174,7 @@ class AdminCoursePipelineApiTest extends TestCase
         ]);
         $units = [['type' => 'L2', 'text' => 'おはよう']];
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->putJson("/api/convolab/admin/courses/{$course->id}/pipeline-data", [
                 'stage' => 'script',
                 'data' => $units,
@@ -202,9 +195,8 @@ class AdminCoursePipelineApiTest extends TestCase
     {
         $user = User::factory()->create();
         $course = $this->course($user);
-        $request = $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid());
+        $request = $this->asConvoLabAdminBrowser()
+            ->withoutMiddleware(TrimStrings::class);
 
         $request->putJson("/api/convolab/admin/courses/{$course->id}/pipeline-data", [
             'stage' => ' script ',
@@ -320,7 +312,7 @@ class AdminCoursePipelineApiTest extends TestCase
         $this->link($course, $later, 2);
         $this->link($course, $first, 1);
 
-        $response = $this->withToken($this->proxyToken(['admin:read']))
+        $response = $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/build-script-config")
             ->assertOk();
 
@@ -349,7 +341,7 @@ class AdminCoursePipelineApiTest extends TestCase
 
     public function test_routes_constrain_uuid_ids_and_wire_the_named_update_limiter(): void
     {
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/courses/not-a-uuid/pipeline-data')
             ->assertNotFound();
 
@@ -374,17 +366,6 @@ class AdminCoursePipelineApiTest extends TestCase
         }
 
         return $value;
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $overrides */

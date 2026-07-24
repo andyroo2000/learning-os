@@ -19,23 +19,14 @@ class ConvoLabAccountSecurityApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
+    public function test_password_update_targets_the_authenticated_user_and_preserves_device_tokens(): void
     {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_password_update_targets_the_header_user_and_preserves_the_proxy_account(): void
-    {
-        $proxy = $this->proxyUser();
         $target = $this->projectedUser(password: 'old-password123');
         $target->forceFill(['convolab_password_hash' => Hash::make('old-password123')])->save();
         $targetToken = $target->createToken('existing-device')->plainTextToken;
 
-        $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken(['auth:write'], $proxy))
-            ->withHeader('X-Convo-Lab-User-Id', " \t".strtoupper((string) $target->convolab_id)."\n ")
+        $this->asConvoLabBrowser($target, convoLabUserId: (string) $target->convolab_id)
+            ->withoutMiddleware(TrimStrings::class)
             ->putJson('/api/convolab/auth/me/password', [
                 'current_password' => 'old-password123',
                 'password' => 'new-password123',
@@ -44,24 +35,25 @@ class ConvoLabAccountSecurityApiTest extends TestCase
             ->assertNoContent();
 
         $target->refresh();
-        $proxy->refresh();
 
         $this->assertTrue(Hash::check('new-password123', $target->password));
         $this->assertTrue(Hash::check('new-password123', $target->getAttribute('convolab_password_hash')));
         $this->assertFalse(Hash::check('old-password123', $target->password));
-        $this->assertTrue(Hash::check('proxy-password123', $proxy->password));
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $target->id,
             'name' => 'existing-device',
         ]);
 
-        $this->withToken($targetToken)->getJson('/api/me')->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($targetToken)
+            ->withoutHeader('Origin')
+            ->withoutHeader('Referer')
+            ->getJson('/api/me')
+            ->assertOk();
     }
 
-    public function test_account_delete_targets_the_header_user_and_preserves_the_proxy_account(): void
+    public function test_account_delete_targets_the_authenticated_user(): void
     {
-        $proxy = $this->proxyUser();
-        $proxyToken = $this->proxyToken(['auth:write'], $proxy);
         $target = $this->projectedUser(password: 'correct-password123');
         $targetTokenId = $target->createToken('target-device')->accessToken->getKey();
 
@@ -79,8 +71,7 @@ class ConvoLabAccountSecurityApiTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $this->withToken($proxyToken)
-            ->withHeader('X-Convo-Lab-User-Id', (string) $target->convolab_id)
+        $this->asConvoLabBrowser($target, convoLabUserId: (string) $target->convolab_id)
             ->deleteJson('/api/convolab/auth/me', ['current_password' => 'correct-password123'])
             ->assertNoContent()
             ->assertContent('');
@@ -90,23 +81,14 @@ class ConvoLabAccountSecurityApiTest extends TestCase
         $this->assertDatabaseMissing('personal_access_tokens', ['id' => $targetTokenId]);
         $this->assertDatabaseMissing('sessions', ['id' => 'target-session']);
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $target->email]);
-        $this->assertDatabaseHas('users', ['id' => $proxy->id]);
-
-        $this->app['auth']->forgetGuards();
-        $this->withToken($proxyToken)
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
-            ->deleteJson('/api/convolab/auth/me', ['current_password' => 'irrelevant'])
-            ->assertNotFound();
     }
 
-    public function test_invalid_current_passwords_do_not_mutate_the_target_or_proxy(): void
+    public function test_invalid_current_passwords_do_not_mutate_the_authenticated_user(): void
     {
-        $proxy = $this->proxyUser();
         $target = $this->projectedUser(password: 'old-password123');
-        $token = $this->proxyToken(['auth:write'], $proxy);
+        $this->asConvoLabBrowser($target, convoLabUserId: (string) $target->convolab_id);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) $target->convolab_id)
+        $this
             ->putJson('/api/convolab/auth/me/password', [
                 'current_password' => 'wrong-password',
                 'password' => 'new-password123',
@@ -115,23 +97,19 @@ class ConvoLabAccountSecurityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('current_password');
 
-        $this->app['auth']->forgetGuards();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) $target->convolab_id)
+        $this
             ->deleteJson('/api/convolab/auth/me', ['current_password' => 'wrong-password'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('current_password');
 
         $this->assertTrue(Hash::check('old-password123', $target->refresh()->password));
-        $this->assertTrue(Hash::check('proxy-password123', $proxy->refresh()->password));
         $this->assertDatabaseHas('admin_user_projections', ['convolab_id' => $target->convolab_id]);
     }
 
-    public function test_security_routes_require_the_named_proxy_identity_and_exact_write_scope(): void
+    public function test_security_routes_require_a_first_party_browser_session(): void
     {
         $target = $this->projectedUser();
         $ordinary = User::factory()->create(['email' => 'ordinary@example.com']);
-        $wildcard = User::factory()->create(['email' => 'wildcard@example.com']);
         $requests = [
             ['PUT', '/api/convolab/auth/me/password', [
                 'current_password' => 'old-password123',
@@ -144,67 +122,47 @@ class ConvoLabAccountSecurityApiTest extends TestCase
         foreach ($requests as [$method, $path, $payload]) {
             $this->app['auth']->forgetGuards();
             $this->withHeaders(['Authorization' => ''])
-                ->json($method, $path, $payload, ['X-Convo-Lab-User-Id' => $target->convolab_id])
+                ->json($method, $path, $payload)
                 ->assertUnauthorized();
 
             $this->app['auth']->forgetGuards();
-            $this->withToken($this->proxyToken(['auth:read']))
-                ->json($method, $path, $payload, ['X-Convo-Lab-User-Id' => $target->convolab_id])
-                ->assertForbidden();
-
-            $this->app['auth']->forgetGuards();
             $this->withToken($ordinary->createToken('mobile', ['auth:write'])->plainTextToken)
-                ->json($method, $path, $payload, ['X-Convo-Lab-User-Id' => $target->convolab_id])
+                ->json($method, $path, $payload)
                 ->assertForbidden();
-
-            config()->set('services.convolab.proxy_user_email', 'wildcard@example.com');
-            $this->app['auth']->forgetGuards();
-            $this->withToken($wildcard->createToken('convolab-proxy', ['*'])->plainTextToken)
-                ->json($method, $path, $payload, ['X-Convo-Lab-User-Id' => $target->convolab_id])
-                ->assertForbidden();
-            config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         }
     }
 
-    public function test_security_routes_validate_the_target_header_and_payloads(): void
+    public function test_security_routes_validate_payloads(): void
     {
-        $token = $this->proxyToken(['auth:write']);
+        $target = $this->projectedUser();
+        $this->asConvoLabBrowser($target, convoLabUserId: (string) $target->convolab_id);
 
-        $this->withToken($token)
-            ->putJson('/api/convolab/auth/me/password', [])
+        $this->putJson('/api/convolab/auth/me/password', [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId', 'current_password', 'password']);
+            ->assertJsonValidationErrors(['current_password', 'password']);
 
-        $this->app['auth']->forgetGuards();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
-            ->deleteJson('/api/convolab/auth/me', ['current_password' => ['invalid']])
+        $this->deleteJson('/api/convolab/auth/me', ['current_password' => ['invalid']])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId', 'current_password']);
+            ->assertJsonValidationErrors(['current_password']);
     }
 
     public function test_password_rate_limit_is_per_target_and_separate_from_deletion(): void
     {
         $first = $this->projectedUser(['email' => 'first@example.com']);
         $second = $this->projectedUser(['email' => 'second@example.com']);
-        $token = $this->proxyToken(['auth:write']);
         $payload = [
             'current_password' => 'wrong-password',
             'password' => 'new-password123',
             'password_confirmation' => 'new-password123',
         ];
 
+        $this->asConvoLabBrowser($first, convoLabUserId: (string) $first->convolab_id);
         foreach (range(1, 5) as $_attempt) {
-            $this->app['auth']->forgetGuards();
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', (string) $first->convolab_id)
-                ->putJson('/api/convolab/auth/me/password', $payload)
+            $this->putJson('/api/convolab/auth/me/password', $payload)
                 ->assertUnprocessable();
         }
 
-        $this->app['auth']->forgetGuards();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper((string) $first->convolab_id))
+        $this->asConvoLabBrowser($first, convoLabUserId: strtoupper((string) $first->convolab_id))
             ->putJson('/api/convolab/auth/me/password', $payload)
             ->assertTooManyRequests()
             ->assertJsonPath('message', 'Too Many Attempts.')
@@ -212,15 +170,15 @@ class ConvoLabAccountSecurityApiTest extends TestCase
             ->assertHeader('X-RateLimit-Remaining', '0')
             ->assertHeader('Retry-After');
 
+        $this->flushSession();
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) $second->convolab_id)
+        $this->asConvoLabBrowser($second, convoLabUserId: (string) $second->convolab_id)
             ->putJson('/api/convolab/auth/me/password', $payload)
             ->assertUnprocessable();
 
+        $this->flushSession();
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', (string) $first->convolab_id)
+        $this->asConvoLabBrowser($first, convoLabUserId: (string) $first->convolab_id)
             ->deleteJson('/api/convolab/auth/me', ['current_password' => 'old-password123'])
             ->assertNoContent();
     }
@@ -287,22 +245,5 @@ class ConvoLabAccountSecurityApiTest extends TestCase
         ], $projectionAttributes));
 
         return $user->refresh();
-    }
-
-    private function proxyUser(): User
-    {
-        return User::query()->where('email', 'proxy@example.com')->first()
-            ?? User::factory()->create([
-                'email' => 'proxy@example.com',
-                'password' => 'proxy-password123',
-            ]);
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities, ?User $proxy = null): string
-    {
-        return ($proxy ?? $this->proxyUser())
-            ->createToken('convolab-proxy', $abilities)
-            ->plainTextToken;
     }
 }

@@ -19,51 +19,32 @@ class ContentCourseWriteApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PROXY_EMAIL = 'proxy@example.com';
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', self::PROXY_EMAIL);
-    }
-
-    public function test_course_writes_require_authentication_and_the_dedicated_write_proxy(): void
+    public function test_course_writes_require_a_first_party_browser_session(): void
     {
         $courseId = (string) Str::uuid();
         $this->postJson('/api/convolab/courses')->assertUnauthorized();
         $this->patchJson('/api/convolab/courses/'.$courseId)->assertUnauthorized();
         $this->deleteJson('/api/convolab/courses/'.$courseId)->assertUnauthorized();
 
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
-        $sourceUserId = (string) Str::uuid();
-
+        $user = User::factory()->create();
         $ordinaryToken = $user->createToken('mobile', ['content:write'])->plainTextToken;
-        $this->withToken($ordinaryToken)
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
-            ->postJson('/api/convolab/courses', $this->inlinePayload())
-            ->assertForbidden();
 
-        $readToken = $user->createToken('convolab-proxy', ['content:read'])->plainTextToken;
-        $this->withToken($readToken)
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+        $this->withToken($ordinaryToken)
             ->postJson('/api/convolab/courses', $this->inlinePayload())
             ->assertForbidden();
-        $this->withToken($readToken)
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+        $this->withToken($ordinaryToken)
             ->patchJson('/api/convolab/courses/'.$courseId, ['title' => 'Updated'])
             ->assertForbidden();
         $this->withToken($ordinaryToken)
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
             ->deleteJson('/api/convolab/courses/'.$courseId)
             ->assertForbidden();
 
         $this->assertDatabaseCount('content_courses', 0);
     }
 
-    public function test_proxy_creates_a_course_from_owned_episodes_in_requested_order(): void
+    public function test_browser_session_creates_a_course_from_owned_episodes_in_requested_order(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $imported = $this->episodeFor($user, $sourceUserId, [
             'title' => 'Imported Episode',
@@ -74,8 +55,7 @@ class ContentCourseWriteApiTest extends TestCase
             'source_system' => ContentSourceSystem::LEARNING_OS,
         ]);
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($sourceUserId))
+        $response = $this->asConvoLabBrowser($user, convoLabUserId: strtoupper($sourceUserId))
             ->postJson('/api/convolab/courses', [
                 ...$this->basePayload(),
                 'description' => 'A focused course.',
@@ -132,11 +112,10 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_inline_source_text_creates_the_episode_and_course_atomically_with_legacy_defaults(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+        $response = $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
             ->postJson('/api/convolab/courses', $this->inlinePayload())
             ->assertOk()
             ->assertJsonPath('description', 'Interactive JA audio course with spaced repetition and anticipation drills.')
@@ -174,10 +153,9 @@ class ContentCourseWriteApiTest extends TestCase
                 'output_text' => '  A generated course description.  ',
             ]),
         ]);
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
 
-        $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabBrowser($user)
             ->postJson('/api/convolab/courses', $this->inlinePayload())
             ->assertOk()
             ->assertJsonPath('description', 'A generated course description.');
@@ -195,10 +173,9 @@ class ContentCourseWriteApiTest extends TestCase
         Http::fake([
             'https://openai.example/v1/responses' => Http::response(['error' => []], 503),
         ]);
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabBrowser($user)
             ->postJson('/api/convolab/courses', $this->inlinePayload())
             ->assertOk()
             ->assertJsonPath('description', 'Interactive JA audio course with spaced repetition and anticipation drills.');
@@ -213,12 +190,11 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_inline_source_text_takes_legacy_precedence_over_episode_ids(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $existing = $this->episodeFor($user, $sourceUserId);
 
-        $response = $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+        $response = $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
             ->postJson('/api/convolab/courses', [
                 ...$this->inlinePayload(),
                 'episodeIds' => [['legacy ignores this malformed value']],
@@ -234,15 +210,13 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_missing_or_other_owner_episodes_return_hidden_not_found_without_partial_writes(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $owned = $this->episodeFor($user, $sourceUserId);
         $otherSourceEpisode = $this->episodeFor($user, (string) Str::uuid());
-        $token = $this->proxyToken($user);
 
         foreach ([$otherSourceEpisode->id, (string) Str::uuid()] as $unavailableId) {
-            $this->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
                 ->postJson('/api/convolab/courses', [
                     ...$this->basePayload(),
                     'episodeIds' => [$owned->id, $unavailableId],
@@ -258,12 +232,11 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_course_create_normalizes_ids_before_rejecting_case_insensitive_duplicates(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $episode = $this->episodeFor($user, $sourceUserId);
 
-        $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', $sourceUserId)
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
             ->postJson('/api/convolab/courses', [
                 ...$this->basePayload(),
                 'episodeIds' => [$episode->id, strtoupper($episode->id)],
@@ -276,13 +249,12 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_request_owned_normalization_does_not_depend_on_trim_strings_middleware(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $sourceUserId = (string) Str::uuid();
         $episode = $this->episodeFor($user, $sourceUserId);
 
-        $response = $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', '  '.strtoupper($sourceUserId).'  ')
+        $response = $this->asConvoLabBrowser($user, convoLabUserId: strtoupper($sourceUserId))
+            ->withoutMiddleware(TrimStrings::class)
             ->postJson('/api/convolab/courses', [
                 ...$this->basePayload(),
                 'title' => '  Padded Course  ',
@@ -301,17 +273,12 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_course_create_validates_the_legacy_input_domain(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
-        $token = $this->proxyToken($user);
+        $user = User::factory()->create();
+        $sourceUserId = (string) Str::uuid();
 
-        $this->withToken($token)
-            ->postJson('/api/convolab/courses', $this->basePayload())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId', 'episodeIds']);
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
             ->postJson('/api/convolab/courses', [
+                'convolabUserId' => 'not-a-uuid',
                 'title' => ['not a string'],
                 'episodeIds' => ['not-a-uuid'],
                 'sourceText' => ['not a string'],
@@ -327,7 +294,6 @@ class ContentCourseWriteApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'convolabUserId',
                 'title',
                 'episodeIds.0',
                 'sourceText',
@@ -340,17 +306,17 @@ class ContentCourseWriteApiTest extends TestCase
                 'speaker2Gender',
                 'speaker1VoiceId',
                 'speaker2VoiceId',
-            ]);
+            ])
+            ->assertJsonMissingValidationErrors(['convolabUserId']);
 
         $this->assertDatabaseCount('content_courses', 0);
     }
 
     public function test_unsupported_journey_voices_keep_the_legacy_timepointing_fallback(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
 
-        $this->withToken($this->proxyToken($user))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabBrowser($user)
             ->postJson('/api/convolab/courses', [
                 ...$this->inlinePayload(),
                 'l1VoiceId' => 'en-US-Journey-D',
@@ -360,20 +326,17 @@ class ContentCourseWriteApiTest extends TestCase
             ->assertJsonPath('l1VoiceProvider', 'google');
     }
 
-    public function test_proxy_updates_only_supplied_course_fields_and_hides_other_owners(): void
+    public function test_browser_session_updates_only_supplied_course_fields_and_hides_other_owners(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $owned = $this->courseFor($user, [
             'title' => 'Original',
             'description' => 'Keep this.',
             'max_lesson_duration_minutes' => 30,
         ]);
         $other = $this->courseFor($user, ['title' => 'Other']);
-        $token = $this->proxyToken($user);
-
-        $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', strtoupper($owned->convolab_user_id))
+        $this->asConvoLabBrowser($user, convoLabUserId: strtoupper($owned->convolab_user_id))
+            ->withoutMiddleware(TrimStrings::class)
             ->patchJson('/api/convolab/courses/'.strtoupper($owned->id), [
                 'title' => '  Updated  ',
                 'maxLessonDurationMinutes' => 45,
@@ -387,8 +350,7 @@ class ContentCourseWriteApiTest extends TestCase
         $this->assertSame(45, $owned->max_lesson_duration_minutes);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $owned->source_system);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->patchJson('/api/convolab/courses/'.$other->id, ['title' => 'Hidden'])
             ->assertNotFound()
             ->assertExactJson(['message' => 'Course not found']);
@@ -397,14 +359,13 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_empty_update_promotes_ownership_and_preserves_legacy_touch_behavior(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $course = $this->courseFor($user);
         $originalUpdatedAt = $course->updated_at;
 
         $this->travel(1)->second();
         try {
-            $this->withToken($this->proxyToken($user))
-                ->withHeader('X-Convo-Lab-User-Id', $course->convolab_user_id)
+            $this->asConvoLabBrowser($user, convoLabUserId: $course->convolab_user_id)
                 ->patchJson('/api/convolab/courses/'.$course->id, [])
                 ->assertOk();
         } finally {
@@ -418,37 +379,30 @@ class ContentCourseWriteApiTest extends TestCase
 
     public function test_course_update_validates_provenance_and_mutable_field_domain(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $course = $this->courseFor($user);
-        $token = $this->proxyToken($user);
 
-        $this->withToken($token)
-            ->patchJson('/api/convolab/courses/'.$course->id, ['title' => 'Updated'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $course->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $course->convolab_user_id)
             ->patchJson('/api/convolab/courses/'.$course->id, [
+                'convolabUserId' => (string) Str::uuid(),
                 'title' => '',
                 'description' => ['not a string'],
                 'maxLessonDurationMinutes' => 121,
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['title', 'description', 'maxLessonDurationMinutes']);
+            ->assertJsonValidationErrors(['title', 'description', 'maxLessonDurationMinutes'])
+            ->assertJsonMissingValidationErrors(['convolabUserId']);
 
         $this->assertSame('Course', $course->fresh()->title);
     }
 
-    public function test_proxy_deletes_owned_course_and_hides_retries_and_other_owners(): void
+    public function test_browser_session_deletes_owned_course_and_hides_retries_and_other_owners(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $owned = $this->courseFor($user);
         $other = $this->courseFor($user);
-        $token = $this->proxyToken($user);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/courses/'.$owned->id)
             ->assertOk()
             ->assertExactJson(['message' => 'Course deleted successfully']);
@@ -459,36 +413,31 @@ class ContentCourseWriteApiTest extends TestCase
             'convolab_user_id' => $owned->convolab_user_id,
         ]);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/courses/'.$owned->id)
             ->assertNotFound();
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $owned->convolab_user_id)
+        $this->asConvoLabBrowser($user, convoLabUserId: $owned->convolab_user_id)
             ->deleteJson('/api/convolab/courses/'.$other->id)
             ->assertNotFound();
         $this->assertDatabaseHas('content_courses', ['id' => $other->id]);
     }
 
-    public function test_course_delete_validates_provenance(): void
+    public function test_course_delete_ignores_client_supplied_provenance(): void
     {
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $course = $this->courseFor($user);
-        $token = $this->proxyToken($user);
 
-        $this->withToken($token)
-            ->deleteJson('/api/convolab/courses/'.$course->id)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+        $this->asConvoLabBrowser($user, convoLabUserId: $course->convolab_user_id)
+            ->deleteJson('/api/convolab/courses/'.$course->id, [
+                'convolabUserId' => (string) Str::uuid(),
+            ])
+            ->assertOk();
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', 'not-a-uuid')
-            ->deleteJson('/api/convolab/courses/'.$course->id)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-
-        $this->assertDatabaseHas('content_courses', ['id' => $course->id]);
-        $this->assertDatabaseCount('content_course_tombstones', 0);
+        $this->assertDatabaseMissing('content_courses', ['id' => $course->id]);
+        $this->assertDatabaseHas('content_course_tombstones', [
+            'course_id' => $course->id,
+            'convolab_user_id' => $course->convolab_user_id,
+        ]);
     }
 
     public function test_course_write_routes_use_separate_named_rate_limiters(): void
@@ -511,7 +460,10 @@ class ContentCourseWriteApiTest extends TestCase
     {
         $sourceUserId = (string) Str::uuid();
         $request = Request::create('/api/convolab/courses', 'POST');
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($sourceUserId));
+        $authenticatedUser = new User;
+        $authenticatedUser->setAttribute('id', 42);
+        $authenticatedUser->setAttribute('convolab_id', strtoupper($sourceUserId));
+        $request->setUserResolver(fn (): User => $authenticatedUser);
 
         $limiter = ContentCourseRateLimiter::forCreate();
         $limit = $limiter->limit($request);
@@ -555,11 +507,6 @@ class ContentCourseWriteApiTest extends TestCase
             ContentCourseRateLimiter::CREATE_NAME.':anon:192.0.2.10',
             $limiter->limit($anonymousFallback)->key,
         );
-    }
-
-    private function proxyToken(User $user): string
-    {
-        return $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
     }
 
     /** @return array<string, string> */

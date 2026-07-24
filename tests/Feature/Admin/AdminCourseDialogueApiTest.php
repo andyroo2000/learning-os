@@ -29,40 +29,31 @@ class AdminCourseDialogueApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_routes_enforce_admin_scopes_actor_identity_and_uuid_constraints(): void
+    public function test_routes_enforce_browser_admin_auth_and_uuid_constraints(): void
     {
         $courseId = (string) Str::uuid();
 
-        $this->withToken($this->proxyToken(['admin:write']))
+        $this->postJson("/api/convolab/admin/courses/{$courseId}/build-prompt")
+            ->assertUnauthorized();
+
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->postJson("/api/convolab/admin/courses/{$courseId}/build-prompt")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->withToken($token)
             ->postJson("/api/convolab/admin/courses/{$courseId}/generate-dialogue")
             ->assertForbidden();
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->postJson("/api/convolab/admin/courses/{$courseId}/generate-dialogue")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
-        $this->app['auth']->forgetGuards();
-
-        $this->withToken($this->proxyToken(['admin:read']))
+        $this->asConvoLabAdminBrowser()
             ->postJson('/api/convolab/admin/courses/not-a-uuid/build-prompt')
             ->assertNotFound();
-        $this->app['auth']->forgetGuards();
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson('/api/convolab/admin/courses/not-a-uuid/generate-dialogue')
             ->assertNotFound();
 
@@ -102,7 +93,7 @@ class AdminCourseDialogueApiTest extends TestCase
             ]);
         });
 
-        $response = $this->withToken($this->proxyToken(['admin:read']))
+        $response = $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/build-prompt")
             ->assertOk()
             ->assertJsonStructure([
@@ -132,7 +123,7 @@ class AdminCourseDialogueApiTest extends TestCase
         $this->mock(AdminCoursePromptSeedRepository::class)
             ->shouldNotReceive('sampleVocabulary', 'sampleGrammar');
 
-        $response = $this->withToken($this->proxyToken(['admin:read']))
+        $response = $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/build-prompt")
             ->assertOk()
             ->assertJsonPath('metadata.vocabularySeeds', '')
@@ -178,8 +169,7 @@ class AdminCourseDialogueApiTest extends TestCase
                 ->andReturn($this->providerJson());
         });
 
-        $response = $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $response = $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/generate-dialogue", [
                 'customPrompt' => 'Use this exact prompt',
             ])
@@ -216,8 +206,7 @@ class AdminCourseDialogueApiTest extends TestCase
                 ->andReturn($this->providerJson());
         });
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/generate-dialogue", [
                 'customPrompt' => '',
             ])
@@ -234,8 +223,7 @@ class AdminCourseDialogueApiTest extends TestCase
             ->once()
             ->andReturn('{"wrong":[]}');
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/generate-dialogue", [
                 'customPrompt' => 'Prompt',
             ])
@@ -261,8 +249,7 @@ class AdminCourseDialogueApiTest extends TestCase
             });
         });
 
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson("/api/convolab/admin/courses/{$course->id}/generate-dialogue", [
                 'customPrompt' => 'Prompt',
             ])
@@ -324,8 +311,7 @@ class AdminCourseDialogueApiTest extends TestCase
         $user = User::factory()->create();
         $course = $this->course($user);
         $this->link($course, $this->episode($user), 1);
-        $request = $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid());
+        $request = $this->asConvoLabAdminBrowser();
 
         $request->postJson("/api/convolab/admin/courses/{$course->id}/generate-dialogue", [
             'customPrompt' => ['not a string'],
@@ -392,17 +378,6 @@ class AdminCourseDialogueApiTest extends TestCase
                 ],
             ],
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $overrides */

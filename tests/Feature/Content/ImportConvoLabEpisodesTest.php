@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ImportConvoLabEpisodesTest extends TestCase
@@ -110,9 +109,8 @@ class ImportConvoLabEpisodesTest extends TestCase
             'episode_id' => $ids['dialogueEpisode'],
         ]);
 
-        Sanctum::actingAs($targetUser);
-        $this->withHeader('X-Convo-Lab-User-Id', $ids['user']);
-        $this->getJson('/api/convolab/episodes')
+        $this->asConvoLabBrowser($targetUser, convoLabUserId: $ids['user'])
+            ->getJson('/api/convolab/episodes')
             ->assertOk()
             ->assertJsonCount(2)
             ->assertJsonPath('0.id', $ids['scriptEpisode'])

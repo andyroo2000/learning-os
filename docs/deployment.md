@@ -41,14 +41,12 @@ SESSION_DRIVER=database
 `APP_KEY` must be generated once and retained across deploys. The initial
 single-node rollout uses the migrated `cache`, `cache_locks`, and `sessions`
 tables. Database-backed cache is required because Laravel's rate limiters must
-persist across PHP request lifecycles. ConvoLab authenticates to Learning OS
-with a Sanctum bearer token, and no queue worker is needed for the read-only
-feature slice.
+persist across PHP request lifecycles. Convo Lab authenticates to Learning OS
+with a stateful Sanctum browser session. The Convo Lab compatibility routes do
+not accept service or mobile bearer tokens.
 
-`QUEUE_CONNECTION=sync` prevents queued study-card-draft and import jobs from
-accumulating without a worker during the initial rollout. Before enabling those
-write features, deploy a separate `php artisan queue:work` service and switch
-the connection to `database`.
+Use `QUEUE_CONNECTION=database` with a separately managed
+`php artisan queue:work` service for import and content-generation jobs.
 
 Run migrations as a one-shot container before starting a new image:
 

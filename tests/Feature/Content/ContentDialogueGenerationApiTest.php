@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -37,24 +36,19 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->convoLabUserId = (string) Str::uuid();
     }
 
-    public function test_routes_require_authentication_and_generation_requires_the_proxy_write_ability(): void
+    public function test_routes_require_a_first_party_browser_session(): void
     {
         $this->postJson('/api/convolab/dialogue/generate', [])->assertUnauthorized();
         $this->getJson('/api/convolab/dialogue/job/'.Str::uuid())->assertUnauthorized();
 
         $user = User::factory()->create();
-        config()->set('services.convolab.proxy_user_email', 'another@example.com');
         $token = $user->createToken('mobile', ['content:write'])->plainTextToken;
         $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
             ->postJson('/api/convolab/dialogue/generate', $this->payload((string) Str::uuid()))
             ->assertForbidden();
-
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', '')
+        $this->withToken($token)
             ->getJson('/api/convolab/dialogue/job/'.Str::uuid())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_generate_normalizes_validated_input_and_atomically_queues_a_durable_attempt(): void
@@ -150,15 +144,17 @@ class ContentDialogueGenerationApiTest extends TestCase
         $owner = User::factory()->create();
         $episode = $this->episode($owner);
         $this->authenticateWrite($owner);
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid());
 
-        $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
+            ->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertNotFound();
         $this->assertDatabaseCount('content_dialogue_generation_jobs', 0);
         $this->assertDatabaseCount('generation_logs', 0);
         $this->assertDatabaseCount('content_generation_cooldowns', 0);
 
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($owner);
         Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('Redis secret.'));
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertServiceUnavailable()
@@ -180,8 +176,7 @@ class ContentDialogueGenerationApiTest extends TestCase
         $user = User::factory()->create();
         $episode = $this->episode($user, ['status' => 'generating', 'dialogue_generation_attempt' => 2]);
         $job = $this->job($episode, ['attempt' => 2, 'state' => 'active', 'progress' => 10]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson('/api/convolab/dialogue/job/'.strtoupper($job->id))
             ->assertExactJson([
@@ -191,11 +186,13 @@ class ContentDialogueGenerationApiTest extends TestCase
                 'result' => null,
             ]);
 
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson("/api/convolab/dialogue/job/{$job->id}")
             ->assertNotFound();
 
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
         $dialogue = ContentDialogue::query()->forceCreate([
             'id' => (string) Str::uuid(),
             'episode_id' => $episode->id,
@@ -239,7 +236,11 @@ class ContentDialogueGenerationApiTest extends TestCase
     public function test_generation_rate_limiter_is_operation_scoped_and_wired_to_the_write_route(): void
     {
         $request = Request::create('/api/convolab/dialogue/generate', 'POST');
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($this->convoLabUserId));
+        $request->setUserResolver(
+            fn (): User => User::factory()->make([
+                'convolab_id' => strtoupper($this->convoLabUserId),
+            ]),
+        );
         $limit = ContentDialogueRateLimiter::generation($request);
 
         $this->assertSame(10, $limit->maxAttempts);
@@ -286,10 +287,7 @@ class ContentDialogueGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        $this->convoLabProjectionFor($user, $this->convoLabUserId);
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $this->withToken($user->createToken('convolab-proxy', ['content:write'])->plainTextToken);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @param array<string, mixed> $attributes */

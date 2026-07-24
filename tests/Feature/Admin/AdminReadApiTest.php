@@ -19,14 +19,7 @@ class AdminReadApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_admin_reads_reject_untrusted_bearer_tokens_and_missing_proxy_scope(): void
+    public function test_admin_reads_require_a_first_party_admin_session(): void
     {
         $this->getJson('/api/convolab/admin/stats')->assertUnauthorized();
 
@@ -37,21 +30,7 @@ class AdminReadApiTest extends TestCase
             ->getJson('/api/convolab/admin/stats')
             ->assertForbidden();
 
-        $wildcardToken = User::factory()->create(['email' => 'wildcard@example.com'])
-            ->createToken('convolab-proxy', ['*'])
-            ->plainTextToken;
-        config()->set('services.convolab.proxy_user_email', 'wildcard@example.com');
-        $this->withToken($wildcardToken)
-            ->getJson('/api/convolab/admin/stats')
-            ->assertForbidden();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-        $this->withToken($this->proxyToken(['study:read']))
-            ->getJson('/api/convolab/admin/stats')
-            ->assertForbidden();
-
-        config()->set('services.convolab.proxy_user_email', 'different@example.com');
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabBrowser(User::factory()->create())
             ->getJson('/api/convolab/admin/stats')
             ->assertForbidden();
     }
@@ -68,7 +47,7 @@ class AdminReadApiTest extends TestCase
         $usedInvite = $this->insertInvite($sourceUser);
         $this->insertInvite();
 
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/stats')
             ->assertOk()
             ->assertExactJson([
@@ -87,7 +66,7 @@ class AdminReadApiTest extends TestCase
 
     public function test_stats_return_zero_invite_counts_for_an_empty_projection(): void
     {
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/stats')
             ->assertOk()
             ->assertJsonPath('inviteCodes.total', 0)
@@ -134,7 +113,7 @@ class AdminReadApiTest extends TestCase
         $this->insertCourse($newer, ContentSourceSystem::CONVOLAB);
         $this->insertCourse($newer, ContentSourceSystem::LEARNING_OS);
 
-        $response = $this->withToken($this->proxyToken())
+        $response = $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/users?limit=1&page=1')
             ->assertOk()
             ->assertExactJson([
@@ -169,7 +148,7 @@ class AdminReadApiTest extends TestCase
         ]);
 
         $query = http_build_query(['search' => '100%_done']);
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/users?'.$query)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
@@ -179,28 +158,28 @@ class AdminReadApiTest extends TestCase
     public function test_user_list_normalizes_blank_search_and_validates_bounded_pagination(): void
     {
         $this->projectedUser(['email' => 'ada@example.com']);
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/users?search=%20%20')
             ->assertOk()
             ->assertJsonPath('pagination.total', 1);
 
         foreach (['page=0', 'page=1.5', 'limit=0', 'limit=101', 'limit=-1'] as $query) {
             $field = str_starts_with($query, 'page=') ? 'page' : 'limit';
-            $this->withToken($token)
+            $this
                 ->getJson('/api/convolab/admin/users?'.$query)
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors($field);
         }
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/users?search='.str_repeat('a', 201))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('search');
 
         foreach (['page%5B%5D=1' => 'page', 'limit%5B%5D=10' => 'limit', 'search%5B%5D=ada' => 'search'] as $query => $field) {
-            $this->withToken($token)
+            $this
                 ->getJson('/api/convolab/admin/users?'.$query)
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors($field);
@@ -211,8 +190,8 @@ class AdminReadApiTest extends TestCase
     {
         $user = $this->projectedUser(['email' => 'ada@example.com']);
 
-        $this->withoutMiddleware(TrimStrings::class)
-            ->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
+            ->withoutMiddleware(TrimStrings::class)
             ->getJson('/api/convolab/admin/users?'.http_build_query(['search' => " \tADA@EXAMPLE.COM\n "]))
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
@@ -233,7 +212,7 @@ class AdminReadApiTest extends TestCase
             'onboarding_completed' => true,
         ]);
 
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/users/'.strtoupper($user->convolab_id).'/info')
             ->assertOk()
             ->assertExactJson([
@@ -249,10 +228,10 @@ class AdminReadApiTest extends TestCase
                 'onboardingCompleted' => true,
             ]);
 
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/users/'.Str::uuid().'/info')
             ->assertNotFound();
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/users/not-a-uuid/info')
             ->assertNotFound();
     }
@@ -285,7 +264,7 @@ class AdminReadApiTest extends TestCase
             'created_at' => '2026-07-21 10:00:00.123',
         ]);
 
-        $this->withToken($this->proxyToken())
+        $this->asConvoLabAdminBrowser()
             ->getJson('/api/convolab/admin/invite-codes')
             ->assertOk()
             ->assertHeader('X-Pagination-Page', '1')
@@ -321,9 +300,9 @@ class AdminReadApiTest extends TestCase
         $oldest = $this->insertInvite(null, ['created_at' => '2026-07-19 10:00:00.123']);
         $middle = $this->insertInvite(null, ['created_at' => '2026-07-20 10:00:00.123']);
         $newest = $this->insertInvite(null, ['created_at' => '2026-07-21 10:00:00.123']);
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser();
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/invite-codes?limit=2&page=1')
             ->assertOk()
             ->assertHeader('X-Pagination-Total', '3')
@@ -332,7 +311,7 @@ class AdminReadApiTest extends TestCase
             ->assertJsonPath('0.id', $newest->id)
             ->assertJsonPath('1.id', $middle->id);
 
-        $this->withToken($token)
+        $this
             ->getJson('/api/convolab/admin/invite-codes?limit=2&page=2')
             ->assertOk()
             ->assertHeader('X-Pagination-Page', '2')
@@ -340,7 +319,7 @@ class AdminReadApiTest extends TestCase
             ->assertJsonPath('0.id', $oldest->id);
 
         foreach (['page=0' => 'page', 'limit=101' => 'limit', 'limit%5B%5D=10' => 'limit'] as $query => $field) {
-            $this->withToken($token)
+            $this
                 ->getJson('/api/convolab/admin/invite-codes?'.$query)
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors($field);
@@ -359,17 +338,6 @@ class AdminReadApiTest extends TestCase
         $this->assertSame(['*'], (new AdminInviteCode)->getGuarded());
         $this->assertSame([], (new AdminUserProjection)->getFillable());
         $this->assertSame(['*'], (new AdminUserProjection)->getGuarded());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities = ['admin:read']): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $attributes */

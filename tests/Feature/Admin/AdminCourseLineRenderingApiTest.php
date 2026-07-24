@@ -29,26 +29,23 @@ final class AdminCourseLineRenderingApiTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
         config()->set('content_courses.audio_disk', 'media');
         Storage::fake('media');
     }
 
-    public function test_routes_enforce_scopes_actor_identity_uuid_constraints_and_limiters(): void
+    public function test_routes_enforce_browser_admin_auth_uuid_constraints_and_limiters(): void
     {
         $courseId = (string) Str::uuid();
         $renderingId = (string) Str::uuid();
 
         $this->postJson("/api/convolab/admin/courses/{$courseId}/synthesize-line")
             ->assertUnauthorized();
-        $this->withToken($this->proxyToken(['admin:read']))
+        $token = User::factory()->create()
+            ->createToken('mobile', ['admin:write'])
+            ->plainTextToken;
+        $this->withToken($token)
             ->postJson("/api/convolab/admin/courses/{$courseId}/synthesize-line")
             ->assertForbidden();
-        $this->app['auth']->forgetGuards();
-        $this->withToken($this->proxyToken(['admin:write']))
-            ->deleteJson("/api/convolab/admin/courses/{$courseId}/line-renderings/{$renderingId}")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('actorConvoLabUserId');
         $this->app['auth']->forgetGuards();
 
         $this->readRequest()
@@ -261,24 +258,12 @@ final class AdminCourseLineRenderingApiTest extends TestCase
 
     private function readRequest(): static
     {
-        return $this->withToken($this->proxyToken(['admin:read']));
+        return $this->asConvoLabAdminBrowser();
     }
 
     private function writeRequest(): static
     {
-        return $this->withToken($this->proxyToken(['admin:write']))
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid());
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
+        return $this->asConvoLabAdminBrowser();
     }
 
     private function course(): ContentCourse

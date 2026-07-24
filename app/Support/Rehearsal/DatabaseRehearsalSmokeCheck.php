@@ -3,13 +3,14 @@
 namespace App\Support\Rehearsal;
 
 use App\Models\User;
+use Illuminate\Cookie\CookieValuePrefix;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use JsonException;
 use Laravel\Sanctum\NewAccessToken;
 use Throwable;
@@ -21,9 +22,8 @@ class DatabaseRehearsalSmokeCheck
     /**
      * @var list<array{name: string, uri: string, required: list<string>}>
      *
-     * These endpoints must stay stateless. The smoke harness dispatches them through the HTTP kernel without
-     * running the terminate phase, so session-dependent or throttle-protected endpoints can leak state across
-     * loop iterations.
+     * The canonical endpoints use a temporary bearer token. Convo Lab compatibility
+     * endpoints use the selected user's first-party browser session.
      */
     private const ENDPOINTS = [
         [
@@ -72,13 +72,13 @@ class DatabaseRehearsalSmokeCheck
             'name' => 'content episodes',
             'uri' => '/api/convolab/episodes?library=true&limit=1',
             'required' => [],
-            'effective_convolab_user' => true,
+            'first_party_session' => true,
         ],
         [
             'name' => 'content courses',
             'uri' => '/api/convolab/courses?library=true&limit=1',
             'required' => [],
-            'effective_convolab_user' => true,
+            'first_party_session' => true,
         ],
     ];
 
@@ -267,24 +267,29 @@ class DatabaseRehearsalSmokeCheck
     }
 
     /**
-     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>, effective_convolab_user?: bool}  $endpoint
+     * @param  array{name: string, uri: string, required: list<string>, required_non_null?: list<string>, first_party_session?: bool}  $endpoint
      * @return array{name: string, ok: bool, message: string, meta?: array<string, mixed>, soft_fail?: bool}
      */
     private function checkEndpoint(array $endpoint, NewAccessToken $token, User $user): array
     {
-        $server = [
-            'HTTP_ACCEPT' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$token->plainTextToken,
-        ];
-        if ($endpoint['effective_convolab_user'] ?? false) {
-            $server['HTTP_X_CONVO_LAB_USER_ID'] = $this->effectiveConvoLabUserId($user);
+        $firstPartySession = $endpoint['first_party_session'] ?? false;
+        $server = ['HTTP_ACCEPT' => 'application/json'];
+        $cookies = [];
+        if ($firstPartySession) {
+            $server += [
+                'HTTP_HOST' => 'localhost',
+                'HTTP_ORIGIN' => 'http://localhost',
+                'HTTP_REFERER' => 'http://localhost/',
+            ];
+            $cookies = $this->browserSessionCookie($user);
+        } else {
+            $server['HTTP_AUTHORIZATION'] = 'Bearer '.$token->plainTextToken;
         }
 
-        $request = Request::create($endpoint['uri'], 'GET', server: $server);
+        $request = Request::create($endpoint['uri'], 'GET', cookies: $cookies, server: $server);
 
         try {
             Auth::forgetGuards();
-
             $response = $this->app->handle($request);
         } catch (Throwable $exception) {
             return $this->fail($endpoint['name'], 'Endpoint threw before returning a response.', [
@@ -353,21 +358,25 @@ class DatabaseRehearsalSmokeCheck
         return $this->pass($endpoint['name'], "GET {$endpoint['uri']} returned the expected response shape.");
     }
 
-    private function effectiveConvoLabUserId(User $user): string
+    /**
+     * @return array<string, string>
+     */
+    private function browserSessionCookie(User $user): array
     {
-        foreach (['content_episodes', 'content_courses'] as $table) {
-            $candidate = DB::table($table)
-                ->where('user_id', $user->getKey())
-                ->orderBy('id')
-                ->value('convolab_user_id');
+        Auth::guard('web')->login($user);
 
-            if (is_string($candidate) && Str::isUuid($candidate)) {
-                return strtolower($candidate);
-            }
-        }
+        $session = $this->app->make('session.store');
+        $session->save();
 
-        // Empty databases still need a syntactically valid effective-user scope to exercise the routes.
-        return '00000000-0000-4000-8000-000000000000';
+        $cookieName = config('session.cookie');
+        $cookieValue = CookieValuePrefix::create($cookieName, $this->app['encrypter']->getKey()).$session->getId();
+
+        return [
+            $cookieName => $this->app['encrypter']->encrypt(
+                $cookieValue,
+                EncryptCookies::serialized($cookieName),
+            ),
+        ];
     }
 
     /**

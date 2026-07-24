@@ -1,57 +1,43 @@
-# Convo Lab Episode Write Cutover
+# Convo Lab Content Compatibility
 
-Learning OS exposes Convo Lab-compatible Episode create, update, and delete routes at
-`/api/convolab/episodes`. These routes are dormant until the dedicated Convo Lab proxy
-token receives the `content:write` ability.
+Learning OS exposes Convo Lab-compatible content routes under `/api/convolab`. The
+Convo Lab frontend calls these routes directly with its first-party Laravel session.
+The former service-token proxy and its `X-Convo-Lab-User-Id` trust contract have been
+retired.
 
-Deploying the backend routes alone is safe. The production token rotation currently
-grants Study and feature-flag abilities only, so no production caller can reach these
-writes.
+## Identity Contract
 
-## Activation Gates
+- Requests must use a stateful browser session from an allowed Convo Lab origin.
+- Learning OS resolves provenance from the authenticated user's canonical
+  `users.convolab_id`.
+- Client-supplied identity headers and body fields are not authoritative.
+- Mobile and other bearer tokens cannot access the Convo Lab compatibility surface.
+- Admin impersonation remains explicit through validated `viewAs` query parameters and
+  is available only to a live admin browser session.
 
-Do not grant `content:write` or proxy Convo Lab Episode mutations until all of these are
-true:
+Content reads and mutations scope ownership by both the authenticated Learning OS user
+and the canonical Convo Lab UUID. Missing and cross-user records retain the legacy
+hidden `404` behavior.
 
-1. **Complete:** the production Episode/Course importer replaces only Convo-imported
-   roots. Creates are marked as Learning-owned, updates promote imported Episodes and
-   their referenced media and Course links, and deletion tombstones prevent source rows
-   from returning.
-2. Course creation and generation can consume Episodes stored in Learning OS instead of
-   assuming every Episode exists in the Convo Lab source database.
-   - **Complete:** Learning OS exposes a dormant Convo-compatible Course create route that
-     atomically links imported or Learning-owned Episodes and supports inline source text.
-   - **Complete:** Course script generation now consumes the first Episode from Learning OS,
-     validates bounded provider output, persists core-item mappings atomically, and rejects
-     stale concurrent results. Attaching or generating a Course promotes its Episode graph so
-     replacement imports cannot delete it.
-   - **Complete:** Course scripts can be assembled through the shared audio pipeline into
-     revision-scoped Learning OS storage. Publication rejects stale results, preserves the
-     previously published track on failure, and serves current audio through an authenticated,
-     owner-scoped route.
-   - **Complete:** Course generation has a durable queued lifecycle with persisted progress,
-     bounded retries, stale-job detection, reset/retry routes, and generation-attempt guards
-     that prevent an invalidated worker from publishing script or audio results.
-   - **Remaining:** proxy the Course generation lifecycle from Convo Lab and complete the
-     production write smoke rehearsal before activating Episode or Course writes.
-3. The Convo Lab proxy preserves `blockDemoUser` behavior for create and delete.
-4. Production smoke coverage creates, updates, reads, and deletes a disposable Episode
-   through Convo Lab before the deployment is accepted.
+## Write Behavior
 
-The compatibility create route preserves the legacy non-idempotent contract because the
-client does not send an Episode ID. A transport retry can create another Episode. Delete
-is a hard delete; a retry preserves the legacy hidden `404`. Its internal tombstone exists
-only to keep the source importer from recreating the row.
+Episode and Course creates are Learning OS-owned. Updates promote imported content and
+its referenced graph before mutation. Deletes create internal tombstones so a later
+source import cannot recreate removed content.
 
-## Request Contract
+The compatibility create route preserves the legacy non-idempotent contract because
+the client does not send an Episode ID. A transport retry can create another Episode.
+Create, update, delete, and generation operations use separate, operation-scoped rate
+limit buckets keyed by canonical session identity.
 
-The trusted proxy must send `X-Convo-Lab-User-Id` with the effective Convo Lab user UUID
-for reads and writes. Learning OS stores that UUID as provenance and returns it as
-`userId`. Episode and Course reads and Episode mutations scope ownership by both the
-mapped Learning OS account and the effective Convo Lab user.
+## Deployment Checks
 
-Create, update, and delete have separate per-Convo-Lab-user rate-limit buckets. Every
-mutation scopes ownership by both the authenticated Learning OS account and the effective
-Convo Lab user UUID. The API keeps Convo Lab's camelCase payload and success-message
-shapes, normalizes UUID casing, and hides missing and cross-user records behind the same
-`404` response.
+Before deploying compatibility changes:
+
+1. Run the backend feature and migration suites on SQLite and Postgres.
+2. Exercise read, create, update, generation, streaming, and delete flows through a
+   Convo Lab browser session.
+3. Confirm bearer requests receive `403`, unauthenticated requests receive `401`, and
+   spoofed identity headers do not change the effective user.
+4. Confirm imported content promotion and deletion tombstones prevent a subsequent
+   import from overwriting or recreating Learning OS-owned state.

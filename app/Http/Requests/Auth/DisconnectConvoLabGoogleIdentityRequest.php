@@ -12,7 +12,7 @@ final class DisconnectConvoLabGoogleIdentityRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allows($this, 'auth:oauth');
+        return ConvoLabRequestIdentity::allows($this);
     }
 
     public function rules(): array

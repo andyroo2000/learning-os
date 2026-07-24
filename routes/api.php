@@ -77,11 +77,8 @@ use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
-use App\Http\Controllers\Api\Analytics\StoreToolAnalyticsEventController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabBrowserUserController;
-use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
 use App\Http\Controllers\Api\Auth\ClaimConvoLabBrowserGoogleInviteController;
-use App\Http\Controllers\Api\Auth\ClaimConvoLabGoogleInviteController;
 use App\Http\Controllers\Api\Auth\DeleteConvoLabCurrentUserController;
 use App\Http\Controllers\Api\Auth\DeleteCurrentUserController;
 use App\Http\Controllers\Api\Auth\DestroyAccessTokenController;
@@ -90,10 +87,8 @@ use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\DisconnectConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterConvoLabBrowserUserController;
-use App\Http\Controllers\Api\Auth\RegisterConvoLabUserController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
-use App\Http\Controllers\Api\Auth\ResolveConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\SendConvoLabBrowserVerificationController;
 use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
@@ -107,7 +102,6 @@ use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserPasswordController;
 use App\Http\Controllers\Api\Auth\UpdateCurrentUserProfileController;
 use App\Http\Controllers\Api\Auth\VerifyConvoLabBrowserEmailController;
-use App\Http\Controllers\Api\Auth\VerifyConvoLabEmailController;
 use App\Http\Controllers\Api\Content\AnnotateContentAudioScriptController;
 use App\Http\Controllers\Api\Content\DeleteContentCourseController;
 use App\Http\Controllers\Api\Content\DeleteContentEpisodeController;
@@ -282,16 +276,6 @@ Route::prefix('/convolab/browser/auth')->group(function (): void {
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', ShowCurrentUserController::class);
-    Route::post('/convolab/tools/analytics', StoreToolAnalyticsEventController::class)
-        ->middleware('throttle:'.ToolAnalyticsRateLimiter::NAME);
-    Route::post('/convolab/auth/login', AuthenticateConvoLabUserController::class)
-        ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
-    Route::post('/convolab/auth/signup', RegisterConvoLabUserController::class)
-        ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_SIGNUPS);
-    Route::post('/convolab/auth/google', ResolveConvoLabGoogleIdentityController::class)
-        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::RESOLVE);
-    Route::post('/convolab/auth/google/invite', ClaimConvoLabGoogleInviteController::class)
-        ->middleware('throttle:'.ConvoLabOAuthRateLimiter::CLAIM);
     Route::delete('/convolab/auth/google', DisconnectConvoLabGoogleIdentityController::class)
         ->middleware('throttle:'.ConvoLabOAuthRateLimiter::DISCONNECT);
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
@@ -304,8 +288,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.ConvoLabAccountSecurityRateLimiter::ACCOUNT_DELETE);
     Route::post('/convolab/auth/verification/send', SendConvoLabVerificationController::class)
         ->middleware('throttle:'.ConvoLabVerificationRateLimiter::SEND);
-    Route::post('/convolab/auth/verification', VerifyConvoLabEmailController::class)
-        ->middleware('throttle:'.ConvoLabVerificationRateLimiter::VERIFY);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);
     Route::delete('/convolab/admin/users/{convoLabUserId}', DeleteAdminUserController::class)

@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -24,8 +23,6 @@ class ContentCourseGenerationApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PROXY_EMAIL = 'generation-proxy@example.com';
-
     private string $convoLabUserId;
 
     protected function setUp(): void
@@ -33,10 +30,9 @@ class ContentCourseGenerationApiTest extends TestCase
         parent::setUp();
 
         $this->convoLabUserId = (string) Str::uuid();
-        config()->set('services.convolab.proxy_user_email', self::PROXY_EMAIL);
     }
 
-    public function test_lifecycle_routes_require_authentication_and_write_routes_require_the_proxy_ability(): void
+    public function test_lifecycle_routes_require_a_first_party_browser_session(): void
     {
         $id = (string) Str::uuid();
         foreach (['generate', 'reset', 'retry'] as $operation) {
@@ -44,20 +40,17 @@ class ContentCourseGenerationApiTest extends TestCase
         }
         $this->getJson("/api/convolab/courses/{$id}/status")->assertUnauthorized();
 
-        $user = User::factory()->create(['email' => self::PROXY_EMAIL]);
+        $user = User::factory()->create();
         $ordinaryToken = $user->createToken('mobile', ['content:write'])->plainTextToken;
         foreach (['generate', 'reset', 'retry'] as $operation) {
             $this->withToken($ordinaryToken)
-                ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
                 ->postJson("/api/convolab/courses/{$id}/{$operation}")
                 ->assertForbidden();
         }
 
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', '')
+        $this->withToken($ordinaryToken)
             ->getJson("/api/convolab/courses/{$id}/status")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_generate_atomically_claims_and_queues_a_course_attempt(): void
@@ -121,8 +114,7 @@ class ContentCourseGenerationApiTest extends TestCase
                 ContentCourseGeneration::STALE_AFTER_SECONDS + 1,
             ),
         ]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson("/api/convolab/courses/{$active->id}/status")
             ->assertExactJson([
@@ -342,7 +334,9 @@ class ContentCourseGenerationApiTest extends TestCase
     {
         $sourceUserId = (string) Str::uuid();
         $request = Request::create('/api/convolab/courses/id/generate', 'POST');
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($sourceUserId));
+        $request->setUserResolver(
+            fn (): User => User::factory()->make(['convolab_id' => strtoupper($sourceUserId)]),
+        );
 
         $generation = ContentCourseRateLimiter::forGeneration()->limit($request);
         $reset = ContentCourseRateLimiter::forReset()->limit($request);
@@ -384,9 +378,10 @@ class ContentCourseGenerationApiTest extends TestCase
             ->assertJsonPath('message', 'Course has an active generation job. Cannot reset.');
 
         $this->convoLabUserId = (string) Str::uuid();
-        $this->convoLabProjectionFor(User::factory()->create(), $this->convoLabUserId);
-        $secondCourse = $this->course($firstUser);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $secondUser = User::factory()->create();
+        $secondCourse = $this->course($secondUser);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($secondUser);
         $this->postJson("/api/convolab/courses/{$secondCourse->id}/generate")
             ->assertOk();
 
@@ -415,11 +410,7 @@ class ContentCourseGenerationApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        $this->convoLabProjectionFor($user, $this->convoLabUserId);
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $token = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
-        $this->withToken($token);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @param array<string, mixed> $attributes */

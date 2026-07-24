@@ -19,6 +19,8 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const CONVOLAB_USER_ID = '21a610da-f528-4b58-afef-8a6f8f847a86';
+
     public function test_smoke_command_exercises_read_oriented_api_shapes_for_a_selected_user(): void
     {
         $user = $this->rehearsalUser();
@@ -50,6 +52,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     {
         User::factory()->create([
             'email' => 'ada@example.com',
+            'convolab_id' => self::CONVOLAB_USER_ID,
         ]);
 
         $this->artisan('rehearsal:smoke', [
@@ -78,6 +81,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     {
         User::factory()->create([
             'email' => 'ada@example.com',
+            'convolab_id' => self::CONVOLAB_USER_ID,
         ]);
 
         $this->artisan('rehearsal:smoke', [
@@ -121,6 +125,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'ada@example.com',
+            'convolab_id' => self::CONVOLAB_USER_ID,
         ]);
         $migrationDirectory = storage_path('framework/testing/rehearsal-migrations');
         $migrationFile = $migrationDirectory.'/2099_01_01_000000_create_external_rehearsal_table.php';
@@ -236,6 +241,7 @@ class DatabaseRehearsalSmokeCommandTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'ada@example.com',
+            'convolab_id' => self::CONVOLAB_USER_ID,
         ]);
         StudySettings::factory()->for($user)->create();
 

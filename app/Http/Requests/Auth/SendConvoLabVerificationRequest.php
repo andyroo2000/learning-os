@@ -12,7 +12,7 @@ final class SendConvoLabVerificationRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allows($this, 'auth:verification');
+        return ConvoLabRequestIdentity::allows($this);
     }
 
     public function rules(): array

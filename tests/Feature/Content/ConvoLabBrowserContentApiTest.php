@@ -373,19 +373,17 @@ class ConvoLabBrowserContentApiTest extends TestCase
         $this->assertDatabaseCount('content_episodes', 0);
     }
 
-    public function test_proxy_bearer_identity_ignores_browser_view_as_query_parameter(): void
+    public function test_bearer_identity_cannot_use_browser_view_as_query_parameter(): void
     {
         [$user, $convoLabId] = $this->projectedUser();
         [, $otherConvoLabId] = $this->projectedUser();
         $owned = $this->episodeFor($user, $convoLabId, 'Owned');
-        $bearer = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
+        $bearer = $user->createToken('mobile', ['content:read'])->plainTextToken;
 
         $this->withToken($bearer)
             ->withHeader('X-Convo-Lab-User-Id', $convoLabId)
             ->getJson('/api/convolab/episodes/'.$owned->id.'?viewAs='.$otherConvoLabId)
-            ->assertOk()
-            ->assertJsonPath('id', $owned->id)
-            ->assertJsonPath('userId', $convoLabId);
+            ->assertForbidden();
 
         $this->assertDatabaseCount('admin_audit_logs', 0);
     }

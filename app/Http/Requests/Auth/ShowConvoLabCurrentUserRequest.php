@@ -12,7 +12,7 @@ final class ShowConvoLabCurrentUserRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allows($this, 'auth:read');
+        return ConvoLabRequestIdentity::allows($this);
     }
 
     public function rules(): array

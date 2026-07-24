@@ -3,6 +3,7 @@
 namespace Tests\Unit\Auth;
 
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Session\Store;
@@ -44,7 +45,9 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
     public function test_claim_and_disconnect_have_distinct_user_and_network_buckets(): void
     {
         $request = $this->request([], '198.51.100.7');
-        $request->headers->set('X-Convo-Lab-User-Id', ' ABC-123 ');
+        $request->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => ' ABC-123 ',
+        ]));
 
         [$claimIdentity, $claimNetwork] = ConvoLabOAuthRateLimiter::authenticated(
             ConvoLabOAuthRateLimiter::CLAIM,
@@ -77,9 +80,13 @@ class ConvoLabOAuthRateLimiterTest extends TestCase
     public function test_authenticated_identity_buckets_are_user_scoped_with_an_ip_fallback(): void
     {
         $first = $this->request([], '203.0.113.9');
-        $first->headers->set('X-Convo-Lab-User-Id', 'user-one');
+        $first->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => 'user-one',
+        ]));
         $second = $this->request([], '203.0.113.9');
-        $second->headers->set('X-Convo-Lab-User-Id', 'user-two');
+        $second->setUserResolver(fn (): User => (new User)->forceFill([
+            'convolab_id' => 'user-two',
+        ]));
         $anonymous = $this->request([], '203.0.113.9');
 
         [$firstIdentity] = ConvoLabOAuthRateLimiter::authenticated(ConvoLabOAuthRateLimiter::CLAIM, $first);

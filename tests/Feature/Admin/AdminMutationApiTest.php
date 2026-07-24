@@ -20,63 +20,30 @@ class AdminMutationApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
-    }
-
-    public function test_admin_writes_reject_untrusted_bearer_tokens_and_missing_proxy_scope(): void
+    public function test_admin_writes_require_a_first_party_admin_session(): void
     {
         $actor = (string) Str::uuid();
         $target = (string) Str::uuid();
 
-        $this->withHeader('X-Convo-Lab-User-Id', $actor)
-            ->deleteJson("/api/convolab/admin/users/{$target}")
+        $this->deleteJson("/api/convolab/admin/users/{$target}")
             ->assertUnauthorized();
 
         $ordinary = User::factory()->create()
             ->createToken('mobile', ['admin:write'])
             ->plainTextToken;
         $this->withToken($ordinary)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
             ->deleteJson("/api/convolab/admin/users/{$target}")
             ->assertForbidden();
 
-        $this->withToken($this->proxyToken(['admin:read']))
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
-            ->postJson('/api/convolab/admin/invite-codes')
-            ->assertForbidden();
-
-        $wildcard = User::factory()->create(['email' => 'wildcard@example.com'])
-            ->createToken('convolab-proxy', ['*'])
-            ->plainTextToken;
-        config()->set('services.convolab.proxy_user_email', 'wildcard@example.com');
-        $this->withToken($wildcard)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this->asConvoLabBrowser(User::factory()->create(), convoLabUserId: $actor)
             ->postJson('/api/convolab/admin/invite-codes')
             ->assertForbidden();
     }
 
-    public function test_proxy_admin_writes_validate_and_normalize_the_actor_header(): void
+    public function test_admin_writes_normalize_the_session_actor_identity(): void
     {
-        $token = $this->proxyToken();
-
-        foreach ([null, '', 'not-a-uuid'] as $actor) {
-            $request = $this->withToken($token);
-            if ($actor !== null) {
-                $request = $request->withHeader('X-Convo-Lab-User-Id', $actor);
-            }
-
-            $request->postJson('/api/convolab/admin/invite-codes')
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors('actorConvoLabUserId');
-        }
-
         $actor = strtoupper((string) Str::uuid());
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this->asConvoLabAdminBrowser(convoLabUserId: $actor)
             ->postJson('/api/convolab/admin/invite-codes', ['customCode' => 'VALID123'])
             ->assertOk();
     }
@@ -84,10 +51,9 @@ class AdminMutationApiTest extends TestCase
     public function test_it_creates_custom_and_generated_invite_codes_with_learning_os_ownership(): void
     {
         $actor = (string) Str::uuid();
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser(convoLabUserId: $actor);
 
-        $response = $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $response = $this
             ->postJson('/api/convolab/admin/invite-codes', ['customCode' => 'WELCOME9'])
             ->assertOk()
             ->assertJsonPath('code', 'WELCOME9')
@@ -101,8 +67,7 @@ class AdminMutationApiTest extends TestCase
             'source_system' => ConvoLabAccountSource::LEARNING_OS,
         ]);
 
-        $generated = $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $generated = $this
             ->postJson('/api/convolab/admin/invite-codes')
             ->assertOk()
             ->json('code');
@@ -114,12 +79,10 @@ class AdminMutationApiTest extends TestCase
     public function test_custom_invite_validation_is_independent_of_global_trim_middleware(): void
     {
         $actor = (string) Str::uuid();
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser(convoLabUserId: $actor);
 
         foreach ([['array'], 'short', 'ABC-123', str_repeat('A', 21), ' VALID1 '] as $code) {
             $this->withoutMiddleware(TrimStrings::class)
-                ->withToken($token)
-                ->withHeader('X-Convo-Lab-User-Id', $actor)
                 ->postJson('/api/convolab/admin/invite-codes', ['customCode' => $code])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors('customCode');
@@ -132,8 +95,7 @@ class AdminMutationApiTest extends TestCase
     {
         $this->insertInvite(['code' => 'DUPLICATE']);
 
-        $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->asConvoLabAdminBrowser()
             ->postJson('/api/convolab/admin/invite-codes', ['customCode' => 'DUPLICATE'])
             ->assertBadRequest()
             ->assertExactJson(['message' => 'This code already exists']);
@@ -185,11 +147,10 @@ class AdminMutationApiTest extends TestCase
     public function test_it_deletes_an_unused_invite_and_rejects_used_or_missing_invites(): void
     {
         $actor = (string) Str::uuid();
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser(convoLabUserId: $actor);
         $unused = $this->insertInvite();
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this
             ->deleteJson('/api/convolab/admin/invite-codes/'.strtoupper($unused->id))
             ->assertOk()
             ->assertExactJson(['message' => 'Invite code deleted successfully']);
@@ -204,8 +165,7 @@ class AdminMutationApiTest extends TestCase
             'convolab_used_by' => $user->convolab_id,
             'used_at' => now(),
         ]);
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this
             ->deleteJson("/api/convolab/admin/invite-codes/{$used->id}")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Cannot delete used invite codes']);
@@ -213,8 +173,7 @@ class AdminMutationApiTest extends TestCase
             'invite_code_id' => $used->id,
         ]);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor)
+        $this
             ->deleteJson('/api/convolab/admin/invite-codes/'.Str::uuid())
             ->assertNotFound()
             ->assertExactJson(['message' => 'Invite code not found']);
@@ -224,16 +183,14 @@ class AdminMutationApiTest extends TestCase
     {
         $actor = $this->projectedUser();
         $admin = $this->projectedUser(['role' => 'admin']);
-        $token = $this->proxyToken();
+        $this->asConvoLabAdminBrowser($actor, $actor->convolab_id);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this
             ->deleteJson("/api/convolab/admin/users/{$actor->convolab_id}")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Cannot delete your own account']);
 
-        $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this
             ->deleteJson("/api/convolab/admin/users/{$admin->convolab_id}")
             ->assertForbidden()
             ->assertExactJson(['message' => 'Cannot delete admin users']);
@@ -266,8 +223,7 @@ class AdminMutationApiTest extends TestCase
             'used_at' => now(),
         ]);
 
-        $this->withToken($this->proxyToken())
-            ->withHeader('X-Convo-Lab-User-Id', $actor->convolab_id)
+        $this->asConvoLabAdminBrowser($actor, $actor->convolab_id)
             ->deleteJson("/api/convolab/admin/users/{$target->convolab_id}")
             ->assertOk()
             ->assertExactJson(['message' => 'User deleted successfully']);
@@ -356,17 +312,6 @@ class AdminMutationApiTest extends TestCase
 
             $this->assertSame([], $queries);
         }
-    }
-
-    /** @param list<string> $abilities */
-    private function proxyToken(array $abilities = ['admin:write']): string
-    {
-        $user = User::query()->firstOrCreate(
-            ['email' => 'proxy@example.com'],
-            ['name' => 'Proxy', 'password' => 'unused'],
-        );
-
-        return $user->createToken('convolab-proxy', $abilities)->plainTextToken;
     }
 
     /** @param array<string, mixed> $attributes */

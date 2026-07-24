@@ -11,7 +11,7 @@ final class UpdateConvoLabCurrentUserPasswordRequest extends UpdateCurrentUserPa
 
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allows($this, 'auth:write');
+        return ConvoLabRequestIdentity::allows($this);
     }
 
     public function rules(): array

@@ -50,7 +50,6 @@ return [
     ],
 
     'convolab' => [
-        'proxy_user_email' => env('CONVOLAB_PROXY_USER_EMAIL'),
         'client_url' => env('CONVOLAB_CLIENT_URL', 'http://localhost:5173'),
         'admin_emails' => array_values(array_filter(array_map(
             'trim',

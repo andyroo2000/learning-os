@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\Sanctum;
 use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
@@ -38,7 +37,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $this->convoLabUserId = (string) Str::uuid();
     }
 
-    public function test_routes_require_authentication_and_writes_require_proxy_ability(): void
+    public function test_routes_require_a_first_party_browser_session(): void
     {
         $episodeId = (string) Str::uuid();
         $mediaId = (string) Str::uuid();
@@ -50,22 +49,17 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $this->getJson("/api/convolab/scripts/media/{$mediaId}")->assertUnauthorized();
 
         $user = User::factory()->create();
-        config()->set('services.convolab.proxy_user_email', 'another@example.com');
         $token = $user->createToken('mobile', ['content:write'])->plainTextToken;
 
         $this->withToken($token)
-            ->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
             ->postJson('/api/convolab/scripts', [
                 'sourceText' => '日本語です。',
                 'voiceId' => ContentAudioScriptInput::DEFAULT_VOICE_ID,
             ])
             ->assertForbidden();
-
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', '')
+        $this->withToken($token)
             ->getJson("/api/convolab/scripts/{$episodeId}/status")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
+            ->assertForbidden();
     }
 
     public function test_create_normalizes_input_and_returns_the_legacy_episode_shape(): void
@@ -418,8 +412,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $first = $this->segment($script, ['sort_order' => 0, 'text' => '一番です。']);
         $this->render($script, ['speed' => 'normal', 'numeric_speed' => 1.0]);
         $slow = $this->render($script, ['speed' => 'slow', 'numeric_speed' => 0.7]);
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->getJson('/api/convolab/scripts/'.strtoupper($episode->id).'/status')
             ->assertOk()
@@ -427,13 +420,9 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
             ->assertJsonPath('segments.1.id', $second->id)
             ->assertJsonPath('renders.0.id', $slow->id);
 
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
-            ->getJson("/api/convolab/scripts/{$episode->id}/status")
-            ->assertNotFound();
-
         $otherUser = User::factory()->create();
-        Sanctum::actingAs($otherUser);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId)
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($otherUser)
             ->getJson("/api/convolab/scripts/{$episode->id}/status")
             ->assertNotFound();
     }
@@ -446,8 +435,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $media = $this->media($user);
         $this->segment($script, ['image_media_id' => $media->id]);
         Storage::disk('media')->put($media->storage_path, 'image-bytes');
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->authenticateWrite($user);
 
         $this->get('/api/convolab/scripts/media/'.strtoupper($media->id))
             ->assertOk()
@@ -459,13 +447,13 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff');
 
         $otherUser = User::factory()->create();
-        Sanctum::actingAs($otherUser);
-        $this->withHeader('X-Convo-Lab-User-Id', (string) Str::uuid())
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($otherUser)
             ->get("/api/convolab/scripts/media/{$media->id}")
             ->assertNotFound();
 
-        Sanctum::actingAs($user);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->app['auth']->forgetGuards();
+        $this->authenticateWrite($user);
         foreach ([
             ['storage_path' => 'study-media/../secret.webp'],
             ['storage_path' => '/study-media/user/scene.webp'],
@@ -516,7 +504,11 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         );
 
         $request = Request::create('/api/convolab/scripts', 'POST', server: ['REMOTE_ADDR' => '203.0.113.4']);
-        $request->headers->set('X-Convo-Lab-User-Id', strtoupper($this->convoLabUserId));
+        $request->setUserResolver(
+            fn (): User => User::factory()->make([
+                'convolab_id' => strtoupper($this->convoLabUserId),
+            ]),
+        );
         foreach ([
             [ContentAudioScriptRateLimiter::generation($request), ContentAudioScriptRateLimiter::GENERATION_NAME, 10],
             [ContentAudioScriptRateLimiter::update($request), ContentAudioScriptRateLimiter::UPDATE_NAME, 120],
@@ -548,11 +540,7 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
 
     private function authenticateWrite(User $user): void
     {
-        $this->convoLabProjectionFor($user, $this->convoLabUserId);
-        config()->set('services.convolab.proxy_user_email', $user->email);
-        $token = $user->createToken('convolab-proxy', ['content:write'])->plainTextToken;
-        $this->withToken($token);
-        $this->withHeader('X-Convo-Lab-User-Id', $this->convoLabUserId);
+        $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
     }
 
     /** @return array{ContentEpisode, ContentAudioScript} */

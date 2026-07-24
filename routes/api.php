@@ -76,6 +76,7 @@ use App\Http\Controllers\Api\Admin\UpdateAdminCoursePipelineController;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
+use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
 use App\Http\Controllers\Api\Analytics\StoreToolAnalyticsEventController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabBrowserUserController;
 use App\Http\Controllers\Api\Auth\AuthenticateConvoLabUserController;
@@ -244,6 +245,10 @@ Route::get('/avatars/{avatarPath}', ShowAvatarAssetController::class)
     ->where('avatarPath', '.*');
 Route::post('/tools-audio/signed-urls', ResolveToolAudioUrlsController::class)
     ->middleware('throttle:'.ToolAudioSignedUrlRateLimiter::NAME);
+Route::post(
+    '/convolab/browser/tools/analytics',
+    StoreBrowserToolAnalyticsEventController::class,
+)->middleware('throttle:'.ToolAnalyticsRateLimiter::BROWSER_NAME);
 
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::post('/auth/register', RegisterMobileUserController::class)

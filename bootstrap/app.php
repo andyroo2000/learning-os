@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        // Browser analytics is anonymous telemetry and sendBeacon cannot attach an XSRF header.
+        $middleware->validateCsrfTokens(except: ['api/convolab/browser/tools/analytics']);
         $middleware->redirectGuestsTo(static fn (): null => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

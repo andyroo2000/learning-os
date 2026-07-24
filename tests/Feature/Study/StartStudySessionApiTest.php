@@ -131,6 +131,7 @@ class StartStudySessionApiTest extends TestCase
             $response
                 ->assertOk()
                 ->assertJsonPath('data.cards.0.id', $convoLabCardId)
+                ->assertJsonPath('data.cards.0.syncId', $card->id)
                 ->assertJsonPath('data.cards.0.noteId', $convoLabNoteId)
                 ->assertJsonPath('data.cards.0.cardType', 'production')
                 ->assertJsonPath('data.cards.0.prompt.text', '会社')
@@ -180,6 +181,7 @@ class StartStudySessionApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.cards.0.id', $card->id)
+            ->assertJsonPath('data.cards.0.syncId', $card->id)
             ->assertJsonPath('data.cards.0.noteId', null)
             ->assertJsonPath('data.cards.0.state.source.deckName', null)
             ->assertJsonPath('data.cards.0.state.source.noteId', null)

@@ -189,6 +189,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
             $response
                 ->assertOk()
                 ->assertJsonPath('card.id', strtolower($clientCardId))
+                ->assertJsonPath('card.syncId', $canonicalCardId)
                 ->assertJsonPath('card.state.queueState', 'review');
 
             $reviewLogId = $response->json('reviewLogId');

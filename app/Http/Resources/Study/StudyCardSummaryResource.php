@@ -23,6 +23,9 @@ class StudyCardSummaryResource extends JsonResource
     {
         return [
             'id' => $this->resource->clientId(),
+            // Compatibility IDs remain stable for ConvoLab UI identity; offline sync writes
+            // use the canonical ULID accepted by shared Flashcards and Reviews endpoints.
+            'syncId' => (string) $this->resource->getKey(),
             // The root uses ConvoLab's public note UUID; source.noteId retains the original Anki ID.
             'noteId' => $this->noteIdString(),
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,

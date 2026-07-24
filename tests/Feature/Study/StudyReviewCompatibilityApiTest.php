@@ -175,7 +175,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ]);
 
             $sessionResponse = $this->postJson('/api/study/session/start');
-            $sessionCardId = $sessionResponse->json('data.cards.0.id');
+            $sessionCardId = $sessionResponse->json('cards.0.id');
 
             $this->assertSame(strtolower($clientCardId), $sessionCardId);
             $this->assertNotSame($card->id, $sessionCardId);

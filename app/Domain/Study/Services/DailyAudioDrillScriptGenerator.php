@@ -16,6 +16,8 @@ use RuntimeException;
 
 class DailyAudioDrillScriptGenerator
 {
+    private const JAPANESE_SPEECH_SPEED = 1.0;
+
     public const MAX_SCRIPT_ATOMS = 50;
 
     public const ENHANCEMENT_BATCH_SIZE = 5;
@@ -543,7 +545,7 @@ PROMPT."\n".$cardsJson;
                 $prompt['reading'],
                 $prompt['english'],
                 $l2VoiceId,
-                0.75,
+                self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause($this->recallPauseSeconds($prompt['english'])),
             DailyAudioScriptUnit::targetLanguage(
@@ -551,7 +553,7 @@ PROMPT."\n".$cardsJson;
                 $prompt['reading'],
                 $prompt['english'],
                 $l2VoiceId,
-                1,
+                self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(1.25),
             DailyAudioScriptUnit::narration($prompt['english'], $l1VoiceId),
@@ -581,7 +583,7 @@ PROMPT."\n".$cardsJson;
                 $prompt['reading'],
                 $prompt['english'],
                 $l2VoiceId,
-                0.75,
+                self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(1),
             DailyAudioScriptUnit::targetLanguage(
@@ -589,7 +591,7 @@ PROMPT."\n".$cardsJson;
                 $prompt['reading'],
                 $prompt['english'],
                 $l2VoiceId,
-                1,
+                self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(2.5),
         );

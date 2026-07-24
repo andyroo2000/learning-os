@@ -34,8 +34,8 @@ class DatabaseRehearsalSmokeCheck
         [
             'name' => 'study settings',
             'uri' => '/api/study/settings',
-            'required' => ['data.new_cards_per_day', 'data.created_at', 'data.updated_at'],
-            'required_non_null' => ['data.new_cards_per_day'],
+            'required' => ['newCardsPerDay'],
+            'required_non_null' => ['newCardsPerDay'],
         ],
         [
             'name' => 'study overview',

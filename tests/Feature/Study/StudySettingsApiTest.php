@@ -43,13 +43,8 @@ class StudySettingsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.new_cards_per_day', 32)
-            ->assertJsonStructure([
-                'data' => [
-                    'new_cards_per_day',
-                    'created_at',
-                    'updated_at',
-                ],
+            ->assertExactJson([
+                'newCardsPerDay' => 32,
             ]);
     }
 
@@ -65,7 +60,9 @@ class StudySettingsApiTest extends TestCase
 
         $this->getJson('/api/study/settings')
             ->assertOk()
-            ->assertJsonPath('data.new_cards_per_day', 12);
+            ->assertExactJson([
+                'newCardsPerDay' => 12,
+            ]);
     }
 
     public function test_show_returns_default_settings_without_materializing_them_when_missing(): void
@@ -76,16 +73,9 @@ class StudySettingsApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonStructure([
-                'data' => [
-                    'new_cards_per_day',
-                    'created_at',
-                    'updated_at',
-                ],
-            ])
-            ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY)
-            ->assertJsonPath('data.created_at', null)
-            ->assertJsonPath('data.updated_at', null);
+            ->assertExactJson([
+                'newCardsPerDay' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+            ]);
 
         $this->assertDatabaseMissing('study_settings', [
             'user_id' => $user->id,
@@ -103,7 +93,7 @@ class StudySettingsApiTest extends TestCase
         try {
             $this->getJson('/api/study/settings')
                 ->assertOk()
-                ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY);
+                ->assertJsonPath('newCardsPerDay', StudySettings::DEFAULT_NEW_CARDS_PER_DAY);
 
             $queries = collect(DB::getQueryLog());
         } finally {
@@ -117,17 +107,19 @@ class StudySettingsApiTest extends TestCase
         $this->assertDatabaseCount('study_settings', 0);
     }
 
-    public function test_update_changes_settings(): void
+    public function test_update_accepts_the_browser_contract_and_changes_settings(): void
     {
         $user = $this->signIn();
 
         $response = $this->patchJson('/api/study/settings', [
-            'new_cards_per_day' => '12',
+            'newCardsPerDay' => '+12',
         ]);
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.new_cards_per_day', 12);
+            ->assertExactJson([
+                'newCardsPerDay' => 12,
+            ]);
 
         $this->assertDatabaseHas('study_settings', [
             'user_id' => $user->id,
@@ -141,6 +133,61 @@ class StudySettingsApiTest extends TestCase
             'resource_id' => StudySettingsSyncPayload::RESOURCE_ID,
             'operation' => SyncFeedOperation::Create->value,
         ]);
+    }
+
+    public function test_update_continues_to_accept_the_canonical_field_name(): void
+    {
+        $user = $this->signIn();
+
+        $this->patchJson('/api/study/settings', [
+            'new_cards_per_day' => 12,
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'newCardsPerDay' => 12,
+            ]);
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => 12,
+        ]);
+    }
+
+    public function test_update_accepts_matching_field_aliases(): void
+    {
+        $user = $this->signIn();
+
+        $this->patchJson('/api/study/settings', [
+            'newCardsPerDay' => '12',
+            'new_cards_per_day' => 12,
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'newCardsPerDay' => 12,
+            ]);
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => 12,
+        ]);
+    }
+
+    public function test_update_rejects_conflicting_field_aliases_without_writing(): void
+    {
+        $user = $this->signIn();
+        $settings = StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+
+        $this->patchJson('/api/study/settings', [
+            'newCardsPerDay' => 12,
+            'new_cards_per_day' => 13,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardsPerDay']);
+
+        $this->assertSame(20, $settings->refresh()->new_cards_per_day);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_update_writes_a_replayable_sync_feed_payload(): void
@@ -242,7 +289,7 @@ class StudySettingsApiTest extends TestCase
 
             $this->getJson('/api/study/settings')
                 ->assertOk()
-                ->assertJsonPath('data.new_cards_per_day', 12);
+                ->assertJsonPath('newCardsPerDay', 12);
 
             $this->assertSame(12, $settings->refresh()->new_cards_per_day);
             $this->assertSame(31, $otherSettings->refresh()->new_cards_per_day);
@@ -282,5 +329,21 @@ class StudySettingsApiTest extends TestCase
         $this->patchJson('/api/study/settings', ['new_cards_per_day' => ['12']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['new_cards_per_day']);
+
+        $this->patchJson('/api/study/settings', ['newCardsPerDay' => 'twelve'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardsPerDay']);
+
+        $this->patchJson('/api/study/settings', ['newCardsPerDay' => -1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardsPerDay']);
+
+        $this->patchJson('/api/study/settings', ['newCardsPerDay' => 1001])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardsPerDay']);
+
+        $this->patchJson('/api/study/settings', ['newCardsPerDay' => ['12']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardsPerDay']);
     }
 }

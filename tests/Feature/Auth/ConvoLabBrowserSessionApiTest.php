@@ -214,6 +214,142 @@ class ConvoLabBrowserSessionApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_browser_session_can_use_admin_reads_without_a_proxy_token(): void
+    {
+        $this->projectedUser([
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('users', 1);
+
+        $this->statefulJson(
+            'GET',
+            '/api/convolab/admin/script-lab/sentence-tests',
+            [],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('tests', []);
+    }
+
+    public function test_non_admin_browser_session_cannot_use_admin_routes(): void
+    {
+        $this->projectedUser([
+            'email' => 'learner@example.com',
+            'role' => 'user',
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'learner@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
+            ->assertForbidden();
+        $this->statefulJson('POST', '/api/convolab/admin/invite-codes', [], $cookies)
+            ->assertForbidden();
+    }
+
+    public function test_browser_admin_role_revocation_applies_to_the_next_request(): void
+    {
+        $account = $this->projectedUser([
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
+            ->assertOk();
+
+        DB::table('admin_user_projections')
+            ->where('convolab_id', $account['convolab_id'])
+            ->update(['role' => 'user']);
+
+        $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
+            ->assertForbidden();
+    }
+
+    public function test_admin_browser_session_can_write_without_a_proxy_actor_header(): void
+    {
+        $this->projectedUser([
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $response = $this->statefulJson(
+            'POST',
+            '/api/convolab/admin/invite-codes',
+            ['customCode' => 'BROWSER1'],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('code', 'BROWSER1');
+
+        $this->assertDatabaseHas('admin_invite_codes', [
+            'id' => $response->json('id'),
+            'code' => 'BROWSER1',
+        ]);
+    }
+
+    public function test_admin_browser_session_ignores_a_spoofed_proxy_actor_header(): void
+    {
+        $account = $this->projectedUser([
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+        ]);
+        $other = $this->projectedUser([
+            'email' => 'other@example.com',
+            'role' => 'user',
+        ]);
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+        $cookies = $this->withAuthenticatedSession($csrf, $login);
+
+        $this->withHeader('X-Convo-Lab-User-Id', $other['convolab_id']);
+        $this->statefulJson(
+            'DELETE',
+            "/api/convolab/admin/users/{$account['convolab_id']}",
+            [],
+            $cookies,
+        )->assertBadRequest()
+            ->assertExactJson(['message' => 'Cannot delete your own account']);
+
+        $this->assertDatabaseHas('users', ['id' => $account['user_id']]);
+        $this->assertDatabaseHas('users', ['id' => $other['user_id']]);
+    }
+
     public function test_account_compatibility_api_ignores_a_spoofed_proxy_identity_header(): void
     {
         $account = $this->projectedUser(['email' => 'ada@example.com']);

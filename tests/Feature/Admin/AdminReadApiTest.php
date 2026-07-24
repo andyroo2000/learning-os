@@ -26,7 +26,7 @@ class AdminReadApiTest extends TestCase
         config()->set('services.convolab.proxy_user_email', 'proxy@example.com');
     }
 
-    public function test_admin_reads_require_the_dedicated_proxy_identity_and_scope(): void
+    public function test_admin_reads_reject_untrusted_bearer_tokens_and_missing_proxy_scope(): void
     {
         $this->getJson('/api/convolab/admin/stats')->assertUnauthorized();
 

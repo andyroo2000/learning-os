@@ -3,6 +3,7 @@
 namespace App\Domain\Admin\Support;
 
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
+use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 
@@ -57,7 +58,7 @@ final class AdminMutationRateLimiter
 
         return Limit::perMinute($attempts)->by(ConvoLabProfileRateLimiter::key(
             $operation,
-            $request->header('X-Convo-Lab-User-Id'),
+            ConvoLabRequestIdentity::userId($request),
             $request->ip(),
         ));
     }

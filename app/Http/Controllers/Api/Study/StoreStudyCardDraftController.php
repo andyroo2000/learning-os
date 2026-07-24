@@ -38,6 +38,7 @@ class StoreStudyCardDraftController extends Controller
                     variantStage: $request->variantStage(),
                     variantStatus: $request->variantStatus(),
                     variantUnlockedAt: $request->variantUnlockedAt(),
+                    id: $request->id(),
                 ),
                 afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
             );
@@ -47,12 +48,19 @@ class StoreStudyCardDraftController extends Controller
                 $exception->field() => [$exception->getMessage()],
             ]);
         } catch (StudyCardDraftConflictException $exception) {
+            if ($exception->shouldBeHiddenFrom($userId)) {
+                return response()->json(['message' => 'Not Found'], 404);
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 409);
         }
 
         // Resolve manually to preserve ConvoLab's unwrapped compatibility response shape.
-        return response()->json(StudyCardDraftResource::make($draft)->resolve($request), 201);
+        return response()->json(
+            StudyCardDraftResource::make($draft)->resolve($request),
+            $draft->wasRecentlyCreated ? 201 : 200,
+        );
     }
 }

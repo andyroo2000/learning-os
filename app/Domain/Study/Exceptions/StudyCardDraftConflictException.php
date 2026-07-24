@@ -2,10 +2,26 @@
 
 namespace App\Domain\Study\Exceptions;
 
+use App\Domain\Study\Models\StudyCardDraft;
 use RuntimeException;
 
 class StudyCardDraftConflictException extends RuntimeException
 {
+    public function __construct(
+        string $message,
+        private readonly ?int $conflictingUserId = null,
+    ) {
+        parent::__construct($message);
+    }
+
+    public static function idMismatch(StudyCardDraft $draft): self
+    {
+        return new self(
+            'Draft ID already exists with different creation data.',
+            $draft->user_id,
+        );
+    }
+
     public static function queueFull(): self
     {
         return new self('Draft queue is full. Delete some drafts before adding more.');
@@ -34,5 +50,11 @@ class StudyCardDraftConflictException extends RuntimeException
     public static function onlyErroredDraftsCanRetry(): self
     {
         return new self('Only errored drafts can be retried.');
+    }
+
+    public function shouldBeHiddenFrom(int $userId): bool
+    {
+        return $this->conflictingUserId !== null
+            && $this->conflictingUserId !== $userId;
     }
 }

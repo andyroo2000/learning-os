@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Actions\CreateStudyCardDraftAction;
 use App\Domain\Study\Actions\PrepareStudyCardDraftQueueSlotAction;
+use App\Domain\Study\Actions\RecordStudyCardDraftSyncEntryAction;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
@@ -20,6 +21,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
@@ -103,6 +105,128 @@ class CreateStudyCardDraftActionTest extends TestCase
             ProcessStudyCardDraft::class,
             fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draft->id,
         );
+    }
+
+    public function test_it_returns_an_existing_draft_for_a_matching_client_id_retry_without_duplicate_side_effects(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $callbackCount = 0;
+        $data = CreateStudyCardDraftData::fromInput(
+            userId: $user->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            id: strtoupper($id),
+        );
+
+        $created = app(CreateStudyCardDraftAction::class)->handle(
+            $data,
+            afterCommit: static function () use (&$callbackCount): void {
+                $callbackCount++;
+            },
+        );
+        $retried = app(CreateStudyCardDraftAction::class)->handle(
+            $data,
+            afterCommit: static function () use (&$callbackCount): void {
+                $callbackCount++;
+            },
+        );
+
+        $this->assertSame($id, $created->id);
+        $this->assertSame($created->id, $retried->id);
+        $this->assertTrue($created->wasRecentlyCreated);
+        $this->assertFalse($retried->wasRecentlyCreated);
+        $this->assertSame(1, $callbackCount);
+        $this->assertDatabaseCount('study_card_drafts', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_rejects_a_client_id_retry_with_different_creation_data(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+
+        app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: $user->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            id: $id,
+        ));
+
+        try {
+            app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+                userId: $user->id,
+                creationKind: StudyCardCreationKind::TextRecognition,
+                cardType: CardType::Recognition,
+                promptJson: ['cueText' => '猫'],
+                answerJson: ['meaning' => 'cat'],
+                id: $id,
+            ));
+
+            $this->fail('Expected client draft ID conflict.');
+        } catch (StudyCardDraftConflictException $exception) {
+            $this->assertSame('Draft ID already exists with different creation data.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('study_card_drafts', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_rejects_invalid_client_ids_for_direct_callers_before_side_effects(): void
+    {
+        $this->expectException(StudyCardDraftValidationException::class);
+        $this->expectExceptionMessage('id must be a valid ULID.');
+
+        app(CreateStudyCardDraftAction::class)->handle(CreateStudyCardDraftData::fromInput(
+            userId: User::factory()->create()->id,
+            creationKind: StudyCardCreationKind::TextRecognition,
+            cardType: CardType::Recognition,
+            promptJson: ['cueText' => '犬'],
+            answerJson: ['meaning' => 'dog'],
+            id: ' not-a-ulid ',
+        ));
+    }
+
+    public function test_it_recovers_a_matching_client_id_insert_race_without_duplicate_side_effects(): void
+    {
+        $user = User::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $callbackCount = 0;
+        $action = new CreateStudyCardDraftAction(
+            app(PrepareStudyCardDraftQueueSlotAction::class),
+            app(RecordStudyCardDraftSyncEntryAction::class),
+            afterClientIdPrecheckMiss: static function () use ($id, $user): void {
+                StudyCardDraft::factory()->for($user)->create([
+                    'id' => $id,
+                    'prompt_json' => ['cueText' => '犬'],
+                    'answer_json' => ['answerText' => 'dog'],
+                ]);
+            },
+        );
+
+        $draft = $action->handle(
+            CreateStudyCardDraftData::fromInput(
+                userId: $user->id,
+                creationKind: StudyCardCreationKind::TextRecognition,
+                cardType: CardType::Recognition,
+                promptJson: ['cueText' => '犬'],
+                answerJson: ['answerText' => 'dog'],
+                id: $id,
+            ),
+            afterCommit: static function () use (&$callbackCount): void {
+                $callbackCount++;
+            },
+        );
+
+        $this->assertSame($id, $draft->id);
+        $this->assertFalse($draft->wasRecentlyCreated);
+        $this->assertSame(0, $callbackCount);
+        $this->assertDatabaseCount('study_card_drafts', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_defaults_image_fields_for_direct_callers(): void

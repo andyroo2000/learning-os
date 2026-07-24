@@ -21,6 +21,11 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self('cardType must match creationKind.', 'cardType');
     }
 
+    public static function invalidId(): self
+    {
+        return new self('id must be a valid ULID.', 'id');
+    }
+
     public static function imagePromptTooLong(int $maxLength): self
     {
         return new self("imagePrompt must be {$maxLength} characters or fewer.", 'imagePrompt');

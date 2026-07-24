@@ -8,6 +8,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
+use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -23,6 +24,12 @@ class StoreStudyCardDraftRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $normalized = [];
+
+        $id = $this->input('id');
+
+        if (is_string($id)) {
+            $normalized['id'] = CanonicalUlid::normalize($id);
+        }
 
         foreach (['cardType', 'creationKind', 'imagePlacement'] as $key) {
             $value = $this->input($key);
@@ -60,6 +67,7 @@ class StoreStudyCardDraftRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'id' => ['sometimes', 'required', 'string', 'ulid'],
             'prompt' => ['present', 'array'],
             'answer' => ['present', 'array'],
             'creationKind' => ['required', 'string', Rule::in(StudyCardCreationKind::values())],
@@ -139,6 +147,23 @@ class StoreStudyCardDraftRequest extends FormRequest
         }
 
         return StudyCardCreationKind::from($value);
+    }
+
+    public function id(): ?string
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('id', $validated)) {
+            return null;
+        }
+
+        $value = $validated['id'];
+
+        if (! is_string($value)) {
+            throw new LogicException('id called after validation failed to require a string.');
+        }
+
+        return $value;
     }
 
     public function cardType(): CardType

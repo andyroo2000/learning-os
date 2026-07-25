@@ -54,6 +54,15 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
 
     public function test_it_generates_and_persists_all_three_tracks(): void
     {
+        config()->set('daily_audio.l2_voice_id', 'fishaudio:general-l2');
+        config()->set(
+            'daily_audio.dialogue_speaker_a_voice_id',
+            'fishaudio:ren',
+        );
+        config()->set(
+            'daily_audio.dialogue_speaker_b_voice_id',
+            'fishaudio:sato',
+        );
         $practice = DailyAudioPractice::factory()->create([
             'status' => 'generating',
         ]);
@@ -153,7 +162,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             $mock->shouldReceive('generateJson')
                 ->twice()
                 ->andReturn(
-                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}]}',
+                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."},{"speaker":"speaker2","text":"そうですね。","reading":"そうですね。","translation":"That is right."}]}]}',
                     '{"title":"Cat","lines":[{"text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}',
                 );
         });
@@ -191,6 +200,12 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                 collect($track->script_units_json)->firstWhere('type', 'L2'),
             );
         }
+        $dialogueVoices = collect($tracks['dialogue']->script_units_json)
+            ->where('type', 'L2')
+            ->pluck('voiceId')
+            ->values()
+            ->all();
+        $this->assertSame(['fishaudio:ren', 'fishaudio:sato'], $dialogueVoices);
     }
 
     public function test_processor_ignores_missing_and_terminal_practices(): void

@@ -355,6 +355,8 @@ final class FsrsReviewScheduler
         return match ($rating) {
             self::RATING_AGAIN => ['minutes' => $first, 'nextStep' => 0],
             self::RATING_HARD => [
+                // ts-fsrs bases Hard on the first two configured steps even
+                // after the card has advanced to a later learning step.
                 'minutes' => count($steps) === 1
                     ? (int) round($first * 1.5)
                     : (int) round(($first + $steps[1]) / 2),

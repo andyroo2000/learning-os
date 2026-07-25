@@ -219,6 +219,28 @@ class FsrsReviewSchedulerTest extends TestCase
         $this->assertSame(2.11121424, $second['schedulerState']['difficulty']);
     }
 
+    public function test_hard_uses_the_ts_fsrs_delay_after_advancing_to_the_second_learning_step(): void
+    {
+        $first = FsrsReviewScheduler::review(
+            schedulerState: null,
+            studyStatus: CardStudyStatus::New,
+            rating: CardReviewRating::Good,
+            reviewedAt: Carbon::parse('2026-07-25T12:00:00Z'),
+        );
+        $second = FsrsReviewScheduler::review(
+            schedulerState: $first['schedulerState'],
+            studyStatus: $first['studyStatus'],
+            rating: CardReviewRating::Hard,
+            reviewedAt: $first['dueAt'],
+        );
+
+        $this->assertSame(CardStudyStatus::Learning, $second['studyStatus']);
+        $this->assertSame(1, $second['schedulerState']['learning_steps']);
+        $this->assertSame('2026-07-25T12:16:00.000000Z', $second['schedulerState']['due']);
+        $this->assertSame(2.3065, $second['schedulerState']['stability']);
+        $this->assertSame(4.75285849, $second['schedulerState']['difficulty']);
+    }
+
     public function test_invalid_scheduler_state_falls_back_to_the_study_status(): void
     {
         $result = FsrsReviewScheduler::review(

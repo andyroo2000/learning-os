@@ -39,7 +39,7 @@ class RegenerateStudyCardImageAction
         $prompt = $this->promptPayload($card);
         $answer = $this->answerPayload($card);
         $snapshotFingerprint = $this->cardFingerprint($card);
-        $oldGeneratedMedia = $this->generatedImageMedia($card, $prompt, $answer);
+        $oldManagedMedia = $this->managedImageMedia($card, $prompt, $answer);
 
         $this->generationRateLimiter->consume($card->ownerUserId());
         $generated = $this->persistGeneratedMedia->handle(
@@ -57,7 +57,7 @@ class RegenerateStudyCardImageAction
                 $prompt,
                 $answer,
                 $snapshotFingerprint,
-                $oldGeneratedMedia,
+                $oldManagedMedia,
                 $generated,
             ): Card {
                 $lockedCard = Card::query()->whereKey($card->id)->lockForUpdate()->firstOrFail();
@@ -88,7 +88,7 @@ class RegenerateStudyCardImageAction
                     $generated->mediaAsset,
                 ));
 
-                foreach ($oldGeneratedMedia as $oldMedia) {
+                foreach ($oldManagedMedia as $oldMedia) {
                     if ($oldMedia->is($generated->mediaAsset)) {
                         continue;
                     }
@@ -107,7 +107,7 @@ class RegenerateStudyCardImageAction
             throw $exception;
         }
 
-        foreach ($oldGeneratedMedia as $oldMedia) {
+        foreach ($oldManagedMedia as $oldMedia) {
             $this->discardGeneratedMedia->handleIfUnreferenced($oldMedia);
         }
 
@@ -155,11 +155,14 @@ class RegenerateStudyCardImageAction
      * @param  array<string, mixed>  $answer
      * @return Collection<int, MediaAsset>
      */
-    private function generatedImageMedia(Card $card, array $prompt, array $answer): Collection
+    private function managedImageMedia(Card $card, array $prompt, array $answer): Collection
     {
         $ids = collect([$prompt['cueImage'] ?? null, $answer['answerImage'] ?? null])
             ->filter(fn (mixed $reference): bool => is_array($reference)
-                && ($reference['source'] ?? null) === StudyCardDraft::MEDIA_SOURCE_GENERATED
+                && in_array($reference['source'] ?? null, [
+                    StudyCardDraft::MEDIA_SOURCE_GENERATED,
+                    StudyCardDraft::MEDIA_SOURCE_IMPORTED_IMAGE,
+                ], true)
                 && is_string($reference['id'] ?? null)
                 && Str::isUlid($reference['id']))
             ->map(fn (array $reference): string => CanonicalUlid::normalize($reference['id']))

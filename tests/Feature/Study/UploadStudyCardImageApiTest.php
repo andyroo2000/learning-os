@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Study\Actions\PersistUploadedStudyImageAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -112,6 +113,40 @@ class UploadStudyCardImageApiTest extends TestCase
             ->assertNotFound();
 
         $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    public function test_it_cleans_up_uploaded_media_when_the_card_changes_during_upload(): void
+    {
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user);
+        $persistUploadedImage = resolve(PersistUploadedStudyImageAction::class);
+
+        $this->mock(PersistUploadedStudyImageAction::class)
+            ->shouldReceive('handle')
+            ->once()
+            ->andReturnUsing(function (int $userId, UploadedFile $image) use (
+                $persistUploadedImage,
+                $card,
+            ) {
+                $uploaded = $persistUploadedImage->handle($userId, $image);
+                $card->forceFill(['back_text' => 'changed concurrently'])->save();
+
+                return $uploaded;
+            });
+
+        $this->post("/api/study/cards/{$card->id}/image", [
+            'imageRole' => 'answer',
+            'image' => $this->jpegUpload(),
+        ], ['Accept' => 'application/json'])
+            ->assertConflict()
+            ->assertExactJson([
+                'message' => 'The study card changed while its image was being generated. Please retry.',
+            ]);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertSame([], Storage::disk('media')->allFiles());
+        $this->assertSame('changed concurrently', $card->refresh()->back_text);
+        $this->assertNull($card->answer_json['answerImage']);
     }
 
     /**

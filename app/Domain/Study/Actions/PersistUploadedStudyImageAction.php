@@ -32,7 +32,9 @@ class PersistUploadedStudyImageAction
             throw StudyCardImageValidationException::invalidUpload();
         }
         if (strlen($bytes) > self::MAX_UPLOAD_BYTES) {
-            throw StudyCardImageValidationException::uploadTooLarge(10);
+            throw StudyCardImageValidationException::uploadTooLarge(
+                intdiv(self::MAX_UPLOAD_KILOBYTES, 1024),
+            );
         }
 
         $imageInfo = @getimagesizefromstring($bytes);

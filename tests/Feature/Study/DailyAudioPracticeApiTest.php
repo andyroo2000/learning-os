@@ -67,6 +67,95 @@ class DailyAudioPracticeApiTest extends TestCase
         );
     }
 
+    public function test_index_supports_opt_in_bounded_pagination_without_breaking_the_legacy_list(): void
+    {
+        $user = $this->signIn();
+        $otherUser = User::factory()->create();
+        foreach (range(0, 4) as $daysAgo) {
+            DailyAudioPractice::factory()->for($user)->create([
+                'practice_date' => today()->subDays($daysAgo),
+            ]);
+        }
+        DailyAudioPractice::factory()->for($otherUser)->create([
+            'practice_date' => today()->addDay(),
+        ]);
+
+        $expectedIds = DailyAudioPractice::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('practice_date')
+            ->orderByDesc('id')
+            ->pluck('id')
+            ->all();
+
+        $first = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=0&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->assertJsonPath('limit', 2)
+            ->assertJsonPath('nextCursor', '2')
+            ->assertJsonCount(2, 'items');
+        $second = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=2&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->assertJsonPath('limit', 2)
+            ->assertJsonPath('nextCursor', '4')
+            ->assertJsonCount(2, 'items');
+        $last = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=4&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->assertJsonPath('limit', 2)
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonCount(1, 'items')
+            ->assertJsonFragment(['nextCursor' => null]);
+
+        $actualIds = collect([
+            ...$first->json('items'),
+            ...$second->json('items'),
+            ...$last->json('items'),
+        ])->pluck('id')->all();
+        $this->assertSame($expectedIds, $actualIds);
+
+        $this->getJson('/api/daily-audio-practice')
+            ->assertOk()
+            ->assertJsonCount(5)
+            ->assertJsonMissingPath('items');
+    }
+
+    public function test_paginated_index_validates_bounded_integer_inputs(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/daily-audio-practice?paginated=1&cursor=-1&limit=51')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor', 'limit']);
+        $this->getJson('/api/daily-audio-practice?paginated=1&cursor[]=0&limit[]=14')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor', 'limit']);
+    }
+
+    public function test_paginated_action_rejects_out_of_range_direct_callers(): void
+    {
+        $user = User::factory()->create();
+        $action = app(ListDailyAudioPracticesAction::class);
+
+        foreach ([
+            [-1, 1],
+            [0, 0],
+            [0, ListDailyAudioPracticesAction::PAGE_SIZE_MAX + 1],
+        ] as [$cursor, $limit]) {
+            try {
+                $action->handlePage($user->id, $cursor, $limit);
+                $this->fail("Expected cursor {$cursor} and limit {$limit} to be rejected.");
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame(
+                    'Daily audio pagination is out of range.',
+                    $exception->getMessage(),
+                );
+            }
+        }
+
+        $this->assertDatabaseCount('daily_audio_practices', 0);
+    }
+
     public function test_index_uses_two_bounded_queries_without_loading_large_track_payloads(): void
     {
         $user = User::factory()->create();

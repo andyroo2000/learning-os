@@ -16,6 +16,18 @@ class DailyAudioContextTrackGeneratorTest extends TestCase
         $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
             $mock->shouldReceive('generateJson')
                 ->once()
+                ->withArgs(function (string $systemInstruction): bool {
+                    $this->assertStringContainsString(
+                        'optional inspiration, not a checklist',
+                        $systemInstruction,
+                    );
+                    $this->assertStringContainsString(
+                        'Prioritize believable conversational flow',
+                        $systemInstruction,
+                    );
+
+                    return true;
+                })
                 ->andReturn(json_encode([
                     'scenes' => [[
                         'title' => 'At the station',
@@ -59,6 +71,18 @@ class DailyAudioContextTrackGeneratorTest extends TestCase
         $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
             $mock->shouldReceive('generateJson')
                 ->once()
+                ->withArgs(function (string $systemInstruction): bool {
+                    $this->assertStringContainsString(
+                        'Story quality comes first',
+                        $systemInstruction,
+                    );
+                    $this->assertStringContainsString(
+                        'Do not insert an item merely to achieve coverage',
+                        $systemInstruction,
+                    );
+
+                    return true;
+                })
                 ->andReturn(json_encode([
                     'title' => 'A Small Cat',
                     'lines' => [[

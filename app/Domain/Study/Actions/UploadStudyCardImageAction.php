@@ -10,55 +10,46 @@ use App\Domain\Media\Actions\DetachMediaFromCardAction;
 use App\Domain\Media\Data\AttachMediaToCardData;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Study\Data\RegenerateStudyCardImageData;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardImageConflictException;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Services\OpenAiStudyImageGenerator;
-use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Support\Identifiers\CanonicalUlid;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
-class RegenerateStudyCardImageAction
+class UploadStudyCardImageAction
 {
     public function __construct(
-        private readonly OpenAiStudyImageGenerator $openAiImage,
-        private readonly PersistGeneratedStudyMediaAction $persistGeneratedMedia,
-        private readonly DiscardGeneratedStudyMediaAction $discardGeneratedMedia,
+        private readonly PersistUploadedStudyImageAction $persistUploadedImage,
+        private readonly DiscardGeneratedStudyMediaAction $discardMedia,
         private readonly UpdateCardAction $updateCard,
         private readonly AttachMediaToCardAction $attachMedia,
         private readonly DetachMediaFromCardAction $detachMedia,
-        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
-    public function handle(Card $card, RegenerateStudyCardImageData $data): Card
-    {
-        $prompt = $this->promptPayload($card);
-        $answer = $this->answerPayload($card);
+    public function handle(
+        Card $card,
+        UploadedFile $image,
+        StudyCardImagePlacement $placement,
+    ): Card {
+        $prompt = $this->payload($card->prompt_json, $card->front_text);
+        $answer = $this->payload($card->answer_json, $card->back_text);
         $snapshotFingerprint = $this->cardFingerprint($card);
         $oldManagedMedia = $this->managedImageMedia($card, $prompt, $answer);
-
-        $this->generationRateLimiter->consume($card->ownerUserId());
-        $generated = $this->persistGeneratedMedia->handle(
-            userId: $card->ownerUserId(),
-            bytes: $this->openAiImage->generate($data->imagePrompt),
-            mediaKind: 'image',
-            mimeType: 'image/webp',
-            extension: 'webp',
-        );
+        $uploaded = $this->persistUploadedImage->handle($card->ownerUserId(), $image);
 
         try {
             $updated = DB::transaction(function () use (
                 $card,
-                $data,
+                $placement,
                 $prompt,
                 $answer,
                 $snapshotFingerprint,
                 $oldManagedMedia,
-                $generated,
+                $uploaded,
             ): Card {
                 $lockedCard = Card::query()->whereKey($card->id)->lockForUpdate()->firstOrFail();
 
@@ -67,12 +58,12 @@ class RegenerateStudyCardImageAction
                 }
 
                 $nextPrompt = $prompt;
-                $nextPrompt['cueImage'] = $this->usesPrompt($data->imagePlacement)
-                    ? $generated->mediaRef
+                $nextPrompt['cueImage'] = $this->usesPrompt($placement)
+                    ? $uploaded->mediaRef
                     : null;
                 $nextAnswer = $answer;
-                $nextAnswer['answerImage'] = $this->usesAnswer($data->imagePlacement)
-                    ? $generated->mediaRef
+                $nextAnswer['answerImage'] = $this->usesAnswer($placement)
+                    ? $uploaded->mediaRef
                     : null;
 
                 $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
@@ -85,14 +76,10 @@ class RegenerateStudyCardImageAction
                 ));
                 $this->attachMedia->handle(AttachMediaToCardData::fromModels(
                     $lockedCard,
-                    $generated->mediaAsset,
+                    $uploaded->mediaAsset,
                 ));
 
                 foreach ($oldManagedMedia as $oldMedia) {
-                    if ($oldMedia->is($generated->mediaAsset)) {
-                        continue;
-                    }
-
                     $this->detachMedia->handle(DetachMediaFromCardData::fromModels(
                         $lockedCard,
                         $oldMedia,
@@ -102,13 +89,13 @@ class RegenerateStudyCardImageAction
                 return $lockedCard->fresh(['deck', 'mediaAssets']) ?? $lockedCard;
             });
         } catch (Throwable $exception) {
-            $this->discardGeneratedMedia->handle($generated->mediaAsset);
+            $this->discardMedia->handle($uploaded->mediaAsset);
 
             throw $exception;
         }
 
         foreach ($oldManagedMedia as $oldMedia) {
-            $this->discardGeneratedMedia->handleIfUnreferenced($oldMedia);
+            $this->discardMedia->handleIfUnreferenced($oldMedia);
         }
 
         return $updated;
@@ -117,21 +104,9 @@ class RegenerateStudyCardImageAction
     /**
      * @return array<string, mixed>
      */
-    private function promptPayload(Card $card): array
+    private function payload(mixed $payload, ?string $fallback): array
     {
-        return is_array($card->prompt_json)
-            ? $card->prompt_json
-            : ['type' => 'text', 'text' => $card->front_text];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function answerPayload(Card $card): array
-    {
-        return is_array($card->answer_json)
-            ? $card->answer_json
-            : ['type' => 'text', 'text' => $card->back_text];
+        return is_array($payload) ? $payload : ['type' => 'text', 'text' => $fallback];
     }
 
     private function usesPrompt(StudyCardImagePlacement $placement): bool
@@ -157,26 +132,25 @@ class RegenerateStudyCardImageAction
      */
     private function managedImageMedia(Card $card, array $prompt, array $answer): Collection
     {
+        $managedSources = [
+            StudyCardDraft::MEDIA_SOURCE_GENERATED,
+            StudyCardDraft::MEDIA_SOURCE_IMPORTED_IMAGE,
+        ];
         $ids = collect([$prompt['cueImage'] ?? null, $answer['answerImage'] ?? null])
             ->filter(fn (mixed $reference): bool => is_array($reference)
-                && in_array($reference['source'] ?? null, [
-                    StudyCardDraft::MEDIA_SOURCE_GENERATED,
-                    StudyCardDraft::MEDIA_SOURCE_IMPORTED_IMAGE,
-                ], true)
+                && in_array($reference['source'] ?? null, $managedSources, true)
                 && is_string($reference['id'] ?? null)
                 && Str::isUlid($reference['id']))
             ->map(fn (array $reference): string => CanonicalUlid::normalize($reference['id']))
             ->unique()
             ->values();
 
-        if ($ids->isEmpty()) {
-            return collect();
-        }
-
-        return $card->mediaAssets()
-            ->where('user_id', $card->ownerUserId())
-            ->whereIn('media_assets.id', $ids->all())
-            ->get();
+        return $ids->isEmpty()
+            ? collect()
+            : $card->mediaAssets()
+                ->where('user_id', $card->ownerUserId())
+                ->whereIn('media_assets.id', $ids->all())
+                ->get();
     }
 
     private function cardFingerprint(Card $card): string

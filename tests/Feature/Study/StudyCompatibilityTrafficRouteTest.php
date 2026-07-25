@@ -38,11 +38,19 @@ class StudyCompatibilityTrafficRouteTest extends TestCase
         $mediaMiddleware = 'throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME;
         $mediaRoutes = [
             'api/daily-audio-practice/{practiceId}/tracks/{trackId}/audio',
+            'api/study/media/batch',
             'api/study/media/{mediaAsset}',
         ];
 
         foreach ($this->compatibilityRoutes() as $route) {
             $middleware = $route->gatherMiddleware();
+            if (in_array($route->uri(), $mediaRoutes, true)) {
+                $this->assertContains($mediaMiddleware, $middleware, $route->uri());
+                $this->assertNotContains($readMiddleware, $middleware, $route->uri());
+
+                continue;
+            }
+
             if (! in_array('GET', $route->methods(), true)) {
                 $this->assertNotContains($readMiddleware, $middleware, $route->uri());
                 $this->assertNotContains($mediaMiddleware, $middleware, $route->uri());
@@ -50,13 +58,8 @@ class StudyCompatibilityTrafficRouteTest extends TestCase
                 continue;
             }
 
-            if (in_array($route->uri(), $mediaRoutes, true)) {
-                $this->assertContains($mediaMiddleware, $middleware, $route->uri());
-                $this->assertNotContains($readMiddleware, $middleware, $route->uri());
-            } else {
-                $this->assertContains($readMiddleware, $middleware, $route->uri());
-                $this->assertNotContains($mediaMiddleware, $middleware, $route->uri());
-            }
+            $this->assertContains($readMiddleware, $middleware, $route->uri());
+            $this->assertNotContains($mediaMiddleware, $middleware, $route->uri());
         }
     }
 

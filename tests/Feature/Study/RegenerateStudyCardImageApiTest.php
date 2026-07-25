@@ -263,6 +263,43 @@ class RegenerateStudyCardImageApiTest extends TestCase
         );
     }
 
+    public function test_it_replaces_and_deletes_an_unreferenced_uploaded_image(): void
+    {
+        Http::fake([
+            'openai.test/v1/images/generations' => Http::response([
+                'data' => [['b64_json' => base64_encode($this->webpBytes())]],
+            ]),
+        ]);
+        $user = $this->signIn();
+        $oldMedia = MediaAsset::factory()->for($user)->create([
+            'mime_type' => 'image/png',
+            'path' => 'study/uploads/'.$user->id.'/old.png',
+            'original_filename' => 'old.png',
+        ]);
+        Storage::disk('media')->put($oldMedia->path, 'old-upload');
+        $card = $this->studyCardFor($user, [
+            'prompt_json' => [
+                'type' => 'text',
+                'text' => '会社',
+                'cueImage' => $this->mediaReference($oldMedia, 'imported_image'),
+            ],
+        ]);
+        $card->mediaAssets()->attach($oldMedia);
+
+        $response = $this->postJson("/api/study/cards/{$card->id}/regenerate-image", [
+            'imagePrompt' => 'A new company building.',
+            'imageRole' => 'answer',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('prompt.cueImage', null)
+            ->assertJsonPath('answer.answerImage.source', 'generated');
+        $this->assertDatabaseMissing('media_assets', ['id' => $oldMedia->id]);
+        Storage::disk('media')->assertMissing($oldMedia->path);
+        $this->assertFalse($card->mediaAssets()->whereKey($oldMedia->id)->exists());
+    }
+
     public function test_it_normalizes_legacy_null_payloads_before_adding_an_image(): void
     {
         Http::fake([

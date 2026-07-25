@@ -87,6 +87,7 @@ use App\Http\Controllers\Api\Auth\DestroyCurrentAccessTokenController;
 use App\Http\Controllers\Api\Auth\DisconnectConvoLabGoogleIdentityController;
 use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterConvoLabBrowserUserController;
+use App\Http\Controllers\Api\Auth\RegisterConvoLabMobileUserController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
 use App\Http\Controllers\Api\Auth\SendConvoLabBrowserVerificationController;
@@ -94,7 +95,6 @@ use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
 use App\Http\Controllers\Api\Auth\SendPasswordResetLinkController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabBrowserCurrentUserController;
 use App\Http\Controllers\Api\Auth\ShowConvoLabCurrentUserController;
-use App\Http\Controllers\Api\Auth\ShowConvoLabGenerationQuotaController;
 use App\Http\Controllers\Api\Auth\ShowCurrentUserController;
 use App\Http\Controllers\Api\Auth\StoreMobileTokenController;
 use App\Http\Controllers\Api\Auth\UpdateConvoLabCurrentUserController;
@@ -174,6 +174,7 @@ use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
+use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
@@ -209,6 +210,7 @@ use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeController;
 use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeStatusController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
+use App\Http\Controllers\Api\Study\ShowStudyCardController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
 use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
@@ -247,6 +249,8 @@ Route::post(
 // Sanctum supports first-party sessions now and bearer tokens for mobile clients later.
 Route::post('/auth/register', RegisterMobileUserController::class)
     ->middleware('throttle:'.AuthEmailRateLimiter::MOBILE_REGISTRATIONS);
+Route::post('/convolab/auth/register', RegisterConvoLabMobileUserController::class)
+    ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_SIGNUPS);
 Route::post('/auth/password/forgot', SendPasswordResetLinkController::class)
     ->middleware('throttle:'.AuthEmailRateLimiter::PASSWORD_RESET_LINKS);
 Route::post('/auth/password/reset', ResetUserPasswordController::class)
@@ -279,7 +283,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/convolab/auth/google', DisconnectConvoLabGoogleIdentityController::class)
         ->middleware('throttle:'.ConvoLabOAuthRateLimiter::DISCONNECT);
     Route::get('/convolab/auth/me', ShowConvoLabCurrentUserController::class);
-    Route::get('/convolab/auth/me/quota', ShowConvoLabGenerationQuotaController::class);
     Route::patch('/convolab/auth/me', UpdateConvoLabCurrentUserController::class)
         ->middleware('throttle:'.ConvoLabProfileRateLimiter::NAME);
     Route::put('/convolab/auth/me/password', UpdateConvoLabCurrentUserPasswordController::class)
@@ -523,7 +526,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('course')
         ->middleware('throttle:'.CourseRateLimiter::DELETE_NAME);
     Route::get('/card-review-events', ListReviewEventsController::class);
-    // Review creates, batch replay, and study create aliases share one request-based create quota.
+    // Review creates, batch replay, and study create aliases share one request-rate bucket.
     // Batch payload size remains capped at 500 events by request validation.
     Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class)
         ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
@@ -536,13 +539,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
     Route::get('/cards/due', ListDueCardsController::class);
     Route::get('/cards/new', ListNewCardsController::class);
-    // Canonical and ConvoLab queue reorders share one user-scoped quota for the same mutation.
+    // Canonical and ConvoLab queue reorders share one user-scoped rate-limit bucket.
     Route::post('/cards/new/reorder', ReorderNewCardQueueController::class)
         ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
-    // Card-media relation writes have their own retry-friendly quotas separate from card content writes.
+    // Card-media relation writes have their own retry-friendly rate limits.
     Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)
         ->whereUlid('card')
         ->middleware('throttle:'.CardMediaRateLimiter::ATTACH_NAME);
@@ -551,7 +554,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('mediaAsset')
         ->middleware('throttle:'.CardMediaRateLimiter::DETACH_NAME);
     Route::get('/cards', ListCardsController::class);
-    // Canonical and study card writes share quotas because they mutate the same card resources.
+    // Canonical and study card writes share rate limits because they mutate the same resources.
     Route::post('/cards', StoreCardController::class)
         ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
     Route::post('/cards/{card}/actions', PerformCardStudyActionController::class)
@@ -581,6 +584,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
         ->group(function (): void {
             Route::post('/study/session/start', StartStudySessionController::class)
+                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+            Route::post('/study/offline-reserve', BuildStudyOfflineReserveController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/daily-audio-practice', StoreDailyAudioPracticeController::class)
                 ->middleware('throttle:'.DailyAudioPracticeGenerationRateLimiter::NAME);
@@ -636,7 +641,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::get('/study/imports', ListStudyImportJobsController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Study import lifecycle writes have separate quotas so upload retries do not starve cancel/complete.
+            // Import lifecycle writes use separate rate limits so upload retries do not starve cancel/complete.
             Route::post('/study/imports', StoreStudyImportController::class)
                 ->middleware('throttle:'.StudyImportRateLimiter::CREATE_NAME);
             Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class)
@@ -668,7 +673,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)
                 ->whereUlid('draftId')
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Draft creation, draft commits, and final manual-card creation share one user-scoped creation quota.
+            // Drafts, commits, and final manual cards share one user-scoped request bucket.
             Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
                 ->whereUlid('draftId')
                 ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
@@ -707,21 +712,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
             Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Shares the canonical new-card queue reorder quota above.
+            Route::get('/study/cards/{cardId}', ShowStudyCardController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            // Shares the canonical new-card queue reorder rate limit above.
             Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
                 ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
             Route::get('/study/overview', ShowStudyOverviewController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Shares the canonical review-create quota above.
+            // Shares the canonical review-create rate limit above.
             Route::post('/study/reviews', StoreStudyReviewController::class)
                 ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
-            // Shares the canonical review-undo quota above, separate from review creates.
+            // Shares the canonical review-undo rate limit above, separate from review creates.
             Route::post('/study/reviews/undo', StoreStudyReviewUndoController::class)
                 ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
             Route::delete('/study/reviews/{reviewLogId}', UndoStudyReviewController::class)
                 ->whereUlid('reviewLogId')
                 ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
-            // Shares the study-card creation quota with draft creation and draft commits.
+            // Shares the study-card creation rate limit with draft creation and commits.
             Route::post('/study/cards', StoreStudyCardController::class)
                 ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
             Route::delete('/study/cards/{cardId}', DeleteStudyCardController::class)
@@ -731,7 +739,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/study/cards/{cardId}/actions', PerformStudyCardActionController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
                 ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
-            // Saved-card edits can be retried by sync clients; keep their quota separate from creation.
+            // Saved-card edits can be retried by sync clients; keep their rate limit separate.
             Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
                 ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
@@ -740,7 +748,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);
             Route::get('/study/settings', ShowStudySettingsController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Settings sync can retry updates; keep that quota separate from card writes.
+            // Settings sync can retry updates; keep that rate limit separate from card writes.
             Route::patch('/study/settings', UpdateStudySettingsController::class)
                 ->middleware('throttle:'.StudySettingsUpdateRateLimiter::NAME);
             Route::get('/study/known-kanji', ShowKnownKanjiController::class)

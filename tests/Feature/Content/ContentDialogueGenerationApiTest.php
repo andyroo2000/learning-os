@@ -85,11 +85,6 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->assertSame('generating', $episode->status);
         $this->assertSame(1, $episode->dialogue_generation_attempt);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->source_system);
-        $this->assertDatabaseHas('generation_logs', [
-            'userId' => $this->convoLabUserId,
-            'contentType' => 'dialogue',
-            'contentId' => $episode->id,
-        ]);
         Queue::assertPushed(
             ProcessContentDialogueGeneration::class,
             fn (ProcessContentDialogueGeneration $queued): bool => $queued->jobId === $jobId,
@@ -98,7 +93,6 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Dialogue is already being generated']);
-        $this->assertDatabaseCount('generation_logs', 1);
         Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
     }
 
@@ -150,8 +144,6 @@ class ContentDialogueGenerationApiTest extends TestCase
             ->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertNotFound();
         $this->assertDatabaseCount('content_dialogue_generation_jobs', 0);
-        $this->assertDatabaseCount('generation_logs', 0);
-        $this->assertDatabaseCount('content_generation_cooldowns', 0);
 
         $this->app['auth']->forgetGuards();
         $this->authenticateWrite($owner);
@@ -165,10 +157,6 @@ class ContentDialogueGenerationApiTest extends TestCase
         $this->assertSame(ContentDialogueGeneration::QUEUE_FAILED_MESSAGE, $job->error_message);
         $this->assertNotNull($job->finished_at);
         $this->assertSame('error', $episode->fresh()->status);
-        $this->assertDatabaseCount('generation_logs', 0);
-        $this->assertDatabaseHas('content_generation_cooldowns', [
-            'convolab_user_id' => $this->convoLabUserId,
-        ]);
     }
 
     public function test_polling_is_owner_scoped_and_returns_durable_state_or_completed_result(): void

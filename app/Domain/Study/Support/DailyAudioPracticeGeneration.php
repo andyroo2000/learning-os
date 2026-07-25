@@ -22,10 +22,6 @@ final class DailyAudioPracticeGeneration
         ['mode' => 'story', 'title' => 'Story', 'sortOrder' => 2],
     ];
 
-    public const SKIPPED_TRACK_METADATA = [
-        'reason' => 'Disabled during drill development.',
-    ];
-
     public static function audioUrl(string $practiceId, string $trackId): string
     {
         return "/api/daily-audio-practice/{$practiceId}/tracks/{$trackId}/audio";

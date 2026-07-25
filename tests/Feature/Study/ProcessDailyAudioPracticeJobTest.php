@@ -16,6 +16,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
+use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Jobs\ProcessDailyAudioPractice;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -51,7 +52,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         new ProcessDailyAudioPractice('not-a-uuid');
     }
 
-    public function test_it_generates_and_persists_the_drill_track(): void
+    public function test_it_generates_and_persists_all_three_tracks(): void
     {
         $practice = DailyAudioPractice::factory()->create([
             'status' => 'generating',
@@ -60,14 +61,15 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             'status' => 'draft',
             'audio_url' => null,
         ]);
+        $tracks = ['drill' => $drill];
         foreach ([
             ['dialogue', 1],
             ['story', 2],
         ] as [$mode, $sortOrder]) {
-            DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+            $tracks[$mode] = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
                 'mode' => $mode,
                 'sort_order' => $sortOrder,
-                'status' => 'skipped',
+                'status' => 'draft',
             ]);
         }
         $card = Card::factory()->create();
@@ -147,12 +149,22 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                     && $l2 === config('daily_audio.l2_voice_id'))
                 ->andReturn($generated);
         });
-        $this->mock(DailyAudioTrackAssembler::class, function (MockInterface $mock) use ($assembled, $drill, $practice): void {
+        $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('generateJson')
+                ->twice()
+                ->andReturn(
+                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}]}',
+                    '{"title":"Cat","lines":[{"text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}',
+                );
+        });
+        $this->mock(DailyAudioTrackAssembler::class, function (MockInterface $mock) use ($assembled, $practice, $tracks): void {
             $mock->shouldReceive('assemble')
-                ->once()
+                ->times(3)
                 ->withArgs(fn ($practiceId, $trackId, $units): bool => $practiceId === $practice->id
-                    && $trackId === $drill->id
-                    && $units->count() === 3)
+                    && collect($tracks)->contains(
+                        fn (DailyAudioPracticeTrack $track): bool => $track->id === $trackId,
+                    )
+                    && $units->isNotEmpty())
                 ->andReturn($assembled);
         });
 
@@ -160,21 +172,25 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             ->handle(app(ProcessDailyAudioPracticeAction::class));
 
         $practice->refresh();
-        $drill->refresh();
         $this->assertSame('ready', $practice->status);
         $this->assertNull($practice->error_message);
         $this->assertSame([$card->clientId()], $practice->source_card_ids_json);
         $this->assertSame($selection->summary, $practice->selection_summary_json);
-        $this->assertSame('ready', $drill->status);
-        $this->assertSame(
-            DailyAudioPracticeGeneration::audioUrl($practice->id, $drill->id),
-            $drill->audio_url,
-        );
-        $this->assertSame(123, $drill->approx_duration_seconds);
-        $this->assertSame(3, $drill->generation_metadata_json['unitCount']);
-        $this->assertSame(1, $drill->generation_metadata_json['sourceCardCount']);
-        $this->assertSame(2, $drill->generation_metadata_json['spokenUnitCount']);
-        $this->assertSame('猫', $drill->script_units_json[2]['text']);
+        foreach ($tracks as $track) {
+            $track->refresh();
+            $this->assertSame('ready', $track->status);
+            $this->assertSame(
+                DailyAudioPracticeGeneration::audioUrl($practice->id, $track->id),
+                $track->audio_url,
+            );
+            $this->assertSame(123, $track->approx_duration_seconds);
+            $this->assertSame(3, $track->generation_metadata_json['unitCount']);
+            $this->assertSame(1, $track->generation_metadata_json['sourceCardCount']);
+            $this->assertSame(2, $track->generation_metadata_json['spokenUnitCount']);
+            $this->assertNotNull(
+                collect($track->script_units_json)->firstWhere('type', 'L2'),
+            );
+        }
     }
 
     public function test_processor_ignores_missing_and_terminal_practices(): void
@@ -226,9 +242,15 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $practice = DailyAudioPractice::factory()->create([
             'status' => 'generating',
         ]);
-        $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
-            'status' => 'draft',
-        ]);
+        $tracks = collect(DailyAudioPracticeGeneration::TRACKS)->map(
+            fn (array $track): DailyAudioPracticeTrack => DailyAudioPracticeTrack::factory()
+                ->for($practice, 'practice')
+                ->create([
+                    'mode' => $track['mode'],
+                    'sort_order' => $track['sortOrder'],
+                    'status' => 'draft',
+                ]),
+        );
         $selection = new DailyAudioCardSelectionResult(
             cards: collect(),
             summary: [
@@ -264,7 +286,9 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         }
 
         $this->assertSame('generating', $practice->refresh()->status);
-        $this->assertSame('generating', $drill->refresh()->status);
+        foreach ($tracks as $track) {
+            $this->assertSame('generating', $track->refresh()->status);
+        }
         $this->assertSame([], $practice->source_card_ids_json);
         $this->assertNull($practice->selection_summary_json);
     }
@@ -274,27 +298,26 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $practice = DailyAudioPractice::factory()->create([
             'status' => 'generating',
         ]);
-        $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
-            'status' => 'generating',
-        ]);
-        $skipped = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
-            'mode' => 'dialogue',
-            'sort_order' => 1,
-            'status' => 'skipped',
-            'error_message' => null,
-        ]);
+        $tracks = collect(DailyAudioPracticeGeneration::TRACKS)->map(
+            fn (array $track): DailyAudioPracticeTrack => DailyAudioPracticeTrack::factory()
+                ->for($practice, 'practice')
+                ->create([
+                    'mode' => $track['mode'],
+                    'sort_order' => $track['sortOrder'],
+                    'status' => 'generating',
+                ]),
+        );
         $job = new ProcessDailyAudioPractice($practice->id);
 
         $job->failed(new RuntimeException('Provider secret.'));
 
         $practice->refresh();
-        $drill->refresh();
         $this->assertSame('error', $practice->status);
         $this->assertSame(DailyAudioPracticeGeneration::FAILED_MESSAGE, $practice->error_message);
-        $this->assertSame('error', $drill->status);
-        $this->assertSame(DailyAudioPracticeGeneration::FAILED_MESSAGE, $drill->error_message);
-        $this->assertSame('skipped', $skipped->refresh()->status);
-        $this->assertNull($skipped->error_message);
+        foreach ($tracks as $track) {
+            $this->assertSame('error', $track->refresh()->status);
+            $this->assertSame(DailyAudioPracticeGeneration::FAILED_MESSAGE, $track->error_message);
+        }
         $originalUpdatedAt = $practice->updated_at?->toJSON();
 
         $job->failed(new RuntimeException('Second provider secret.'));

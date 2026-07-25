@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Http\Requests\Study;
+
+use App\Http\Requests\Concerns\FiltersByStudyScope;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
+
+class BuildStudyOfflineReserveRequest extends FormRequest
+{
+    use FiltersByStudyScope;
+
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareStudyScopeFiltersForValidation();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function rules(): array
+    {
+        return $this->studyScopeRules();
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return $this->studyScopeAfterValidationCallbacks();
+    }
+}

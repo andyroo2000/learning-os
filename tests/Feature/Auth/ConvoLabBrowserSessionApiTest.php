@@ -410,14 +410,6 @@ class ConvoLabBrowserSessionApiTest extends TestCase
         )->assertOk();
         $cookies = $this->withAuthenticatedSession($csrf, $login);
 
-        $this->statefulJson('GET', '/api/convolab/auth/me/quota', [], $cookies)
-            ->assertOk()
-            ->assertJsonPath('unlimited', false)
-            ->assertJsonStructure([
-                'quota' => ['used', 'limit', 'remaining', 'resetsAt'],
-                'cooldown' => ['remainingSeconds'],
-            ]);
-
         $this->statefulJson(
             'POST',
             '/api/convolab/auth/verification/send',

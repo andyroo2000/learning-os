@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api\Content;
 
 use App\Domain\Content\Actions\CheckContentGenerationEligibilityAction;
 use App\Domain\Content\Actions\QueueContentCourseGenerationAction;
-use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
-use App\Domain\Content\Enums\ContentGenerationType;
 use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentCourseGenerationQueueException;
 use App\Domain\Content\Support\ContentCourseGeneration;
@@ -19,7 +17,6 @@ final class GenerateContentCourseController extends Controller
         GenerateContentCourseRequest $request,
         QueueContentCourseGenerationAction $queue,
         CheckContentGenerationEligibilityAction $eligibility,
-        RunQuotaLimitedContentGenerationAction $generation,
         string $courseId,
     ): JsonResponse {
         try {
@@ -32,16 +29,10 @@ final class GenerateContentCourseController extends Controller
                 return response()->json(['message' => 'Course not found'], 404);
             }
 
-            $result = $generation->handle(
+            $result = $queue->handle(
+                $request->contentUserId(),
                 $request->convoLabUserId(),
-                ContentGenerationType::Course,
-                null,
-                fn () => $queue->handle(
-                    $request->contentUserId(),
-                    $request->convoLabUserId(),
-                    $courseId,
-                ),
-                fn ($started): string => $started->course->id,
+                $courseId,
             );
         } catch (ContentCourseGenerationConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 400);

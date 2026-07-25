@@ -15,6 +15,8 @@ class BuildStudyOfflineReserveAction
 {
     public const RESERVE_DAYS = 5;
 
+    public const MAX_SCHEDULED_CARDS = 1000;
+
     /**
      * @return array{cards: Collection<int, Card>, generated_at: Carbon, horizon_ends_at: Carbon}
      */
@@ -41,6 +43,7 @@ class BuildStudyOfflineReserveAction
             ->where('cards.due_at', '<=', $horizonEndsAt)
             ->orderBy('cards.due_at')
             ->orderBy('cards.id')
+            ->limit(self::MAX_SCHEDULED_CARDS)
             ->get();
 
         $newCardsQuery = $this->ownedCardsQuery($userId, $courseId, $deckId)

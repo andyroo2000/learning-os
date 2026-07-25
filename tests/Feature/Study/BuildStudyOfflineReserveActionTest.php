@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Actions\BuildStudyOfflineReserveAction;
 use App\Domain\Study\Models\StudySettings;
 use App\Models\User;
@@ -64,5 +65,26 @@ class BuildStudyOfflineReserveActionTest extends TestCase
         $reserve = app(BuildStudyOfflineReserveAction::class)->handle($user->id);
 
         $this->assertSame([$ownedCard->id], $reserve['cards']->pluck('id')->all());
+    }
+
+    public function test_it_bounds_the_scheduled_card_payload_for_lapsed_users(): void
+    {
+        $now = Carbon::parse('2026-07-25T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        Card::factory()
+            ->for($deck)
+            ->count(BuildStudyOfflineReserveAction::MAX_SCHEDULED_CARDS + 1)
+            ->create([
+                'study_status' => CardStudyStatus::Review,
+                'due_at' => $now->copy()->subMonth(),
+            ]);
+
+        $reserve = app(BuildStudyOfflineReserveAction::class)->handle($user->id, $now);
+
+        $this->assertCount(
+            BuildStudyOfflineReserveAction::MAX_SCHEDULED_CARDS,
+            $reserve['cards'],
+        );
     }
 }

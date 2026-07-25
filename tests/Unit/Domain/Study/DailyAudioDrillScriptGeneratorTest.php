@@ -87,6 +87,7 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $script = $result->scriptUnits();
         $l2Units = collect($script)->where('type', 'L2');
 
+        $this->assertSame([1.0], $l2Units->pluck('speed')->unique()->values()->all());
         $this->assertTrue($l2Units->contains('text', 'この町は物価が高いです。'));
         $this->assertTrue($l2Units->contains('text', '大阪は物価が安いです。'));
         $this->assertTrue($l2Units->contains('text', '京都は家賃が高いです。'));

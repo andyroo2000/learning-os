@@ -182,6 +182,7 @@ use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DownloadDailyAudioPracticeTrackController;
+use App\Http\Controllers\Api\Study\DownloadStudyMediaBatchController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
 use App\Http\Controllers\Api\Study\ListDailyAudioPracticesController;
@@ -747,6 +748,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::patch('/study/cards/{cardId}', UpdateStudyCardController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
                 ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+            Route::post('/study/media/batch', DownloadStudyMediaBatchController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);
             Route::get('/study/media/{mediaAsset}', DownloadMediaAssetContentController::class)
                 ->whereUlid('mediaAsset')
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);

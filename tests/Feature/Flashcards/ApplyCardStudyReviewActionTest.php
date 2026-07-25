@@ -36,15 +36,15 @@ class ApplyCardStudyReviewActionTest extends TestCase
         $this->assertSame(CardStudyStatus::Learning, $card->study_status);
         $this->assertNull($card->new_queue_position);
         $this->assertSame($reviewedAt->toJSON(), $card->introduced_at?->toJSON());
-        $this->assertSame($reviewedAt->copy()->addDay()->toJSON(), $card->due_at?->toJSON());
+        $this->assertSame($reviewedAt->copy()->addMinutes(6)->toJSON(), $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);
         $this->assertSame($reviewedAt->toJSON(), $card->last_reviewed_at?->toJSON());
         $this->assertSame([
-            'due' => '2026-05-28T09:15:00.000000Z',
-            'stability' => 0.1,
-            'difficulty' => 5,
+            'due' => '2026-05-27T09:21:00.000000Z',
+            'stability' => 1.2931,
+            'difficulty' => 5.11217071,
             'elapsed_days' => 0,
-            'scheduled_days' => 1,
+            'scheduled_days' => 0,
             'learning_steps' => 0,
             'reps' => 1,
             'lapses' => 0,

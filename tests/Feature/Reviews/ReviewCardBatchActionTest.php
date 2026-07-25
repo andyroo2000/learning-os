@@ -140,7 +140,7 @@ class ReviewCardBatchActionTest extends TestCase
 
         $this->assertSame(CardStudyStatus::Review, $card->study_status);
         $this->assertSame('2026-05-27T09:15:00.000000Z', $card->introduced_at?->toJSON());
-        $this->assertSame('2026-06-03T09:20:00.000000Z', $card->due_at?->toJSON());
+        $this->assertSame('2026-05-28T09:20:00.000000Z', $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);
         $this->assertSame('2026-05-27T09:20:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertDatabaseCount('card_review_events', 2);
@@ -188,36 +188,36 @@ class ReviewCardBatchActionTest extends TestCase
         ], $firstReview->card_state_before);
         $this->assertNull($firstReview->scheduler_state_before);
         $this->assertSame([
-            'due' => '2026-05-27T09:25:00.000000Z',
-            'stability' => 0.1,
-            'difficulty' => 5,
+            'due' => '2026-05-27T09:16:00.000000Z',
+            'stability' => 0.212,
+            'difficulty' => 6.4133,
             'elapsed_days' => 0,
             'scheduled_days' => 0,
             'learning_steps' => 0,
             'reps' => 1,
-            'lapses' => 1,
-            'state' => 3,
+            'lapses' => 0,
+            'state' => 1,
             'last_review' => '2026-05-27T09:15:00.000000Z',
         ], $firstReview->scheduler_state_after);
         $this->assertSame([
-            'study_status' => 'relearning',
+            'study_status' => 'learning',
             'new_queue_position' => null,
             'scheduler_state' => $firstReview->scheduler_state_after,
-            'due_at' => '2026-05-27T09:25:00.000000Z',
+            'due_at' => '2026-05-27T09:16:00.000000Z',
             'introduced_at' => '2026-05-27T09:15:00.000000Z',
             'failed_at' => '2026-05-27T09:15:00.000000Z',
             'last_reviewed_at' => '2026-05-27T09:15:00.000000Z',
         ], $secondReview->card_state_before);
         $this->assertSame($firstReview->scheduler_state_after, $secondReview->scheduler_state_before);
         $this->assertSame([
-            'due' => '2026-06-03T09:20:00.000000Z',
-            'stability' => 0.1,
-            'difficulty' => 5,
+            'due' => '2026-05-28T09:20:00.000000Z',
+            'stability' => 0.42437996,
+            'difficulty' => 5.20002037,
             'elapsed_days' => 0,
-            'scheduled_days' => 7,
+            'scheduled_days' => 1,
             'learning_steps' => 0,
             'reps' => 2,
-            'lapses' => 1,
+            'lapses' => 0,
             'state' => 2,
             'last_review' => '2026-05-27T09:20:00.000000Z',
         ], $secondReview->scheduler_state_after);
@@ -274,7 +274,7 @@ class ReviewCardBatchActionTest extends TestCase
 
         $this->assertTrue($result->hasCreatedEvents);
         $this->assertSame($storedCardId, $result->reviewEvents->sole()->card_id);
-        $this->assertSame(CardStudyStatus::Review, $card->refresh()->study_status);
+        $this->assertSame(CardStudyStatus::Learning, $card->refresh()->study_status);
     }
 
     public function test_it_returns_existing_events_for_retried_client_events_with_matching_provided_ids(): void

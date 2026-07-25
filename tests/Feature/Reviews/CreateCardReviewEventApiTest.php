@@ -53,7 +53,7 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('data.card_state_before.due_at', null)
             ->assertJsonPath('data.scheduler_state_before', null)
             ->assertJsonPath('data.scheduler_state_after.reps', 1)
-            ->assertJsonPath('data.scheduler_state_after.state', 2)
+            ->assertJsonPath('data.scheduler_state_after.state', 1)
             ->assertJsonStructure([
                 'data' => [
                     'id',

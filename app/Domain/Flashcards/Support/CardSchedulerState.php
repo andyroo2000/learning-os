@@ -4,7 +4,6 @@ namespace App\Domain\Flashcards\Support;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Support\DateTime\StrictIsoDateTime;
 use Illuminate\Support\Carbon;
 
@@ -87,33 +86,6 @@ final class CardSchedulerState
             lapses: self::integer($existing, 'lapses', 0),
             state: self::stateForStudyStatus($studyStatus),
             lastReview: self::lastReview($existing),
-        );
-    }
-
-    /**
-     * @return array<string, int|float|string|null>
-     */
-    public static function reviewed(
-        Card $card,
-        CardReviewRating $rating,
-        CardStudyStatus $studyStatus,
-        Carbon $dueAt,
-        Carbon $reviewedAt,
-    ): array {
-        $existing = self::existing($card);
-        $lastReview = self::lastReview($existing);
-
-        return self::serialize(
-            dueAt: $dueAt,
-            stability: self::numeric($existing, 'stability', self::DEFAULT_STABILITY),
-            difficulty: self::numeric($existing, 'difficulty', self::DEFAULT_DIFFICULTY),
-            elapsedDays: $lastReview === null ? 0 : self::scheduledDays($reviewedAt, $lastReview),
-            scheduledDays: self::scheduledDays($dueAt, $reviewedAt),
-            learningSteps: self::integer($existing, 'learning_steps', 0),
-            reps: self::integer($existing, 'reps', 0) + 1,
-            lapses: self::integer($existing, 'lapses', 0) + ($rating === CardReviewRating::Again ? 1 : 0),
-            state: self::stateForStudyStatus($studyStatus),
-            lastReview: $reviewedAt,
         );
     }
 

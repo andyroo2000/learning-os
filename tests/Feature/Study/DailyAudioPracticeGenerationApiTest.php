@@ -61,13 +61,9 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('tracks.0.mode', 'drill')
             ->assertJsonPath('tracks.0.status', 'draft')
             ->assertJsonPath('tracks.1.mode', 'dialogue')
-            ->assertJsonPath('tracks.1.status', 'skipped')
-            ->assertJsonPath(
-                'tracks.1.generationMetadataJson.reason',
-                DailyAudioPracticeGeneration::SKIPPED_TRACK_METADATA['reason'],
-            )
+            ->assertJsonPath('tracks.1.status', 'draft')
             ->assertJsonPath('tracks.2.mode', 'story')
-            ->assertJsonPath('tracks.2.status', 'skipped');
+            ->assertJsonPath('tracks.2.status', 'draft');
 
         $practice = DailyAudioPractice::query()->sole();
         $this->assertSame($user->id, $practice->user_id);
@@ -207,8 +203,8 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('tracks.0.status', 'draft')
             ->assertJsonPath('tracks.0.scriptUnitsJson', null)
             ->assertJsonPath('tracks.0.audioUrl', null)
-            ->assertJsonPath('tracks.1.status', 'skipped')
-            ->assertJsonPath('tracks.2.status', 'skipped');
+            ->assertJsonPath('tracks.1.status', 'draft')
+            ->assertJsonPath('tracks.2.status', 'draft');
 
         $this->assertDatabaseCount('daily_audio_practices', 1);
         $this->assertDatabaseCount('daily_audio_practice_tracks', 3);
@@ -234,7 +230,7 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
                 'mode' => $mode,
                 'sort_order' => $sortOrder,
-                'status' => 'skipped',
+                'status' => 'generating',
             ]);
         }
         $this->postJson('/api/daily-audio-practice')
@@ -264,7 +260,8 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
                 DailyAudioPracticeGeneration::QUEUE_FAILED_MESSAGE,
             )
             ->assertJsonPath('tracks.0.status', 'error')
-            ->assertJsonPath('tracks.1.status', 'skipped');
+            ->assertJsonPath('tracks.1.status', 'error')
+            ->assertJsonPath('tracks.2.status', 'error');
     }
 
     public function test_ready_audio_can_only_be_streamed_by_its_owner(): void

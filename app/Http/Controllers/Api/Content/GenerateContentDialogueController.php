@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api\Content;
 
 use App\Domain\Content\Actions\CheckContentGenerationEligibilityAction;
 use App\Domain\Content\Actions\QueueContentDialogueGenerationAction;
-use App\Domain\Content\Actions\RunQuotaLimitedContentGenerationAction;
-use App\Domain\Content\Enums\ContentGenerationType;
 use App\Domain\Content\Exceptions\ContentDialogueGenerationConflictException;
 use App\Domain\Content\Exceptions\ContentDialogueGenerationQueueException;
 use App\Domain\Content\Support\ContentDialogueGeneration;
@@ -19,7 +17,6 @@ final class GenerateContentDialogueController extends Controller
         GenerateContentDialogueRequest $request,
         QueueContentDialogueGenerationAction $queue,
         CheckContentGenerationEligibilityAction $eligibility,
-        RunQuotaLimitedContentGenerationAction $generation,
     ): JsonResponse {
         $data = $request->generationData();
 
@@ -32,16 +29,10 @@ final class GenerateContentDialogueController extends Controller
                 return response()->json(['message' => 'Episode not found'], 404);
             }
 
-            $job = $generation->handle(
+            $job = $queue->handle(
+                $request->contentUserId(),
                 $request->convoLabUserId(),
-                ContentGenerationType::Dialogue,
-                $data->episodeId,
-                fn () => $queue->handle(
-                    $request->contentUserId(),
-                    $request->convoLabUserId(),
-                    $data,
-                ),
-                fn ($result): string => $result->episode_id,
+                $data,
             );
         } catch (ContentDialogueGenerationConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 400);

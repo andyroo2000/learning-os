@@ -12,7 +12,7 @@ use App\Domain\Content\Support\ConvoLabUserId;
 
 final class CheckContentGenerationEligibilityAction
 {
-    // Preflight preserves legacy 404/409 precedence without consuming quota.
+    // Preflight preserves legacy 404/409 precedence before provider work begins.
     // The mutating actions repeat these checks under lock and remain authoritative.
     public function dialogue(
         int $userId,

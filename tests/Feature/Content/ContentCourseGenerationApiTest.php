@@ -81,11 +81,6 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertNull($course->generation_error_message);
         $this->assertSame('/old.mp3', $course->audio_url);
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $course->source_system);
-        $this->assertDatabaseHas('generation_logs', [
-            'userId' => $this->convoLabUserId,
-            'contentType' => 'course',
-            'contentId' => $course->id,
-        ]);
         Queue::assertPushed(
             ProcessContentCourseGeneration::class,
             fn (ProcessContentCourseGeneration $job): bool => $job->courseId === $course->id
@@ -95,7 +90,6 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$course->id}/generate")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Course is already being generated']);
-        $this->assertDatabaseCount('generation_logs', 1);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 1);
     }
 
@@ -272,7 +266,6 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->postJson("/api/convolab/courses/{$audioFailure->id}/retry")
             ->assertBadRequest()
             ->assertExactJson(['message' => 'Only courses in error status can be retried']);
-        $this->assertDatabaseCount('generation_logs', 2);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 2);
     }
 
@@ -291,10 +284,6 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertSame('error', $course->status);
         $this->assertSame(1, $course->generation_attempt);
         $this->assertSame(ContentCourseGeneration::QUEUE_FAILED_MESSAGE, $course->generation_error_message);
-        $this->assertDatabaseCount('generation_logs', 0);
-        $this->assertDatabaseHas('content_generation_cooldowns', [
-            'convolab_user_id' => $this->convoLabUserId,
-        ]);
     }
 
     public function test_lifecycle_routes_hide_other_owners_and_use_operation_scoped_limiters(): void
@@ -312,8 +301,6 @@ class ContentCourseGenerationApiTest extends TestCase
             $this->postJson("/api/convolab/courses/{$course->id}/{$operation}")
                 ->assertNotFound();
         }
-        $this->assertDatabaseCount('generation_logs', 0);
-        $this->assertDatabaseCount('content_generation_cooldowns', 0);
         $this->getJson("/api/convolab/courses/{$course->id}/status")->assertNotFound();
         Queue::assertNothingPushed();
 
@@ -354,7 +341,7 @@ class ContentCourseGenerationApiTest extends TestCase
         $this->assertNotSame($generation->key, $reset->key);
     }
 
-    public function test_generate_and_retry_share_a_quota_without_starving_reset_or_other_users(): void
+    public function test_generate_and_retry_share_a_rate_limit_without_starving_reset_or_other_users(): void
     {
         Queue::fake();
         $firstUser = User::factory()->create();

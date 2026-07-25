@@ -139,7 +139,6 @@ class CreateDailyAudioPracticeAction
     {
         DailyAudioPracticeTrack::query()
             ->where('practice_id', $practice->id)
-            ->where('mode', 'drill')
             ->update([
                 'status' => 'draft',
                 'script_units_json' => null,
@@ -147,19 +146,6 @@ class CreateDailyAudioPracticeAction
                 'timing_data' => null,
                 'approx_duration_seconds' => null,
                 'generation_metadata_json' => null,
-                'error_message' => null,
-            ]);
-
-        DailyAudioPracticeTrack::query()
-            ->where('practice_id', $practice->id)
-            ->whereIn('mode', ['dialogue', 'story'])
-            ->update([
-                'status' => 'skipped',
-                'script_units_json' => null,
-                'audio_url' => null,
-                'timing_data' => null,
-                'approx_duration_seconds' => null,
-                'generation_metadata_json' => DailyAudioPracticeGeneration::SKIPPED_TRACK_METADATA,
                 'error_message' => null,
             ]);
     }

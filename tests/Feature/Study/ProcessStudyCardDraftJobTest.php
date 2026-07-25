@@ -7,6 +7,7 @@ use App\Domain\Study\Actions\RecordStudyCardDraftSyncEntryAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Services\StudyCardDraftEnricher;
 use App\Domain\Study\Sync\StudyCardDraftSyncPayload;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -15,6 +16,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -28,6 +30,13 @@ class ProcessStudyCardDraftJobTest extends TestCase
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
         ]);
+        $this->mock(StudyCardDraftEnricher::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('enrich')->once()->andReturn([
+                'prompt' => ['cueText' => '会社'],
+                'answer' => ['meaning' => 'company', 'expression' => '会社'],
+                'imagePrompt' => null,
+            ]);
+        });
 
         (new ProcessStudyCardDraft($draft->id))->handle(app(ProcessStudyCardDraftAction::class));
 

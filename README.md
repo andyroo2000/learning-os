@@ -2,7 +2,9 @@
 
 Laravel backend/API platform for ConvoLab, Currio, and future learning products.
 
-This repository is intentionally starting small. The first slice is only a bootable Laravel application with automated tests, style checks, and frontend asset build verification. Product-specific domains and shared flashcard/review/sync/media behavior should be added in later vertical slices.
+Learning OS owns authentication, content generation, study cards and FSRS review
+scheduling, incremental sync, media, Daily Audio, knowledge profiles, and compatibility
+contracts used by the ConvoLab web and iOS clients.
 
 ## Requirements
 
@@ -47,3 +49,16 @@ See [docs/architecture.md](docs/architecture.md) for the current platform archit
 - Use resources or transformers for API response shape.
 - Build shared flashcard, review, media, and sync behavior in explicit domains as the need appears.
 - Keep ConvoLab and Currio product-specific behavior out of shared domains unless the sharing pressure is real.
+
+## ConvoLab study compatibility
+
+- `POST /api/study/offline-reserve` returns the authenticated user's scheduled cards due
+  within five days plus five days of their configured new-card target.
+- `GET /api/study/cards/{cardId}` returns a canonical card by server or client-generated
+  identifier for incremental client sync.
+- Daily Audio produces drill, dialogue, and story tracks. Provider failures fall back to
+  deterministic card-based scripts so a practice remains usable.
+- Manual card drafts receive generated reading, meaning, pitch-accent, and media
+  enrichment without overwriting concurrent user edits.
+- Content generation has no monthly entitlement or cooldown quota. Short-window endpoint
+  rate limits remain as operational abuse protection.

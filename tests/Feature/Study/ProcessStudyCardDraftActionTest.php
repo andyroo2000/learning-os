@@ -6,10 +6,12 @@ use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Services\StudyCardDraftEnricher;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Mockery\MockInterface;
 use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
 use Tests\TestCase;
 
@@ -18,12 +20,26 @@ class ProcessStudyCardDraftActionTest extends TestCase
     use AssertsStudyCardDraftSyncFeedEntries;
     use RefreshDatabase;
 
-    public function test_it_marks_generating_seeded_manual_drafts_ready(): void
+    public function test_it_enriches_generating_manual_drafts_before_marking_them_ready(): void
     {
         $draft = StudyCardDraft::factory()->create([
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
             'error_message' => 'Previous failure',
+        ]);
+        $this->mockEnrichment([
+            'prompt' => [
+                'cueText' => '会社',
+                'cueReading' => '会社[かいしゃ]',
+            ],
+            'answer' => [
+                'meaning' => 'company',
+                'expression' => '会社',
+                'expressionReading' => '会社[かいしゃ]',
+                'sentenceJp' => '会社で働いています。',
+                'sentenceEn' => 'I work at a company.',
+            ],
+            'imagePrompt' => null,
         ]);
 
         $processed = app(ProcessStudyCardDraftAction::class)->handle('  '.strtoupper($draft->id).'  ');
@@ -33,8 +49,9 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertNotNull($processed);
         $this->assertSame($draft->id, $processed?->id);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $processed?->status);
-        $this->assertSame(['cueText' => '会社'], $processed?->prompt_json);
-        $this->assertSame(['meaning' => 'company'], $processed?->answer_json);
+        $this->assertSame('会社[かいしゃ]', $processed?->prompt_json['cueReading']);
+        $this->assertSame('会社', $processed?->answer_json['expression']);
+        $this->assertSame('I work at a company.', $processed?->answer_json['sentenceEn']);
         $this->assertNull($processed?->error_message);
 
         $this->assertDatabaseCount('sync_feed_entries', 1);
@@ -63,7 +80,6 @@ class ProcessStudyCardDraftActionTest extends TestCase
                 'source' => 'generated',
             ],
         ]);
-
         $processed = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
 
         $processed?->refresh();
@@ -116,6 +132,11 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $draft = StudyCardDraft::factory()->create([
             'prompt_json' => ['cueText' => '会社'],
             'answer_json' => ['meaning' => 'company'],
+        ]);
+        $this->mockEnrichment([
+            'prompt' => ['cueText' => '会社'],
+            'answer' => ['meaning' => 'company', 'expression' => '会社'],
+            'imagePrompt' => null,
         ]);
 
         $firstAttempt = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
@@ -176,5 +197,50 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertNotNull($processed?->updated_at);
         $this->assertSame($originalUpdatedAt, $processed?->updated_at->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_it_preserves_fields_the_user_fills_while_enrichment_is_running(): void
+    {
+        $draft = StudyCardDraft::factory()->create([
+            'prompt_json' => ['cueText' => '会社', 'cueReading' => null],
+            'answer_json' => ['meaning' => 'company', 'expression' => null],
+        ]);
+        $this->mock(StudyCardDraftEnricher::class, function (MockInterface $mock) use ($draft): void {
+            $mock->shouldReceive('enrich')
+                ->once()
+                ->andReturnUsing(function () use ($draft): array {
+                    StudyCardDraft::query()->whereKey($draft->id)->update([
+                        'answer_json' => json_encode([
+                            'meaning' => 'company',
+                            'expression' => '企業',
+                        ], JSON_THROW_ON_ERROR),
+                    ]);
+
+                    return [
+                        'prompt' => ['cueText' => '会社', 'cueReading' => '会社[かいしゃ]'],
+                        'answer' => ['meaning' => 'company', 'expression' => '会社'],
+                        'imagePrompt' => null,
+                    ];
+                });
+        });
+
+        $processed = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
+
+        $this->assertSame(StudyManualCardDraftStatus::Ready, $processed?->status);
+        $this->assertSame('企業', $processed?->answer_json['expression']);
+        $this->assertSame('会社[かいしゃ]', $processed?->prompt_json['cueReading']);
+    }
+
+    /**
+     * @param  array{prompt: array<string, mixed>, answer: array<string, mixed>, imagePrompt: ?string}  $result
+     */
+    private function mockEnrichment(array $result, bool $once = true): void
+    {
+        $this->mock(StudyCardDraftEnricher::class, function (MockInterface $mock) use ($once, $result): void {
+            $expectation = $mock->shouldReceive('enrich')->andReturn($result);
+            if ($once) {
+                $expectation->once();
+            }
+        });
     }
 }

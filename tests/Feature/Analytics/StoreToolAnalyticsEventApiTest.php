@@ -138,7 +138,7 @@ final class StoreToolAnalyticsEventApiTest extends TestCase
         $this->assertSame(204, $response->getStatusCode());
     }
 
-    public function test_browser_store_enforces_its_network_quota(): void
+    public function test_browser_store_enforces_its_network_rate_limit(): void
     {
         $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.99']);
 

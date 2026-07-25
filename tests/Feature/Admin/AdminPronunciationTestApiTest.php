@@ -37,7 +37,7 @@ final class AdminPronunciationTestApiTest extends TestCase
         Storage::fake('media');
     }
 
-    public function test_route_enforces_browser_admin_auth_and_its_own_provider_quota(): void
+    public function test_route_enforces_browser_admin_auth_and_its_own_provider_rate_limit(): void
     {
         $uri = '/api/convolab/admin/script-lab/test-pronunciation';
 

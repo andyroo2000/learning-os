@@ -6,6 +6,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Study\Actions\ProcessStudyCardDraftAction;
+use App\Domain\Study\Services\StudyCardDraftEnricher;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
@@ -362,6 +363,14 @@ class ListSyncFeedEntriesApiTest extends TestCase
             fn (ProcessStudyCardDraft $job): bool => $job->draftId === $draftId,
         );
 
+        $this->mock(StudyCardDraftEnricher::class)
+            ->shouldReceive('enrich')
+            ->once()
+            ->andReturn([
+                'prompt' => ['cueText' => '犬', 'cueReading' => '犬[いぬ]'],
+                'answer' => ['meaning' => 'dog', 'expression' => '犬'],
+                'imagePrompt' => null,
+            ]);
         app(ProcessStudyCardDraftAction::class)->handle($draftId);
 
         $this->patchJson("/api/study/card-drafts/{$draftId}", [

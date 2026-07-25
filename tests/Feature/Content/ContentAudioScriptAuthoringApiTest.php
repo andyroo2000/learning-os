@@ -93,11 +93,6 @@ class ContentAudioScriptAuthoringApiTest extends TestCase
         $this->assertSame(ContentSourceSystem::LEARNING_OS, $episode->source_system);
         $this->assertTrue(Str::isUuid($episode->id));
         $this->assertTrue(Str::isUuid($episode->audioScript->id));
-        $this->assertDatabaseHas('generation_logs', [
-            'userId' => $this->convoLabUserId,
-            'contentType' => 'script',
-            'contentId' => $episode->id,
-        ]);
     }
 
     public function test_create_defaults_the_voice_and_rejects_invalid_script_input_without_writes(): void

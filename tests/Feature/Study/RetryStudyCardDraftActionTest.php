@@ -12,6 +12,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Services\StudyCardDraftEnricher;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
@@ -20,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use LogicException;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Study\Concerns\BuildsStudyCardDraftRows;
 use Tests\Support\AssertsStudyCardDraftSyncFeedEntries;
@@ -258,6 +260,13 @@ class RetryStudyCardDraftActionTest extends TestCase
         ]);
 
         $retried = app(RetryStudyCardDraftAction::class)->handle($user->id, $draft->id);
+        $this->mock(StudyCardDraftEnricher::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('enrich')->once()->andReturn([
+                'prompt' => ['cueText' => '会社'],
+                'answer' => ['meaning' => 'company', 'expression' => '会社'],
+                'imagePrompt' => null,
+            ]);
+        });
 
         $processed = app(ProcessStudyCardDraftAction::class)->handle($retried->id);
 

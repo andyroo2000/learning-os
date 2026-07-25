@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 class AdminMutationRateLimiterTest extends TestCase
 {
     #[DataProvider('operationProvider')]
-    public function test_mutations_use_operation_quotas_and_scoped_identity_keys(
+    public function test_mutations_use_operation_rate_limits_and_scoped_identity_keys(
         string $operation,
         int $attempts,
     ): void {

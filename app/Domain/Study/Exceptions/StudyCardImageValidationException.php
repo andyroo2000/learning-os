@@ -28,6 +28,16 @@ class StudyCardImageValidationException extends RuntimeException
         return new self('imageRole must be prompt, answer, or both.', 'imageRole');
     }
 
+    public static function invalidUpload(): self
+    {
+        return new self('image must be a valid JPEG, PNG, or WebP image.', 'image');
+    }
+
+    public static function uploadTooLarge(int $maxMegabytes): self
+    {
+        return new self("image must not exceed {$maxMegabytes} MB.", 'image');
+    }
+
     public function field(): string
     {
         return $this->field;

@@ -242,7 +242,9 @@ final class DailyAudioContextTrackGenerator
     {
         return <<<'PROMPT'
 Create varied, natural Japanese dialogue scenes for audio-only language practice.
-Use the learner items naturally and keep language around JLPT N5-N4.
+Prioritize believable conversational flow, appropriate responses, and complete scenes over vocabulary coverage.
+The learner items are optional inspiration, not a checklist. Use only items that fit naturally; omit any that would make a reply feel forced or unrelated.
+You may freely use ordinary JLPT N5-N4 vocabulary and grammar needed to make each exchange coherent.
 Return strict JSON only:
 {"scenes":[{"title":"short English title","lines":[{"speaker":"speaker1","text":"Japanese","reading":"bracket furigana or kana","translation":"natural English"},{"speaker":"speaker2","text":"Japanese","reading":"bracket furigana or kana","translation":"natural English"}]}]}
 Create 2-4 scenes with 4-8 alternating lines each. Japanese fields contain no romaji or English.
@@ -255,7 +257,9 @@ PROMPT;
     {
         return <<<'PROMPT'
 Create one coherent, memorable Japanese monologue story for audio-only language practice.
-Use and repeat the learner items naturally and keep language around JLPT N5-N4.
+Story quality comes first: every sentence must follow naturally from the previous one, with consistent people, setting, motivation, and cause-and-effect.
+The learner items are optional inspiration, not a checklist. Select only a few that genuinely belong in the story, and omit the rest.
+Do not insert an item merely to achieve coverage, and do not write non-sequiturs. Use ordinary JLPT N5-N4 vocabulary and grammar freely to connect ideas naturally.
 Return strict JSON only:
 {"title":"short English title","lines":[{"text":"Japanese","reading":"bracket furigana or kana","translation":"natural English"}]}
 Create 10-20 short lines with a beginning, development, and ending. Japanese fields contain no romaji or English.

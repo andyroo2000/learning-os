@@ -232,6 +232,7 @@ use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
+use App\Http\Controllers\Api\Study\UploadStudyCardImageController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
@@ -697,6 +698,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
             Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
+            Route::post('/study/cards/{cardId}/image', UploadStudyCardImageController::class)
+                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+                ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
             Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
                 ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);

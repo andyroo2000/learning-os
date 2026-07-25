@@ -7,7 +7,7 @@ use App\Domain\Media\Models\MediaAsset;
 final readonly class GeneratedStudyMediaResult
 {
     /**
-     * @param  array{id: string, filename: string, url: string, mediaKind: 'audio'|'image', source: 'generated'}  $mediaRef
+     * @param  array{id: string, filename: string, url: string, mediaKind: 'audio'|'image', source: 'generated'|'imported_image'}  $mediaRef
      */
     public function __construct(
         public MediaAsset $mediaAsset,

@@ -95,8 +95,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('card.cardType', 'recognition')
                 ->assertJsonPath('card.prompt.text', '会社')
                 ->assertJsonPath('card.answer.text', 'company')
-                ->assertJsonPath('card.state.queueState', 'review')
-                ->assertJsonPath('card.state.dueAt', '2026-06-08T15:30:00.000Z')
+                ->assertJsonPath('card.state.queueState', 'learning')
+                ->assertJsonPath('card.state.dueAt', '2026-06-05T15:40:00.000Z')
                 ->assertJsonPath('card.state.introducedAt', '2026-06-05T15:30:00.000Z')
                 ->assertJsonPath('card.state.failedAt', null)
                 ->assertJsonPath('card.state.source.noteId', '501')
@@ -107,7 +107,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertJsonPath('card.state.source.templateOrd', 0)
                 ->assertJsonPath('card.answerAudioSource', 'missing')
                 ->assertJsonPath('overview.newCount', 0)
-                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.learningCount', 1)
+                ->assertJsonPath('overview.reviewCount', 0)
                 ->assertJsonPath('overview.newCardsPerDay', 20)
                 ->assertJsonPath('overview.latestImport.id', self::CONVOLAB_IMPORT_ID)
                 ->assertJsonPath('overview.latestImport.status', 'completed')
@@ -130,10 +131,10 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ]);
             $this->assertDatabaseHas('cards', [
                 'id' => $card->id,
-                'study_status' => 'review',
+                'study_status' => 'learning',
                 'new_queue_position' => null,
                 'introduced_at' => '2026-06-05 15:30:00',
-                'due_at' => '2026-06-08 15:30:00',
+                'due_at' => '2026-06-05 15:40:00',
             ]);
 
             $card->refresh()->load('deck');
@@ -190,7 +191,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('card.id', strtolower($clientCardId))
                 ->assertJsonPath('card.syncId', $canonicalCardId)
-                ->assertJsonPath('card.state.queueState', 'review');
+                ->assertJsonPath('card.state.queueState', 'learning');
 
             $reviewLogId = $response->json('reviewLogId');
             $this->assertIsString($reviewLogId);
@@ -460,7 +461,8 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('card.id', $scopedCard->id)
                 ->assertJsonPath('overview.newCount', 0)
-                ->assertJsonPath('overview.reviewCount', 1)
+                ->assertJsonPath('overview.learningCount', 1)
+                ->assertJsonPath('overview.reviewCount', 0)
                 ->assertJsonPath('overview.totalCards', 1)
                 ->assertJsonPath('overview.newCardsPerDay', 20);
         } finally {

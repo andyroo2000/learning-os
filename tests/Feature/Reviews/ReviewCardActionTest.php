@@ -66,15 +66,15 @@ class ReviewCardActionTest extends TestCase
         ], $reviewEvent->card_state_before);
         $this->assertNull($reviewEvent->scheduler_state_before);
         $this->assertSame([
-            'due' => $reviewedAt->copy()->addDays(3)->toJSON(),
-            'stability' => 0.1,
-            'difficulty' => 5,
+            'due' => $reviewedAt->copy()->addMinutes(10)->toJSON(),
+            'stability' => 2.3065,
+            'difficulty' => 2.11810397,
             'elapsed_days' => 0,
-            'scheduled_days' => 3,
-            'learning_steps' => 0,
+            'scheduled_days' => 0,
+            'learning_steps' => 1,
             'reps' => 1,
             'lapses' => 0,
-            'state' => 2,
+            'state' => 1,
             'last_review' => $reviewedAt->toJSON(),
         ], $reviewEvent->scheduler_state_after);
 
@@ -128,9 +128,9 @@ class ReviewCardActionTest extends TestCase
 
         $card->refresh();
 
-        $this->assertSame(CardStudyStatus::Review, $card->study_status);
+        $this->assertSame(CardStudyStatus::Learning, $card->study_status);
         $this->assertSame($reviewedAt->toJSON(), $card->introduced_at?->toJSON());
-        $this->assertSame($reviewedAt->copy()->addDays(3)->toJSON(), $card->due_at?->toJSON());
+        $this->assertSame($reviewedAt->copy()->addMinutes(10)->toJSON(), $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);
         $this->assertSame($reviewedAt->toJSON(), $card->last_reviewed_at?->toJSON());
     }
@@ -174,7 +174,21 @@ class ReviewCardActionTest extends TestCase
 
     public function test_again_reviews_mark_cards_relearning_and_failed(): void
     {
-        $card = Card::factory()->create();
+        $card = Card::factory()->create([
+            'study_status' => CardStudyStatus::Review,
+            'scheduler_state' => [
+                'due' => '2026-05-27T09:15:00.000000Z',
+                'stability' => 10,
+                'difficulty' => 5,
+                'elapsed_days' => 10,
+                'scheduled_days' => 10,
+                'learning_steps' => 0,
+                'reps' => 4,
+                'lapses' => 0,
+                'state' => 2,
+                'last_review' => '2026-05-17T09:15:00.000000Z',
+            ],
+        ]);
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
 
         $this->reviewCard(
@@ -658,7 +672,7 @@ class ReviewCardActionTest extends TestCase
         $this->assertTrue($result->wasCreated);
         $this->assertSame($storedCardId, $result->reviewEvent->card_id);
         $this->assertSame($storedCardId, CardReviewEvent::query()->findOrFail($result->reviewEvent->id)->card_id);
-        $this->assertSame(CardStudyStatus::Review, $card->refresh()->study_status);
+        $this->assertSame(CardStudyStatus::Learning, $card->refresh()->study_status);
     }
 
     public function test_it_is_idempotent_for_the_same_client_event_and_device(): void

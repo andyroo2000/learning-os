@@ -5,7 +5,6 @@ namespace Tests\Unit\Flashcards;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSchedulerState;
-use App\Domain\Reviews\Enums\CardReviewRating;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\TestCase;
 
@@ -27,44 +26,6 @@ class CardSchedulerStateTest extends TestCase
             'state' => 0,
             'last_review' => null,
         ], CardSchedulerState::freshNew($now));
-    }
-
-    public function test_review_state_preserves_existing_difficulty_and_counts_review_attempts(): void
-    {
-        $card = new Card;
-        $card->scheduler_state = [
-            'due' => '2026-06-01T09:15:00.000000Z',
-            'stability' => 10,
-            'difficulty' => 4,
-            'elapsed_days' => 0,
-            'scheduled_days' => 3,
-            'learning_steps' => 0,
-            'reps' => 2,
-            'lapses' => 1,
-            'state' => 2,
-            'last_review' => '2026-06-01T09:15:00.000000Z',
-        ];
-
-        $state = CardSchedulerState::reviewed(
-            card: $card,
-            rating: CardReviewRating::Again,
-            studyStatus: CardStudyStatus::Relearning,
-            dueAt: Carbon::parse('2026-06-04T12:10:00Z'),
-            reviewedAt: Carbon::parse('2026-06-04T12:00:00Z'),
-        );
-
-        $this->assertSame([
-            'due' => '2026-06-04T12:10:00.000000Z',
-            'stability' => 10,
-            'difficulty' => 4,
-            'elapsed_days' => 3,
-            'scheduled_days' => 0,
-            'learning_steps' => 0,
-            'reps' => 3,
-            'lapses' => 2,
-            'state' => 3,
-            'last_review' => '2026-06-04T12:00:00.000000Z',
-        ], $state);
     }
 
     public function test_due_override_preserves_scheduled_days_when_due_is_unchanged(): void
@@ -112,27 +73,6 @@ class CardSchedulerStateTest extends TestCase
 
         $this->assertSame(1, $state['scheduled_days']);
         $this->assertSame('2026-06-05T14:15:00.000000Z', $state['due']);
-    }
-
-    public function test_review_state_ignores_invalid_last_review_timestamps(): void
-    {
-        $card = new Card;
-        $card->scheduler_state = [
-            'last_review' => '2026-06-01T09:15:00+15:00',
-            'reps' => 2,
-        ];
-
-        $state = CardSchedulerState::reviewed(
-            card: $card,
-            rating: CardReviewRating::Good,
-            studyStatus: CardStudyStatus::Review,
-            dueAt: Carbon::parse('2026-06-05T14:15:00Z'),
-            reviewedAt: Carbon::parse('2026-06-04T12:00:00Z'),
-        );
-
-        $this->assertSame(0, $state['elapsed_days']);
-        $this->assertSame(3, $state['reps']);
-        $this->assertSame('2026-06-04T12:00:00.000000Z', $state['last_review']);
     }
 
     public function test_it_restores_study_status_from_scheduler_state(): void

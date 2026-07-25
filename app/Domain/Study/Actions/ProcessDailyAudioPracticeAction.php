@@ -48,7 +48,12 @@ class ProcessDailyAudioPracticeAction
 
         $l1VoiceId = (string) config('daily_audio.l1_voice_id');
         $l2VoiceId = (string) config('daily_audio.l2_voice_id');
-        $secondaryL2VoiceId = (string) config('daily_audio.l2_secondary_voice_id');
+        $dialogueSpeakerAVoiceId = (string) config(
+            'daily_audio.dialogue_speaker_a_voice_id',
+        );
+        $dialogueSpeakerBVoiceId = (string) config(
+            'daily_audio.dialogue_speaker_b_voice_id',
+        );
         $generated = [
             'drill' => $this->scriptGenerator->generate(
                 $atoms,
@@ -58,8 +63,8 @@ class ProcessDailyAudioPracticeAction
             'dialogue' => $this->contextTrackGenerator->generateDialogue(
                 $atoms,
                 $l1VoiceId,
-                $l2VoiceId,
-                $secondaryL2VoiceId,
+                $dialogueSpeakerAVoiceId,
+                $dialogueSpeakerBVoiceId,
             ),
             'story' => $this->contextTrackGenerator->generateStory(
                 $atoms,

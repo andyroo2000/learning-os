@@ -192,6 +192,56 @@ class FsrsReviewSchedulerTest extends TestCase
         $this->assertSame(3, $relearning['schedulerState']['state']);
     }
 
+    public function test_good_advances_and_then_graduates_through_both_learning_steps(): void
+    {
+        $first = FsrsReviewScheduler::review(
+            schedulerState: null,
+            studyStatus: CardStudyStatus::New,
+            rating: CardReviewRating::Good,
+            reviewedAt: Carbon::parse('2026-07-25T12:00:00Z'),
+        );
+        $second = FsrsReviewScheduler::review(
+            schedulerState: $first['schedulerState'],
+            studyStatus: $first['studyStatus'],
+            rating: CardReviewRating::Good,
+            reviewedAt: $first['dueAt'],
+        );
+
+        $this->assertSame(CardStudyStatus::Learning, $first['studyStatus']);
+        $this->assertSame(1, $first['schedulerState']['learning_steps']);
+        $this->assertSame('2026-07-25T12:10:00.000000Z', $first['schedulerState']['due']);
+
+        $this->assertSame(CardStudyStatus::Review, $second['studyStatus']);
+        $this->assertSame(0, $second['schedulerState']['learning_steps']);
+        $this->assertSame(2, $second['schedulerState']['scheduled_days']);
+        $this->assertSame('2026-07-27T12:10:00.000000Z', $second['schedulerState']['due']);
+        $this->assertSame(2.3065, $second['schedulerState']['stability']);
+        $this->assertSame(2.11121424, $second['schedulerState']['difficulty']);
+    }
+
+    public function test_invalid_scheduler_state_falls_back_to_the_study_status(): void
+    {
+        $result = FsrsReviewScheduler::review(
+            schedulerState: [
+                'state' => 99,
+                'stability' => 10,
+                'difficulty' => 5,
+                'learning_steps' => 0,
+                'reps' => 3,
+                'lapses' => 0,
+                'last_review' => '2026-07-24T12:00:00.000000Z',
+            ],
+            studyStatus: CardStudyStatus::Learning,
+            rating: CardReviewRating::Hard,
+            reviewedAt: Carbon::parse('2026-07-25T12:00:00-04:00'),
+        );
+
+        $this->assertSame(CardStudyStatus::Learning, $result['studyStatus']);
+        $this->assertSame(1, $result['schedulerState']['state']);
+        $this->assertSame('2026-07-25T16:06:00.000000Z', $result['schedulerState']['due']);
+        $this->assertSame('2026-07-25T16:00:00.000000Z', $result['schedulerState']['last_review']);
+    }
+
     /**
      * @return array<string, int|float|string|null>
      */

@@ -87,7 +87,8 @@ final class FsrsReviewScheduler
         CardReviewRating $rating,
         Carbon $reviewedAt,
     ): array {
-        $current = self::normalizeState($schedulerState, $studyStatus);
+        $reviewedAt = $reviewedAt->copy()->utc();
+        $current = self::normalizeState($schedulerState, $studyStatus, $reviewedAt);
         $elapsedDays = self::elapsedDays($current['last_review'], $reviewedAt, $current['state']);
         $ratingValue = self::ratingValue($rating);
 
@@ -534,12 +535,13 @@ final class FsrsReviewScheduler
     private static function normalizeState(
         ?array $state,
         CardStudyStatus $studyStatus,
+        Carbon $reviewedAt,
     ): array {
         $stateNumber = self::integer($state, 'state', self::stateForStudyStatus($studyStatus));
         $isNew = $stateNumber === self::STATE_NEW;
 
         return [
-            'due' => self::date($state, 'due') ?? now()->utc(),
+            'due' => self::date($state, 'due') ?? $reviewedAt->copy(),
             'stability' => $isNew ? 0.0 : max(
                 self::numeric($state, 'stability', 0.1),
                 self::MINIMUM_STABILITY,

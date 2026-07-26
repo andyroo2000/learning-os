@@ -720,8 +720,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             // Sync clients resolve one feed page per request instead of spending the
             // shared compatibility quota on one card-detail request per feed entry.
-            Route::post('/study/cards/batch', ListStudyCardBatchController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::post('/study/cards/batch', ListStudyCardBatchController::class);
             Route::get('/study/cards/{cardId}', ShowStudyCardController::class)
                 ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);

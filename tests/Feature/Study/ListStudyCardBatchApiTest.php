@@ -72,7 +72,7 @@ class ListStudyCardBatchApiTest extends TestCase
             ->assertJsonValidationErrors(['ids.0']);
     }
 
-    public function test_it_requires_authentication_and_uses_read_rate_limits(): void
+    public function test_it_requires_authentication_and_uses_the_compatibility_network_limit(): void
     {
         $id = strtolower((string) Str::ulid());
 
@@ -88,7 +88,7 @@ class ListStudyCardBatchApiTest extends TestCase
             'throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME,
             $route->gatherMiddleware(),
         );
-        $this->assertContains(
+        $this->assertNotContains(
             'throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME,
             $route->gatherMiddleware(),
         );

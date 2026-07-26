@@ -41,6 +41,9 @@ class StudyCompatibilityTrafficRouteTest extends TestCase
             'api/study/media/batch',
             'api/study/media/{mediaAsset}',
         ];
+        $postReadRoutes = [
+            'api/study/cards/batch',
+        ];
 
         foreach ($this->compatibilityRoutes() as $route) {
             $middleware = $route->gatherMiddleware();
@@ -51,7 +54,10 @@ class StudyCompatibilityTrafficRouteTest extends TestCase
                 continue;
             }
 
-            if (! in_array('GET', $route->methods(), true)) {
+            if (
+                ! in_array('GET', $route->methods(), true)
+                && ! in_array($route->uri(), $postReadRoutes, true)
+            ) {
                 $this->assertNotContains($readMiddleware, $middleware, $route->uri());
                 $this->assertNotContains($mediaMiddleware, $middleware, $route->uri());
 

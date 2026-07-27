@@ -49,6 +49,27 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
+    public function test_review_session_returns_due_backlogs_beyond_the_retired_300_card_cap(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        for ($offset = 0; $offset < 301; $offset++) {
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+                'due_at' => $now->copy()->subMinutes(301 - $offset),
+            ]);
+        }
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertCount(301, $result->cards);
+        $this->assertSame(301, $result->overview['due_count']);
+    }
+
     public function test_new_cards_use_remaining_daily_allowance_for_the_requested_time_zone(): void
     {
         $now = Carbon::parse('2026-06-04T03:00:00Z');

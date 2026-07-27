@@ -383,6 +383,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 ?Carbon $now = null,
                 ?string $deckId = null,
                 ?string $courseId = null,
+                bool $includeGuidance = true,
             ): array {
                 $this->timeZones[] = $timeZone;
 

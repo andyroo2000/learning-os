@@ -31,6 +31,7 @@ class GetStudyOverviewAction
         ?Carbon $now = null,
         ?string $deckId = null,
         ?string $courseId = null,
+        bool $includeGuidance = true,
     ): array {
         $now ??= now();
         $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study overview');
@@ -45,19 +46,7 @@ class GetStudyOverviewAction
         $introducedToday = $cardMetrics['new_cards_introduced_today'];
         $newCardsPerDay = $cardMetrics['new_cards_per_day'];
         $remainingNewCards = max(0, $newCardsPerDay - $introducedToday);
-        $masterySpread = $this->masterySpread($userId, $courseId, $deckId);
-        $learningReadiness = $this->learningReadiness(
-            userId: $userId,
-            courseId: $courseId,
-            deckId: $deckId,
-            now: $now,
-            dueCount: $dueCount + $failedDueCount,
-            apprenticeCount: $masterySpread[StudyMasteryLevel::Apprentice->value],
-            newCardsPerDay: $newCardsPerDay,
-            lessonBatchSize: $cardMetrics['lesson_batch_size'],
-        );
-
-        return [
+        $overview = [
             'due_count' => $dueCount,
             'failed_count' => $cardMetrics['failed_count'],
             'failed_due_count' => $failedDueCount,
@@ -72,9 +61,26 @@ class GetStudyOverviewAction
             'total_cards' => $cardMetrics['total_cards'],
             'latest_import' => $this->latestImport($userId),
             'next_due_at' => $cardMetrics['next_due_at'],
-            'mastery_spread' => $masterySpread,
-            'learning_readiness' => $learningReadiness,
         ];
+
+        if (! $includeGuidance) {
+            return $overview;
+        }
+
+        $masterySpread = $this->masterySpread($userId, $courseId, $deckId);
+        $overview['mastery_spread'] = $masterySpread;
+        $overview['learning_readiness'] = $this->learningReadiness(
+            userId: $userId,
+            courseId: $courseId,
+            deckId: $deckId,
+            now: $now,
+            dueCount: $dueCount + $failedDueCount,
+            apprenticeCount: $masterySpread[StudyMasteryLevel::Apprentice->value],
+            newCardsPerDay: $newCardsPerDay,
+            lessonBatchSize: $cardMetrics['lesson_batch_size'],
+        );
+
+        return $overview;
     }
 
     private function resolveTimeZone(?string $timeZone): string
@@ -252,12 +258,19 @@ class GetStudyOverviewAction
             // Only introduced, active cards contribute to motivational mastery load.
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->selectRaw(<<<SQL
-                COALESCE(SUM(CASE WHEN {$stability} IS NULL OR {$stability} < 7 THEN 1 ELSE 0 END), 0) AS apprentice,
-                COALESCE(SUM(CASE WHEN {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
-                COALESCE(SUM(CASE WHEN {$stability} >= 30 AND {$stability} < 90 THEN 1 ELSE 0 END), 0) AS master,
-                COALESCE(SUM(CASE WHEN {$stability} >= 90 AND {$stability} < 365 THEN 1 ELSE 0 END), 0) AS enlightened,
-                COALESCE(SUM(CASE WHEN {$stability} >= 365 THEN 1 ELSE 0 END), 0) AS burned
-                SQL)
+                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) OR {$stability} IS NULL OR {$stability} < 7 THEN 1 ELSE 0 END), 0) AS apprentice,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 30 AND {$stability} < 90 THEN 1 ELSE 0 END), 0) AS master,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 90 AND {$stability} < 365 THEN 1 ELSE 0 END), 0) AS enlightened,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 365 THEN 1 ELSE 0 END), 0) AS burned
+                SQL, [
+                CardStudyStatus::Learning->value,
+                CardStudyStatus::Relearning->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+            ])
             ->first();
 
         return [

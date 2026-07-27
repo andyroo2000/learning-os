@@ -70,6 +70,7 @@ class StoreStudyReviewController extends Controller
                     timeZone: $request->timeZone($data),
                     deckId: $request->deckId(),
                     courseId: $request->courseId(),
+                    includeGuidance: false,
                 ),
             )->resolve($request);
 
@@ -95,6 +96,7 @@ class StoreStudyReviewController extends Controller
                     timeZone: $request->timeZone($data),
                     deckId: $request->deckId(),
                     courseId: $request->courseId(),
+                    includeGuidance: false,
                 ),
             )->resolve($request),
         ]);

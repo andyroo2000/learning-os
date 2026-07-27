@@ -35,6 +35,7 @@ class PerformCardStudyActionController extends Controller
                 userId: AuthenticatedUser::id($request),
                 timeZone: $data['time_zone'] ?? null,
                 deckId: $request->deckId(),
+                includeGuidance: false,
             ),
         ])
             ->response()

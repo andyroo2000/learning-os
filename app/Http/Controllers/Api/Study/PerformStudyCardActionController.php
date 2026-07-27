@@ -38,6 +38,7 @@ class PerformStudyCardActionController extends Controller
                     timeZone: $request->timeZone(),
                     deckId: $request->deckId(),
                     courseId: $request->courseId(),
+                    includeGuidance: false,
                 ),
             )->resolve($request),
         ]);

@@ -387,6 +387,8 @@ class GetStudyOverviewActionTest extends TestCase
                 'new_queue_position' => $position,
             ]);
         }
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Buried);
 
         $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
 

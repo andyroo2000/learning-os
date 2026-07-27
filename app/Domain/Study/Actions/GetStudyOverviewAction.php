@@ -16,6 +16,7 @@ use DateTimeZone;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -246,25 +247,36 @@ class GetStudyOverviewAction
      */
     private function masterySpread(int $userId, ?string $courseId, ?string $deckId): array
     {
-        $spread = array_fill_keys(
-            array_map(static fn (StudyMasteryLevel $level): string => $level->value, StudyMasteryLevel::cases()),
-            0,
-        );
+        $stability = $this->schedulerStabilityExpression();
+        $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            // Only introduced, active cards contribute to motivational mastery load.
+            ->whereIn('cards.study_status', $this->activeDueStatuses())
+            ->selectRaw(<<<SQL
+                COALESCE(SUM(CASE WHEN {$stability} IS NULL OR {$stability} < 7 THEN 1 ELSE 0 END), 0) AS apprentice,
+                COALESCE(SUM(CASE WHEN {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
+                COALESCE(SUM(CASE WHEN {$stability} >= 30 AND {$stability} < 90 THEN 1 ELSE 0 END), 0) AS master,
+                COALESCE(SUM(CASE WHEN {$stability} >= 90 AND {$stability} < 365 THEN 1 ELSE 0 END), 0) AS enlightened,
+                COALESCE(SUM(CASE WHEN {$stability} >= 365 THEN 1 ELSE 0 END), 0) AS burned
+                SQL)
+            ->first();
 
-        $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
-            // Untouched cards have not entered the learning pipeline yet. Including
-            // a fresh import here would make deck size look like Apprentice load.
-            ->where('cards.study_status', '!=', CardStudyStatus::New->value)
-            ->select(['cards.study_status', 'cards.scheduler_state'])
-            ->cursor()
-            ->each(function (Card $card) use (&$spread): void {
-                $status = $card->study_status ?? CardStudyStatus::New;
-                $scheduler = is_array($card->scheduler_state) ? $card->scheduler_state : null;
-                $spread[StudyMasteryLevel::fromFsrs($status, $scheduler)->value]++;
-            });
+        return [
+            'apprentice' => (int) $row?->apprentice,
+            'guru' => (int) $row?->guru,
+            'master' => (int) $row?->master,
+            'enlightened' => (int) $row?->enlightened,
+            'burned' => (int) $row?->burned,
+        ];
+    }
 
-        /** @var array{apprentice: int, guru: int, master: int, enlightened: int, burned: int} $spread */
-        return $spread;
+    private function schedulerStabilityExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "CAST(json_extract(cards.scheduler_state, '$.stability') AS REAL)",
+            'pgsql' => "CAST(cards.scheduler_state->>'stability' AS DOUBLE PRECISION)",
+            'mysql' => "CAST(JSON_UNQUOTE(JSON_EXTRACT(cards.scheduler_state, '$.stability')) AS DECIMAL(20, 6))",
+            default => throw new UnexpectedValueException('Unsupported database driver for study mastery aggregation.'),
+        };
     }
 
     /**

@@ -70,6 +70,24 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(301, $result->overview['due_count']);
     }
 
+    public function test_review_session_is_empty_when_only_new_lesson_cards_exist(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+        ]);
+
+        $result = app(StartStudySessionAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertCount(0, $result->cards);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
+    }
+
     public function test_new_cards_use_remaining_daily_allowance_for_the_requested_time_zone(): void
     {
         $now = Carbon::parse('2026-06-04T03:00:00Z');

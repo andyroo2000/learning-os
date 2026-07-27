@@ -152,7 +152,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
-    public function test_it_reviews_a_copied_card_by_the_client_id_returned_from_session_start(): void
+    public function test_it_reviews_a_copied_card_by_the_client_id_returned_from_lesson_start(): void
     {
         $this->withoutMiddleware(TrimStrings::class);
         Carbon::setTestNow(Carbon::parse('2026-07-16T15:30:00Z'));
@@ -175,7 +175,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
                 'answer_json' => ['type' => 'text', 'text' => 'company'],
             ]);
 
-            $sessionResponse = $this->postJson('/api/study/session/start');
+            $sessionResponse = $this->postJson('/api/study/lessons/start');
             $sessionCardId = $sessionResponse->json('cards.0.id');
 
             $this->assertSame(strtolower($clientCardId), $sessionCardId);

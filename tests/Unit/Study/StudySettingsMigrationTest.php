@@ -49,6 +49,55 @@ class StudySettingsMigrationTest extends TestCase
         );
     }
 
+    #[DataProvider('lessonBatchSizeSqlProvider')]
+    public function test_lesson_batch_size_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAddSql,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $add = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->unsignedSmallInteger('lesson_batch_size')->default(5)->after('new_cards_per_day');
+        });
+        $drop = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->dropColumn('lesson_batch_size');
+        });
+
+        $this->assertSame($expectedAddSql, $add->toSql());
+        $this->assertSame($expectedDropSql, $drop->toSql());
+    }
+
+    /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function lessonBatchSizeSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                ['alter table "study_settings" add column "lesson_batch_size" integer not null default \'5\''],
+                ['alter table "study_settings" drop column "lesson_batch_size"'],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                ['alter table "study_settings" add column "lesson_batch_size" smallint not null default \'5\''],
+                ['alter table "study_settings" drop column "lesson_batch_size"'],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                ['alter table `study_settings` add `lesson_batch_size` smallint unsigned not null default \'5\' after `new_cards_per_day`'],
+                ['alter table `study_settings` drop `lesson_batch_size`'],
+            ],
+        ];
+    }
+
     /**
      * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
      */

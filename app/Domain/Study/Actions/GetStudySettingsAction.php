@@ -19,6 +19,7 @@ class GetStudySettingsAction
         // Missing rows are effective defaults for reads; UpdateStudySettingsAction owns materializing writes.
         $settings = new StudySettings([
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+            'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
         ]);
         $settings->user_id = $userId;
 

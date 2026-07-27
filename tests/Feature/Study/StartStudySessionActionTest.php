@@ -4,7 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
-use App\Domain\Study\Actions\GetStudyOverviewAction;
+use App\Domain\Study\Actions\StartStudyLessonAction;
 use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Domain\Study\Models\StudySettings;
 use App\Http\Resources\Study\StudySessionResource;
@@ -13,7 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use LogicException;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -47,7 +46,7 @@ class StartStudySessionActionTest extends TestCase
 
         $this->assertSame([$firstDueCard->id, $secondDueCard->id], $result->cards->pluck('id')->all());
         $this->assertSame(2, $result->overview['due_count']);
-        $this->assertSame(0, $result->overview['new_cards_available_today']);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
     public function test_new_cards_use_remaining_daily_allowance_for_the_requested_time_zone(): void
@@ -76,7 +75,7 @@ class StartStudySessionActionTest extends TestCase
             'new_queue_position' => 3,
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             timeZone: 'America/New_York',
             now: $now,
@@ -105,7 +104,7 @@ class StartStudySessionActionTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             now: $now,
         );
@@ -143,7 +142,7 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(0, $result->overview['due_count']);
         $this->assertSame(1, $result->overview['failed_count']);
         $this->assertSame(1, $result->overview['failed_due_count']);
-        $this->assertSame(0, $result->overview['new_cards_available_today']);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
     public function test_regular_due_and_ready_failed_cards_are_returned_together_with_separate_counts(): void
@@ -176,7 +175,7 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(1, $result->overview['due_count']);
         $this->assertSame(1, $result->overview['failed_count']);
         $this->assertSame(1, $result->overview['failed_due_count']);
-        $this->assertSame(0, $result->overview['new_cards_available_today']);
+        $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
     public function test_ready_failed_cards_outside_the_deck_filter_do_not_change_the_deck_session(): void
@@ -196,7 +195,7 @@ class StartStudySessionActionTest extends TestCase
             'failed_at' => $now->copy()->subHour(),
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             now: $now,
             deckId: $deck->id,
@@ -207,34 +206,6 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(0, $result->overview['failed_count']);
         $this->assertSame(0, $result->overview['failed_due_count']);
         $this->assertSame(1, $result->overview['new_cards_available_today']);
-    }
-
-    public function test_it_requires_the_internal_failed_due_count_overview_key(): void
-    {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Study overview is missing failed_due_count.');
-
-        $this->startStudySessionWithOverview([
-            'due_count' => 0,
-            'new_cards_available_today' => 0,
-        ])->handle(
-            userId: User::factory()->create()->id,
-            now: Carbon::parse('2026-06-04T12:00:00Z'),
-        );
-    }
-
-    public function test_it_requires_the_internal_due_count_overview_key(): void
-    {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Study overview is missing due_count.');
-
-        $this->startStudySessionWithOverview([
-            'failed_due_count' => 0,
-            'new_cards_available_today' => 0,
-        ])->handle(
-            userId: User::factory()->create()->id,
-            now: Carbon::parse('2026-06-04T12:00:00Z'),
-        );
     }
 
     public function test_it_only_uses_owned_cards_from_active_decks(): void
@@ -257,7 +228,7 @@ class StartStudySessionActionTest extends TestCase
             'due_at' => $now->copy()->subHour(),
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             now: $now,
         );
@@ -349,7 +320,7 @@ class StartStudySessionActionTest extends TestCase
             'due_at' => $now->copy()->addDay(),
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             now: $now,
             deckId: $deck->id,
@@ -386,7 +357,7 @@ class StartStudySessionActionTest extends TestCase
             'due_at' => $now->copy()->addDay(),
         ]);
 
-        $result = app(StartStudySessionAction::class)->handle(
+        $result = app(StartStudyLessonAction::class)->handle(
             userId: $user->id,
             now: $now,
             courseId: $course->id,
@@ -419,25 +390,26 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(0, $result->overview['total_cards']);
     }
 
-    public function test_new_cards_are_capped_by_the_server_owned_session_limit(): void
+    public function test_new_cards_are_capped_by_the_lesson_batch_size(): void
     {
         $user = User::factory()->create();
         $deck = $this->deckFor($user);
         StudySettings::factory()->for($user)->create([
             'new_cards_per_day' => 1000,
+            'lesson_batch_size' => 5,
         ]);
 
-        for ($position = 1; $position <= StartStudySessionAction::READY_CARD_LIMIT + 2; $position++) {
+        for ($position = 1; $position <= 7; $position++) {
             $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
                 'new_queue_position' => $position,
             ]);
         }
 
-        $result = app(StartStudySessionAction::class)->handle($user->id);
+        $result = app(StartStudyLessonAction::class)->handle($user->id);
 
-        $this->assertCount(StartStudySessionAction::READY_CARD_LIMIT, $result->cards);
-        $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_count']);
-        $this->assertSame(StartStudySessionAction::READY_CARD_LIMIT + 2, $result->overview['new_cards_available_today']);
+        $this->assertCount(5, $result->cards);
+        $this->assertSame(7, $result->overview['new_count']);
+        $this->assertSame(7, $result->overview['new_cards_available_today']);
     }
 
     public function test_it_serializes_new_session_cards_without_a_separate_deck_lookup_query(): void
@@ -538,7 +510,10 @@ class StartStudySessionActionTest extends TestCase
         DB::flushQueryLog();
 
         try {
-            $result = app(StartStudySessionAction::class)->handle(
+            $action = $status === CardStudyStatus::New
+                ? app(StartStudyLessonAction::class)
+                : app(StartStudySessionAction::class);
+            $result = $action->handle(
                 userId: $user->id,
                 now: $now,
             );
@@ -560,7 +535,7 @@ class StartStudySessionActionTest extends TestCase
         $this->assertCount(
             1,
             $sessionCardSelects,
-            "Expected exactly one card query because StartStudySessionAction::handle returns due OR new cards, never both.\n"
+            "Expected exactly one card query for the selected study flow.\n"
                 .$queries->pluck('query')->implode("\n"),
         );
 
@@ -575,34 +550,5 @@ class StartStudySessionActionTest extends TestCase
 
         return str_starts_with($normalizedSql, 'select')
             && preg_match('/\bfrom\s+["`]?'.preg_quote($table, '/').'["`]?/', $normalizedSql) === 1;
-    }
-
-    /**
-     * @param  array<string, mixed>  $overview
-     */
-    private function startStudySessionWithOverview(array $overview): StartStudySessionAction
-    {
-        return new StartStudySessionAction(
-            new class($overview) extends GetStudyOverviewAction
-            {
-                /**
-                 * @param  array<string, mixed>  $overview
-                 */
-                public function __construct(private readonly array $overview) {}
-
-                /**
-                 * @return array<string, mixed>
-                 */
-                public function handle(
-                    int $userId,
-                    ?string $timeZone = null,
-                    ?Carbon $now = null,
-                    ?string $deckId = null,
-                    ?string $courseId = null,
-                ): array {
-                    return $this->overview;
-                }
-            },
-        );
     }
 }

@@ -220,6 +220,7 @@ use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
+use App\Http\Controllers\Api\Study\StartStudyLessonController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreDailyAudioPracticeController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
@@ -587,6 +588,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
         ->group(function (): void {
             Route::post('/study/session/start', StartStudySessionController::class)
+                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+            Route::post('/study/lessons/start', StartStudyLessonController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/offline-reserve', BuildStudyOfflineReserveController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);

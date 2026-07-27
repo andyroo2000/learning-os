@@ -44,6 +44,7 @@ class StudySettingsApiTest extends TestCase
         $response
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 32,
             ]);
     }
@@ -61,6 +62,7 @@ class StudySettingsApiTest extends TestCase
         $this->getJson('/api/study/settings')
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
             ]);
     }
@@ -74,6 +76,7 @@ class StudySettingsApiTest extends TestCase
         $response
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
             ]);
 
@@ -118,6 +121,7 @@ class StudySettingsApiTest extends TestCase
         $response
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
             ]);
 
@@ -144,6 +148,7 @@ class StudySettingsApiTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
             ]);
 
@@ -163,12 +168,37 @@ class StudySettingsApiTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
+                'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
             ]);
 
         $this->assertDatabaseHas('study_settings', [
             'user_id' => $user->id,
             'new_cards_per_day' => 12,
+        ]);
+    }
+
+    public function test_update_changes_lesson_batch_size_without_overwriting_daily_allowance(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 12,
+            'lesson_batch_size' => 5,
+        ]);
+
+        $this->patchJson('/api/study/settings', [
+            'lessonBatchSize' => 8,
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'lessonBatchSize' => 8,
+                'newCardsPerDay' => 12,
+            ]);
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => 12,
+            'lesson_batch_size' => 8,
         ]);
     }
 
@@ -312,7 +342,7 @@ class StudySettingsApiTest extends TestCase
 
         $this->patchJson('/api/study/settings', [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['new_cards_per_day']);
+            ->assertJsonValidationErrors(['settings']);
 
         $this->patchJson('/api/study/settings', ['new_cards_per_day' => 'twelve'])
             ->assertUnprocessable()
@@ -345,5 +375,11 @@ class StudySettingsApiTest extends TestCase
         $this->patchJson('/api/study/settings', ['newCardsPerDay' => ['12']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['newCardsPerDay']);
+
+        foreach ([2, 11, 'five', ['5']] as $invalidBatchSize) {
+            $this->patchJson('/api/study/settings', ['lesson_batch_size' => $invalidBatchSize])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['lesson_batch_size']);
+        }
     }
 }

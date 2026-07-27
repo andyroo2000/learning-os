@@ -17,15 +17,30 @@ class UpdateStudySettingsAction
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
     ) {}
 
-    public function handle(int $userId, int $newCardsPerDay): StudySettings
+    public function handle(int $userId, ?int $newCardsPerDay, ?int $lessonBatchSize = null): StudySettings
     {
-        if ($newCardsPerDay < 0 || $newCardsPerDay > StudySettings::MAX_NEW_CARDS_PER_DAY) {
+        if ($newCardsPerDay === null && $lessonBatchSize === null) {
+            throw new InvalidArgumentException('At least one study setting must be provided.');
+        }
+
+        if ($newCardsPerDay !== null && ($newCardsPerDay < 0 || $newCardsPerDay > StudySettings::MAX_NEW_CARDS_PER_DAY)) {
             throw new InvalidArgumentException(
                 'new_cards_per_day must be an integer between 0 and '.StudySettings::MAX_NEW_CARDS_PER_DAY.'.',
             );
         }
 
-        return DB::transaction(function () use ($userId, $newCardsPerDay): StudySettings {
+        if (
+            $lessonBatchSize !== null
+            && ($lessonBatchSize < StudySettings::MIN_LESSON_BATCH_SIZE
+                || $lessonBatchSize > StudySettings::MAX_LESSON_BATCH_SIZE)
+        ) {
+            throw new InvalidArgumentException(
+                'lesson_batch_size must be an integer between '
+                .StudySettings::MIN_LESSON_BATCH_SIZE.' and '.StudySettings::MAX_LESSON_BATCH_SIZE.'.',
+            );
+        }
+
+        return DB::transaction(function () use ($userId, $newCardsPerDay, $lessonBatchSize): StudySettings {
             $this->lockSettingsOwner($userId);
 
             $settings = StudySettings::query()
@@ -33,13 +48,21 @@ class UpdateStudySettingsAction
                 ->first();
 
             if ($settings === null) {
-                $settings = new StudySettings;
+                $settings = new StudySettings([
+                    'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+                    'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                ]);
                 $settings->user_id = $userId;
             }
 
-            $settings->new_cards_per_day = $newCardsPerDay;
+            if ($newCardsPerDay !== null) {
+                $settings->new_cards_per_day = $newCardsPerDay;
+            }
+            if ($lessonBatchSize !== null) {
+                $settings->lesson_batch_size = $lessonBatchSize;
+            }
             $operation = $settings->exists ? SyncFeedOperation::Update : SyncFeedOperation::Create;
-            $wasUpdated = $settings->isDirty(['new_cards_per_day']);
+            $wasUpdated = $settings->isDirty(['new_cards_per_day', 'lesson_batch_size']);
 
             $settings->saveOrFail();
 

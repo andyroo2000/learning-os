@@ -21,6 +21,7 @@ class StudySettingsFactory extends Factory
         return [
             'user_id' => User::factory(),
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+            'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
         ];
     }
 }

@@ -21,6 +21,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'failedCount' => $this->overviewValue('failed_count'),
             'newCount' => $this->overviewValue('new_count'),
             'newCardsPerDay' => $this->overviewValue('new_cards_per_day'),
+            'lessonBatchSize' => $this->overviewValue('lesson_batch_size'),
             'newCardsIntroducedToday' => $this->overviewValue('new_cards_introduced_today'),
             'newCardsAvailableToday' => $this->overviewValue('new_cards_available_today'),
             'learningCount' => $this->overviewValue('learning_count'),
@@ -29,6 +30,32 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'totalCards' => $this->overviewValue('total_cards'),
             'latestImport' => $this->latestImport(),
             'nextDueAt' => $this->overviewValue('next_due_at'),
+            'masterySpread' => $this->overviewValue('mastery_spread'),
+            'learningReadiness' => $this->learningReadiness(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function learningReadiness(): ?array
+    {
+        $readiness = $this->resource['learning_readiness'] ?? null;
+
+        if (! is_array($readiness)) {
+            return null;
+        }
+
+        return [
+            'recommendation' => $readiness['recommendation'],
+            'sampleSize' => $readiness['sample_size'],
+            'sufficientData' => $readiness['sufficient_data'],
+            'recentRecall' => $readiness['recent_recall'],
+            'targetRecall' => $readiness['target_recall'],
+            'dueBacklog' => $readiness['due_backlog'],
+            'apprenticeCount' => $readiness['apprentice_count'],
+            'projectedSevenDayReviews' => $readiness['projected_seven_day_reviews'],
+            'suggestedBatchSize' => $readiness['suggested_batch_size'],
         ];
     }
 

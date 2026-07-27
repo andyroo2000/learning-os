@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
-#[Fillable(['new_cards_per_day'])]
+#[Fillable(['new_cards_per_day', 'lesson_batch_size'])]
 class StudySettings extends Model
 {
     /** @use HasFactory<StudySettingsFactory> */
@@ -19,6 +19,12 @@ class StudySettings extends Model
     public const DEFAULT_NEW_CARDS_PER_DAY = 20;
 
     public const MAX_NEW_CARDS_PER_DAY = 1000;
+
+    public const DEFAULT_LESSON_BATCH_SIZE = 5;
+
+    public const MIN_LESSON_BATCH_SIZE = 3;
+
+    public const MAX_LESSON_BATCH_SIZE = 10;
 
     protected static function booted(): void
     {
@@ -41,6 +47,7 @@ class StudySettings extends Model
     {
         return [
             'new_cards_per_day' => 'integer',
+            'lesson_batch_size' => 'integer',
         ];
     }
 

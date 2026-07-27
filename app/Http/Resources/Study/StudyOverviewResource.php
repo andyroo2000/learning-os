@@ -17,6 +17,7 @@ class StudyOverviewResource extends JsonResource
         'failed_count',
         'new_count',
         'new_cards_per_day',
+        'lesson_batch_size',
         'new_cards_introduced_today',
         'new_cards_available_today',
         'learning_count',
@@ -25,6 +26,8 @@ class StudyOverviewResource extends JsonResource
         'total_cards',
         'latest_import',
         'next_due_at',
+        'mastery_spread',
+        'learning_readiness',
     ];
 
     /**

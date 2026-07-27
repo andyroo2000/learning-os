@@ -4,6 +4,8 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
@@ -70,7 +72,7 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['due_count']);
         $this->assertSame(1, $overview['new_count']);
         $this->assertSame(1, $overview['new_cards_introduced_today']);
-        $this->assertSame(0, $overview['new_cards_available_today']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
         $this->assertSame(1, $overview['learning_count']);
         $this->assertSame(2, $overview['review_count']);
         $this->assertSame(1, $overview['suspended_count']);
@@ -169,7 +171,7 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
     }
 
-    public function test_it_loads_overview_card_metrics_with_one_aggregate_query(): void
+    public function test_it_loads_overview_metrics_with_bounded_queries(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
@@ -218,11 +220,14 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(5, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
-        // Normal overview reads stay at card aggregate + latest import; settings are read as an effective singleton.
-        $this->assertCount(2, $queries, $queries->pluck('query')->implode("\n"));
+        // Overview reads remain bounded as the collection grows: aggregate, mastery,
+        // recent recall, projected workload, and latest import.
+        $this->assertCount(5, $queries, $queries->pluck('query')->implode("\n"));
 
         // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.
-        $cardMetricQueries = $queries->filter(fn (array $query): bool => str_contains($query['query'], 'SUM(CASE WHEN cards.study_status'));
+        $cardMetricQueries = $queries->filter(
+            fn (array $query): bool => str_contains($query['query'], 'COUNT(cards.id) AS total_cards'),
+        );
 
         $this->assertCount(1, $cardMetricQueries, $queries->pluck('query')->implode("\n"));
 
@@ -334,7 +339,104 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(5, $overview['new_cards_per_day']);
     }
 
-    public function test_due_count_excludes_failed_cards_but_ready_failed_cards_block_new_cards(): void
+    public function test_it_reports_fsrs_mastery_spread_and_advisory_learning_readiness(): void
+    {
+        $now = Carbon::parse('2026-07-27T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'lesson_batch_size' => 8,
+        ]);
+        $guruCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 7],
+            'due_at' => $now->copy()->addDay(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 365],
+            'due_at' => $now->copy()->addYear(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+            'scheduler_state' => ['stability' => 365],
+            'due_at' => $now->copy()->addMinutes(10),
+        ]);
+
+        for ($review = 0; $review < 30; $review++) {
+            CardReviewEvent::factory()->for($guruCard, 'card')->create([
+                'rating' => $review < 10 ? CardReviewRating::Again : CardReviewRating::Good,
+                'reviewed_at' => $now->copy()->subMinutes($review),
+            ]);
+        }
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame([
+            'apprentice' => 1,
+            'guru' => 1,
+            'master' => 0,
+            'enlightened' => 0,
+            'burned' => 1,
+        ], $overview['mastery_spread']);
+        $this->assertSame('pause', $overview['learning_readiness']['recommendation']);
+        $this->assertSame(30, $overview['learning_readiness']['sample_size']);
+        $this->assertSame(0.667, $overview['learning_readiness']['recent_recall']);
+        $this->assertSame(3, $overview['learning_readiness']['suggested_batch_size']);
+    }
+
+    public function test_lightweight_overview_omits_guidance_for_hot_write_responses(): void
+    {
+        $user = User::factory()->create();
+        $this->cardWithStudyStatus(
+            $this->deckFor($user),
+            CardStudyStatus::Review,
+            ['scheduler_state' => ['stability' => 30]],
+        );
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            $overview = app(GetStudyOverviewAction::class)->handle(
+                userId: $user->id,
+                includeGuidance: false,
+            );
+            $queries = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertArrayNotHasKey('mastery_spread', $overview);
+        $this->assertArrayNotHasKey('learning_readiness', $overview);
+        $this->assertCount(2, $queries);
+    }
+
+    public function test_untouched_new_cards_do_not_inflate_apprentice_load_or_readiness(): void
+    {
+        $now = Carbon::parse('2026-07-27T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        for ($position = 1; $position <= 100; $position++) {
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => $position,
+            ]);
+        }
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Buried);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame([
+            'apprentice' => 0,
+            'guru' => 0,
+            'master' => 0,
+            'enlightened' => 0,
+            'burned' => 0,
+        ], $overview['mastery_spread']);
+        $this->assertSame(0, $overview['learning_readiness']['apprentice_count']);
+        $this->assertSame('ready', $overview['learning_readiness']['recommendation']);
+    }
+
+    public function test_due_count_excludes_failed_cards_without_blocking_separate_lessons(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
@@ -360,7 +462,7 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['failed_count']);
         $this->assertSame(1, $overview['failed_due_count']);
         $this->assertSame(1, $overview['new_count']);
-        $this->assertSame(0, $overview['new_cards_available_today']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
         $this->assertSame($readyFailedCardDueAt->toJSON(), $overview['next_due_at']);
     }
 

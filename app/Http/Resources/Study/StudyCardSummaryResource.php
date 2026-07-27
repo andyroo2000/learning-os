@@ -4,6 +4,7 @@ namespace App\Http\Resources\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Support\DateTime\ConvoLabTimestamp;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -63,6 +64,10 @@ class StudyCardSummaryResource extends JsonResource
                 ],
                 'rawFsrs' => $this->source_fsrs_json,
             ],
+            'masteryLevel' => StudyMasteryLevel::fromFsrs(
+                $this->study_status ?? CardStudyStatus::New,
+                is_array($this->scheduler_state) ? $this->scheduler_state : null,
+            )->value,
             'variantGroupId' => $this->variant_group_id,
             'variantSentenceId' => $this->variant_sentence_id,
             'variantKind' => $this->stringAttributeValue('variant_kind'),

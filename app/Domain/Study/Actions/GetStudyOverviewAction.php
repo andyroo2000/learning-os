@@ -4,6 +4,9 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudyListScopeFilter;
@@ -13,6 +16,7 @@ use DateTimeZone;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -27,6 +31,7 @@ class GetStudyOverviewAction
         ?Carbon $now = null,
         ?string $deckId = null,
         ?string $courseId = null,
+        bool $includeGuidance = true,
     ): array {
         $now ??= now();
         $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study overview');
@@ -41,17 +46,15 @@ class GetStudyOverviewAction
         $introducedToday = $cardMetrics['new_cards_introduced_today'];
         $newCardsPerDay = $cardMetrics['new_cards_per_day'];
         $remainingNewCards = max(0, $newCardsPerDay - $introducedToday);
-
-        return [
+        $overview = [
             'due_count' => $dueCount,
             'failed_count' => $cardMetrics['failed_count'],
             'failed_due_count' => $failedDueCount,
             'new_count' => $newCount,
             'new_cards_per_day' => $newCardsPerDay,
+            'lesson_batch_size' => $cardMetrics['lesson_batch_size'],
             'new_cards_introduced_today' => $introducedToday,
-            'new_cards_available_today' => $dueCount > 0 || $failedDueCount > 0
-                ? 0
-                : min($newCount, $remainingNewCards),
+            'new_cards_available_today' => min($newCount, $remainingNewCards),
             'learning_count' => $cardMetrics['learning_count'],
             'review_count' => $cardMetrics['review_count'],
             'suspended_count' => $cardMetrics['suspended_count'],
@@ -59,6 +62,25 @@ class GetStudyOverviewAction
             'latest_import' => $this->latestImport($userId),
             'next_due_at' => $cardMetrics['next_due_at'],
         ];
+
+        if (! $includeGuidance) {
+            return $overview;
+        }
+
+        $masterySpread = $this->masterySpread($userId, $courseId, $deckId);
+        $overview['mastery_spread'] = $masterySpread;
+        $overview['learning_readiness'] = $this->learningReadiness(
+            userId: $userId,
+            courseId: $courseId,
+            deckId: $deckId,
+            now: $now,
+            dueCount: $dueCount + $failedDueCount,
+            apprenticeCount: $masterySpread[StudyMasteryLevel::Apprentice->value],
+            newCardsPerDay: $newCardsPerDay,
+            lessonBatchSize: $cardMetrics['lesson_batch_size'],
+        );
+
+        return $overview;
     }
 
     private function resolveTimeZone(?string $timeZone): string
@@ -120,6 +142,7 @@ class GetStudyOverviewAction
      *     failed_due_count: int,
      *     new_count: int,
      *     new_cards_per_day: int,
+     *     lesson_batch_size: int,
      *     new_cards_introduced_today: int,
      *     learning_count: int,
      *     review_count: int,
@@ -155,6 +178,11 @@ class GetStudyOverviewAction
                     FROM study_settings
                     WHERE study_settings.user_id = ?
                 ), ?) AS new_cards_per_day,
+                COALESCE((
+                    SELECT MAX(study_settings.lesson_batch_size)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS lesson_batch_size,
                 (
                     SELECT COUNT(introduced_cards.id)
                     FROM cards AS introduced_cards
@@ -176,6 +204,8 @@ class GetStudyOverviewAction
                 SQL, [
                 $userId,
                 StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+                $userId,
+                StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 $userId, // New-card daily allowance stays user-wide, even when overview counts are course/deck scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
@@ -208,12 +238,154 @@ class GetStudyOverviewAction
             'failed_due_count' => (int) $row?->failed_due_count,
             'new_count' => (int) $row?->new_count,
             'new_cards_per_day' => (int) $row?->new_cards_per_day,
+            'lesson_batch_size' => (int) $row?->lesson_batch_size,
             'new_cards_introduced_today' => (int) $row?->new_cards_introduced_today,
             'learning_count' => (int) $row?->learning_count,
             'review_count' => (int) $row?->review_count,
             'suspended_count' => (int) $row?->suspended_count,
             'total_cards' => (int) $row?->total_cards,
             'next_due_at' => $nextDueAt,
+        ];
+    }
+
+    /**
+     * @return array{apprentice: int, guru: int, master: int, enlightened: int, burned: int}
+     */
+    private function masterySpread(int $userId, ?string $courseId, ?string $deckId): array
+    {
+        $stability = $this->schedulerStabilityExpression();
+        $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            // Only introduced, active cards contribute to motivational mastery load.
+            ->whereIn('cards.study_status', $this->activeDueStatuses())
+            ->selectRaw(<<<SQL
+                COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) OR {$stability} IS NULL OR {$stability} < 7 THEN 1 ELSE 0 END), 0) AS apprentice,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 30 AND {$stability} < 90 THEN 1 ELSE 0 END), 0) AS master,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 90 AND {$stability} < 365 THEN 1 ELSE 0 END), 0) AS enlightened,
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 365 THEN 1 ELSE 0 END), 0) AS burned
+                SQL, [
+                CardStudyStatus::Learning->value,
+                CardStudyStatus::Relearning->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+                CardStudyStatus::Review->value,
+            ])
+            ->first();
+
+        return [
+            'apprentice' => (int) $row?->apprentice,
+            'guru' => (int) $row?->guru,
+            'master' => (int) $row?->master,
+            'enlightened' => (int) $row?->enlightened,
+            'burned' => (int) $row?->burned,
+        ];
+    }
+
+    private function schedulerStabilityExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "CAST(json_extract(cards.scheduler_state, '$.stability') AS REAL)",
+            'pgsql' => "CAST(cards.scheduler_state->>'stability' AS DOUBLE PRECISION)",
+            'mysql' => "CAST(JSON_UNQUOTE(JSON_EXTRACT(cards.scheduler_state, '$.stability')) AS DECIMAL(20, 6))",
+            default => throw new UnexpectedValueException('Unsupported database driver for study mastery aggregation.'),
+        };
+    }
+
+    /**
+     * @return array{
+     *     recommendation: string,
+     *     sample_size: int,
+     *     sufficient_data: bool,
+     *     recent_recall: float|null,
+     *     target_recall: float,
+     *     due_backlog: int,
+     *     apprentice_count: int,
+     *     projected_seven_day_reviews: int,
+     *     suggested_batch_size: int
+     * }
+     */
+    private function learningReadiness(
+        int $userId,
+        ?string $courseId,
+        ?string $deckId,
+        Carbon $now,
+        int $dueCount,
+        int $apprenticeCount,
+        int $newCardsPerDay,
+        int $lessonBatchSize,
+    ): array {
+        $targetRecall = 0.9;
+        $reviews = CardReviewEvent::query()
+            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->where('decks.user_id', $userId)
+            ->whereNull('decks.deleted_at')
+            ->whereNull('cards.deleted_at')
+            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
+            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
+            ->where('card_review_events.reviewed_at', '>=', $now->copy()->subDays(14))
+            ->orderByDesc('card_review_events.reviewed_at')
+            ->orderByDesc('card_review_events.id')
+            ->limit(100)
+            ->get(['card_review_events.rating']);
+        $sampleSize = $reviews->count();
+        $recentRecall = $sampleSize === 0
+            ? null
+            : round(
+                $reviews->reject(
+                    fn (CardReviewEvent $review): bool => $review->rating === CardReviewRating::Again,
+                )->count() / $sampleSize,
+                3,
+            );
+        $projectedSevenDayReviews = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            ->whereIn('cards.study_status', $this->activeDueStatuses())
+            ->whereNotNull('cards.due_at')
+            ->where('cards.due_at', '<=', $now->copy()->addDays(7))
+            ->count('cards.id');
+        $sufficientData = $sampleSize >= 30;
+        $recommendation = 'ready';
+
+        if ($sufficientData && $recentRecall !== null) {
+            if (
+                $recentRecall < $targetRecall - 0.10
+                || ($recentRecall < $targetRecall - 0.08 && $apprenticeCount >= 25)
+            ) {
+                $recommendation = 'pause';
+            } elseif (
+                $recentRecall < $targetRecall - 0.05
+                || $dueCount >= max(50, $newCardsPerDay * 3)
+                || $apprenticeCount >= 100
+            ) {
+                $recommendation = 'caution';
+            }
+        } elseif ($dueCount >= max(50, $newCardsPerDay * 3) || $apprenticeCount >= 100) {
+            $recommendation = 'caution';
+        }
+
+        $configuredBatchSize = min(
+            StudySettings::MAX_LESSON_BATCH_SIZE,
+            max(StudySettings::MIN_LESSON_BATCH_SIZE, $lessonBatchSize),
+        );
+        $suggestedBatchSize = match ($recommendation) {
+            'pause' => StudySettings::MIN_LESSON_BATCH_SIZE,
+            'caution' => max(
+                StudySettings::MIN_LESSON_BATCH_SIZE,
+                (int) ceil($configuredBatchSize / 2),
+            ),
+            default => $configuredBatchSize,
+        };
+
+        return [
+            'recommendation' => $recommendation,
+            'sample_size' => $sampleSize,
+            'sufficient_data' => $sufficientData,
+            'recent_recall' => $recentRecall,
+            'target_recall' => $targetRecall,
+            'due_backlog' => $dueCount,
+            'apprentice_count' => $apprenticeCount,
+            'projected_seven_day_reviews' => $projectedSevenDayReviews,
+            'suggested_batch_size' => $suggestedBatchSize,
         ];
     }
 

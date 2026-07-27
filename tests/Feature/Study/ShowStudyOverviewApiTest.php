@@ -234,7 +234,7 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('dueCount', 0)
                 ->assertJsonPath('failedCount', 1)
-                ->assertJsonPath('newCardsAvailableToday', 0)
+                ->assertJsonPath('newCardsAvailableToday', 1)
                 ->assertJsonMissingPath('failedDueCount');
         } finally {
             Carbon::setTestNow();

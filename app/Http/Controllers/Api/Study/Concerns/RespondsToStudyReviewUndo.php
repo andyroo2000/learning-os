@@ -52,6 +52,7 @@ trait RespondsToStudyReviewUndo
                     timeZone: $timeZone,
                     deckId: $deckId,
                     courseId: $courseId,
+                    includeGuidance: false,
                 ),
             )->resolve($request),
         ]);

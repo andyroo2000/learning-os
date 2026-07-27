@@ -47,7 +47,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 3,
         ]);
 
-        $response = $this->postJson('/api/study/session/start', [
+        $response = $this->postJson('/api/study/lessons/start', [
             'limit' => 999,
             'time_zone' => 'America/New_York',
         ]);
@@ -177,7 +177,7 @@ class StartStudySessionApiTest extends TestCase
             'source_deck_name' => null,
         ]);
 
-        $response = $this->postJson('/api/study/session/start');
+        $response = $this->postJson('/api/study/lessons/start');
 
         $response
             ->assertOk()
@@ -207,7 +207,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/session/start')
+        $this->postJson('/api/study/lessons/start')
             ->assertOk()
             ->assertJsonPath('overview.newCount', 2)
             ->assertJsonPath('overview.newCardsAvailableToday', 2)
@@ -272,7 +272,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/session/start', [
+        $this->postJson('/api/study/lessons/start', [
             'deck_id' => $deck->id,
         ])
             ->assertOk()
@@ -302,7 +302,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 3,
         ]);
 
-        $this->postJson('/api/study/session/start', [
+        $this->postJson('/api/study/lessons/start', [
             'courseId' => $course->id,
         ])
             ->assertOk()
@@ -330,7 +330,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/session/start', [
+        $this->postJson('/api/study/lessons/start', [
             'deck_id' => '  '.strtoupper($deck->id).'  ',
         ])
             ->assertOk()
@@ -357,7 +357,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/session/start', [
+        $this->postJson('/api/study/lessons/start', [
             'course_id' => '  '.strtoupper($course->id).'  ',
             'deckId' => '  '.strtoupper($deck->id).'  ',
         ])
@@ -379,7 +379,7 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 1,
         ]);
 
-        $this->postJson('/api/study/session/start', [
+        $this->postJson('/api/study/lessons/start', [
             'courseId' => $course->id,
             'deckId' => $deck->id,
         ])
@@ -559,7 +559,7 @@ class StartStudySessionApiTest extends TestCase
                 'new_queue_position' => 2,
             ]);
 
-            $this->postJson('/api/study/session/start', [
+            $this->postJson('/api/study/lessons/start', [
                 'time_zone' => 'America/New_York',
             ])
                 ->assertOk()
@@ -594,7 +594,7 @@ class StartStudySessionApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('overview.dueCount', 0)
                 ->assertJsonPath('overview.failedCount', 1)
-                ->assertJsonPath('overview.newCardsAvailableToday', 0)
+                ->assertJsonPath('overview.newCardsAvailableToday', 1)
                 ->assertJsonMissingPath('overview.failedDueCount')
                 ->assertJsonPath('cards.0.id', $readyFailedCard->id)
                 ->assertJsonCount(1, 'cards');

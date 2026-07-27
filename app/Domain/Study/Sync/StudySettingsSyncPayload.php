@@ -22,6 +22,7 @@ final class StudySettingsSyncPayload
         return [
             'id' => self::RESOURCE_ID,
             'new_cards_per_day' => $settings->new_cards_per_day,
+            'lesson_batch_size' => $settings->lesson_batch_size,
             'created_at' => $settings->created_at?->toJSON(),
             'updated_at' => $settings->updated_at?->toJSON(),
         ];

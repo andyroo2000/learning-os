@@ -16,6 +16,7 @@ class StudySettingsSyncPayloadTest extends TestCase
             'id' => 123,
             'user_id' => 456,
             'new_cards_per_day' => 12,
+            'lesson_batch_size' => 7,
             'created_at' => Carbon::parse('2026-06-05T09:14:00Z'),
             'updated_at' => Carbon::parse('2026-06-05T09:15:00Z'),
         ], sync: true);
@@ -28,6 +29,7 @@ class StudySettingsSyncPayloadTest extends TestCase
         $this->assertSame([
             'id' => 'settings',
             'new_cards_per_day' => 12,
+            'lesson_batch_size' => 7,
             'created_at' => '2026-06-05T09:14:00.000000Z',
             'updated_at' => '2026-06-05T09:15:00.000000Z',
         ], $payload);

@@ -18,15 +18,22 @@ class UpdateStudySettingsRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rules = [
+        $newCardsRules = [
             'integer',
             'min:0',
             'max:'.StudySettings::MAX_NEW_CARDS_PER_DAY,
         ];
+        $lessonBatchRules = [
+            'integer',
+            'min:'.StudySettings::MIN_LESSON_BATCH_SIZE,
+            'max:'.StudySettings::MAX_LESSON_BATCH_SIZE,
+        ];
 
         return [
-            'newCardsPerDay' => ['required_without:new_cards_per_day', ...$rules],
-            'new_cards_per_day' => ['required_without:newCardsPerDay', ...$rules],
+            'newCardsPerDay' => ['sometimes', ...$newCardsRules],
+            'new_cards_per_day' => ['sometimes', ...$newCardsRules],
+            'lessonBatchSize' => ['sometimes', ...$lessonBatchRules],
+            'lesson_batch_size' => ['sometimes', ...$lessonBatchRules],
         ];
     }
 
@@ -43,6 +50,17 @@ class UpdateStudySettingsRequest extends FormRequest
 
                 $validated = $validator->safe()->all();
 
+                if (! collect([
+                    'newCardsPerDay',
+                    'new_cards_per_day',
+                    'lessonBatchSize',
+                    'lesson_batch_size',
+                ])->contains(fn (string $key): bool => array_key_exists($key, $validated))) {
+                    $validator->errors()->add('settings', 'At least one study setting must be provided.');
+
+                    return;
+                }
+
                 if (
                     array_key_exists('newCardsPerDay', $validated)
                     && array_key_exists('new_cards_per_day', $validated)
@@ -53,14 +71,40 @@ class UpdateStudySettingsRequest extends FormRequest
                         'The newCardsPerDay and new_cards_per_day values must match when both are provided.',
                     );
                 }
+
+                if (
+                    array_key_exists('lessonBatchSize', $validated)
+                    && array_key_exists('lesson_batch_size', $validated)
+                    && (int) $validated['lessonBatchSize'] !== (int) $validated['lesson_batch_size']
+                ) {
+                    $validator->errors()->add(
+                        'lessonBatchSize',
+                        'The lessonBatchSize and lesson_batch_size values must match when both are provided.',
+                    );
+                }
             },
         ];
     }
 
-    public function newCardsPerDay(): int
+    public function newCardsPerDay(): ?int
     {
         $validated = $this->validated();
 
+        if (! array_key_exists('newCardsPerDay', $validated) && ! array_key_exists('new_cards_per_day', $validated)) {
+            return null;
+        }
+
         return (int) ($validated['newCardsPerDay'] ?? $validated['new_cards_per_day']);
+    }
+
+    public function lessonBatchSize(): ?int
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('lessonBatchSize', $validated) && ! array_key_exists('lesson_batch_size', $validated)) {
+            return null;
+        }
+
+        return (int) ($validated['lessonBatchSize'] ?? $validated['lesson_batch_size']);
     }
 }

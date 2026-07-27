@@ -252,6 +252,9 @@ class GetStudyOverviewAction
         );
 
         $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            // Untouched cards have not entered the learning pipeline yet. Including
+            // a fresh import here would make deck size look like Apprentice load.
+            ->where('cards.study_status', '!=', CardStudyStatus::New->value)
             ->select(['cards.study_status', 'cards.scheduler_state'])
             ->cursor()
             ->each(function (Card $card) use (&$spread): void {

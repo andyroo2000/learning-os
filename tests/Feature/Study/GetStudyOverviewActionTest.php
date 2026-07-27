@@ -376,6 +376,31 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(3, $overview['learning_readiness']['suggested_batch_size']);
     }
 
+    public function test_untouched_new_cards_do_not_inflate_apprentice_load_or_readiness(): void
+    {
+        $now = Carbon::parse('2026-07-27T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+
+        for ($position = 1; $position <= 100; $position++) {
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => $position,
+            ]);
+        }
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame([
+            'apprentice' => 0,
+            'guru' => 0,
+            'master' => 0,
+            'enlightened' => 0,
+            'burned' => 0,
+        ], $overview['mastery_spread']);
+        $this->assertSame(0, $overview['learning_readiness']['apprentice_count']);
+        $this->assertSame('ready', $overview['learning_readiness']['recommendation']);
+    }
+
     public function test_due_count_excludes_failed_cards_without_blocking_separate_lessons(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

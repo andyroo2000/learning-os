@@ -19,6 +19,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
         return [
             'dueCount' => $this->overviewValue('due_count'),
             'failedCount' => $this->overviewValue('failed_count'),
+            'failedDueCount' => $this->overviewValue('failed_due_count'),
             'newCount' => $this->overviewValue('new_count'),
             'newCardsPerDay' => $this->overviewValue('new_cards_per_day'),
             'lessonBatchSize' => $this->overviewValue('lesson_batch_size'),

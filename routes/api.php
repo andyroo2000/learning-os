@@ -26,6 +26,7 @@ use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
+use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
@@ -186,6 +187,7 @@ use App\Http\Controllers\Api\Study\DownloadStudyMediaBatchController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
 use App\Http\Controllers\Api\Study\ListDailyAudioPracticesController;
+use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
@@ -223,6 +225,7 @@ use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudyLessonController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreDailyAudioPracticeController;
+use App\Http\Controllers\Api\Study\StoreStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
@@ -733,6 +736,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
             Route::get('/study/overview', ShowStudyOverviewController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/activity-sessions', ListStudyActivitySessionsController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::post('/study/activity-sessions/batch', StoreStudyActivitySessionsController::class)
+                ->middleware('throttle:'.StudyActivitySessionRateLimiter::NAME);
             // Shares the canonical review-create rate limit above.
             Route::post('/study/reviews', StoreStudyReviewController::class)
                 ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);

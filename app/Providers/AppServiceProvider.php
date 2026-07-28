@@ -42,6 +42,7 @@ use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Services\OpenAiStudyImageGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
+use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
@@ -360,6 +361,11 @@ class AppServiceProvider extends ServiceProvider
             StudyCompatibilityTrafficRateLimiter::MEDIA_NAME,
             fn (Request $request): Limit => StudyCompatibilityTrafficRateLimiter::mediaLimit($request),
         );
+
+        $studyActivitySessionRateLimiter = new StudyActivitySessionRateLimiter;
+        RateLimiter::for(StudyActivitySessionRateLimiter::NAME, function (Request $request) use ($studyActivitySessionRateLimiter): Limit {
+            return $studyActivitySessionRateLimiter->limit($request);
+        });
 
         $studyCardCreateRateLimiter = new StudyCardCreateRateLimiter;
         RateLimiter::for(StudyCardCreateRateLimiter::NAME, function (Request $request) use ($studyCardCreateRateLimiter): Limit {

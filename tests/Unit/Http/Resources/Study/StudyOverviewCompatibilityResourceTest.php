@@ -9,6 +9,17 @@ use Tests\TestCase;
 
 class StudyOverviewCompatibilityResourceTest extends TestCase
 {
+    public function test_it_exposes_failed_due_count_separately_from_all_failed_cards(): void
+    {
+        $payload = (new StudyOverviewCompatibilityResource([
+            'failed_count' => 3,
+            'failed_due_count' => 1,
+        ]))->toArray(new Request);
+
+        $this->assertSame(3, $payload['failedCount']);
+        $this->assertSame(1, $payload['failedDueCount']);
+    }
+
     public function test_it_uses_convolab_millisecond_timestamps_for_the_latest_import(): void
     {
         $import = new StudyImportJob;

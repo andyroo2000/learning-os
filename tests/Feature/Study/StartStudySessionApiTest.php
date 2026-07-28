@@ -588,6 +588,10 @@ class StartStudySessionApiTest extends TestCase
                 'due_at' => Carbon::parse('2026-06-04T11:50:00Z'),
                 'failed_at' => Carbon::parse('2026-06-04T11:00:00Z'),
             ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Relearning, [
+                'due_at' => Carbon::parse('2026-06-04T12:10:00Z'),
+                'failed_at' => Carbon::parse('2026-06-04T11:30:00Z'),
+            ]);
             $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
                 'new_queue_position' => 1,
             ]);
@@ -595,9 +599,9 @@ class StartStudySessionApiTest extends TestCase
             $this->postJson('/api/study/session/start')
                 ->assertOk()
                 ->assertJsonPath('overview.dueCount', 0)
-                ->assertJsonPath('overview.failedCount', 1)
+                ->assertJsonPath('overview.failedCount', 2)
+                ->assertJsonPath('overview.failedDueCount', 1)
                 ->assertJsonPath('overview.newCardsAvailableToday', 1)
-                ->assertJsonMissingPath('overview.failedDueCount')
                 ->assertJsonPath('cards.0.id', $readyFailedCard->id)
                 ->assertJsonCount(1, 'cards');
         } finally {

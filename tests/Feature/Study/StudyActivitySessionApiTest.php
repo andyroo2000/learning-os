@@ -143,6 +143,30 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertJsonValidationErrors('sessions.0.category');
     }
 
+    public function test_it_rejects_duplicate_client_session_ids_within_a_batch(): void
+    {
+        $this->signIn();
+        $session = [
+            'clientSessionId' => '018f22d2-6d38-7000-8000-000000000003',
+            'category' => 'review',
+            'activity' => 'card_review',
+            'source' => 'automatic',
+            'startedAt' => '2026-07-28T12:00:00Z',
+            'endedAt' => '2026-07-28T12:05:00Z',
+            'durationMs' => 300000,
+        ];
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [$session, $session],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'sessions.0.clientSessionId',
+                'sessions.1.clientSessionId',
+            ]);
+
+        $this->assertDatabaseCount('study_activity_sessions', 0);
+    }
+
     public function test_it_rate_limits_session_writes_by_user(): void
     {
         $limiter = new StudyActivitySessionRateLimiter;

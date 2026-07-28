@@ -55,7 +55,7 @@ class StoreStudyActivitySessionsRequest extends FormRequest
         return [
             'sessions' => ['required', 'array', 'min:1', 'max:100'],
             'sessions.*' => ['required', 'array'],
-            'sessions.*.clientSessionId' => ['required', 'string', 'max:64', 'regex:/^(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F-]{36})$/'],
+            'sessions.*.clientSessionId' => ['required', 'distinct', 'string', 'max:64', 'regex:/^(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F-]{36})$/'],
             'sessions.*.category' => ['required', Rule::enum(StudyActivityCategory::class)],
             'sessions.*.activity' => ['required', Rule::enum(StudyActivityKind::class)],
             'sessions.*.source' => ['required', Rule::enum(StudyActivitySource::class)],

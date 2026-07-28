@@ -30,7 +30,7 @@ class StartStudySessionApiTest extends TestCase
         $this->postJson('/api/study/session/start')->assertUnauthorized();
     }
 
-    public function test_start_returns_overview_and_ready_cards_without_trusting_client_limits(): void
+    public function test_lesson_start_returns_the_next_queue_batch_without_trusting_client_limits(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
@@ -43,7 +43,7 @@ class StartStudySessionApiTest extends TestCase
         $secondNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 2,
         ]);
-        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+        $thirdNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 3,
         ]);
 
@@ -59,7 +59,8 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonPath('overview.newCardsAvailableToday', 2)
             ->assertJsonPath('cards.0.id', $firstNewCard->id)
             ->assertJsonPath('cards.1.id', $secondNewCard->id)
-            ->assertJsonCount(2, 'cards');
+            ->assertJsonPath('cards.2.id', $thirdNewCard->id)
+            ->assertJsonCount(3, 'cards');
     }
 
     public function test_start_returns_convolab_compatible_card_summaries(): void
@@ -538,7 +539,7 @@ class StartStudySessionApiTest extends TestCase
             ->assertJsonValidationErrors(['course_id']);
     }
 
-    public function test_start_uses_the_requested_time_zone_for_daily_new_card_allowance(): void
+    public function test_lesson_start_reports_daily_guidance_without_limiting_the_queue_batch(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-04T03:00:00Z'));
 
@@ -555,7 +556,7 @@ class StartStudySessionApiTest extends TestCase
             $newCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
                 'new_queue_position' => 1,
             ]);
-            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            $secondNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
                 'new_queue_position' => 2,
             ]);
 
@@ -566,7 +567,8 @@ class StartStudySessionApiTest extends TestCase
                 ->assertJsonPath('overview.newCardsIntroducedToday', 1)
                 ->assertJsonPath('overview.newCardsAvailableToday', 1)
                 ->assertJsonPath('cards.0.id', $newCard->id)
-                ->assertJsonCount(1, 'cards');
+                ->assertJsonPath('cards.1.id', $secondNewCard->id)
+                ->assertJsonCount(2, 'cards');
         } finally {
             Carbon::setTestNow();
         }

@@ -88,7 +88,7 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
-    public function test_new_cards_use_remaining_daily_allowance_for_the_requested_time_zone(): void
+    public function test_lessons_can_use_queued_cards_beyond_the_daily_guidance_allowance(): void
     {
         $now = Carbon::parse('2026-06-04T03:00:00Z');
         $user = User::factory()->create();
@@ -110,7 +110,7 @@ class StartStudySessionActionTest extends TestCase
         $secondNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 2,
         ]);
-        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+        $thirdNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 3,
         ]);
 
@@ -120,7 +120,10 @@ class StartStudySessionActionTest extends TestCase
             now: $now,
         );
 
-        $this->assertSame([$firstNewCard->id, $secondNewCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(
+            [$firstNewCard->id, $secondNewCard->id, $thirdNewCard->id],
+            $result->cards->pluck('id')->all(),
+        );
         $this->assertSame(1, $result->overview['new_cards_introduced_today']);
         $this->assertSame(2, $result->overview['new_cards_available_today']);
     }
@@ -336,7 +339,7 @@ class StartStudySessionActionTest extends TestCase
         $this->assertSame(2, $result->overview['total_cards']);
     }
 
-    public function test_it_filters_new_session_cards_by_deck_id_and_keeps_the_daily_allowance_user_wide(): void
+    public function test_it_filters_lesson_cards_by_deck_id_and_keeps_daily_guidance_user_wide(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
@@ -348,7 +351,7 @@ class StartStudySessionActionTest extends TestCase
         $targetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 1,
         ]);
-        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+        $secondTargetDeckCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 2,
         ]);
         $this->cardWithStudyStatus($otherDeck, CardStudyStatus::New, [
@@ -365,13 +368,16 @@ class StartStudySessionActionTest extends TestCase
             deckId: $deck->id,
         );
 
-        $this->assertSame([$targetDeckCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(
+            [$targetDeckCard->id, $secondTargetDeckCard->id],
+            $result->cards->pluck('id')->all()
+        );
         $this->assertSame(2, $result->overview['new_count']);
         $this->assertSame(1, $result->overview['new_cards_introduced_today']);
         $this->assertSame(1, $result->overview['new_cards_available_today']);
     }
 
-    public function test_it_filters_new_session_cards_by_course_id_and_keeps_the_daily_allowance_user_wide(): void
+    public function test_it_filters_lesson_cards_by_course_id_and_keeps_daily_guidance_user_wide(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');
         $user = User::factory()->create();
@@ -402,7 +408,10 @@ class StartStudySessionActionTest extends TestCase
             courseId: $course->id,
         );
 
-        $this->assertSame([$firstCourseCard->id], $result->cards->pluck('id')->all());
+        $this->assertSame(
+            [$firstCourseCard->id, $secondCourseCard->id],
+            $result->cards->pluck('id')->all()
+        );
         $this->assertSame(2, $result->overview['new_count']);
         $this->assertSame(1, $result->overview['new_cards_introduced_today']);
         $this->assertSame(1, $result->overview['new_cards_available_today']);

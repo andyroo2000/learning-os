@@ -35,7 +35,7 @@ class StartStudyLessonAction
         );
         $limit = min(
             (int) $overview['lesson_batch_size'],
-            (int) $overview['new_cards_available_today'],
+            (int) $overview['new_count'],
         );
 
         if ($limit <= 0) {

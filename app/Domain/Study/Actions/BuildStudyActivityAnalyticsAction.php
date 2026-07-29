@@ -48,6 +48,7 @@ final class BuildStudyActivityAnalyticsAction
             ),
             self::RANGE_WEEK => $this->makeRange(
                 self::RANGE_WEEK,
+                // Client contract follows Calendar.firstWeekday: 1=Sunday … 7=Saturday.
                 $now->startOfWeek($weekStartsOn - 1),
                 $now,
                 'day',

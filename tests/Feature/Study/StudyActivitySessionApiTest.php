@@ -245,6 +245,32 @@ class StudyActivitySessionApiTest extends TestCase
         ]);
     }
 
+    public function test_identifier_backfill_canonicalizes_and_deduplicates_existing_rows(): void
+    {
+        $user = User::factory()->create();
+        $canonicalId = '018f22d2-6d38-7000-8000-abcdefabcdef';
+        $this->createSession($user, [
+            'client_session_id' => strtoupper($canonicalId),
+            'name' => 'First copy',
+        ]);
+        $this->createSession($user, [
+            'client_session_id' => $canonicalId,
+            'name' => 'Canonical copy',
+        ]);
+        $migration = require database_path(
+            'migrations/2026_07_29_030000_normalize_study_activity_session_ids.php',
+        );
+
+        $migration->up();
+
+        $this->assertDatabaseCount('study_activity_sessions', 1);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $canonicalId,
+            'name' => 'Canonical copy',
+        ]);
+    }
+
     public function test_it_returns_cross_device_activity_analytics_in_the_users_timezone(): void
     {
         $user = $this->signIn();

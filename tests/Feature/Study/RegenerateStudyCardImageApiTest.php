@@ -101,6 +101,35 @@ class RegenerateStudyCardImageApiTest extends TestCase
         );
     }
 
+    public function test_it_regenerates_an_image_for_a_structured_card_with_blank_legacy_text(): void
+    {
+        Http::fake([
+            'openai.test/v1/images/generations' => Http::response([
+                'data' => [['b64_json' => base64_encode($this->webpBytes())]],
+            ]),
+        ]);
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'front_text' => '',
+            'back_text' => '',
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/regenerate-image", [
+            'imagePrompt' => 'A commuter entering a Tokyo office.',
+            'imageRole' => 'both',
+        ])
+            ->assertOk()
+            ->assertJsonPath('prompt.cueImage.source', 'generated')
+            ->assertJsonPath('answer.answerImage.source', 'generated');
+
+        $card->refresh();
+        $this->assertSame('', $card->front_text);
+        $this->assertSame('', $card->back_text);
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_places_the_image_on_only_the_requested_side(): void
     {
         Http::fake([

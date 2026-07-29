@@ -64,6 +64,28 @@ class ResolveStudyCardPitchAccentApiTest extends TestCase
         $this->assertCardSyncEntry($user, $card);
     }
 
+    public function test_it_resolves_pitch_accent_for_a_structured_card_with_blank_legacy_text(): void
+    {
+        Http::fake();
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'front_text' => '',
+            'back_text' => '',
+            'prompt_json' => ['cueText' => 'company', 'cueReading' => 'かいしゃ'],
+            'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/pitch-accent")
+            ->assertOk()
+            ->assertJsonPath('answer.pitchAccent.status', 'resolved');
+
+        $card->refresh();
+        $this->assertSame('', $card->front_text);
+        $this->assertSame('', $card->back_text);
+        $this->assertSame('resolved', $card->answer_json['pitchAccent']['status']);
+        $this->assertCardSyncEntry($user, $card);
+    }
+
     public function test_it_preserves_alternative_pitch_numbers_for_the_same_reading(): void
     {
         Http::fake();

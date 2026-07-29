@@ -78,6 +78,8 @@ class RegenerateStudyCardImageAction
                 $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
                     frontText: $lockedCard->front_text,
                     backText: $lockedCard->back_text,
+                    hasFrontText: false,
+                    hasBackText: false,
                     hasPromptJson: true,
                     promptJson: $nextPrompt,
                     hasAnswerJson: true,

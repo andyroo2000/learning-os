@@ -71,6 +71,22 @@ final class BuildStudyActivityAnalyticsAction
                 'year',
             ),
         ];
+        $windows = array_map(
+            fn (array $range): array => [
+                'startsAt' => CarbonImmutable::parse($range['startsAt'])->setTimezone($timezone),
+                'endsAt' => CarbonImmutable::parse($range['endsAt'])->setTimezone($timezone),
+                'buckets' => array_map(
+                    fn (array $bucket): array => [
+                        'startsAt' => CarbonImmutable::parse($bucket['startsAt'])
+                            ->setTimezone($timezone),
+                        'endsAt' => CarbonImmutable::parse($bucket['endsAt'])
+                            ->setTimezone($timezone),
+                    ],
+                    $range['buckets'],
+                ),
+            ],
+            $ranges,
+        );
 
         StudyActivitySession::query()
             ->where('user_id', $userId)
@@ -78,8 +94,8 @@ final class BuildStudyActivityAnalyticsAction
             ->where('started_at', '<', $now->utc())
             ->orderBy('started_at')
             ->cursor()
-            ->each(function (StudyActivitySession $session) use (&$ranges, $timezone): void {
-                $this->accumulateSession($ranges, $session, $timezone);
+            ->each(function (StudyActivitySession $session) use (&$ranges, $timezone, $windows): void {
+                $this->accumulateSession($ranges, $windows, $session, $timezone);
             });
 
         return [
@@ -137,9 +153,11 @@ final class BuildStudyActivityAnalyticsAction
 
     /**
      * @param  array<string, array<string, mixed>>  $ranges
+     * @param  array<string, array{startsAt: CarbonImmutable, endsAt: CarbonImmutable, buckets: list<array{startsAt: CarbonImmutable, endsAt: CarbonImmutable}>}>  $windows
      */
     private function accumulateSession(
         array &$ranges,
+        array $windows,
         StudyActivitySession $session,
         DateTimeZone $timezone,
     ): void {
@@ -148,16 +166,15 @@ final class BuildStudyActivityAnalyticsAction
         $elapsedMs = max(1, (int) round($startedAt->diffInRealMilliseconds($endedAt)));
         $category = $session->category->value;
 
-        foreach ($ranges as &$range) {
-            $rangeStart = CarbonImmutable::parse($range['startsAt'])->setTimezone($timezone);
-            $rangeEnd = CarbonImmutable::parse($range['endsAt'])->setTimezone($timezone);
+        foreach ($ranges as $rangeKey => &$range) {
+            $window = $windows[$rangeKey];
             $allocated = $this->allocatedDuration(
                 $session->duration_ms,
                 $elapsedMs,
                 $startedAt,
                 $endedAt,
-                $rangeStart,
-                $rangeEnd,
+                $window['startsAt'],
+                $window['endsAt'],
             );
             if ($allocated === 0) {
                 continue;
@@ -165,16 +182,15 @@ final class BuildStudyActivityAnalyticsAction
 
             $range['totalMs'] += $allocated;
             $range['categories'][$category] += $allocated;
-            foreach ($range['buckets'] as &$bucket) {
-                $bucketStart = CarbonImmutable::parse($bucket['startsAt'])->setTimezone($timezone);
-                $bucketEnd = CarbonImmutable::parse($bucket['endsAt'])->setTimezone($timezone);
+            foreach ($range['buckets'] as $bucketIndex => &$bucket) {
+                $bucketWindow = $window['buckets'][$bucketIndex];
                 $bucketAllocation = $this->allocatedDuration(
                     $session->duration_ms,
                     $elapsedMs,
                     $startedAt,
                     $endedAt,
-                    $bucketStart,
-                    $bucketEnd,
+                    $bucketWindow['startsAt'],
+                    $bucketWindow['endsAt'],
                 );
                 if ($bucketAllocation === 0) {
                     continue;

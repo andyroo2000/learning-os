@@ -179,6 +179,7 @@ use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
+use App\Http\Controllers\Api\Study\DeleteStudyActivitySessionController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
@@ -213,6 +214,7 @@ use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeController;
 use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeStatusController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
+use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
@@ -738,7 +740,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::get('/study/activity-sessions', ListStudyActivitySessionsController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/activity-analytics', ShowStudyActivityAnalyticsController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::post('/study/activity-sessions/batch', StoreStudyActivitySessionsController::class)
+                ->middleware('throttle:'.StudyActivitySessionRateLimiter::NAME);
+            Route::delete('/study/activity-sessions/{clientSessionId}', DeleteStudyActivitySessionController::class)
+                ->where('clientSessionId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F-]{36})')
                 ->middleware('throttle:'.StudyActivitySessionRateLimiter::NAME);
             // Shares the canonical review-create rate limit above.
             Route::post('/study/reviews', StoreStudyReviewController::class)

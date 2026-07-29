@@ -6,6 +6,7 @@ use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivitySource;
+use App\Domain\Study\Support\StudyActivitySessionId;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -43,6 +44,13 @@ class StoreStudyActivitySessionsRequest extends FormRequest
                 if (isset($sessions[$index][$key]) && is_string($sessions[$index][$key])) {
                     $sessions[$index][$key] = strtolower($sessions[$index][$key]);
                 }
+            }
+
+            if (isset($sessions[$index]['clientSessionId'])
+                && is_string($sessions[$index]['clientSessionId'])) {
+                $sessions[$index]['clientSessionId'] = StudyActivitySessionId::normalize(
+                    $sessions[$index]['clientSessionId'],
+                );
             }
         }
 

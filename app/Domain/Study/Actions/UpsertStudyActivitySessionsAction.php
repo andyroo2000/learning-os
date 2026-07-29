@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
+use App\Domain\Study\Support\StudyActivitySessionId;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,18 +20,26 @@ class UpsertStudyActivitySessionsAction
     {
         return DB::transaction(function () use ($userId, $sessions): Collection {
             $now = now();
-            $clientSessionIds = collect($sessions)->pluck('clientSessionId');
-            $protectedClientSessionIds = StudyActivitySession::query()
+            $clientSessionIds = collect($sessions)->map(
+                fn (StudyActivitySessionData $session): string => StudyActivitySessionId::normalize(
+                    $session->clientSessionId,
+                ),
+            );
+            $existingSources = StudyActivitySession::query()
                 ->where('user_id', $userId)
-                ->where('source', StudyActivitySource::Automatic)
                 ->whereIn('client_session_id', $clientSessionIds)
                 ->lockForUpdate()
-                ->pluck('client_session_id')
+                ->pluck('source', 'client_session_id');
+            $protectedClientSessionIds = $existingSources
+                ->filter(
+                    fn (StudyActivitySource $source): bool => $source === StudyActivitySource::Automatic,
+                )
+                ->keys()
                 ->all();
             $rows = collect($sessions)
                 ->reject(
                     fn (StudyActivitySessionData $session): bool => in_array(
-                        $session->clientSessionId,
+                        StudyActivitySessionId::normalize($session->clientSessionId),
                         $protectedClientSessionIds,
                         true,
                     ),
@@ -38,10 +47,16 @@ class UpsertStudyActivitySessionsAction
                 ->map(fn (StudyActivitySessionData $session): array => [
                     'id' => (string) Str::ulid(),
                     'user_id' => $userId,
-                    'client_session_id' => $session->clientSessionId,
+                    'client_session_id' => StudyActivitySessionId::normalize($session->clientSessionId),
                     'category' => $session->category->value,
                     'activity' => $session->activity->value,
-                    'source' => $session->source->value,
+                    // A session's origin is immutable once stored. In particular, a
+                    // sync client must not upgrade a manual row into an automatic,
+                    // permanently protected row by reusing its client session ID.
+                    'source' => (
+                        $existingSources->get(StudyActivitySessionId::normalize($session->clientSessionId))
+                            ?? $session->source
+                    )->value,
                     'name' => $session->name,
                     'started_at' => $session->startedAt,
                     'ended_at' => $session->endedAt,
@@ -79,7 +94,9 @@ class UpsertStudyActivitySessionsAction
                 ->keyBy('client_session_id');
 
             return collect($sessions)->map(
-                fn (StudyActivitySessionData $session): StudyActivitySession => $byClientId[$session->clientSessionId],
+                fn (StudyActivitySessionData $session): StudyActivitySession => $byClientId[
+                    StudyActivitySessionId::normalize($session->clientSessionId)
+                ],
             );
         });
     }

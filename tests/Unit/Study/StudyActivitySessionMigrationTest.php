@@ -35,6 +35,11 @@ class StudyActivitySessionMigrationTest extends TestCase
             strlen('study_activity_sessions_user_id_client_session_id_unique'),
             'The unique index name must fit PostgreSQL identifiers.',
         );
+        $this->assertLessThanOrEqual(
+            63,
+            strlen('study_activity_sessions_user_id_ended_at_index'),
+            'The end-time index name must fit PostgreSQL identifiers.',
+        );
     }
 
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
@@ -45,6 +50,31 @@ class StudyActivitySessionMigrationTest extends TestCase
             'postgres' => [PostgresConnection::class, PostgresGrammar::class],
             'mysql' => [MySqlConnection::class, MySqlGrammar::class],
         ];
+    }
+
+    #[DataProvider('grammarProvider')]
+    public function test_end_time_index_rollback_compiles_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+        $blueprint = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->dropIndex(['user_id', 'ended_at']);
+            },
+        );
+
+        $sql = $blueprint->toSql();
+
+        $this->assertNotEmpty($sql);
+        $this->assertStringContainsString(
+            'study_activity_sessions_user_id_ended_at_index',
+            implode("\n", $sql),
+        );
     }
 
     /** @param class-string<Connection> $connectionClass */
@@ -76,6 +106,7 @@ class StudyActivitySessionMigrationTest extends TestCase
             $table->timestampsTz();
             $table->unique(['user_id', 'client_session_id']);
             $table->index(['user_id', 'started_at']);
+            $table->index(['user_id', 'ended_at']);
         });
     }
 }

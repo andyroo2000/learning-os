@@ -25,7 +25,7 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertUnauthorized();
         $this->postJson('/api/study/activity-sessions/batch', ['sessions' => []])
             ->assertUnauthorized();
-        $this->deleteJson('/api/study/activity-sessions/example')
+        $this->deleteJson('/api/study/activity-sessions/018f22d2-6d38-7000-8000-000000000001')
             ->assertUnauthorized();
     }
 
@@ -191,7 +191,7 @@ class StudyActivitySessionApiTest extends TestCase
 
         $this->postJson('/api/study/activity-sessions/batch', [
             'sessions' => [[
-                'clientSessionId' => $clientSessionId,
+                'clientSessionId' => strtoupper($clientSessionId),
                 'category' => 'conversation',
                 'activity' => 'conversation',
                 'source' => 'manual',
@@ -209,6 +209,39 @@ class StudyActivitySessionApiTest extends TestCase
             'client_session_id' => $clientSessionId,
             'source' => 'automatic',
             'name' => 'Original review',
+        ]);
+    }
+
+    public function test_it_does_not_upgrade_an_existing_manual_session_to_automatic(): void
+    {
+        $user = $this->signIn();
+        $clientSessionId = '018f22d2-6d38-7000-8000-000000000013';
+        $this->createSession($user, [
+            'client_session_id' => $clientSessionId,
+            'source' => 'manual',
+            'name' => 'Original lesson',
+        ]);
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [[
+                'clientSessionId' => $clientSessionId,
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'automatic',
+                'name' => 'Updated lesson',
+                'startedAt' => '2026-07-28T12:00:00Z',
+                'endedAt' => '2026-07-28T13:00:00Z',
+                'durationMs' => 3_600_000,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('0.source', 'manual')
+            ->assertJsonPath('0.name', 'Updated lesson');
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $clientSessionId,
+            'source' => 'manual',
+            'name' => 'Updated lesson',
         ]);
     }
 
@@ -334,7 +367,7 @@ class StudyActivitySessionApiTest extends TestCase
             'source' => 'manual',
         ]);
 
-        $this->deleteJson('/api/study/activity-sessions/'.$manualId)
+        $this->deleteJson('/api/study/activity-sessions/'.strtoupper($manualId))
             ->assertNoContent();
         $this->deleteJson('/api/study/activity-sessions/'.$manualId)
             ->assertNoContent();

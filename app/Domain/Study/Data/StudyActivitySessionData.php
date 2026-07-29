@@ -5,6 +5,7 @@ namespace App\Domain\Study\Data;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivitySource;
+use App\Domain\Study\Support\StudyActivitySessionId;
 use Carbon\CarbonImmutable;
 
 final readonly class StudyActivitySessionData
@@ -26,7 +27,7 @@ final readonly class StudyActivitySessionData
     public static function fromValidated(array $session): self
     {
         return new self(
-            clientSessionId: $session['clientSessionId'],
+            clientSessionId: StudyActivitySessionId::normalize($session['clientSessionId']),
             category: StudyActivityCategory::from($session['category']),
             activity: StudyActivityKind::from($session['activity']),
             source: StudyActivitySource::from($session['source']),

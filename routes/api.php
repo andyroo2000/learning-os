@@ -745,7 +745,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/study/activity-sessions/batch', StoreStudyActivitySessionsController::class)
                 ->middleware('throttle:'.StudyActivitySessionRateLimiter::NAME);
             Route::delete('/study/activity-sessions/{clientSessionId}', DeleteStudyActivitySessionController::class)
-                ->where('clientSessionId', '[A-Za-z0-9][A-Za-z0-9._:-]{0,63}')
+                ->where('clientSessionId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F-]{36})')
                 ->middleware('throttle:'.StudyActivitySessionRateLimiter::NAME);
             // Shares the canonical review-create rate limit above.
             Route::post('/study/reviews', StoreStudyReviewController::class)

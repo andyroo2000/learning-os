@@ -11,6 +11,7 @@ enum StudyActivityKind: string
     case Podcast = 'podcast';
     case Reading = 'reading';
     case Conversation = 'conversation';
+    case WaniKaniReview = 'wanikani_review';
     case Other = 'other';
 
     public function category(): StudyActivityCategory
@@ -18,7 +19,9 @@ enum StudyActivityKind: string
         return match ($this) {
             self::CardReview, self::DailyAudio => StudyActivityCategory::Review,
             self::CardCreation => StudyActivityCategory::Create,
-            self::Tv, self::Podcast, self::Reading, self::Conversation, self::Other => StudyActivityCategory::Immerse,
+            self::Tv, self::Podcast, self::Reading, self::Other => StudyActivityCategory::Immerse,
+            self::Conversation => StudyActivityCategory::Conversation,
+            self::WaniKaniReview => StudyActivityCategory::WaniKani,
         };
     }
 }

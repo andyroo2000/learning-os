@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -20,7 +21,11 @@ class StudyActivitySessionApiTest extends TestCase
     {
         $this->getJson('/api/study/activity-sessions?from=2026-07-01T00:00:00Z&to=2026-08-01T00:00:00Z')
             ->assertUnauthorized();
+        $this->getJson('/api/study/activity-analytics?timezone=America%2FNew_York&weekStartsOn=1')
+            ->assertUnauthorized();
         $this->postJson('/api/study/activity-sessions/batch', ['sessions' => []])
+            ->assertUnauthorized();
+        $this->deleteJson('/api/study/activity-sessions/example')
             ->assertUnauthorized();
     }
 
@@ -143,6 +148,201 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertJsonValidationErrors('sessions.0.category');
     }
 
+    public function test_it_accepts_conversation_and_wanikani_as_distinct_categories(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [
+                [
+                    'clientSessionId' => '018f22d2-6d38-7000-8000-000000000010',
+                    'category' => 'conversation',
+                    'activity' => 'conversation',
+                    'source' => 'manual',
+                    'name' => 'iTalki',
+                    'startedAt' => '2026-07-28T12:00:00Z',
+                    'endedAt' => '2026-07-28T13:00:00Z',
+                    'durationMs' => 3_600_000,
+                ],
+                [
+                    'clientSessionId' => '018f22d2-6d38-7000-8000-000000000011',
+                    'category' => 'wanikani',
+                    'activity' => 'wanikani_review',
+                    'source' => 'manual',
+                    'startedAt' => '2026-07-28T13:00:00Z',
+                    'endedAt' => '2026-07-28T13:20:00Z',
+                    'durationMs' => 1_200_000,
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('0.category', 'conversation')
+            ->assertJsonPath('1.category', 'wanikani');
+    }
+
+    public function test_it_does_not_overwrite_an_existing_automatic_session(): void
+    {
+        $user = $this->signIn();
+        $clientSessionId = '018f22d2-6d38-7000-8000-000000000012';
+        $this->createSession($user, [
+            'client_session_id' => $clientSessionId,
+            'source' => 'automatic',
+            'name' => 'Original review',
+        ]);
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [[
+                'clientSessionId' => $clientSessionId,
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'manual',
+                'name' => 'Changed lesson',
+                'startedAt' => '2026-07-28T12:00:00Z',
+                'endedAt' => '2026-07-28T13:00:00Z',
+                'durationMs' => 3_600_000,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('0.source', 'automatic')
+            ->assertJsonPath('0.name', 'Original review');
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $clientSessionId,
+            'source' => 'automatic',
+            'name' => 'Original review',
+        ]);
+    }
+
+    public function test_it_returns_cross_device_activity_analytics_in_the_users_timezone(): void
+    {
+        $user = $this->signIn();
+        $other = User::factory()->create();
+        $this->travelTo(CarbonImmutable::parse('2026-07-28T16:00:00Z'));
+
+        try {
+            $this->createSession($user, [
+                'client_session_id' => 'analytics-review',
+                'category' => 'review',
+                'activity' => 'card_review',
+                'source' => 'automatic',
+                'started_at' => '2026-07-28T14:00:00Z',
+                'ended_at' => '2026-07-28T14:30:00Z',
+                'duration_ms' => 1_800_000,
+            ]);
+            $this->createSession($user, [
+                'client_session_id' => 'analytics-conversation',
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'manual',
+                'started_at' => '2026-07-27T17:00:00Z',
+                'ended_at' => '2026-07-27T18:00:00Z',
+                'duration_ms' => 3_600_000,
+            ]);
+            $this->createSession($user, [
+                'client_session_id' => 'analytics-midnight',
+                'category' => 'immerse',
+                'activity' => 'tv',
+                'source' => 'manual',
+                'started_at' => '2026-07-28T03:50:00Z',
+                'ended_at' => '2026-07-28T04:10:00Z',
+                'duration_ms' => 1_200_000,
+            ]);
+            $this->createSession($other, [
+                'client_session_id' => 'analytics-other-user',
+                'category' => 'review',
+                'activity' => 'card_review',
+                'source' => 'automatic',
+                'started_at' => '2026-07-28T14:00:00Z',
+                'ended_at' => '2026-07-28T15:00:00Z',
+                'duration_ms' => 3_600_000,
+            ]);
+
+            $response = $this->getJson(
+                '/api/study/activity-analytics?timezone=America%2FNew_York&weekStartsOn=1',
+            )->assertOk()
+                ->assertJsonPath('timezone', 'America/New_York')
+                ->assertJsonCount(5, 'ranges')
+                ->assertJsonPath('ranges.0.key', 'today')
+                ->assertJsonPath('ranges.0.totalMs', 2_400_000)
+                ->assertJsonPath('ranges.0.categories.review', 1_800_000)
+                ->assertJsonPath('ranges.0.categories.immerse', 600_000)
+                ->assertJsonPath('ranges.1.key', 'week')
+                ->assertJsonPath('ranges.1.totalMs', 6_600_000);
+
+            $response->assertJsonStructure([
+                'generatedAt',
+                'timezone',
+                'ranges' => [[
+                    'key',
+                    'startsAt',
+                    'endsAt',
+                    'totalMs',
+                    'categories' => ['review', 'create', 'immerse', 'conversation', 'wanikani'],
+                    'buckets' => [[
+                        'startsAt',
+                        'endsAt',
+                        'totalMs',
+                        'categories' => ['review', 'create', 'immerse', 'conversation', 'wanikani'],
+                    ]],
+                ]],
+            ]);
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_it_validates_activity_analytics_timezone_and_week_start(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/activity-analytics?timezone=Moon%2FBase&weekStartsOn=0')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timezone', 'weekStartsOn']);
+    }
+
+    public function test_it_deletes_only_manual_or_calendar_sessions_and_is_retry_safe(): void
+    {
+        $user = $this->signIn();
+        $other = User::factory()->create();
+        $manualId = '018f22d2-6d38-7000-8000-000000000020';
+        $automaticId = '018f22d2-6d38-7000-8000-000000000021';
+        $otherId = '018f22d2-6d38-7000-8000-000000000022';
+        $this->createSession($user, [
+            'client_session_id' => $manualId,
+            'source' => 'manual',
+        ]);
+        $this->createSession($user, [
+            'client_session_id' => $automaticId,
+            'source' => 'automatic',
+        ]);
+        $this->createSession($other, [
+            'client_session_id' => $otherId,
+            'source' => 'manual',
+        ]);
+
+        $this->deleteJson('/api/study/activity-sessions/'.$manualId)
+            ->assertNoContent();
+        $this->deleteJson('/api/study/activity-sessions/'.$manualId)
+            ->assertNoContent();
+        $this->deleteJson('/api/study/activity-sessions/'.$automaticId)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Automatically recorded study activity cannot be deleted.');
+        $this->deleteJson('/api/study/activity-sessions/'.$otherId)
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $manualId,
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $automaticId,
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $other->id,
+            'client_session_id' => $otherId,
+        ]);
+    }
+
     public function test_it_rejects_duplicate_client_session_ids_within_a_batch(): void
     {
         $this->signIn();
@@ -202,5 +402,20 @@ class StudyActivitySessionApiTest extends TestCase
                 fn (Request $request): Limit => $limiter->limit($request),
             );
         }
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function createSession(User $user, array $overrides): StudyActivitySession
+    {
+        return StudyActivitySession::query()->forceCreate(array_merge([
+            'user_id' => $user->id,
+            'client_session_id' => 'session-'.Str::ulid(),
+            'category' => 'review',
+            'activity' => 'card_review',
+            'source' => 'manual',
+            'started_at' => '2026-07-28T12:00:00Z',
+            'ended_at' => '2026-07-28T12:10:00Z',
+            'duration_ms' => 600_000,
+        ], $overrides));
     }
 }

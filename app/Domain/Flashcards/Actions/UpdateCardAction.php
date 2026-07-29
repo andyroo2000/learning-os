@@ -24,17 +24,22 @@ class UpdateCardAction
 
     public function handle(Card $card, UpdateCardData $data): UpdateCardResult
     {
-        if ($data->frontText === '') {
+        if ($data->hasFrontText && $data->frontText === '') {
             throw new InvalidArgumentException('Card front text is required.');
         }
 
-        if ($data->backText === '') {
+        if ($data->hasBackText && $data->backText === '') {
             throw new InvalidArgumentException('Card back text is required.');
         }
 
         return DB::transaction(function () use ($card, $data): UpdateCardResult {
-            $card->front_text = $data->frontText;
-            $card->back_text = $data->backText;
+            if ($data->hasFrontText) {
+                $card->front_text = $data->frontText;
+            }
+
+            if ($data->hasBackText) {
+                $card->back_text = $data->backText;
+            }
 
             if ($data->cardType !== null) {
                 $card->card_type = $data->cardType;

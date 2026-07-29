@@ -50,6 +50,30 @@ class UploadStudyCardImageApiTest extends TestCase
         Storage::disk('media')->assertExists($media->path);
     }
 
+    public function test_it_uploads_an_image_for_a_structured_card_with_blank_legacy_text(): void
+    {
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'front_text' => '',
+            'back_text' => '',
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['expression' => '会社', 'meaning' => 'company'],
+        ]);
+
+        $this->post("/api/study/cards/{$card->id}/image", [
+            'imageRole' => 'both',
+            'image' => $this->jpegUpload(),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('prompt.cueImage.source', 'imported_image')
+            ->assertJsonPath('answer.answerImage.source', 'imported_image');
+
+        $card->refresh();
+        $this->assertSame('', $card->front_text);
+        $this->assertSame('', $card->back_text);
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_replaces_and_deletes_an_unreferenced_managed_image(): void
     {
         $user = $this->signIn();

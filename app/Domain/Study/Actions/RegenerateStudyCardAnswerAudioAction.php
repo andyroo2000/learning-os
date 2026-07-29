@@ -64,6 +64,8 @@ class RegenerateStudyCardAnswerAudioAction
                 $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
                     frontText: $lockedCard->front_text,
                     backText: $lockedCard->back_text,
+                    hasFrontText: false,
+                    hasBackText: false,
                     hasAnswerJson: true,
                     answerJson: $nextAnswer,
                 ));

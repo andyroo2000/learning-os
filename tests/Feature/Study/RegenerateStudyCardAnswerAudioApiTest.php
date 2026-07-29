@@ -99,6 +99,34 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         );
     }
 
+    public function test_it_regenerates_audio_for_a_structured_card_with_blank_legacy_text(): void
+    {
+        Http::fake([
+            'fish.test/v1/tts' => Http::response('ID3structured-audio'),
+        ]);
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'front_text' => '',
+            'back_text' => '',
+            'prompt_json' => ['cueText' => '学校で偉人について勉強しました。'],
+            'answer_json' => [
+                'expression' => '学校で偉人について勉強しました。',
+                'answerAudioVoiceId' => self::VOICE_ID,
+            ],
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")
+            ->assertOk()
+            ->assertJsonPath('answer.answerAudio.source', 'generated');
+
+        $card->refresh();
+        $this->assertSame('', $card->front_text);
+        $this->assertSame('', $card->back_text);
+        $this->assertSame('generated', $card->answer_audio_source);
+        $this->assertIsArray($card->answer_json['answerAudio']);
+        $this->assertDatabaseCount('media_assets', 1);
+    }
+
     public function test_it_accepts_an_uppercase_copied_card_uuid_and_returns_the_canonical_client_id(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3copied-card')]);

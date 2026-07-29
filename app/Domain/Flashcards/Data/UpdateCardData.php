@@ -15,7 +15,9 @@ use DateTimeInterface;
 final readonly class UpdateCardData
 {
     private function __construct(
+        public bool $hasFrontText,
         public string $frontText,
+        public bool $hasBackText,
         public string $backText,
         public ?CardType $cardType,
         public bool $hasPromptJson,
@@ -39,6 +41,8 @@ final readonly class UpdateCardData
     public static function fromInput(
         string $frontText,
         string $backText,
+        bool $hasFrontText = true,
+        bool $hasBackText = true,
         CardType|string|null $cardType = null,
         bool $hasPromptJson = false,
         ?array $promptJson = null,
@@ -66,7 +70,9 @@ final readonly class UpdateCardData
 
         // Normalize here too so non-HTTP callers get the same domain invariants.
         return new self(
+            hasFrontText: $hasFrontText,
             frontText: trim($frontText),
+            hasBackText: $hasBackText,
             backText: trim($backText),
             cardType: $cardType === null ? null : CardType::fromInput($cardType),
             hasPromptJson: $hasPromptJson,

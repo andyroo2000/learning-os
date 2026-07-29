@@ -131,6 +131,48 @@ class UpdateCardActionTest extends TestCase
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $entry->payload['answer_json']);
     }
 
+    public function test_it_updates_structured_content_when_legacy_text_fields_are_omitted(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => '',
+            'back_text' => '',
+            'prompt_json' => ['cueText' => 'company'],
+            'answer_json' => ['expression' => '会社'],
+        ]);
+
+        $result = app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(
+                frontText: '   ',
+                backText: '   ',
+                hasFrontText: false,
+                hasBackText: false,
+                hasAnswerJson: true,
+                answerJson: ['expression' => '学校', 'meaning' => 'school'],
+            ),
+        );
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame('', $result->card->front_text);
+        $this->assertSame('', $result->card->back_text);
+        $this->assertSame(
+            ['expression' => '学校', 'meaning' => 'school'],
+            $result->card->answer_json,
+        );
+        $this->assertSame(
+            'company 学校 school',
+            $result->card->search_text,
+        );
+
+        $entry = $this->assertCardSyncPayloadRecorded(
+            $result->card->refresh(),
+            SyncFeedOperation::Update,
+        );
+        $this->assertSame('', $entry->payload['front_text']);
+        $this->assertSame('', $entry->payload['back_text']);
+        $this->assertSame('学校', $entry->payload['answer_json']['expression']);
+    }
+
     public function test_it_updates_variant_metadata_for_direct_callers(): void
     {
         $card = $this->cardFor($this->signIn(), [

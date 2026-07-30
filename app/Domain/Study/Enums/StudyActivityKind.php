@@ -17,7 +17,8 @@ enum StudyActivityKind: string
     public function category(): StudyActivityCategory
     {
         return match ($this) {
-            self::CardReview, self::DailyAudio => StudyActivityCategory::Review,
+            self::CardReview => StudyActivityCategory::Review,
+            self::DailyAudio => StudyActivityCategory::Listen,
             self::CardCreation => StudyActivityCategory::Create,
             self::Tv, self::Podcast, self::Reading, self::Other => StudyActivityCategory::Immerse,
             self::Conversation => StudyActivityCategory::Conversation,

@@ -46,6 +46,14 @@ class StoreStudyActivitySessionsRequest extends FormRequest
                 }
             }
 
+            // Clients released before the Listen category paired Daily Audio with
+            // Review. Preserve their queued/offline sessions while storing the
+            // canonical category used by current analytics.
+            if (($sessions[$index]['activity'] ?? null) === StudyActivityKind::DailyAudio->value
+                && ($sessions[$index]['category'] ?? null) === StudyActivityCategory::Review->value) {
+                $sessions[$index]['category'] = StudyActivityCategory::Listen->value;
+            }
+
             if (isset($sessions[$index]['clientSessionId'])
                 && is_string($sessions[$index]['clientSessionId'])) {
                 $sessions[$index]['clientSessionId'] = StudyActivitySessionId::normalize(

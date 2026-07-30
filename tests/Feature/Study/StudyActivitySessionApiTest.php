@@ -410,7 +410,8 @@ class StudyActivitySessionApiTest extends TestCase
             ]);
 
             $response = $this->getJson(
-                '/api/study/activity-analytics?timezone=America%2FNew_York&weekStartsOn=1',
+                '/api/study/activity-analytics?timezone=America%2FNew_York'
+                    .'&weekStartsOn=1&adaptiveAllTime=1',
             )->assertOk()
                 ->assertJsonPath('anchorDate', '2026-07-28')
                 ->assertJsonPath('timezone', 'America/New_York')
@@ -420,7 +421,8 @@ class StudyActivitySessionApiTest extends TestCase
                 ->assertJsonPath('ranges.0.categories.review', 1_800_000)
                 ->assertJsonPath('ranges.0.categories.immerse', 600_000)
                 ->assertJsonPath('ranges.1.key', 'week')
-                ->assertJsonPath('ranges.1.totalMs', 10_200_000);
+                ->assertJsonPath('ranges.1.totalMs', 10_200_000)
+                ->assertJsonPath('ranges.4.bucketUnit', 'day');
 
             $response->assertJsonStructure([
                 'generatedAt',
@@ -430,6 +432,8 @@ class StudyActivitySessionApiTest extends TestCase
                     'key',
                     'startsAt',
                     'endsAt',
+                    'bucketUnit',
+                    'bucketStep',
                     'totalMs',
                     'categories' => ['review', 'listen', 'create', 'immerse', 'conversation', 'wanikani'],
                     'buckets' => [[
@@ -445,7 +449,8 @@ class StudyActivitySessionApiTest extends TestCase
                 '/api/study/activity-analytics?timezone=America%2FNew_York&weekStartsOn=2',
             )->assertOk()
                 ->assertJsonPath('ranges.1.key', 'week')
-                ->assertJsonPath('ranges.1.totalMs', 6_600_000);
+                ->assertJsonPath('ranges.1.totalMs', 6_600_000)
+                ->assertJsonPath('ranges.4.bucketUnit', 'year');
 
             $this->getJson(
                 '/api/study/activity-analytics?timezone=America%2FNew_York'
@@ -466,10 +471,16 @@ class StudyActivitySessionApiTest extends TestCase
 
         $this->getJson(
             '/api/study/activity-analytics?timezone=Moon%2FBase'
-                .'&weekStartsOn=0&anchorDate=07-28-2026',
+                .'&weekStartsOn=0&anchorDate=07-28-2026'
+                .'&adaptiveAllTime=maybe',
         )
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timezone', 'weekStartsOn', 'anchorDate']);
+            ->assertJsonValidationErrors([
+                'timezone',
+                'weekStartsOn',
+                'anchorDate',
+                'adaptiveAllTime',
+            ]);
 
         $this->getJson(
             '/api/study/activity-analytics?timezone=UTC'

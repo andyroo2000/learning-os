@@ -112,6 +112,47 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         $this->assertSame('2026-07-28T12:34:56.000000Z', $ranges['all']['endsAt']);
     }
 
+    public function test_all_time_range_promotes_through_nice_calendar_bucket_sizes(): void
+    {
+        $now = CarbonImmutable::parse('2026-07-30T12:00:00Z');
+        $cases = [
+            ['2026-07-20T12:00:00Z', 'day', 1],
+            ['2026-06-29T12:00:00Z', 'week', 1],
+            ['2026-05-30T12:00:00Z', 'week', 1],
+            ['2025-07-30T12:00:00Z', 'month', 1],
+            ['2023-07-30T12:00:00Z', 'quarter', 1],
+            ['2016-07-30T12:00:00Z', 'year', 1],
+            ['1926-07-30T12:00:00Z', 'year', 5],
+        ];
+
+        foreach ($cases as $index => [$startedAt, $expectedUnit, $expectedStep]) {
+            $user = User::factory()->create();
+            StudyActivitySession::query()->forceCreate([
+                'user_id' => $user->id,
+                'client_session_id' => "adaptive-all-time-{$index}",
+                'category' => 'review',
+                'activity' => 'card_review',
+                'source' => 'manual',
+                'started_at' => $startedAt,
+                'ended_at' => CarbonImmutable::parse($startedAt)->addHour(),
+                'duration_ms' => 3_600_000,
+            ]);
+
+            $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+                $user->id,
+                new DateTimeZone('UTC'),
+                2,
+                $now,
+                adaptiveAllTime: true,
+            );
+            $all = collect($result['ranges'])->firstWhere('key', 'all');
+
+            $this->assertSame($expectedUnit, $all['bucketUnit']);
+            $this->assertSame($expectedStep, $all['bucketStep']);
+            $this->assertLessThanOrEqual(31, count($all['buckets']));
+        }
+    }
+
     public function test_fixed_ranges_can_be_anchored_to_an_earlier_calendar_period(): void
     {
         $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
@@ -199,6 +240,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             new DateTimeZone('UTC'),
             1,
             CarbonImmutable::parse('2026-01-02T12:00:00Z'),
+            adaptiveAllTime: true,
         );
 
         $ranges = collect($result['ranges']);
@@ -208,7 +250,11 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
 
         $this->assertSame(1_800_000, $month['totalMs']);
         $this->assertSame(1_800_000, $year['totalMs']);
-        $this->assertSame([1_800_000, 1_800_000], array_column($all['buckets'], 'totalMs'));
+        $this->assertSame('day', $all['bucketUnit']);
+        $this->assertSame(
+            [1_800_000, 1_800_000],
+            array_slice(array_column($all['buckets'], 'totalMs'), 0, 2),
+        );
         $this->assertSame(3_600_000, $all['totalMs']);
     }
 }

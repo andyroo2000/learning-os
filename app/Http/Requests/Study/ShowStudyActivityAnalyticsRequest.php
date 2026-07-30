@@ -20,6 +20,7 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
             'timezone' => ['required', 'string', 'timezone:all'],
             'weekStartsOn' => ['required', 'integer', 'between:1,7'],
             'anchorDate' => ['sometimes', 'string', 'date_format:Y-m-d'],
+            'adaptiveAllTime' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -45,5 +46,10 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
             (string) $anchorDate,
             $this->timezone(),
         );
+    }
+
+    public function adaptiveAllTime(): bool
+    {
+        return (bool) ($this->validated('adaptiveAllTime') ?? false);
     }
 }

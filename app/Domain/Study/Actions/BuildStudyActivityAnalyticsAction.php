@@ -44,9 +44,14 @@ final class BuildStudyActivityAnalyticsAction
         $earliest = StudyActivitySession::query()
             ->where('user_id', $userId)
             ->min('started_at');
-        $allStart = $earliest === null
+        $earliestStart = $earliest === null
             ? $now->startOfDay()
-            : CarbonImmutable::parse($earliest)->setTimezone($timezone)->startOfYear();
+            : CarbonImmutable::parse($earliest)->setTimezone($timezone);
+        [$allStart, $allBucketUnit, $allBucketStep] = $this->allTimeBucketDefinition(
+            $earliestStart,
+            $now,
+            $weekStartsOn,
+        );
         $todayStart = $anchor->startOfDay();
         // Fixed calendar ranges include their complete future-facing display
         // window. Session accumulation remains capped at $now below.
@@ -84,7 +89,8 @@ final class BuildStudyActivityAnalyticsAction
                 self::RANGE_ALL,
                 $allStart,
                 $now,
-                'year',
+                $allBucketUnit,
+                $allBucketStep,
             ),
         ];
         $windows = array_map(
@@ -132,6 +138,8 @@ final class BuildStudyActivityAnalyticsAction
      *   key: string,
      *   startsAt: string,
      *   endsAt: string,
+     *   bucketUnit: string,
+     *   bucketStep: int,
      *   totalMs: int,
      *   categories: array<string, int>,
      *   buckets: list<array{startsAt: string, endsAt: string, totalMs: int, categories: array<string, int>}>
@@ -142,15 +150,18 @@ final class BuildStudyActivityAnalyticsAction
         CarbonImmutable $startsAt,
         CarbonImmutable $endsAt,
         string $bucketUnit,
+        int $bucketStep = 1,
     ): array {
         $buckets = [];
         $cursor = $startsAt;
         while ($cursor->lessThan($endsAt)) {
             $next = match ($bucketUnit) {
-                'hour' => $cursor->addHour(),
-                'day' => $cursor->addDay(),
-                'month' => $cursor->addMonth(),
-                'year' => $cursor->addYear(),
+                'hour' => $cursor->addHours($bucketStep),
+                'day' => $cursor->addDays($bucketStep),
+                'week' => $cursor->addWeeks($bucketStep),
+                'month' => $cursor->addMonths($bucketStep),
+                'quarter' => $cursor->addMonths(3 * $bucketStep),
+                'year' => $cursor->addYears($bucketStep),
                 default => throw new InvalidArgumentException('Unsupported analytics bucket unit.'),
             };
             $bucketEnd = $next->min($endsAt);
@@ -167,10 +178,60 @@ final class BuildStudyActivityAnalyticsAction
             'key' => $key,
             'startsAt' => $startsAt->utc()->format('Y-m-d\TH:i:s.u\Z'),
             'endsAt' => $endsAt->utc()->format('Y-m-d\TH:i:s.u\Z'),
+            'bucketUnit' => $bucketUnit,
+            'bucketStep' => $bucketStep,
             'totalMs' => 0,
             'categories' => $this->emptyCategories(),
             'buckets' => $buckets,
         ];
+    }
+
+    /**
+     * Keep all-time charts readable by promoting through calendar intervals,
+     * then use unbounded 1/2/5 × 10ⁿ year steps for very long histories.
+     *
+     * @return array{CarbonImmutable, string, int}
+     */
+    private function allTimeBucketDefinition(
+        CarbonImmutable $earliest,
+        CarbonImmutable $now,
+        int $weekStartsOn,
+    ): array {
+        $spanDays = max(1, (int) ceil($earliest->diffInDays($now)));
+
+        if ($spanDays <= 31) {
+            return [$earliest->startOfDay(), 'day', 1];
+        }
+        if ($spanDays <= 16 * 7) {
+            return [$earliest->startOfWeek($weekStartsOn - 1), 'week', 1];
+        }
+        if ($spanDays <= 24 * 31) {
+            return [$earliest->startOfMonth(), 'month', 1];
+        }
+        if ($spanDays <= 20 * 3 * 31) {
+            return [$earliest->startOfQuarter(), 'quarter', 1];
+        }
+
+        $spanYears = max(1, $now->year - $earliest->year + 1);
+        $yearStep = $spanYears <= 24
+            ? 1
+            : $this->niceYearStep((int) ceil($spanYears / 24));
+
+        return [$earliest->startOfYear(), 'year', $yearStep];
+    }
+
+    private function niceYearStep(int $minimum): int
+    {
+        $magnitude = 10 ** (int) floor(log10(max(1, $minimum)));
+        $normalized = $minimum / $magnitude;
+        $factor = match (true) {
+            $normalized <= 1 => 1,
+            $normalized <= 2 => 2,
+            $normalized <= 5 => 5,
+            default => 10,
+        };
+
+        return $factor * $magnitude;
     }
 
     /**

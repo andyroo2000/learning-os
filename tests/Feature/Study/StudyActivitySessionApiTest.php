@@ -430,6 +430,8 @@ class StudyActivitySessionApiTest extends TestCase
                     'key',
                     'startsAt',
                     'endsAt',
+                    'bucketUnit',
+                    'bucketStep',
                     'totalMs',
                     'categories' => ['review', 'listen', 'create', 'immerse', 'conversation', 'wanikani'],
                     'buckets' => [[

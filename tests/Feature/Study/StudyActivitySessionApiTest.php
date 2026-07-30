@@ -7,6 +7,7 @@ use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -148,12 +149,23 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertJsonValidationErrors('sessions.0.category');
     }
 
-    public function test_it_accepts_conversation_and_wanikani_as_distinct_categories(): void
+    public function test_it_accepts_listen_conversation_and_wanikani_as_distinct_categories(): void
     {
         $this->signIn();
 
         $this->postJson('/api/study/activity-sessions/batch', [
             'sessions' => [
+                [
+                    'clientSessionId' => '018f22d2-6d38-7000-8000-000000000009',
+                    'category' => 'listen',
+                    'activity' => 'daily_audio',
+                    'source' => 'automatic',
+                    'name' => 'Daily drill',
+                    'startedAt' => '2026-07-28T11:30:00Z',
+                    'endedAt' => '2026-07-28T12:00:00Z',
+                    'durationMs' => 1_800_000,
+                    'audioPlaybackMs' => 1_800_000,
+                ],
                 [
                     'clientSessionId' => '018f22d2-6d38-7000-8000-000000000010',
                     'category' => 'conversation',
@@ -175,8 +187,36 @@ class StudyActivitySessionApiTest extends TestCase
                 ],
             ],
         ])->assertOk()
-            ->assertJsonPath('0.category', 'conversation')
-            ->assertJsonPath('1.category', 'wanikani');
+            ->assertJsonPath('0.category', 'listen')
+            ->assertJsonPath('1.category', 'conversation')
+            ->assertJsonPath('2.category', 'wanikani');
+    }
+
+    public function test_it_canonicalizes_the_legacy_daily_audio_review_pair(): void
+    {
+        $user = $this->signIn();
+
+        $this->withoutMiddleware(TrimStrings::class)
+            ->postJson('/api/study/activity-sessions/batch', [
+                'sessions' => [[
+                    'clientSessionId' => '018f22d2-6d38-7000-8000-000000000019',
+                    'category' => ' REVIEW ',
+                    'activity' => ' DAILY_AUDIO ',
+                    'source' => 'automatic',
+                    'startedAt' => '2026-07-28T12:00:00Z',
+                    'endedAt' => '2026-07-28T12:30:00Z',
+                    'durationMs' => 1_800_000,
+                    'audioPlaybackMs' => 1_800_000,
+                ]],
+            ])->assertOk()
+            ->assertJsonPath('0.category', 'listen');
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => '018f22d2-6d38-7000-8000-000000000019',
+            'category' => 'listen',
+            'activity' => 'daily_audio',
+        ]);
     }
 
     public function test_it_does_not_overwrite_an_existing_automatic_session(): void
@@ -271,6 +311,51 @@ class StudyActivitySessionApiTest extends TestCase
         ]);
     }
 
+    public function test_daily_audio_category_rollback_restores_the_legacy_contract(): void
+    {
+        $user = User::factory()->create();
+        $this->createSession($user, [
+            'client_session_id' => 'legacy-daily-audio',
+            'category' => 'review',
+            'activity' => 'daily_audio',
+        ]);
+        $this->createSession($user, [
+            'client_session_id' => 'card-review',
+            'category' => 'review',
+            'activity' => 'card_review',
+        ]);
+        $migration = require database_path(
+            'migrations/2026_07_30_010000_backfill_daily_audio_study_activity_category.php',
+        );
+
+        $migration->up();
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'client_session_id' => 'legacy-daily-audio',
+            'category' => 'listen',
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'client_session_id' => 'card-review',
+            'category' => 'review',
+        ]);
+        $this->createSession($user, [
+            'client_session_id' => 'post-deploy-daily-audio',
+            'category' => 'listen',
+            'activity' => 'daily_audio',
+        ]);
+
+        $migration->down();
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'client_session_id' => 'legacy-daily-audio',
+            'category' => 'review',
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'client_session_id' => 'post-deploy-daily-audio',
+            'category' => 'review',
+        ]);
+    }
+
     public function test_it_returns_cross_device_activity_analytics_in_the_users_timezone(): void
     {
         $user = $this->signIn();
@@ -346,12 +431,12 @@ class StudyActivitySessionApiTest extends TestCase
                     'startsAt',
                     'endsAt',
                     'totalMs',
-                    'categories' => ['review', 'create', 'immerse', 'conversation', 'wanikani'],
+                    'categories' => ['review', 'listen', 'create', 'immerse', 'conversation', 'wanikani'],
                     'buckets' => [[
                         'startsAt',
                         'endsAt',
                         'totalMs',
-                        'categories' => ['review', 'create', 'immerse', 'conversation', 'wanikani'],
+                        'categories' => ['review', 'listen', 'create', 'immerse', 'conversation', 'wanikani'],
                     ]],
                 ]],
             ]);

@@ -15,6 +15,33 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_reports_daily_audio_as_listening_not_review(): void
+    {
+        $user = User::factory()->create();
+        StudyActivitySession::query()->forceCreate([
+            'user_id' => $user->id,
+            'client_session_id' => 'daily-audio',
+            'category' => 'listen',
+            'activity' => 'daily_audio',
+            'source' => 'automatic',
+            'started_at' => '2026-07-28T11:30:00Z',
+            'ended_at' => '2026-07-28T12:00:00Z',
+            'duration_ms' => 1_800_000,
+            'audio_playback_ms' => 1_800_000,
+        ]);
+
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            $user->id,
+            new DateTimeZone('UTC'),
+            1,
+            CarbonImmutable::parse('2026-07-28T13:00:00Z'),
+        );
+
+        $today = collect($result['ranges'])->firstWhere('key', 'today');
+        $this->assertSame(1_800_000, $today['categories']['listen']);
+        $this->assertSame(0, $today['categories']['review']);
+    }
+
     public function test_it_allocates_a_cross_midnight_session_between_local_day_buckets(): void
     {
         $user = User::factory()->create();

@@ -117,6 +117,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         $now = CarbonImmutable::parse('2026-07-30T12:00:00Z');
         $cases = [
             ['2026-07-20T12:00:00Z', 'day', 1],
+            ['2026-06-29T12:00:00Z', 'week', 1],
             ['2026-05-30T12:00:00Z', 'week', 1],
             ['2025-07-30T12:00:00Z', 'month', 1],
             ['2023-07-30T12:00:00Z', 'quarter', 1],

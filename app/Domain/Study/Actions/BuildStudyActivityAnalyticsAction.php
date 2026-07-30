@@ -197,19 +197,21 @@ final class BuildStudyActivityAnalyticsAction
         CarbonImmutable $now,
         int $weekStartsOn,
     ): array {
-        $spanDays = max(1, (int) ceil($earliest->diffInDays($now)));
-
-        if ($spanDays <= 31) {
-            return [$earliest->startOfDay(), 'day', 1];
+        $dayStart = $earliest->startOfDay();
+        if ((int) ceil($dayStart->diffInDays($now)) <= 31) {
+            return [$dayStart, 'day', 1];
         }
-        if ($spanDays <= 16 * 7) {
-            return [$earliest->startOfWeek($weekStartsOn - 1), 'week', 1];
+        $weekStart = $earliest->startOfWeek($weekStartsOn - 1);
+        if ((int) ceil($weekStart->diffInDays($now) / 7) <= 16) {
+            return [$weekStart, 'week', 1];
         }
-        if ($spanDays <= 24 * 31) {
-            return [$earliest->startOfMonth(), 'month', 1];
+        $monthStart = $earliest->startOfMonth();
+        if ((int) ceil($monthStart->diffInMonths($now)) <= 24) {
+            return [$monthStart, 'month', 1];
         }
-        if ($spanDays <= 20 * 3 * 31) {
-            return [$earliest->startOfQuarter(), 'quarter', 1];
+        $quarterStart = $earliest->startOfQuarter();
+        if ((int) ceil($quarterStart->diffInMonths($now) / 3) <= 20) {
+            return [$quarterStart, 'quarter', 1];
         }
 
         $spanYears = max(1, $now->year - $earliest->year + 1);

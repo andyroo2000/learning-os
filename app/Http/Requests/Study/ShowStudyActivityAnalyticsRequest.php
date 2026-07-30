@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Study;
 
+use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -18,6 +19,7 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
         return [
             'timezone' => ['required', 'string', 'timezone:all'],
             'weekStartsOn' => ['required', 'integer', 'between:1,7'],
+            'anchorDate' => ['sometimes', 'string', 'date_format:Y-m-d'],
         ];
     }
 
@@ -29,5 +31,19 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
     public function weekStartsOn(): int
     {
         return (int) $this->validated('weekStartsOn');
+    }
+
+    public function anchor(): ?CarbonImmutable
+    {
+        $anchorDate = $this->validated('anchorDate');
+        if ($anchorDate === null) {
+            return null;
+        }
+
+        return CarbonImmutable::createFromFormat(
+            '!Y-m-d',
+            (string) $anchorDate,
+            $this->timezone(),
+        );
     }
 }

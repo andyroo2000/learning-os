@@ -327,6 +327,7 @@ class StudyActivitySessionApiTest extends TestCase
             $response = $this->getJson(
                 '/api/study/activity-analytics?timezone=America%2FNew_York&weekStartsOn=1',
             )->assertOk()
+                ->assertJsonPath('anchorDate', '2026-07-28')
                 ->assertJsonPath('timezone', 'America/New_York')
                 ->assertJsonCount(5, 'ranges')
                 ->assertJsonPath('ranges.0.key', 'today')
@@ -338,6 +339,7 @@ class StudyActivitySessionApiTest extends TestCase
 
             $response->assertJsonStructure([
                 'generatedAt',
+                'anchorDate',
                 'timezone',
                 'ranges' => [[
                     'key',
@@ -359,6 +361,15 @@ class StudyActivitySessionApiTest extends TestCase
             )->assertOk()
                 ->assertJsonPath('ranges.1.key', 'week')
                 ->assertJsonPath('ranges.1.totalMs', 6_600_000);
+
+            $this->getJson(
+                '/api/study/activity-analytics?timezone=America%2FNew_York'
+                    .'&weekStartsOn=2&anchorDate=2026-07-27',
+            )->assertOk()
+                ->assertJsonPath('anchorDate', '2026-07-27')
+                ->assertJsonPath('ranges.0.startsAt', '2026-07-27T04:00:00.000000Z')
+                ->assertJsonPath('ranges.0.endsAt', '2026-07-28T04:00:00.000000Z')
+                ->assertJsonPath('ranges.0.totalMs', 4_200_000);
         } finally {
             $this->travelBack();
         }
@@ -368,9 +379,26 @@ class StudyActivitySessionApiTest extends TestCase
     {
         $this->signIn();
 
-        $this->getJson('/api/study/activity-analytics?timezone=Moon%2FBase&weekStartsOn=0')
+        $this->getJson(
+            '/api/study/activity-analytics?timezone=Moon%2FBase'
+                .'&weekStartsOn=0&anchorDate=07-28-2026',
+        )
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timezone', 'weekStartsOn']);
+            ->assertJsonValidationErrors(['timezone', 'weekStartsOn', 'anchorDate']);
+
+        $this->getJson(
+            '/api/study/activity-analytics?timezone=UTC'
+                .'&weekStartsOn=1&anchorDate[]=2026-07-28',
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['anchorDate']);
+
+        $this->getJson(
+            '/api/study/activity-analytics?timezone=UTC'
+                .'&weekStartsOn=1&anchorDate=tomorrow',
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['anchorDate']);
     }
 
     public function test_it_deletes_only_manual_or_calendar_sessions_and_is_retry_safe(): void

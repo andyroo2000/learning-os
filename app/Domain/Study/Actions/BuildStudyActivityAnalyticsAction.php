@@ -20,30 +20,39 @@ final class BuildStudyActivityAnalyticsAction
 
     private const RANGE_ALL = 'all';
 
-    /** @return array{generatedAt: string, timezone: string, ranges: list<array<string, mixed>>} */
+    /**
+     * @return array{
+     *   generatedAt: string,
+     *   anchorDate: string,
+     *   timezone: string,
+     *   ranges: list<array<string, mixed>>
+     * }
+     */
     public function handle(
         int $userId,
         DateTimeZone $timezone,
         int $weekStartsOn,
         ?CarbonImmutable $now = null,
+        ?CarbonImmutable $anchor = null,
     ): array {
         if ($weekStartsOn < 1 || $weekStartsOn > 7) {
             throw new InvalidArgumentException('The first weekday must be between 1 and 7.');
         }
 
         $now = ($now ?? CarbonImmutable::now($timezone))->setTimezone($timezone);
+        $anchor = ($anchor ?? $now)->setTimezone($timezone);
         $earliest = StudyActivitySession::query()
             ->where('user_id', $userId)
             ->min('started_at');
         $allStart = $earliest === null
             ? $now->startOfDay()
             : CarbonImmutable::parse($earliest)->setTimezone($timezone)->startOfYear();
-        $todayStart = $now->startOfDay();
+        $todayStart = $anchor->startOfDay();
         // Fixed calendar ranges include their complete future-facing display
         // window. Session accumulation remains capped at $now below.
-        $weekStart = $now->startOfWeek($weekStartsOn - 1);
-        $monthStart = $now->startOfMonth();
-        $yearStart = $now->startOfYear();
+        $weekStart = $anchor->startOfWeek($weekStartsOn - 1);
+        $monthStart = $anchor->startOfMonth();
+        $yearStart = $anchor->startOfYear();
 
         $ranges = [
             self::RANGE_TODAY => $this->makeRange(
@@ -112,6 +121,7 @@ final class BuildStudyActivityAnalyticsAction
 
         return [
             'generatedAt' => $now->utc()->format('Y-m-d\TH:i:s.u\Z'),
+            'anchorDate' => $anchor->toDateString(),
             'timezone' => $timezone->getName(),
             'ranges' => array_values($ranges),
         ];

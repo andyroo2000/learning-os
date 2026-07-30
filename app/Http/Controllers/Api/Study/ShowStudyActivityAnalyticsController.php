@@ -18,6 +18,7 @@ final class ShowStudyActivityAnalyticsController extends Controller
             AuthenticatedUser::id($request),
             $request->timezone(),
             $request->weekStartsOn(),
+            anchor: $request->anchor(),
         ));
     }
 }

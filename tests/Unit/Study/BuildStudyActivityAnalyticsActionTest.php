@@ -143,6 +143,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
                 new DateTimeZone('UTC'),
                 2,
                 $now,
+                adaptiveAllTime: true,
             );
             $all = collect($result['ranges'])->firstWhere('key', 'all');
 
@@ -239,6 +240,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             new DateTimeZone('UTC'),
             1,
             CarbonImmutable::parse('2026-01-02T12:00:00Z'),
+            adaptiveAllTime: true,
         );
 
         $ranges = collect($result['ranges']);

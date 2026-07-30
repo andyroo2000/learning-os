@@ -19,6 +19,7 @@ final class ShowStudyActivityAnalyticsController extends Controller
             $request->timezone(),
             $request->weekStartsOn(),
             anchor: $request->anchor(),
+            adaptiveAllTime: $request->adaptiveAllTime(),
         ));
     }
 }

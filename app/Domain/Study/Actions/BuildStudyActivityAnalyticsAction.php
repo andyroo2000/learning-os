@@ -34,6 +34,7 @@ final class BuildStudyActivityAnalyticsAction
         int $weekStartsOn,
         ?CarbonImmutable $now = null,
         ?CarbonImmutable $anchor = null,
+        bool $adaptiveAllTime = false,
     ): array {
         if ($weekStartsOn < 1 || $weekStartsOn > 7) {
             throw new InvalidArgumentException('The first weekday must be between 1 and 7.');
@@ -47,11 +48,9 @@ final class BuildStudyActivityAnalyticsAction
         $earliestStart = $earliest === null
             ? $now->startOfDay()
             : CarbonImmutable::parse($earliest)->setTimezone($timezone);
-        [$allStart, $allBucketUnit, $allBucketStep] = $this->allTimeBucketDefinition(
-            $earliestStart,
-            $now,
-            $weekStartsOn,
-        );
+        [$allStart, $allBucketUnit, $allBucketStep] = $adaptiveAllTime
+            ? $this->allTimeBucketDefinition($earliestStart, $now, $weekStartsOn)
+            : [$earliestStart->startOfYear(), 'year', 1];
         $todayStart = $anchor->startOfDay();
         // Fixed calendar ranges include their complete future-facing display
         // window. Session accumulation remains capped at $now below.

@@ -15,6 +15,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Rolling back this migration also rolls application code back to an enum
+        // without Listen. Restore the legacy category for every Daily Audio row,
+        // including sessions created after this migration ran.
         DB::table('study_activity_sessions')
             ->where('activity', 'daily_audio')
             ->where('category', 'listen')

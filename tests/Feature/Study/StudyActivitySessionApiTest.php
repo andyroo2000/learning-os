@@ -311,7 +311,7 @@ class StudyActivitySessionApiTest extends TestCase
         ]);
     }
 
-    public function test_daily_audio_category_backfill_is_reversible_and_scoped(): void
+    public function test_daily_audio_category_rollback_restores_the_legacy_contract(): void
     {
         $user = User::factory()->create();
         $this->createSession($user, [
@@ -338,11 +338,20 @@ class StudyActivitySessionApiTest extends TestCase
             'client_session_id' => 'card-review',
             'category' => 'review',
         ]);
+        $this->createSession($user, [
+            'client_session_id' => 'post-deploy-daily-audio',
+            'category' => 'listen',
+            'activity' => 'daily_audio',
+        ]);
 
         $migration->down();
 
         $this->assertDatabaseHas('study_activity_sessions', [
             'client_session_id' => 'legacy-daily-audio',
+            'category' => 'review',
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'client_session_id' => 'post-deploy-daily-audio',
             'category' => 'review',
         ]);
     }

@@ -55,6 +55,84 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         );
     }
 
+    public function test_fixed_ranges_cover_the_complete_selected_calendar_period(): void
+    {
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            User::factory()->create()->id,
+            new DateTimeZone('UTC'),
+            2,
+            CarbonImmutable::parse('2026-07-28T12:34:56Z'),
+        );
+
+        $ranges = collect($result['ranges'])->keyBy('key');
+
+        $this->assertSame('2026-07-29T00:00:00.000000Z', $ranges['today']['endsAt']);
+        $this->assertCount(24, $ranges['today']['buckets']);
+        $this->assertSame('2026-07-28T23:00:00.000000Z', $ranges['today']['buckets'][23]['startsAt']);
+
+        $this->assertSame('2026-08-03T00:00:00.000000Z', $ranges['week']['endsAt']);
+        $this->assertCount(7, $ranges['week']['buckets']);
+        $this->assertSame('2026-08-02T00:00:00.000000Z', $ranges['week']['buckets'][6]['startsAt']);
+
+        $this->assertSame('2026-08-01T00:00:00.000000Z', $ranges['month']['endsAt']);
+        $this->assertCount(31, $ranges['month']['buckets']);
+        $this->assertSame('2026-07-31T00:00:00.000000Z', $ranges['month']['buckets'][30]['startsAt']);
+
+        $this->assertSame('2027-01-01T00:00:00.000000Z', $ranges['year']['endsAt']);
+        $this->assertCount(12, $ranges['year']['buckets']);
+        $this->assertSame('2026-12-01T00:00:00.000000Z', $ranges['year']['buckets'][11]['startsAt']);
+
+        $this->assertSame('2026-07-28T12:34:56.000000Z', $ranges['all']['endsAt']);
+    }
+
+    public function test_future_display_buckets_do_not_count_unelapsed_session_time(): void
+    {
+        $user = User::factory()->create();
+        StudyActivitySession::query()->forceCreate([
+            'user_id' => $user->id,
+            'client_session_id' => 'crosses-now',
+            'category' => 'review',
+            'activity' => 'card_review',
+            'source' => 'manual',
+            'started_at' => '2026-07-28T11:30:00Z',
+            'ended_at' => '2026-07-28T12:30:00Z',
+            'duration_ms' => 3_600_000,
+        ]);
+
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            $user->id,
+            new DateTimeZone('UTC'),
+            2,
+            CarbonImmutable::parse('2026-07-28T12:00:00Z'),
+        );
+
+        $today = collect($result['ranges'])->firstWhere('key', 'today');
+
+        $this->assertSame(1_800_000, $today['totalMs']);
+        $this->assertSame(1_800_000, $today['categories']['review']);
+        $this->assertSame(1_800_000, $today['buckets'][11]['totalMs']);
+        $this->assertSame(0, $today['buckets'][12]['totalMs']);
+        $this->assertSame(0, $today['buckets'][23]['totalMs']);
+    }
+
+    public function test_complete_ranges_follow_local_calendar_boundaries_across_dst(): void
+    {
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            User::factory()->create()->id,
+            new DateTimeZone('America/New_York'),
+            1,
+            CarbonImmutable::parse('2026-03-08T12:00:00-04:00'),
+        );
+
+        $ranges = collect($result['ranges'])->keyBy('key');
+
+        $this->assertSame('2026-03-08T05:00:00.000000Z', $ranges['today']['startsAt']);
+        $this->assertSame('2026-03-09T04:00:00.000000Z', $ranges['today']['endsAt']);
+        $this->assertCount(23, $ranges['today']['buckets']);
+        $this->assertCount(7, $ranges['week']['buckets']);
+        $this->assertSame('2026-03-15T04:00:00.000000Z', $ranges['week']['endsAt']);
+    }
+
     public function test_it_allocates_a_session_across_month_and_year_buckets(): void
     {
         $user = User::factory()->create();

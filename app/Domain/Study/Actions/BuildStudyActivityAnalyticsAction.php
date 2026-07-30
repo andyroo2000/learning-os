@@ -38,31 +38,37 @@ final class BuildStudyActivityAnalyticsAction
         $allStart = $earliest === null
             ? $now->startOfDay()
             : CarbonImmutable::parse($earliest)->setTimezone($timezone)->startOfYear();
+        $todayStart = $now->startOfDay();
+        // Fixed calendar ranges include their complete future-facing display
+        // window. Session accumulation remains capped at $now below.
+        $weekStart = $now->startOfWeek($weekStartsOn - 1);
+        $monthStart = $now->startOfMonth();
+        $yearStart = $now->startOfYear();
 
         $ranges = [
             self::RANGE_TODAY => $this->makeRange(
                 self::RANGE_TODAY,
-                $now->startOfDay(),
-                $now,
+                $todayStart,
+                $todayStart->addDay(),
                 'hour',
             ),
             self::RANGE_WEEK => $this->makeRange(
                 self::RANGE_WEEK,
                 // Client contract follows Calendar.firstWeekday: 1=Sunday … 7=Saturday.
-                $now->startOfWeek($weekStartsOn - 1),
-                $now,
+                $weekStart,
+                $weekStart->addWeek(),
                 'day',
             ),
             self::RANGE_MONTH => $this->makeRange(
                 self::RANGE_MONTH,
-                $now->startOfMonth(),
-                $now,
+                $monthStart,
+                $monthStart->addMonth(),
                 'day',
             ),
             self::RANGE_YEAR => $this->makeRange(
                 self::RANGE_YEAR,
-                $now->startOfYear(),
-                $now,
+                $yearStart,
+                $yearStart->addYear(),
                 'month',
             ),
             self::RANGE_ALL => $this->makeRange(
@@ -95,8 +101,13 @@ final class BuildStudyActivityAnalyticsAction
             ->where('started_at', '<', $now->utc())
             ->orderBy('started_at')
             ->cursor()
-            ->each(function (StudyActivitySession $session) use (&$ranges, $timezone, $windows): void {
-                $this->accumulateSession($ranges, $windows, $session, $timezone);
+            ->each(function (StudyActivitySession $session) use (
+                &$ranges,
+                $now,
+                $timezone,
+                $windows,
+            ): void {
+                $this->accumulateSession($ranges, $windows, $session, $timezone, $now);
             });
 
         return [
@@ -161,10 +172,12 @@ final class BuildStudyActivityAnalyticsAction
         array $windows,
         StudyActivitySession $session,
         DateTimeZone $timezone,
+        CarbonImmutable $now,
     ): void {
         $startedAt = $session->started_at->setTimezone($timezone);
-        $endedAt = $session->ended_at->setTimezone($timezone);
-        $elapsedMs = max(1, (int) round($startedAt->diffInRealMilliseconds($endedAt)));
+        $recordedEnd = $session->ended_at->setTimezone($timezone);
+        $elapsedMs = max(1, (int) round($startedAt->diffInRealMilliseconds($recordedEnd)));
+        $endedAt = $recordedEnd->min($now);
         $category = $session->category->value;
 
         foreach ($ranges as $rangeKey => &$range) {

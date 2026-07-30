@@ -85,6 +85,26 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         $this->assertSame('2026-07-28T12:34:56.000000Z', $ranges['all']['endsAt']);
     }
 
+    public function test_fixed_ranges_can_be_anchored_to_an_earlier_calendar_period(): void
+    {
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            User::factory()->create()->id,
+            new DateTimeZone('America/New_York'),
+            2,
+            CarbonImmutable::parse('2026-07-28T12:34:56-04:00'),
+            CarbonImmutable::parse('2026-06-15T00:00:00-04:00'),
+        );
+
+        $ranges = collect($result['ranges'])->keyBy('key');
+
+        $this->assertSame('2026-06-15', $result['anchorDate']);
+        $this->assertSame('2026-06-15T04:00:00.000000Z', $ranges['today']['startsAt']);
+        $this->assertSame('2026-06-15T04:00:00.000000Z', $ranges['week']['startsAt']);
+        $this->assertSame('2026-07-01T04:00:00.000000Z', $ranges['month']['endsAt']);
+        $this->assertSame('2026-01-01T05:00:00.000000Z', $ranges['year']['startsAt']);
+        $this->assertSame('2026-07-28T16:34:56.000000Z', $ranges['all']['endsAt']);
+    }
+
     public function test_future_display_buckets_do_not_count_unelapsed_session_time(): void
     {
         $user = User::factory()->create();

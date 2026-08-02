@@ -317,6 +317,20 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
     }
 
+    public function test_audio_recognition_reports_missing_back_text_when_the_answer_has_no_text(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'creation_kind' => StudyCardCreationKind::AudioRecognition,
+            'prompt_json' => ['cueAudio' => ['id' => 'audio-1']],
+            'answer_json' => ['answerImage' => ['id' => 'image-1']],
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Card back text is required.');
+
+        app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
+    }
+
     public function test_it_rejects_drafts_without_back_text(): void
     {
         $draft = StudyCardDraft::factory()->ready()->create([

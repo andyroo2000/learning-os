@@ -154,6 +154,22 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
         $this->assertSame($answer, $card->answer_json);
     }
 
+    public function test_audio_recognition_reports_a_missing_answer_as_back_text_validation(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([
+            'creation_kind' => StudyCardCreationKind::AudioRecognition,
+            'prompt_json' => ['cueAudio' => ['id' => 'audio-1']],
+            'answer_json' => ['answerImage' => ['id' => 'image-1']],
+        ]);
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['back_text'])
+            ->assertJsonPath('errors.back_text.0', 'Card back text is required.');
+    }
+
     public function test_it_normalizes_route_and_card_ids_without_trim_strings_middleware(): void
     {
         $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([

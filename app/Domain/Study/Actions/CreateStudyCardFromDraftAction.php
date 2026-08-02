@@ -71,10 +71,11 @@ class CreateStudyCardFromDraftAction
             $frontText = StudyCardPayloadText::frontText($promptJson);
             $backText = StudyCardPayloadText::backText($answerJson);
 
-            if ($frontText === null && $draft->creation_kind === StudyCardCreationKind::AudioRecognition) {
+            if ($draft->creation_kind === StudyCardCreationKind::AudioRecognition) {
+                $backText ??= throw CardValidationException::missingBackText();
                 // Audio-led prompts intentionally contain only cueAudio. The legacy text column
                 // still needs the spoken expression for search and older card consumers.
-                $frontText = $backText;
+                $frontText ??= $backText;
             }
 
             $frontText ??= throw CardValidationException::missingFrontText();

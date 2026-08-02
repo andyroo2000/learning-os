@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Results\CreateCardResult;
+use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
@@ -67,10 +68,17 @@ class CreateStudyCardFromDraftAction
             $promptJson = $draft->prompt_json;
             $answerJson = $draft->answer_json;
 
-            $frontText = StudyCardPayloadText::frontText($promptJson)
-                ?? throw CardValidationException::missingFrontText();
-            $backText = StudyCardPayloadText::backText($answerJson)
-                ?? throw CardValidationException::missingBackText();
+            $frontText = StudyCardPayloadText::frontText($promptJson);
+            $backText = StudyCardPayloadText::backText($answerJson);
+
+            if ($frontText === null && $draft->creation_kind === StudyCardCreationKind::AudioRecognition) {
+                // Audio-led prompts intentionally contain only cueAudio. The legacy text column
+                // still needs the spoken expression for search and older card consumers.
+                $frontText = $backText;
+            }
+
+            $frontText ??= throw CardValidationException::missingFrontText();
+            $backText ??= throw CardValidationException::missingBackText();
 
             $deck = $this->resolveManualStudyDeck->handle($userId);
 

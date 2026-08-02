@@ -115,6 +115,45 @@ class StoreStudyCardFromDraftCompatibilityApiTest extends TestCase
             ->assertJsonPath('committedCardId', $cardId);
     }
 
+    public function test_it_creates_an_audio_recognition_card_with_an_audio_only_prompt(): void
+    {
+        $user = $this->signIn();
+        $prompt = [
+            'cueAudio' => [
+                'id' => 'audio-1',
+                'filename' => 'company.mp3',
+                'url' => '/api/study/media/audio-1',
+                'mediaKind' => 'audio',
+                'source' => 'generated',
+            ],
+        ];
+        $answer = [
+            'expression' => '会社',
+            'meaning' => 'company',
+        ];
+        $draft = StudyCardDraft::factory()->ready()->for($user)->create([
+            'creation_kind' => StudyCardCreationKind::AudioRecognition,
+            'prompt_json' => $prompt,
+            'answer_json' => $answer,
+        ]);
+
+        $response = $this->postJson("/api/study/card-drafts/{$draft->id}/create-card", [
+            'id' => strtolower((string) Str::ulid()),
+        ])
+            ->assertCreated()
+            ->assertJsonPath('cardType', CardType::Recognition->value)
+            ->assertJsonPath('prompt', $prompt)
+            ->assertJsonPath('answer', $answer);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
+        $card = Card::query()->sole();
+        $this->assertSame('会社', $card->front_text);
+        $this->assertSame('会社', $card->back_text);
+        $this->assertSame($prompt, $card->prompt_json);
+        $this->assertSame($answer, $card->answer_json);
+    }
+
     public function test_it_normalizes_route_and_card_ids_without_trim_strings_middleware(): void
     {
         $draft = StudyCardDraft::factory()->ready()->for($this->signIn())->create([

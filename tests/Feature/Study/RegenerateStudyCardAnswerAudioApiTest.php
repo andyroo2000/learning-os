@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Media\Models\MediaAsset;
@@ -125,6 +126,106 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->assertSame('generated', $card->answer_audio_source);
         $this->assertIsArray($card->answer_json['answerAudio']);
         $this->assertDatabaseCount('media_assets', 1);
+    }
+
+    public function test_it_keeps_audio_recognition_prompt_and_answer_audio_in_sync(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3replacement')]);
+        $user = $this->signIn();
+        $oldPromptMedia = $this->generatedAudioFor($user, 'study/generated/old-prompt.mp3');
+        $oldAnswerMedia = $this->generatedAudioFor($user, 'study/generated/old-answer.mp3');
+        $card = $this->studyCardFor($user, [
+            'card_type' => CardType::Recognition,
+            'prompt_json' => ['cueAudio' => $this->audioReference($oldPromptMedia)],
+            'answer_json' => [
+                'expression' => '学校で偉人について勉強しました。',
+                'answerAudioVoiceId' => self::VOICE_ID,
+                'answerAudio' => $this->audioReference($oldAnswerMedia),
+            ],
+            'answer_audio_source' => 'generated',
+        ]);
+        $card->mediaAssets()->attach([$oldPromptMedia->id, $oldAnswerMedia->id]);
+        $this->assertSame(CardType::Recognition, $card->card_type);
+        $this->assertSame($oldPromptMedia->id, $card->prompt_json['cueAudio']['id']);
+
+        $response = $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")
+            ->assertOk();
+
+        $newMediaId = $response->json('answer.answerAudio.id');
+        $this->assertIsString($newMediaId);
+        $response->assertJsonPath('prompt.cueAudio.id', $newMediaId);
+        $card->refresh();
+        $this->assertSame($newMediaId, $card->prompt_json['cueAudio']['id']);
+        $this->assertSame($newMediaId, $card->answer_json['answerAudio']['id']);
+        $this->assertSame([$newMediaId], $card->mediaAssets()->pluck('media_assets.id')->all());
+        $this->assertDatabaseMissing('media_assets', ['id' => $oldPromptMedia->id]);
+        $this->assertDatabaseMissing('media_assets', ['id' => $oldAnswerMedia->id]);
+        Storage::disk('media')->assertMissing($oldPromptMedia->path);
+        Storage::disk('media')->assertMissing($oldAnswerMedia->path);
+
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
+        $this->assertSame($newMediaId, $cardEntry->payload['prompt_json']['cueAudio']['id']);
+        $this->assertSame($newMediaId, $cardEntry->payload['answer_json']['answerAudio']['id']);
+        foreach ([$oldPromptMedia, $oldAnswerMedia] as $oldMedia) {
+            $this->assertSyncEntry(
+                $user->id,
+                CardMediaSyncPayload::RESOURCE_TYPE,
+                CardMediaSyncPayload::resourceId($card->id, $oldMedia->id),
+                SyncFeedOperation::Delete,
+            );
+            $this->assertSyncEntry(
+                $user->id,
+                MediaAssetSyncPayload::RESOURCE_TYPE,
+                $oldMedia->id,
+                SyncFeedOperation::Delete,
+            );
+        }
+    }
+
+    public function test_it_preserves_prompt_audio_and_attachment_for_text_led_recognition_cards(): void
+    {
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3replacement')]);
+        $user = $this->signIn();
+        $oldMedia = $this->generatedAudioFor($user, 'study/generated/shared-prompt-answer.mp3');
+        $oldReference = $this->audioReference($oldMedia);
+        $card = $this->studyCardFor($user, [
+            'card_type' => CardType::Recognition,
+            'prompt_json' => [
+                'cueText' => '会社',
+                'cueAudio' => $oldReference,
+            ],
+            'answer_json' => [
+                'expression' => '会社',
+                'answerAudioVoiceId' => self::VOICE_ID,
+                'answerAudio' => $oldReference,
+            ],
+            'answer_audio_source' => 'generated',
+        ]);
+        $card->mediaAssets()->attach($oldMedia);
+        $this->assertSame(CardType::Recognition, $card->card_type);
+        $this->assertSame('会社', $card->prompt_json['cueText']);
+
+        $response = $this->postJson("/api/study/cards/{$card->id}/regenerate-answer-audio")
+            ->assertOk();
+
+        $response->assertJsonPath('prompt.cueAudio.id', $oldMedia->id);
+        $this->assertNotSame($oldMedia->id, $response->json('answer.answerAudio.id'));
+        $this->assertDatabaseHas('media_assets', ['id' => $oldMedia->id]);
+        Storage::disk('media')->assertExists($oldMedia->path);
+        $this->assertTrue($card->mediaAssets()->whereKey($oldMedia->id)->exists());
+        $this->assertDatabaseMissing('sync_feed_entries', [
+            'resource_type' => CardMediaSyncPayload::RESOURCE_TYPE,
+            'resource_id' => CardMediaSyncPayload::resourceId($card->id, $oldMedia->id),
+            'operation' => SyncFeedOperation::Delete->value,
+        ]);
+        $this->assertDatabaseMissing('sync_feed_entries', [
+            'resource_type' => MediaAssetSyncPayload::RESOURCE_TYPE,
+            'resource_id' => $oldMedia->id,
+            'operation' => SyncFeedOperation::Delete->value,
+        ]);
     }
 
     public function test_it_accepts_an_uppercase_copied_card_uuid_and_returns_the_canonical_client_id(): void
@@ -544,6 +645,33 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             'back_text' => 'company',
             ...$attributes,
         ]);
+    }
+
+    private function generatedAudioFor(User $user, string $path): MediaAsset
+    {
+        $media = MediaAsset::factory()->for($user)->create([
+            'disk' => 'media',
+            'path' => $path,
+            'mime_type' => 'audio/mpeg',
+            'original_filename' => basename($path),
+        ]);
+        Storage::disk('media')->put($media->path, 'old-audio');
+
+        return $media;
+    }
+
+    /**
+     * @return array{id: string, filename: string, url: string, mediaKind: string, source: string}
+     */
+    private function audioReference(MediaAsset $media): array
+    {
+        return [
+            'id' => $media->id,
+            'filename' => $media->original_filename,
+            'url' => "/api/study/media/{$media->id}",
+            'mediaKind' => 'audio',
+            'source' => 'generated',
+        ];
     }
 
     private function assertSyncEntry(

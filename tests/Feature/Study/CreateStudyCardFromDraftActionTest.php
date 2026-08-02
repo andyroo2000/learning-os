@@ -92,6 +92,37 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertSame($cardId, $draftEntry->payload['committed_card_id']);
     }
 
+    public function test_it_uses_answer_text_for_the_legacy_front_of_an_audio_recognition_card(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'creation_kind' => StudyCardCreationKind::AudioRecognition,
+            'prompt_json' => [
+                'cueAudio' => [
+                    'id' => 'audio-1',
+                    'filename' => 'company.mp3',
+                    'url' => '/api/study/media/audio-1',
+                    'mediaKind' => 'audio',
+                    'source' => 'generated',
+                ],
+            ],
+            'answer_json' => [
+                'expression' => '会社',
+                'meaning' => 'company',
+            ],
+        ]);
+
+        $result = app(CreateStudyCardFromDraftAction::class)->handle(
+            $draft->user_id,
+            $draft->id,
+            strtolower((string) str()->ulid()),
+        );
+
+        $this->assertSame('会社', $result->card->front_text);
+        $this->assertSame('会社', $result->card->back_text);
+        $this->assertSame($draft->prompt_json, $result->card->prompt_json);
+        $this->assertSame($draft->answer_json, $result->card->answer_json);
+    }
+
     public function test_it_is_idempotent_when_retried_with_the_same_card_id_and_draft_content(): void
     {
         $draft = StudyCardDraft::factory()->ready()->create([
@@ -268,6 +299,34 @@ class CreateStudyCardFromDraftActionTest extends TestCase
 
         $this->expectException(CardValidationException::class);
         $this->expectExceptionMessage('Card front text is required.');
+
+        app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
+    }
+
+    public function test_it_does_not_use_answer_text_as_the_front_for_other_creation_kinds(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'creation_kind' => StudyCardCreationKind::TextRecognition,
+            'prompt_json' => ['cueAudio' => ['id' => 'audio-1']],
+            'answer_json' => ['expression' => '会社'],
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Card front text is required.');
+
+        app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
+    }
+
+    public function test_audio_recognition_reports_missing_back_text_when_the_answer_has_no_text(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'creation_kind' => StudyCardCreationKind::AudioRecognition,
+            'prompt_json' => ['cueAudio' => ['id' => 'audio-1']],
+            'answer_json' => ['answerImage' => ['id' => 'image-1']],
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Card back text is required.');
 
         app(CreateStudyCardFromDraftAction::class)->handle($draft->user_id, $draft->id, strtolower((string) str()->ulid()));
     }

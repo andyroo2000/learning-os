@@ -593,6 +593,7 @@ final class StudyImportArchiveReader
                     frontText: $renderedText['front'],
                     backText: $renderedText['back'],
                     noteFields: $noteFields,
+                    frontMediaReferences: $renderedText['front_media_references'],
                 );
             },
             $rows,

@@ -6,7 +6,7 @@ final class StudyImportArchiveTemplateRenderer
 {
     /**
      * @param  array{name: string, fields: list<string>, templates: array<int, array{name: string, front: string, back: string}>}  $noteType
-     * @return array{front: string, back: string}
+     * @return array{front: string, back: string, front_media_references: list<string>}
      */
     public function render(array $noteType, int $templateOrdinal, string $noteFields): array
     {
@@ -20,25 +20,30 @@ final class StudyImportArchiveTemplateRenderer
         $template = $noteType['templates'][$templateOrdinal] ?? null;
 
         if ($template === null) {
+            $frontValue = $this->fallbackFrontValue($fieldValues, $templateOrdinal);
+
             return [
-                'front' => $this->fallbackFrontText($fieldValues, $templateOrdinal),
+                'front' => $this->plainCardText($frontValue),
                 'back' => $this->fallbackBackText($fieldValues, $templateOrdinal),
+                'front_media_references' => StudyFieldMediaReferences::filenamesFromText($frontValue),
             ];
         }
 
-        $front = $this->renderTemplateText($template['front'], $fieldsByName);
-        $back = $this->renderTemplateText($template['back'], $fieldsByName, $front);
+        $frontValue = $this->renderTemplateValue($template['front'], $fieldsByName);
+        $front = $this->plainCardText($frontValue);
+        $back = $this->plainCardText($this->renderTemplateValue($template['back'], $fieldsByName, $frontValue));
 
         return [
             'front' => $front !== '' ? $front : $this->fallbackFrontText($fieldValues, $templateOrdinal),
             'back' => $back !== '' ? $back : $this->fallbackBackText($fieldValues, $templateOrdinal),
+            'front_media_references' => StudyFieldMediaReferences::filenamesFromText($frontValue),
         ];
     }
 
     /**
      * @param  array<string, string>  $fieldsByName
      */
-    private function renderTemplateText(string $template, array $fieldsByName, string $frontSide = ''): string
+    private function renderTemplateValue(string $template, array $fieldsByName, string $frontSide = ''): string
     {
         $rendered = str_replace('{{FrontSide}}', $frontSide, $template);
         $rendered = preg_replace_callback(
@@ -66,7 +71,7 @@ final class StudyImportArchiveTemplateRenderer
             (string) $rendered,
         );
 
-        return $this->plainCardText((string) $rendered);
+        return (string) $rendered;
     }
 
     /**
@@ -74,11 +79,19 @@ final class StudyImportArchiveTemplateRenderer
      */
     private function fallbackFrontText(array $fieldValues, int $templateOrdinal): string
     {
+        return $this->plainCardText($this->fallbackFrontValue($fieldValues, $templateOrdinal));
+    }
+
+    /**
+     * @param  list<string>  $fieldValues
+     */
+    private function fallbackFrontValue(array $fieldValues, int $templateOrdinal): string
+    {
         if ($templateOrdinal === 1 && isset($fieldValues[1])) {
-            return $this->plainCardText($fieldValues[1]);
+            return $fieldValues[1];
         }
 
-        return $this->plainCardText($fieldValues[0] ?? implode(' ', $fieldValues));
+        return $fieldValues[0] ?? implode(' ', $fieldValues);
     }
 
     /**

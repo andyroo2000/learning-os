@@ -877,6 +877,20 @@ class StudyImportUploadActionTest extends TestCase
         $wordMediaAsset = MediaAsset::query()->where('source_media_ref', '0')->sole();
         $companyMediaAsset = MediaAsset::query()->where('source_media_ref', '1')->sole();
 
+        $audioPromptCard = Card::query()->where('import_job_id', $importJob->id)->where('source_card_id', 701)->sole();
+        $this->assertSame([
+            'cueAudio' => [
+                'id' => $wordMediaAsset->id,
+                'filename' => 'word.mp3',
+                'url' => "/api/study/media/{$wordMediaAsset->id}",
+                'mediaKind' => 'audio',
+                'source' => 'imported',
+            ],
+        ], $audioPromptCard->prompt_json);
+
+        $answerMediaOnlyCard = Card::query()->where('import_job_id', $importJob->id)->where('source_card_id', 702)->sole();
+        $this->assertNull($answerMediaOnlyCard->prompt_json);
+
         $this->assertSame('study/imports/'.$importJob->id.'/0-word.mp3', $wordMediaAsset->path);
         $this->assertSame('word.mp3', $wordMediaAsset->source_filename);
         $this->assertSame('audio/mpeg', $wordMediaAsset->mime_type);
@@ -969,6 +983,7 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(1700000000000, $cardSyncEntry->payload['source_deck_id']);
         $this->assertSame('Basic', $cardSyncEntry->payload['source_notetype_name']);
         $this->assertSame(0, $cardSyncEntry->payload['source_template_ord']);
+        $this->assertSame($audioPromptCard->prompt_json, $cardSyncEntry->payload['prompt_json']);
         $this->assertSame($importJob->id, $wordMediaSyncEntry->payload['import_job_id']);
         $this->assertSame(StudyImportJob::SOURCE_TYPE_ANKI_COLPKG, $wordMediaSyncEntry->payload['source_kind']);
         $this->assertSame('0', $wordMediaSyncEntry->payload['source_media_ref']);

@@ -49,6 +49,7 @@ final class StudyImportArchiveImporter
         try {
             return DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy): StudyImportJob {
                 $deck = $this->createDeck($importJob, $archive, $now);
+                $mediaAssetsByFilename = $this->createMediaAssets($importJob, $mediaCopy['targets'], $now);
                 $importedCards = [];
                 $importedCardsBySourceCardId = [];
                 // nextForUser locks the owner row; this transaction holds that lock while
@@ -60,6 +61,7 @@ final class StudyImportArchiveImporter
                         importJob: $importJob,
                         deck: $deck,
                         archiveCard: $archiveCard,
+                        mediaAssetsByFilename: $mediaAssetsByFilename,
                         newQueuePosition: $nextQueuePosition,
                         now: $now,
                     );
@@ -73,7 +75,6 @@ final class StudyImportArchiveImporter
                     $this->recordCardSync($importJob->user_id, $card, $deck);
                 }
 
-                $mediaAssetsByFilename = $this->createMediaAssets($importJob, $mediaCopy['targets'], $now);
                 $this->attachMediaToCards($importJob->user_id, $deck, $importedCards, $mediaAssetsByFilename, $now);
                 $reviewLogCounts = $this->createReviewEvents(
                     importJob: $importJob,
@@ -153,6 +154,7 @@ final class StudyImportArchiveImporter
         StudyImportJob $importJob,
         Deck $deck,
         StudyImportArchiveCard $archiveCard,
+        array $mediaAssetsByFilename,
         int $newQueuePosition,
         Carbon $now,
     ): Card {
@@ -168,7 +170,7 @@ final class StudyImportArchiveImporter
         $card->front_text = $archiveCard->frontText;
         $card->back_text = $archiveCard->backText;
         $card->card_type = CardType::Recognition;
-        $card->prompt_json = null;
+        $card->prompt_json = $this->promptPayload($archiveCard, $mediaAssetsByFilename);
         $card->answer_json = null;
         $card->search_text = CardSearchText::fromContent($archiveCard->frontText, $archiveCard->backText);
         $card->study_status = CardStudyStatus::New;
@@ -179,6 +181,33 @@ final class StudyImportArchiveImporter
         $card->saveOrFail();
 
         return $card;
+    }
+
+    /**
+     * @param  array<string, MediaAsset>  $mediaAssetsByFilename
+     * @return array{cueAudio: array{id: string, filename: string, url: string, mediaKind: 'audio', source: 'imported'}}|null
+     */
+    private function promptPayload(StudyImportArchiveCard $archiveCard, array $mediaAssetsByFilename): ?array
+    {
+        foreach ($archiveCard->frontMediaReferences as $filename) {
+            $mediaAsset = $mediaAssetsByFilename[$filename] ?? null;
+
+            if ($mediaAsset === null || ! str_starts_with(strtolower($mediaAsset->mime_type), 'audio/')) {
+                continue;
+            }
+
+            return [
+                'cueAudio' => [
+                    'id' => (string) $mediaAsset->id,
+                    'filename' => $filename,
+                    'url' => "/api/study/media/{$mediaAsset->id}",
+                    'mediaKind' => 'audio',
+                    'source' => 'imported',
+                ],
+            ];
+        }
+
+        return null;
     }
 
     /**

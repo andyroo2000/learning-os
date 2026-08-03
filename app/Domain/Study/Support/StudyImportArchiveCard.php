@@ -16,6 +16,8 @@ final readonly class StudyImportArchiveCard
         public string $frontText,
         public string $backText,
         public string $noteFields,
+        /** @var list<string> */
+        public array $frontMediaReferences = [],
     ) {}
 
     /**

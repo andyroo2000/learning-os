@@ -19,6 +19,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Study\Enums\StudyImportStatus;
+use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -202,7 +203,7 @@ final class StudyImportArchiveImporter
                     'filename' => $filename,
                     'url' => "/api/study/media/{$mediaAsset->id}",
                     'mediaKind' => 'audio',
-                    'source' => 'imported',
+                    'source' => StudyCardDraft::MEDIA_SOURCE_IMPORTED,
                 ],
             ];
         }

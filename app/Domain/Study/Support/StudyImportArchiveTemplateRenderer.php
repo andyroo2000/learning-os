@@ -31,7 +31,7 @@ final class StudyImportArchiveTemplateRenderer
 
         $frontValue = $this->renderTemplateValue($template['front'], $fieldsByName);
         $front = $this->plainCardText($frontValue);
-        $back = $this->plainCardText($this->renderTemplateValue($template['back'], $fieldsByName, $frontValue));
+        $back = $this->plainCardText($this->renderTemplateValue($template['back'], $fieldsByName, $front));
 
         return [
             'front' => $front !== '' ? $front : $this->fallbackFrontText($fieldValues, $templateOrdinal),

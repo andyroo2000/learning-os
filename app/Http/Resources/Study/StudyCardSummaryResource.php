@@ -5,6 +5,7 @@ namespace App\Http\Resources\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyMasteryLevel;
+use App\Domain\Study\Support\StudyCardAudio;
 use App\Support\DateTime\ConvoLabTimestamp;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -13,8 +14,6 @@ use UnexpectedValueException;
 
 class StudyCardSummaryResource extends JsonResource
 {
-    private const ANSWER_AUDIO_SOURCE_MISSING = 'missing';
-
     private const CONVOLAB_DEFAULT_DECK_NAME = '日本語';
 
     /**
@@ -74,7 +73,8 @@ class StudyCardSummaryResource extends JsonResource
             'variantStage' => $this->variant_stage,
             'variantStatus' => $this->stringAttributeValue('variant_status'),
             'variantUnlockedAt' => ConvoLabTimestamp::serialize($this->variant_unlocked_at),
-            'answerAudioSource' => $this->answer_audio_source ?? self::ANSWER_AUDIO_SOURCE_MISSING,
+            // Compatibility name: clients now treat prompt/answer media as one card audio asset.
+            'answerAudioSource' => StudyCardAudio::source($this->resource),
             'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
             'updatedAt' => ConvoLabTimestamp::serialize($this->updated_at),
         ];

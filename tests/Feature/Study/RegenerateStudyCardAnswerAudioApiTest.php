@@ -351,6 +351,34 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
+    public function test_prepare_reuses_prompt_only_audio_without_provider_spend(): void
+    {
+        Http::fake();
+        $user = $this->signIn();
+        $card = $this->studyCardFor($user, [
+            'prompt_json' => [
+                'cueAudio' => [
+                    'id' => null,
+                    'filename' => 'listening-example.mp3',
+                    'url' => '/api/study/media/listening-example',
+                    'mediaKind' => 'audio',
+                    'source' => 'imported',
+                ],
+            ],
+            'answer_json' => ['expression' => '会社'],
+            'answer_audio_source' => 'imported',
+        ]);
+
+        $this->postJson("/api/study/cards/{$card->id}/prepare-answer-audio")
+            ->assertOk()
+            ->assertJsonPath('prompt.cueAudio.filename', 'listening-example.mp3')
+            ->assertJsonMissingPath('answer.answerAudio')
+            ->assertJsonPath('answerAudioSource', 'imported');
+
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
     public function test_prepare_repairs_a_missing_generated_media_asset(): void
     {
         Http::fake(['fish.test/v1/tts' => Http::response('ID3repaired')]);

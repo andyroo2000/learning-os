@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Data\RegenerateStudyCardAnswerAudioData;
+use App\Domain\Study\Support\StudyCardAudio;
 
 class PrepareStudyCardAnswerAudioAction
 {
@@ -27,13 +28,12 @@ class PrepareStudyCardAnswerAudioAction
 
     private function hasPlayableAudio(Card $card): bool
     {
-        $answer = is_array($card->answer_json) ? $card->answer_json : [];
-        $audio = $answer['answerAudio'] ?? null;
+        $audio = StudyCardAudio::reference($card);
 
         if (! is_array($audio)
             || ! is_string($audio['url'] ?? null)
             || trim($audio['url']) === ''
-            || ($card->answer_audio_source ?? 'missing') === 'missing') {
+            || StudyCardAudio::source($card) === 'missing') {
             return false;
         }
 

@@ -4,7 +4,6 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
-use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Actions\AttachMediaToCardAction;
 use App\Domain\Media\Actions\DetachMediaFromCardAction;
@@ -15,6 +14,7 @@ use App\Domain\Study\Data\RegenerateStudyCardAnswerAudioData;
 use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
+use App\Domain\Study\Support\StudyCardAudioRecognition;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Support\Identifiers\CanonicalUlid;
@@ -44,7 +44,7 @@ class RegenerateStudyCardAnswerAudioAction
         $voiceId = $this->voiceId($nextAnswer);
         $nextAnswer['answerAudioVoiceId'] = $voiceId;
         $snapshotFingerprint = $this->cardFingerprint($card);
-        $syncPromptAudio = $this->isAudioRecognitionPrompt($card, $prompt);
+        $syncPromptAudio = StudyCardAudioRecognition::hasAudioOnlyPrompt($card, $prompt);
         $oldGeneratedMedia = $this->generatedAudioMedia(
             $card,
             $prompt,
@@ -177,36 +177,6 @@ class RegenerateStudyCardAnswerAudioAction
 
         return StudyCardGenerationDefaults::normalizeVoiceId($voiceId)
             ?? throw StudyCardAudioValidationException::invalidVoice();
-    }
-
-    /**
-     * @param  array<string, mixed>  $answer
-     */
-    private function isAudioRecognitionPrompt(Card $card, array $prompt): bool
-    {
-        if ($card->card_type !== CardType::Recognition || ! is_array($prompt['cueAudio'] ?? null)) {
-            return false;
-        }
-
-        foreach ([
-            'cueText',
-            'cueReading',
-            'cueMeaning',
-            'clozeText',
-            'clozeDisplayText',
-            'clozeAnswerText',
-            'clozeHint',
-            'clozeResolvedHint',
-            'text',
-        ] as $key) {
-            $value = $prompt[$key] ?? null;
-            if ((is_string($value) && trim($value) !== '')
-                || (is_array($value) && $value !== [])) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**

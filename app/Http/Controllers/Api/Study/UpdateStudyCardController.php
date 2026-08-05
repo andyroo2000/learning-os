@@ -16,7 +16,7 @@ class UpdateStudyCardController extends Controller
         $result = $updateCard->handle(
             $request->studyCard(),
             UpdateCardData::fromInput(
-                frontText: $request->frontText(),
+                frontText: $request->frontTextForUpdate(),
                 backText: $request->backText(),
                 hasPromptJson: true,
                 promptJson: $request->promptPayload(),

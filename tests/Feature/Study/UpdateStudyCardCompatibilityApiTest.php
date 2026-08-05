@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
@@ -127,6 +128,74 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_it_saves_a_regenerated_audio_recognition_card_without_prompt_text(): void
+    {
+        $user = $this->signIn();
+        $mediaId = (string) Str::ulid();
+        $prompt = [
+            'cueAudio' => [
+                'id' => $mediaId,
+                'url' => "/api/study/media/{$mediaId}",
+            ],
+        ];
+        $answer = [
+            'expression' => '学校で偉人について勉強しました。',
+            'meaning' => 'I studied great people at school.',
+            'answerAudio' => $prompt['cueAudio'],
+        ];
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => $answer['expression'],
+            'back_text' => $answer['expression'],
+            'card_type' => CardType::Recognition,
+            'prompt_json' => $prompt,
+            'answer_json' => $answer,
+        ]);
+
+        $response = $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => $prompt,
+            'answer' => $answer,
+        ])
+            ->assertOk()
+            ->assertJsonPath('prompt.cueAudio.id', $prompt['cueAudio']['id'])
+            ->assertJsonPath('answer.answerAudio.id', $prompt['cueAudio']['id']);
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
+
+        $card->refresh();
+        $this->assertSame($answer['expression'], $card->front_text);
+        $this->assertSame($answer['expression'], $card->back_text);
+        $this->assertSame($prompt, $card->prompt_json);
+        $this->assertSame($answer, $card->answer_json);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_audio_recognition_save_still_requires_prompt_audio_and_answer_text(): void
+    {
+        $user = $this->signIn();
+        $prompt = ['cueAudio' => ['id' => (string) Str::ulid()]];
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => '会社',
+            'back_text' => '会社',
+            'card_type' => CardType::Recognition,
+            'prompt_json' => $prompt,
+            'answer_json' => ['expression' => '会社'],
+        ]);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueAudio' => []],
+            'answer' => ['expression' => '会社'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.prompt.0', 'prompt must include a non-empty text field.');
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => $prompt,
+            'answer' => ['answerAudio' => $prompt['cueAudio']],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.answer.0', 'answer must include a non-empty text field.');
     }
 
     public function test_it_uses_fallback_payload_text_keys(): void

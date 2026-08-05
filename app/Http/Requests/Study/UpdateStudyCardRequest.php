@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Support\StudyCardAudioRecognition;
+use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Http\Support\AuthenticatedUser;
@@ -66,7 +68,17 @@ class UpdateStudyCardRequest extends FormRequest
 
     public function after(): array
     {
-        return [$this->studyCardPayloadAfterValidator()];
+        return [$this->studyCardPayloadAfterValidator(
+            allowPromptWithoutText: function (array $data): bool {
+                $prompt = $data['prompt'] ?? null;
+                $existingPrompt = $this->studyCard()->prompt_json;
+
+                return is_array($prompt)
+                    && is_array($existingPrompt)
+                    && StudyCardAudioRecognition::hasAudioOnlyPrompt($this->studyCard(), $existingPrompt)
+                    && StudyCardAudioRecognition::hasAudioOnlyPrompt($this->studyCard(), $prompt);
+            },
+        )];
     }
 
     /**
@@ -87,5 +99,25 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         return $this->studyCard;
+    }
+
+    public function frontTextForUpdate(): string
+    {
+        $prompt = $this->promptPayload();
+
+        if (($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
+            return $frontText;
+        }
+
+        $existingPrompt = $this->studyCard()->prompt_json;
+        if (is_array($existingPrompt)
+            && StudyCardAudioRecognition::hasAudioOnlyPrompt($this->studyCard(), $existingPrompt)
+            && StudyCardAudioRecognition::hasAudioOnlyPrompt($this->studyCard(), $prompt)) {
+            // Match audio-recognition card creation: the spoken answer backs the legacy front
+            // column used by search and older consumers when the prompt intentionally has no text.
+            return $this->backText();
+        }
+
+        throw new LogicException('frontTextForUpdate called after validation accepted an invalid prompt payload.');
     }
 }

@@ -29,16 +29,22 @@ trait ValidatesStudyCardPayloads
         ];
     }
 
-    protected function studyCardPayloadAfterValidator(bool $requireText = true): Closure
-    {
-        return function (Validator $validator) use ($requireText): void {
+    /**
+     * @param  (Closure(array<string, mixed>): bool)|null  $allowPromptWithoutText
+     */
+    protected function studyCardPayloadAfterValidator(
+        bool $requireText = true,
+        ?Closure $allowPromptWithoutText = null,
+    ): Closure {
+        return function (Validator $validator) use ($requireText, $allowPromptWithoutText): void {
             // Use raw validator data because after-callbacks still run when field rules fail;
             // validateStudyCardPayloadShape lets prompt/answer rules own missing or non-array errors.
             $data = $validator->getData();
             $this->validateStudyCardPayloadShape(
                 fn (string $attribute, string $message) => $validator->errors()->add($attribute, $message),
                 $data,
-                $requireText,
+                requirePromptText: $requireText && ! ($allowPromptWithoutText?->__invoke($data) ?? false),
+                requireAnswerText: $requireText,
             );
         };
     }
@@ -134,8 +140,12 @@ trait ValidatesStudyCardPayloads
      * @param  Closure(string, string): void  $fail
      * @param  array<string, mixed>  $data
      */
-    private function validateStudyCardPayloadShape(Closure $fail, array $data, bool $requireText): void
-    {
+    private function validateStudyCardPayloadShape(
+        Closure $fail,
+        array $data,
+        bool $requirePromptText,
+        bool $requireAnswerText,
+    ): void {
         $prompt = $data['prompt'] ?? null;
         $answer = $data['answer'] ?? null;
 
@@ -166,7 +176,7 @@ trait ValidatesStudyCardPayloads
             $fail('prompt', 'prompt must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
             $this->frontText = $frontText;
-        } elseif ($requireText) {
+        } elseif ($requirePromptText) {
             $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
@@ -174,7 +184,7 @@ trait ValidatesStudyCardPayloads
             $fail('answer', 'answer must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
         } elseif (($backText = StudyCardPayloadText::backText($answer)) !== null) {
             $this->backText = $backText;
-        } elseif ($requireText) {
+        } elseif ($requireAnswerText) {
             $fail('answer', 'answer must include a non-empty text field.');
         }
     }

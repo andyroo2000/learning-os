@@ -420,6 +420,14 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame('ready', $withinBudget['learning_readiness']['readiness_level']);
         $this->assertSame('ready', $withinBudget['learning_readiness']['recommendation']);
 
+        $settings->review_time_budget_minutes = 110;
+        $settings->saveOrFail();
+
+        $nearBudget = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame('steady', $nearBudget['learning_readiness']['readiness_level']);
+        $this->assertSame(8, $nearBudget['learning_readiness']['suggested_batch_size']);
+
         $settings->review_time_budget_minutes = 90;
         $settings->saveOrFail();
 
@@ -428,6 +436,19 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame('ease_up', $overBudget['learning_readiness']['readiness_level']);
         $this->assertSame('caution', $overBudget['learning_readiness']['recommendation']);
         $this->assertSame(-10, $overBudget['learning_readiness']['review_time_headroom_minutes']);
+
+        CardReviewEvent::query()->where('card_id', $reviewedCard->id)->update([
+            'rating' => CardReviewRating::Good->value,
+        ]);
+        $settings->review_time_budget_minutes = 130;
+        $settings->saveOrFail();
+
+        $strong = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame(1.0, $strong['learning_readiness']['recent_recall']);
+        $this->assertSame(30, $strong['learning_readiness']['review_time_headroom_minutes']);
+        $this->assertSame('strong', $strong['learning_readiness']['readiness_level']);
+        $this->assertSame(8, $strong['learning_readiness']['suggested_batch_size']);
     }
 
     public function test_readiness_does_not_claim_strong_capacity_before_timing_is_calibrated(): void

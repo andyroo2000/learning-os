@@ -192,6 +192,7 @@ use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
+use App\Http\Controllers\Api\Study\ListStudyCardsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
 use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
@@ -725,6 +726,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
                 ->whereUlid('draftId')
                 ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
             Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
+                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            Route::get('/study/cards', ListStudyCardsController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             // Sync clients resolve one feed page per request instead of spending the
             // shared compatibility quota on one card-detail request per feed entry.

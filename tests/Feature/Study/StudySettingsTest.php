@@ -19,6 +19,8 @@ class StudySettingsTest extends TestCase
             'id',
             'user_id',
             'new_cards_per_day',
+            'lesson_batch_size',
+            'review_time_budget_minutes',
             'created_at',
             'updated_at',
         ]));
@@ -31,6 +33,15 @@ class StudySettingsTest extends TestCase
         ]);
 
         $this->assertSame(12, $settings->refresh()->new_cards_per_day);
+    }
+
+    public function test_review_time_budget_casts_to_integer(): void
+    {
+        $settings = StudySettings::factory()->create([
+            'review_time_budget_minutes' => '90',
+        ]);
+
+        $this->assertSame(90, $settings->refresh()->review_time_budget_minutes);
     }
 
     public function test_user_id_is_not_mass_assignable(): void

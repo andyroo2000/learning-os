@@ -30,6 +30,7 @@ class StudySettingsActionTest extends TestCase
         $this->assertFalse($settings->exists);
         $this->assertSame($user->id, $settings->user_id);
         $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $settings->new_cards_per_day);
+        $this->assertSame(StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES, $settings->review_time_budget_minutes);
         $this->assertNull($settings->created_at);
         $this->assertNull($settings->updated_at);
         $this->assertDatabaseCount('study_settings', 0);
@@ -190,6 +191,27 @@ class StudySettingsActionTest extends TestCase
         $this->assertSame(StudySettingsSyncPayload::fromSettings($upperUpdated), $upperEntry->payload);
     }
 
+    public function test_update_accepts_review_time_budget_boundaries(): void
+    {
+        $lowerSettings = StudySettings::factory()->create();
+        $upperSettings = StudySettings::factory()->create();
+
+        $lowerUpdated = app(UpdateStudySettingsAction::class)->handle(
+            $lowerSettings->user_id,
+            null,
+            reviewTimeBudgetMinutes: StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES,
+        );
+        $upperUpdated = app(UpdateStudySettingsAction::class)->handle(
+            $upperSettings->user_id,
+            null,
+            reviewTimeBudgetMinutes: StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
+        );
+
+        $this->assertSame(StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES, $lowerUpdated->review_time_budget_minutes);
+        $this->assertSame(StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES, $upperUpdated->review_time_budget_minutes);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
     public function test_update_does_not_record_sync_feed_entry_when_settings_are_unchanged(): void
     {
         $settings = StudySettings::factory()->create([
@@ -251,6 +273,29 @@ class StudySettingsActionTest extends TestCase
             try {
                 app(UpdateStudySettingsAction::class)->handle(PHP_INT_MAX, $newCardsPerDay);
                 $this->fail("Expected [{$newCardsPerDay}] to be rejected.");
+            } catch (InvalidArgumentException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+
+        $this->assertDatabaseCount('study_settings', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_update_rejects_review_time_budget_outside_the_supported_range(): void
+    {
+        $expectedMessage = 'review_time_budget_minutes must be an integer between '
+            .StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES.' and '
+            .StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES.'.';
+
+        foreach ([14, 241] as $reviewTimeBudgetMinutes) {
+            try {
+                app(UpdateStudySettingsAction::class)->handle(
+                    PHP_INT_MAX,
+                    null,
+                    reviewTimeBudgetMinutes: $reviewTimeBudgetMinutes,
+                );
+                $this->fail("Expected [{$reviewTimeBudgetMinutes}] to be rejected.");
             } catch (InvalidArgumentException $exception) {
                 $this->assertSame($expectedMessage, $exception->getMessage());
             }

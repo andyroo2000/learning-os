@@ -377,9 +377,83 @@ class GetStudyOverviewActionTest extends TestCase
             'burned' => 1,
         ], $overview['mastery_spread']);
         $this->assertSame('pause', $overview['learning_readiness']['recommendation']);
+        $this->assertSame('pause', $overview['learning_readiness']['readiness_level']);
         $this->assertSame(30, $overview['learning_readiness']['sample_size']);
         $this->assertSame(0.667, $overview['learning_readiness']['recent_recall']);
         $this->assertSame(3, $overview['learning_readiness']['suggested_batch_size']);
+    }
+
+    public function test_readiness_uses_recall_and_projected_review_time_instead_of_raw_due_count(): void
+    {
+        $now = Carbon::parse('2026-08-05T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $settings = StudySettings::factory()->for($user)->create([
+            'lesson_batch_size' => 8,
+            'review_time_budget_minutes' => 120,
+        ]);
+        $reviewedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subDay(),
+        ]);
+
+        for ($card = 1; $card < 70; $card++) {
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+                'due_at' => $now->copy()->subDay(),
+            ]);
+        }
+
+        for ($review = 0; $review < 40; $review++) {
+            CardReviewEvent::factory()->for($reviewedCard, 'card')->create([
+                'rating' => $review < 2 ? CardReviewRating::Again : CardReviewRating::Good,
+                'reviewed_at' => $now->copy()->subMinutes($review),
+                'duration_ms' => 600_000,
+            ]);
+        }
+
+        $withinBudget = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame(70, $withinBudget['learning_readiness']['due_backlog']);
+        $this->assertSame(70, $withinBudget['learning_readiness']['projected_seven_day_reviews']);
+        $this->assertSame(600.0, $withinBudget['learning_readiness']['median_review_duration_seconds']);
+        $this->assertSame(100, $withinBudget['learning_readiness']['projected_daily_review_minutes']);
+        $this->assertSame(20, $withinBudget['learning_readiness']['review_time_headroom_minutes']);
+        $this->assertSame('ready', $withinBudget['learning_readiness']['readiness_level']);
+        $this->assertSame('ready', $withinBudget['learning_readiness']['recommendation']);
+
+        $settings->review_time_budget_minutes = 90;
+        $settings->saveOrFail();
+
+        $overBudget = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame('ease_up', $overBudget['learning_readiness']['readiness_level']);
+        $this->assertSame('caution', $overBudget['learning_readiness']['recommendation']);
+        $this->assertSame(-10, $overBudget['learning_readiness']['review_time_headroom_minutes']);
+    }
+
+    public function test_readiness_does_not_claim_strong_capacity_before_timing_is_calibrated(): void
+    {
+        $now = Carbon::parse('2026-08-05T12:00:00Z');
+        $user = User::factory()->create();
+        $card = $this->cardWithStudyStatus(
+            $this->deckFor($user),
+            CardStudyStatus::Review,
+            ['due_at' => $now->copy()->addDay()],
+        );
+
+        for ($review = 0; $review < 30; $review++) {
+            CardReviewEvent::factory()->for($card, 'card')->create([
+                'rating' => CardReviewRating::Good,
+                'reviewed_at' => $now->copy()->subMinutes($review),
+                'duration_ms' => null,
+            ]);
+        }
+
+        $readiness = app(GetStudyOverviewAction::class)
+            ->handle(userId: $user->id, now: $now)['learning_readiness'];
+
+        $this->assertSame(1.0, $readiness['recent_recall']);
+        $this->assertNull($readiness['projected_daily_review_minutes']);
+        $this->assertSame('ready', $readiness['readiness_level']);
     }
 
     public function test_lightweight_overview_omits_guidance_for_hot_write_responses(): void
@@ -433,6 +507,7 @@ class GetStudyOverviewActionTest extends TestCase
             'burned' => 0,
         ], $overview['mastery_spread']);
         $this->assertSame(0, $overview['learning_readiness']['apprentice_count']);
+        $this->assertSame('baseline', $overview['learning_readiness']['readiness_level']);
         $this->assertSame('ready', $overview['learning_readiness']['recommendation']);
     }
 

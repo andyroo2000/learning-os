@@ -57,6 +57,19 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('nextDueAt', '2026-06-05T00:00:00.000000Z')
                 ->assertJsonPath('latestImport', null)
                 ->assertJsonFragment(['latestImport' => null])
+                ->assertJsonPath('learningReadiness.readinessLevel', 'baseline')
+                ->assertJsonPath(
+                    'learningReadiness.reviewTimeBudgetMinutes',
+                    StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+                )
+                ->assertJsonPath('learningReadiness.projectedDailyReviewMinutes', null)
+                ->assertJsonStructure([
+                    'learningReadiness' => [
+                        'timedReviewSampleSize',
+                        'medianReviewDurationSeconds',
+                        'reviewTimeHeadroomMinutes',
+                    ],
+                ])
                 ->assertJsonPath('totalCards', 3);
         } finally {
             Carbon::setTestNow();

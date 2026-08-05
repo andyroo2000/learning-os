@@ -76,8 +76,8 @@ class GetStudyOverviewAction
             now: $now,
             dueCount: $dueCount + $failedDueCount,
             apprenticeCount: $masterySpread[StudyMasteryLevel::Apprentice->value],
-            newCardsPerDay: $newCardsPerDay,
             lessonBatchSize: $cardMetrics['lesson_batch_size'],
+            reviewTimeBudgetMinutes: $cardMetrics['review_time_budget_minutes'],
         );
 
         return $overview;
@@ -143,6 +143,7 @@ class GetStudyOverviewAction
      *     new_count: int,
      *     new_cards_per_day: int,
      *     lesson_batch_size: int,
+     *     review_time_budget_minutes: int,
      *     new_cards_introduced_today: int,
      *     learning_count: int,
      *     review_count: int,
@@ -183,6 +184,11 @@ class GetStudyOverviewAction
                     FROM study_settings
                     WHERE study_settings.user_id = ?
                 ), ?) AS lesson_batch_size,
+                COALESCE((
+                    SELECT MAX(study_settings.review_time_budget_minutes)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS review_time_budget_minutes,
                 (
                     SELECT COUNT(introduced_cards.id)
                     FROM cards AS introduced_cards
@@ -206,6 +212,8 @@ class GetStudyOverviewAction
                 StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
                 $userId,
                 StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                $userId,
+                StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
                 $userId, // New-card daily allowance stays user-wide, even when overview counts are course/deck scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
@@ -239,6 +247,7 @@ class GetStudyOverviewAction
             'new_count' => (int) $row?->new_count,
             'new_cards_per_day' => (int) $row?->new_cards_per_day,
             'lesson_batch_size' => (int) $row?->lesson_batch_size,
+            'review_time_budget_minutes' => (int) $row?->review_time_budget_minutes,
             'new_cards_introduced_today' => (int) $row?->new_cards_introduced_today,
             'learning_count' => (int) $row?->learning_count,
             'review_count' => (int) $row?->review_count,
@@ -295,6 +304,7 @@ class GetStudyOverviewAction
     /**
      * @return array{
      *     recommendation: string,
+     *     readiness_level: string,
      *     sample_size: int,
      *     sufficient_data: bool,
      *     recent_recall: float|null,
@@ -302,6 +312,11 @@ class GetStudyOverviewAction
      *     due_backlog: int,
      *     apprentice_count: int,
      *     projected_seven_day_reviews: int,
+     *     timed_review_sample_size: int,
+     *     median_review_duration_seconds: float|null,
+     *     projected_daily_review_minutes: int|null,
+     *     review_time_budget_minutes: int,
+     *     review_time_headroom_minutes: int|null,
      *     suggested_batch_size: int
      * }
      */
@@ -312,8 +327,8 @@ class GetStudyOverviewAction
         Carbon $now,
         int $dueCount,
         int $apprenticeCount,
-        int $newCardsPerDay,
         int $lessonBatchSize,
+        int $reviewTimeBudgetMinutes,
     ): array {
         $targetRecall = 0.9;
         $reviews = CardReviewEvent::query()
@@ -328,7 +343,7 @@ class GetStudyOverviewAction
             ->orderByDesc('card_review_events.reviewed_at')
             ->orderByDesc('card_review_events.id')
             ->limit(100)
-            ->get(['card_review_events.rating']);
+            ->get(['card_review_events.rating', 'card_review_events.duration_ms']);
         $sampleSize = $reviews->count();
         $recentRecall = $sampleSize === 0
             ? null
@@ -343,25 +358,43 @@ class GetStudyOverviewAction
             ->whereNotNull('cards.due_at')
             ->where('cards.due_at', '<=', $now->copy()->addDays(7))
             ->count('cards.id');
+        $timedDurations = $reviews
+            ->pluck('duration_ms')
+            ->filter(fn (mixed $duration): bool => is_int($duration) && $duration > 0)
+            ->sort()
+            ->values();
+        $timedReviewSampleSize = $timedDurations->count();
+        $medianReviewDurationMilliseconds = $timedReviewSampleSize >= 10
+            ? $this->median($timedDurations->all())
+            : null;
+        $medianReviewDurationSeconds = $medianReviewDurationMilliseconds === null
+            ? null
+            : round($medianReviewDurationMilliseconds / 1000, 1);
+        $projectedDailyReviewMinutes = $medianReviewDurationMilliseconds === null
+            ? null
+            : (int) ceil($projectedSevenDayReviews * $medianReviewDurationMilliseconds / 7 / 60_000);
+        $reviewTimeHeadroomMinutes = $projectedDailyReviewMinutes === null
+            ? null
+            : $reviewTimeBudgetMinutes - $projectedDailyReviewMinutes;
         $sufficientData = $sampleSize >= 30;
-        $recommendation = 'ready';
-
-        if ($sufficientData && $recentRecall !== null) {
-            if (
-                $recentRecall < $targetRecall - 0.10
-                || ($recentRecall < $targetRecall - 0.08 && $apprenticeCount >= 25)
-            ) {
-                $recommendation = 'pause';
-            } elseif (
-                $recentRecall < $targetRecall - 0.05
-                || $dueCount >= max(50, $newCardsPerDay * 3)
-                || $apprenticeCount >= 100
-            ) {
-                $recommendation = 'caution';
-            }
-        } elseif ($dueCount >= max(50, $newCardsPerDay * 3) || $apprenticeCount >= 100) {
-            $recommendation = 'caution';
-        }
+        $readinessLevel = match (true) {
+            ! $sufficientData || $recentRecall === null => 'baseline',
+            $recentRecall < 0.80 => 'pause',
+            $recentRecall < 0.88 => 'ease_up',
+            $projectedDailyReviewMinutes !== null && $projectedDailyReviewMinutes > $reviewTimeBudgetMinutes => 'ease_up',
+            $recentRecall < 0.93 => 'steady',
+            $reviewTimeHeadroomMinutes !== null && $reviewTimeHeadroomMinutes < 15 => 'steady',
+            $recentRecall < 0.97 => 'ready',
+            $reviewTimeHeadroomMinutes === null => 'ready',
+            $reviewTimeHeadroomMinutes < 30 => 'ready',
+            default => 'strong',
+        };
+        // Preserve the established recommendation values for older clients during a rolling deployment.
+        $recommendation = match ($readinessLevel) {
+            'pause' => 'pause',
+            'ease_up' => 'caution',
+            default => 'ready',
+        };
 
         $configuredBatchSize = min(
             StudySettings::MAX_LESSON_BATCH_SIZE,
@@ -378,6 +411,7 @@ class GetStudyOverviewAction
 
         return [
             'recommendation' => $recommendation,
+            'readiness_level' => $readinessLevel,
             'sample_size' => $sampleSize,
             'sufficient_data' => $sufficientData,
             'recent_recall' => $recentRecall,
@@ -385,8 +419,27 @@ class GetStudyOverviewAction
             'due_backlog' => $dueCount,
             'apprentice_count' => $apprenticeCount,
             'projected_seven_day_reviews' => $projectedSevenDayReviews,
+            'timed_review_sample_size' => $timedReviewSampleSize,
+            'median_review_duration_seconds' => $medianReviewDurationSeconds,
+            'projected_daily_review_minutes' => $projectedDailyReviewMinutes,
+            'review_time_budget_minutes' => $reviewTimeBudgetMinutes,
+            'review_time_headroom_minutes' => $reviewTimeHeadroomMinutes,
             'suggested_batch_size' => $suggestedBatchSize,
         ];
+    }
+
+    /**
+     * @param  list<int>  $values
+     */
+    private function median(array $values): float
+    {
+        $middle = intdiv(count($values), 2);
+
+        if (count($values) % 2 === 1) {
+            return (float) $values[$middle];
+        }
+
+        return ($values[$middle - 1] + $values[$middle]) / 2;
     }
 
     private function aggregateTimestamp(mixed $value, string $label): ?string

@@ -320,6 +320,10 @@ class GetStudyOverviewActionTest extends TestCase
         $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id);
 
         $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $overview['new_cards_per_day']);
+        $this->assertSame(
+            StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+            $overview['review_time_budget_minutes'],
+        );
         $this->assertSame(0, $overview['new_cards_available_today']);
         $this->assertDatabaseMissing('study_settings', [
             'user_id' => $user->id,

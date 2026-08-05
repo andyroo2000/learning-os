@@ -67,6 +67,7 @@ class GetStudyOverviewAction
             'new_count' => $newCount,
             'new_cards_per_day' => $newCardsPerDay,
             'lesson_batch_size' => $cardMetrics['lesson_batch_size'],
+            'review_time_budget_minutes' => $cardMetrics['review_time_budget_minutes'],
             'new_cards_introduced_today' => $introducedToday,
             'new_cards_available_today' => min($newCount, $remainingNewCards),
             'learning_count' => $cardMetrics['learning_count'],

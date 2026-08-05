@@ -23,6 +23,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'newCount' => $this->overviewValue('new_count'),
             'newCardsPerDay' => $this->overviewValue('new_cards_per_day'),
             'lessonBatchSize' => $this->overviewValue('lesson_batch_size'),
+            'reviewTimeBudgetMinutes' => $this->overviewValue('review_time_budget_minutes'),
             'newCardsIntroducedToday' => $this->overviewValue('new_cards_introduced_today'),
             'newCardsAvailableToday' => $this->overviewValue('new_cards_available_today'),
             'learningCount' => $this->overviewValue('learning_count'),

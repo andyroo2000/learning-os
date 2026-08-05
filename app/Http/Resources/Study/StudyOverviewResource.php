@@ -18,6 +18,7 @@ class StudyOverviewResource extends JsonResource
         'new_count',
         'new_cards_per_day',
         'lesson_batch_size',
+        'review_time_budget_minutes',
         'new_cards_introduced_today',
         'new_cards_available_today',
         'learning_count',

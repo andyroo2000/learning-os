@@ -52,6 +52,10 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertOk()
                 ->assertJsonMissingPath('data')
                 ->assertJsonPath('newCardsPerDay', 2)
+                ->assertJsonPath(
+                    'reviewTimeBudgetMinutes',
+                    StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+                )
                 ->assertJsonPath('newCardsIntroducedToday', 1)
                 ->assertJsonPath('newCardsAvailableToday', 1)
                 ->assertJsonPath('nextDueAt', '2026-06-05T00:00:00.000000Z')

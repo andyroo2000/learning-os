@@ -22,6 +22,20 @@ use UnexpectedValueException;
 
 class GetStudyOverviewAction
 {
+    private const PAUSE_RECALL_THRESHOLD = 0.80;
+
+    private const EASE_UP_RECALL_THRESHOLD = 0.88;
+
+    private const STEADY_RECALL_THRESHOLD = 0.93;
+
+    private const STRONG_RECALL_THRESHOLD = 0.97;
+
+    private const MINIMUM_TIMED_REVIEW_SAMPLE_SIZE = 10;
+
+    private const READY_HEADROOM_MINUTES = 15;
+
+    private const STRONG_HEADROOM_MINUTES = 30;
+
     /**
      * @return array<string, mixed>
      */
@@ -364,7 +378,7 @@ class GetStudyOverviewAction
             ->sort()
             ->values();
         $timedReviewSampleSize = $timedDurations->count();
-        $medianReviewDurationMilliseconds = $timedReviewSampleSize >= 10
+        $medianReviewDurationMilliseconds = $timedReviewSampleSize >= self::MINIMUM_TIMED_REVIEW_SAMPLE_SIZE
             ? $this->median($timedDurations->all())
             : null;
         $medianReviewDurationSeconds = $medianReviewDurationMilliseconds === null
@@ -377,16 +391,18 @@ class GetStudyOverviewAction
             ? null
             : $reviewTimeBudgetMinutes - $projectedDailyReviewMinutes;
         $sufficientData = $sampleSize >= 30;
+        // Raw due and Apprentice counts remain visible context, but only measured recall and
+        // projected time pressure qualify readiness for an aggressive learner's chosen budget.
         $readinessLevel = match (true) {
             ! $sufficientData || $recentRecall === null => 'baseline',
-            $recentRecall < 0.80 => 'pause',
-            $recentRecall < 0.88 => 'ease_up',
+            $recentRecall < self::PAUSE_RECALL_THRESHOLD => 'pause',
+            $recentRecall < self::EASE_UP_RECALL_THRESHOLD => 'ease_up',
             $projectedDailyReviewMinutes !== null && $projectedDailyReviewMinutes > $reviewTimeBudgetMinutes => 'ease_up',
-            $recentRecall < 0.93 => 'steady',
-            $reviewTimeHeadroomMinutes !== null && $reviewTimeHeadroomMinutes < 15 => 'steady',
-            $recentRecall < 0.97 => 'ready',
+            $recentRecall < self::STEADY_RECALL_THRESHOLD => 'steady',
+            $reviewTimeHeadroomMinutes !== null && $reviewTimeHeadroomMinutes < self::READY_HEADROOM_MINUTES => 'steady',
+            $recentRecall < self::STRONG_RECALL_THRESHOLD => 'ready',
             $reviewTimeHeadroomMinutes === null => 'ready',
-            $reviewTimeHeadroomMinutes < 30 => 'ready',
+            $reviewTimeHeadroomMinutes < self::STRONG_HEADROOM_MINUTES => 'ready',
             default => 'strong',
         };
         // Preserve the established recommendation values for older clients during a rolling deployment.
@@ -400,9 +416,11 @@ class GetStudyOverviewAction
             StudySettings::MAX_LESSON_BATCH_SIZE,
             max(StudySettings::MIN_LESSON_BATCH_SIZE, $lessonBatchSize),
         );
-        $suggestedBatchSize = match ($recommendation) {
+        // Baseline and steady learners keep their configured lesson size; only explicit
+        // reviews-first/ease-up guidance recommends shrinking the next lesson.
+        $suggestedBatchSize = match ($readinessLevel) {
             'pause' => StudySettings::MIN_LESSON_BATCH_SIZE,
-            'caution' => max(
+            'ease_up' => max(
                 StudySettings::MIN_LESSON_BATCH_SIZE,
                 (int) ceil($configuredBatchSize / 2),
             ),

@@ -20,6 +20,7 @@ class UpdateStudySettingsController extends Controller
                 userId: AuthenticatedUser::id($request),
                 newCardsPerDay: $request->newCardsPerDay(),
                 lessonBatchSize: $request->lessonBatchSize(),
+                reviewTimeBudgetMinutes: $request->reviewTimeBudgetMinutes(),
             ),
         )->response()->setStatusCode(200);
     }

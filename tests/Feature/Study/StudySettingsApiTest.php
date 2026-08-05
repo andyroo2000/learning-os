@@ -46,6 +46,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 32,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
     }
 
@@ -64,6 +65,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
     }
 
@@ -78,6 +80,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
 
         $this->assertDatabaseMissing('study_settings', [
@@ -123,6 +126,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
 
         $this->assertDatabaseHas('study_settings', [
@@ -150,6 +154,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
 
         $this->assertDatabaseHas('study_settings', [
@@ -170,6 +175,7 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
 
         $this->assertDatabaseHas('study_settings', [
@@ -193,12 +199,73 @@ class StudySettingsApiTest extends TestCase
             ->assertExactJson([
                 'lessonBatchSize' => 8,
                 'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
 
         $this->assertDatabaseHas('study_settings', [
             'user_id' => $user->id,
             'new_cards_per_day' => 12,
             'lesson_batch_size' => 8,
+        ]);
+    }
+
+    public function test_update_changes_review_time_budget_without_overwriting_other_settings(): void
+    {
+        $user = $this->signIn();
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 12,
+            'lesson_batch_size' => 5,
+            'review_time_budget_minutes' => 60,
+        ]);
+
+        $this->patchJson('/api/study/settings', [
+            'reviewTimeBudgetMinutes' => 90,
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'lessonBatchSize' => 5,
+                'newCardsPerDay' => 12,
+                'reviewTimeBudgetMinutes' => 90,
+            ]);
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'new_cards_per_day' => 12,
+            'lesson_batch_size' => 5,
+            'review_time_budget_minutes' => 90,
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'payload->review_time_budget_minutes' => 90,
+        ]);
+    }
+
+    public function test_update_accepts_review_time_budget_boundaries_and_aliases(): void
+    {
+        $user = $this->signIn();
+
+        $this->patchJson('/api/study/settings', [
+            'review_time_budget_minutes' => StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES,
+        ])
+            ->assertOk()
+            ->assertJsonPath(
+                'reviewTimeBudgetMinutes',
+                StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES,
+            );
+
+        $this->patchJson('/api/study/settings', [
+            'reviewTimeBudgetMinutes' => StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
+            'review_time_budget_minutes' => StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
+        ])
+            ->assertOk()
+            ->assertJsonPath(
+                'reviewTimeBudgetMinutes',
+                StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
+            );
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'review_time_budget_minutes' => StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
         ]);
     }
 
@@ -381,5 +448,18 @@ class StudySettingsApiTest extends TestCase
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['lesson_batch_size']);
         }
+
+        foreach ([14, 241, 'ninety', ['90']] as $invalidBudget) {
+            $this->patchJson('/api/study/settings', ['review_time_budget_minutes' => $invalidBudget])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['review_time_budget_minutes']);
+        }
+
+        $this->patchJson('/api/study/settings', [
+            'reviewTimeBudgetMinutes' => 90,
+            'review_time_budget_minutes' => 60,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['reviewTimeBudgetMinutes']);
     }
 }

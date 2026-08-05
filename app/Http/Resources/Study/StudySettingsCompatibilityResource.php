@@ -17,6 +17,7 @@ class StudySettingsCompatibilityResource extends JsonResource
         return [
             'newCardsPerDay' => (int) $this->new_cards_per_day,
             'lessonBatchSize' => (int) $this->lesson_batch_size,
+            'reviewTimeBudgetMinutes' => (int) $this->review_time_budget_minutes,
         ];
     }
 }

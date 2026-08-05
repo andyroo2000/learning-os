@@ -23,6 +23,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'newCount' => $this->overviewValue('new_count'),
             'newCardsPerDay' => $this->overviewValue('new_cards_per_day'),
             'lessonBatchSize' => $this->overviewValue('lesson_batch_size'),
+            'reviewTimeBudgetMinutes' => $this->overviewValue('review_time_budget_minutes'),
             'newCardsIntroducedToday' => $this->overviewValue('new_cards_introduced_today'),
             'newCardsAvailableToday' => $this->overviewValue('new_cards_available_today'),
             'learningCount' => $this->overviewValue('learning_count'),
@@ -49,6 +50,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
 
         return [
             'recommendation' => $readiness['recommendation'],
+            'readinessLevel' => $readiness['readiness_level'],
             'sampleSize' => $readiness['sample_size'],
             'sufficientData' => $readiness['sufficient_data'],
             'recentRecall' => $readiness['recent_recall'],
@@ -56,6 +58,11 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'dueBacklog' => $readiness['due_backlog'],
             'apprenticeCount' => $readiness['apprentice_count'],
             'projectedSevenDayReviews' => $readiness['projected_seven_day_reviews'],
+            'timedReviewSampleSize' => $readiness['timed_review_sample_size'],
+            'medianReviewDurationSeconds' => $readiness['median_review_duration_seconds'],
+            'projectedDailyReviewMinutes' => $readiness['projected_daily_review_minutes'],
+            'reviewTimeBudgetMinutes' => $readiness['review_time_budget_minutes'],
+            'reviewTimeHeadroomMinutes' => $readiness['review_time_headroom_minutes'],
             'suggestedBatchSize' => $readiness['suggested_batch_size'],
         ];
     }

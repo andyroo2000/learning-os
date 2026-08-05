@@ -98,6 +98,55 @@ class StudySettingsMigrationTest extends TestCase
         ];
     }
 
+    #[DataProvider('reviewTimeBudgetSqlProvider')]
+    public function test_review_time_budget_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAddSql,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $add = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->unsignedSmallInteger('review_time_budget_minutes')->default(90)->after('lesson_batch_size');
+        });
+        $drop = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->dropColumn('review_time_budget_minutes');
+        });
+
+        $this->assertSame($expectedAddSql, $add->toSql());
+        $this->assertSame($expectedDropSql, $drop->toSql());
+    }
+
+    /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function reviewTimeBudgetSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                ['alter table "study_settings" add column "review_time_budget_minutes" integer not null default \'90\''],
+                ['alter table "study_settings" drop column "review_time_budget_minutes"'],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                ['alter table "study_settings" add column "review_time_budget_minutes" smallint not null default \'90\''],
+                ['alter table "study_settings" drop column "review_time_budget_minutes"'],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                ['alter table `study_settings` add `review_time_budget_minutes` smallint unsigned not null default \'90\' after `lesson_batch_size`'],
+                ['alter table `study_settings` drop `review_time_budget_minutes`'],
+            ],
+        ];
+    }
+
     /**
      * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
      */

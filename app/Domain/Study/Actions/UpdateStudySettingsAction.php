@@ -17,9 +17,13 @@ class UpdateStudySettingsAction
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
     ) {}
 
-    public function handle(int $userId, ?int $newCardsPerDay, ?int $lessonBatchSize = null): StudySettings
-    {
-        if ($newCardsPerDay === null && $lessonBatchSize === null) {
+    public function handle(
+        int $userId,
+        ?int $newCardsPerDay,
+        ?int $lessonBatchSize = null,
+        ?int $reviewTimeBudgetMinutes = null,
+    ): StudySettings {
+        if ($newCardsPerDay === null && $lessonBatchSize === null && $reviewTimeBudgetMinutes === null) {
             throw new InvalidArgumentException('At least one study setting must be provided.');
         }
 
@@ -40,7 +44,24 @@ class UpdateStudySettingsAction
             );
         }
 
-        return DB::transaction(function () use ($userId, $newCardsPerDay, $lessonBatchSize): StudySettings {
+        if (
+            $reviewTimeBudgetMinutes !== null
+            && ($reviewTimeBudgetMinutes < StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES
+                || $reviewTimeBudgetMinutes > StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES)
+        ) {
+            throw new InvalidArgumentException(
+                'review_time_budget_minutes must be an integer between '
+                .StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES.' and '
+                .StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES.'.',
+            );
+        }
+
+        return DB::transaction(function () use (
+            $userId,
+            $newCardsPerDay,
+            $lessonBatchSize,
+            $reviewTimeBudgetMinutes,
+        ): StudySettings {
             $this->lockSettingsOwner($userId);
 
             $settings = StudySettings::query()
@@ -51,6 +72,7 @@ class UpdateStudySettingsAction
                 $settings = new StudySettings([
                     'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
                     'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                    'review_time_budget_minutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
                 ]);
                 $settings->user_id = $userId;
             }
@@ -61,8 +83,15 @@ class UpdateStudySettingsAction
             if ($lessonBatchSize !== null) {
                 $settings->lesson_batch_size = $lessonBatchSize;
             }
+            if ($reviewTimeBudgetMinutes !== null) {
+                $settings->review_time_budget_minutes = $reviewTimeBudgetMinutes;
+            }
             $operation = $settings->exists ? SyncFeedOperation::Update : SyncFeedOperation::Create;
-            $wasUpdated = $settings->isDirty(['new_cards_per_day', 'lesson_batch_size']);
+            $wasUpdated = $settings->isDirty([
+                'new_cards_per_day',
+                'lesson_batch_size',
+                'review_time_budget_minutes',
+            ]);
 
             $settings->saveOrFail();
 

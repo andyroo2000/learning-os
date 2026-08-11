@@ -7,62 +7,41 @@ use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
-use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
 use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
-use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
-use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
-use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
-use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
-use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
 use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DeleteStudyActivitySessionController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
-use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DownloadStudyMediaBatchController;
-use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
-use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
 use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
-use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyCardsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
-use App\Http\Controllers\Api\Study\PrepareStudyCardAnswerAudioController;
-use App\Http\Controllers\Api\Study\RegenerateStudyCardAnswerAudioController;
-use App\Http\Controllers\Api\Study\RegenerateStudyCardImageController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
-use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
-use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
 use App\Http\Controllers\Api\Study\ShowStudyCardController;
-use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudyLessonController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
 use App\Http\Controllers\Api\Study\StoreStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
-use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
-use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
-use App\Http\Controllers\Api\Study\StoreStudyVocabBundleDraftsController;
 use App\Http\Controllers\Api\Study\SyncWaniKaniKanjiController;
 use App\Http\Controllers\Api\Study\UndoStudyReviewController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardController;
-use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
-use App\Http\Controllers\Api\Study\UploadStudyCardImageController;
 use Illuminate\Support\Facades\Route;
 
 /** @var callable(): void $publicMediaAnalyticsRoutes */
@@ -109,6 +88,9 @@ $syncFeedRoutes = require __DIR__.'/api/sync-feed.php';
 /** @var callable(): void $studyBrowserRoutes */
 $studyBrowserRoutes = require __DIR__.'/api/study-browser.php';
 
+/** @var callable(): void $studyCardAuthoringRoutes */
+$studyCardAuthoringRoutes = require __DIR__.'/api/study-card-authoring.php';
+
 /** @var callable(): void $studyDailyAudioRoutes */
 $studyDailyAudioRoutes = require __DIR__.'/api/study-daily-audio.php';
 
@@ -118,7 +100,7 @@ $studyExportRoutes = require __DIR__.'/api/study-exports.php';
 /** @var callable(): void $studyImportRoutes */
 $studyImportRoutes = require __DIR__.'/api/study-imports.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyBrowserRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes): void {
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -132,7 +114,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function () use ($studyBrowserRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes): void {
+        ->group(function () use ($studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes): void {
             Route::post('/study/session/start', StartStudySessionController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/lessons/start', StartStudyLessonController::class)
@@ -143,51 +125,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
             $studyExportRoutes();
             $studyImportRoutes();
             $studyBrowserRoutes();
-            Route::get('/study/card-drafts', ListStudyCardDraftsController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/card-drafts/{draftId}', ShowStudyCardDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Drafts, commits, and final manual cards share one user-scoped request bucket.
-            Route::post('/study/card-drafts/{draftId}/card', StoreStudyCardFromDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-            // ConvoLab path alias; this backend still requires a client card ID for retry-safe commits.
-            Route::post('/study/card-drafts/{draftId}/create-card', StoreStudyCardFromDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-            Route::post('/study/card-drafts', StoreStudyCardDraftController::class)
-                ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-            Route::post('/study/card-candidates/vocab-bundle/drafts', StoreStudyVocabBundleDraftsController::class)
-                ->middleware('throttle:'.StudyVocabBundleDraftRateLimiter::NAME);
-            Route::patch('/study/card-drafts/{draftId}', UpdateStudyCardDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCardDraftAutosaveRateLimiter::NAME);
-            // Provider actions consume one shared 10/min user spend budget after payload validation.
-            Route::post('/study/card-drafts/{draftId}/preview-audio', GenerateStudyCardDraftPreviewAudioController::class)
-                ->whereUlid('draftId');
-            Route::post('/study/card-drafts/{draftId}/preview-image', GenerateStudyCardDraftPreviewImageController::class)
-                ->whereUlid('draftId');
-            Route::post('/study/cards/{cardId}/regenerate-answer-audio', RegenerateStudyCardAnswerAudioController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
-            Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
-            Route::post('/study/cards/{cardId}/image', UploadStudyCardImageController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-                ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
-            Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-                ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);
-            Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-                ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);
-            // Manual generation retries use their own 30/min user bucket so create/autosave retries cannot starve them.
-            Route::post('/study/card-drafts/{draftId}/retry', RetryStudyCardDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCardDraftRetryRateLimiter::NAME);
-            Route::delete('/study/card-drafts/{draftId}', DeleteStudyCardDraftController::class)
-                ->whereUlid('draftId')
-                ->middleware('throttle:'.StudyCardDraftDeleteRateLimiter::NAME);
+            $studyCardAuthoringRoutes();
             Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::get('/study/cards', ListStudyCardsController::class)
@@ -260,4 +198,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyBrowserRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes);

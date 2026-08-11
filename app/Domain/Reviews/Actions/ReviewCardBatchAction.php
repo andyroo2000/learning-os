@@ -603,9 +603,7 @@ class ReviewCardBatchAction
             $latestReviewEvent = $latestReviewEvents->get($cardId);
             $latestReviewedAt = $latestReviewEvent?->reviewed_at;
             $latestReviewEventId = $latestReviewEvent?->id;
-            $latestHasSyncIdentity = $latestReviewEvent?->client_event_id !== null
-                && $latestReviewEvent->device_id !== null
-                && $latestReviewEvent->client_created_at !== null;
+            $latestHasSyncIdentity = CardReviewChronology::hasCompleteSyncIdentity($latestReviewEvent);
 
             $orderedItems = $cardItems->sort(fn (array $left, array $right): int => CardReviewChronology::compare(
                 $left['reviewed_at'],

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use Illuminate\Routing\Route as LaravelRoute;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -131,5 +132,49 @@ class AuthRouteContractTest extends TestCase
                 ['api', 'auth:sanctum', 'throttle:account-token-revoke'], ['tokenId' => '[0-9]+'],
             ],
         ], $actualRoutes);
+    }
+
+    public function test_auth_route_phases_remain_at_their_original_global_boundaries(): void
+    {
+        $routeOrder = collect(Route::getRoutes()->getRoutes())
+            ->map(static fn (LaravelRoute $route): string => implode('|', $route->methods()).' '.$route->uri())
+            ->values();
+
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'POST api/convolab/browser/tools/analytics',
+            'POST api/auth/register',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'POST api/convolab/browser/auth/verification/send',
+            'GET|HEAD api/me',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'POST api/convolab/auth/verification/send',
+            'GET|HEAD api/convolab/admin/stats',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'PATCH api/feature-flags',
+            'PUT api/me',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'DELETE api/auth/tokens/{tokenId}',
+            'GET|HEAD api/courses',
+        );
+    }
+
+    /** @param Collection<int, string> $routeOrder */
+    private function assertImmediatelyBefore(Collection $routeOrder, string $before, string $after): void
+    {
+        $beforeIndex = $routeOrder->search($before, strict: true);
+        $afterIndex = $routeOrder->search($after, strict: true);
+
+        $this->assertIsInt($beforeIndex, "Route [$before] is not registered.");
+        $this->assertIsInt($afterIndex, "Route [$after] is not registered.");
+        $this->assertSame($beforeIndex + 1, $afterIndex, "Route [$before] must remain immediately before [$after].");
     }
 }

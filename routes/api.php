@@ -1,7 +1,6 @@
 <?php
 
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
-use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
@@ -27,11 +26,6 @@ use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
-use App\Http\Controllers\Api\Courses\DeleteCourseController;
-use App\Http\Controllers\Api\Courses\ListCoursesController;
-use App\Http\Controllers\Api\Courses\ShowCourseController;
-use App\Http\Controllers\Api\Courses\StoreCourseController;
-use App\Http\Controllers\Api\Courses\UpdateCourseController;
 use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
 use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
 use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
@@ -146,10 +140,13 @@ $contentRoutes = require __DIR__.'/api/content.php';
 /** @var callable(): void $cardRoutes */
 $cardRoutes = require __DIR__.'/api/cards.php';
 
+/** @var callable(): void $courseRoutes */
+$courseRoutes = require __DIR__.'/api/courses.php';
+
 /** @var callable(): void $deckRoutes */
 $deckRoutes = require __DIR__.'/api/decks.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $deckRoutes): void {
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -157,17 +154,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     Route::patch('/feature-flags', UpdateFeatureFlagsController::class)
         ->middleware('throttle:'.FeatureFlagUpdateRateLimiter::NAME);
     $authRoutes['authenticatedAccountAndTokens']();
-    // Course creates, updates, and deletes below have separate buckets so create retries cannot starve destructive actions.
-    Route::get('/courses', ListCoursesController::class);
-    Route::post('/courses', StoreCourseController::class)
-        ->middleware('throttle:'.CourseRateLimiter::CREATE_NAME);
-    Route::get('/courses/{course}', ShowCourseController::class)->whereUlid('course');
-    Route::put('/courses/{course}', UpdateCourseController::class)
-        ->whereUlid('course')
-        ->middleware('throttle:'.CourseRateLimiter::UPDATE_NAME);
-    Route::delete('/courses/{course}', DeleteCourseController::class)
-        ->whereUlid('course')
-        ->middleware('throttle:'.CourseRateLimiter::DELETE_NAME);
+    $courseRoutes();
     Route::get('/card-review-events', ListReviewEventsController::class);
     // Review creates, batch replay, and study create aliases share one request-rate bucket.
     // Batch payload size remains capped at 500 events by request validation.
@@ -399,4 +386,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $deckRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes);

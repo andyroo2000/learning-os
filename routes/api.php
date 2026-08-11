@@ -4,7 +4,6 @@ use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
@@ -35,15 +34,8 @@ use App\Http\Controllers\Api\Courses\StoreCourseController;
 use App\Http\Controllers\Api\Courses\UpdateCourseController;
 use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
 use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
-use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
-use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
-use App\Http\Controllers\Api\Flashcards\ListDecksController;
-use App\Http\Controllers\Api\Flashcards\ShowDeckController;
-use App\Http\Controllers\Api\Flashcards\StoreDeckController;
-use App\Http\Controllers\Api\Flashcards\UpdateDeckController;
 use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
-use App\Http\Controllers\Api\Media\ListDeckMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListMediaAssetsController;
 use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
@@ -154,7 +146,10 @@ $contentRoutes = require __DIR__.'/api/content.php';
 /** @var callable(): void $cardRoutes */
 $cardRoutes = require __DIR__.'/api/cards.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes): void {
+/** @var callable(): void $deckRoutes */
+$deckRoutes = require __DIR__.'/api/decks.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $deckRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -401,22 +396,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
             Route::post('/study/wanikani/sync', SyncWaniKaniKanjiController::class)
                 ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::SYNC_NAME);
         });
-    // Deck updates and deletes use separate buckets from deck creation so replay pressure cannot starve deletes.
-    Route::prefix('/decks/{deck}')
-        ->whereUlid('deck')
-        ->group(function (): void {
-            Route::get('/', ShowDeckController::class);
-            Route::get('/media-assets', ListDeckMediaAssetsController::class);
-            Route::get('/cards', ListDeckCardsController::class);
-            Route::put('/', UpdateDeckController::class)
-                ->middleware('throttle:'.DeckRateLimiter::UPDATE_NAME);
-            Route::delete('/', DeleteDeckController::class)
-                ->middleware('throttle:'.DeckRateLimiter::DELETE_NAME);
-        });
-    Route::get('/decks', ListDecksController::class);
-    // Deck creation has its own retryable write bucket; idempotent de-dupe runs inside the action.
-    Route::post('/decks', StoreDeckController::class)
-        ->middleware('throttle:'.DeckRateLimiter::CREATE_NAME);
+    $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $deckRoutes);

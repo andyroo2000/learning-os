@@ -9,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
+use App\Domain\Reviews\Support\CardReviewCardLock;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -91,30 +92,60 @@ class ReviewCardAction
             }
         }
 
-        $reviewEvent = new CardReviewEvent([
-            'card_id' => (string) $card->getKey(),
-            'rating' => $rating,
-            'reviewed_at' => $data->reviewedAt,
-            'duration_ms' => $data->durationMs,
-            'client_event_id' => $data->clientEventId,
-            'device_id' => $data->deviceId,
-            'client_created_at' => $data->clientCreatedAt,
-        ]);
-
-        if ($data->id !== null) {
-            $reviewEvent->id = $data->id;
-        }
-
-        $this->assignReviewSnapshots($reviewEvent, $card, $rating);
-
         try {
-            return DB::transaction(function () use ($card, $rating, $reviewEvent): ReviewCardResult {
+            return DB::transaction(function () use ($card, $data, $identity, $rating, $syncMetadata): ReviewCardResult {
+                $lockedCard = $this->findCardForUpdate((string) $card->getKey());
+
+                if ($lockedCard === null) {
+                    throw new InvalidArgumentException('Card does not exist.');
+                }
+
+                // A transport retry may have committed while this request waited for the card lock.
+                if ($syncMetadata !== null) {
+                    $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
+
+                    if ($existingReviewEvent !== null) {
+                        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+                            reviewEvent: $existingReviewEvent,
+                            identity: $identity,
+                            card: $lockedCard,
+                        ));
+                    }
+                }
+
+                if ($data->id !== null) {
+                    $existingReviewEvent = $this->findExistingReviewEventById($data->id);
+
+                    if ($existingReviewEvent !== null) {
+                        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+                            reviewEvent: $existingReviewEvent,
+                            identity: $identity,
+                            card: $lockedCard,
+                        ));
+                    }
+                }
+
+                $reviewEvent = new CardReviewEvent([
+                    'card_id' => (string) $lockedCard->getKey(),
+                    'rating' => $rating,
+                    'reviewed_at' => $data->reviewedAt,
+                    'duration_ms' => $data->durationMs,
+                    'client_event_id' => $data->clientEventId,
+                    'device_id' => $data->deviceId,
+                    'client_created_at' => $data->clientCreatedAt,
+                ]);
+
+                if ($data->id !== null) {
+                    $reviewEvent->id = $data->id;
+                }
+
+                $this->assignReviewSnapshots($reviewEvent, $lockedCard, $rating);
                 $this->saveReviewEvent($reviewEvent);
-                $reviewEvent->setRelation('card', $card);
+                $reviewEvent->setRelation('card', $lockedCard);
 
                 $this->recordSyncFeedEntry->handle(
                     RecordSyncFeedEntryData::fromInput(
-                        userId: $card->ownerUserId(),
+                        userId: $lockedCard->ownerUserId(),
                         domain: CardReviewEventSyncPayload::DOMAIN,
                         resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
                         resourceId: $reviewEvent->id,
@@ -123,7 +154,7 @@ class ReviewCardAction
                     ),
                 );
 
-                $this->applyCardStudyReview->handle($card, $rating, $reviewEvent->reviewed_at);
+                $this->applyCardStudyReview->handle($lockedCard, $rating, $reviewEvent->reviewed_at);
 
                 return ReviewCardResult::created($reviewEvent);
             });
@@ -179,6 +210,20 @@ class ReviewCardAction
         }
 
         return null;
+    }
+
+    /**
+     * Caller owns the transaction that keeps this row lock through review-event and card-state writes.
+     */
+    protected function findCardForUpdate(string $cardId): ?Card
+    {
+        $query = Card::query()
+            ->with('deck')
+            ->whereKey(CanonicalUlid::databaseCandidates($cardId));
+
+        CardReviewCardLock::apply($query->getQuery());
+
+        return $query->first();
     }
 
     private function findExistingReviewEvent(SyncMetadata $syncMetadata): ?CardReviewEvent

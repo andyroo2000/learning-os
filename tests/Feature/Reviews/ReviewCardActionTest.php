@@ -22,6 +22,7 @@ use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PDOException;
@@ -170,6 +171,71 @@ class ReviewCardActionTest extends TestCase
             'failed_at' => '2026-05-24T09:15:00.000000Z',
             'last_reviewed_at' => '2026-05-25T09:15:00.000000Z',
         ], $result->reviewEvent->card_state_before);
+    }
+
+    public function test_it_locks_and_reloads_the_card_before_single_review_snapshots_and_scheduling(): void
+    {
+        $card = Card::factory()->create();
+        $concurrentState = [
+            'study_status' => CardStudyStatus::Review->value,
+            'scheduler_state' => [
+                'state' => 2,
+                'reps' => 8,
+                'stability' => 12.5,
+            ],
+            'due_at' => '2026-06-10T09:15:00Z',
+            'introduced_at' => '2026-05-20T09:15:00Z',
+            'last_reviewed_at' => '2026-05-28T09:15:00Z',
+        ];
+
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $concurrentState) extends ReviewCardAction
+        {
+            public int $lockTransactionLevel = 0;
+
+            /** @param array<string, mixed> $concurrentState */
+            public function __construct(
+                RecordSyncFeedEntryAction $recordSyncFeedEntry,
+                ApplyCardStudyReviewAction $applyCardStudyReview,
+                private readonly array $concurrentState,
+            ) {
+                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+            }
+
+            protected function findCardForUpdate(string $cardId): ?Card
+            {
+                $this->lockTransactionLevel = DB::transactionLevel();
+
+                // Simulate database state changing after the preflight read but before the locked reload.
+                Card::query()->whereKey($cardId)->update($this->concurrentState);
+
+                return parent::findCardForUpdate($cardId);
+            }
+        };
+
+        $transactionLevelBeforeReview = DB::transactionLevel();
+        $result = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Again->value,
+            reviewedAt: '2026-05-27T09:15:00Z',
+        ));
+
+        $this->assertSame($transactionLevelBeforeReview + 1, $reviewCard->lockTransactionLevel);
+        $this->assertSame([
+            'study_status' => 'review',
+            'new_queue_position' => null,
+            'scheduler_state' => $concurrentState['scheduler_state'],
+            'due_at' => '2026-06-10T09:15:00.000000Z',
+            'introduced_at' => '2026-05-20T09:15:00.000000Z',
+            'failed_at' => null,
+            'last_reviewed_at' => '2026-05-28T09:15:00.000000Z',
+        ], $result->reviewEvent->card_state_before);
+        $this->assertSame($concurrentState['scheduler_state'], $result->reviewEvent->scheduler_state_before);
+        $this->assertSame($concurrentState['scheduler_state'], $result->reviewEvent->scheduler_state_after);
+        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
+        $this->assertDatabaseMissing('sync_feed_entries', [
+            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
+            'resource_id' => $card->id,
+        ]);
     }
 
     public function test_again_reviews_mark_cards_relearning_and_failed(): void
@@ -396,6 +462,55 @@ class ReviewCardActionTest extends TestCase
 
         $this->assertFalse($result->wasCreated);
         $this->assertTrue($existingReviewEvent->is($result->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rechecks_exact_retry_identity_after_waiting_for_the_card_lock(): void
+    {
+        $card = Card::factory()->create();
+        $reviewEventId = strtolower((string) Str::ulid());
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $card, $reviewEventId) extends ReviewCardAction
+        {
+            public function __construct(
+                RecordSyncFeedEntryAction $recordSyncFeedEntry,
+                ApplyCardStudyReviewAction $applyCardStudyReview,
+                private readonly Card $card,
+                private readonly string $reviewEventId,
+            ) {
+                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+            }
+
+            protected function findCardForUpdate(string $cardId): ?Card
+            {
+                // Simulate a retry winner becoming visible after the outer pre-check but before the locked re-check.
+                CardReviewEvent::factory()->for($this->card)->create([
+                    'id' => $this->reviewEventId,
+                    'rating' => CardReviewRating::Good,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'event-123',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ]);
+
+                return parent::findCardForUpdate($cardId);
+            }
+        };
+
+        $result = $reviewCard->handle(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00Z',
+            id: $reviewEventId,
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ));
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertSame($reviewEventId, $result->reviewEvent->id);
+        $this->assertSame(CardStudyStatus::New, $card->refresh()->study_status);
+        $this->assertNull($card->last_reviewed_at);
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }

@@ -19,6 +19,8 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -221,6 +223,100 @@ class ReviewCardBatchActionTest extends TestCase
             'state' => 2,
             'last_review' => '2026-05-27T09:20:00.000000Z',
         ], $secondReview->scheduler_state_after);
+    }
+
+    public function test_it_locks_and_reloads_batch_cards_before_snapshots_and_scheduling(): void
+    {
+        $card = Card::factory()->create();
+        $concurrentState = [
+            'study_status' => CardStudyStatus::Review->value,
+            'scheduler_state' => [
+                'state' => 2,
+                'reps' => 8,
+                'stability' => 12.5,
+            ],
+            'due_at' => '2026-06-10T09:15:00Z',
+            'introduced_at' => '2026-05-20T09:15:00Z',
+            'last_reviewed_at' => '2026-05-28T09:15:00Z',
+        ];
+
+        $reviewCards = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $concurrentState) extends ReviewCardBatchAction
+        {
+            public int $lockTransactionLevel = 0;
+
+            /** @param array<string, mixed> $concurrentState */
+            public function __construct(
+                RecordSyncFeedEntryAction $recordSyncFeedEntry,
+                ApplyCardStudyReviewAction $applyCardStudyReview,
+                private readonly array $concurrentState,
+            ) {
+                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+            }
+
+            protected function cardsById(Collection $preparedItems): Collection
+            {
+                $this->lockTransactionLevel = DB::transactionLevel();
+                $cardId = $preparedItems->pluck('card_id')->first();
+
+                Card::query()->whereKey($cardId)->update($this->concurrentState);
+
+                return parent::cardsById($preparedItems);
+            }
+        };
+
+        $transactionLevelBeforeReview = DB::transactionLevel();
+        $result = $reviewCards->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Again->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
+            ),
+        ]);
+        $reviewEvent = $result->reviewEvents->sole();
+
+        $this->assertSame($transactionLevelBeforeReview + 1, $reviewCards->lockTransactionLevel);
+        $this->assertSame('review', $reviewEvent->card_state_before['study_status']);
+        $this->assertSame('2026-05-28T09:15:00.000000Z', $reviewEvent->card_state_before['last_reviewed_at']);
+        $this->assertSame($concurrentState['scheduler_state'], $reviewEvent->scheduler_state_before);
+        $this->assertSame($concurrentState['scheduler_state'], $reviewEvent->scheduler_state_after);
+        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
+        $this->assertDatabaseMissing('sync_feed_entries', [
+            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
+            'resource_id' => $card->id,
+        ]);
+    }
+
+    public function test_batch_response_order_does_not_follow_canonical_lock_order(): void
+    {
+        $firstCard = Card::factory()->create(['id' => '01k00000000000000000000001']);
+        $secondCard = Card::factory()->create(['id' => '01k00000000000000000000002']);
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $secondCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:20:00Z',
+                clientEventId: 'event-2',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:20:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $firstCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-1',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:15:00Z',
+            ),
+        ]);
+
+        $this->assertSame([
+            $secondCard->id,
+            $firstCard->id,
+        ], $result->reviewEvents->pluck('card_id')->all());
     }
 
     public function test_it_normalizes_text_and_sync_metadata_for_direct_callers(): void

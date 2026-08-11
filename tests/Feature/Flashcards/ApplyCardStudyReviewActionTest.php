@@ -24,7 +24,7 @@ class ApplyCardStudyReviewActionTest extends TestCase
         ]);
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
 
-        $updated = app(ApplyCardStudyReviewAction::class)->handle(
+        $updated = app(ApplyCardStudyReviewAction::class)->handleChronologicalNext(
             card: $card,
             rating: CardReviewRating::Hard,
             reviewedAt: $reviewedAt,
@@ -62,7 +62,7 @@ class ApplyCardStudyReviewActionTest extends TestCase
         ]);
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
 
-        $updated = app(ApplyCardStudyReviewAction::class)->handle(
+        $updated = app(ApplyCardStudyReviewAction::class)->handleChronologicalNext(
             card: $card,
             rating: CardReviewRating::Hard,
             reviewedAt: $reviewedAt,
@@ -77,54 +77,6 @@ class ApplyCardStudyReviewActionTest extends TestCase
         $this->assertSame(2, $card->scheduler_state['state']);
         $this->assertSame(1, $card->scheduler_state['scheduled_days']);
         $this->assertCardSyncPayloadRecorded($card);
-    }
-
-    public function test_it_skips_reviews_older_than_the_current_card_state(): void
-    {
-        $card = Card::factory()->create([
-            'study_status' => CardStudyStatus::Review,
-            'due_at' => '2026-06-10T09:15:00Z',
-            'last_reviewed_at' => '2026-05-28T09:15:00Z',
-        ]);
-
-        $updated = app(ApplyCardStudyReviewAction::class)->handle(
-            card: $card,
-            rating: CardReviewRating::Again,
-            reviewedAt: Carbon::parse('2026-05-27T09:15:00Z'),
-        );
-
-        $card->refresh();
-
-        $this->assertFalse($updated);
-        $this->assertSame(CardStudyStatus::Review, $card->study_status);
-        $this->assertSame('2026-06-10T09:15:00.000000Z', $card->due_at?->toJSON());
-        $this->assertNull($card->failed_at);
-        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
-        $this->assertDatabaseCount('sync_feed_entries', 0);
-    }
-
-    public function test_it_skips_reviews_at_the_current_card_review_timestamp(): void
-    {
-        $card = Card::factory()->create([
-            'study_status' => CardStudyStatus::Review,
-            'due_at' => '2026-06-10T09:15:00Z',
-            'last_reviewed_at' => '2026-05-28T09:15:00Z',
-        ]);
-
-        $updated = app(ApplyCardStudyReviewAction::class)->handle(
-            card: $card,
-            rating: CardReviewRating::Again,
-            reviewedAt: Carbon::parse('2026-05-28T09:15:00Z'),
-        );
-
-        $card->refresh();
-
-        $this->assertFalse($updated);
-        $this->assertSame(CardStudyStatus::Review, $card->study_status);
-        $this->assertSame('2026-06-10T09:15:00.000000Z', $card->due_at?->toJSON());
-        $this->assertNull($card->failed_at);
-        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
-        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     private function assertCardSyncPayloadRecorded(Card $card): void

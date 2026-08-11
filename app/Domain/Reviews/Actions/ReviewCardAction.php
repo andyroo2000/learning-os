@@ -140,7 +140,7 @@ class ReviewCardAction
                     candidateReviewEventId: $reviewEventId,
                     candidateHasExplicitId: $data->id !== null,
                     candidateHasSyncIdentity: $syncMetadata !== null,
-                    latestHasSyncIdentity: self::hasCompleteSyncIdentity($latestReviewEvent),
+                    latestHasSyncIdentity: CardReviewChronology::hasCompleteSyncIdentity($latestReviewEvent),
                 );
 
                 $reviewEvent = new CardReviewEvent([
@@ -209,13 +209,6 @@ class ReviewCardAction
                 card: $card,
             ));
         }
-    }
-
-    private static function hasCompleteSyncIdentity(?CardReviewEvent $reviewEvent): bool
-    {
-        return $reviewEvent?->client_event_id !== null
-            && $reviewEvent->device_id !== null
-            && $reviewEvent->client_created_at !== null;
     }
 
     private function findCard(string $cardId): ?Card

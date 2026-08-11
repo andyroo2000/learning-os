@@ -1,7 +1,6 @@
 <?php
 
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
-use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
@@ -25,8 +24,6 @@ use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
-use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
-use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
 use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
@@ -136,19 +133,20 @@ $courseRoutes = require __DIR__.'/api/courses.php';
 /** @var callable(): void $deckRoutes */
 $deckRoutes = require __DIR__.'/api/decks.php';
 
+/** @var callable(): void $featureFlagRoutes */
+$featureFlagRoutes = require __DIR__.'/api/feature-flags.php';
+
 /** @var callable(): void $mediaAssetRoutes */
 $mediaAssetRoutes = require __DIR__.'/api/media-assets.php';
 
 /** @var callable(): void $reviewRoutes */
 $reviewRoutes = require __DIR__.'/api/reviews.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $mediaAssetRoutes, $reviewRoutes): void {
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
-    Route::get('/feature-flags', ShowFeatureFlagsController::class);
-    Route::patch('/feature-flags', UpdateFeatureFlagsController::class)
-        ->middleware('throttle:'.FeatureFlagUpdateRateLimiter::NAME);
+    $featureFlagRoutes();
     $authRoutes['authenticatedAccountAndTokens']();
     $courseRoutes();
     $reviewRoutes();
@@ -363,4 +361,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $mediaAssetRoutes, $reviewRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes);

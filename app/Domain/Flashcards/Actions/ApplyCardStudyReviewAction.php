@@ -18,15 +18,6 @@ class ApplyCardStudyReviewAction
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
     ) {}
 
-    public function handle(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
-    {
-        if (! $this->shouldApply($card, $reviewedAt)) {
-            return false;
-        }
-
-        return $this->apply($card, $rating, $reviewedAt);
-    }
-
     /**
      * Apply an event whose (reviewed_at, id) position was validated while its card row was locked.
      *
@@ -88,23 +79,6 @@ class ApplyCardStudyReviewAction
     }
 
     /**
-     * @return array<string, mixed>|null
-     */
-    public function schedulerStateAfterReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): ?array
-    {
-        if (! $this->shouldApply($card, $reviewedAt)) {
-            return is_array($card->scheduler_state) ? $card->scheduler_state : null;
-        }
-
-        return FsrsReviewScheduler::review(
-            schedulerState: $card->scheduler_state,
-            studyStatus: $card->study_status ?? CardStudyStatus::New,
-            rating: $rating,
-            reviewedAt: $reviewedAt,
-        )['schedulerState'];
-    }
-
-    /**
      * Preview an event whose (reviewed_at, id) position was validated while its card row was locked.
      *
      * @return array<string, mixed>|null
@@ -119,10 +93,5 @@ class ApplyCardStudyReviewAction
             rating: $rating,
             reviewedAt: $reviewedAt,
         )['schedulerState'];
-    }
-
-    private function shouldApply(Card $card, Carbon $reviewedAt): bool
-    {
-        return $card->last_reviewed_at === null || $card->last_reviewed_at->lessThan($reviewedAt);
     }
 }

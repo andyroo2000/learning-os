@@ -30,6 +30,14 @@ final class CardReviewChronology
         }
 
         return CardReviewEvent::query()
+            ->select([
+                'id',
+                'card_id',
+                'reviewed_at',
+                'client_event_id',
+                'device_id',
+                'client_created_at',
+            ])
             ->whereIn('card_id', $cardIds)
             // Let the (card_id, reviewed_at, id) index find the newest timestamp.
             // Equal-time legacy rows are rare and are reduced by normalized ID in PHP below,
@@ -128,6 +136,13 @@ final class CardReviewChronology
             CanonicalUlid::normalize($leftReviewEventId),
             CanonicalUlid::normalize($rightReviewEventId),
         );
+    }
+
+    public static function hasCompleteSyncIdentity(?CardReviewEvent $reviewEvent): bool
+    {
+        return $reviewEvent?->client_event_id !== null
+            && $reviewEvent->device_id !== null
+            && $reviewEvent->client_created_at !== null;
     }
 
     public static function hasNewerEvent(CardReviewEvent $reviewEvent): bool

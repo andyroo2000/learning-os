@@ -1,10 +1,8 @@
 <?php
 
-use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
-use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
 use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
@@ -23,10 +21,7 @@ use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
-use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
-use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
-use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
 use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
@@ -98,15 +93,9 @@ use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
-// Public static learning media stays path-allowlisted and rate-limited where URLs are batched.
-Route::get('/avatars/{avatarPath}', ShowAvatarAssetController::class)
-    ->where('avatarPath', '.*');
-Route::post('/tools-audio/signed-urls', ResolveToolAudioUrlsController::class)
-    ->middleware('throttle:'.ToolAudioSignedUrlRateLimiter::NAME);
-Route::post(
-    '/convolab/browser/tools/analytics',
-    StoreBrowserToolAnalyticsEventController::class,
-)->middleware('throttle:'.ToolAnalyticsRateLimiter::BROWSER_NAME);
+/** @var callable(): void $publicMediaAnalyticsRoutes */
+$publicMediaAnalyticsRoutes = require __DIR__.'/api/public-media-analytics.php';
+$publicMediaAnalyticsRoutes();
 
 /**
  * @var array{
@@ -361,4 +350,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes);

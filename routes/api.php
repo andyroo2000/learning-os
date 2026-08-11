@@ -1,7 +1,6 @@
 <?php
 
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -21,15 +20,10 @@ use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DownloadStudyMediaBatchController;
 use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
-use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
-use App\Http\Controllers\Api\Study\ListStudyCardsController;
-use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
-use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
-use App\Http\Controllers\Api\Study\ShowStudyCardController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudyLessonController;
@@ -91,6 +85,9 @@ $studyBrowserRoutes = require __DIR__.'/api/study-browser.php';
 /** @var callable(): void $studyCardAuthoringRoutes */
 $studyCardAuthoringRoutes = require __DIR__.'/api/study-card-authoring.php';
 
+/** @var callable(): void $studyCardLibraryRoutes */
+$studyCardLibraryRoutes = require __DIR__.'/api/study-card-library.php';
+
 /** @var callable(): void $studyDailyAudioRoutes */
 $studyDailyAudioRoutes = require __DIR__.'/api/study-daily-audio.php';
 
@@ -100,7 +97,7 @@ $studyExportRoutes = require __DIR__.'/api/study-exports.php';
 /** @var callable(): void $studyImportRoutes */
 $studyImportRoutes = require __DIR__.'/api/study-imports.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes): void {
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -114,7 +111,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function () use ($studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes): void {
+        ->group(function () use ($studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes): void {
             Route::post('/study/session/start', StartStudySessionController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/lessons/start', StartStudyLessonController::class)
@@ -126,20 +123,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
             $studyImportRoutes();
             $studyBrowserRoutes();
             $studyCardAuthoringRoutes();
-            Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/cards', ListStudyCardsController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Sync clients resolve one feed page per request instead of spending the
-            // shared compatibility quota on one card-detail request per feed entry.
-            Route::post('/study/cards/batch', ListStudyCardBatchController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/cards/{cardId}', ShowStudyCardController::class)
-                ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Shares the canonical new-card queue reorder rate limit above.
-            Route::post('/study/new-queue/reorder', ReorderStudyNewCardQueueController::class)
-                ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
+            $studyCardLibraryRoutes();
             Route::get('/study/overview', ShowStudyOverviewController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::get('/study/activity-sessions', ListStudyActivitySessionsController::class)
@@ -198,4 +182,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes);

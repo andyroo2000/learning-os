@@ -90,7 +90,6 @@ use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyCardImageController;
 use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
-use App\Http\Controllers\Api\Sync\ListSyncFeedEntriesController;
 use Illuminate\Support\Facades\Route;
 
 /** @var callable(): void $publicMediaAnalyticsRoutes */
@@ -131,7 +130,10 @@ $mediaAssetRoutes = require __DIR__.'/api/media-assets.php';
 /** @var callable(): void $reviewRoutes */
 $reviewRoutes = require __DIR__.'/api/reviews.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes): void {
+/** @var callable(): void $syncFeedRoutes */
+$syncFeedRoutes = require __DIR__.'/api/sync-feed.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -141,7 +143,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $reviewRoutes();
     $cardRoutes();
     $mediaAssetRoutes();
-    Route::get('/sync/feed', ListSyncFeedEntriesController::class);
+    $syncFeedRoutes();
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
@@ -350,4 +352,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $syncFeedRoutes);

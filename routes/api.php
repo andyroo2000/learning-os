@@ -35,11 +35,6 @@ use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
 use App\Http\Controllers\Api\Media\ShowMediaAssetController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
-use App\Http\Controllers\Api\Reviews\ListReviewEventsController;
-use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
-use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
-use App\Http\Controllers\Api\Reviews\StoreCardReviewEventController;
-use App\Http\Controllers\Api\Reviews\UndoCardReviewEventController;
 use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
@@ -146,7 +141,10 @@ $courseRoutes = require __DIR__.'/api/courses.php';
 /** @var callable(): void $deckRoutes */
 $deckRoutes = require __DIR__.'/api/decks.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes): void {
+/** @var callable(): void $reviewRoutes */
+$reviewRoutes = require __DIR__.'/api/reviews.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $reviewRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -155,18 +153,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
         ->middleware('throttle:'.FeatureFlagUpdateRateLimiter::NAME);
     $authRoutes['authenticatedAccountAndTokens']();
     $courseRoutes();
-    Route::get('/card-review-events', ListReviewEventsController::class);
-    // Review creates, batch replay, and study create aliases share one request-rate bucket.
-    // Batch payload size remains capped at 500 events by request validation.
-    Route::post('/card-review-events/batch', StoreCardReviewEventBatchController::class)
-        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
-    Route::get('/card-review-events/{cardReviewEvent}', ShowCardReviewEventController::class)->whereUlid('cardReviewEvent');
-    // Review undo hard-deletes the event; DELETE retries for already-undone events resolve as 404.
-    Route::delete('/card-review-events/{cardReviewEvent}', UndoCardReviewEventController::class)
-        ->whereUlid('cardReviewEvent')
-        ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
-    Route::post('/card-review-events', StoreCardReviewEventController::class)
-        ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
+    $reviewRoutes();
     $cardRoutes();
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class)
@@ -386,4 +373,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $reviewRoutes);

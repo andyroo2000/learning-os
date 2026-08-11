@@ -5,7 +5,6 @@ use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
-use App\Domain\Study\Support\DailyAudioPracticeGenerationRateLimiter;
 use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Study\Support\StudyCardAudioPrepareRateLimiter;
@@ -30,11 +29,9 @@ use App\Http\Controllers\Api\Study\DeleteStudyActivitySessionController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardDraftController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
-use App\Http\Controllers\Api\Study\DownloadDailyAudioPracticeTrackController;
 use App\Http\Controllers\Api\Study\DownloadStudyMediaBatchController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewAudioController;
 use App\Http\Controllers\Api\Study\GenerateStudyCardDraftPreviewImageController;
-use App\Http\Controllers\Api\Study\ListDailyAudioPracticesController;
 use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
@@ -59,8 +56,6 @@ use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
-use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeController;
-use App\Http\Controllers\Api\Study\ShowDailyAudioPracticeStatusController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
@@ -74,7 +69,6 @@ use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudyLessonController;
 use App\Http\Controllers\Api\Study\StartStudySessionController;
-use App\Http\Controllers\Api\Study\StoreDailyAudioPracticeController;
 use App\Http\Controllers\Api\Study\StoreStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
@@ -133,7 +127,10 @@ $reviewRoutes = require __DIR__.'/api/reviews.php';
 /** @var callable(): void $syncFeedRoutes */
 $syncFeedRoutes = require __DIR__.'/api/sync-feed.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $syncFeedRoutes): void {
+/** @var callable(): void $studyDailyAudioRoutes */
+$studyDailyAudioRoutes = require __DIR__.'/api/study-daily-audio.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyDailyAudioRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -147,30 +144,14 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function (): void {
+        ->group(function () use ($studyDailyAudioRoutes): void {
             Route::post('/study/session/start', StartStudySessionController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/lessons/start', StartStudyLessonController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/offline-reserve', BuildStudyOfflineReserveController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
-            Route::post('/daily-audio-practice', StoreDailyAudioPracticeController::class)
-                ->middleware('throttle:'.DailyAudioPracticeGenerationRateLimiter::NAME);
-            Route::get('/daily-audio-practice', ListDailyAudioPracticesController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/daily-audio-practice/{practiceId}', ShowDailyAudioPracticeController::class)
-                ->whereUuid('practiceId')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/daily-audio-practice/{practiceId}/status', ShowDailyAudioPracticeStatusController::class)
-                ->whereUuid('practiceId')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get(
-                '/daily-audio-practice/{practiceId}/tracks/{trackId}/audio',
-                DownloadDailyAudioPracticeTrackController::class,
-            )
-                ->whereUuid('practiceId')
-                ->whereUuid('trackId')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::MEDIA_NAME);
+            $studyDailyAudioRoutes();
             Route::get('/study/export', ShowStudyExportManifestController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)
@@ -352,4 +333,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyDailyAudioRoutes, $syncFeedRoutes);

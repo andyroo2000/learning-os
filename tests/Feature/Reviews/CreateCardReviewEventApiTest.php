@@ -22,6 +22,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CreateCardReviewEventApiTest extends TestCase
@@ -306,27 +307,31 @@ class CreateCardReviewEventApiTest extends TestCase
         ]);
     }
 
-    public function test_it_is_idempotent_for_the_same_client_event_and_device(): void
+    public function test_it_is_idempotent_for_the_same_canonical_payload(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $firstResponse = $this->postJson('/api/card-review-events', [
-            'card_id' => $card->id,
+        $payload = [
+            'card_id' => strtoupper($card->id),
             'rating' => CardReviewRating::Good->value,
             'reviewed_at' => '2026-05-27T09:15:00Z',
+            'duration_ms' => 1250,
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
             'client_created_at' => '2026-05-27T09:14:00Z',
-        ]);
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $payload);
 
         $secondResponse = $this->postJson('/api/card-review-events', [
             'card_id' => $card->id,
-            'rating' => CardReviewRating::Easy->value,
-            'reviewed_at' => '2026-05-27T09:20:00Z',
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T05:15:00-04:00',
+            'duration_ms' => '1250',
             'client_event_id' => 'event-123',
             'device_id' => 'device-abc',
-            'client_created_at' => '2026-05-27T09:19:00Z',
+            'client_created_at' => '2026-05-27T05:14:00-04:00',
         ]);
 
         $firstResponse->assertCreated();
@@ -337,6 +342,69 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('data.reviewed_at', '2026-05-27T09:15:00.000000Z');
 
         $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    #[DataProvider('syncPayloadMismatchProvider')]
+    public function test_it_rejects_sync_metadata_retries_with_a_different_payload(string $field, mixed $value): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $payload = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'duration_ms' => 1250,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $this->postJson('/api/card-review-events', $payload)->assertCreated();
+
+        $response = $this->postJson('/api/card-review-events', [
+            ...$payload,
+            $field => $value,
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_rejects_reusing_sync_metadata_for_another_card_owned_by_the_same_user(): void
+    {
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = Card::factory()->for($firstCard->deck)->create();
+        $payload = [
+            'card_id' => $firstCard->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $this->postJson('/api/card-review-events', $payload)->assertCreated();
+
+        $this->postJson('/api/card-review-events', [
+            ...$payload,
+            'card_id' => $secondCard->id,
+        ])->assertConflict();
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public static function syncPayloadMismatchProvider(): array
+    {
+        return [
+            'rating' => ['rating', CardReviewRating::Easy->value],
+            'reviewed at' => ['reviewed_at', '2026-05-27T09:20:00Z'],
+            'duration' => ['duration_ms', 1251],
+            'client created at' => ['client_created_at', '2026-05-27T09:19:00Z'],
+        ];
     }
 
     public function test_it_rejects_sync_metadata_retries_with_a_different_provided_ulid(): void

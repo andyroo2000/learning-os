@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CreateCardReviewEventBatchApiTest extends TestCase
@@ -389,7 +390,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         ]);
     }
 
-    public function test_it_is_idempotent_for_retried_client_events(): void
+    public function test_it_is_idempotent_for_retried_client_events_with_the_same_canonical_payload(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
@@ -400,6 +401,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                     'card_id' => $card->id,
                     'rating' => CardReviewRating::Good->value,
                     'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'duration_ms' => 1250,
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
                     'client_created_at' => '2026-05-27T09:14:00Z',
@@ -412,11 +414,12 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             'events' => [
                 [
                     'card_id' => $card->id,
-                    'rating' => CardReviewRating::Easy->value,
-                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
+                    'duration_ms' => '1250',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:19:00Z',
+                    'client_created_at' => '2026-05-27T05:14:00-04:00',
                 ],
             ],
         ]);
@@ -429,6 +432,67 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.0.reviewed_at', '2026-05-27T09:15:00.000000Z');
 
         $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    #[DataProvider('syncPayloadMismatchProvider')]
+    public function test_it_rejects_retried_client_events_with_a_different_payload(string $field, mixed $value): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $event = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'duration_ms' => 1250,
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $this->postJson('/api/card-review-events/batch', ['events' => [$event]])->assertCreated();
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [[...$event, $field => $value]],
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_rejects_reusing_sync_metadata_for_another_card_owned_by_the_same_user(): void
+    {
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = Card::factory()->for($firstCard->deck)->create();
+        $event = [
+            'card_id' => $firstCard->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $this->postJson('/api/card-review-events/batch', ['events' => [$event]])->assertCreated();
+
+        $this->postJson('/api/card-review-events/batch', [
+            'events' => [[...$event, 'card_id' => $secondCard->id]],
+        ])->assertConflict();
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public static function syncPayloadMismatchProvider(): array
+    {
+        return [
+            'rating' => ['rating', CardReviewRating::Easy->value],
+            'reviewed at' => ['reviewed_at', '2026-05-27T09:20:00Z'],
+            'duration' => ['duration_ms', 1251],
+            'client created at' => ['client_created_at', '2026-05-27T09:19:00Z'],
+        ];
     }
 
     public function test_it_returns_existing_event_when_provided_ulid_and_sync_metadata_match(): void
@@ -794,10 +858,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         ]);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['events']);
-
-        $this->assertStringContainsString('["device-abc","event-123"]', $response->json('errors.events.0'));
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
         $this->assertDatabaseCount('card_review_events', 0);
     }
 
@@ -829,10 +892,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         ]);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['events']);
-
-        $this->assertStringContainsString('["device-abc","event-123"]', $response->json('errors.events.0'));
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
         $this->assertDatabaseCount('card_review_events', 0);
     }
 
@@ -866,10 +928,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         ]);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['events']);
-
-        $this->assertStringContainsString($id, $response->json('errors.events.0'));
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
         $this->assertDatabaseCount('card_review_events', 0);
     }
 
@@ -892,11 +953,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 [
                     'id' => strtoupper($id),
                     'card_id' => $card->id,
-                    'rating' => CardReviewRating::Easy->value,
-                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:19:00Z',
+                    'client_created_at' => '2026-05-27T05:14:00-04:00',
                 ],
             ],
         ]);
@@ -905,8 +966,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.0.id', $id)
             ->assertJsonPath('data.1.id', $id)
-            ->assertJsonPath('data.0.rating', CardReviewRating::Easy->value)
-            ->assertJsonPath('data.1.rating', CardReviewRating::Easy->value);
+            ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
+            ->assertJsonPath('data.1.rating', CardReviewRating::Good->value);
 
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseHas('card_review_events', ['id' => $id]);
@@ -932,11 +993,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 [
                     'id' => $id,
                     'card_id' => $card->id,
-                    'rating' => CardReviewRating::Easy->value,
-                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:19:00Z',
+                    'client_created_at' => '2026-05-27T05:14:00-04:00',
                 ],
             ],
         ]);
@@ -974,11 +1035,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             'events' => [
                 [
                     'card_id' => $existingCard->id,
-                    'rating' => CardReviewRating::Easy->value,
-                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:19:00Z',
+                    'client_created_at' => '2026-05-27T05:14:00-04:00',
                 ],
                 [
                     'card_id' => $newCard->id,
@@ -1004,7 +1065,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 2);
     }
 
-    public function test_it_is_idempotent_for_duplicate_client_events_in_the_same_batch(): void
+    public function test_it_is_idempotent_for_matching_duplicate_client_events_in_the_same_batch(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
@@ -1021,11 +1082,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 ],
                 [
                     'card_id' => $card->id,
-                    'rating' => CardReviewRating::Easy->value,
-                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'rating' => CardReviewRating::Good->value,
+                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:19:00Z',
+                    'client_created_at' => '2026-05-27T05:14:00-04:00',
                 ],
             ],
         ]);
@@ -1037,6 +1098,26 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertJsonPath('data.1.rating', CardReviewRating::Good->value);
 
         $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_rejects_mismatched_duplicate_client_events_in_the_same_batch(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $event = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27T09:14:00Z',
+        ];
+
+        $this->postJson('/api/card-review-events/batch', [
+            'events' => [$event, [...$event, 'rating' => CardReviewRating::Easy->value]],
+        ])->assertConflict();
+
+        $this->assertDatabaseCount('card_review_events', 0);
     }
 
     public function test_it_uses_bulk_lookup_queries_for_many_events(): void

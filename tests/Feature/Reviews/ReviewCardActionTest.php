@@ -342,6 +342,31 @@ class ReviewCardActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_it_returns_a_legacy_uppercase_review_event_for_a_canonical_provided_id_retry(): void
+    {
+        $card = Card::factory()->create();
+        $storedId = strtoupper((string) Str::ulid());
+        $existingReviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'id' => $storedId,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => null,
+            'device_id' => null,
+            'client_created_at' => null,
+        ]);
+
+        $result = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T05:15:00-04:00',
+            id: strtolower($storedId),
+        ));
+
+        $this->assertFalse($result->wasCreated);
+        $this->assertTrue($existingReviewEvent->is($result->reviewEvent));
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_returns_existing_review_event_for_provided_ulid_retries_with_sync_metadata(): void
     {
         $card = Card::factory()->create();
@@ -675,7 +700,7 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame(CardStudyStatus::Learning, $card->refresh()->study_status);
     }
 
-    public function test_it_is_idempotent_for_the_same_client_event_and_device(): void
+    public function test_it_is_idempotent_for_the_same_canonical_payload(): void
     {
         $card = Card::factory()->create();
 
@@ -692,12 +717,12 @@ class ReviewCardActionTest extends TestCase
 
         $secondResult = $this->reviewCard(
             ReviewCardData::fromInput(
-                cardId: $card->id,
-                rating: 'easy',
-                reviewedAt: '2026-05-27T09:20:00Z',
+                cardId: strtoupper($card->id),
+                rating: 'good',
+                reviewedAt: '2026-05-27T05:15:00-04:00',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:19:00Z',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
             ),
         );
         $firstReviewEvent = $firstResult->reviewEvent;
@@ -713,6 +738,60 @@ class ReviewCardActionTest extends TestCase
             'reviewed_at' => '2026-05-27 09:15:00',
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
+    public function test_it_rejects_a_sync_metadata_retry_with_different_payload(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ));
+
+        $this->expectException(CardReviewEventConflictException::class);
+        $this->expectExceptionMessage('Card review event ID already exists with different metadata.');
+
+        $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'easy',
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ));
+    }
+
+    public function test_it_rejects_reusing_sync_metadata_for_another_card_with_the_same_owner(): void
+    {
+        $deck = Deck::factory()->create();
+        $firstCard = Card::factory()->for($deck)->create();
+        $secondCard = Card::factory()->for($deck)->create();
+
+        $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $firstCard->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ));
+
+        $this->expectException(CardReviewEventConflictException::class);
+        $this->expectExceptionMessage('Card review event ID already exists with different metadata.');
+
+        $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $secondCard->id,
+            rating: 'good',
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ));
     }
 
     public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void

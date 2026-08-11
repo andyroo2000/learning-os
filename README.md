@@ -8,7 +8,7 @@ contracts used by the ConvoLab web and iOS clients.
 
 ## Requirements
 
-- PHP 8.5
+- PHP 8.3 or newer (CI and deployment currently use PHP 8.5)
 - Composer 2
 - Node.js 24
 - npm 11

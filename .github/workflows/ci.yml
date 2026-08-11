@@ -44,6 +44,9 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Audit PHP dependencies
+        run: composer audit --locked
+
       - name: Prepare Laravel environment
         run: |
           cp .env.example .env

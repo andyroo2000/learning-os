@@ -5,7 +5,6 @@ use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
-use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventUndoRateLimiter;
@@ -28,13 +27,9 @@ use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
 use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
 use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
-use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
-use App\Http\Controllers\Api\Media\ListMediaAssetsController;
 use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
-use App\Http\Controllers\Api\Media\ShowMediaAssetController;
-use App\Http\Controllers\Api\Media\StoreMediaAssetController;
 use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
 use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
 use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
@@ -141,10 +136,13 @@ $courseRoutes = require __DIR__.'/api/courses.php';
 /** @var callable(): void $deckRoutes */
 $deckRoutes = require __DIR__.'/api/decks.php';
 
+/** @var callable(): void $mediaAssetRoutes */
+$mediaAssetRoutes = require __DIR__.'/api/media-assets.php';
+
 /** @var callable(): void $reviewRoutes */
 $reviewRoutes = require __DIR__.'/api/reviews.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $reviewRoutes): void {
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $mediaAssetRoutes, $reviewRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -155,15 +153,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $courseRoutes();
     $reviewRoutes();
     $cardRoutes();
-    Route::get('/media-assets', ListMediaAssetsController::class);
-    Route::post('/media-assets', StoreMediaAssetController::class)
-        ->middleware('throttle:'.MediaAssetRateLimiter::CREATE_NAME);
-    Route::get('/media-assets/{mediaAsset}/content', DownloadMediaAssetContentController::class)
-        ->name('api.media-assets.content');
-    Route::get('/media-assets/{mediaAsset}', ShowMediaAssetController::class);
-    // Use a raw ID segment so missing/cross-user media assets stay idempotent 204s.
-    Route::delete('/media-assets/{mediaAssetId}', DeleteMediaAssetController::class)
-        ->middleware('throttle:'.MediaAssetRateLimiter::DELETE_NAME);
+    $mediaAssetRoutes();
     Route::get('/sync/feed', ListSyncFeedEntriesController::class);
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
@@ -373,4 +363,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $reviewRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $mediaAssetRoutes, $reviewRoutes);

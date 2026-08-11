@@ -59,7 +59,7 @@ class UploadStudyCardImageRequest extends FormRequest
         ];
     }
 
-    public function image(): UploadedFile
+    public function uploadedImage(): UploadedFile
     {
         $image = $this->validated('image');
 

@@ -21,7 +21,7 @@ class UploadStudyCardImageController extends Controller
         try {
             $card = $uploadImage->handle(
                 $request->studyCard(),
-                $request->image(),
+                $request->uploadedImage(),
                 $request->imagePlacement(),
             );
         } catch (StudyCardImageConflictException $exception) {

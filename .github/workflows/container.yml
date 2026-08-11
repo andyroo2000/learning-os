@@ -38,6 +38,12 @@ on:
       - 'composer.json'
       - 'composer.lock'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested image when dispatching from main
+        required: false
+        type: boolean
+        default: false
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/learning-os
@@ -224,7 +230,7 @@ jobs:
 
   publish:
     name: Publish image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish)
     needs:
       - build
       - test

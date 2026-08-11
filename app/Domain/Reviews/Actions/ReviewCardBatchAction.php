@@ -4,11 +4,13 @@ namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
+use App\Domain\Reviews\Support\CardReviewCardLock;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -231,10 +233,12 @@ class ReviewCardBatchAction
     }
 
     /**
+     * Caller owns the transaction so every returned card remains locked through the batch writes.
+     *
      * @param  Collection<int, array{card_id: string}>  $preparedItems
      * @return Collection<string, Card>
      */
-    private function cardsById(Collection $preparedItems): Collection
+    protected function cardsById(Collection $preparedItems): Collection
     {
         $cardIds = $preparedItems
             ->pluck('card_id')
@@ -246,12 +250,25 @@ class ReviewCardBatchAction
             ->unique()
             ->values();
 
-        $cardsById = Card::query()
+        $query = Card::query()
             ->select('cards.*')
-            ->selectRaw('decks.user_id as owner_user_id')
-            ->selectRaw('decks.course_id as deck_course_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->whereKey($candidateCardIds)
+            ->addSelect([
+                'owner_user_id' => Deck::query()
+                    ->withTrashed()
+                    ->select('user_id')
+                    ->whereColumn('decks.id', 'cards.deck_id')
+                    ->limit(1),
+                'deck_course_id' => Deck::query()
+                    ->withTrashed()
+                    ->select('course_id')
+                    ->whereColumn('decks.id', 'cards.deck_id')
+                    ->limit(1),
+            ])
+            ->whereKey($candidateCardIds);
+
+        CardReviewCardLock::apply($query->getQuery());
+
+        $cardsById = $query
             ->get()
             ->keyBy(fn (Card $card): string => CanonicalUlid::normalize((string) $card->getKey()));
 

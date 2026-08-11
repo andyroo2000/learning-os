@@ -7,7 +7,6 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
-use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
 use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
@@ -36,34 +35,20 @@ use App\Http\Controllers\Api\Courses\StoreCourseController;
 use App\Http\Controllers\Api\Courses\UpdateCourseController;
 use App\Http\Controllers\Api\FeatureFlags\ShowFeatureFlagsController;
 use App\Http\Controllers\Api\FeatureFlags\UpdateFeatureFlagsController;
-use App\Http\Controllers\Api\Flashcards\DeleteCardController;
 use App\Http\Controllers\Api\Flashcards\DeleteDeckController;
-use App\Http\Controllers\Api\Flashcards\ListCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDeckCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDecksController;
-use App\Http\Controllers\Api\Flashcards\ListDueCardsController;
-use App\Http\Controllers\Api\Flashcards\ListNewCardsController;
-use App\Http\Controllers\Api\Flashcards\PerformCardStudyActionController;
-use App\Http\Controllers\Api\Flashcards\ReorderNewCardQueueController;
-use App\Http\Controllers\Api\Flashcards\ShowCardController;
 use App\Http\Controllers\Api\Flashcards\ShowDeckController;
-use App\Http\Controllers\Api\Flashcards\StoreCardController;
 use App\Http\Controllers\Api\Flashcards\StoreDeckController;
-use App\Http\Controllers\Api\Flashcards\UpdateCardController;
-use App\Http\Controllers\Api\Flashcards\UpdateCardStudyStatusController;
 use App\Http\Controllers\Api\Flashcards\UpdateDeckController;
-use App\Http\Controllers\Api\Media\AttachMediaToCardController;
 use App\Http\Controllers\Api\Media\DeleteMediaAssetController;
-use App\Http\Controllers\Api\Media\DetachMediaFromCardController;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
-use App\Http\Controllers\Api\Media\ListCardMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListDeckMediaAssetsController;
 use App\Http\Controllers\Api\Media\ListMediaAssetsController;
 use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
 use App\Http\Controllers\Api\Media\ShowMediaAssetController;
 use App\Http\Controllers\Api\Media\StoreMediaAssetController;
-use App\Http\Controllers\Api\Reviews\ListCardReviewEventsController;
 use App\Http\Controllers\Api\Reviews\ListReviewEventsController;
 use App\Http\Controllers\Api\Reviews\ShowCardReviewEventController;
 use App\Http\Controllers\Api\Reviews\StoreCardReviewEventBatchController;
@@ -166,7 +151,10 @@ $adminRoutes = require __DIR__.'/api/admin.php';
 /** @var callable(): void $contentRoutes */
 $contentRoutes = require __DIR__.'/api/content.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $contentRoutes): void {
+/** @var callable(): void $cardRoutes */
+$cardRoutes = require __DIR__.'/api/cards.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -197,38 +185,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
         ->middleware('throttle:'.CardReviewEventUndoRateLimiter::NAME);
     Route::post('/card-review-events', StoreCardReviewEventController::class)
         ->middleware('throttle:'.CardReviewEventCreateRateLimiter::NAME);
-    Route::get('/cards/due', ListDueCardsController::class);
-    Route::get('/cards/new', ListNewCardsController::class);
-    // Canonical and ConvoLab queue reorders share one user-scoped rate-limit bucket.
-    Route::post('/cards/new/reorder', ReorderNewCardQueueController::class)
-        ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
-    Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
-    Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
-    Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
-    // Card-media relation writes have their own retry-friendly rate limits.
-    Route::post('/cards/{card}/media-assets', AttachMediaToCardController::class)
-        ->whereUlid('card')
-        ->middleware('throttle:'.CardMediaRateLimiter::ATTACH_NAME);
-    Route::delete('/cards/{card}/media-assets/{mediaAsset}', DetachMediaFromCardController::class)
-        ->whereUlid('card')
-        ->whereUlid('mediaAsset')
-        ->middleware('throttle:'.CardMediaRateLimiter::DETACH_NAME);
-    Route::get('/cards', ListCardsController::class);
-    // Canonical and study card writes share rate limits because they mutate the same resources.
-    Route::post('/cards', StoreCardController::class)
-        ->middleware('throttle:'.StudyCardCreateRateLimiter::NAME);
-    Route::post('/cards/{card}/actions', PerformCardStudyActionController::class)
-        ->whereUlid('card')
-        ->middleware('throttle:'.StudyCardActionRateLimiter::NAME);
-    Route::patch('/cards/{card}/study-status', UpdateCardStudyStatusController::class)
-        ->whereUlid('card')
-        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
-    Route::put('/cards/{card}', UpdateCardController::class)
-        ->whereUlid('card')
-        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
-    Route::delete('/cards/{card}', DeleteCardController::class)
-        ->whereUlid('card')
-        ->middleware('throttle:'.StudyCardDeleteRateLimiter::NAME);
+    $cardRoutes();
     Route::get('/media-assets', ListMediaAssetsController::class);
     Route::post('/media-assets', StoreMediaAssetController::class)
         ->middleware('throttle:'.MediaAssetRateLimiter::CREATE_NAME);
@@ -462,4 +419,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
         ->middleware('throttle:'.DeckRateLimiter::CREATE_NAME);
 });
 
-unset($adminRoutes, $authRoutes, $contentRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes);

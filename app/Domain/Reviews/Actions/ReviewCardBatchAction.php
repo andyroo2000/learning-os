@@ -11,6 +11,7 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
 use App\Domain\Reviews\Support\CardReviewCardLock;
+use App\Domain\Reviews\Support\CardReviewChronology;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -73,6 +74,8 @@ class ReviewCardBatchAction
             $now = now();
 
             $createdItems = $this->canonicalItemsForInsert($preparedItems, $existingReviewEventsBySyncKey);
+
+            $this->assertCreatedItemsAppendToChronology($createdItems, $cardsById);
 
             $rows = $createdItems
                 ->map(fn (array $item): array => $this->rowForInsert($item, $now))
@@ -557,7 +560,12 @@ class ReviewCardBatchAction
     private function recordAndApplyCreatedReviewEvents(Collection $reviewEvents, Collection $cardsById): void
     {
         $reviewEvents
-            ->sortBy(fn (CardReviewEvent $reviewEvent): string => $reviewEvent->reviewed_at?->toJSON() ?? '')
+            ->sort(fn (CardReviewEvent $left, CardReviewEvent $right): int => CardReviewChronology::compare(
+                $left->reviewed_at,
+                $left->id,
+                $right->reviewed_at,
+                $right->id,
+            ))
             ->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
                 $card = $cardsById->get($reviewEvent->card_id)
                     ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
@@ -577,8 +585,53 @@ class ReviewCardBatchAction
                     ),
                 );
 
-                $this->applyCardStudyReview->handle($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
+                $this->applyCardStudyReview->handleChronologicalNext($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
             });
+    }
+
+    /**
+     * @param  Collection<int, array{id: string, card_id: string, reviewed_at: Carbon}>  $createdItems
+     * @param  Collection<string, Card>  $cardsById
+     */
+    private function assertCreatedItemsAppendToChronology(Collection $createdItems, Collection $cardsById): void
+    {
+        $latestReviewEvents = CardReviewChronology::latestForCards($cardsById->keys());
+
+        foreach ($createdItems->groupBy('card_id') as $cardId => $cardItems) {
+            $card = $cardsById->get($cardId)
+                ?? throw new RuntimeException('Card missing while validating review chronology.');
+            $latestReviewEvent = $latestReviewEvents->get($cardId);
+            $latestReviewedAt = $latestReviewEvent?->reviewed_at;
+            $latestReviewEventId = $latestReviewEvent?->id;
+            $latestHasSyncIdentity = $latestReviewEvent?->client_event_id !== null
+                && $latestReviewEvent->device_id !== null
+                && $latestReviewEvent->client_created_at !== null;
+
+            $orderedItems = $cardItems->sort(fn (array $left, array $right): int => CardReviewChronology::compare(
+                $left['reviewed_at'],
+                $left['id'],
+                $right['reviewed_at'],
+                $right['id'],
+            ));
+
+            foreach ($orderedItems as $item) {
+                CardReviewChronology::assertCanAppend(
+                    card: $card,
+                    latestReviewedAt: $latestReviewedAt,
+                    latestReviewEventId: $latestReviewEventId,
+                    candidateReviewedAt: $item['reviewed_at'],
+                    candidateReviewEventId: $item['id'],
+                    candidateHasExplicitId: $item['client_supplied_id'],
+                    // Batch writes require complete sync metadata during preparation.
+                    candidateHasSyncIdentity: true,
+                    latestHasSyncIdentity: $latestHasSyncIdentity,
+                );
+
+                $latestReviewedAt = $item['reviewed_at'];
+                $latestReviewEventId = $item['id'];
+                $latestHasSyncIdentity = true;
+            }
+        }
     }
 
     private function assignReviewSnapshots(CardReviewEvent $reviewEvent, Card $card): void
@@ -587,7 +640,7 @@ class ReviewCardBatchAction
         $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
             ? $card->scheduler_state
             : null;
-        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterReview(
+        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterChronologicalNextReview(
             card: $card,
             rating: $reviewEvent->rating,
             reviewedAt: $reviewEvent->reviewed_at,

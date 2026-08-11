@@ -397,6 +397,34 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_returns_an_actionable_conflict_for_out_of_order_reviews_without_writing_sync_state(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:20:00Z',
+        ])->assertCreated();
+
+        $response = $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Again->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'Review events must be submitted after the card\'s latest review, ordered by reviewed_at and id.',
+            )
+            ->assertJsonPath('reason', 'card_review_event_out_of_order');
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
     public static function syncPayloadMismatchProvider(): array
     {
         return [
@@ -449,6 +477,7 @@ class CreateCardReviewEventApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $otherCard = Card::factory()->create();
+        $card->update(['last_reviewed_at' => '2026-05-28T09:15:00Z']);
 
         CardReviewEvent::factory()->for($otherCard)->create([
             'rating' => CardReviewRating::Good,
@@ -560,7 +589,7 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('reason', 'card_review_event_retry');
     }
 
-    public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
+    public function test_it_requires_a_stable_identity_for_equal_timestamp_resubmissions(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
@@ -577,14 +606,19 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.rating', CardReviewRating::Good->value);
         $secondResponse
-            ->assertCreated()
-            ->assertJsonPath('data.rating', CardReviewRating::Good->value);
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'Equal-timestamp review events require an explicit id or complete sync metadata.',
+            )
+            ->assertJsonPath('reason', 'card_review_event_identity_required');
 
-        $this->assertNotSame($firstResponse->json('data.id'), $secondResponse->json('data.id'));
-        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
-    public function test_it_creates_a_distinct_event_when_a_retry_adds_sync_metadata(): void
+    public function test_it_rejects_equal_timestamp_sync_metadata_when_the_existing_event_has_no_sync_identity(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user);
@@ -608,14 +642,16 @@ class CreateCardReviewEventApiTest extends TestCase
             ->assertJsonPath('data.device_id', null)
             ->assertJsonPath('data.client_created_at', null);
         $secondResponse
-            ->assertCreated()
-            ->assertJsonPath('data.client_event_id', 'event-123')
-            ->assertJsonPath('data.device_id', 'device-abc')
-            // CardReviewEventResource serializes datetimes with microsecond precision.
-            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.000000Z');
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'Equal-timestamp review events require an explicit id or complete sync metadata.',
+            )
+            ->assertJsonPath('reason', 'card_review_event_identity_required');
 
-        $this->assertNotSame($firstResponse->json('data.id'), $secondResponse->json('data.id'));
-        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_it_accepts_a_client_provided_ulid(): void

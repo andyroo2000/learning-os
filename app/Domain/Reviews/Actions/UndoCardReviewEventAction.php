@@ -7,12 +7,12 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Support\CardReviewChronology;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\DateTime\StrictIsoDateTime;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -51,7 +51,7 @@ class UndoCardReviewEventAction
 
             $reviewEvent->setRelation('card', $card);
 
-            if ($this->hasNewerReviewEvent($reviewEvent)) {
+            if (CardReviewChronology::hasNewerEvent($reviewEvent)) {
                 throw UndoCardReviewEventException::notLatest();
             }
 
@@ -101,22 +101,6 @@ class UndoCardReviewEventAction
 
             return $card;
         });
-    }
-
-    private function hasNewerReviewEvent(CardReviewEvent $reviewEvent): bool
-    {
-        return CardReviewEvent::query()
-            ->where('card_id', $reviewEvent->card_id)
-            ->where(function (Builder $query) use ($reviewEvent): void {
-                $query
-                    ->where('reviewed_at', '>', $reviewEvent->reviewed_at)
-                    ->orWhere(function (Builder $query) use ($reviewEvent): void {
-                        $query
-                            ->where('reviewed_at', $reviewEvent->reviewed_at)
-                            ->where('id', '>', $reviewEvent->id);
-                    });
-            })
-            ->exists();
     }
 
     /**

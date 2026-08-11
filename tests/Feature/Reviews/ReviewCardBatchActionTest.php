@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -113,6 +114,32 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame($secondCard->ownerUserId(), $secondCardEntry->user_id);
         $this->assertSame(CardSyncPayload::DOMAIN, $secondCardEntry->domain);
         $this->assertEquals(CardSyncPayload::fromCard($secondCard), $secondCardEntry->payload);
+    }
+
+    public function test_an_idempotent_batch_retry_returns_the_existing_event_even_if_card_state_has_advanced(): void
+    {
+        $card = Card::factory()->create();
+        $items = [
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:14:00Z',
+            ),
+        ];
+
+        $firstResult = app(ReviewCardBatchAction::class)->handle($items);
+        Card::query()->whereKey($card->id)->update(['last_reviewed_at' => '2026-05-27T09:20:00Z']);
+
+        $retryResult = app(ReviewCardBatchAction::class)->handle($items);
+
+        $this->assertFalse($retryResult->hasCreatedEvents);
+        $this->assertSame($firstResult->reviewEvents->sole()->id, $retryResult->reviewEvents->sole()->id);
+        $this->assertSame('2026-05-27T09:20:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_created_batch_reviews_update_card_study_state_in_review_order(): void
@@ -225,7 +252,7 @@ class ReviewCardBatchActionTest extends TestCase
         ], $secondReview->scheduler_state_after);
     }
 
-    public function test_it_locks_and_reloads_batch_cards_before_snapshots_and_scheduling(): void
+    public function test_it_locks_and_reloads_batch_cards_before_rejecting_late_reviews(): void
     {
         $card = Card::factory()->create();
         $concurrentState = [
@@ -265,28 +292,155 @@ class ReviewCardBatchActionTest extends TestCase
         };
 
         $transactionLevelBeforeReview = DB::transactionLevel();
-        $result = $reviewCards->handle([
+        try {
+            $reviewCards->handle([
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Again->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'event-123',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected out-of-order batch review conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertSame($transactionLevelBeforeReview + 1, $reviewCards->lockTransactionLevel);
+        $this->assertNull($card->refresh()->last_reviewed_at);
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_equal_timestamp_batch_reviews_are_applied_by_event_id_not_input_order(): void
+    {
+        $card = Card::factory()->create();
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+                id: '01k1j8j9m0e4k7r2y8p5w6q3ab',
+                clientEventId: 'event-later',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:15:01Z',
+            ),
             ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: CardReviewRating::Again->value,
                 reviewedAt: '2026-05-27T09:15:00Z',
-                clientEventId: 'event-123',
+                id: '01k1j8j9m0e4k7r2y8p5w6q3aa',
+                clientEventId: 'event-first',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:14:00Z',
+                clientCreatedAt: '2026-05-27T09:15:00Z',
             ),
         ]);
-        $reviewEvent = $result->reviewEvents->sole();
 
-        $this->assertSame($transactionLevelBeforeReview + 1, $reviewCards->lockTransactionLevel);
-        $this->assertSame('review', $reviewEvent->card_state_before['study_status']);
-        $this->assertSame('2026-05-28T09:15:00.000000Z', $reviewEvent->card_state_before['last_reviewed_at']);
-        $this->assertSame($concurrentState['scheduler_state'], $reviewEvent->scheduler_state_before);
-        $this->assertSame($concurrentState['scheduler_state'], $reviewEvent->scheduler_state_after);
-        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
-        $this->assertDatabaseMissing('sync_feed_entries', [
-            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
-            'resource_id' => $card->id,
+        $first = CardReviewEvent::query()->findOrFail('01k1j8j9m0e4k7r2y8p5w6q3aa');
+        $later = CardReviewEvent::query()->findOrFail('01k1j8j9m0e4k7r2y8p5w6q3ab');
+
+        $this->assertSame([
+            '01k1j8j9m0e4k7r2y8p5w6q3ab',
+            '01k1j8j9m0e4k7r2y8p5w6q3aa',
+        ], $result->reviewEvents->pluck('id')->all());
+        $this->assertSame(2, $card->refresh()->scheduler_state['reps']);
+        $this->assertSame($first->scheduler_state_after, $later->scheduler_state_before);
+        $this->assertSame($first->scheduler_state_after, $later->card_state_before['scheduler_state']);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
+    }
+
+    public function test_an_out_of_order_item_rejects_the_whole_batch_before_persistence_or_sync(): void
+    {
+        $reviewedCard = Card::factory()->create();
+        $otherCard = Card::factory()->create();
+
+        app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $reviewedCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:20:00Z',
+                clientEventId: 'existing-event',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T09:20:00Z',
+            ),
         ]);
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $otherCard->id,
+                    rating: CardReviewRating::Easy->value,
+                    reviewedAt: '2026-05-27T09:25:00Z',
+                    clientEventId: 'otherwise-valid-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:25:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $reviewedCard->id,
+                    rating: CardReviewRating::Again->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'late-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:15:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected out-of-order batch conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseMissing('card_review_events', ['card_id' => $otherCard->id]);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertNull($otherCard->refresh()->last_reviewed_at);
+    }
+
+    public function test_a_sync_identified_equal_time_item_cannot_extend_an_anonymous_lineage_and_rejects_the_whole_batch(): void
+    {
+        $anonymousCard = Card::factory()->create();
+        $otherCard = Card::factory()->create();
+        $reviewedAt = '2026-05-27T09:15:00Z';
+
+        app(ReviewCardAction::class)->handle(ReviewCardData::fromInput(
+            cardId: $anonymousCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: $reviewedAt,
+        ));
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $otherCard->id,
+                    rating: CardReviewRating::Easy->value,
+                    reviewedAt: '2026-05-27T09:20:00Z',
+                    clientEventId: 'otherwise-valid-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:19:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $anonymousCard->id,
+                    rating: CardReviewRating::Again->value,
+                    reviewedAt: $reviewedAt,
+                    clientEventId: 'late-identity-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected equal-timestamp identity conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_identity_required', $exception->reason());
+        }
+
+        $this->assertSame(1, $anonymousCard->refresh()->scheduler_state['reps']);
+        $this->assertNull($otherCard->refresh()->last_reviewed_at);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_batch_response_order_does_not_follow_canonical_lock_order(): void

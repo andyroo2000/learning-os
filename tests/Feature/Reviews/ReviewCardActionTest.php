@@ -173,7 +173,7 @@ class ReviewCardActionTest extends TestCase
         ], $result->reviewEvent->card_state_before);
     }
 
-    public function test_it_locks_and_reloads_the_card_before_single_review_snapshots_and_scheduling(): void
+    public function test_it_locks_and_reloads_the_card_before_rejecting_a_stale_single_review(): void
     {
         $card = Card::factory()->create();
         $concurrentState = [
@@ -213,29 +213,22 @@ class ReviewCardActionTest extends TestCase
         };
 
         $transactionLevelBeforeReview = DB::transactionLevel();
-        $result = $reviewCard->handle(ReviewCardData::fromInput(
-            cardId: $card->id,
-            rating: CardReviewRating::Again->value,
-            reviewedAt: '2026-05-27T09:15:00Z',
-        ));
+        try {
+            $reviewCard->handle(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Again->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+            ));
+
+            $this->fail('Expected stale review conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
 
         $this->assertSame($transactionLevelBeforeReview + 1, $reviewCard->lockTransactionLevel);
-        $this->assertSame([
-            'study_status' => 'review',
-            'new_queue_position' => null,
-            'scheduler_state' => $concurrentState['scheduler_state'],
-            'due_at' => '2026-06-10T09:15:00.000000Z',
-            'introduced_at' => '2026-05-20T09:15:00.000000Z',
-            'failed_at' => null,
-            'last_reviewed_at' => '2026-05-28T09:15:00.000000Z',
-        ], $result->reviewEvent->card_state_before);
-        $this->assertSame($concurrentState['scheduler_state'], $result->reviewEvent->scheduler_state_before);
-        $this->assertSame($concurrentState['scheduler_state'], $result->reviewEvent->scheduler_state_after);
-        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
-        $this->assertDatabaseMissing('sync_feed_entries', [
-            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
-            'resource_id' => $card->id,
-        ]);
+        $this->assertNull($card->refresh()->last_reviewed_at);
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_again_reviews_mark_cards_relearning_and_failed(): void
@@ -279,7 +272,8 @@ class ReviewCardActionTest extends TestCase
             'study_status' => CardStudyStatus::Review,
             'due_at' => '2026-06-10T09:15:00Z',
             'introduced_at' => '2026-05-20T09:15:00Z',
-            'last_reviewed_at' => '2026-05-26T09:15:00Z',
+            // Existing events win as idempotent retries even when legacy card state has advanced past them.
+            'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ]);
         $id = strtolower((string) Str::ulid());
         $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
@@ -305,11 +299,11 @@ class ReviewCardActionTest extends TestCase
 
         $this->assertSame(CardStudyStatus::Review, $card->study_status);
         $this->assertSame('2026-06-10T09:15:00.000000Z', $card->due_at?->toJSON());
-        $this->assertSame('2026-05-26T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
+        $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
-    public function test_older_reviews_do_not_move_card_study_state_backwards(): void
+    public function test_it_rejects_older_reviews_before_persistence_or_sync(): void
     {
         $card = Card::factory()->create([
             'study_status' => CardStudyStatus::Review,
@@ -318,13 +312,23 @@ class ReviewCardActionTest extends TestCase
             'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ]);
 
-        $result = $this->reviewCard(
-            ReviewCardData::fromInput(
-                cardId: $card->id,
-                rating: 'again',
-                reviewedAt: '2026-05-27T09:15:00Z',
-            ),
-        );
+        try {
+            $this->reviewCard(
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: 'again',
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                ),
+            );
+
+            $this->fail('Expected out-of-order review conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+            $this->assertSame(
+                'Review events must be submitted after the card\'s latest review, ordered by reviewed_at and id.',
+                $exception->getMessage(),
+            );
+        }
 
         $card->refresh();
 
@@ -332,18 +336,137 @@ class ReviewCardActionTest extends TestCase
         $this->assertSame('2026-06-10T09:15:00.000000Z', $card->due_at?->toJSON());
         $this->assertNull($card->failed_at);
         $this->assertSame('2026-05-28T09:15:00.000000Z', $card->last_reviewed_at?->toJSON());
-        $this->assertDatabaseCount('card_review_events', 1);
-        $this->assertDatabaseMissing('sync_feed_entries', [
-            'resource_type' => CardSyncPayload::RESOURCE_TYPE,
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_equal_timestamp_reviews_use_the_event_id_as_the_chronology_tiebreaker(): void
+    {
+        $card = Card::factory()->create();
+        $reviewedAt = '2026-05-27T09:15:00Z';
+        $firstId = '01k1j8j9m0e4k7r2y8p5w6q3aa';
+        $laterId = '01k1j8j9m0e4k7r2y8p5w6q3ab';
+
+        $first = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: $reviewedAt,
+            id: $firstId,
+        ))->reviewEvent;
+        $later = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'easy',
+            reviewedAt: $reviewedAt,
+            id: $laterId,
+        ))->reviewEvent;
+
+        $card->refresh();
+
+        $this->assertSame(2, $card->scheduler_state['reps']);
+        $this->assertSame($first->scheduler_state_after, $later->scheduler_state_before);
+        $this->assertSame($first->scheduler_state_after, $later->card_state_before['scheduler_state']);
+        $this->assertSame('2026-05-27T09:15:00.000000Z', $later->card_state_before['last_reviewed_at']);
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
+
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'again',
+                reviewedAt: $reviewedAt,
+                id: '01k1j8j9m0e4k7r2y8p5w6q399',
+            ));
+
+            $this->fail('Expected equal-timestamp lower-ID review conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
+    }
+
+    public function test_equal_timestamp_reviews_with_distinct_sync_identities_advance_an_established_sync_lineage(): void
+    {
+        $card = Card::factory()->create();
+        $reviewedAt = '2026-05-27T09:15:00Z';
+
+        $first = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'good',
+            reviewedAt: $reviewedAt,
+            clientEventId: 'event-first',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        ))->reviewEvent;
+        $later = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'easy',
+            reviewedAt: $reviewedAt,
+            clientEventId: 'event-later',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:01Z',
+        ))->reviewEvent;
+
+        $this->assertGreaterThan($first->id, $later->id);
+        $this->assertSame(2, $card->refresh()->scheduler_state['reps']);
+        $this->assertSame($first->scheduler_state_after, $later->scheduler_state_before);
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
+    }
+
+    public function test_it_rejects_an_equal_card_timestamp_when_no_persisted_event_establishes_the_id_tiebreaker(): void
+    {
+        $card = Card::factory()->create([
+            'last_reviewed_at' => '2026-05-27T09:15:00Z',
         ]);
 
-        $entry = SyncFeedEntry::query()
-            ->where('resource_type', CardReviewEventSyncPayload::RESOURCE_TYPE)
-            ->where('resource_id', $result->reviewEvent->id)
-            ->sole();
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: '2026-05-27T09:15:00Z',
+                id: '01k1j8j9m0e4k7r2y8p5w6q3ab',
+            ));
 
-        $this->assertSame(SyncFeedOperation::Create, $entry->operation);
-        $this->assertSame(CardReviewEventSyncPayload::fromReviewEvent($result->reviewEvent), $entry->payload);
+            $this->fail('Expected unknown equal-timestamp chronology conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertSame('2026-05-27T09:15:00.000000Z', $card->refresh()->last_reviewed_at?->toJSON());
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_legacy_mixed_case_ids_use_normalized_order_when_finding_the_latest_equal_timestamp_event(): void
+    {
+        $reviewedAt = '2026-05-27T09:15:00Z';
+        $card = Card::factory()->create(['last_reviewed_at' => $reviewedAt]);
+        CardReviewEvent::factory()->for($card)->create([
+            'id' => '01k1j8j9m0e4k7r2y8p5w6q3aa',
+            'reviewed_at' => $reviewedAt,
+        ]);
+        CardReviewEvent::factory()->for($card)->create([
+            'id' => '01K1J8J9M0E4K7R2Y8P5W6Q3AC',
+            'reviewed_at' => $reviewedAt,
+        ]);
+
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: 'good',
+                reviewedAt: $reviewedAt,
+                id: '01k1j8j9m0e4k7r2y8p5w6q3ab',
+            ));
+
+            $this->fail('Expected normalized legacy ID chronology conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_uses_a_provided_ulid(): void
@@ -909,7 +1032,7 @@ class ReviewCardActionTest extends TestCase
         ));
     }
 
-    public function test_it_creates_distinct_events_for_retries_without_sync_metadata(): void
+    public function test_it_rejects_an_equal_timestamp_resubmission_without_a_stable_identity(): void
     {
         $card = Card::factory()->create();
         $data = ReviewCardData::fromInput(
@@ -919,16 +1042,26 @@ class ReviewCardActionTest extends TestCase
         );
 
         $firstResult = $this->reviewCard($data);
-        $secondResult = $this->reviewCard($data);
+
+        try {
+            $this->reviewCard($data);
+
+            $this->fail('Expected equal-timestamp identity conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_identity_required', $exception->reason());
+            $this->assertSame(
+                'Equal-timestamp review events require an explicit id or complete sync metadata.',
+                $exception->getMessage(),
+            );
+        }
 
         $this->assertTrue($firstResult->wasCreated);
-        $this->assertTrue($secondResult->wasCreated);
-        $this->assertFalse($firstResult->reviewEvent->is($secondResult->reviewEvent));
-        $this->assertDatabaseCount('card_review_events', 2);
-        $this->assertDatabaseCount('sync_feed_entries', 3);
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
-    public function test_it_creates_a_distinct_event_when_a_retry_adds_sync_metadata(): void
+    public function test_it_rejects_equal_timestamp_sync_metadata_when_the_existing_event_has_no_sync_identity(): void
     {
         $card = Card::factory()->create();
 
@@ -940,31 +1073,30 @@ class ReviewCardActionTest extends TestCase
             ),
         );
 
-        $secondResult = $this->reviewCard(
-            ReviewCardData::fromInput(
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
                 cardId: $card->id,
                 rating: 'good',
                 reviewedAt: '2026-05-27T09:15:00Z',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
                 clientCreatedAt: '2026-05-27T09:14:00Z',
-            ),
-        );
+            ));
+
+            $this->fail('Expected equal-timestamp identity conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_identity_required', $exception->reason());
+        }
 
         $firstReviewEvent = $firstResult->reviewEvent->refresh();
-        $secondReviewEvent = $secondResult->reviewEvent;
 
         $this->assertTrue($firstResult->wasCreated);
-        $this->assertTrue($secondResult->wasCreated);
-        $this->assertFalse($firstReviewEvent->is($secondReviewEvent));
         $this->assertNull($firstReviewEvent->client_event_id);
         $this->assertNull($firstReviewEvent->device_id);
         $this->assertNull($firstReviewEvent->client_created_at);
-        $this->assertSame('event-123', $secondReviewEvent->client_event_id);
-        $this->assertSame('device-abc', $secondReviewEvent->device_id);
-        $this->assertSame('2026-05-27 09:14:00', $secondReviewEvent->client_created_at->toDateTimeString());
-        $this->assertDatabaseCount('card_review_events', 2);
-        $this->assertDatabaseCount('sync_feed_entries', 3);
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_it_trims_text_inputs(): void
@@ -1019,13 +1151,20 @@ class ReviewCardActionTest extends TestCase
     public function test_it_accepts_each_supported_rating(): void
     {
         $card = Card::factory()->create();
+        $ids = [
+            '01k1j8j9m0e4k7r2y8p5w6q3aa',
+            '01k1j8j9m0e4k7r2y8p5w6q3ab',
+            '01k1j8j9m0e4k7r2y8p5w6q3ac',
+            '01k1j8j9m0e4k7r2y8p5w6q3ad',
+        ];
 
-        foreach (CardReviewRating::cases() as $rating) {
+        foreach (CardReviewRating::cases() as $index => $rating) {
             $result = $this->reviewCard(
                 ReviewCardData::fromInput(
                     cardId: $card->id,
                     rating: $rating->value,
                     reviewedAt: '2026-05-27T09:15:00Z',
+                    id: $ids[$index],
                 ),
             );
             $reviewEvent = $result->reviewEvent;

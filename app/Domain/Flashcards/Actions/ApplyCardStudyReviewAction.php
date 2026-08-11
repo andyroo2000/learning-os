@@ -24,6 +24,21 @@ class ApplyCardStudyReviewAction
             return false;
         }
 
+        return $this->apply($card, $rating, $reviewedAt);
+    }
+
+    /**
+     * Apply an event whose (reviewed_at, id) position was validated while its card row was locked.
+     *
+     * @internal Review write actions own this precondition.
+     */
+    public function handleChronologicalNext(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
+    {
+        return $this->apply($card, $rating, $reviewedAt);
+    }
+
+    private function apply(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
+    {
         $currentStatus = $card->study_status ?? CardStudyStatus::New;
 
         if ($currentStatus === CardStudyStatus::New && $card->introduced_at === null) {
@@ -81,6 +96,23 @@ class ApplyCardStudyReviewAction
             return is_array($card->scheduler_state) ? $card->scheduler_state : null;
         }
 
+        return FsrsReviewScheduler::review(
+            schedulerState: $card->scheduler_state,
+            studyStatus: $card->study_status ?? CardStudyStatus::New,
+            rating: $rating,
+            reviewedAt: $reviewedAt,
+        )['schedulerState'];
+    }
+
+    /**
+     * Preview an event whose (reviewed_at, id) position was validated while its card row was locked.
+     *
+     * @return array<string, mixed>|null
+     *
+     * @internal Review write actions own this precondition.
+     */
+    public function schedulerStateAfterChronologicalNextReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): ?array
+    {
         return FsrsReviewScheduler::review(
             schedulerState: $card->scheduler_state,
             studyStatus: $card->study_status ?? CardStudyStatus::New,

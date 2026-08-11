@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
+use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -46,14 +47,17 @@ class CardReviewCardLockPostgresTest extends TestCase
                     'card_ids' => [$secondCard->id, $firstCard->id],
                     'event_prefix' => 'postgres-lock-a',
                     'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'start_delay_microseconds' => 0,
                 ],
                 [
                     'card_ids' => [$firstCard->id, $secondCard->id],
                     'event_prefix' => 'postgres-lock-b',
                     'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'start_delay_microseconds' => 100_000,
                 ],
             ]);
 
+            $this->assertSame(['created', 'created'], array_column($results, 'outcome'));
             $this->assertSame([$secondCard->id, $firstCard->id], $results[0]['card_ids']);
             $this->assertSame([$firstCard->id, $secondCard->id], $results[1]['card_ids']);
             $this->assertGreaterThanOrEqual(
@@ -70,9 +74,55 @@ class CardReviewCardLockPostgresTest extends TestCase
         }
     }
 
+    public function test_a_late_concurrent_review_is_rejected_after_waiting_for_the_card_lock(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise runtime row-lock behavior.');
+        }
+
+        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
+
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
+
+        try {
+            $results = $this->runConcurrentWorkers([
+                [
+                    'card_ids' => [$card->id],
+                    'event_prefix' => 'postgres-chronology-later',
+                    'reviewed_at' => '2026-05-27T09:20:00Z',
+                    'start_delay_microseconds' => 0,
+                ],
+                [
+                    'card_ids' => [$card->id],
+                    'event_prefix' => 'postgres-chronology-older',
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'start_delay_microseconds' => 100_000,
+                ],
+            ]);
+
+            $this->assertSame(['created', 'conflict'], array_column($results, 'outcome'));
+            $this->assertSame('card_review_event_out_of_order', $results[1]['reason']);
+            $this->assertGreaterThanOrEqual(
+                250,
+                $results[1]['lock_wait_ms'],
+                'Expected the late writer to validate chronology only after the winning card lock committed.',
+            );
+            $this->assertDatabaseCount('card_review_events', 1);
+            $this->assertSame('2026-05-27T09:20:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
+        } finally {
+            $this->deleteFixtures($user, $course, $deck, [$card->id]);
+        }
+    }
+
     /**
-     * @param  list<array{card_ids: list<string>, event_prefix: string, reviewed_at: string}>  $workerInputs
-     * @return list<array{card_ids: list<string>, lock_wait_ms: int}>
+     * @param  list<array{card_ids: list<string>, event_prefix: string, reviewed_at: string, start_delay_microseconds: int}>  $workerInputs
+     * @return list<array{card_ids: list<string>, lock_wait_ms: int, outcome: string, reason: string|null}>
      */
     private function runConcurrentWorkers(array $workerInputs): array
     {
@@ -155,17 +205,20 @@ class CardReviewCardLockPostgresTest extends TestCase
             $this->assertTrue($result['ok'] ?? false, 'PostgreSQL worker failed: '.($result['error'] ?? 'unknown error'));
             $this->assertIsArray($result['card_ids'] ?? null);
             $this->assertIsInt($result['lock_wait_ms'] ?? null);
+            $this->assertContains($result['outcome'] ?? null, ['created', 'conflict']);
 
             return [
                 'card_ids' => array_values($result['card_ids']),
                 'lock_wait_ms' => $result['lock_wait_ms'],
+                'outcome' => $result['outcome'],
+                'reason' => $result['reason'] ?? null,
             ];
         }, $resultMessages);
     }
 
     /**
      * @param  resource  $socket
-     * @param  array{card_ids: list<string>, event_prefix: string, reviewed_at: string}  $workerInput
+     * @param  array{card_ids: list<string>, event_prefix: string, reviewed_at: string, start_delay_microseconds: int}  $workerInput
      */
     private function runWorker($socket, array $workerInput): never
     {
@@ -183,6 +236,8 @@ class CardReviewCardLockPostgresTest extends TestCase
                 throw new RuntimeException('PostgreSQL concurrency worker did not receive its start signal.');
             }
 
+            usleep($workerInput['start_delay_microseconds']);
+
             $action = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class)) extends ReviewCardBatchAction
             {
                 public int $lockWaitMilliseconds = 0;
@@ -198,23 +253,35 @@ class CardReviewCardLockPostgresTest extends TestCase
                 }
             };
 
-            $result = $action->handle(array_map(
-                fn (string $cardId, int $index): ReviewCardData => ReviewCardData::fromInput(
-                    cardId: $cardId,
-                    rating: CardReviewRating::Good->value,
-                    reviewedAt: $workerInput['reviewed_at'],
-                    clientEventId: $workerInput['event_prefix'].'-'.$index,
-                    deviceId: $workerInput['event_prefix'].'-device',
-                    clientCreatedAt: $workerInput['reviewed_at'],
-                ),
-                $workerInput['card_ids'],
-                array_keys($workerInput['card_ids']),
-            ));
+            try {
+                $result = $action->handle(array_map(
+                    fn (string $cardId, int $index): ReviewCardData => ReviewCardData::fromInput(
+                        cardId: $cardId,
+                        rating: CardReviewRating::Good->value,
+                        reviewedAt: $workerInput['reviewed_at'],
+                        clientEventId: $workerInput['event_prefix'].'-'.$index,
+                        deviceId: $workerInput['event_prefix'].'-device',
+                        clientCreatedAt: $workerInput['reviewed_at'],
+                    ),
+                    $workerInput['card_ids'],
+                    array_keys($workerInput['card_ids']),
+                ));
+
+                $cardIds = $result->reviewEvents->pluck('card_id')->all();
+                $outcome = 'created';
+                $reason = null;
+            } catch (CardReviewEventConflictException $e) {
+                $cardIds = $workerInput['card_ids'];
+                $outcome = 'conflict';
+                $reason = $e->reason();
+            }
 
             $this->writeWorkerMessage($socket, [
                 'ok' => true,
-                'card_ids' => $result->reviewEvents->pluck('card_id')->all(),
+                'card_ids' => $cardIds,
                 'lock_wait_ms' => $action->lockWaitMilliseconds,
+                'outcome' => $outcome,
+                'reason' => $reason,
             ]);
             fclose($socket);
             exit(0);

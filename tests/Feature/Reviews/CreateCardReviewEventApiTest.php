@@ -397,6 +397,34 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    public function test_it_returns_an_actionable_conflict_for_out_of_order_reviews_without_writing_sync_state(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:20:00Z',
+        ])->assertCreated();
+
+        $response = $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Again->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'Review events must be submitted after the card\'s latest review, ordered by reviewed_at and id.',
+            )
+            ->assertJsonPath('reason', 'card_review_event_out_of_order');
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
     public static function syncPayloadMismatchProvider(): array
     {
         return [
@@ -449,6 +477,7 @@ class CreateCardReviewEventApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $otherCard = Card::factory()->create();
+        $card->update(['last_reviewed_at' => '2026-05-28T09:15:00Z']);
 
         CardReviewEvent::factory()->for($otherCard)->create([
             'rating' => CardReviewRating::Good,

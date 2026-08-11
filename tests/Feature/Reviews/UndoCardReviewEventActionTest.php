@@ -126,6 +126,33 @@ class UndoCardReviewEventActionTest extends TestCase
         }
     }
 
+    public function test_it_undoes_the_later_equal_timestamp_review_to_its_exact_prior_snapshot(): void
+    {
+        $card = Card::factory()->create();
+        $reviewedAt = '2026-05-27T09:15:00Z';
+        $firstReviewEvent = app(ReviewCardAction::class)->handle(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'again',
+            reviewedAt: $reviewedAt,
+            id: '01k1j8j9m0e4k7r2y8p5w6q3aa',
+        ))->reviewEvent;
+        $laterReviewEvent = app(ReviewCardAction::class)->handle(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: 'easy',
+            reviewedAt: $reviewedAt,
+            id: '01k1j8j9m0e4k7r2y8p5w6q3ab',
+        ))->reviewEvent;
+
+        $this->assertSame(2, $card->refresh()->scheduler_state['reps']);
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($laterReviewEvent);
+
+        $this->assertSame($firstReviewEvent->scheduler_state_after, $restoredCard->scheduler_state);
+        $this->assertSame('2026-05-27T09:15:00.000000Z', $restoredCard->last_reviewed_at?->toJSON());
+        $this->assertDatabaseHas('card_review_events', ['id' => $firstReviewEvent->id]);
+        $this->assertDatabaseMissing('card_review_events', ['id' => $laterReviewEvent->id]);
+    }
+
     public function test_it_rejects_review_events_for_soft_deleted_cards(): void
     {
         $card = Card::factory()->create();

@@ -10,6 +10,7 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Reviews\Support\CardReviewCardLock;
+use App\Domain\Reviews\Support\CardReviewChronology;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -125,6 +126,18 @@ class ReviewCardAction
                     }
                 }
 
+                $reviewEventId = $data->id ?? strtolower((string) Str::ulid());
+                $latestReviewEvent = CardReviewChronology::latestForCards([(string) $lockedCard->getKey()])
+                    ->get((string) $lockedCard->getKey());
+
+                CardReviewChronology::assertCanAppend(
+                    card: $lockedCard,
+                    latestReviewedAt: $latestReviewEvent?->reviewed_at,
+                    latestReviewEventId: $latestReviewEvent?->id,
+                    candidateReviewedAt: $data->reviewedAt,
+                    candidateReviewEventId: $reviewEventId,
+                );
+
                 $reviewEvent = new CardReviewEvent([
                     'card_id' => (string) $lockedCard->getKey(),
                     'rating' => $rating,
@@ -134,10 +147,7 @@ class ReviewCardAction
                     'device_id' => $data->deviceId,
                     'client_created_at' => $data->clientCreatedAt,
                 ]);
-
-                if ($data->id !== null) {
-                    $reviewEvent->id = $data->id;
-                }
+                $reviewEvent->id = $reviewEventId;
 
                 $this->assignReviewSnapshots($reviewEvent, $lockedCard, $rating);
                 $this->saveReviewEvent($reviewEvent);
@@ -154,7 +164,7 @@ class ReviewCardAction
                     ),
                 );
 
-                $this->applyCardStudyReview->handle($lockedCard, $rating, $reviewEvent->reviewed_at);
+                $this->applyCardStudyReview->handleChronologicalNext($lockedCard, $rating, $reviewEvent->reviewed_at);
 
                 return ReviewCardResult::created($reviewEvent);
             });
@@ -284,7 +294,7 @@ class ReviewCardAction
         $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
             ? $card->scheduler_state
             : null;
-        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterReview(
+        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterChronologicalNextReview(
             card: $card,
             rating: $rating,
             reviewedAt: $reviewEvent->reviewed_at,

@@ -127,6 +127,59 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         ]);
     }
 
+    public function test_it_returns_an_actionable_conflict_and_writes_nothing_when_any_new_batch_event_is_out_of_order(): void
+    {
+        $user = $this->signIn();
+        $firstCard = $this->cardFor($user);
+        $secondCard = $this->cardFor($user);
+
+        $this->postJson('/api/card-review-events/batch', [
+            'events' => [[
+                'card_id' => $firstCard->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => '2026-05-27T09:20:00Z',
+                'client_event_id' => 'existing-event',
+                'device_id' => 'device-abc',
+                'client_created_at' => '2026-05-27T09:19:00Z',
+            ]],
+        ])->assertCreated();
+
+        $response = $this->postJson('/api/card-review-events/batch', [
+            'events' => [
+                [
+                    'card_id' => $firstCard->id,
+                    'rating' => CardReviewRating::Again->value,
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'client_event_id' => 'late-event',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:14:00Z',
+                ],
+                [
+                    'card_id' => $secondCard->id,
+                    'rating' => CardReviewRating::Easy->value,
+                    'reviewed_at' => '2026-05-27T09:25:00Z',
+                    'client_event_id' => 'otherwise-valid-event',
+                    'device_id' => 'device-abc',
+                    'client_created_at' => '2026-05-27T09:24:00Z',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'Review events must be submitted after the card\'s latest review, ordered by reviewed_at and id.',
+            )
+            ->assertJsonPath('reason', 'card_review_event_out_of_order');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseMissing('card_review_events', ['client_event_id' => 'late-event']);
+        $this->assertDatabaseMissing('card_review_events', ['client_event_id' => 'otherwise-valid-event']);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+        $this->assertNull($secondCard->refresh()->last_reviewed_at);
+    }
+
     public function test_it_reviews_a_legacy_imported_card_with_an_uppercase_ulid_in_a_batch(): void
     {
         $user = $this->signIn();
@@ -577,6 +630,7 @@ class CreateCardReviewEventBatchApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
         $otherCard = Card::factory()->create();
+        $card->update(['last_reviewed_at' => '2026-05-28T09:15:00Z']);
 
         CardReviewEvent::factory()->for($otherCard)->create([
             'rating' => CardReviewRating::Good,
@@ -1157,8 +1211,8 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select'),
         );
 
-        // Auth, ownership, card lookup, and idempotency stay bounded for large batches.
-        $this->assertLessThanOrEqual(4, $selectQueries->count());
+        // Auth, ownership, card lookup, idempotency, and latest chronology stay bounded for large batches.
+        $this->assertLessThanOrEqual(5, $selectQueries->count());
         $this->assertDatabaseCount('card_review_events', 10);
     }
 

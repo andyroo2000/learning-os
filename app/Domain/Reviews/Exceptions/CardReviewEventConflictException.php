@@ -12,9 +12,13 @@ final class CardReviewEventConflictException extends RuntimeException
 
     private const RETRYABLE_MESSAGE = 'Card review event ID conflict could not be resolved; retry the request.';
 
+    private const OUT_OF_ORDER_MESSAGE = 'Review events must be submitted after the card\'s latest review, ordered by reviewed_at and id.';
+
     private const CONFLICT_REASON = 'card_review_event_id_conflict';
 
     private const RETRYABLE_REASON = 'card_review_event_retry';
+
+    private const OUT_OF_ORDER_REASON = 'card_review_event_out_of_order';
 
     private function __construct(
         string $message,
@@ -41,6 +45,15 @@ final class CardReviewEventConflictException extends RuntimeException
             conflictingUserId: null,
             reason: self::RETRYABLE_REASON,
             retryable: true,
+        );
+    }
+
+    public static function outOfOrder(int $conflictingUserId): self
+    {
+        return new self(
+            message: self::OUT_OF_ORDER_MESSAGE,
+            conflictingUserId: $conflictingUserId,
+            reason: self::OUT_OF_ORDER_REASON,
         );
     }
 

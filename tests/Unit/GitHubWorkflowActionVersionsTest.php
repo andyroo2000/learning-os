@@ -22,9 +22,12 @@ class GitHubWorkflowActionVersionsTest extends TestCase
             'shivammathur/setup-php' => 2,
         ];
         $foundActions = [];
-        $workflowPaths = glob(dirname(__DIR__, 2).'/.github/workflows/*.{yml,yaml}', GLOB_BRACE);
+        $workflowDirectory = dirname(__DIR__, 2).'/.github/workflows';
+        $workflowPaths = array_merge(
+            glob($workflowDirectory.'/*.yml') ?: [],
+            glob($workflowDirectory.'/*.yaml') ?: [],
+        );
 
-        $this->assertIsArray($workflowPaths);
         $this->assertNotEmpty($workflowPaths);
 
         foreach ($workflowPaths as $workflowPath) {
@@ -32,13 +35,25 @@ class GitHubWorkflowActionVersionsTest extends TestCase
 
             $this->assertIsString($workflow);
             preg_match_all(
-                '/^\s*(?:-\s+)?uses:\s+([a-z0-9_.-]+\/[a-z0-9_.-]+)@v(\d+)\s*$/im',
+                '/^\s*(?:-\s+)?uses:\s+([^\s#]+)(?:\s+#.*)?$/im',
                 $workflow,
                 $matches,
                 PREG_SET_ORDER,
             );
 
-            foreach ($matches as [, $action, $major]) {
+            foreach ($matches as [, $reference]) {
+                if (str_starts_with($reference, './')) {
+                    continue;
+                }
+
+                $this->assertMatchesRegularExpression(
+                    '/^([a-z0-9_.-]+\/[a-z0-9_.-]+)@v(\d+)$/i',
+                    $reference,
+                    sprintf('%s uses unsupported external action reference %s.', basename($workflowPath), $reference),
+                );
+                preg_match('/^([a-z0-9_.-]+\/[a-z0-9_.-]+)@v(\d+)$/i', $reference, $referenceParts);
+                [, $action, $major] = $referenceParts;
+
                 $this->assertArrayHasKey(
                     $action,
                     $expectedMajors,

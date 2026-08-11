@@ -16,14 +16,11 @@ use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
-use App\Domain\Study\Support\StudyImportRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
 use App\Http\Controllers\Api\Media\DownloadMediaAssetContentController;
 use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
-use App\Http\Controllers\Api\Study\CancelStudyImportUploadController;
-use App\Http\Controllers\Api\Study\CompleteStudyImportUploadController;
 use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DeleteStudyActivitySessionController;
 use App\Http\Controllers\Api\Study\DeleteStudyCardController;
@@ -37,7 +34,6 @@ use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyCardsController;
-use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
 use App\Http\Controllers\Api\Study\PrepareStudyCardAnswerAudioController;
@@ -47,14 +43,11 @@ use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
-use App\Http\Controllers\Api\Study\ShowCurrentStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
-use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
-use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\StartStudyLessonController;
@@ -63,7 +56,6 @@ use App\Http\Controllers\Api\Study\StoreStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\StoreStudyCardController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
-use App\Http\Controllers\Api\Study\StoreStudyImportController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewController;
 use App\Http\Controllers\Api\Study\StoreStudyReviewUndoController;
 use App\Http\Controllers\Api\Study\StoreStudyVocabBundleDraftsController;
@@ -73,7 +65,6 @@ use App\Http\Controllers\Api\Study\UpdateStudyCardController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
 use App\Http\Controllers\Api\Study\UploadStudyCardImageController;
-use App\Http\Controllers\Api\Study\UploadStudyImportFileController;
 use Illuminate\Support\Facades\Route;
 
 /** @var callable(): void $publicMediaAnalyticsRoutes */
@@ -123,7 +114,10 @@ $studyDailyAudioRoutes = require __DIR__.'/api/study-daily-audio.php';
 /** @var callable(): void $studyExportRoutes */
 $studyExportRoutes = require __DIR__.'/api/study-exports.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $syncFeedRoutes): void {
+/** @var callable(): void $studyImportRoutes */
+$studyImportRoutes = require __DIR__.'/api/study-imports.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -137,7 +131,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function () use ($studyDailyAudioRoutes, $studyExportRoutes): void {
+        ->group(function () use ($studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes): void {
             Route::post('/study/session/start', StartStudySessionController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/lessons/start', StartStudyLessonController::class)
@@ -146,29 +140,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             $studyDailyAudioRoutes();
             $studyExportRoutes();
-            Route::get('/study/imports', ListStudyImportJobsController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            // Import lifecycle writes use separate rate limits so upload retries do not starve cancel/complete.
-            Route::post('/study/imports', StoreStudyImportController::class)
-                ->middleware('throttle:'.StudyImportRateLimiter::CREATE_NAME);
-            Route::get('/study/imports/readiness', ShowStudyImportReadinessController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/imports/current', ShowCurrentStudyImportJobController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::put('/study/imports/{studyImportJobId}/upload', UploadStudyImportFileController::class)
-                ->whereUlid('studyImportJobId')
-                ->name('api.study.imports.upload')
-                ->middleware('throttle:'.StudyImportRateLimiter::UPLOAD_NAME);
-            Route::post('/study/imports/{studyImportJobId}/complete', CompleteStudyImportUploadController::class)
-                ->whereUlid('studyImportJobId')
-                ->middleware('throttle:'.StudyImportRateLimiter::COMPLETE_NAME);
-            Route::post('/study/imports/{studyImportJobId}/cancel', CancelStudyImportUploadController::class)
-                ->whereUlid('studyImportJobId')
-                ->middleware('throttle:'.StudyImportRateLimiter::CANCEL_NAME);
-            Route::get('/study/imports/{studyImportJobId}', ShowStudyImportJobController::class)
-                // Copied ConvoLab jobs retain UUIDs; jobs created by Learning OS use ULIDs.
-                ->where('studyImportJobId', '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            $studyImportRoutes();
             Route::get('/study/browser', ListStudyBrowserController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             // Supports numeric Anki IDs, native ULIDs, and copied ConvoLab UUIDs.
@@ -292,4 +264,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $syncFeedRoutes);

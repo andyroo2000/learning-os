@@ -37,14 +37,6 @@ use App\Http\Controllers\Api\Study\ListStudyBrowserController;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
 use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\ListStudyCardsController;
-use App\Http\Controllers\Api\Study\ListStudyExportCardDraftsController;
-use App\Http\Controllers\Api\Study\ListStudyExportCardMediaController;
-use App\Http\Controllers\Api\Study\ListStudyExportCardsController;
-use App\Http\Controllers\Api\Study\ListStudyExportCoursesController;
-use App\Http\Controllers\Api\Study\ListStudyExportDecksController;
-use App\Http\Controllers\Api\Study\ListStudyExportImportJobsController;
-use App\Http\Controllers\Api\Study\ListStudyExportMediaAssetsController;
-use App\Http\Controllers\Api\Study\ListStudyExportReviewEventsController;
 use App\Http\Controllers\Api\Study\ListStudyImportJobsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\PerformStudyCardActionController;
@@ -61,8 +53,6 @@ use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
 use App\Http\Controllers\Api\Study\ShowStudyBrowserNoteController;
 use App\Http\Controllers\Api\Study\ShowStudyCardController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
-use App\Http\Controllers\Api\Study\ShowStudyExportManifestController;
-use App\Http\Controllers\Api\Study\ShowStudyExportSettingsController;
 use App\Http\Controllers\Api\Study\ShowStudyImportJobController;
 use App\Http\Controllers\Api\Study\ShowStudyImportReadinessController;
 use App\Http\Controllers\Api\Study\ShowStudyOverviewController;
@@ -130,7 +120,10 @@ $syncFeedRoutes = require __DIR__.'/api/sync-feed.php';
 /** @var callable(): void $studyDailyAudioRoutes */
 $studyDailyAudioRoutes = require __DIR__.'/api/study-daily-audio.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyDailyAudioRoutes, $syncFeedRoutes): void {
+/** @var callable(): void $studyExportRoutes */
+$studyExportRoutes = require __DIR__.'/api/study-exports.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -144,7 +137,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function () use ($studyDailyAudioRoutes): void {
+        ->group(function () use ($studyDailyAudioRoutes, $studyExportRoutes): void {
             Route::post('/study/session/start', StartStudySessionController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             Route::post('/study/lessons/start', StartStudyLessonController::class)
@@ -152,41 +145,7 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
             Route::post('/study/offline-reserve', BuildStudyOfflineReserveController::class)
                 ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
             $studyDailyAudioRoutes();
-            Route::get('/study/export', ShowStudyExportManifestController::class)
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/card-drafts', ListStudyExportCardDraftsController::class)
-                ->name('api.study.export.card-drafts')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/card-media', ListStudyExportCardMediaController::class)
-                ->name('api.study.export.card-media')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/cards', ListStudyExportCardsController::class)
-                ->name('api.study.export.cards')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/courses', ListStudyExportCoursesController::class)
-                ->name('api.study.export.courses')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/decks', ListStudyExportDecksController::class)
-                ->name('api.study.export.decks')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/imports', ListStudyExportImportJobsController::class)
-                ->name('api.study.export.imports')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/media', ListStudyExportMediaAssetsController::class)
-                ->name('api.study.export.media')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/media-assets', ListStudyExportMediaAssetsController::class)
-                ->name('api.study.export.media-assets')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/review-logs', ListStudyExportReviewEventsController::class)
-                ->name('api.study.export.review-logs')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/review-events', ListStudyExportReviewEventsController::class)
-                ->name('api.study.export.review-events')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
-            Route::get('/study/export/settings', ShowStudyExportSettingsController::class)
-                ->name('api.study.export.settings')
-                ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+            $studyExportRoutes();
             Route::get('/study/imports', ListStudyImportJobsController::class)
                 ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
             // Import lifecycle writes use separate rate limits so upload retries do not starve cancel/complete.
@@ -333,4 +292,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyDailyAudioRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $syncFeedRoutes);

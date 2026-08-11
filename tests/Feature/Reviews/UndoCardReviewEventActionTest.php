@@ -112,7 +112,8 @@ class UndoCardReviewEventActionTest extends TestCase
             'card_state_before' => $snapshot,
         ]);
         CardReviewEvent::factory()->for($card)->create([
-            'id' => '01k1j8j9m0e4k7r2y8p5w6q3ab',
+            // Legacy uppercase rows must follow the same normalized ordering as new writes.
+            'id' => '01K1J8J9M0E4K7R2Y8P5W6Q3AB',
             'reviewed_at' => '2026-05-27T09:15:00Z',
             'card_state_before' => $snapshot,
         ]);

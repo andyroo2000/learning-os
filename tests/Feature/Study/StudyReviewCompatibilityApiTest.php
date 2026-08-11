@@ -152,6 +152,39 @@ class StudyReviewCompatibilityApiTest extends TestCase
         }
     }
 
+    public function test_same_timestamp_resubmissions_without_an_identity_key_are_rejected_before_double_applying(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $card = $this->cardFor($user);
+
+            $firstResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $card->id,
+                'grade' => 'good',
+            ]);
+            $secondResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $card->id,
+                'grade' => 'easy',
+            ]);
+
+            $firstResponse->assertOk();
+            $secondResponse
+                ->assertConflict()
+                ->assertJsonPath(
+                    'message',
+                    'Equal-timestamp review events require an explicit id or complete sync metadata.',
+                )
+                ->assertJsonPath('reason', 'card_review_event_identity_required');
+            $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+            $this->assertDatabaseCount('card_review_events', 1);
+            $this->assertDatabaseCount('sync_feed_entries', 2);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_reviews_a_copied_card_by_the_client_id_returned_from_lesson_start(): void
     {
         $this->withoutMiddleware(TrimStrings::class);

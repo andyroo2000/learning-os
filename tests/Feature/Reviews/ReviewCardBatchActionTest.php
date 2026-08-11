@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -397,6 +398,49 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertDatabaseMissing('card_review_events', ['card_id' => $otherCard->id]);
         $this->assertDatabaseCount('sync_feed_entries', 2);
         $this->assertNull($otherCard->refresh()->last_reviewed_at);
+    }
+
+    public function test_a_sync_identified_equal_time_item_cannot_extend_an_anonymous_lineage_and_rejects_the_whole_batch(): void
+    {
+        $anonymousCard = Card::factory()->create();
+        $otherCard = Card::factory()->create();
+        $reviewedAt = '2026-05-27T09:15:00Z';
+
+        app(ReviewCardAction::class)->handle(ReviewCardData::fromInput(
+            cardId: $anonymousCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: $reviewedAt,
+        ));
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $otherCard->id,
+                    rating: CardReviewRating::Easy->value,
+                    reviewedAt: '2026-05-27T09:20:00Z',
+                    clientEventId: 'otherwise-valid-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:19:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $anonymousCard->id,
+                    rating: CardReviewRating::Again->value,
+                    reviewedAt: $reviewedAt,
+                    clientEventId: 'late-identity-event',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected equal-timestamp identity conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_identity_required', $exception->reason());
+        }
+
+        $this->assertSame(1, $anonymousCard->refresh()->scheduler_state['reps']);
+        $this->assertNull($otherCard->refresh()->last_reviewed_at);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
     }
 
     public function test_batch_response_order_does_not_follow_canonical_lock_order(): void

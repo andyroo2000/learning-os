@@ -126,7 +126,9 @@ class ReviewCardAction
                     }
                 }
 
-                $reviewEventId = $data->id ?? strtolower((string) Str::ulid());
+                $reviewEventId = $data->id === null
+                    ? strtolower((string) Str::ulid())
+                    : CanonicalUlid::normalize($data->id);
                 $latestReviewEvent = CardReviewChronology::latestForCards([(string) $lockedCard->getKey()])
                     ->get((string) $lockedCard->getKey());
 
@@ -136,6 +138,9 @@ class ReviewCardAction
                     latestReviewEventId: $latestReviewEvent?->id,
                     candidateReviewedAt: $data->reviewedAt,
                     candidateReviewEventId: $reviewEventId,
+                    candidateHasExplicitId: $data->id !== null,
+                    candidateHasSyncIdentity: $syncMetadata !== null,
+                    latestHasSyncIdentity: self::hasCompleteSyncIdentity($latestReviewEvent),
                 );
 
                 $reviewEvent = new CardReviewEvent([
@@ -204,6 +209,13 @@ class ReviewCardAction
                 card: $card,
             ));
         }
+    }
+
+    private static function hasCompleteSyncIdentity(?CardReviewEvent $reviewEvent): bool
+    {
+        return $reviewEvent?->client_event_id !== null
+            && $reviewEvent->device_id !== null
+            && $reviewEvent->client_created_at !== null;
     }
 
     private function findCard(string $cardId): ?Card

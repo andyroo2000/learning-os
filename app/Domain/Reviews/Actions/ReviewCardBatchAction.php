@@ -603,6 +603,9 @@ class ReviewCardBatchAction
             $latestReviewEvent = $latestReviewEvents->get($cardId);
             $latestReviewedAt = $latestReviewEvent?->reviewed_at;
             $latestReviewEventId = $latestReviewEvent?->id;
+            $latestHasSyncIdentity = $latestReviewEvent?->client_event_id !== null
+                && $latestReviewEvent->device_id !== null
+                && $latestReviewEvent->client_created_at !== null;
 
             $orderedItems = $cardItems->sort(fn (array $left, array $right): int => CardReviewChronology::compare(
                 $left['reviewed_at'],
@@ -618,10 +621,15 @@ class ReviewCardBatchAction
                     latestReviewEventId: $latestReviewEventId,
                     candidateReviewedAt: $item['reviewed_at'],
                     candidateReviewEventId: $item['id'],
+                    candidateHasExplicitId: $item['client_supplied_id'],
+                    // Batch writes require complete sync metadata during preparation.
+                    candidateHasSyncIdentity: true,
+                    latestHasSyncIdentity: $latestHasSyncIdentity,
                 );
 
                 $latestReviewedAt = $item['reviewed_at'];
                 $latestReviewEventId = $item['id'];
+                $latestHasSyncIdentity = true;
             }
         }
     }

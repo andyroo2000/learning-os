@@ -7,7 +7,6 @@ use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Support\Identifiers\CanonicalUlid;
 use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 
@@ -32,23 +31,34 @@ final class CardReviewChronology
 
         return CardReviewEvent::query()
             ->whereIn('card_id', $cardIds)
+            // Let the (card_id, reviewed_at, id) index find the newest timestamp.
+            // Equal-time legacy rows are rare and are reduced by normalized ID in PHP below,
+            // avoiding LOWER(id) on the indexed hot path.
             ->whereNotExists(function (QueryBuilder $query): void {
                 $query
                     ->selectRaw('1')
                     ->from('card_review_events as newer_review_events')
                     ->whereColumn('newer_review_events.card_id', 'card_review_events.card_id')
-                    ->where(function (QueryBuilder $query): void {
-                        $query
-                            ->whereColumn('newer_review_events.reviewed_at', '>', 'card_review_events.reviewed_at')
-                            ->orWhere(function (QueryBuilder $query): void {
-                                $query
-                                    ->whereColumn('newer_review_events.reviewed_at', 'card_review_events.reviewed_at')
-                                    ->whereColumn('newer_review_events.id', '>', 'card_review_events.id');
-                            });
-                    });
+                    ->whereColumn('newer_review_events.reviewed_at', '>', 'card_review_events.reviewed_at');
             })
             ->get()
-            ->keyBy(fn (CardReviewEvent $reviewEvent): string => $reviewEvent->card_id);
+            ->groupBy(fn (CardReviewEvent $reviewEvent): string => $reviewEvent->card_id)
+            ->map(fn (Collection $reviewEvents): CardReviewEvent => $reviewEvents->reduce(
+                function (?CardReviewEvent $latest, CardReviewEvent $candidate): CardReviewEvent {
+                    if ($latest === null) {
+                        return $candidate;
+                    }
+
+                    return self::compare(
+                        $candidate->reviewed_at,
+                        $candidate->id,
+                        $latest->reviewed_at,
+                        $latest->id,
+                    ) > 0
+                        ? $candidate
+                        : $latest;
+                },
+            ));
     }
 
     public static function assertCanAppend(
@@ -57,6 +67,9 @@ final class CardReviewChronology
         ?string $latestReviewEventId,
         CarbonInterface $candidateReviewedAt,
         string $candidateReviewEventId,
+        bool $candidateHasExplicitId,
+        bool $candidateHasSyncIdentity,
+        bool $latestHasSyncIdentity,
     ): void {
         $cardReviewedAt = $card->last_reviewed_at;
 
@@ -72,6 +85,15 @@ final class CardReviewChronology
                 // The card records a review at this instant but no event ID can establish a safe tie order.
                 throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
             }
+        }
+
+        if (
+            ! $candidateHasExplicitId
+            && $latestReviewedAt !== null
+            && $candidateReviewedAt->equalTo($latestReviewedAt)
+            && (! $candidateHasSyncIdentity || ! $latestHasSyncIdentity)
+        ) {
+            throw CardReviewEventConflictException::identityRequired($card->ownerUserId());
         }
 
         if (
@@ -110,17 +132,14 @@ final class CardReviewChronology
 
     public static function hasNewerEvent(CardReviewEvent $reviewEvent): bool
     {
-        return CardReviewEvent::query()
-            ->where('card_id', $reviewEvent->card_id)
-            ->where(function (Builder $query) use ($reviewEvent): void {
-                $query
-                    ->where('reviewed_at', '>', $reviewEvent->reviewed_at)
-                    ->orWhere(function (Builder $query) use ($reviewEvent): void {
-                        $query
-                            ->where('reviewed_at', $reviewEvent->reviewed_at)
-                            ->where('id', '>', $reviewEvent->id);
-                    });
-            })
-            ->exists();
+        $latest = self::latestForCards([$reviewEvent->card_id])->get($reviewEvent->card_id);
+
+        return $latest !== null
+            && self::compare(
+                $reviewEvent->reviewed_at,
+                $reviewEvent->id,
+                $latest->reviewed_at,
+                $latest->id,
+            ) < 0;
     }
 }

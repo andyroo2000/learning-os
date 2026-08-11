@@ -71,7 +71,7 @@ jobs:
         run: docker save $TEST_IMAGE | gzip -1 > learning-os-image.tar.gz
 
       - name: Upload runtime image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: learning-os-runtime-image
           path: learning-os-image.tar.gz
@@ -89,7 +89,7 @@ jobs:
 
     steps:
       - name: Download runtime image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: learning-os-runtime-image
 
@@ -235,7 +235,7 @@ jobs:
 
     steps:
       - name: Download tested runtime image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: learning-os-runtime-image
 

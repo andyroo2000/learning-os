@@ -9,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
+use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -50,7 +51,7 @@ class ReviewCardBatchAction
             throw new InvalidArgumentException('At least one review event is required.');
         }
 
-        $preparedItems = $this->normalizeAndValidateSyncKeyDuplicates($preparedItems);
+        $preparedItems = $this->normalizeDuplicateSyncKeyIds($preparedItems);
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
             $cardsById = $this->cardsById($preparedItems);
@@ -141,7 +142,8 @@ class ReviewCardBatchAction
      *     device_id: string,
      *     client_created_at: Carbon,
      *     sync_key: string,
-     *     client_supplied_id: bool
+     *     client_supplied_id: bool,
+     *     identity: CardReviewEventIdentity
      * }
      */
     private function prepare(ReviewCardData $data): array
@@ -182,6 +184,7 @@ class ReviewCardBatchAction
             'client_created_at' => $syncMetadata->clientCreatedAt,
             'sync_key' => $syncMetadata->lookupKey(),
             'client_supplied_id' => $data->id !== null,
+            'identity' => CardReviewEventIdentity::fromReviewCardData($data, $rating),
         ];
     }
 
@@ -189,40 +192,12 @@ class ReviewCardBatchAction
      * @param  Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>  $preparedItems
      * @return Collection<int, array{id: string, sync_key: string, client_supplied_id: bool}>
      */
-    private function normalizeAndValidateSyncKeyDuplicates(Collection $preparedItems): Collection
+    private function normalizeDuplicateSyncKeyIds(Collection $preparedItems): Collection
     {
         $idsBySyncKey = $preparedItems
             ->filter(fn (array $item): bool => $item['client_supplied_id'])
             ->groupBy('sync_key')
             ->map(fn (Collection $items): Collection => $items->pluck('id')->unique()->values());
-
-        // Card mismatches are invalid for every duplicate sync key, even when no item supplied an ID.
-        $cardIdsBySyncKey = $preparedItems
-            ->groupBy('sync_key')
-            ->map(fn (Collection $items): Collection => $items->pluck('card_id')->unique()->values());
-
-        $duplicateCardSyncKey = $cardIdsBySyncKey->search(fn (Collection $cardIds): bool => $cardIds->count() > 1);
-
-        if ($duplicateCardSyncKey !== false) {
-            throw new InvalidArgumentException("Batch review events with sync metadata [{$duplicateCardSyncKey}] must use the same card ID.");
-        }
-
-        $duplicateSyncKey = $idsBySyncKey->search(fn (Collection $ids): bool => $ids->count() > 1);
-
-        if ($duplicateSyncKey !== false) {
-            throw new InvalidArgumentException("Batch review events with sync metadata [{$duplicateSyncKey}] must use the same review event ID.");
-        }
-
-        $syncKeyByProvidedId = $preparedItems
-            ->filter(fn (array $item): bool => $item['client_supplied_id'])
-            ->groupBy('id')
-            ->map(fn (Collection $items): Collection => $items->pluck('sync_key')->unique()->values());
-
-        $duplicateId = $syncKeyByProvidedId->search(fn (Collection $syncKeys): bool => $syncKeys->count() > 1);
-
-        if ($duplicateId !== false) {
-            throw new InvalidArgumentException("Batch review events with review event ID [{$duplicateId}] must use the same sync metadata.");
-        }
 
         return $preparedItems
             ->map(function (array $item) use ($idsBySyncKey): array {
@@ -250,7 +225,7 @@ class ReviewCardBatchAction
         return $preparedItems
             ->reject(fn (array $item): bool => $existingReviewEventsBySyncKey->has($item['sync_key']))
             ->groupBy('sync_key')
-            // Sync-key duplicates describe the same client event; the canonical-ID item also wins rating and timestamps.
+            // Equivalent duplicates may differ only by whether one supplied the canonical event ID.
             ->map(fn (Collection $items): array => $items->firstWhere('client_supplied_id', true) ?? $items->first())
             ->values();
     }
@@ -381,14 +356,33 @@ class ReviewCardBatchAction
             return collect();
         }
 
-        return CardReviewEvent::query()
+        $candidateIds = $ids
+            ->flatMap(fn (string $id): array => CanonicalUlid::databaseCandidates($id))
+            ->unique()
+            ->values();
+
+        $reviewEventsByCanonicalId = CardReviewEvent::query()
             ->with([
                 'card' => fn ($query) => $query->withTrashed(),
                 'card.deck' => fn ($query) => $query->withTrashed(),
             ])
-            ->whereKey($ids)
+            ->whereKey($candidateIds)
             ->get()
-            ->keyBy('id');
+            ->groupBy(fn (CardReviewEvent $reviewEvent): string => CanonicalUlid::normalize((string) $reviewEvent->id));
+
+        return $ids->mapWithKeys(function (string $id) use ($reviewEventsByCanonicalId): array {
+            $matches = $reviewEventsByCanonicalId->get($id);
+
+            if ($matches === null) {
+                return [];
+            }
+
+            $preferred = $matches->first(
+                fn (CardReviewEvent $reviewEvent): bool => (string) $reviewEvent->id === $id,
+            ) ?? $matches->first();
+
+            return [$id => $preferred];
+        });
     }
 
     /**
@@ -406,46 +400,53 @@ class ReviewCardBatchAction
         $itemsBySyncKey = $preparedItems->groupBy('sync_key');
 
         foreach ($itemsBySyncKey as $syncKey => $items) {
-            $item = $items->first();
+            $item = $items->firstWhere('client_supplied_id', true) ?? $items->first();
             $card = $cardsById->get($item['card_id'])
                 ?? throw new RuntimeException('Card missing while validating review event conflicts.');
+            $identity = $item['identity'];
+
+            foreach ($items as $duplicateItem) {
+                if (! $identity->matchesRequest($duplicateItem['identity'])) {
+                    throw CardReviewEventConflictException::conflict($card->ownerUserId());
+                }
+            }
 
             $existingBySyncKey = $reviewEventsBySyncKey->get($syncKey);
 
             if ($existingBySyncKey !== null) {
                 $this->assertReviewEventBelongsToCardOwner($existingBySyncKey, $card);
 
-                // Sync metadata remains the authoritative dedup key; explicit IDs must agree when present.
-                $providedId = $items->firstWhere('client_supplied_id', true)['id'] ?? null;
-
-                if ($providedId !== null && CanonicalUlid::normalize((string) $existingBySyncKey->id) !== $providedId) {
+                if (! $identity->matchesReviewEvent($existingBySyncKey)) {
                     throw CardReviewEventConflictException::conflict($this->ownerIdFor($existingBySyncKey));
                 }
             }
         }
 
-        $providedItemsById = $preparedItems
+        $providedItemGroupsById = $preparedItems
             ->filter(fn (array $item): bool => $item['client_supplied_id'])
-            ->unique('id');
+            ->groupBy('id');
 
-        foreach ($providedItemsById as $item) {
+        foreach ($providedItemGroupsById as $providedItems) {
+            $item = $providedItems->first();
+            $identity = $item['identity'];
+            $card = $cardsById->get($item['card_id'])
+                ?? throw new RuntimeException('Card missing while validating review event conflicts.');
+
+            foreach ($providedItems as $duplicateItem) {
+                if (! $identity->matchesRequest($duplicateItem['identity'])) {
+                    throw CardReviewEventConflictException::conflict($card->ownerUserId());
+                }
+            }
+
             $existingById = $reviewEventsById->get($item['id']);
 
             if ($existingById === null) {
                 continue;
             }
 
-            $card = $cardsById->get($item['card_id'])
-                ?? throw new RuntimeException('Card missing while validating review event conflicts.');
-
             $this->assertReviewEventBelongsToCardOwner($existingById, $card);
 
-            // Single review events can exist without sync metadata; a provided batch ID may not claim them.
-            if (
-                $existingById->device_id === null
-                || $existingById->client_event_id === null
-                || ClientEventKey::lookupKey($existingById->device_id, $existingById->client_event_id) !== $item['sync_key']
-            ) {
+            if (! $item['identity']->matchesReviewEvent($existingById)) {
                 throw CardReviewEventConflictException::conflict($this->ownerIdFor($existingById));
             }
         }

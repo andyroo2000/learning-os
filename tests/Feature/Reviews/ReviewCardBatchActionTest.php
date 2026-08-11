@@ -293,12 +293,12 @@ class ReviewCardBatchActionTest extends TestCase
         $result = app(ReviewCardBatchAction::class)->handle([
             ReviewCardData::fromInput(
                 cardId: $card->id,
-                rating: CardReviewRating::Easy->value,
-                reviewedAt: '2026-05-27T09:20:00Z',
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T05:15:00-04:00',
                 id: strtoupper($id),
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:19:00Z',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
             ),
         ]);
 
@@ -307,6 +307,36 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame(CardReviewRating::Good, $result->reviewEvents->sole()->rating);
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_returns_a_legacy_uppercase_review_event_for_a_canonical_batch_retry(): void
+    {
+        $card = Card::factory()->create();
+        $storedId = strtoupper((string) Str::ulid());
+        CardReviewEvent::factory()->for($card)->create([
+            'id' => $storedId,
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27 09:15:00',
+            'client_event_id' => 'event-123',
+            'device_id' => 'device-abc',
+            'client_created_at' => '2026-05-27 09:14:00',
+        ]);
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T05:15:00-04:00',
+                id: strtolower($storedId),
+                clientEventId: 'event-123',
+                deviceId: 'device-abc',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
+            ),
+        ]);
+
+        $this->assertFalse($result->hasCreatedEvents);
+        $this->assertSame($storedId, $result->reviewEvents->sole()->id);
+        $this->assertDatabaseCount('card_review_events', 1);
     }
 
     public function test_it_rejects_retried_client_events_with_different_provided_ids(): void
@@ -362,12 +392,12 @@ class ReviewCardBatchActionTest extends TestCase
             ),
             ReviewCardData::fromInput(
                 cardId: $card->id,
-                rating: CardReviewRating::Easy->value,
-                reviewedAt: '2026-05-27T09:20:00Z',
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T05:15:00-04:00',
                 id: $id,
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:19:00Z',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
             ),
         ]);
 
@@ -394,19 +424,19 @@ class ReviewCardBatchActionTest extends TestCase
             ),
             ReviewCardData::fromInput(
                 cardId: $card->id,
-                rating: CardReviewRating::Easy->value,
-                reviewedAt: '2026-05-27T09:20:00Z',
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T05:15:00-04:00',
                 id: strtoupper($id),
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:19:00Z',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
             ),
         ]);
 
         $this->assertTrue($result->hasCreatedEvents);
         $this->assertSame([$id, $id], $result->reviewEvents->pluck('id')->all());
-        $this->assertSame(CardReviewRating::Easy, $result->reviewEvents[0]->rating);
-        $this->assertSame(CardReviewRating::Easy, $result->reviewEvents[1]->rating);
+        $this->assertSame(CardReviewRating::Good, $result->reviewEvents[0]->rating);
+        $this->assertSame(CardReviewRating::Good, $result->reviewEvents[1]->rating);
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
@@ -425,11 +455,11 @@ class ReviewCardBatchActionTest extends TestCase
             ),
             ReviewCardData::fromInput(
                 cardId: $card->id,
-                rating: CardReviewRating::Easy->value,
-                reviewedAt: '2026-05-27T09:20:00Z',
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T05:15:00-04:00',
                 clientEventId: 'event-123',
                 deviceId: 'device-abc',
-                clientCreatedAt: '2026-05-27T09:19:00Z',
+                clientCreatedAt: '2026-05-27T05:14:00-04:00',
             ),
         ]);
 
@@ -437,6 +467,77 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame($result->reviewEvents[0]->id, $result->reviewEvents[1]->id);
         $this->assertSame(CardReviewRating::Good, $result->reviewEvents[0]->rating);
         $this->assertSame(CardReviewRating::Good, $result->reviewEvents[1]->rating);
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_rejects_duplicate_sync_keys_with_different_payloads_before_writing(): void
+    {
+        $card = Card::factory()->create();
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'event-123',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Easy->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'event-123',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected review event payload conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertFalse($exception->shouldBeHiddenFrom($card->ownerUserId()));
+            $this->assertSame('card_review_event_id_conflict', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_reusing_sync_metadata_for_another_card_with_the_same_owner(): void
+    {
+        $deck = Deck::factory()->create();
+        $firstCard = Card::factory()->for($deck)->create();
+        $secondCard = Card::factory()->for($deck)->create();
+        $firstReview = ReviewCardData::fromInput(
+            cardId: $firstCard->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00Z',
+            clientEventId: 'event-123',
+            deviceId: 'device-abc',
+            clientCreatedAt: '2026-05-27T09:14:00Z',
+        );
+
+        app(ReviewCardBatchAction::class)->handle([$firstReview]);
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $secondCard->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'event-123',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+            ]);
+
+            $this->fail('Expected review event card conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertFalse($exception->shouldBeHiddenFrom($firstCard->ownerUserId()));
+            $this->assertSame('card_review_event_id_conflict', $exception->reason());
+        }
+
         $this->assertDatabaseCount('card_review_events', 1);
     }
 

@@ -59,7 +59,7 @@ class CancelStudyImportUploadAction
         if (is_string($sourceObjectPath) && $sourceObjectPath !== '') {
             try {
                 if (Storage::disk('study-imports')->delete($sourceObjectPath)) {
-                    $this->recordSourceArchiveCleanupCompletion($importJob, $sourceObjectPath);
+                    $this->recordSourceArchiveCleanupCompletion($importJob, $sourceObjectPath, $now);
 
                     return $importJob;
                 }
@@ -82,9 +82,9 @@ class CancelStudyImportUploadAction
     private function recordSourceArchiveCleanupCompletion(
         StudyImportJob $importJob,
         string $sourceObjectPath,
+        Carbon $now,
     ): void {
         try {
-            $now = now();
             $importJob->archive_cleanup_attempted_at = $now;
             $importJob->archive_cleanup_resolved_at = $now;
             $importJob->archive_cleanup_claim_token = null;

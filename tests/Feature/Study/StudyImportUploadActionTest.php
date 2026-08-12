@@ -773,17 +773,19 @@ class StudyImportUploadActionTest extends TestCase
         $importJob = StudyImportJob::factory()->for($user)->create([
             'source_object_path' => $sourceObjectPath,
         ]);
+        $cancelledAt = Carbon::parse('2026-06-05 11:45:00');
 
         $cancelled = app(CancelStudyImportUploadAction::class)->handle(
             userId: $user->id,
             importJobId: '  '.strtoupper($importJob->id).'  ',
+            now: $cancelledAt,
         );
 
         $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
         $this->assertSame('Study import upload was cancelled.', $cancelled->error_message);
-        $this->assertSame(now()->toJSON(), $cancelled->completed_at->toJSON());
-        $this->assertSame(now()->toJSON(), $cancelled->archive_cleanup_attempted_at->toJSON());
-        $this->assertSame(now()->toJSON(), $cancelled->archive_cleanup_resolved_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->completed_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->archive_cleanup_attempted_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->archive_cleanup_resolved_at->toJSON());
         Storage::disk('study-imports')->assertMissing($sourceObjectPath);
 
         Carbon::setTestNow(now()->addHours(25));

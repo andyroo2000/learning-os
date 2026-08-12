@@ -24,8 +24,8 @@ class AttachMediaToCardAction
         $ownerUserId = CardMediaOwnership::ownerUserIdFor($data->card, $data->mediaAsset);
 
         $card = DB::transaction(function () use ($data, $ownerUserId): Card {
-            // Serialize attachment with card deletion. Re-resolving the live row also prevents a stale
-            // route-bound model from creating a pivot after its card or parent deck was deleted.
+            // Serialize attachment with direct card deletion and the card update performed by Deck's
+            // soft-delete cascade. Re-resolving the live row also rejects an already-deleted parent deck.
             $card = Card::query()
                 ->whereKey($data->card->getKey())
                 ->whereHas('deck', fn ($query) => $query->where('user_id', $ownerUserId))

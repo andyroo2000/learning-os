@@ -1,35 +1,28 @@
 <?php
 
-namespace App\Domain\Flashcards\Actions;
+namespace App\Domain\Reviews\Support;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\FsrsReviewScheduler;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Enums\CardReviewRating;
-use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Carbon;
+use LogicException;
 
-class ApplyCardStudyReviewAction
+/**
+ * Keeps study-state mutation private to review writers that lock the card row first.
+ *
+ * Consumers must expose a RecordSyncFeedEntryAction as $recordSyncFeedEntry.
+ */
+trait AppliesLockedCardStudyReview
 {
-    public function __construct(
-        private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-    ) {}
-
-    /**
-     * Apply an event whose (reviewed_at, id) position was validated while its card row was locked.
-     *
-     * @internal Review write actions own this precondition.
-     */
-    public function handleChronologicalNext(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
+    private function applyLockedCardStudyReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
     {
-        return $this->apply($card, $rating, $reviewedAt);
-    }
+        $this->assertLockedCardStudyReviewTransaction($card);
 
-    private function apply(Card $card, CardReviewRating $rating, Carbon $reviewedAt): bool
-    {
         $currentStatus = $card->study_status ?? CardStudyStatus::New;
 
         if ($currentStatus === CardStudyStatus::New && $card->introduced_at === null) {
@@ -78,20 +71,23 @@ class ApplyCardStudyReviewAction
         return true;
     }
 
-    /**
-     * Preview an event whose (reviewed_at, id) position was validated while its card row was locked.
-     *
-     * @return array<string, mixed>|null
-     *
-     * @internal Review write actions own this precondition.
-     */
-    public function schedulerStateAfterChronologicalNextReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): ?array
+    /** @return array<string, mixed>|null */
+    private function schedulerStateAfterLockedCardStudyReview(Card $card, CardReviewRating $rating, Carbon $reviewedAt): ?array
     {
+        $this->assertLockedCardStudyReviewTransaction($card);
+
         return FsrsReviewScheduler::review(
             schedulerState: $card->scheduler_state,
             studyStatus: $card->study_status ?? CardStudyStatus::New,
             rating: $rating,
             reviewedAt: $reviewedAt,
         )['schedulerState'];
+    }
+
+    private function assertLockedCardStudyReviewTransaction(Card $card): void
+    {
+        if ($card->getConnection()->transactionLevel() < 1) {
+            throw new LogicException('Card study review mutation requires a locked card row inside a transaction.');
+        }
     }
 }

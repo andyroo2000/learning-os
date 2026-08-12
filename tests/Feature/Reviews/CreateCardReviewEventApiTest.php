@@ -3,7 +3,6 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Courses\Models\Course;
-use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -567,7 +566,7 @@ class CreateCardReviewEventApiTest extends TestCase
         $user = $this->signIn();
         $card = $this->cardFor($user);
 
-        $this->app->instance(ReviewCardAction::class, new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class)) extends ReviewCardAction
+        $this->app->instance(ReviewCardAction::class, new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardAction
         {
             public function handle(ReviewCardData $data): ReviewCardResult
             {

@@ -3,7 +3,6 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Courses\Models\Course;
-use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -267,17 +266,16 @@ class ReviewCardBatchActionTest extends TestCase
             'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ];
 
-        $reviewCards = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $concurrentState) extends ReviewCardBatchAction
+        $reviewCards = new class(app(RecordSyncFeedEntryAction::class), $concurrentState) extends ReviewCardBatchAction
         {
             public int $lockTransactionLevel = 0;
 
             /** @param array<string, mixed> $concurrentState */
             public function __construct(
                 RecordSyncFeedEntryAction $recordSyncFeedEntry,
-                ApplyCardStudyReviewAction $applyCardStudyReview,
                 private readonly array $concurrentState,
             ) {
-                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+                parent::__construct($recordSyncFeedEntry);
             }
 
             protected function cardsById(Collection $preparedItems): Collection
@@ -833,7 +831,6 @@ class ReviewCardBatchActionTest extends TestCase
                     throw new RuntimeException('Sync feed failed.');
                 }
             },
-            applyCardStudyReview: app(ApplyCardStudyReviewAction::class),
         );
 
         try {

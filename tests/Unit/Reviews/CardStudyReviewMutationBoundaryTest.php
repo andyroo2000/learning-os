@@ -2,9 +2,14 @@
 
 namespace Tests\Unit\Reviews;
 
+use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
+use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Support\AppliesLockedCardStudyReview;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use Illuminate\Support\Carbon;
+use LogicException;
 use ReflectionClass;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -33,6 +38,35 @@ class CardStudyReviewMutationBoundaryTest extends TestCase
             app_path('Domain/Reviews/Actions/ReviewCardBatchAction.php'),
         ], $this->reviewWriterTraitConsumerPaths());
         $this->assertFalse(class_exists('App\\Domain\\Flashcards\\Actions\\ApplyCardStudyReviewAction'));
+    }
+
+    public function test_study_review_mutation_rejects_calls_outside_a_transaction(): void
+    {
+        $card = new Card;
+        $reviewedAt = Carbon::parse('2026-05-27T09:15:00Z');
+        $probe = new class
+        {
+            use AppliesLockedCardStudyReview;
+
+            private RecordSyncFeedEntryAction $recordSyncFeedEntry;
+
+            public function apply(Card $card, Carbon $reviewedAt): bool
+            {
+                return $this->applyLockedCardStudyReview($card, CardReviewRating::Good, $reviewedAt);
+            }
+        };
+
+        try {
+            $probe->apply($card, $reviewedAt);
+
+            $this->fail('Expected unlocked study review mutation to be rejected.');
+        } catch (LogicException $exception) {
+            $this->assertSame(
+                'Card study review mutation requires a locked card row inside a transaction.',
+                $exception->getMessage(),
+            );
+            $this->assertFalse($card->isDirty());
+        }
     }
 
     /** @return list<string> */

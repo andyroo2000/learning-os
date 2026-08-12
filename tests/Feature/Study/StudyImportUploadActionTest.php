@@ -841,6 +841,7 @@ class StudyImportUploadActionTest extends TestCase
             'completed_at' => now()->subHour(),
             'started_at' => null,
         ]);
+        $snapshotPathsBefore = $this->studyImportSnapshotPaths();
 
         $processed = app(ProcessStudyImportJobAction::class)->handle('  '.strtoupper($importJob->id).'  ');
 
@@ -1032,6 +1033,7 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
+        $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
     }
 
     public function test_process_job_imports_single_non_default_deck_archives(): void

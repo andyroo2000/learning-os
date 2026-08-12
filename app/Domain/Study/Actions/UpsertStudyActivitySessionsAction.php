@@ -80,7 +80,6 @@ class UpsertStudyActivitySessionsAction
                     [
                         'category',
                         'activity',
-                        'source',
                         'name',
                         'started_at',
                         'ended_at',

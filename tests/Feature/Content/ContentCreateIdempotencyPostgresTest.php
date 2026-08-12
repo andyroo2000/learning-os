@@ -9,6 +9,8 @@ use App\Domain\Content\Data\CreateContentEpisodeData;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
+use App\Domain\Content\Support\ContentCreationFingerprint;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,6 +20,74 @@ use Throwable;
 
 final class ContentCreateIdempotencyPostgresTest extends TestCase
 {
+    public function test_episode_create_recovers_when_a_non_cooperating_writer_wins_the_primary_key_race(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise concurrent create recovery.');
+        }
+
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $episodeId = (string) Str::uuid();
+        $data = CreateContentEpisodeData::fromInput(
+            userId: $user->id,
+            convoLabUserId: $convoLabUserId,
+            title: 'Non-cooperating writer',
+            sourceText: 'Same canonical source.',
+            targetLanguage: 'ja',
+            nativeLanguage: 'en',
+            id: $episodeId,
+        );
+        $inserted = false;
+
+        DB::listen(function ($query) use (&$inserted, $data): void {
+            $sql = strtolower($query->sql);
+            if ($inserted
+                || ! str_starts_with($sql, 'select')
+                || ! str_contains($sql, 'from "content_episodes"')
+                || ! in_array($data->id, $query->bindings, true)
+                || DB::transactionLevel() === 0) {
+                return;
+            }
+
+            $inserted = true;
+            $connectionName = 'idempotency_race_writer';
+            config()->set("database.connections.{$connectionName}", config('database.connections.pgsql'));
+            $connection = DB::connection($connectionName);
+            $connection->table('content_episodes')->insert([
+                'id' => $data->id,
+                'user_id' => $data->userId,
+                'convolab_user_id' => $data->convoLabUserId,
+                'source_system' => ContentSourceSystem::LEARNING_OS,
+                'title' => $data->title,
+                'source_text' => $data->sourceText,
+                'target_language' => $data->targetLanguage,
+                'native_language' => $data->nativeLanguage,
+                'content_type' => 'dialogue',
+                'auto_generate_audio' => true,
+                'status' => 'draft',
+                'is_sample_content' => false,
+                'audio_speed' => 'medium',
+                'creation_fingerprint' => ContentCreationFingerprint::episode($data),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::disconnect($connectionName);
+        });
+
+        try {
+            $result = app(CreateContentEpisodeAction::class)->handle($data);
+
+            $this->assertTrue($inserted);
+            $this->assertFalse($result->wasCreated);
+            $this->assertSame($episodeId, $result->episode->id);
+            $this->assertSame(1, ContentEpisode::query()->whereKey($episodeId)->count());
+        } finally {
+            ContentEpisode::query()->whereKey($episodeId)->delete();
+            User::query()->whereKey($user->id)->delete();
+        }
+    }
+
     public function test_concurrent_client_uuid_episode_and_course_creates_converge_on_one_graph(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {

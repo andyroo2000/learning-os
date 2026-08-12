@@ -108,6 +108,45 @@ final class RecoverContentGenerationRequestsTest extends TestCase
         Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
     }
 
+    public function test_overlapping_recovery_scans_share_the_dispatch_claim(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $this->asConvoLabBrowser($user, convoLabUserId: $convoLabUserId);
+        $episode = ContentEpisode::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'source_system' => ContentSourceSystem::CONVOLAB,
+            'title' => 'Overlapping recovery dialogue',
+            'source_text' => 'Two schedulers see the same stale claim.',
+            'target_language' => 'ja',
+            'native_language' => 'en',
+            'content_type' => 'dialogue',
+            'status' => 'draft',
+            'is_sample_content' => false,
+        ]);
+        $clientRequestId = (string) Str::uuid();
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($episode->id),
+            'clientRequestId' => $clientRequestId,
+        ])->assertOk();
+        $request = ContentGenerationRequest::query()->sole();
+        $request->forceFill([
+            'dispatched_at' => null,
+            'dispatch_token' => null,
+            'dispatch_claimed_at' => null,
+        ])->save();
+        Queue::fake();
+
+        $this->artisan('content:recover-generation-requests')->assertSuccessful();
+        $this->artisan('content:recover-generation-requests')->assertSuccessful();
+
+        Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
+        $this->assertNotNull($request->fresh()->dispatched_at);
+    }
+
     /** @return array<string, mixed> */
     private function payload(string $episodeId): array
     {

@@ -143,7 +143,8 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
-            tests/Feature/Study/StudyImportCancellationLockPostgresTest.php
+            tests/Feature/Study/StudyImportCancellationLockPostgresTest.php \
+            tests/Feature/Study/StudyImportTimeoutLockPostgresTest.php
 
       - name: Run rehearsal importer against PostgreSQL
         run: |

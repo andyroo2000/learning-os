@@ -11,6 +11,7 @@ use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Actions\CleanupTerminalStudyImportArchivesAction;
 use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
 use App\Domain\Study\Actions\CreateStudyImportUploadSessionAction;
+use App\Domain\Study\Actions\ExpireStaleProcessingStudyImportsAction;
 use App\Domain\Study\Actions\ProcessStudyImportJobAction;
 use App\Domain\Study\Actions\UploadStudyImportFileAction;
 use App\Domain\Study\Enums\StudyImportStatus;
@@ -67,6 +68,70 @@ class StudyImportUploadActionTest extends TestCase
             $processed?->error_message,
         );
         $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
+    }
+
+    public function test_process_job_does_not_revive_an_import_that_times_out_during_media_copy(): void
+    {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => null,
+        ]);
+        $sourceObjectPath = StudyImportUploadPath::forImportJob(
+            $importJob->user_id,
+            $importJob->id,
+            'timed-out-after-read.colpkg',
+        );
+        $importJob->source_object_path = $sourceObjectPath;
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
+        $mediaDisk = Storage::disk('media');
+        $expiredImportCount = 0;
+        $timeoutAt = now()->copy()->addMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1);
+        $expireAfterFirstPut = function () use (&$expiredImportCount, $importJob, $timeoutAt): void {
+            $expiredImportCount += app(ExpireStaleProcessingStudyImportsAction::class)
+                ->handle($importJob->user_id, $timeoutAt);
+        };
+        $timingOutMediaDisk = new class($mediaDisk, $expireAfterFirstPut) extends FilesystemAdapter
+        {
+            private bool $timedOut = false;
+
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly \Closure $afterFirstPut,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function put($path, $contents, $options = []): bool
+            {
+                $stored = $this->inner->put($path, $contents, $options);
+
+                if (! $this->timedOut) {
+                    $this->timedOut = true;
+                    ($this->afterFirstPut)();
+                }
+
+                return $stored;
+            }
+        };
+        Storage::set('media', $timingOutMediaDisk);
+
+        $result = app(ProcessStudyImportJobAction::class)->handle($importJob->id, now());
+
+        $this->assertSame(1, $expiredImportCount);
+        $this->assertSame(StudyImportStatus::Failed, $result?->status);
+        $this->assertSame('Study import timed out before completion.', $result?->error_message);
+        $this->assertSame(StudyImportStatus::Failed, $importJob->refresh()->status);
+        $this->assertSame($timeoutAt->toJSON(), $importJob->completed_at?->toJSON());
+        $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
+        $this->assertSame(0, Card::query()->count());
+        $this->assertSame(0, MediaAsset::query()->count());
+        $this->assertSame(0, CardReviewEvent::query()->count());
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+        $this->assertSame([], $mediaDisk->allFiles());
+        Storage::disk('study-imports')->assertExists($sourceObjectPath);
     }
 
     protected function tearDown(): void

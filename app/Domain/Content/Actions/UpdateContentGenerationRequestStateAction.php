@@ -10,6 +10,7 @@ use App\Domain\Content\Support\ContentGenerationRequestState;
 use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 final class UpdateContentGenerationRequestStateAction
 {
@@ -187,13 +188,15 @@ final class UpdateContentGenerationRequestStateAction
     ): bool {
         if ($state === ContentGenerationRequestState::COMPLETED) {
             ContentGenerationRequestTerminalState::complete($request);
-        } else {
+        } elseif ($message !== null) {
             ContentGenerationRequestTerminalState::fail(
                 $request,
                 500,
                 'generation_failed',
-                (string) $message,
+                $message,
             );
+        } else {
+            throw new LogicException('A failed generation request requires a replay-safe message.');
         }
 
         return true;

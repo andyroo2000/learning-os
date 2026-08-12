@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportArchiveReader;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use ReflectionMethod;
 use RuntimeException;
@@ -15,6 +16,32 @@ use Throwable;
 class StudyImportArchiveReaderTest extends TestCase
 {
     use BuildsStudyImportArchives;
+
+    public function test_copying_media_rechecks_the_individual_expansion_limit_before_writing(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/media-copy-limit.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => 'ten-bytes!',
+                    '1' => 'image',
+                ],
+            ]),
+        );
+        Config::set('study_import.archive_expansion.max_individual_media_bytes', 9);
+
+        $copied = app(StudyImportArchiveReader::class)->copyMediaEntriesToDisk(
+            Storage::disk('study-imports'),
+            'study/imports/read/media-copy-limit.colpkg',
+            Storage::disk('media'),
+            ['0' => 'study/imports/media/word.mp3'],
+        );
+
+        $this->assertSame(['0' => false], $copied);
+        Storage::disk('media')->assertMissing('study/imports/media/word.mp3');
+    }
 
     public function test_it_removes_the_temporary_archive_when_copying_the_storage_stream_fails(): void
     {
@@ -61,7 +88,7 @@ class StudyImportArchiveReaderTest extends TestCase
         $caught = null;
 
         try {
-            $method->invoke(app(StudyImportArchiveReader::class), $input);
+            $method->invoke(app(StudyImportArchiveReader::class), $input, 1);
 
             $this->fail('Expected copying the unreadable collection stream to fail.');
         } catch (Throwable $exception) {

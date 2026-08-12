@@ -28,4 +28,24 @@ final class StudyImportPreviewException extends RuntimeException
     {
         return new self('The uploaded media manifest could not be parsed.');
     }
+
+    public static function collectionDatabaseTooLarge(int $maxBytes): self
+    {
+        return new self('The uncompressed collection database must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
+    }
+
+    public static function mediaManifestTooLarge(int $maxBytes): self
+    {
+        return new self('The uncompressed media manifest must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
+    }
+
+    public static function mediaExpansionTooLarge(int $maxBytes): self
+    {
+        return new self('The uncompressed media referenced by the archive manifest must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
+    }
+
+    private static function bytesLabel(int $bytes): string
+    {
+        return $bytes === 1 ? 'byte' : 'bytes';
+    }
 }

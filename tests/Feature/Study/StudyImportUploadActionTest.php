@@ -28,6 +28,7 @@ use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
@@ -43,6 +44,27 @@ use Tests\TestCase;
 class StudyImportUploadActionTest extends TestCase
 {
     use AssertsCardMediaSyncFeedEntries, AssertsMediaAssetSyncFeedEntries, BuildsStudyImportArchives, RefreshDatabase;
+
+    public function test_process_job_persists_the_same_collection_expansion_error_as_preview(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        Config::set('study_import.archive_expansion.max_collection_database_bytes', 1);
+        $sourceObjectPath = 'study/imports/process/oversized-collection.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame(
+            'The uncompressed collection database must not exceed 1 byte.',
+            $processed?->error_message,
+        );
+        $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
+    }
 
     protected function tearDown(): void
     {

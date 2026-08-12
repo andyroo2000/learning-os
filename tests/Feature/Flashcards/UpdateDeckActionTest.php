@@ -4,6 +4,7 @@ namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\UpdateDeckAction;
 use App\Domain\Flashcards\Data\UpdateDeckData;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
@@ -142,6 +143,22 @@ class UpdateDeckActionTest extends TestCase
             $deck,
             UpdateDeckData::fromInput(
                 name: '   ',
+                description: null,
+            ),
+        );
+    }
+
+    public function test_it_rejects_names_that_exceed_the_storage_contract_for_direct_callers(): void
+    {
+        $deck = $this->deckFor($this->signIn());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.');
+
+        app(UpdateDeckAction::class)->handle(
+            $deck,
+            UpdateDeckData::fromInput(
+                name: str_repeat('d', Deck::MAX_NAME_LENGTH + 1),
                 description: null,
             ),
         );

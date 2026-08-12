@@ -70,6 +70,28 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
     }
 
+    public function test_process_job_persists_import_metadata_length_errors_before_database_writes(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/oversized-deck-name.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'deck_name' => str_repeat('d', Deck::MAX_NAME_LENGTH + 1),
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame(
+            'The imported deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.',
+            $processed?->error_message,
+        );
+        $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
+    }
+
     public function test_process_job_does_not_revive_an_import_that_times_out_during_media_copy(): void
     {
         Carbon::setTestNow('2026-08-12 06:00:00');

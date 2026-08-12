@@ -2,7 +2,9 @@
 
 namespace App\Domain\Flashcards\Data;
 
+use App\Domain\Flashcards\Models\Deck;
 use App\Support\Identifiers\CanonicalUlid;
+use InvalidArgumentException;
 
 final readonly class CreateDeckData
 {
@@ -23,9 +25,15 @@ final readonly class CreateDeckData
         ?string $id = null,
         bool $isManualStudyDeck = false,
     ): self {
+        $name = trim($name);
+
+        if (mb_strlen($name) > Deck::MAX_NAME_LENGTH) {
+            throw new InvalidArgumentException('Deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.');
+        }
+
         return new self(
             userId: $userId,
-            name: trim($name),
+            name: $name,
             description: $description === null ? null : trim($description),
             courseId: $courseId === null ? null : CanonicalUlid::normalize($courseId),
             id: $id === null ? null : CanonicalUlid::normalize($id),

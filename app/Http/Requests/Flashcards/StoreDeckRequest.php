@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Models\Deck;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -48,7 +49,7 @@ class StoreDeckRequest extends FormRequest
         return [
             'id' => ['nullable', 'ulid'],
             'course_id' => ['nullable', 'ulid'],
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:'.Deck::MAX_NAME_LENGTH],
             'description' => ['nullable', 'string'],
         ];
     }

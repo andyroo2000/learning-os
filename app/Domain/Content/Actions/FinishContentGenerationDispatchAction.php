@@ -4,6 +4,7 @@ namespace App\Domain\Content\Actions;
 
 use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentGenerationRequestState;
+use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
 use Illuminate\Support\Facades\DB;
 
@@ -36,14 +37,14 @@ final class FinishContentGenerationDispatchAction
                 return false;
             }
 
-            $request->state = ContentGenerationRequestState::FAILED;
             $request->dispatch_token = null;
             $request->dispatch_claimed_at = null;
-            $request->response_status = 503;
-            $request->error_code = 'queue_unavailable';
-            $request->error_message = $message;
-            $request->finished_at ??= now();
-            $request->save();
+            ContentGenerationRequestTerminalState::fail(
+                $request,
+                503,
+                'queue_unavailable',
+                $message,
+            );
 
             return true;
         });

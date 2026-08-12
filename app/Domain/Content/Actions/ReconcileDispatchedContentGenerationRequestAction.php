@@ -8,6 +8,7 @@ use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentGenerationRequestState;
+use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -211,24 +212,14 @@ final class ReconcileDispatchedContentGenerationRequestAction
 
     private function complete(ContentGenerationRequest $request): bool
     {
-        $request->state = ContentGenerationRequestState::COMPLETED;
-        $request->response_status = 200;
-        $request->error_code = null;
-        $request->error_message = null;
-        $request->finished_at ??= now();
-        $request->save();
+        ContentGenerationRequestTerminalState::complete($request);
 
         return true;
     }
 
     private function fail(ContentGenerationRequest $request, string $code, string $message): bool
     {
-        $request->state = ContentGenerationRequestState::FAILED;
-        $request->response_status = 500;
-        $request->error_code = $code;
-        $request->error_message = $message;
-        $request->finished_at ??= now();
-        $request->save();
+        ContentGenerationRequestTerminalState::fail($request, 500, $code, $message);
 
         return true;
     }

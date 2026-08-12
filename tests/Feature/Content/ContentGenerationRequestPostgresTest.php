@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Content\Actions\PruneTerminalContentGenerationRequestsAction;
 use App\Domain\Content\Actions\ReconcileDispatchedContentGenerationRequestAction;
 use App\Domain\Content\Actions\ReserveContentGenerationRequestAction;
 use App\Domain\Content\Data\GenerateContentDialogueData;
@@ -129,6 +130,52 @@ final class ContentGenerationRequestPostgresTest extends TestCase
         } finally {
             ContentGenerationRequest::query()->whereKey($request->id)->delete();
             ContentCourse::query()->whereKey($course->id)->delete();
+            User::query()->whereKey($user->id)->delete();
+        }
+    }
+
+    public function test_overlapping_prune_workers_delete_an_expired_terminal_request_once(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise concurrent ledger pruning.');
+        }
+        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
+
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $this->asConvoLabBrowser($user, convoLabUserId: $convoLabUserId);
+        $request = ContentGenerationRequest::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'client_request_id' => (string) Str::uuid(),
+            'operation' => ContentGenerationRequestState::COURSE_OPERATION,
+            'resource_type' => 'course',
+            'resource_id' => (string) Str::uuid(),
+            'input_fingerprint' => hash('sha256', (string) Str::uuid()),
+            'input_payload' => [],
+            'state' => ContentGenerationRequestState::COMPLETED,
+            'response_status' => 200,
+            'finished_at' => now()->subDays(ContentGenerationRequest::TERMINAL_RETENTION_DAYS + 1),
+        ]);
+
+        try {
+            $results = $this->runConcurrentWorkers(function (): string {
+                $result = app(PruneTerminalContentGenerationRequestsAction::class)->handle(limit: 1);
+
+                return sprintf('%d:%d', $result->deleted, $result->skipped);
+            });
+
+            $counts = array_map(
+                fn (string $result): array => array_map('intval', explode(':', $result)),
+                $results,
+            );
+            $this->assertSame(1, array_sum(array_column($counts, 0)));
+            $this->assertContains([1, 0], $counts);
+            $this->assertContains($counts[0] === [1, 0] ? $counts[1] : $counts[0], [[0, 0], [0, 1]]);
+            $this->assertDatabaseMissing('content_generation_requests', ['id' => $request->id]);
+        } finally {
+            ContentGenerationRequest::query()->whereKey($request->id)->delete();
             User::query()->whereKey($user->id)->delete();
         }
     }

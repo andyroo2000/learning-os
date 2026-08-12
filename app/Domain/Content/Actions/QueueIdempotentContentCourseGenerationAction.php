@@ -11,6 +11,7 @@ use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Domain\Content\Support\ContentCourseId;
 use App\Domain\Content\Support\ContentGenerationRequestFingerprint;
 use App\Domain\Content\Support\ContentGenerationRequestState;
+use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Jobs\ProcessContentCourseGeneration;
@@ -167,11 +168,6 @@ final class QueueIdempotentContentCourseGenerationAction
         string $code,
         string $message,
     ): void {
-        $request->state = ContentGenerationRequestState::FAILED;
-        $request->response_status = $status;
-        $request->error_code = $code;
-        $request->error_message = $message;
-        $request->finished_at = now();
-        $request->save();
+        ContentGenerationRequestTerminalState::fail($request, $status, $code, $message);
     }
 }

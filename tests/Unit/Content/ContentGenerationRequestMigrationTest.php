@@ -46,6 +46,35 @@ final class ContentGenerationRequestMigrationTest extends TestCase
         ] as $name) {
             $this->assertLessThanOrEqual(63, strlen($name));
         }
+
+        $this->assertLessThanOrEqual(63, strlen($this->retentionMigration()::RETENTION_INDEX));
+    }
+
+    /**
+     * @param  class-string<Connection>  $connectionClass
+     * @param  class-string<SQLiteGrammar|PostgresGrammar|MySqlGrammar>  $grammarClass
+     */
+    #[DataProvider('grammarProvider')]
+    public function test_retention_index_create_and_drop_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+        $index = $this->retentionMigration()::RETENTION_INDEX;
+
+        $create = new Blueprint($connection, 'content_generation_requests', function (Blueprint $table) use ($index): void {
+            $table->index(['state', 'finished_at'], $index);
+        });
+        $drop = new Blueprint($connection, 'content_generation_requests', function (Blueprint $table) use ($index): void {
+            $table->dropIndex($index);
+        });
+
+        $this->assertStringContainsString($index, implode("\n", $create->toSql()));
+        $this->assertStringContainsString('state', implode("\n", $create->toSql()));
+        $this->assertStringContainsString('finished_at', implode("\n", $create->toSql()));
+        $this->assertStringContainsString($index, implode("\n", $drop->toSql()));
     }
 
     /** @return array<string, array{class-string<Connection>, class-string}> */
@@ -104,5 +133,10 @@ final class ContentGenerationRequestMigrationTest extends TestCase
     private function migration(): object
     {
         return require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_08_12_180000_create_content_generation_requests_table.php';
+    }
+
+    private function retentionMigration(): object
+    {
+        return require LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_08_12_220000_add_retention_index_to_content_generation_requests_table.php';
     }
 }

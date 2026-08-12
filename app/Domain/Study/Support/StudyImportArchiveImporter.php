@@ -43,18 +43,34 @@ final class StudyImportArchiveImporter
         array $preview,
         Carbon $now,
     ): StudyImportJob {
+        $importJob = StudyImportJob::query()->findOrFail($importJob->id);
+
+        if ($importJob->status !== StudyImportStatus::Processing) {
+            return $importJob;
+        }
+
         $importableCards = $this->importableCards($archive);
         $mediaCopy = $this->mediaImporter->copy($importJob, $archive, $snapshot, $importableCards);
+        $imported = false;
 
         try {
-            return DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy): StudyImportJob {
+            $importJob = DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy, &$imported): StudyImportJob {
+                // Active-slot preparation locks the owner before expiring processing imports.
+                // Preserve that users -> import-jobs lock order to avoid deadlocks.
+                $nextQueuePosition = $this->newCardQueuePosition->nextForUser($importJob->user_id);
+                $importJob = StudyImportJob::query()
+                    ->whereKey($importJob->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($importJob->status !== StudyImportStatus::Processing) {
+                    return $importJob;
+                }
+
                 $deck = $this->createDeck($importJob, $archive, $now);
                 $mediaAssetsByFilename = $this->mediaImporter->createMediaAssets($importJob, $mediaCopy, $now);
                 $importedCards = [];
                 $importedCardsBySourceCardId = [];
-                // nextForUser locks the owner row; this transaction holds that lock while
-                // imported cards receive contiguous positions.
-                $nextQueuePosition = $this->newCardQueuePosition->nextForUser($importJob->user_id);
 
                 foreach ($importableCards as $archiveCard) {
                     $card = $this->createCard(
@@ -99,9 +115,16 @@ final class StudyImportArchiveImporter
                 $importJob->error_message = null;
                 $importJob->completed_at = $now;
                 $importJob->saveOrFail();
+                $imported = true;
 
                 return $importJob;
             });
+
+            if (! $imported) {
+                $this->mediaImporter->deleteCopiedMedia($mediaCopy);
+            }
+
+            return $importJob;
         } catch (Throwable $exception) {
             $this->mediaImporter->deleteCopiedMedia($mediaCopy);
 

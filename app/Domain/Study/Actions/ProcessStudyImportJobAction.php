@@ -116,7 +116,7 @@ class ProcessStudyImportJobAction
             }
 
             try {
-                $completedImportJob = $this->archiveImporter->import($importJob, $archive, $snapshot, $preview, $now);
+                $processedImportJob = $this->archiveImporter->import($importJob, $archive, $snapshot, $preview, $now);
             } catch (Throwable $exception) {
                 report($exception);
 
@@ -127,9 +127,11 @@ class ProcessStudyImportJobAction
                 );
             }
 
-            $this->deleteCompletedSourceArchive($completedImportJob);
+            if ($processedImportJob->status === StudyImportStatus::Completed) {
+                $this->deleteCompletedSourceArchive($processedImportJob);
+            }
 
-            return $completedImportJob;
+            return $processedImportJob;
         } finally {
             $snapshot?->close();
         }

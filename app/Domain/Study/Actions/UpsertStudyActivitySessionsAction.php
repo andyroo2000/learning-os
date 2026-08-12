@@ -6,10 +6,10 @@ use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use LogicException;
 
 class UpsertStudyActivitySessionsAction
 {
@@ -22,7 +22,7 @@ class UpsertStudyActivitySessionsAction
         return DB::transaction(function () use ($userId, $sessions): Collection {
             // A first write has no session row to lock, so use the stable owner row
             // to serialize the source decision for every client session ID.
-            $this->lockSessionOwner($userId);
+            $this->lockUserOrFail($userId);
 
             $now = now();
             $clientSessionIds = collect($sessions)->map(
@@ -105,15 +105,11 @@ class UpsertStudyActivitySessionsAction
         });
     }
 
-    private function lockSessionOwner(int $userId): void
+    private function lockUserOrFail(int $userId): void
     {
-        $lockedUserId = DB::table('users')
-            ->where('id', $userId)
+        User::query()
+            ->whereKey($userId)
             ->lockForUpdate()
-            ->value('id');
-
-        if ($lockedUserId === null) {
-            throw new LogicException('Study activity session owner could not be locked.');
-        }
+            ->firstOrFail();
     }
 }

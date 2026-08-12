@@ -9,11 +9,13 @@ use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class UploadStudyImportFileAction
 {
@@ -90,7 +92,7 @@ class UploadStudyImportFileAction
                 }
 
                 // Keep the write under the row lock so completion cannot validate a partial object.
-                Storage::disk('study-imports')->writeStream($importJob->source_object_path, $stagedContents);
+                $this->writeSourceArchive($importJob->source_object_path, $stagedContents);
 
                 $importJob->source_size_bytes = $actualContentSizeBytes;
                 $importJob->uploaded_at = $now;
@@ -106,6 +108,44 @@ class UploadStudyImportFileAction
             return $importJob;
         } finally {
             fclose($stagedContents);
+        }
+    }
+
+    /** @param resource $contents */
+    private function writeSourceArchive(string $path, $contents): void
+    {
+        $disk = Storage::disk('study-imports');
+
+        try {
+            $written = $disk->writeStream($path, $contents);
+        } catch (Throwable $exception) {
+            $this->deletePartialSourceArchive($disk, $path);
+
+            throw new RuntimeException('Unable to store the study import upload.', previous: $exception);
+        }
+
+        if (! $written) {
+            $this->deletePartialSourceArchive($disk, $path);
+
+            throw new RuntimeException('Unable to store the study import upload.');
+        }
+    }
+
+    private function deletePartialSourceArchive(FilesystemAdapter $disk, string $path): void
+    {
+        try {
+            $deleted = $disk->delete($path);
+        } catch (Throwable $exception) {
+            report(new RuntimeException(
+                'Unable to remove a partial study import upload: '.$path,
+                previous: $exception,
+            ));
+
+            return;
+        }
+
+        if (! $deleted) {
+            report(new RuntimeException('Unable to remove a partial study import upload: '.$path));
         }
     }
 
@@ -165,7 +205,7 @@ class UploadStudyImportFileAction
             rewind($stagedContents);
 
             return [$stagedContents, $actualContentSizeBytes];
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             fclose($stagedContents);
 
             throw $exception;

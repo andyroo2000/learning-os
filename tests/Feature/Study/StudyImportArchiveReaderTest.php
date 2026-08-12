@@ -372,6 +372,32 @@ class StudyImportArchiveReaderTest extends TestCase
         );
     }
 
+    public function test_it_rejects_invalid_candidate_deck_names_before_building_a_multi_deck_error(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/invalid-candidate-deck-name.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'normalized_schema' => true,
+                'deck_name' => 'Spanish',
+                'extra_decks' => [
+                    ['id' => 1700000000001, 'name' => 'French', 'normalized_name' => "French\xFF"],
+                ],
+                'extra_cards' => [
+                    ['id' => 704, 'did' => 1700000000001],
+                ],
+            ]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('The imported deck name must use valid UTF-8.');
+
+        app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/invalid-candidate-deck-name.colpkg',
+        );
+    }
+
     public function test_it_rejects_normalized_note_type_names_that_are_not_valid_utf_8(): void
     {
         Storage::fake('study-imports');

@@ -28,10 +28,6 @@ final class StudyImportCollectionDatabaseReader
 
             $deck = $this->targetDeck($pdo);
 
-            if (! mb_check_encoding($deck->name, 'UTF-8')) {
-                throw StudyImportPreviewException::invalidDeckNameEncoding();
-            }
-
             if (mb_strlen($deck->name) > Deck::MAX_NAME_LENGTH) {
                 throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
             }
@@ -156,6 +152,12 @@ final class StudyImportCollectionDatabaseReader
                 $validDecks,
                 static fn (StudyImportArchiveDeck $deck): bool => isset($cardDeckIds[$deck->sourceDeckId]),
             ));
+
+        foreach ($candidateDecks as $deck) {
+            if (! mb_check_encoding($deck->name, 'UTF-8')) {
+                throw StudyImportPreviewException::invalidDeckNameEncoding();
+            }
+        }
 
         if ($cardDeckIds !== [] && $candidateDecks === []) {
             throw new StudyImportPreviewException('The uploaded collection references cards from decks that are missing from deck metadata.');
@@ -310,6 +312,24 @@ final class StudyImportCollectionDatabaseReader
             ['deck_id' => $deckId],
         );
 
+        $usedNoteTypeIds = [];
+
+        foreach ($rows as $row) {
+            $usedNoteTypeIds[(int) $row['note_type_id']] = true;
+        }
+
+        foreach (array_keys($usedNoteTypeIds) as $noteTypeId) {
+            $noteTypeName = $noteTypes[$noteTypeId]['name'] ?? '';
+
+            if (! mb_check_encoding($noteTypeName, 'UTF-8')) {
+                throw StudyImportPreviewException::invalidNoteTypeNameEncoding();
+            }
+
+            if (mb_strlen($noteTypeName) > Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH) {
+                throw StudyImportPreviewException::noteTypeNameTooLong(Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
+            }
+        }
+
         return array_map(
             function (array $row) use ($noteTypes): StudyImportArchiveCard {
                 $noteTypeId = (int) $row['note_type_id'];
@@ -320,14 +340,6 @@ final class StudyImportCollectionDatabaseReader
                     'fields' => [],
                     'templates' => [],
                 ];
-
-                if (! mb_check_encoding($noteType['name'], 'UTF-8')) {
-                    throw StudyImportPreviewException::invalidNoteTypeNameEncoding();
-                }
-
-                if (mb_strlen($noteType['name']) > Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH) {
-                    throw StudyImportPreviewException::noteTypeNameTooLong(Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
-                }
 
                 if (! mb_check_encoding($noteFields, 'UTF-8')) {
                     throw StudyImportPreviewException::invalidCardTextEncoding();

@@ -165,7 +165,7 @@ trait BuildsStudyImportArchives
 
                 $statement->execute([
                     'id' => (int) $extraDeck['id'],
-                    'name' => (string) ($extraDeck['name'] ?? ''),
+                    'name' => (string) ($extraDeck['normalized_name'] ?? $extraDeck['name'] ?? ''),
                 ]);
             }
 

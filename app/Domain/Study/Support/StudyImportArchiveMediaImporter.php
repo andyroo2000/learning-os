@@ -63,7 +63,9 @@ final class StudyImportArchiveMediaImporter
 
                 // A failed streamed write can leave a partial object behind, depending on the storage adapter.
                 if (! Storage::disk(MediaAsset::DISK_MEDIA)->delete($target['path'])) {
-                    throw new RuntimeException('Unable to remove a partial study import media object.');
+                    report(new RuntimeException(
+                        'Unable to remove a partial study import media object: '.$target['path'],
+                    ));
                 }
             }
 

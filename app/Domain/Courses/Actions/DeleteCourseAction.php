@@ -9,6 +9,8 @@ use App\Domain\Flashcards\Actions\DeleteDeckAction;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Support\Database\UserHierarchyLock;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 class DeleteCourseAction
@@ -25,13 +27,31 @@ class DeleteCourseAction
     public function handle(Course $course): DeleteCourseResult
     {
         return DB::transaction(function () use ($course): DeleteCourseResult {
-            // Re-resolve under a row lock so stale and concurrent DELETE retries cannot
-            // append duplicate course or descendant tombstones.
+            $courseId = $course->getKey();
+            $userId = Course::query()
+                ->withTrashed()
+                ->whereKey($courseId)
+                ->value('user_id');
+
+            if ($userId === null) {
+                throw (new ModelNotFoundException)->setModel(Course::class, [$courseId]);
+            }
+
+            UserHierarchyLock::acquireOrFail((int) $userId, Course::class, $courseId);
+
+            // Acquire hierarchy locks in User -> Course -> Deck -> Card order. Re-resolving
+            // under those locks keeps stale/concurrent retries from duplicating tombstones.
             $lockedCourse = Course::query()
                 ->withTrashed()
-                ->whereKey($course->getKey())
+                ->whereKey($courseId)
+                ->where('user_id', $userId)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if ($lockedCourse === null) {
+                throw (new ModelNotFoundException)->setModel(Course::class, [$courseId]);
+            }
+
             $course->setRawAttributes($lockedCourse->getAttributes(), true);
             $course->setRelations([]);
 

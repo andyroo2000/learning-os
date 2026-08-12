@@ -67,7 +67,7 @@ class DeleteMediaAssetAction
     private function ownedCardMediaPivotsFor(MediaAsset $mediaAsset): Collection
     {
         // Raw joins include soft-deleted cards/decks and avoid emitting tombstones for corrupt cross-owner pivots.
-        // Pivots inserted after this snapshot may be cascade-deleted without tombstones; callers should not attach during asset deletion.
+        // The caller holds the media row lock, so FK-backed attachments cannot commit between this snapshot and deletion.
         return DB::table('card_media')
             ->select(
                 'card_media.card_id',

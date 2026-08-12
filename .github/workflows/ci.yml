@@ -144,6 +144,7 @@ jobs:
           php artisan test \
             tests/Feature/Flashcards/CardUpdateDeletionLockPostgresTest.php \
             tests/Feature/Flashcards/FlashcardDeletionLockPostgresTest.php \
+            tests/Feature/Flashcards/HierarchyUpdateDeletionLockPostgresTest.php \
             tests/Feature/Media/CardMediaAttachmentLockPostgresTest.php \
             tests/Feature/Media/CardMediaDetachmentLockPostgresTest.php \
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \

@@ -11,10 +11,7 @@ use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
-use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
-use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -26,7 +23,6 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 final class StudyImportArchiveImporter
@@ -34,9 +30,7 @@ final class StudyImportArchiveImporter
     public function __construct(
         private readonly NewCardQueuePosition $newCardQueuePosition,
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-        private readonly RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
-        private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
-        private readonly StudyImportArchiveReader $archiveReader,
+        private readonly StudyImportArchiveMediaImporter $mediaImporter,
     ) {}
 
     /**
@@ -45,12 +39,12 @@ final class StudyImportArchiveImporter
     public function import(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $preview, Carbon $now): StudyImportJob
     {
         $importableCards = $this->importableCards($archive);
-        $mediaCopy = $this->copyReferencedMedia($importJob, $archive, $importableCards);
+        $mediaCopy = $this->mediaImporter->copy($importJob, $archive, $importableCards);
 
         try {
             return DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy): StudyImportJob {
                 $deck = $this->createDeck($importJob, $archive, $now);
-                $mediaAssetsByFilename = $this->createMediaAssets($importJob, $mediaCopy['targets'], $now);
+                $mediaAssetsByFilename = $this->mediaImporter->createMediaAssets($importJob, $mediaCopy, $now);
                 $importedCards = [];
                 $importedCardsBySourceCardId = [];
                 // nextForUser locks the owner row; this transaction holds that lock while
@@ -76,7 +70,7 @@ final class StudyImportArchiveImporter
                     $this->recordCardSync($importJob->user_id, $card, $deck);
                 }
 
-                $this->attachMediaToCards($importJob->user_id, $deck, $importedCards, $mediaAssetsByFilename, $now);
+                $this->mediaImporter->attachToCards($importJob->user_id, $deck, $importedCards, $mediaAssetsByFilename, $now);
                 $reviewLogCounts = $this->createReviewEvents(
                     importJob: $importJob,
                     deck: $deck,
@@ -95,7 +89,7 @@ final class StudyImportArchiveImporter
                     'imported_review_logs' => $reviewLogCounts['imported_count'],
                     'skipped_review_logs' => $reviewLogCounts['skipped_count'],
                     'imported_media_assets' => count($mediaAssetsByFilename),
-                    'skipped_media_assets' => $mediaCopy['skipped_count'],
+                    'skipped_media_assets' => $mediaCopy->skippedCount,
                 ];
                 $importJob->error_message = null;
                 $importJob->completed_at = $now;
@@ -104,7 +98,7 @@ final class StudyImportArchiveImporter
                 return $importJob;
             });
         } catch (Throwable $exception) {
-            $this->deleteCopiedMedia($mediaCopy['targets']);
+            $this->mediaImporter->deleteCopiedMedia($mediaCopy);
 
             throw $exception;
         }
@@ -209,303 +203,6 @@ final class StudyImportArchiveImporter
         }
 
         return null;
-    }
-
-    /**
-     * @param  list<StudyImportArchiveCard>  $importableCards
-     * @return array{targets: array<string, array{entry: StudyImportArchiveMediaEntry, filename: string, path: string}>, skipped_count: int}
-     */
-    private function copyReferencedMedia(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $importableCards): array
-    {
-        $referencedFilenames = $this->referencedMediaFilenames($importableCards);
-        $targets = $this->mediaTargets($importJob, $archive, $referencedFilenames);
-
-        if ($targets === []) {
-            return [
-                'targets' => [],
-                'skipped_count' => count($referencedFilenames),
-            ];
-        }
-
-        $targetPathsBySourceMediaRef = [];
-
-        foreach ($targets as $sourceMediaRef => $target) {
-            $targetPathsBySourceMediaRef[$sourceMediaRef] = $target['path'];
-        }
-
-        try {
-            $copiedBySourceMediaRef = $this->archiveReader->copyMediaEntriesToDisk(
-                Storage::disk('study-imports'),
-                (string) $importJob->source_object_path,
-                Storage::disk(MediaAsset::DISK_MEDIA),
-                $targetPathsBySourceMediaRef,
-            );
-        } catch (Throwable $exception) {
-            $this->deleteCopiedMedia($targets);
-
-            throw $exception;
-        }
-
-        $copiedTargets = [];
-
-        foreach ($targets as $sourceMediaRef => $target) {
-            if (($copiedBySourceMediaRef[$sourceMediaRef] ?? false) === true) {
-                $copiedTargets[$sourceMediaRef] = $target;
-            }
-        }
-
-        return [
-            'targets' => $copiedTargets,
-            'skipped_count' => count($referencedFilenames) - count($copiedTargets),
-        ];
-    }
-
-    /**
-     * @param  list<string>  $referencedFilenames
-     * @return array<string, array{entry: StudyImportArchiveMediaEntry, filename: string, path: string}>
-     */
-    private function mediaTargets(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $referencedFilenames): array
-    {
-        $targets = [];
-
-        foreach ($referencedFilenames as $filename) {
-            $entry = $archive->mediaManifestByFilename[$filename] ?? null;
-
-            if (! $this->isImportableMediaEntry($entry)) {
-                continue;
-            }
-
-            $path = $this->mediaStoragePath($importJob, $entry);
-
-            if ($path === null) {
-                continue;
-            }
-
-            $targets[$entry->sourceMediaRef] = [
-                'entry' => $entry,
-                'filename' => $filename,
-                'path' => $path,
-            ];
-        }
-
-        return $targets;
-    }
-
-    /**
-     * @param  list<StudyImportArchiveCard>  $importableCards
-     * @return list<string>
-     */
-    private function referencedMediaFilenames(array $importableCards): array
-    {
-        $filenames = [];
-
-        foreach ($importableCards as $archiveCard) {
-            foreach ($archiveCard->mediaReferences() as $filename) {
-                $filenames[$filename] = true;
-            }
-        }
-
-        return array_keys($filenames);
-    }
-
-    private function isImportableMediaEntry(?StudyImportArchiveMediaEntry $entry): bool
-    {
-        return $entry !== null
-            && $entry->hasContent
-            && $entry->sizeBytes !== null
-            && $entry->sizeBytes >= 1
-            && $entry->sizeBytes <= MediaAsset::MAX_JSON_SAFE_SIZE_BYTES
-            && $entry->checksumSha256 !== null
-            && strlen($entry->checksumSha256) === 64
-            && ctype_xdigit($entry->checksumSha256)
-            && mb_strlen($entry->sourceMediaRef) <= MediaAsset::MAX_PATH_LENGTH
-            && $this->normalizedSourceFilename($entry) !== null;
-    }
-
-    private function mediaStoragePath(StudyImportJob $importJob, StudyImportArchiveMediaEntry $entry): ?string
-    {
-        $filename = $this->normalizedSourceFilename($entry);
-
-        if ($filename === null) {
-            return null;
-        }
-
-        $prefix = 'study/imports/'.$importJob->id.'/'.$this->pathSegment($entry->sourceMediaRef).'-';
-        $availableFilenameLength = MediaAsset::MAX_PATH_LENGTH - mb_strlen($prefix);
-
-        if ($availableFilenameLength < 1) {
-            return null;
-        }
-
-        return $prefix.$this->limitFilename($filename, $availableFilenameLength);
-    }
-
-    private function normalizedSourceFilename(StudyImportArchiveMediaEntry $entry): ?string
-    {
-        $filename = OriginalFilename::normalize($entry->sourceFilename);
-
-        if ($filename === null || mb_strlen($filename) > MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH) {
-            return null;
-        }
-
-        return $filename;
-    }
-
-    private function pathSegment(string $value): string
-    {
-        $segment = preg_replace('/[^A-Za-z0-9._-]+/', '-', $value) ?? '';
-        $segment = trim($segment, '.-');
-
-        if ($segment === '') {
-            $segment = 'media';
-        }
-
-        if (mb_strlen($segment) <= 64) {
-            return $segment;
-        }
-
-        return mb_substr($segment, 0, 51).'-'.substr(hash('sha256', $value), 0, 12);
-    }
-
-    private function limitFilename(string $filename, int $maxLength): string
-    {
-        if (mb_strlen($filename) <= $maxLength) {
-            return $filename;
-        }
-
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-
-        if ($extension === '') {
-            return mb_substr($filename, 0, $maxLength);
-        }
-
-        $suffix = '.'.$extension;
-        $basenameMaxLength = max(1, $maxLength - mb_strlen($suffix));
-
-        return mb_substr(pathinfo($filename, PATHINFO_FILENAME), 0, $basenameMaxLength).$suffix;
-    }
-
-    /**
-     * @param  array<string, array{entry: StudyImportArchiveMediaEntry, filename: string, path: string}>  $targets
-     * @return array<string, MediaAsset>
-     */
-    private function createMediaAssets(StudyImportJob $importJob, array $targets, Carbon $now): array
-    {
-        $mediaAssetsByFilename = [];
-
-        foreach ($targets as $target) {
-            $entry = $target['entry'];
-            $sourceFilename = $this->normalizedSourceFilename($entry);
-
-            if ($sourceFilename === null) {
-                continue;
-            }
-
-            $mediaAsset = new MediaAsset([
-                'user_id' => $importJob->user_id,
-                'disk' => MediaAsset::DISK_MEDIA,
-                'path' => $target['path'],
-                'mime_type' => $this->mimeTypeForFilename($sourceFilename),
-                'size_bytes' => $entry->sizeBytes,
-                'checksum_sha256' => $entry->checksumSha256,
-                'original_filename' => $sourceFilename,
-            ]);
-            $mediaAsset->public_url = null;
-            $mediaAsset->import_job_id = $importJob->id;
-            $mediaAsset->source_kind = StudyImportJob::SOURCE_TYPE_ANKI_COLPKG;
-            $mediaAsset->source_media_ref = $entry->sourceMediaRef;
-            $mediaAsset->source_filename = $sourceFilename;
-            $mediaAsset->created_at = $now;
-            $mediaAsset->updated_at = $now;
-            $mediaAsset->saveOrFail();
-
-            $this->recordMediaAssetSync($importJob->user_id, $mediaAsset);
-
-            $mediaAssetsByFilename[$target['filename']] = $mediaAsset;
-        }
-
-        return $mediaAssetsByFilename;
-    }
-
-    private function mimeTypeForFilename(string $filename): string
-    {
-        return match (strtolower(pathinfo($filename, PATHINFO_EXTENSION))) {
-            'aac' => 'audio/aac',
-            'avif' => 'image/avif',
-            'bmp' => 'image/bmp',
-            'flac' => 'audio/flac',
-            'gif' => 'image/gif',
-            'jpeg', 'jpg' => 'image/jpeg',
-            'm4a' => 'audio/mp4',
-            'mp3' => 'audio/mpeg',
-            'mp4' => 'video/mp4',
-            'oga', 'ogg' => 'audio/ogg',
-            'ogv' => 'video/ogg',
-            'png' => 'image/png',
-            'svg' => 'image/svg+xml',
-            'wav' => 'audio/wav',
-            'webm' => 'video/webm',
-            'webp' => 'image/webp',
-            default => 'application/octet-stream',
-        };
-    }
-
-    private function recordMediaAssetSync(int $userId, MediaAsset $mediaAsset): void
-    {
-        $this->recordMediaAssetSyncFeedEntry->handle(
-            userId: $userId,
-            operation: SyncFeedOperation::Create,
-            mediaAsset: $mediaAsset,
-        );
-    }
-
-    /**
-     * @param  list<array{card: Card, archive_card: StudyImportArchiveCard}>  $importedCards
-     * @param  array<string, MediaAsset>  $mediaAssetsByFilename
-     */
-    private function attachMediaToCards(int $userId, Deck $deck, array $importedCards, array $mediaAssetsByFilename, Carbon $now): void
-    {
-        foreach ($importedCards as $importedCard) {
-            $card = $importedCard['card'];
-            $card->setRelation('deck', $deck);
-
-            foreach ($importedCard['archive_card']->mediaReferences() as $filename) {
-                $mediaAsset = $mediaAssetsByFilename[$filename] ?? null;
-
-                if ($mediaAsset === null) {
-                    continue;
-                }
-
-                $changes = $card->mediaAssets()->syncWithoutDetaching([$mediaAsset->id]);
-
-                if ($changes['attached'] === []) {
-                    continue;
-                }
-
-                $card->updated_at = $now;
-                $card->saveOrFail();
-                $pivot = $this->cardMediaPivot($card, $mediaAsset);
-
-                $this->recordCardMediaSyncFeedEntry->handle(
-                    userId: $userId,
-                    operation: SyncFeedOperation::Create,
-                    cardId: $card->id,
-                    mediaAssetId: $mediaAsset->id,
-                    deckId: $card->deck_id,
-                    courseId: $card->deckCourseId(),
-                    createdAt: $pivot?->created_at,
-                    updatedAt: $pivot?->updated_at,
-                );
-            }
-        }
-    }
-
-    private function cardMediaPivot(Card $card, MediaAsset $mediaAsset): ?object
-    {
-        return DB::table('card_media')
-            ->where('card_id', $card->id)
-            ->where('media_asset_id', $mediaAsset->id)
-            ->first(['created_at', 'updated_at']);
     }
 
     /**
@@ -638,16 +335,6 @@ final class StudyImportArchiveImporter
                 payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
             ),
         );
-    }
-
-    /**
-     * @param  array<string, array{entry: StudyImportArchiveMediaEntry, filename: string, path: string}>  $targets
-     */
-    private function deleteCopiedMedia(array $targets): void
-    {
-        foreach ($targets as $target) {
-            Storage::disk(MediaAsset::DISK_MEDIA)->delete($target['path']);
-        }
     }
 
     private function recordCardSync(int $userId, Card $card, Deck $deck): void

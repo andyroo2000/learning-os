@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
@@ -18,10 +19,12 @@ use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -31,6 +34,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ReflectionMethod;
+use RuntimeException;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
 use Tests\Support\Media\AssertsMediaAssetSyncFeedEntries;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -1105,6 +1109,87 @@ class StudyImportUploadActionTest extends TestCase
         ]);
         $this->assertDatabaseCount('card_media', 2);
         $this->assertSame(9, SyncFeedEntry::query()->count());
+    }
+
+    public function test_process_job_removes_partial_media_objects_after_copy_failure(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/partial-media-copy.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+        $mediaDisk = Storage::disk('media');
+        $failingMediaDisk = new class($mediaDisk) extends FilesystemAdapter
+        {
+            private bool $failed = false;
+
+            public function __construct(private readonly FilesystemAdapter $inner)
+            {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function put($path, $contents, $options = []): bool
+            {
+                if (! $this->failed) {
+                    $this->failed = true;
+                    $this->inner->put($path, 'partial-media-bytes', $options);
+
+                    return false;
+                }
+
+                return $this->inner->put($path, $contents, $options);
+            }
+        };
+        Storage::set('media', $failingMediaDisk);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(1, $processed?->summary_json['imported_media_assets']);
+        $this->assertSame(1, $processed?->summary_json['skipped_media_assets']);
+        $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('card_media', 2);
+        $this->assertSame(1, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
+        $mediaDisk->assertMissing('study/imports/'.$importJob->id.'/0-word.mp3');
+        $mediaDisk->assertExists('study/imports/'.$importJob->id.'/1-company.png');
+        $this->assertSame('media-bytes', $mediaDisk->get('study/imports/'.$importJob->id.'/1-company.png'));
+    }
+
+    public function test_process_job_rolls_back_media_records_and_copies_after_sync_failure(): void
+    {
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/media-sync-failure.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+        $this->app->bind(
+            RecordMediaAssetSyncFeedEntryAction::class,
+            fn (): RecordMediaAssetSyncFeedEntryAction => new class(app(RecordSyncFeedEntryAction::class)) extends RecordMediaAssetSyncFeedEntryAction
+            {
+                public function handle(int $userId, SyncFeedOperation $operation, MediaAsset $mediaAsset): SyncFeedEntry
+                {
+                    throw new RuntimeException('Simulated media sync failure.');
+                }
+            },
+        );
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame('Study import could not be processed.', $processed?->error_message);
+        $this->assertDatabaseCount('decks', 0);
+        $this->assertDatabaseCount('cards', 0);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('card_media', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        Storage::disk('media')->assertMissing('study/imports/'.$importJob->id.'/0-word.mp3');
+        Storage::disk('media')->assertMissing('study/imports/'.$importJob->id.'/1-company.png');
+        Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Simulated media sync failure.');
     }
 
     public function test_process_job_skips_legacy_review_logs_without_ratings(): void

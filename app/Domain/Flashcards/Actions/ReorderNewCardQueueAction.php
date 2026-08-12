@@ -16,7 +16,6 @@ use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use LogicException;
 
 class ReorderNewCardQueueAction
 {
@@ -44,7 +43,7 @@ class ReorderNewCardQueueAction
         }
 
         return DB::transaction(function () use ($userId, $cardIds): Collection {
-            $this->lockQueueOwner($userId);
+            $this->newCardQueuePosition()->lockOwner($userId);
             $databaseCardIds = collect($cardIds)
                 ->flatMap(fn (string $cardId): array => CanonicalUlid::databaseCandidates($cardId))
                 ->unique()
@@ -159,17 +158,5 @@ class ReorderNewCardQueueAction
     private function newCardQueuePosition(): NewCardQueuePosition
     {
         return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
-    }
-
-    private function lockQueueOwner(int $userId): void
-    {
-        $lockedUserId = DB::table('users')
-            ->where('id', $userId)
-            ->lockForUpdate()
-            ->value('id');
-
-        if ($lockedUserId === null) {
-            throw new LogicException('New-card queue owner could not be locked.');
-        }
     }
 }

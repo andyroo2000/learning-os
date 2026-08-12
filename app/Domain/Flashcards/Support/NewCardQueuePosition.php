@@ -13,11 +13,7 @@ class NewCardQueuePosition
 {
     public function nextForUser(int $userId): int
     {
-        $lockedUserId = $this->ownerLockQuery(DB::connection(), $userId)->value('id');
-
-        if ($lockedUserId === null) {
-            throw new LogicException('New-card queue owner could not be locked.');
-        }
+        $this->lockOwner($userId);
 
         $maxPosition = Card::query()
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
@@ -27,6 +23,15 @@ class NewCardQueuePosition
             ->max('cards.new_queue_position');
 
         return ((int) $maxPosition) + 1;
+    }
+
+    public function lockOwner(int $userId): void
+    {
+        $lockedUserId = $this->ownerLockQuery(DB::connection(), $userId)->value('id');
+
+        if ($lockedUserId === null) {
+            throw new LogicException('New-card queue owner could not be locked.');
+        }
     }
 
     /** @internal Exposed to compile the supported database lock grammars in tests. */

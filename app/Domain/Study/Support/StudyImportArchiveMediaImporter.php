@@ -328,8 +328,24 @@ final class StudyImportArchiveMediaImporter
      */
     private function deleteTargets(array $targets): void
     {
+        try {
+            $disk = Storage::disk(MediaAsset::DISK_MEDIA);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return;
+        }
+
         foreach ($targets as $target) {
-            Storage::disk(MediaAsset::DISK_MEDIA)->delete($target['path']);
+            try {
+                if (! $disk->delete($target['path'])) {
+                    report(new RuntimeException(
+                        'Unable to remove a copied study import media object: '.$target['path'],
+                    ));
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
     }
 

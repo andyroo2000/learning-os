@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 class ProcessStudyImportJobAction
@@ -114,7 +115,7 @@ class ProcessStudyImportJobAction
             }
 
             try {
-                return $this->archiveImporter->import($importJob, $archive, $snapshot, $preview, $now);
+                $completedImportJob = $this->archiveImporter->import($importJob, $archive, $snapshot, $preview, $now);
             } catch (Throwable $exception) {
                 report($exception);
 
@@ -124,8 +125,36 @@ class ProcessStudyImportJobAction
                     $now,
                 );
             }
+
+            $this->deleteCompletedSourceArchive($completedImportJob);
+
+            return $completedImportJob;
         } finally {
             $snapshot?->close();
+        }
+    }
+
+    private function deleteCompletedSourceArchive(StudyImportJob $importJob): void
+    {
+        $sourceObjectPath = $importJob->source_object_path;
+
+        if (! is_string($sourceObjectPath) || $sourceObjectPath === '') {
+            return;
+        }
+
+        try {
+            if (Storage::disk('study-imports')->delete($sourceObjectPath)) {
+                return;
+            }
+
+            report(new RuntimeException(
+                'Unable to delete a completed study import source archive: '.$sourceObjectPath,
+            ));
+        } catch (Throwable $exception) {
+            report(new RuntimeException(
+                'Unable to delete a completed study import source archive: '.$sourceObjectPath,
+                previous: $exception,
+            ));
         }
     }
 

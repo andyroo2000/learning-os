@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use RuntimeException;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
@@ -1033,7 +1034,130 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
+        Storage::disk('study-imports')->assertMissing($sourceObjectPath);
         $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
+    }
+
+    public function test_process_job_deletes_the_source_archive_after_the_completed_state_commits(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/post-commit-cleanup.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['media_map' => [], 'media_entries' => []]),
+        );
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+        $transactionLevelBeforeProcessing = DB::transactionLevel();
+        $sourceDisk = Storage::disk('study-imports');
+        $observingSourceDisk = new class($sourceDisk, $importJob->id) extends FilesystemAdapter
+        {
+            public ?int $transactionLevelDuringDelete = null;
+
+            public ?StudyImportStatus $persistedStatusDuringDelete = null;
+
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly string $importJobId,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function delete($paths): bool
+            {
+                $this->transactionLevelDuringDelete = DB::transactionLevel();
+                $this->persistedStatusDuringDelete = StudyImportJob::query()->findOrFail($this->importJobId)->status;
+
+                return $this->inner->delete($paths);
+            }
+        };
+        Storage::set('study-imports', $observingSourceDisk);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame($transactionLevelBeforeProcessing, $observingSourceDisk->transactionLevelDuringDelete);
+        $this->assertSame(StudyImportStatus::Completed, $observingSourceDisk->persistedStatusDuringDelete);
+        $sourceDisk->assertMissing($sourceObjectPath);
+    }
+
+    #[DataProvider('completedSourceArchiveDeletionFailureProvider')]
+    public function test_process_job_keeps_completed_state_when_source_archive_deletion_fails(bool $throwDuringDelete): void
+    {
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/cleanup-failure.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['media_map' => [], 'media_entries' => []]),
+        );
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+        $sourceDisk = Storage::disk('study-imports');
+        $failingSourceDisk = new class($sourceDisk, $throwDuringDelete) extends FilesystemAdapter
+        {
+            public int $deleteCalls = 0;
+
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly bool $throwDuringDelete,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function delete($paths): bool
+            {
+                $this->deleteCalls++;
+
+                if ($this->throwDuringDelete) {
+                    throw new RuntimeException('Simulated source archive deletion failure.');
+                }
+
+                return false;
+            }
+        };
+        Storage::set('study-imports', $failingSourceDisk);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+        $completedAt = $processed?->completed_at?->toJSON();
+        $retried = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(StudyImportStatus::Completed, $importJob->refresh()->status);
+        $this->assertSame(StudyImportStatus::Completed, $retried?->status);
+        $this->assertSame($completedAt, $retried?->completed_at?->toJSON());
+        $this->assertSame(1, $failingSourceDisk->deleteCalls);
+        $this->assertDatabaseCount('decks', 1);
+        $this->assertDatabaseCount('cards', 3);
+        $sourceDisk->assertExists($sourceObjectPath);
+        Exceptions::assertReported(
+            function (RuntimeException $exception) use ($sourceObjectPath, $throwDuringDelete): bool {
+                if ($exception->getMessage()
+                    !== 'Unable to delete a completed study import source archive: '.$sourceObjectPath) {
+                    return false;
+                }
+
+                return $throwDuringDelete
+                    ? $exception->getPrevious()?->getMessage() === 'Simulated source archive deletion failure.'
+                    : $exception->getPrevious() === null;
+            },
+        );
+        Exceptions::assertReportedCount(1);
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function completedSourceArchiveDeletionFailureProvider(): array
+    {
+        return [
+            'adapter returns false' => [false],
+            'adapter throws' => [true],
+        ];
     }
 
     public function test_process_job_imports_single_non_default_deck_archives(): void

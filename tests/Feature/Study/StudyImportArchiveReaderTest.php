@@ -4,13 +4,84 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportArchiveReader;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use ReflectionMethod;
+use RuntimeException;
 use Tests\Support\Study\BuildsStudyImportArchives;
 use Tests\TestCase;
+use Throwable;
 
 class StudyImportArchiveReaderTest extends TestCase
 {
     use BuildsStudyImportArchives;
+
+    public function test_it_removes_the_temporary_archive_when_copying_the_storage_stream_fails(): void
+    {
+        $input = fopen(sys_get_temp_dir(), 'rb');
+        $tempPathsBefore = $this->studyImportTempPaths('study-import-archive-');
+        $disk = $this->mock(FilesystemAdapter::class);
+        $disk->shouldReceive('readStream')
+            ->once()
+            ->with('study/imports/read/unreadable.colpkg')
+            ->andReturn($input);
+        $caught = null;
+
+        try {
+            app(StudyImportArchiveReader::class)->read(
+                $disk,
+                'study/imports/read/unreadable.colpkg',
+            );
+
+            $this->fail('Expected copying the unreadable storage stream to fail.');
+        } catch (Throwable $exception) {
+            $caught = $exception;
+        } finally {
+            if (is_resource($input)) {
+                fclose($input);
+            }
+
+            $tempPathsAfter = $this->studyImportTempPaths('study-import-archive-');
+
+            foreach (array_diff($tempPathsAfter, $tempPathsBefore) as $leakedPath) {
+                @unlink($leakedPath);
+            }
+        }
+
+        $this->assertInstanceOf(RuntimeException::class, $caught);
+        $this->assertSame('Unable to copy the import archive to temporary storage.', $caught->getMessage());
+        $this->assertSame($tempPathsBefore, $tempPathsAfter);
+    }
+
+    public function test_it_removes_the_temporary_collection_when_copying_the_archive_stream_fails(): void
+    {
+        $input = fopen(sys_get_temp_dir(), 'rb');
+        $tempPathsBefore = $this->studyImportTempPaths('study-import-collection-');
+        $method = new ReflectionMethod(StudyImportArchiveReader::class, 'copyCollectionStreamToTempFile');
+        $caught = null;
+
+        try {
+            $method->invoke(app(StudyImportArchiveReader::class), $input);
+
+            $this->fail('Expected copying the unreadable collection stream to fail.');
+        } catch (Throwable $exception) {
+            $caught = $exception;
+        } finally {
+            if (is_resource($input)) {
+                fclose($input);
+            }
+
+            $tempPathsAfter = $this->studyImportTempPaths('study-import-collection-');
+
+            foreach (array_diff($tempPathsAfter, $tempPathsBefore) as $leakedPath) {
+                @unlink($leakedPath);
+            }
+        }
+
+        $this->assertInstanceOf(RuntimeException::class, $caught);
+        $this->assertSame('Unable to copy the collection database to temporary storage.', $caught->getMessage());
+        $this->assertSame($tempPathsBefore, $tempPathsAfter);
+    }
 
     public function test_it_reads_target_deck_cards_reviews_and_media_manifest(): void
     {
@@ -267,5 +338,21 @@ class StudyImportArchiveReaderTest extends TestCase
 
         $this->assertSame(0, $archive->reviewLogCount());
         $this->assertSame([], $archive->reviewLogs);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function studyImportTempPaths(string $prefix): array
+    {
+        $paths = glob(sys_get_temp_dir().'/'.$prefix.'*');
+
+        if ($paths === false) {
+            return [];
+        }
+
+        sort($paths);
+
+        return $paths;
     }
 }

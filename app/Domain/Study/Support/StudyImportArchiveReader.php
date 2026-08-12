@@ -6,6 +6,7 @@ use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use Illuminate\Filesystem\FilesystemAdapter;
 use JsonException;
 use RuntimeException;
+use Throwable;
 use ZipArchive;
 
 final class StudyImportArchiveReader
@@ -98,22 +99,44 @@ final class StudyImportArchiveReader
             throw StudyImportPreviewException::missingCollectionDatabase();
         }
 
-        $tempPath = $this->tempPath('study-import-archive-');
-        $output = fopen($tempPath, 'wb');
-
-        if ($output === false) {
-            fclose($input);
-
-            throw new RuntimeException('Unable to create a temporary import archive file.');
-        }
+        $tempPath = null;
+        $output = null;
+        $copyCompleted = false;
 
         try {
-            stream_copy_to_stream($input, $output);
+            $tempPath = $this->tempPath('study-import-archive-');
+            $output = fopen($tempPath, 'wb');
+
+            if ($output === false) {
+                throw new RuntimeException('Unable to create a temporary import archive file.');
+            }
+
+            if (@stream_copy_to_stream($input, $output) === false || ! fflush($output)) {
+                throw new RuntimeException('Unable to copy the import archive to temporary storage.');
+            }
+
+            $copyCompleted = true;
 
             return $tempPath;
+        } catch (Throwable $exception) {
+            if ($exception instanceof RuntimeException) {
+                throw $exception;
+            }
+
+            throw new RuntimeException(
+                'Unable to copy the import archive to temporary storage.',
+                previous: $exception,
+            );
         } finally {
-            fclose($input);
-            fclose($output);
+            @fclose($input);
+
+            if (is_resource($output)) {
+                @fclose($output);
+            }
+
+            if (! $copyCompleted && $tempPath !== null) {
+                @unlink($tempPath);
+            }
         }
     }
 
@@ -253,14 +276,18 @@ final class StudyImportArchiveReader
      */
     private function copyCollectionStreamToTempFile($stream): string
     {
-        $collectionPath = $this->tempPath('study-import-collection-');
-        $output = fopen($collectionPath, 'wb');
-
-        if ($output === false) {
-            throw new RuntimeException('Unable to create a temporary collection database file.');
-        }
+        $collectionPath = null;
+        $output = null;
+        $copyCompleted = false;
 
         try {
+            $collectionPath = $this->tempPath('study-import-collection-');
+            $output = fopen($collectionPath, 'wb');
+
+            if ($output === false) {
+                throw new RuntimeException('Unable to create a temporary collection database file.');
+            }
+
             $header = fread($stream, 4);
 
             if ($header === false) {
@@ -271,16 +298,32 @@ final class StudyImportArchiveReader
                 throw StudyImportPreviewException::unsupportedCompressedCollectionDatabase();
             }
 
-            fwrite($output, $header);
-            stream_copy_to_stream($stream, $output);
+            if (($header !== '' && @fwrite($output, $header) !== strlen($header))
+                || @stream_copy_to_stream($stream, $output) === false
+                || ! fflush($output)) {
+                throw new RuntimeException('Unable to copy the collection database to temporary storage.');
+            }
+
+            $copyCompleted = true;
 
             return $collectionPath;
-        } catch (StudyImportPreviewException $exception) {
-            @unlink($collectionPath);
+        } catch (Throwable $exception) {
+            if ($exception instanceof StudyImportPreviewException || $exception instanceof RuntimeException) {
+                throw $exception;
+            }
 
-            throw $exception;
+            throw new RuntimeException(
+                'Unable to copy the collection database to temporary storage.',
+                previous: $exception,
+            );
         } finally {
-            fclose($output);
+            if (is_resource($output)) {
+                @fclose($output);
+            }
+
+            if (! $copyCompleted && $collectionPath !== null) {
+                @unlink($collectionPath);
+            }
         }
     }
 

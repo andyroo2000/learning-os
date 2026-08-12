@@ -78,12 +78,21 @@ class StudyImportArchiveReaderTest extends TestCase
         );
         Config::set('study_import.archive_expansion.max_individual_media_bytes', 9);
 
-        $copied = app(StudyImportArchiveReader::class)->copyMediaEntriesToDisk(
+        $reader = app(StudyImportArchiveReader::class);
+        $snapshot = $reader->snapshot(
             Storage::disk('study-imports'),
             'study/imports/read/media-copy-limit.colpkg',
-            Storage::disk('media'),
-            ['0' => 'study/imports/media/word.mp3'],
         );
+
+        try {
+            $copied = $reader->copyMediaEntriesFromSnapshotToDisk(
+                $snapshot,
+                Storage::disk('media'),
+                ['0' => 'study/imports/media/word.mp3'],
+            );
+        } finally {
+            $snapshot->close();
+        }
 
         $this->assertSame(['0' => false], $copied);
         Storage::disk('media')->assertMissing('study/imports/media/word.mp3');

@@ -69,29 +69,6 @@ final class StudyImportArchiveReader
      * @param  array<string, string>  $targetPathsBySourceMediaRef
      * @return array<string, bool>
      */
-    public function copyMediaEntriesToDisk(
-        FilesystemAdapter $sourceDisk,
-        string $sourceObjectPath,
-        FilesystemAdapter $targetDisk,
-        array $targetPathsBySourceMediaRef,
-    ): array {
-        if ($targetPathsBySourceMediaRef === []) {
-            return [];
-        }
-
-        $snapshot = $this->snapshot($sourceDisk, $sourceObjectPath);
-
-        try {
-            return $this->copyMediaEntriesFromSnapshotToDisk($snapshot, $targetDisk, $targetPathsBySourceMediaRef);
-        } finally {
-            $snapshot->close();
-        }
-    }
-
-    /**
-     * @param  array<string, string>  $targetPathsBySourceMediaRef
-     * @return array<string, bool>
-     */
     public function copyMediaEntriesFromSnapshotToDisk(
         StudyImportArchiveSnapshot $snapshot,
         FilesystemAdapter $targetDisk,

@@ -2,9 +2,19 @@
 
 namespace Tests\Feature\Study;
 
-use App\Domain\Study\Actions\CleanupCompletedStudyImportArchivesAction;
+use App\Domain\Study\Actions\CancelStudyImportUploadAction;
+use App\Domain\Study\Actions\CleanupTerminalStudyImportArchivesAction;
+use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
+use App\Domain\Study\Actions\PrepareStudyImportActiveSlotAction;
+use App\Domain\Study\Actions\ProcessStudyImportJobAction;
+use App\Domain\Study\Actions\UploadStudyImportFileAction;
+use App\Domain\Study\Enums\StudyImportStatus;
+use App\Domain\Study\Exceptions\StudyImportArchiveException;
+use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportUploadPath;
+use App\Jobs\ProcessStudyImportJob;
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,7 +27,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 
-class CleanupCompletedStudyImportArchivesTest extends TestCase
+class CleanupTerminalStudyImportArchivesTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -31,30 +41,31 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $alreadyCleaned = $this->completedImportJob('already-cleaned.colpkg', now()->subHours(27));
         $alreadyCleaned->archive_cleanup_resolved_at = now()->subHour();
         $alreadyCleaned->saveOrFail();
-        $failed = StudyImportJob::factory()->failed()->create([
-            'completed_at' => now()->subHours(27),
-            'source_object_path' => 'study/imports/failed/core.colpkg',
-        ]);
+        $failed = $this->terminalImportJob(
+            StudyImportStatus::Failed,
+            'failed.colpkg',
+            now()->subHours(27),
+        );
         Storage::disk('study-imports')->put($existing->source_object_path, 'archive');
         Storage::disk('study-imports')->put($recent->source_object_path, 'archive');
         Storage::disk('study-imports')->put($alreadyCleaned->source_object_path, 'archive');
         Storage::disk('study-imports')->put($failed->source_object_path, 'archive');
         $existingUpdatedAt = $existing->updated_at?->toJSON();
 
-        $first = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
-        $second = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $first = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+        $second = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
-        $this->assertSame(2, $first->candidates);
-        $this->assertSame(1, $first->deleted);
+        $this->assertSame(3, $first->candidates);
+        $this->assertSame(2, $first->deleted);
         $this->assertSame(1, $first->alreadyMissing);
         $this->assertSame(0, $first->failed);
         $this->assertSame(0, $second->candidates);
         Storage::disk('study-imports')->assertMissing($existing->source_object_path);
         Storage::disk('study-imports')->assertExists($recent->source_object_path);
         Storage::disk('study-imports')->assertExists($alreadyCleaned->source_object_path);
-        Storage::disk('study-imports')->assertExists($failed->source_object_path);
+        Storage::disk('study-imports')->assertMissing($failed->source_object_path);
 
-        foreach ([$existing, $missing] as $cleaned) {
+        foreach ([$existing, $missing, $failed] as $cleaned) {
             $cleaned->refresh();
             $this->assertSame(now()->toJSON(), $cleaned->archive_cleanup_attempted_at?->toJSON());
             $this->assertSame(now()->toJSON(), $cleaned->archive_cleanup_resolved_at?->toJSON());
@@ -68,17 +79,166 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
     public function test_cleanup_dry_run_reports_candidates_without_storage_or_marker_changes(): void
     {
         Storage::fake('study-imports');
-        $importJob = $this->completedImportJob('dry-run.colpkg', now()->subHours(25));
-        Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
+        $completed = $this->completedImportJob('dry-run-completed.colpkg', now()->subHours(25));
+        $failed = $this->terminalImportJob(
+            StudyImportStatus::Failed,
+            'dry-run-failed.colpkg',
+            now()->subHours(25),
+        );
+        Storage::disk('study-imports')->put($completed->source_object_path, 'archive');
+        Storage::disk('study-imports')->put($failed->source_object_path, 'archive');
 
         $this->artisan('study:prune-import-archives', ['--dry-run' => true])
-            ->expectsOutput('Dry run completed: 1 candidate(s), 0 deleted, 0 already missing, 0 failed (0 unsafe).')
+            ->expectsOutput('Dry run completed: 2 candidate(s), 0 deleted, 0 already missing, 0 failed (0 unsafe).')
             ->assertSuccessful();
 
-        Storage::disk('study-imports')->assertExists($importJob->source_object_path);
-        $this->assertNull($importJob->refresh()->archive_cleanup_attempted_at);
-        $this->assertNull($importJob->archive_cleanup_resolved_at);
-        $this->assertNull($importJob->archive_cleanup_error);
+        foreach ([$completed, $failed] as $importJob) {
+            Storage::disk('study-imports')->assertExists($importJob->source_object_path);
+            $this->assertNull($importJob->refresh()->archive_cleanup_attempted_at);
+            $this->assertNull($importJob->archive_cleanup_resolved_at);
+            $this->assertNull($importJob->archive_cleanup_error);
+        }
+    }
+
+    #[DataProvider('failedImportProducerProvider')]
+    public function test_cleanup_prunes_each_terminal_failure_producer_without_changing_client_state(
+        string $producer,
+        string $errorMessage,
+    ): void {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Storage::fake('study-imports');
+        $importJob = $this->terminalImportJob(
+            StudyImportStatus::Failed,
+            $producer.'.colpkg',
+            now()->subHours(25),
+        );
+        $importJob->error_message = $errorMessage;
+        $importJob->updated_at = now()->subHours(25);
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
+        $statusBeforeCleanup = $importJob->status;
+        $errorBeforeCleanup = $importJob->error_message;
+        $completedAtBeforeCleanup = $importJob->completed_at?->toJSON();
+        $updatedAtBeforeCleanup = $importJob->updated_at?->toJSON();
+
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $result->candidates);
+        $this->assertSame(1, $result->deleted);
+        Storage::disk('study-imports')->assertMissing($importJob->source_object_path);
+        $importJob->refresh();
+        $this->assertSame($statusBeforeCleanup, $importJob->status);
+        $this->assertSame($errorBeforeCleanup, $importJob->error_message);
+        $this->assertSame($completedAtBeforeCleanup, $importJob->completed_at?->toJSON());
+        $this->assertSame($updatedAtBeforeCleanup, $importJob->updated_at?->toJSON());
+        $this->assertNotNull($importJob->archive_cleanup_resolved_at);
+    }
+
+    public function test_cleanup_recovers_archives_left_by_the_actual_failed_import_producer_paths(): void
+    {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Storage::fake('study-imports');
+        $disk = Storage::disk('study-imports');
+        $user = User::factory()->create();
+        $stalePending = $this->activeImportJob($user, StudyImportStatus::Pending, 'stale-pending.colpkg', [
+            'upload_expires_at' => now()->subMinute(),
+        ]);
+        $staleProcessing = $this->activeImportJob($user, StudyImportStatus::Processing, 'stale-processing.colpkg', [
+            'started_at' => now()->subMinutes(StudyImportJob::PROCESSING_TIMEOUT_MINUTES + 1),
+        ]);
+
+        DB::transaction(fn () => app(PrepareStudyImportActiveSlotAction::class)->handle($user->id, now()));
+
+        $expiredUpload = $this->activeImportJob(
+            User::factory()->create(),
+            StudyImportStatus::Pending,
+            'expired-upload.colpkg',
+            ['upload_expires_at' => now()->subMinute()],
+        );
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                $expiredUpload->user_id,
+                $expiredUpload->id,
+                'replacement bytes',
+                $expiredUpload->source_content_type,
+            );
+            $this->fail('Expected the expired upload producer to fail.');
+        } catch (StudyImportUploadExpiredException) {
+        }
+
+        $cancelled = $this->activeImportJob(
+            User::factory()->create(),
+            StudyImportStatus::Pending,
+            'cancelled.colpkg',
+        );
+        $invalidCompletion = $this->activeImportJob(
+            User::factory()->create(),
+            StudyImportStatus::Pending,
+            'invalid-completion.colpkg',
+        );
+        $failingDeleteDisk = new class($disk) extends FilesystemAdapter
+        {
+            public function __construct(private readonly FilesystemAdapter $inner)
+            {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function delete($paths): bool
+            {
+                return false;
+            }
+        };
+        Storage::set('study-imports', $failingDeleteDisk);
+        app(CancelStudyImportUploadAction::class)->handle($cancelled->user_id, $cancelled->id);
+        try {
+            app(CompleteStudyImportUploadAction::class)->handle(
+                $invalidCompletion->user_id,
+                $invalidCompletion->id,
+            );
+            $this->fail('Expected invalid archive completion to fail.');
+        } catch (StudyImportArchiveException) {
+        }
+        Storage::set('study-imports', $disk);
+
+        $processorFailure = $this->activeImportJob(
+            User::factory()->create(),
+            StudyImportStatus::Pending,
+            'processor-failure.colpkg',
+            ['uploaded_at' => now(), 'upload_completed_at' => null],
+        );
+        app(ProcessStudyImportJobAction::class)->handle($processorFailure->id);
+        $queueExhaustion = $this->activeImportJob(
+            User::factory()->create(),
+            StudyImportStatus::Pending,
+            'queue-exhaustion.colpkg',
+        );
+        (new ProcessStudyImportJob($queueExhaustion->id))->failed(new RuntimeException('Queue exhausted.'));
+        $failedImports = [
+            $stalePending,
+            $staleProcessing,
+            $expiredUpload,
+            $cancelled,
+            $invalidCompletion,
+            $processorFailure,
+            $queueExhaustion,
+        ];
+
+        foreach ($failedImports as $importJob) {
+            $this->assertSame(StudyImportStatus::Failed, $importJob->refresh()->status);
+            $disk->assertExists($importJob->source_object_path);
+        }
+
+        Carbon::setTestNow(now()->addHours(25));
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(count($failedImports), $result->candidates);
+        $this->assertSame(count($failedImports), $result->deleted);
+        $this->assertSame(0, $result->failed);
+        foreach ($failedImports as $importJob) {
+            $disk->assertMissing($importJob->source_object_path);
+            $this->assertSame(StudyImportStatus::Failed, $importJob->refresh()->status);
+            $this->assertNotNull($importJob->archive_cleanup_resolved_at);
+        }
     }
 
     public function test_cleanup_claims_before_storage_io_and_releases_the_database_transaction(): void
@@ -125,7 +285,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         Storage::set('study-imports', $observingDisk);
         $transactionLevelBeforeCleanup = DB::transactionLevel();
 
-        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $result->deleted);
         $this->assertSame(
@@ -135,6 +295,37 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $this->assertCount(2, array_filter($observingDisk->claimTokens));
         $this->assertCount(1, array_unique($observingDisk->claimTokens));
         $this->assertNull($importJob->refresh()->archive_cleanup_claim_token);
+    }
+
+    public function test_cleanup_never_prunes_active_pending_or_processing_imports(): void
+    {
+        Storage::fake('study-imports');
+        $pending = StudyImportJob::factory()->create([
+            'completed_at' => now()->subHours(25),
+            'source_object_path' => null,
+        ]);
+        $processing = StudyImportJob::factory()->processing()->create([
+            'completed_at' => now()->subHours(25),
+            'source_object_path' => null,
+        ]);
+
+        foreach ([$pending, $processing] as $importJob) {
+            $importJob->source_object_path = StudyImportUploadPath::forImportJob(
+                $importJob->user_id,
+                $importJob->id,
+                'active.colpkg',
+            );
+            $importJob->saveOrFail();
+            Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
+        }
+
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(0, $result->candidates);
+        foreach ([$pending, $processing] as $importJob) {
+            Storage::disk('study-imports')->assertExists($importJob->source_object_path);
+            $this->assertNull($importJob->refresh()->archive_cleanup_attempted_at);
+        }
     }
 
     public function test_cleanup_does_not_finalize_a_claim_that_was_replaced_during_storage_io(): void
@@ -167,7 +358,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
             }
         });
 
-        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $result->candidates);
         $this->assertSame(0, $result->deleted);
@@ -186,14 +377,14 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $importJob->archive_cleanup_claim_token = 'active-claim';
         $importJob->saveOrFail();
 
-        $active = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $active = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
         $this->assertSame(0, $active->candidates);
 
         $importJob->archive_cleanup_attempted_at = now()->subMinutes(
-            CleanupCompletedStudyImportArchivesAction::CLAIM_LEASE_MINUTES + 1,
+            CleanupTerminalStudyImportArchivesAction::CLAIM_LEASE_MINUTES + 1,
         );
         $importJob->saveOrFail();
-        $expired = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $expired = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $expired->candidates);
         $this->assertSame(1, $expired->alreadyMissing);
@@ -205,7 +396,11 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
     {
         Exceptions::fake();
         Storage::fake('study-imports');
-        $importJob = $this->completedImportJob('exists-failure.colpkg', now()->subHours(25));
+        $importJob = $this->terminalImportJob(
+            StudyImportStatus::Failed,
+            'exists-failure.colpkg',
+            now()->subHours(25),
+        );
         $inner = Storage::disk('study-imports');
         Storage::set('study-imports', new class($inner) extends FilesystemAdapter
         {
@@ -220,11 +415,11 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
             }
         });
 
-        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $result->failed);
         $this->assertSame(
-            'Unable to check for an orphaned completed study import source archive: '.$importJob->source_object_path,
+            'Unable to check for a retained terminal study import source archive: '.$importJob->source_object_path,
             $importJob->refresh()->archive_cleanup_error,
         );
         $this->assertNull($importJob->archive_cleanup_claim_token);
@@ -238,7 +433,11 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
     {
         Exceptions::fake();
         Storage::fake('study-imports');
-        $importJob = $this->completedImportJob('failure.colpkg', now()->subHours(25));
+        $importJob = $this->terminalImportJob(
+            StudyImportStatus::Failed,
+            'failure.colpkg',
+            now()->subHours(25),
+        );
         Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
         $inner = Storage::disk('study-imports');
         Storage::set('study-imports', new class($inner, $throw) extends FilesystemAdapter
@@ -260,7 +459,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
             }
         });
 
-        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $result->candidates);
         $this->assertSame(1, $result->failed);
@@ -270,7 +469,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $this->assertNotNull($importJob->archive_cleanup_attempted_at);
         $this->assertNull($importJob->archive_cleanup_resolved_at);
         $this->assertSame(
-            'Unable to delete an orphaned completed study import source archive: '.$importJob->source_object_path,
+            'Unable to delete a retained terminal study import source archive: '.$importJob->source_object_path,
             $importJob->archive_cleanup_error,
         );
         Exceptions::assertReported(function (RuntimeException $exception) use ($importJob, $throw): bool {
@@ -286,7 +485,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
 
         Exceptions::fake();
         Storage::set('study-imports', $inner);
-        $retried = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $retried = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $retried->candidates);
         $this->assertSame(1, $retried->deleted);
@@ -300,13 +499,13 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
     {
         Exceptions::fake();
         Storage::fake('study-imports');
-        $importJob = StudyImportJob::factory()->completed()->create([
+        $importJob = StudyImportJob::factory()->failed()->create([
             'completed_at' => now()->subHours(25),
             'source_object_path' => 'study/imports/another-user/archive.colpkg',
         ]);
         Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
 
-        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $result = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
 
         $this->assertSame(1, $result->failed);
         $this->assertSame(1, $result->unsafe);
@@ -316,7 +515,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $this->assertStringStartsWith('Refusing to delete an unsafe', $importJob->archive_cleanup_error);
         Exceptions::assertReportedCount(1);
 
-        $retried = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $retried = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
         $this->assertSame(0, $retried->candidates);
     }
 
@@ -357,12 +556,37 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function failedImportProducerProvider(): array
+    {
+        return [
+            'stale pending session expiry' => ['stale-pending', 'Study import upload session has expired.'],
+            'stale processing timeout' => ['processing-timeout', 'Study import timed out before completion.'],
+            'upload cancellation' => ['cancelled', 'Study import upload was cancelled.'],
+            'completion validation failure' => ['invalid-upload', 'The uploaded file is not a valid ZIP-based .colpkg archive.'],
+            'processor validation or import failure' => ['processor-failure', 'Study import could not be processed.'],
+            'queue exhaustion' => ['queue-exhaustion', 'Study import processing failed after retries.'],
+        ];
+    }
+
     private function completedImportJob(
         string $filename,
         Carbon $completedAt,
         bool $canonical = true,
     ): StudyImportJob {
-        $importJob = StudyImportJob::factory()->completed()->create([
+        return $this->terminalImportJob(StudyImportStatus::Completed, $filename, $completedAt, $canonical);
+    }
+
+    private function terminalImportJob(
+        StudyImportStatus $status,
+        string $filename,
+        Carbon $completedAt,
+        bool $canonical = true,
+    ): StudyImportJob {
+        $importJob = StudyImportJob::factory()->create([
+            'status' => $status,
             'completed_at' => $completedAt,
             'source_object_path' => null,
         ]);
@@ -370,6 +594,29 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
             ? StudyImportUploadPath::forImportJob($importJob->user_id, $importJob->id, $filename)
             : StudyImportJob::SOURCE_UPLOAD_FOLDER.'/unsafe/'.$filename;
         $importJob->saveOrFail();
+
+        return $importJob;
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function activeImportJob(
+        User $user,
+        StudyImportStatus $status,
+        string $filename,
+        array $attributes = [],
+    ): StudyImportJob {
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'status' => $status,
+            'source_object_path' => null,
+            ...$attributes,
+        ]);
+        $importJob->source_object_path = StudyImportUploadPath::forImportJob(
+            $user->id,
+            $importJob->id,
+            $filename,
+        );
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put($importJob->source_object_path, 'not a zip archive');
 
         return $importJob;
     }

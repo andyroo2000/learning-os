@@ -2,18 +2,18 @@
 
 namespace App\Console\Commands;
 
-use App\Domain\Study\Actions\CleanupCompletedStudyImportArchivesAction;
+use App\Domain\Study\Actions\CleanupTerminalStudyImportArchivesAction;
 use Illuminate\Console\Command;
 
-final class CleanupCompletedStudyImportArchives extends Command
+final class CleanupTerminalStudyImportArchives extends Command
 {
     protected $signature = 'study:prune-import-archives
         {--dry-run : Report eligible archives without deleting or updating cleanup markers}
-        {--limit=500 : Maximum number of completed import jobs to inspect}';
+        {--limit=500 : Maximum number of terminal import jobs to inspect}';
 
-    protected $description = 'Delete retained source archives from completed study imports.';
+    protected $description = 'Delete retained source archives from completed and failed study imports.';
 
-    public function handle(CleanupCompletedStudyImportArchivesAction $cleanup): int
+    public function handle(CleanupTerminalStudyImportArchivesAction $cleanup): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1, 'max_range' => 5000],

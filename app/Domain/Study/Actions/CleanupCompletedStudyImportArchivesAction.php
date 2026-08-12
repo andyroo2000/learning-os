@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Results\StudyImportArchiveCleanupResult;
+use App\Domain\Study\Support\StudyImportUploadPath;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -154,7 +155,7 @@ final class CleanupCompletedStudyImportArchivesAction
 
     private function isSafeSourcePath(StudyImportJob $importJob, string $sourceObjectPath): bool
     {
-        $prefix = StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$importJob->user_id.'/'.$importJob->id.'/';
+        $prefix = StudyImportUploadPath::prefixForImportJob($importJob->user_id, $importJob->id);
 
         return str_starts_with($sourceObjectPath, $prefix)
             && strlen($sourceObjectPath) > strlen($prefix)

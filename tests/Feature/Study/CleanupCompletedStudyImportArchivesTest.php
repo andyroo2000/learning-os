@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Actions\CleanupCompletedStudyImportArchivesAction;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportUploadPath;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -213,7 +214,7 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
             'source_object_path' => null,
         ]);
         $importJob->source_object_path = $canonical
-            ? StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$importJob->user_id.'/'.$importJob->id.'/'.$filename
+            ? StudyImportUploadPath::forImportJob($importJob->user_id, $importJob->id, $filename)
             : StudyImportJob::SOURCE_UPLOAD_FOLDER.'/unsafe/'.$filename;
         $importJob->saveOrFail();
 

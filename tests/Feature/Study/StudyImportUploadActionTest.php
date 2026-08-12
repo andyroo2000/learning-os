@@ -782,7 +782,14 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
         $this->assertSame('Study import upload was cancelled.', $cancelled->error_message);
         $this->assertSame(now()->toJSON(), $cancelled->completed_at->toJSON());
+        $this->assertSame(now()->toJSON(), $cancelled->archive_cleanup_attempted_at->toJSON());
+        $this->assertSame(now()->toJSON(), $cancelled->archive_cleanup_resolved_at->toJSON());
         Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+
+        Carbon::setTestNow(now()->addHours(25));
+        $cleanup = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(0, $cleanup->candidates);
     }
 
     public function test_cancel_commits_the_failed_state_before_deleting_the_archive(): void
@@ -872,6 +879,7 @@ class StudyImportUploadActionTest extends TestCase
 
         $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
         $this->assertSame('Study import upload was cancelled.', $cancelled->error_message);
+        $this->assertNull($cancelled->archive_cleanup_resolved_at);
         $inner->assertExists($sourceObjectPath);
         Exceptions::assertReported(function (RuntimeException $exception) use ($sourceObjectPath, $throwDuringDelete): bool {
             if ($exception->getMessage() !== 'Unable to delete a cancelled study import source archive: '.$sourceObjectPath) {

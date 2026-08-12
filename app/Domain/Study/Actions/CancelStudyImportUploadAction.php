@@ -59,6 +59,8 @@ class CancelStudyImportUploadAction
         if (is_string($sourceObjectPath) && $sourceObjectPath !== '') {
             try {
                 if (Storage::disk('study-imports')->delete($sourceObjectPath)) {
+                    $this->recordSourceArchiveCleanupCompletion($importJob, $sourceObjectPath);
+
                     return $importJob;
                 }
 
@@ -75,5 +77,33 @@ class CancelStudyImportUploadAction
         }
 
         return $importJob;
+    }
+
+    private function recordSourceArchiveCleanupCompletion(
+        StudyImportJob $importJob,
+        string $sourceObjectPath,
+    ): void {
+        try {
+            $now = now();
+            $importJob->archive_cleanup_attempted_at = $now;
+            $importJob->archive_cleanup_resolved_at = $now;
+            $importJob->archive_cleanup_claim_token = null;
+            $importJob->archive_cleanup_error = null;
+            $timestamps = $importJob->timestamps;
+            $importJob->timestamps = false;
+
+            try {
+                $importJob->saveOrFail();
+            } finally {
+                $importJob->timestamps = $timestamps;
+            }
+        } catch (Throwable $exception) {
+            // The retention sweep will reconcile the now-missing archive after the marker-write failure.
+            report(new RuntimeException(
+                'Deleted a cancelled study import source archive but could not record cleanup completion: '
+                    .$sourceObjectPath,
+                previous: $exception,
+            ));
+        }
     }
 }

@@ -130,6 +130,19 @@ class CreateCardAction
 
         try {
             $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);
+
+            // Preserve the existing queue-owner -> Deck lock order. Revalidate after the
+            // preflight read so creation cannot escape a concurrent deck/course cascade.
+            $ownedDeck = Deck::query()
+                ->whereKey($data->deckId)
+                ->where('user_id', $data->userId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($ownedDeck === null) {
+                throw CardValidationException::deckDoesNotExist();
+            }
+
             $card->scheduler_state = CardSchedulerState::freshNew();
             $card->save();
             $this->recordSyncFeedEntry->handle(

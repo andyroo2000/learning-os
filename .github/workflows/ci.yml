@@ -142,6 +142,7 @@ jobs:
       - name: Exercise runtime row locking against PostgreSQL
         run: |
           php artisan test \
+            tests/Feature/Flashcards/FlashcardDeletionLockPostgresTest.php \
             tests/Feature/Media/CardMediaAttachmentLockPostgresTest.php \
             tests/Feature/Media/CardMediaDetachmentLockPostgresTest.php \
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \

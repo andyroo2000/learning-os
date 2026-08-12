@@ -24,11 +24,21 @@ class DeleteCourseAction
      */
     public function handle(Course $course): DeleteCourseResult
     {
-        if ($course->trashed()) {
-            return DeleteCourseResult::unchanged($course);
-        }
-
         return DB::transaction(function () use ($course): DeleteCourseResult {
+            // Re-resolve under a row lock so stale and concurrent DELETE retries cannot
+            // append duplicate course or descendant tombstones.
+            $lockedCourse = Course::query()
+                ->withTrashed()
+                ->whereKey($course->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            $course->setRawAttributes($lockedCourse->getAttributes(), true);
+            $course->setRelations([]);
+
+            if ($course->trashed()) {
+                return DeleteCourseResult::unchanged($course);
+            }
+
             $course->decks()
                 ->orderBy('id')
                 ->get()

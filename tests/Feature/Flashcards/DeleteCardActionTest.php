@@ -13,6 +13,7 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\TestCase;
@@ -90,6 +91,30 @@ class DeleteCardActionTest extends TestCase
             'id' => $card->id,
         ]);
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_no_ops_for_a_stale_model_after_another_delete_completed(): void
+    {
+        $card = $this->cardFor($this->signIn());
+        $staleCard = Card::query()->findOrFail($card->id);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:00'));
+
+        try {
+            app(DeleteCardAction::class)->handle($card);
+            $originalDeletedAt = $card->deleted_at;
+
+            Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:01'));
+
+            $result = app(DeleteCardAction::class)->handle($staleCard);
+
+            $this->assertFalse($result->wasDeleted);
+            $this->assertSame($originalDeletedAt?->toJSON(), $result->card->deleted_at?->toJSON());
+            $this->assertSame($originalDeletedAt?->toJSON(), $staleCard->fresh()->deleted_at?->toJSON());
+            $this->assertDatabaseCount('sync_feed_entries', 1);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_it_retains_card_media_and_review_events(): void

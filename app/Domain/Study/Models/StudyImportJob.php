@@ -31,6 +31,8 @@ class StudyImportJob extends Model
 
     public const PROCESSING_TIMEOUT_MINUTES = 60;
 
+    public const COMPLETED_ARCHIVE_RETENTION_HOURS = 24;
+
     public const MAX_ASYNC_IMPORT_BYTES = 2_147_483_648;
 
     public const MAX_SOURCE_FILENAME_LENGTH = 255;
@@ -81,6 +83,8 @@ class StudyImportJob extends Model
             'upload_completed_at' => 'datetime',
             'upload_expires_at' => 'datetime',
             'completed_at' => 'datetime',
+            'archive_cleanup_attempted_at' => 'datetime',
+            'archive_cleanup_resolved_at' => 'datetime',
         ];
     }
 

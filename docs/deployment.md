@@ -59,10 +59,11 @@ the ID and when the server generates and returns one.
 
 The daily `content:prune-generation-requests` task deletes only completed or
 failed ledgers whose replay window has expired. Pending and active requests are
-never age-pruned. After a terminal ledger is deleted, the same owner may reuse
-that `clientRequestId`; the server treats it as a new generation request rather
-than replaying the expired result. Operators can inspect a bounded batch without
-mutating it with:
+never age-pruned. The 30-day window is a minimum: bounded daily batches can keep
+an expired row longer when backlog exceeds the scheduled batch size. After a
+terminal ledger is deleted, the same owner may reuse that `clientRequestId`; the
+server treats it as a new generation request rather than replaying the expired
+result. Operators can inspect a bounded batch without mutating it with:
 
 ```bash
 php artisan content:prune-generation-requests --dry-run --limit=500

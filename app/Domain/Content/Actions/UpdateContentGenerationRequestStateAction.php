@@ -188,7 +188,7 @@ final class UpdateContentGenerationRequestStateAction
     ): bool {
         if ($state === ContentGenerationRequestState::COMPLETED) {
             ContentGenerationRequestTerminalState::complete($request);
-        } elseif ($message !== null) {
+        } elseif (trim($message ?? '') !== '') {
             ContentGenerationRequestTerminalState::fail(
                 $request,
                 500,

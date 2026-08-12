@@ -3,6 +3,7 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Actions\ReserveContentGenerationRequestAction;
+use App\Domain\Content\Actions\UpdateContentGenerationRequestStateAction;
 use App\Domain\Content\Data\GenerateContentDialogueData;
 use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentDialogueGenerationJob;
@@ -16,6 +17,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use LogicException;
 use Tests\TestCase;
 
 final class RecoverContentGenerationRequestsTest extends TestCase
@@ -293,6 +295,29 @@ final class RecoverContentGenerationRequestsTest extends TestCase
         $this->assertSame('active', $request->fresh()->state);
         $this->assertNull($request->fresh()->finished_at);
         Queue::assertNothingPushed();
+    }
+
+    public function test_failed_terminal_transition_rejects_a_blank_replay_message(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $this->asConvoLabBrowser($user, convoLabUserId: $convoLabUserId);
+        $episode = $this->episode($user, $convoLabUserId);
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($episode->id),
+            'clientRequestId' => (string) Str::uuid(),
+        ])->assertOk();
+        $request = ContentGenerationRequest::query()->sole();
+
+        $this->expectException(LogicException::class);
+        app(UpdateContentGenerationRequestStateAction::class)->failed(
+            $request->id,
+            ContentGenerationRequestState::DIALOGUE_OPERATION,
+            (string) $request->job_id,
+            null,
+            '   ',
+        );
     }
 
     private function episode(User $user, string $convoLabUserId): ContentEpisode

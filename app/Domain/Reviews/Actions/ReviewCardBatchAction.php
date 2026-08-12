@@ -2,7 +2,6 @@
 
 namespace App\Domain\Reviews\Actions;
 
-use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Data\ReviewCardData;
@@ -10,6 +9,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardBatchResult;
+use App\Domain\Reviews\Support\AppliesLockedCardStudyReview;
 use App\Domain\Reviews\Support\CardReviewCardLock;
 use App\Domain\Reviews\Support\CardReviewChronology;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
@@ -34,11 +34,12 @@ use RuntimeException;
 
 class ReviewCardBatchAction
 {
+    use AppliesLockedCardStudyReview;
+
     private const INSERT_SAVEPOINT = 'review_card_batch_insert';
 
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-        private readonly ApplyCardStudyReviewAction $applyCardStudyReview,
     ) {}
 
     /**
@@ -585,7 +586,7 @@ class ReviewCardBatchAction
                     ),
                 );
 
-                $this->applyCardStudyReview->handleChronologicalNext($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
+                $this->applyLockedCardStudyReview($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
             });
     }
 
@@ -638,7 +639,7 @@ class ReviewCardBatchAction
         $reviewEvent->scheduler_state_before = is_array($card->scheduler_state)
             ? $card->scheduler_state
             : null;
-        $reviewEvent->scheduler_state_after = $this->applyCardStudyReview->schedulerStateAfterChronologicalNextReview(
+        $reviewEvent->scheduler_state_after = $this->schedulerStateAfterLockedCardStudyReview(
             card: $card,
             rating: $reviewEvent->rating,
             reviewedAt: $reviewEvent->reviewed_at,

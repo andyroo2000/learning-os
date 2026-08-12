@@ -3,7 +3,6 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Courses\Models\Course;
-use App\Domain\Flashcards\Actions\ApplyCardStudyReviewAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -188,17 +187,16 @@ class ReviewCardActionTest extends TestCase
             'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ];
 
-        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $concurrentState) extends ReviewCardAction
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), $concurrentState) extends ReviewCardAction
         {
             public int $lockTransactionLevel = 0;
 
             /** @param array<string, mixed> $concurrentState */
             public function __construct(
                 RecordSyncFeedEntryAction $recordSyncFeedEntry,
-                ApplyCardStudyReviewAction $applyCardStudyReview,
                 private readonly array $concurrentState,
             ) {
-                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+                parent::__construct($recordSyncFeedEntry);
             }
 
             protected function findCardForUpdate(string $cardId): ?Card
@@ -593,15 +591,14 @@ class ReviewCardActionTest extends TestCase
     {
         $card = Card::factory()->create();
         $reviewEventId = strtolower((string) Str::ulid());
-        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $card, $reviewEventId) extends ReviewCardAction
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), $card, $reviewEventId) extends ReviewCardAction
         {
             public function __construct(
                 RecordSyncFeedEntryAction $recordSyncFeedEntry,
-                ApplyCardStudyReviewAction $applyCardStudyReview,
                 private readonly Card $card,
                 private readonly string $reviewEventId,
             ) {
-                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+                parent::__construct($recordSyncFeedEntry);
             }
 
             protected function findCardForUpdate(string $cardId): ?Card
@@ -726,14 +723,13 @@ class ReviewCardActionTest extends TestCase
             'inserted' => false,
             'deleted' => false,
         ];
-        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), app(ApplyCardStudyReviewAction::class), $raceState) extends ReviewCardAction
+        $reviewCard = new class(app(RecordSyncFeedEntryAction::class), $raceState) extends ReviewCardAction
         {
             public function __construct(
                 RecordSyncFeedEntryAction $recordSyncFeedEntry,
-                ApplyCardStudyReviewAction $applyCardStudyReview,
                 private readonly object $raceState,
             ) {
-                parent::__construct($recordSyncFeedEntry, $applyCardStudyReview);
+                parent::__construct($recordSyncFeedEntry);
             }
 
             protected function saveReviewEvent(CardReviewEvent $reviewEvent): void
@@ -795,7 +791,6 @@ class ReviewCardActionTest extends TestCase
                     throw new RuntimeException('Sync feed failed.');
                 }
             },
-            applyCardStudyReview: app(ApplyCardStudyReviewAction::class),
         );
 
         try {
@@ -833,7 +828,6 @@ class ReviewCardActionTest extends TestCase
         };
         $reviewCard = new ReviewCardAction(
             recordSyncFeedEntry: $recordSyncFeedEntry,
-            applyCardStudyReview: new ApplyCardStudyReviewAction($recordSyncFeedEntry),
         );
 
         try {

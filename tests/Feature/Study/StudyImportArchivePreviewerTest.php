@@ -255,6 +255,30 @@ class StudyImportArchivePreviewerTest extends TestCase
         $this->assertSame([], $preview['warnings']);
     }
 
+    public function test_it_reports_referenced_media_with_invalid_metadata_as_skipped(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/empty-media.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => '',
+                    '1' => 'image-bytes',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/empty-media.colpkg',
+        );
+
+        $this->assertSame(1, $preview['skipped_media_count']);
+        $this->assertSame([
+            'Media file "word.mp3" has unsupported or invalid archive metadata and will be skipped.',
+        ], $preview['warnings']);
+    }
+
     public function test_it_rejects_invalid_media_manifest_json(): void
     {
         Storage::fake('study-imports');

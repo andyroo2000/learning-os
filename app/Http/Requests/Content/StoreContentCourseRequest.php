@@ -10,6 +10,10 @@ class StoreContentCourseRequest extends ConvoLabContentWriteRequest
     {
         parent::prepareForValidation();
 
+        if (is_string($this->input('id'))) {
+            $this->merge(['id' => strtolower(trim($this->input('id')))]);
+        }
+
         if (is_string($this->input('sourceText')) && trim($this->input('sourceText')) !== '') {
             $input = $this->all();
             unset($input['episodeIds']);
@@ -35,6 +39,7 @@ class StoreContentCourseRequest extends ConvoLabContentWriteRequest
     {
         return [
             ...$this->convoLabUserIdRules(),
+            'id' => ['sometimes', 'required', 'uuid'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'episodeIds' => ['required_without:sourceText', 'array', 'min:1', 'max:100'],

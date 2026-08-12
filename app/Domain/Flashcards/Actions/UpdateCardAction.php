@@ -13,6 +13,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -33,6 +34,21 @@ class UpdateCardAction
         }
 
         return DB::transaction(function () use ($card, $data): UpdateCardResult {
+            // Route authorization happens before this transaction. Re-resolve the live card
+            // under the same row lock used by deletion so a stale model cannot append an
+            // Update feed entry after its Delete tombstone.
+            $lockedCard = Card::query()
+                ->whereKey($card->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedCard === null) {
+                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+            }
+
+            $card->setRawAttributes($lockedCard->getAttributes(), true);
+            $card->setRelations([]);
+
             if ($data->hasFrontText) {
                 $card->front_text = $data->frontText;
             }
@@ -51,6 +67,10 @@ class UpdateCardAction
 
             if ($data->hasAnswerJson) {
                 $card->answer_json = $data->answerJson;
+            }
+
+            if ($data->hasAnswerAudioSource) {
+                $card->answer_audio_source = $data->answerAudioSource;
             }
 
             if ($data->hasVariantGroupId) {

@@ -147,6 +147,7 @@ jobs:
             tests/Feature/Media/CardMediaDetachmentLockPostgresTest.php \
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \
             tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
+            tests/Feature/Study/StudyActivitySessionLockPostgresTest.php \
             tests/Feature/Study/StudyImportCancellationLockPostgresTest.php \
             tests/Feature/Study/StudyImportTimeoutLockPostgresTest.php
 

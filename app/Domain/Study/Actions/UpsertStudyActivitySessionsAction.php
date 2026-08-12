@@ -9,6 +9,7 @@ use App\Domain\Study\Support\StudyActivitySessionId;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use LogicException;
 
 class UpsertStudyActivitySessionsAction
 {
@@ -19,6 +20,10 @@ class UpsertStudyActivitySessionsAction
     public function handle(int $userId, array $sessions): Collection
     {
         return DB::transaction(function () use ($userId, $sessions): Collection {
+            // A first write has no session row to lock, so use the stable owner row
+            // to serialize the source decision for every client session ID.
+            $this->lockSessionOwner($userId);
+
             $now = now();
             $clientSessionIds = collect($sessions)->map(
                 fn (StudyActivitySessionData $session): string => StudyActivitySessionId::normalize(
@@ -99,5 +104,17 @@ class UpsertStudyActivitySessionsAction
                 ],
             );
         });
+    }
+
+    private function lockSessionOwner(int $userId): void
+    {
+        $lockedUserId = DB::table('users')
+            ->where('id', $userId)
+            ->lockForUpdate()
+            ->value('id');
+
+        if ($lockedUserId === null) {
+            throw new LogicException('Study activity session owner could not be locked.');
+        }
     }
 }

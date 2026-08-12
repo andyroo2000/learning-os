@@ -11,6 +11,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftOwnerLock;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
@@ -24,6 +25,7 @@ class CreateStudyCardFromDraftAction
         private readonly ResolveManualStudyDeckAction $resolveManualStudyDeck,
         private readonly CreateCardAction $createCard,
         private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+        private readonly StudyCardDraftOwnerLock $draftOwnerLock,
     ) {}
 
     public function handle(int $userId, string $draftId, string $cardId): CreateCardResult
@@ -46,6 +48,9 @@ class CreateStudyCardFromDraftAction
         // Keep the draft row locked while the final card content snapshot is derived. The draft
         // remains after commit so clients can retry with the same card ID before deleting it.
         return DB::transaction(function () use ($userId, $canonicalDraftId, $canonicalCardId): CreateCardResult {
+            // Preserve one lock order across draft deletion, commit, and first creation.
+            $this->draftOwnerLock->acquire($userId);
+
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
                 ->whereKey($canonicalDraftId)

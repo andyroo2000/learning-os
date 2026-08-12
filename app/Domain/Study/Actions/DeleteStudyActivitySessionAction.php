@@ -5,6 +5,8 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class DeleteStudyActivitySessionAction
@@ -23,21 +25,31 @@ final class DeleteStudyActivitySessionAction
             return true;
         }
 
-        $session = StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('client_session_id', $clientSessionId)
-            ->first();
+        return DB::transaction(function () use ($userId, $clientSessionId): bool {
+            // Match activity upserts: the owner row exists even when the session
+            // does not yet, so it serializes delete against an in-flight first write.
+            User::query()
+                ->whereKey($userId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($session === null) {
+            $session = StudyActivitySession::query()
+                ->where('user_id', $userId)
+                ->where('client_session_id', $clientSessionId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($session === null) {
+                return true;
+            }
+
+            if ($session->source === StudyActivitySource::Automatic) {
+                return false;
+            }
+
+            $session->delete();
+
             return true;
-        }
-
-        if ($session->source === StudyActivitySource::Automatic) {
-            return false;
-        }
-
-        $session->delete();
-
-        return true;
+        });
     }
 }

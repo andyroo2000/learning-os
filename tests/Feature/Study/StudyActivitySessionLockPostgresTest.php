@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Actions\DeleteStudyActivitySessionAction;
 use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivityCategory;
@@ -18,6 +19,24 @@ use Throwable;
 class StudyActivitySessionLockPostgresTest extends TestCase
 {
     private const SOURCE_LOCK_HOLD_MICROSECONDS = 500_000;
+
+    public function test_delete_waits_for_a_concurrent_manual_first_write_and_removes_it(): void
+    {
+        $this->assertDeleteWaitsForConcurrentFirstWrite(
+            StudyActivitySource::Manual,
+            expectedResult: true,
+            expectedToRemain: false,
+        );
+    }
+
+    public function test_delete_waits_for_a_concurrent_automatic_first_write_and_rejects_it(): void
+    {
+        $this->assertDeleteWaitsForConcurrentFirstWrite(
+            StudyActivitySource::Automatic,
+            expectedResult: false,
+            expectedToRemain: true,
+        );
+    }
 
     public function test_a_concurrent_first_write_cannot_downgrade_an_automatic_session(): void
     {
@@ -93,6 +112,80 @@ class StudyActivitySessionLockPostgresTest extends TestCase
         }
     }
 
+    private function assertDeleteWaitsForConcurrentFirstWrite(
+        StudyActivitySource $source,
+        bool $expectedResult,
+        bool $expectedToRemain,
+    ): void {
+        $this->requirePostgresConcurrency();
+
+        $user = User::factory()->create();
+        $clientSessionId = match ($source) {
+            StudyActivitySource::Manual => '018f22d2-6d38-7000-8000-000000000024',
+            StudyActivitySource::Automatic => '018f22d2-6d38-7000-8000-000000000025',
+            StudyActivitySource::Calendar => throw new RuntimeException('Unsupported concurrent source.'),
+        };
+        $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+
+        if ($sockets === false) {
+            throw new RuntimeException('Unable to create PostgreSQL study activity delete worker sockets.');
+        }
+
+        DB::disconnect();
+        $pid = pcntl_fork();
+
+        if ($pid === -1) {
+            throw new RuntimeException('Unable to fork the PostgreSQL study activity delete worker.');
+        }
+
+        if ($pid === 0) {
+            fclose($sockets[0]);
+            $this->runUpsertWorker($sockets[1], $user->id, $clientSessionId, $source);
+        }
+
+        fclose($sockets[1]);
+        stream_set_timeout($sockets[0], 10);
+
+        try {
+            $this->assertSame('upserted', trim((string) fgets($sockets[0])));
+            DB::purge();
+            DB::connection()->statement("SET lock_timeout = '5s'");
+            $startedAt = microtime(true);
+
+            $result = app(DeleteStudyActivitySessionAction::class)->handle($user->id, $clientSessionId);
+
+            $lockWaitMilliseconds = (int) round((microtime(true) - $startedAt) * 1000);
+            $this->assertGreaterThanOrEqual(
+                350,
+                $lockWaitMilliseconds,
+                'Expected delete to wait for the first upsert to commit.',
+            );
+            $this->assertSame($expectedResult, $result);
+
+            pcntl_waitpid($pid, $status);
+            $workerMessage = trim((string) fgets($sockets[0]));
+            $this->assertTrue(pcntl_wifexited($status));
+            $this->assertSame(0, pcntl_wexitstatus($status), $workerMessage);
+            $this->assertSame('committed', $workerMessage);
+            $this->assertSame(
+                $expectedToRemain,
+                StudyActivitySession::query()
+                    ->where('user_id', $user->id)
+                    ->where('client_session_id', $clientSessionId)
+                    ->exists(),
+            );
+        } finally {
+            fclose($sockets[0]);
+
+            if (isset($status) === false) {
+                pcntl_waitpid($pid, $status);
+            }
+
+            StudyActivitySession::query()->where('user_id', $user->id)->delete();
+            User::query()->whereKey($user->id)->delete();
+        }
+    }
+
     private function requirePostgresConcurrency(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
@@ -105,15 +198,27 @@ class StudyActivitySessionLockPostgresTest extends TestCase
     /** @param resource $socket */
     private function runAutomaticUpsertWorker($socket, int $userId, string $clientSessionId): never
     {
+        $this->runUpsertWorker($socket, $userId, $clientSessionId, StudyActivitySource::Automatic);
+    }
+
+    /** @param resource $socket */
+    private function runUpsertWorker(
+        $socket,
+        int $userId,
+        string $clientSessionId,
+        StudyActivitySource $source,
+    ): never {
         try {
             DB::purge();
             DB::connection()->statement("SET statement_timeout = '10s'");
-            DB::transaction(function () use ($socket, $userId, $clientSessionId): void {
+            DB::transaction(function () use ($socket, $userId, $clientSessionId, $source): void {
                 app(UpsertStudyActivitySessionsAction::class)->handle($userId, [
                     $this->sessionData(
                         $clientSessionId,
-                        StudyActivitySource::Automatic,
-                        'Original automatic activity',
+                        $source,
+                        $source === StudyActivitySource::Automatic
+                            ? 'Original automatic activity'
+                            : 'Original manual activity',
                     ),
                 ]);
 

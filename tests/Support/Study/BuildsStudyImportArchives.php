@@ -193,8 +193,18 @@ trait BuildsStudyImportArchives
 
         if (! ($options['omit_cards_table'] ?? false)) {
             $statement = $pdo->prepare('INSERT INTO cards (id, nid, did, ord) VALUES (:id, :nid, :did, :ord)');
-            $statement->execute(['id' => 701, 'nid' => 501, 'did' => $cardDeckId, 'ord' => 0]);
-            $statement->execute(['id' => 702, 'nid' => 501, 'did' => $cardDeckId, 'ord' => 1]);
+            $statement->execute([
+                'id' => 701,
+                'nid' => 501,
+                'did' => $cardDeckId,
+                'ord' => $options['card_one_template_ord'] ?? 0,
+            ]);
+            $statement->execute([
+                'id' => 702,
+                'nid' => 501,
+                'did' => $cardDeckId,
+                'ord' => $options['card_two_template_ord'] ?? 1,
+            ]);
             $statement->execute(['id' => 703, 'nid' => 502, 'did' => $cardDeckId, 'ord' => 0]);
             foreach ($extraCards as $extraCard) {
                 if (! is_array($extraCard)) {

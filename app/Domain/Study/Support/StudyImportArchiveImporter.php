@@ -31,7 +31,7 @@ final class StudyImportArchiveImporter
     // Keep imported event times within the four-digit ISO-8601 year range used by API clients.
     private const MAX_PORTABLE_REVIEW_TIMESTAMP_MILLISECONDS = 253_402_300_799_999;
 
-    // Laravel integer columns are signed 32-bit values on the production PostgreSQL schema.
+    // Laravel integer and unsignedInteger columns are signed 32-bit values on PostgreSQL.
     private const POSTGRES_INTEGER_MIN = -2_147_483_648;
 
     private const POSTGRES_INTEGER_MAX = 2_147_483_647;
@@ -198,7 +198,7 @@ final class StudyImportArchiveImporter
         $card->source_note_id = $archiveCard->sourceNoteId;
         $card->source_deck_id = $archiveCard->sourceDeckId;
         $card->source_notetype_name = $archiveCard->sourceNoteTypeName;
-        $card->source_template_ord = $archiveCard->sourceTemplateOrdinal;
+        $card->source_template_ord = $this->portableUnsignedInteger($archiveCard->sourceTemplateOrdinal);
         $card->front_text = $archiveCard->frontText;
         $card->back_text = $archiveCard->backText;
         $card->card_type = CardType::Recognition;
@@ -351,6 +351,13 @@ final class StudyImportArchiveImporter
         return $value === null
             || $value < self::POSTGRES_INTEGER_MIN
             || $value > self::POSTGRES_INTEGER_MAX
+            ? null
+            : $value;
+    }
+
+    private function portableUnsignedInteger(int $value): ?int
+    {
+        return $value < 0 || $value > self::POSTGRES_INTEGER_MAX
             ? null
             : $value;
     }

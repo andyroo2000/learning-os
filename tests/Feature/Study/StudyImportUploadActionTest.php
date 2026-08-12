@@ -1490,6 +1490,55 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
     }
 
+    public function test_process_job_normalizes_unportable_source_template_ordinals(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/unportable-template-ordinals.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'card_one_template_ord' => 2_147_483_648,
+            'card_two_template_ord' => -1,
+            'extra_cards' => [
+                ['id' => 704, 'nid' => 501, 'did' => 1700000000000, 'ord' => 2_147_483_647],
+            ],
+            'media_map' => [],
+            'media_entries' => [],
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(4, $processed?->summary_json['imported_cards']);
+        $this->assertSame(0, $processed?->summary_json['skipped_cards']);
+
+        $tooLargeOrdinalCard = Card::query()->where('source_card_id', 701)->sole();
+        $negativeOrdinalCard = Card::query()->where('source_card_id', 702)->sole();
+        $validOrdinalCard = Card::query()->where('source_card_id', 703)->sole();
+        $maximumOrdinalCard = Card::query()->where('source_card_id', 704)->sole();
+
+        $this->assertNull($tooLargeOrdinalCard->source_template_ord);
+        $this->assertNull($negativeOrdinalCard->source_template_ord);
+        $this->assertSame(0, $validOrdinalCard->source_template_ord);
+        $this->assertSame(2_147_483_647, $maximumOrdinalCard->source_template_ord);
+        $this->assertSame('会社', $tooLargeOrdinalCard->front_text);
+        $this->assertSame('company', $tooLargeOrdinalCard->back_text);
+        $this->assertSame('会社', $negativeOrdinalCard->front_text);
+        $this->assertSame('company', $negativeOrdinalCard->back_text);
+        $this->assertNull(SyncFeedEntry::query()
+            ->where('resource_type', 'card')
+            ->where('resource_id', $tooLargeOrdinalCard->id)
+            ->sole()
+            ->payload['source_template_ord']);
+        $this->assertNull(SyncFeedEntry::query()
+            ->where('resource_type', 'card')
+            ->where('resource_id', $negativeOrdinalCard->id)
+            ->sole()
+            ->payload['source_template_ord']);
+    }
+
     public function test_process_job_does_not_budget_or_persist_unreferenced_archive_media(): void
     {
         Storage::fake('study-imports');

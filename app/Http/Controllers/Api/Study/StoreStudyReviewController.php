@@ -31,8 +31,9 @@ class StoreStudyReviewController extends Controller
             return response()->json(['message' => 'Study card not found.'], 404);
         }
 
-        // This compatibility endpoint is real-time; offline replay should use the canonical reviewed_at endpoint.
-        $reviewedAt = Carbon::now();
+        // Legacy callers omit a client identity and retain server-time behavior. New callers pair a stable
+        // event ID with the logical review time so an ambiguous transport retry can reuse canonical idempotency.
+        $reviewedAt = $data['reviewedAt'] ?? Carbon::now();
 
         try {
             $result = $reviewCard->handle(ReviewCardData::fromInput(
@@ -40,6 +41,7 @@ class StoreStudyReviewController extends Controller
                 rating: $data['grade'],
                 reviewedAt: $reviewedAt,
                 durationMs: $request->durationMs($data),
+                id: $data['clientReviewId'] ?? null,
             ));
         } catch (CardReviewEventConflictException $exception) {
             if ($exception->shouldBeHiddenFrom($userId)) {

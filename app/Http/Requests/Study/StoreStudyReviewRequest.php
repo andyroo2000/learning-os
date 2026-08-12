@@ -7,6 +7,7 @@ use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Http\Requests\Concerns\FiltersByStudyScope;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
+use App\Http\Requests\Concerns\ValidatesStrictIsoDateTime;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -15,6 +16,7 @@ class StoreStudyReviewRequest extends FormRequest
 {
     use FiltersByStudyScope;
     use NormalizesUlidInput;
+    use ValidatesStrictIsoDateTime;
 
     protected function prepareForValidation(): void
     {
@@ -22,9 +24,11 @@ class StoreStudyReviewRequest extends FormRequest
 
         $normalized = [];
 
-        $this->mergeNormalizedUlidInput($normalized, 'cardId');
+        foreach (['cardId', 'clientReviewId'] as $key) {
+            $this->mergeNormalizedUlidInput($normalized, $key);
+        }
 
-        foreach (['grade', 'timeZone'] as $key) {
+        foreach (['grade', 'reviewedAt', 'timeZone'] as $key) {
             $value = $this->input($key);
 
             // Leave non-string values untouched so validation reports type errors instead of coercing them.
@@ -57,6 +61,14 @@ class StoreStudyReviewRequest extends FormRequest
             'cardId' => ['required', 'string', 'regex:/^'.Card::CLIENT_ID_ROUTE_PATTERN.'$/'],
             'grade' => ['required', Rule::enum(CardReviewRating::class)],
             'durationMs' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:'.ReviewCardData::MAX_DURATION_MS],
+            'clientReviewId' => ['nullable', 'required_with:reviewedAt', 'string', 'ulid'],
+            'reviewedAt' => [
+                'nullable',
+                'required_with:clientReviewId',
+                'bail',
+                'string',
+                $this->strictIsoDateTimeRule('reviewedAt must be a valid ISO-8601 datetime.'),
+            ],
             'timeZone' => ['sometimes', 'nullable', 'string', 'timezone'],
             'currentOverview' => ['sometimes', 'nullable', 'array'],
         ];

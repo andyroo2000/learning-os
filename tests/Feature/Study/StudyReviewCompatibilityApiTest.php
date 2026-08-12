@@ -25,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\AssertsCardReviewEventSyncFeedEntries;
 use Tests\Support\AssertsCardSyncFeedEntries;
 use Tests\Support\AssertsStudyCompatibilityPayloads;
@@ -180,6 +181,248 @@ class StudyReviewCompatibilityApiTest extends TestCase
             $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
             $this->assertDatabaseCount('card_review_events', 1);
             $this->assertDatabaseCount('sync_feed_entries', 2);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_replays_a_client_identified_review_without_advancing_fsrs_or_sync_twice(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => '2026-06-05T12:00:00Z',
+        ]);
+        $clientReviewId = strtolower((string) Str::ulid());
+        $payload = [
+            'cardId' => $card->id,
+            'grade' => 'good',
+            'durationMs' => 1250,
+            'clientReviewId' => '  '.strtoupper($clientReviewId).'  ',
+            'reviewedAt' => '  2026-06-05T15:30:00.000Z  ',
+            'timeZone' => 'America/New_York',
+            'currentOverview' => ['newCount' => 99],
+        ];
+
+        $firstResponse = $this->postJson('/api/study/reviews', $payload);
+        $cardAfterFirstReview = $card->refresh();
+        $syncEntriesAfterFirstReview = SyncFeedEntry::query()
+            ->where('user_id', $user->id)
+            ->orderBy('checkpoint')
+            ->get()
+            ->map->only(['domain', 'resource_type', 'resource_id', 'operation', 'payload'])
+            ->all();
+
+        $secondResponse = $this->postJson('/api/study/reviews', $payload);
+        $contextChangedResponse = $this->postJson('/api/study/reviews', [
+            ...$payload,
+            // These response-context fields are intentionally outside the logical review identity.
+            'timeZone' => 'Asia/Tokyo',
+            'currentOverview' => ['newCount' => 0],
+            'courseId' => strtolower((string) Str::ulid()),
+            'deckId' => strtolower((string) Str::ulid()),
+        ]);
+
+        $firstResponse
+            ->assertOk()
+            ->assertJsonPath('reviewLogId', $clientReviewId);
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('reviewLogId', $clientReviewId)
+            ->assertJsonPath('card.state.queueState', 'review');
+        $contextChangedResponse
+            ->assertOk()
+            ->assertJsonPath('reviewLogId', $clientReviewId);
+        $this->assertSame($firstResponse->json(), $secondResponse->json());
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $clientReviewId,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-06-05 15:30:00',
+            'duration_ms' => 1250,
+        ]);
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertSame($cardAfterFirstReview->scheduler_state, $card->scheduler_state);
+        $this->assertSame($cardAfterFirstReview->due_at->toJSON(), $card->due_at->toJSON());
+        $this->assertSame(
+            $syncEntriesAfterFirstReview,
+            SyncFeedEntry::query()
+                ->where('user_id', $user->id)
+                ->orderBy('checkpoint')
+                ->get()
+                ->map->only(['domain', 'resource_type', 'resource_id', 'operation', 'payload'])
+                ->all(),
+        );
+    }
+
+    public function test_it_rejects_reusing_a_client_review_id_for_different_review_metadata_without_side_effects(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $clientReviewId = strtolower((string) Str::ulid());
+        $payload = [
+            'cardId' => $card->id,
+            'grade' => 'good',
+            'durationMs' => 1250,
+            'clientReviewId' => $clientReviewId,
+            'reviewedAt' => '2026-06-05T15:30:00Z',
+        ];
+
+        $this->postJson('/api/study/reviews', $payload)->assertOk();
+        $cardAfterFirstReview = $card->refresh();
+        $syncEntryCountAfterFirstReview = SyncFeedEntry::query()->where('user_id', $user->id)->count();
+
+        $this->postJson('/api/study/reviews', [
+            ...$payload,
+            'grade' => 'easy',
+        ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Card review event ID already exists with different metadata.')
+            ->assertJsonPath('reason', 'card_review_event_id_conflict');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertSame($cardAfterFirstReview->scheduler_state, $card->refresh()->scheduler_state);
+        $this->assertSame(
+            $syncEntryCountAfterFirstReview,
+            SyncFeedEntry::query()->where('user_id', $user->id)->count(),
+        );
+    }
+
+    public function test_it_hides_replays_whose_client_review_id_belongs_to_another_user(): void
+    {
+        $firstUser = $this->signIn();
+        $firstCard = $this->cardFor($firstUser);
+        $clientReviewId = strtolower((string) Str::ulid());
+        $payload = [
+            'cardId' => $firstCard->id,
+            'grade' => 'good',
+            'clientReviewId' => $clientReviewId,
+            'reviewedAt' => '2026-06-05T15:30:00Z',
+        ];
+
+        $this->postJson('/api/study/reviews', $payload)->assertOk();
+        $otherUser = User::factory()->create();
+        $otherCard = $this->cardFor($otherUser);
+        $this->actingAs($otherUser);
+
+        $this->postJson('/api/study/reviews', [
+            ...$payload,
+            'cardId' => $otherCard->id,
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Not Found');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertSame(1, $firstCard->refresh()->scheduler_state['reps']);
+        $this->assertNull($otherCard->refresh()->scheduler_state);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string}>
+     */
+    public static function invalidClientReviewIdentityPairs(): iterable
+    {
+        $clientReviewId = strtolower((string) Str::ulid());
+
+        yield 'missing reviewedAt' => [
+            ['clientReviewId' => $clientReviewId],
+            'reviewedAt',
+        ];
+        yield 'null reviewedAt with clientReviewId' => [
+            ['clientReviewId' => $clientReviewId, 'reviewedAt' => null],
+            'reviewedAt',
+        ];
+        yield 'missing clientReviewId' => [
+            ['reviewedAt' => '2026-06-05T15:30:00Z'],
+            'clientReviewId',
+        ];
+        yield 'null clientReviewId with reviewedAt' => [
+            ['clientReviewId' => null, 'reviewedAt' => '2026-06-05T15:30:00Z'],
+            'clientReviewId',
+        ];
+        yield 'malformed clientReviewId' => [
+            ['clientReviewId' => 'not-a-ulid', 'reviewedAt' => '2026-06-05T15:30:00Z'],
+            'clientReviewId',
+        ];
+        yield 'blank clientReviewId' => [
+            ['clientReviewId' => " \t\n ", 'reviewedAt' => '2026-06-05T15:30:00Z'],
+            'clientReviewId',
+        ];
+        yield 'array clientReviewId' => [
+            ['clientReviewId' => [$clientReviewId], 'reviewedAt' => '2026-06-05T15:30:00Z'],
+            'clientReviewId',
+        ];
+        yield 'relative reviewedAt' => [
+            ['clientReviewId' => $clientReviewId, 'reviewedAt' => 'tomorrow'],
+            'reviewedAt',
+        ];
+        yield 'timezone-naive reviewedAt' => [
+            ['clientReviewId' => $clientReviewId, 'reviewedAt' => '2026-06-05T15:30:00'],
+            'reviewedAt',
+        ];
+        yield 'numeric reviewedAt' => [
+            ['clientReviewId' => $clientReviewId, 'reviewedAt' => 1_780_678_200],
+            'reviewedAt',
+        ];
+        yield 'array reviewedAt' => [
+            ['clientReviewId' => $clientReviewId, 'reviewedAt' => ['2026-06-05T15:30:00Z']],
+            'reviewedAt',
+        ];
+    }
+
+    /** @param array<string, mixed> $identity */
+    #[DataProvider('invalidClientReviewIdentityPairs')]
+    public function test_it_requires_and_validates_the_client_review_identity_pair(
+        array $identity,
+        string $expectedError,
+    ): void {
+        $this->withoutMiddleware(TrimStrings::class);
+        $card = $this->cardFor($this->signIn());
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => 'good',
+            ...$identity,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([$expectedError]);
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_legacy_review_clients_may_omit_or_null_the_client_identity_pair(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-05T15:30:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $firstCard = $this->cardFor($user);
+            $secondCard = $this->cardFor($user);
+
+            $omittedResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $firstCard->id,
+                'grade' => 'good',
+            ]);
+            $nullResponse = $this->postJson('/api/study/reviews', [
+                'cardId' => $secondCard->id,
+                'grade' => 'good',
+                'clientReviewId' => null,
+                'reviewedAt' => null,
+            ]);
+
+            $omittedResponse->assertOk();
+            $nullResponse->assertOk();
+            $this->assertIsString($omittedResponse->json('reviewLogId'));
+            $this->assertIsString($nullResponse->json('reviewLogId'));
+            $this->assertNotSame($omittedResponse->json('reviewLogId'), $nullResponse->json('reviewLogId'));
+            $this->assertDatabaseCount('card_review_events', 2);
+            $this->assertSame(1, $firstCard->refresh()->scheduler_state['reps']);
+            $this->assertSame(1, $secondCard->refresh()->scheduler_state['reps']);
         } finally {
             Carbon::setTestNow();
         }

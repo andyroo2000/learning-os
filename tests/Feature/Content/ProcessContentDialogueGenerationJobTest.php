@@ -13,6 +13,7 @@ use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Content\Support\ContentSpeakerProfile;
 use App\Jobs\ProcessContentDialogueGeneration;
 use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -29,10 +30,17 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
         $id = (string) Str::uuid();
         $job = new ProcessContentDialogueGeneration('  '.strtoupper($id).'  ');
 
+        $this->assertInstanceOf(ShouldBeUnique::class, $job);
         $this->assertSame($id, $job->jobId);
         $this->assertSame($id, $job->uniqueId());
         $this->assertSame(ContentDialogueGeneration::JOB_TRIES, $job->tries);
         $this->assertSame(ContentDialogueGeneration::JOB_TIMEOUT_SECONDS, $job->timeout);
+        $this->assertSame(
+            ContentDialogueGeneration::JOB_TIMEOUT_SECONDS
+                + ContentDialogueGeneration::JOB_BACKOFF_SECONDS
+                + 60,
+            $job->uniqueFor,
+        );
         $this->assertTrue($job->failOnTimeout);
         $this->assertSame([ContentDialogueGeneration::JOB_BACKOFF_SECONDS], $job->backoff());
 

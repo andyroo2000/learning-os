@@ -3,6 +3,7 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
@@ -64,13 +65,13 @@ class ContentCourseGenerationApiTest extends TestCase
         ]);
         $this->authenticateWrite($user);
 
-        $this->postJson('/api/convolab/courses/'.strtoupper($course->id).'/generate')
+        $response = $this->postJson('/api/convolab/courses/'.strtoupper($course->id).'/generate')
             ->assertOk()
-            ->assertExactJson([
-                'message' => 'Course generation started',
-                'jobId' => $course->id,
-                'courseId' => $course->id,
-            ]);
+            ->assertJsonPath('message', 'Course generation started')
+            ->assertJsonPath('state', 'pending')
+            ->assertJsonPath('jobId', $course->id)
+            ->assertJsonPath('courseId', $course->id);
+        $this->assertTrue(Str::isUuid($response->json('clientRequestId')));
 
         $course->refresh();
         $this->assertSame('generating', $course->status);
@@ -89,7 +90,40 @@ class ContentCourseGenerationApiTest extends TestCase
 
         $this->postJson("/api/convolab/courses/{$course->id}/generate")
             ->assertBadRequest()
-            ->assertExactJson(['message' => 'Course is already being generated']);
+            ->assertJsonPath('message', 'Course is already being generated')
+            ->assertJsonPath('state', 'failed');
+        Queue::assertPushed(ProcessContentCourseGeneration::class, 1);
+    }
+
+    public function test_course_client_request_id_replays_each_durable_state_without_a_second_attempt(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $course = $this->course($user);
+        $this->authenticateWrite($user);
+        $clientRequestId = (string) Str::uuid();
+        $url = "/api/convolab/courses/{$course->id}/generate";
+
+        $first = $this->postJson($url, ['clientRequestId' => $clientRequestId])
+            ->assertOk()
+            ->assertJsonPath('clientRequestId', $clientRequestId)
+            ->assertJsonPath('state', 'pending');
+        $this->postJson($url, ['clientRequestId' => $clientRequestId])
+            ->assertOk()
+            ->assertJsonPath('jobId', $first->json('jobId'))
+            ->assertJsonPath('state', 'pending');
+
+        $ledger = ContentGenerationRequest::query()->sole();
+        foreach (['active', 'completed'] as $state) {
+            $ledger->forceFill(['state' => $state])->save();
+            $this->postJson($url, ['clientRequestId' => $clientRequestId])
+                ->assertOk()
+                ->assertJsonPath('clientRequestId', $clientRequestId)
+                ->assertJsonPath('state', $state);
+        }
+
+        $this->assertSame(1, $course->fresh()->generation_attempt);
+        $this->assertDatabaseCount('content_generation_requests', 1);
         Queue::assertPushed(ProcessContentCourseGeneration::class, 1);
     }
 
@@ -278,7 +312,8 @@ class ContentCourseGenerationApiTest extends TestCase
 
         $this->postJson("/api/convolab/courses/{$course->id}/generate")
             ->assertServiceUnavailable()
-            ->assertExactJson(['message' => ContentCourseGeneration::QUEUE_FAILED_MESSAGE]);
+            ->assertJsonPath('message', ContentCourseGeneration::QUEUE_FAILED_MESSAGE)
+            ->assertJsonPath('state', 'failed');
 
         $course->refresh();
         $this->assertSame('error', $course->status);

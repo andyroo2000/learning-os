@@ -13,8 +13,9 @@ class GenerateContentDialogueRequest extends ConvoLabVerifiedGenerationRequest
         parent::prepareForValidation();
 
         $episodeId = $this->input('episodeId');
+        $clientRequestId = $this->input('clientRequestId');
         $speakers = $this->input('speakers');
-        $this->merge([
+        $normalized = [
             'episodeId' => is_string($episodeId) ? strtolower(trim($episodeId)) : $episodeId,
             'speakers' => is_array($speakers) && array_is_list($speakers)
                 ? array_map(fn (mixed $speaker): mixed => $this->normalizeSpeaker($speaker), $speakers)
@@ -22,7 +23,13 @@ class GenerateContentDialogueRequest extends ConvoLabVerifiedGenerationRequest
             'jlptLevel' => $this->trimString($this->input('jlptLevel')),
             'vocabSeedOverride' => $this->trimString($this->input('vocabSeedOverride')),
             'grammarSeedOverride' => $this->trimString($this->input('grammarSeedOverride')),
-        ]);
+        ];
+        if ($this->exists('clientRequestId')) {
+            $normalized['clientRequestId'] = is_string($clientRequestId)
+                ? strtolower(trim($clientRequestId))
+                : $clientRequestId;
+        }
+        $this->merge($normalized);
     }
 
     /** @return array<string, list<mixed>> */
@@ -31,6 +38,7 @@ class GenerateContentDialogueRequest extends ConvoLabVerifiedGenerationRequest
         return [
             ...$this->convoLabUserIdRules(),
             'episodeId' => ['required', 'uuid'],
+            'clientRequestId' => ['sometimes', 'required', 'uuid'],
             'speakers' => ['required', 'array', 'size:2'],
             'speakers.*' => ['required', 'array:name,voiceId,proficiency,tone,color'],
             'speakers.*.name' => ['required', 'string', 'max:100'],
@@ -46,6 +54,13 @@ class GenerateContentDialogueRequest extends ConvoLabVerifiedGenerationRequest
             'vocabSeedOverride' => ['sometimes', 'nullable', 'string', 'max:10000'],
             'grammarSeedOverride' => ['sometimes', 'nullable', 'string', 'max:10000'],
         ];
+    }
+
+    public function clientRequestId(): ?string
+    {
+        $validated = $this->validated();
+
+        return $validated['clientRequestId'] ?? null;
     }
 
     /** @return list<callable(Validator): void> */

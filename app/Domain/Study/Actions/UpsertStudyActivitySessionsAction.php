@@ -6,6 +6,7 @@ use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,6 +20,10 @@ class UpsertStudyActivitySessionsAction
     public function handle(int $userId, array $sessions): Collection
     {
         return DB::transaction(function () use ($userId, $sessions): Collection {
+            // A first write has no session row to lock, so use the stable owner row
+            // to serialize the source decision for every client session ID.
+            $this->lockUserOrFail($userId);
+
             $now = now();
             $clientSessionIds = collect($sessions)->map(
                 fn (StudyActivitySessionData $session): string => StudyActivitySessionId::normalize(
@@ -75,7 +80,6 @@ class UpsertStudyActivitySessionsAction
                     [
                         'category',
                         'activity',
-                        'source',
                         'name',
                         'started_at',
                         'ended_at',
@@ -99,5 +103,13 @@ class UpsertStudyActivitySessionsAction
                 ],
             );
         });
+    }
+
+    private function lockUserOrFail(int $userId): void
+    {
+        User::query()
+            ->whereKey($userId)
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 }

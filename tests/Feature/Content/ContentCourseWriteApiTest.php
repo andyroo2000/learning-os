@@ -246,6 +246,12 @@ class ContentCourseWriteApiTest extends TestCase
             ->assertGone()
             ->assertJsonPath('code', 'content_gone');
 
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create(), convoLabUserId: (string) Str::uuid())
+            ->postJson('/api/convolab/courses', [...$payload, 'id' => $deletedId])
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Course not found']);
+
         $this->assertDatabaseMissing('content_courses', ['id' => $deletedId]);
     }
 

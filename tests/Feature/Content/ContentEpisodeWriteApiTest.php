@@ -201,6 +201,12 @@ class ContentEpisodeWriteApiTest extends TestCase
             ->assertGone()
             ->assertJsonPath('code', 'content_gone');
 
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create(), convoLabUserId: (string) Str::uuid())
+            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $deletedId])
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Episode not found']);
+
         $this->assertDatabaseMissing('content_episodes', ['id' => $deletedId]);
     }
 

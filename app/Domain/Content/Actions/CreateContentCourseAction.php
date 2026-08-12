@@ -146,6 +146,8 @@ final class CreateContentCourseAction
                 $description,
                 $descriptionGenerationToken,
             ): ?ContentCourse {
+                ContentSourceLock::acquireConvoLab(DB::connection());
+
                 $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
                 if (! $course instanceof ContentCourse) {
                     return null;

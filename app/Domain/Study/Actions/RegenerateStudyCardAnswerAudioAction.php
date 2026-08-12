@@ -84,8 +84,6 @@ class RegenerateStudyCardAnswerAudioAction
                     // advance together or regeneration leaves the prompt on retired media.
                     $nextPrompt['cueAudio'] = $generated->mediaRef;
                 }
-                $lockedCard->answer_audio_source = 'generated';
-
                 $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
                     frontText: $lockedCard->front_text,
                     backText: $lockedCard->back_text,
@@ -95,6 +93,8 @@ class RegenerateStudyCardAnswerAudioAction
                     promptJson: $nextPrompt,
                     hasAnswerJson: true,
                     answerJson: $nextAnswer,
+                    hasAnswerAudioSource: true,
+                    answerAudioSource: 'generated',
                 ));
                 $this->attachMedia->handle(AttachMediaToCardData::fromModels(
                     $lockedCard,

@@ -1086,6 +1086,7 @@ class StudyImportUploadActionTest extends TestCase
         $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
 
         $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(1, $processed?->preview_json['skipped_media_count']);
         $this->assertSame([
             'imported_decks' => 1,
             'imported_cards' => 3,

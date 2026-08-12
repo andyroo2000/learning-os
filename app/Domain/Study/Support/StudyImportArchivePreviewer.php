@@ -10,6 +10,7 @@ final class StudyImportArchivePreviewer
 
     public function __construct(
         private readonly StudyImportArchiveReader $archiveReader,
+        private readonly StudyImportArchiveMediaEligibility $mediaEligibility,
     ) {}
 
     /**
@@ -47,7 +48,6 @@ final class StudyImportArchivePreviewer
      */
     private function mediaPreview(array $mediaReferences, array $mediaManifestByFilename): array
     {
-        $referencedFilenames = array_fill_keys($mediaReferences, true);
         $warnings = [];
         $totalWarningCount = 0;
 
@@ -59,6 +59,8 @@ final class StudyImportArchivePreviewer
                 $warning = 'Media file "'.$filename.'" is referenced by notes but is missing from the archive manifest.';
             } elseif (! $manifestEntry->hasContent) {
                 $warning = 'Media file "'.$filename.'" is listed in the archive manifest but content entry "'.$manifestEntry->sourceMediaRef.'" is missing.';
+            } elseif (! $this->mediaEligibility->isImportable($manifestEntry)) {
+                $warning = 'Media file "'.$filename.'" has unsupported or invalid archive metadata and will be skipped.';
             }
 
             if ($warning !== null) {
@@ -78,16 +80,8 @@ final class StudyImportArchivePreviewer
                 .' omitted from this preview.';
         }
 
-        $skippedMediaCount = 0;
-
-        foreach (array_keys($mediaManifestByFilename) as $filename) {
-            if (! isset($referencedFilenames[$filename])) {
-                $skippedMediaCount++;
-            }
-        }
-
         return [
-            'skipped_media_count' => $skippedMediaCount,
+            'skipped_media_count' => $totalWarningCount,
             'warnings' => $warnings,
         ];
     }

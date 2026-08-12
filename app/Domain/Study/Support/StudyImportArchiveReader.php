@@ -51,10 +51,16 @@ final class StudyImportArchiveReader
         try {
             $zip = $this->openArchive($snapshot->path());
             $collectionPath = $this->extractCollectionDatabase($zip);
+            $collection = $this->collectionReader->read($collectionPath);
 
-            return $this->collectionReader->read(
-                $collectionPath,
-                $this->mediaManifestByFilename($zip),
+            return new StudyImportArchiveRead(
+                deckName: $collection->deckName,
+                cards: $collection->cards,
+                reviewLogs: $collection->reviewLogs,
+                mediaManifestByFilename: $this->mediaManifestByFilename(
+                    $zip,
+                    array_fill_keys($collection->mediaReferences(), true),
+                ),
             );
         } finally {
             $zip?->close();
@@ -240,9 +246,10 @@ final class StudyImportArchiveReader
     }
 
     /**
+     * @param  array<string, true>  $referencedFilenames
      * @return array<string, StudyImportArchiveMediaEntry>
      */
-    private function mediaManifestByFilename(ZipArchive $zip): array
+    private function mediaManifestByFilename(ZipArchive $zip, array $referencedFilenames): array
     {
         $index = $zip->locateName('media');
 
@@ -295,7 +302,9 @@ final class StudyImportArchiveReader
 
                 $filename = trim($filename);
 
-                if ($filename === '' || array_key_exists($filename, $manifest)) {
+                if ($filename === ''
+                    || ! isset($referencedFilenames[$filename])
+                    || array_key_exists($filename, $manifest)) {
                     continue;
                 }
 

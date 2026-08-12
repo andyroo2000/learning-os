@@ -1489,6 +1489,47 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
     }
 
+    public function test_process_job_does_not_budget_or_persist_unreferenced_archive_media(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        Config::set('study_import.archive_expansion.max_total_media_bytes', 5);
+        $sourceObjectPath = 'study/imports/process/unreferenced-media-budget.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'note_one_fields' => '会社[sound:word.mp3]'."\x1f".'company',
+            'media_map' => [
+                '0' => 'word.mp3',
+                '1' => 'unused.png',
+            ],
+            'media_entries' => [
+                '0' => 'audio',
+                '1' => str_repeat('x', 20),
+            ],
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(1, $processed?->preview_json['media_reference_count']);
+        $this->assertSame(1, $processed?->summary_json['imported_media_assets']);
+        $this->assertSame(0, $processed?->summary_json['skipped_media_assets']);
+        $this->assertDatabaseHas('media_assets', [
+            'import_job_id' => $importJob->id,
+            'source_media_ref' => '0',
+            'source_filename' => 'word.mp3',
+        ]);
+        $this->assertDatabaseMissing('media_assets', [
+            'import_job_id' => $importJob->id,
+            'source_media_ref' => '1',
+        ]);
+        $this->assertSame('audio', Storage::disk('media')->get(
+            MediaAsset::query()->where('import_job_id', $importJob->id)->sole()->path,
+        ));
+    }
+
     public function test_process_job_disambiguates_colliding_import_media_storage_paths(): void
     {
         Storage::fake('study-imports');

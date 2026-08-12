@@ -17,10 +17,7 @@ final class StudyImportCollectionDatabaseReader
         private readonly StudyImportArchiveTemplateRenderer $templateRenderer,
     ) {}
 
-    /**
-     * @param  array<string, StudyImportArchiveMediaEntry>  $mediaManifestByFilename
-     */
-    public function read(string $collectionPath, array $mediaManifestByFilename): StudyImportArchiveRead
+    public function read(string $collectionPath): StudyImportArchiveRead
     {
         try {
             $pdo = new PDO('sqlite:'.$collectionPath);
@@ -43,7 +40,7 @@ final class StudyImportCollectionDatabaseReader
                 deckName: $deck->name,
                 cards: $cards,
                 reviewLogs: $this->fetchTargetDeckReviewLogs($pdo, $deck->sourceDeckId),
-                mediaManifestByFilename: $mediaManifestByFilename,
+                mediaManifestByFilename: [],
             );
         } catch (StudyImportPreviewException $exception) {
             throw $exception;

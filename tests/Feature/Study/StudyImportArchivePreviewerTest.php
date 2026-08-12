@@ -144,6 +144,33 @@ class StudyImportArchivePreviewerTest extends TestCase
         }
     }
 
+    public function test_total_media_expansion_limit_ignores_media_not_referenced_by_the_selected_deck(): void
+    {
+        Storage::fake('study-imports');
+        $archiveBytes = $this->buildStudyImportArchiveBytes([
+            'note_one_fields' => '会社[sound:word.mp3]'."\x1f".'company',
+            'media_map' => [
+                '0' => 'word.mp3',
+                '1' => 'unused.png',
+            ],
+            'media_entries' => [
+                '0' => 'audio',
+                '1' => str_repeat('x', 20),
+            ],
+        ]);
+        Storage::disk('study-imports')->put('study/imports/preview/unreferenced-media-budget.colpkg', $archiveBytes);
+        Config::set('study_import.archive_expansion.max_total_media_bytes', 5);
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/unreferenced-media-budget.colpkg',
+        );
+
+        $this->assertSame(1, $preview['media_reference_count']);
+        $this->assertSame(0, $preview['skipped_media_count']);
+        $this->assertSame([], $preview['warnings']);
+    }
+
     public function test_it_rejects_media_when_declared_and_streamed_sizes_disagree(): void
     {
         Storage::fake('study-imports');

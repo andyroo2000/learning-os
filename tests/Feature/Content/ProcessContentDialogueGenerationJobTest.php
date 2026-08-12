@@ -35,11 +35,12 @@ class ProcessContentDialogueGenerationJobTest extends TestCase
         $this->assertSame($id, $job->uniqueId());
         $this->assertSame(ContentDialogueGeneration::JOB_TRIES, $job->tries);
         $this->assertSame(ContentDialogueGeneration::JOB_TIMEOUT_SECONDS, $job->timeout);
+        $this->assertSame(ContentDialogueGeneration::UNIQUE_FOR_SECONDS, $job->uniqueFor);
         $this->assertSame(
-            ContentDialogueGeneration::JOB_TIMEOUT_SECONDS
+            (ContentDialogueGeneration::JOB_TRIES * ContentDialogueGeneration::JOB_TIMEOUT_SECONDS)
                 + ContentDialogueGeneration::JOB_BACKOFF_SECONDS
                 + 60,
-            $job->uniqueFor,
+            ContentDialogueGeneration::UNIQUE_FOR_SECONDS,
         );
         $this->assertTrue($job->failOnTimeout);
         $this->assertSame([ContentDialogueGeneration::JOB_BACKOFF_SECONDS], $job->backoff());

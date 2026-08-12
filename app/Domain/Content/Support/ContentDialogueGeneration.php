@@ -20,6 +20,10 @@ final class ContentDialogueGeneration
 
     public const JOB_BACKOFF_SECONDS = 30;
 
+    public const UNIQUE_FOR_SECONDS = (self::JOB_TRIES * self::JOB_TIMEOUT_SECONDS)
+        + self::JOB_BACKOFF_SECONDS
+        + 60;
+
     public const QUEUE_FAILED_MESSAGE = 'Dialogue generation could not be queued. Please try again.';
 
     public const FAILED_MESSAGE = 'Dialogue generation failed. Please try again.';

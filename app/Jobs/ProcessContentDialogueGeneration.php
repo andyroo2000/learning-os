@@ -21,9 +21,7 @@ class ProcessContentDialogueGeneration implements ShouldBeUnique, ShouldQueue
 
     public int $timeout = ContentDialogueGeneration::JOB_TIMEOUT_SECONDS;
 
-    public int $uniqueFor = ContentDialogueGeneration::JOB_TIMEOUT_SECONDS
-        + ContentDialogueGeneration::JOB_BACKOFF_SECONDS
-        + 60;
+    public int $uniqueFor = ContentDialogueGeneration::UNIQUE_FOR_SECONDS;
 
     public bool $failOnTimeout = true;
 

@@ -76,49 +76,56 @@ class ProcessStudyImportJobAction
             return $importJob;
         }
 
+        $snapshot = null;
+
         try {
-            $archive = $this->archiveReader->read(
-                Storage::disk('study-imports'),
-                (string) $importJob->source_object_path,
-            );
-        } catch (StudyImportPreviewException $exception) {
-            if ($exception->getPrevious() !== null) {
+            try {
+                $snapshot = $this->archiveReader->snapshot(
+                    Storage::disk('study-imports'),
+                    (string) $importJob->source_object_path,
+                );
+                $archive = $this->archiveReader->readSnapshot($snapshot);
+            } catch (StudyImportPreviewException $exception) {
+                if ($exception->getPrevious() !== null) {
+                    report($exception);
+                }
+
+                return StudyImportJobFailureMarker::markFailed($importJob, $exception->getMessage(), $now);
+            } catch (Throwable $exception) {
                 report($exception);
+
+                return StudyImportJobFailureMarker::markFailed(
+                    $importJob,
+                    StudyImportPreviewException::invalidCollectionDatabase()->getMessage(),
+                    $now,
+                );
             }
 
-            return StudyImportJobFailureMarker::markFailed($importJob, $exception->getMessage(), $now);
-        } catch (Throwable $exception) {
-            report($exception);
+            try {
+                $preview = $this->archivePreviewer->previewArchive($archive);
+            } catch (Throwable $exception) {
+                report($exception);
 
-            return StudyImportJobFailureMarker::markFailed(
-                $importJob,
-                StudyImportPreviewException::invalidCollectionDatabase()->getMessage(),
-                $now,
-            );
-        }
+                return StudyImportJobFailureMarker::markFailed(
+                    $this->freshImportJob($importJob),
+                    'Study import preview could not be prepared.',
+                    $now,
+                );
+            }
 
-        try {
-            $preview = $this->archivePreviewer->previewArchive($archive);
-        } catch (Throwable $exception) {
-            report($exception);
+            try {
+                return $this->archiveImporter->import($importJob, $archive, $snapshot, $preview, $now);
+            } catch (Throwable $exception) {
+                report($exception);
 
-            return StudyImportJobFailureMarker::markFailed(
-                $this->freshImportJob($importJob),
-                'Study import preview could not be prepared.',
-                $now,
-            );
-        }
-
-        try {
-            return $this->archiveImporter->import($importJob, $archive, $preview, $now);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return StudyImportJobFailureMarker::markFailed(
-                $this->freshImportJob($importJob),
-                'Study import could not be processed.',
-                $now,
-            );
+                return StudyImportJobFailureMarker::markFailed(
+                    $this->freshImportJob($importJob),
+                    'Study import could not be processed.',
+                    $now,
+                );
+            }
+        } finally {
+            $snapshot?->close();
         }
     }
 

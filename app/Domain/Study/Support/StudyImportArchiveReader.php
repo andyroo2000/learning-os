@@ -27,12 +27,29 @@ final class StudyImportArchiveReader
 
     public function read(FilesystemAdapter $disk, string $sourceObjectPath): StudyImportArchiveRead
     {
-        $archivePath = $this->copyStorageObjectToTempFile($disk, $sourceObjectPath);
+        $snapshot = $this->snapshot($disk, $sourceObjectPath);
+
+        try {
+            return $this->readSnapshot($snapshot);
+        } finally {
+            $snapshot->close();
+        }
+    }
+
+    public function snapshot(FilesystemAdapter $disk, string $sourceObjectPath): StudyImportArchiveSnapshot
+    {
+        return new StudyImportArchiveSnapshot(
+            $this->copyStorageObjectToTempFile($disk, $sourceObjectPath),
+        );
+    }
+
+    public function readSnapshot(StudyImportArchiveSnapshot $snapshot): StudyImportArchiveRead
+    {
         $collectionPath = null;
         $zip = null;
 
         try {
-            $zip = $this->openArchive($archivePath);
+            $zip = $this->openArchive($snapshot->path());
             $collectionPath = $this->extractCollectionDatabase($zip);
 
             return $this->collectionReader->read(
@@ -41,7 +58,6 @@ final class StudyImportArchiveReader
             );
         } finally {
             $zip?->close();
-            @unlink($archivePath);
 
             if ($collectionPath !== null) {
                 @unlink($collectionPath);
@@ -63,11 +79,32 @@ final class StudyImportArchiveReader
             return [];
         }
 
-        $archivePath = $this->copyStorageObjectToTempFile($sourceDisk, $sourceObjectPath);
+        $snapshot = $this->snapshot($sourceDisk, $sourceObjectPath);
+
+        try {
+            return $this->copyMediaEntriesFromSnapshotToDisk($snapshot, $targetDisk, $targetPathsBySourceMediaRef);
+        } finally {
+            $snapshot->close();
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $targetPathsBySourceMediaRef
+     * @return array<string, bool>
+     */
+    public function copyMediaEntriesFromSnapshotToDisk(
+        StudyImportArchiveSnapshot $snapshot,
+        FilesystemAdapter $targetDisk,
+        array $targetPathsBySourceMediaRef,
+    ): array {
+        if ($targetPathsBySourceMediaRef === []) {
+            return [];
+        }
+
         $zip = null;
 
         try {
-            $zip = $this->openArchive($archivePath);
+            $zip = $this->openArchive($snapshot->path());
             $copied = [];
             $consumedMediaBytes = 0;
 
@@ -125,7 +162,6 @@ final class StudyImportArchiveReader
             return $copied;
         } finally {
             $zip?->close();
-            @unlink($archivePath);
         }
     }
 

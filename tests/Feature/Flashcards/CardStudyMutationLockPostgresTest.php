@@ -145,13 +145,20 @@ class CardStudyMutationLockPostgresTest extends TestCase
                 $this->assertSame(1, $updatedCard->scheduler_state['state']);
             }
 
-            $lastCardUpdate = SyncFeedEntry::query()
+            $cardUpdates = SyncFeedEntry::query()
                 ->where('user_id', $user->id)
                 ->where('resource_type', 'card')
                 ->where('resource_id', $card->id)
                 ->where('operation', SyncFeedOperation::Update->value)
-                ->orderByDesc('checkpoint')
-                ->firstOrFail();
+                ->orderBy('checkpoint')
+                ->get();
+            $this->assertCount(2, $cardUpdates);
+
+            $reviewUpdate = $cardUpdates->first();
+            $lastCardUpdate = $cardUpdates->last();
+            $this->assertNotNull($reviewUpdate);
+            $this->assertNotNull($lastCardUpdate);
+            $this->assertSame($reviewedAt->toJSON(), $reviewUpdate->payload['last_reviewed_at']);
             $this->assertSame($reviewedAt->toJSON(), $lastCardUpdate->payload['last_reviewed_at']);
             $this->assertSame(1, $lastCardUpdate->payload['scheduler_state']['reps']);
         } finally {

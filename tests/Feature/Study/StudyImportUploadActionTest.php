@@ -306,6 +306,130 @@ class StudyImportUploadActionTest extends TestCase
         );
     }
 
+    public function test_upload_rejects_failed_storage_writes_without_recording_or_retaining_partial_bytes(): void
+    {
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$user->id.'/failed-write/core.colpkg',
+            'source_content_type' => 'application/zip',
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+        ]);
+        $sourceDisk = Storage::disk('study-imports');
+        $this->installFailingStudyImportUploadDisk($sourceDisk);
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+                contents: 'complete archive bytes',
+                contentType: 'application/zip',
+            );
+            $this->fail('Expected a failed storage write to reject the upload.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Unable to store the study import upload.', $exception->getMessage());
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Pending, $importJob->status);
+        $this->assertNull($importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        $sourceDisk->assertMissing($importJob->source_object_path);
+    }
+
+    public function test_upload_wraps_thrown_storage_errors_after_removing_partial_bytes(): void
+    {
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$user->id.'/thrown-write/core.colpkg',
+            'source_content_type' => 'application/zip',
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+        ]);
+        $sourceDisk = Storage::disk('study-imports');
+        $this->installFailingStudyImportUploadDisk($sourceDisk, throwDuringWrite: true);
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+                contents: 'complete archive bytes',
+                contentType: 'application/zip',
+            );
+            $this->fail('Expected a thrown storage error to reject the upload.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Unable to store the study import upload.', $exception->getMessage());
+            $this->assertSame('Simulated storage transport failure.', $exception->getPrevious()?->getMessage());
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Pending, $importJob->status);
+        $this->assertNull($importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        $sourceDisk->assertMissing($importJob->source_object_path);
+    }
+
+    #[DataProvider('failedUploadPartialCleanupFailureProvider')]
+    public function test_upload_preserves_the_storage_failure_when_partial_cleanup_fails(bool $throwDuringDelete): void
+    {
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => StudyImportJob::SOURCE_UPLOAD_FOLDER.'/'.$user->id.'/failed-cleanup/core.colpkg',
+            'source_content_type' => 'application/zip',
+            'source_size_bytes' => null,
+            'uploaded_at' => null,
+        ]);
+        $sourceDisk = Storage::disk('study-imports');
+        $this->installFailingStudyImportUploadDisk($sourceDisk, throwDuringDelete: $throwDuringDelete);
+
+        try {
+            app(UploadStudyImportFileAction::class)->handle(
+                userId: $user->id,
+                importJobId: $importJob->id,
+                contents: 'complete archive bytes',
+                contentType: 'application/zip',
+            );
+            $this->fail('Expected a failed storage write to reject the upload.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Unable to store the study import upload.', $exception->getMessage());
+            $this->assertNull($exception->getPrevious());
+        }
+
+        $importJob->refresh();
+
+        $this->assertSame(StudyImportStatus::Pending, $importJob->status);
+        $this->assertNull($importJob->source_size_bytes);
+        $this->assertNull($importJob->uploaded_at);
+        $sourceDisk->assertExists($importJob->source_object_path);
+        Exceptions::assertReported(function (RuntimeException $exception) use ($importJob, $throwDuringDelete): bool {
+            if ($exception->getMessage() !== 'Unable to remove a partial study import upload: '.$importJob->source_object_path) {
+                return false;
+            }
+
+            return $throwDuringDelete
+                ? $exception->getPrevious()?->getMessage() === 'Simulated partial upload cleanup failure.'
+                : $exception->getPrevious() === null;
+        });
+        Exceptions::assertReportedCount(1);
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function failedUploadPartialCleanupFailureProvider(): array
+    {
+        return [
+            'adapter returns false' => [false],
+            'adapter throws' => [true],
+        ];
+    }
+
     public function test_upload_rejects_actual_stream_bytes_above_the_limit_before_staging_the_overflow(): void
     {
         $stagedContents = tmpfile();
@@ -2027,6 +2151,45 @@ class StudyImportUploadActionTest extends TestCase
             $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'study_import_jobs')),
             'Malformed import job IDs should return not-found before querying study_import_jobs.',
         );
+    }
+
+    private function installFailingStudyImportUploadDisk(
+        FilesystemAdapter $inner,
+        bool $throwDuringWrite = false,
+        ?bool $throwDuringDelete = null,
+    ): void {
+        Storage::set('study-imports', new class($inner, $throwDuringWrite, $throwDuringDelete) extends FilesystemAdapter
+        {
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly bool $throwDuringWrite,
+                private readonly ?bool $throwDuringDelete,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function writeStream($path, $resource, array $options = [])
+            {
+                $this->inner->put($path, 'partial archive bytes');
+
+                if ($this->throwDuringWrite) {
+                    throw new RuntimeException('Simulated storage transport failure.');
+                }
+
+                return false;
+            }
+
+            public function delete($paths): bool
+            {
+                if ($this->throwDuringDelete === true) {
+                    throw new RuntimeException('Simulated partial upload cleanup failure.');
+                }
+
+                return $this->throwDuringDelete === false
+                    ? false
+                    : $this->inner->delete($paths);
+            }
+        });
     }
 
     private function writeSparseStudyImportFile(string $path, int $sizeBytes): void

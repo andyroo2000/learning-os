@@ -189,6 +189,7 @@ final class StudyImportArchiveMediaImporter
     private function mediaTargets(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $referencedFilenames): array
     {
         $targets = [];
+        $reservedPaths = [];
 
         foreach ($referencedFilenames as $filename) {
             $entry = $archive->mediaManifestByFilename[$filename] ?? null;
@@ -203,6 +204,8 @@ final class StudyImportArchiveMediaImporter
                 continue;
             }
 
+            $path = $this->reserveMediaStoragePath($path, $entry, $reservedPaths);
+
             $targets[$entry->sourceMediaRef] = [
                 'entry' => $entry,
                 'filename' => $filename,
@@ -211,6 +214,42 @@ final class StudyImportArchiveMediaImporter
         }
 
         return $targets;
+    }
+
+    /**
+     * @param  array<string, true>  $reservedPaths
+     */
+    private function reserveMediaStoragePath(
+        string $preferredPath,
+        StudyImportArchiveMediaEntry $entry,
+        array &$reservedPaths,
+    ): string {
+        if (! isset($reservedPaths[$preferredPath])) {
+            $reservedPaths[$preferredPath] = true;
+
+            return $preferredPath;
+        }
+
+        $collisionKey = $entry->sourceMediaRef."\0".$entry->sourceFilename;
+
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            $suffix = '-'.substr(hash('sha256', $collisionKey."\0".$attempt), 0, 12);
+            $candidate = mb_substr(
+                $preferredPath,
+                0,
+                MediaAsset::MAX_PATH_LENGTH - mb_strlen($suffix),
+            ).$suffix;
+
+            if (isset($reservedPaths[$candidate])) {
+                continue;
+            }
+
+            $reservedPaths[$candidate] = true;
+
+            return $candidate;
+        }
+
+        throw new LogicException('Unable to allocate a unique study import media storage path.');
     }
 
     /**
@@ -277,6 +316,11 @@ final class StudyImportArchiveMediaImporter
         }
 
         $suffix = '.'.$extension;
+
+        if (mb_strlen($suffix) >= $maxLength) {
+            return mb_substr($filename, 0, $maxLength);
+        }
+
         $basenameMaxLength = max(1, $maxLength - mb_strlen($suffix));
 
         return mb_substr(pathinfo($filename, PATHINFO_FILENAME), 0, $basenameMaxLength).$suffix;

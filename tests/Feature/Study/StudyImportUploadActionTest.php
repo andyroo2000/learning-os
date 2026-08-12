@@ -1420,6 +1420,67 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
     }
 
+    public function test_process_job_disambiguates_colliding_import_media_storage_paths(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $commonFilenamePrefix = str_repeat('x', 220);
+        $firstFilename = $commonFilenamePrefix.'-first.mp3';
+        $secondFilename = $commonFilenamePrefix.'-second.mp3';
+        $sourceObjectPath = 'study/imports/process/colliding-media-paths.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'note_one_fields' => '[sound:'.$firstFilename.'][sound:'.$secondFilename."]\x1fanswer",
+            'media_map' => [
+                'a/b' => $firstFilename,
+                'a?b' => $secondFilename,
+            ],
+            'media_entries' => [
+                'a/b' => 'first-media-bytes',
+                'a?b' => 'second-media-bytes',
+            ],
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $mediaAssets = MediaAsset::query()
+            ->where('import_job_id', $importJob->id)
+            ->orderBy('source_media_ref')
+            ->get();
+        $this->assertCount(2, $mediaAssets);
+        $this->assertNotSame($mediaAssets[0]->path, $mediaAssets[1]->path);
+        $this->assertLessThanOrEqual(MediaAsset::MAX_PATH_LENGTH, mb_strlen($mediaAssets[0]->path));
+        $this->assertLessThanOrEqual(MediaAsset::MAX_PATH_LENGTH, mb_strlen($mediaAssets[1]->path));
+        $this->assertSame('first-media-bytes', Storage::disk('media')->get($mediaAssets[0]->path));
+        $this->assertSame('second-media-bytes', Storage::disk('media')->get($mediaAssets[1]->path));
+    }
+
+    public function test_process_job_bounds_media_paths_when_the_filename_extension_exceeds_the_available_space(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $filename = 'a.'.str_repeat('x', 230);
+        $sourceObjectPath = 'study/imports/process/long-media-extension.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'note_one_fields' => '[sound:'.$filename."]\x1fanswer",
+            'media_map' => ['0' => $filename],
+            'media_entries' => ['0' => 'media-bytes'],
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $mediaAsset = MediaAsset::query()->where('import_job_id', $importJob->id)->sole();
+        $this->assertLessThanOrEqual(MediaAsset::MAX_PATH_LENGTH, mb_strlen($mediaAsset->path));
+        $this->assertSame('media-bytes', Storage::disk('media')->get($mediaAsset->path));
+    }
+
     public function test_process_job_deletes_the_source_archive_after_the_completed_state_commits(): void
     {
         Storage::fake('study-imports');

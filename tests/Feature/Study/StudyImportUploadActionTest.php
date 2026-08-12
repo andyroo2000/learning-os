@@ -92,6 +92,26 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
     }
 
+    public function test_process_job_persists_invalid_card_text_encoding_before_database_writes(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourceObjectPath = 'study/imports/process/invalid-card-text.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes([
+            'note_one_fields' => "front\xFF\x1fback",
+        ]));
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $processed?->status);
+        $this->assertSame('Imported card text must use valid UTF-8.', $processed?->error_message);
+        $this->assertSame(0, Deck::query()->where('user_id', $importJob->user_id)->count());
+        $this->assertSame(0, Card::query()->where('import_job_id', $importJob->id)->count());
+    }
+
     public function test_process_job_does_not_revive_an_import_that_times_out_during_media_copy(): void
     {
         Carbon::setTestNow('2026-08-12 06:00:00');

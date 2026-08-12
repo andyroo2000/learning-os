@@ -154,7 +154,10 @@ trait BuildsStudyImportArchives
             $pdo->exec('CREATE TABLE notetypes (id integer primary key, name text not null)');
 
             $statement = $pdo->prepare('INSERT INTO decks (id, name) VALUES (:id, :name)');
-            $statement->execute(['id' => $deckId, 'name' => $deckName]);
+            $statement->execute([
+                'id' => $deckId,
+                'name' => $options['normalized_deck_name'] ?? $deckName,
+            ]);
             foreach ($extraDecks as $extraDeck) {
                 if (! is_array($extraDeck) || ! isset($extraDeck['id']) || ! is_numeric($extraDeck['id'])) {
                     continue;
@@ -167,7 +170,10 @@ trait BuildsStudyImportArchives
             }
 
             $statement = $pdo->prepare('INSERT INTO notetypes (id, name) VALUES (:id, :name)');
-            $statement->execute(['id' => $basicNoteTypeId, 'name' => $basicNoteTypeName]);
+            $statement->execute([
+                'id' => $basicNoteTypeId,
+                'name' => $options['normalized_basic_note_type_name'] ?? $basicNoteTypeName,
+            ]);
             $statement->execute(['id' => $clozeNoteTypeId, 'name' => 'Cloze']);
         }
 

@@ -28,6 +28,10 @@ final class StudyImportCollectionDatabaseReader
 
             $deck = $this->targetDeck($pdo);
 
+            if (! mb_check_encoding($deck->name, 'UTF-8')) {
+                throw StudyImportPreviewException::invalidDeckNameEncoding();
+            }
+
             if (mb_strlen($deck->name) > Deck::MAX_NAME_LENGTH) {
                 throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
             }
@@ -317,8 +321,16 @@ final class StudyImportCollectionDatabaseReader
                     'templates' => [],
                 ];
 
+                if (! mb_check_encoding($noteType['name'], 'UTF-8')) {
+                    throw StudyImportPreviewException::invalidNoteTypeNameEncoding();
+                }
+
                 if (mb_strlen($noteType['name']) > Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH) {
                     throw StudyImportPreviewException::noteTypeNameTooLong(Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
+                }
+
+                if (! mb_check_encoding($noteFields, 'UTF-8')) {
+                    throw StudyImportPreviewException::invalidCardTextEncoding();
                 }
 
                 $renderedText = $this->templateRenderer->render($noteType, $templateOrdinal, $noteFields);

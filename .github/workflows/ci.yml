@@ -153,6 +153,7 @@ jobs:
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \
             tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
             tests/Feature/Study/ManualStudyCardOwnerLockPostgresTest.php \
+            tests/Feature/Study/RepairLegacyStudyMediaReferencesLockPostgresTest.php \
             tests/Feature/Study/StudyActivitySessionLockPostgresTest.php \
             tests/Feature/Study/StudyCardDraftOwnershipLockPostgresTest.php \
             tests/Feature/Study/StudyImportCancellationLockPostgresTest.php \

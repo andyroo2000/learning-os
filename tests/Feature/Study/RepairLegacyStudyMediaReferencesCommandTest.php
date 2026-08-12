@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Actions\RepairLegacyStudyMediaReferencesAction;
@@ -11,6 +12,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -81,17 +83,30 @@ class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
     {
         [$card, $audio, $image] = $this->legacyCardWithLinkedMedia();
         $originalUpdatedAt = DB::table('cards')->where('id', $card->id)->value('updated_at');
+        $repairedAt = Carbon::parse('2026-08-12T19:30:00Z');
 
-        $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
-            ->expectsOutputToContain('Repair completed: 1 linked cards scanned, 1 cards changed, 2 references changed.')
-            ->assertExitCode(0);
+        $this->travelTo($repairedAt, function (): void {
+            $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
+                ->expectsOutputToContain('Repair completed: 1 linked cards scanned, 1 cards changed, 2 references changed.')
+                ->assertExitCode(0);
+        });
 
         $card->refresh();
         $this->assertSame($audio->id, $card->prompt_json['cueAudio']['id']);
         $this->assertSame("/api/study/media/{$audio->id}", $card->prompt_json['cueAudio']['url']);
         $this->assertSame($image->id, $card->answer_json['nested']['answerImage']['id']);
         $this->assertSame("/api/study/media/{$image->id}", $card->answer_json['nested']['answerImage']['url']);
-        $this->assertSame($originalUpdatedAt, DB::table('cards')->where('id', $card->id)->value('updated_at'));
+        $this->assertNotSame($originalUpdatedAt, DB::table('cards')->where('id', $card->id)->value('updated_at'));
+        $this->assertSame($repairedAt->toJSON(), $card->updated_at->toJSON());
+        $this->assertSame(
+            CardSearchText::fromContent(
+                frontText: $card->front_text,
+                backText: $card->back_text,
+                promptJson: $card->prompt_json,
+                answerJson: $card->answer_json,
+            ),
+            $card->search_text,
+        );
         $syncEntry = SyncFeedEntry::query()
             ->where('domain', CardSyncPayload::DOMAIN)
             ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
@@ -101,6 +116,7 @@ class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
         $this->assertSame(SyncFeedOperation::Update, $syncEntry->operation);
         $this->assertSame($card->prompt_json, $syncEntry->payload['prompt_json']);
         $this->assertSame($card->answer_json, $syncEntry->payload['answer_json']);
+        $this->assertSame($card->search_text, $syncEntry->payload['search_text']);
         $this->assertSame($card->updated_at->toJSON(), $syncEntry->payload['updated_at']);
 
         $this->artisan('study:repair-legacy-media-references', ['--apply' => true])
@@ -251,6 +267,7 @@ class RepairLegacyStudyMediaReferencesCommandTest extends TestCase
                     ),
                 ],
             ],
+            'search_text' => 'stale legacy media reference search text',
             'updated_at' => '2026-07-19 10:00:00',
         ]);
         $audio = $this->mediaFor($user, 'audio/mpeg', 'word & tone.mp3');

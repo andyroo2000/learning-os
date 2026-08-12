@@ -17,3 +17,8 @@ Schedule::command('content:recover-generation-requests')
     ->everyMinute()
     ->onOneServer()
     ->withoutOverlapping(5);
+
+Schedule::command('content:prune-generation-requests')
+    ->dailyAt('03:30')
+    ->onOneServer()
+    ->withoutOverlapping(60);

@@ -48,6 +48,25 @@ not accept service or mobile bearer tokens.
 Use `QUEUE_CONNECTION=database` with a separately managed
 `php artisan queue:work` service for import and content-generation jobs.
 
+## Generation request replay and retention
+
+Convo Lab generation requests with a `clientRequestId` replay their persisted
+result while the request ledger exists. Completed and failed ledgers are retained
+for 30 days after `finished_at`; their original input payload is cleared as soon
+as they become terminal, while the response status and typed error needed for an
+exact replay remain available.
+
+The daily `content:prune-generation-requests` task deletes only completed or
+failed ledgers whose replay window has expired. Pending and active requests are
+never age-pruned. After a terminal ledger is deleted, the same owner may reuse
+that `clientRequestId`; the server treats it as a new generation request rather
+than replaying the expired result. Operators can inspect a bounded batch without
+mutating it with:
+
+```bash
+php artisan content:prune-generation-requests --dry-run --limit=500
+```
+
 Run migrations as a one-shot container before starting a new image:
 
 ```bash

@@ -178,6 +178,7 @@ final class RecoverContentGenerationRequestsTest extends TestCase
 
         $this->assertSame('completed', $dialogueRequest->fresh()->state);
         $this->assertSame(200, $dialogueRequest->fresh()->response_status);
+        $this->assertSame([], $dialogueRequest->fresh()->input_payload);
         $this->assertSame('failed', $courseRequest->fresh()->state);
         $this->assertSame('Provider failed.', $courseRequest->fresh()->error_message);
         Queue::assertNothingPushed();

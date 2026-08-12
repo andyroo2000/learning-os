@@ -150,7 +150,9 @@ class ContentDialogueGenerationApiTest extends TestCase
             ->assertJsonPath('clientRequestId', $clientRequestId)
             ->assertJsonPath('state', 'failed');
 
-        $this->assertSame('failed', ContentGenerationRequest::query()->sole()->state);
+        $request = ContentGenerationRequest::query()->sole();
+        $this->assertSame('failed', $request->state);
+        $this->assertSame([], $request->input_payload);
         $this->assertDatabaseCount('content_dialogue_generation_jobs', 1);
     }
 

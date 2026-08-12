@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class ContentGenerationRequest extends Model
 {
+    /** After this replay window, a reused client request ID starts a new request. */
+    public const TERMINAL_RETENTION_DAYS = 30;
+
     protected $table = 'content_generation_requests';
 
     public $incrementing = false;

@@ -7,6 +7,7 @@ use App\Domain\Content\Models\ContentDialogueGenerationJob;
 use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentGenerationRequestState;
+use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
 use Illuminate\Support\Facades\DB;
 
@@ -184,12 +185,16 @@ final class UpdateContentGenerationRequestStateAction
         string $state,
         ?string $message = null,
     ): bool {
-        $request->state = $state;
-        $request->response_status = $state === ContentGenerationRequestState::COMPLETED ? 200 : 500;
-        $request->error_code = $state === ContentGenerationRequestState::FAILED ? 'generation_failed' : null;
-        $request->error_message = $state === ContentGenerationRequestState::FAILED ? $message : null;
-        $request->finished_at ??= now();
-        $request->save();
+        if ($state === ContentGenerationRequestState::COMPLETED) {
+            ContentGenerationRequestTerminalState::complete($request);
+        } else {
+            ContentGenerationRequestTerminalState::fail(
+                $request,
+                500,
+                'generation_failed',
+                (string) $message,
+            );
+        }
 
         return true;
     }

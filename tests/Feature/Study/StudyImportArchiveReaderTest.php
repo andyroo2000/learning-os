@@ -11,6 +11,7 @@ use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use RuntimeException;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -277,14 +278,15 @@ class StudyImportArchiveReaderTest extends TestCase
         );
     }
 
-    public function test_it_rejects_imported_note_type_names_that_exceed_the_storage_contract(): void
+    #[DataProvider('collectionSchemaProvider')]
+    public function test_it_rejects_imported_note_type_names_that_exceed_the_storage_contract(bool $normalizedSchema): void
     {
         Storage::fake('study-imports');
         Storage::disk('study-imports')->put(
             'study/imports/read/long-note-type-name.colpkg',
             $this->buildStudyImportArchiveBytes([
                 'basic_note_type_name' => str_repeat('n', Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH + 1),
-                'normalized_schema' => true,
+                'normalized_schema' => $normalizedSchema,
             ]),
         );
 
@@ -295,6 +297,17 @@ class StudyImportArchiveReaderTest extends TestCase
             Storage::disk('study-imports'),
             'study/imports/read/long-note-type-name.colpkg',
         );
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function collectionSchemaProvider(): array
+    {
+        return [
+            'legacy col.models JSON' => [false],
+            'normalized notetypes table' => [true],
+        ];
     }
 
     public function test_it_accepts_import_metadata_at_the_storage_contract_boundaries(): void

@@ -13,7 +13,7 @@ final readonly class UpdateDeckData
     ) {}
 
     /**
-     * @throws InvalidArgumentException when the name is blank after trimming.
+     * @throws InvalidArgumentException when the normalized name is blank or exceeds its storage contract.
      */
     public static function fromInput(
         string $name,

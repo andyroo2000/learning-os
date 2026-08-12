@@ -138,7 +138,7 @@ class StudyImportArchivePreviewerTest extends TestCase
             $this->fail('Expected the cumulative media expansion limit to reject the archive.');
         } catch (StudyImportPreviewException $exception) {
             $this->assertSame(
-                'The uncompressed media referenced by the archive manifest must not exceed 9 bytes.',
+                'The uncompressed media referenced by the selected deck must not exceed 9 bytes.',
                 $exception->getMessage(),
             );
         }

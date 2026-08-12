@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Support;
 
 use App\Domain\Content\Models\ContentGenerationRequest;
+use LogicException;
 
 final class ContentGenerationRequestTerminalState
 {
@@ -23,12 +24,17 @@ final class ContentGenerationRequestTerminalState
         string $code,
         string $message,
     ): void {
+        $message = trim($message);
+        if ($message === '') {
+            throw new LogicException('A failed generation request requires a replay-safe message.');
+        }
+
         self::write(
             $request,
             ContentGenerationRequestState::FAILED,
             $status,
             $code,
-            trim($message),
+            $message,
         );
     }
 

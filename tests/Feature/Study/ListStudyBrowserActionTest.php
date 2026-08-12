@@ -113,6 +113,33 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertSame('2026-06-04T10:30:00.108000Z', $result['rows'][0]['updatedAt']);
     }
 
+    public function test_it_keeps_a_copied_note_grouped_when_legacy_source_note_ids_disagree(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $noteId = '33afc682-eef1-46f2-849a-13a9f80ec11e';
+        $firstCard = Card::factory()->for($deck)->create([
+            'convolab_note_id' => $noteId,
+            'front_text' => 'copied prompt',
+            'source_note_id' => 4251,
+            'source_template_ord' => 0,
+        ]);
+        Card::factory()->for($deck)->create([
+            'convolab_note_id' => $noteId,
+            'front_text' => 'copied answer',
+            'source_note_id' => 4252,
+            'source_template_ord' => 1,
+        ]);
+
+        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame($noteId, $result['rows'][0]['noteId']);
+        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
+        $this->assertSame(2, $result['rows'][0]['cardCount']);
+    }
+
     public function test_it_paginates_mixed_copied_sourced_and_unsourced_groups_with_stable_ties(): void
     {
         $user = $this->signIn();

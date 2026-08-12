@@ -7,6 +7,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -145,18 +146,25 @@ class StudyImportJobApiTest extends TestCase
         }
     }
 
-    public function test_show_returns_the_authenticated_users_import_job(): void
+    public function test_show_returns_persisted_preview_for_a_completed_import_without_the_source_archive(): void
     {
+        Storage::fake('study-imports');
         $user = $this->signIn();
+        $sourceObjectPath = 'study/imports/deleted/completed.colpkg';
         $importJob = StudyImportJob::factory()->completed()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+            'preview_json' => ['deck_name' => 'Archived Deck', 'card_count' => 3],
             'summary_json' => ['imported_cards' => 3],
         ]);
         StudyImportJob::factory()->for(User::factory()->create())->create();
+        Storage::disk('study-imports')->assertMissing($sourceObjectPath);
 
         $this->getJson('/api/study/imports/'.strtoupper($importJob->id))
             ->assertOk()
             ->assertJsonPath('data.id', $importJob->id)
             ->assertJsonPath('data.status', StudyImportStatus::Completed->value)
+            ->assertJsonPath('data.preview.deck_name', 'Archived Deck')
+            ->assertJsonPath('data.preview.card_count', 3)
             ->assertJsonPath('data.summary.imported_cards', 3);
     }
 

@@ -67,6 +67,8 @@ final class CreateContentEpisodeAction
                 return CreateContentEpisodeResult::created($episode);
             });
         } catch (QueryException $exception) {
+            // Cooperative ConvoLab writers serialize on ContentSourceLock. Retain PK recovery for
+            // imports, maintenance code, or older deployments that can write without that lock.
             if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'content_episodes')) {
                 throw $exception;
             }

@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportJobFailureMarker;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
@@ -45,10 +46,11 @@ class CancelStudyImportUploadAction
                 return $importJob;
             }
 
-            $importJob->status = StudyImportStatus::Failed;
-            $importJob->error_message = 'Study import upload was cancelled.';
-            $importJob->completed_at = $now;
-            $importJob->saveOrFail();
+            StudyImportJobFailureMarker::markFailed(
+                $importJob,
+                'Study import upload was cancelled.',
+                $now,
+            );
             $sourceObjectPath = $importJob->source_object_path;
 
             return $importJob;

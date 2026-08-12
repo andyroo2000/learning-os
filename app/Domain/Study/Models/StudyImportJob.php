@@ -31,7 +31,7 @@ class StudyImportJob extends Model
 
     public const PROCESSING_TIMEOUT_MINUTES = 60;
 
-    public const COMPLETED_ARCHIVE_RETENTION_HOURS = 24;
+    public const TERMINAL_ARCHIVE_RETENTION_HOURS = 24;
 
     public const MAX_ASYNC_IMPORT_BYTES = 2_147_483_648;
 

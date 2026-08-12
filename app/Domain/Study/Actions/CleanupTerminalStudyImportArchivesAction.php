@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
-final class CleanupCompletedStudyImportArchivesAction
+final class CleanupTerminalStudyImportArchivesAction
 {
     public const DEFAULT_LIMIT = 500;
 
@@ -25,10 +25,15 @@ final class CleanupCompletedStudyImportArchivesAction
         int $limit = self::DEFAULT_LIMIT,
     ): StudyImportArchiveCleanupResult {
         $now ??= now();
-        $cutoff = $now->copy()->subHours(StudyImportJob::COMPLETED_ARCHIVE_RETENTION_HOURS);
+        $cutoff = $now->copy()->subHours(StudyImportJob::TERMINAL_ARCHIVE_RETENTION_HOURS);
         $claimExpiredBefore = $now->copy()->subMinutes(self::CLAIM_LEASE_MINUTES);
+        // The existing composite index begins with status, cleanup resolution, completion, and id;
+        // this terminal-status query preserves that access path for both completed and failed rows.
         $importJobIds = StudyImportJob::query()
-            ->where('status', StudyImportStatus::Completed->value)
+            ->whereIn('status', [
+                StudyImportStatus::Completed->value,
+                StudyImportStatus::Failed->value,
+            ])
             ->whereNull('archive_cleanup_resolved_at')
             ->whereNotNull('source_object_path')
             ->where('source_object_path', '<>', '')
@@ -107,7 +112,7 @@ final class CleanupCompletedStudyImportArchivesAction
             $claim['import_job_id'],
             $sourceObjectPath,
         )) {
-            $message = 'Refusing to delete an unsafe completed study import source archive path: '.$sourceObjectPath;
+            $message = 'Refusing to delete an unsafe terminal study import source archive path: '.$sourceObjectPath;
 
             return match ($this->finalizeFailure($claim, $message, $now, resolved: true)) {
                 true => $this->reportAndReturn($message, 'unsafe'),
@@ -120,7 +125,7 @@ final class CleanupCompletedStudyImportArchivesAction
             $disk = Storage::disk('study-imports');
             $exists = $disk->exists($sourceObjectPath);
         } catch (Throwable $exception) {
-            $message = 'Unable to check for an orphaned completed study import source archive: '.$sourceObjectPath;
+            $message = 'Unable to check for a retained terminal study import source archive: '.$sourceObjectPath;
 
             return match ($this->finalizeFailure($claim, $message, $now)) {
                 true => $this->reportAndReturn($message, 'failed', $exception),
@@ -130,13 +135,13 @@ final class CleanupCompletedStudyImportArchivesAction
         }
 
         if (! $exists) {
-            return $this->finalizationOutcome($this->finalizeCompleted($claim, $now), 'missing');
+            return $this->finalizationOutcome($this->finalizeResolved($claim, $now), 'missing');
         }
 
         try {
             $deleted = $disk->delete($sourceObjectPath);
         } catch (Throwable $exception) {
-            $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
+            $message = 'Unable to delete a retained terminal study import source archive: '.$sourceObjectPath;
 
             return match ($this->finalizeFailure($claim, $message, $now)) {
                 true => $this->reportAndReturn($message, 'failed', $exception),
@@ -146,7 +151,7 @@ final class CleanupCompletedStudyImportArchivesAction
         }
 
         if (! $deleted) {
-            $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
+            $message = 'Unable to delete a retained terminal study import source archive: '.$sourceObjectPath;
 
             return match ($this->finalizeFailure($claim, $message, $now)) {
                 true => $this->reportAndReturn($message, 'failed'),
@@ -155,7 +160,7 @@ final class CleanupCompletedStudyImportArchivesAction
             };
         }
 
-        return $this->finalizationOutcome($this->finalizeCompleted($claim, $now), 'deleted');
+        return $this->finalizationOutcome($this->finalizeResolved($claim, $now), 'deleted');
     }
 
     /**
@@ -201,7 +206,10 @@ final class CleanupCompletedStudyImportArchivesAction
         );
 
         return $claimIsAvailable
-            && $importJob->status === StudyImportStatus::Completed
+            && in_array($importJob->status, [
+                StudyImportStatus::Completed,
+                StudyImportStatus::Failed,
+            ], true)
             && $importJob->archive_cleanup_resolved_at === null
             && is_string($importJob->source_object_path)
             && $importJob->source_object_path !== ''
@@ -223,7 +231,7 @@ final class CleanupCompletedStudyImportArchivesAction
     }
 
     /** @param array{import_job_id: string, claim_token: string} $claim */
-    private function finalizeCompleted(array $claim, Carbon $now): ?bool
+    private function finalizeResolved(array $claim, Carbon $now): ?bool
     {
         return $this->finalize($claim, function (StudyImportJob $importJob) use ($now): void {
             $importJob->archive_cleanup_resolved_at = $now;
@@ -298,7 +306,7 @@ final class CleanupCompletedStudyImportArchivesAction
 
     private function saveWithoutChangingImportHistoryOrder(StudyImportJob $importJob): void
     {
-        // Operational cleanup markers must not make an old completed import appear newly updated in client lists.
+        // Operational cleanup markers must not make an old terminal import appear newly updated in client lists.
         $timestamps = $importJob->timestamps;
         $importJob->timestamps = false;
 

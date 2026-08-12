@@ -66,6 +66,7 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,
             'committed_card_id' => $cardId,
+            'revision' => 1,
         ]);
 
         $deck = Deck::query()->sole();
@@ -143,6 +144,7 @@ class CreateStudyCardFromDraftActionTest extends TestCase
         $this->assertDatabaseHas('study_card_drafts', [
             'id' => $draft->id,
             'committed_card_id' => $cardId,
+            'revision' => 1,
         ]);
     }
 

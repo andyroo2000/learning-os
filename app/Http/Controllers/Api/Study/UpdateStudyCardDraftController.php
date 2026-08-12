@@ -6,6 +6,7 @@ use App\Domain\Study\Actions\UpdateStudyCardDraftAction;
 use App\Domain\Study\Data\UpdateStudyCardDraftData;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
+use App\Domain\Study\Exceptions\StudyCardDraftRevisionConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\UpdateStudyCardDraftRequest;
@@ -25,6 +26,7 @@ class UpdateStudyCardDraftController extends Controller
             $hasAnswer = $request->hasAnswer();
 
             $draft = $updateStudyCardDraft->handle($request->studyCardDraft(), UpdateStudyCardDraftData::fromInput(
+                expectedRevision: $request->expectedRevision(),
                 hasPrompt: $hasPrompt,
                 promptJson: $hasPrompt ? $request->promptPayload() : null,
                 hasAnswer: $hasAnswer,
@@ -52,6 +54,12 @@ class UpdateStudyCardDraftController extends Controller
                 hasVariantUnlockedAt: $request->hasVariantUnlockedAt(),
                 variantUnlockedAt: $request->variantUnlockedAt(),
             ));
+        } catch (StudyCardDraftRevisionConflictException $exception) {
+            return response()->json([
+                'code' => StudyCardDraftRevisionConflictException::CODE,
+                'message' => $exception->getMessage(),
+                'draft' => StudyCardDraftResource::make($exception->draft)->resolve($request),
+            ], 409);
         } catch (StudyCardDraftValidationException $exception) {
             throw ValidationException::withMessages([
                 $exception->field() => [$exception->getMessage()],

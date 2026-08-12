@@ -12,6 +12,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardDraftOwnerLock;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
@@ -107,6 +108,7 @@ class CreateStudyCardFromDraftAction
 
             if ($draft->committed_card_id === null) {
                 $draft->committed_card_id = $result->card->id;
+                StudyCardDraftRevision::advance($draft);
                 // Draft commits remain retry markers; card creation and draft state each emit sync entries.
                 $draft->saveQuietly();
                 $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);

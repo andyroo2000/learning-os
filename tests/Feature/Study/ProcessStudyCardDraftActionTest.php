@@ -49,6 +49,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertNotNull($processed);
         $this->assertSame($draft->id, $processed?->id);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $processed?->status);
+        $this->assertSame(1, $processed?->revision);
         $this->assertSame('会社[かいしゃ]', $processed?->prompt_json['cueReading']);
         $this->assertSame('会社', $processed?->answer_json['expression']);
         $this->assertSame('I work at a company.', $processed?->answer_json['sentenceEn']);
@@ -86,6 +87,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         $this->assertNotNull($processed);
         $this->assertSame(StudyManualCardDraftStatus::Error, $processed?->status);
+        $this->assertSame(1, $processed?->revision);
         $this->assertSame('prompt must be 8 levels deep or fewer.', $processed?->error_message);
         $this->assertNull($processed?->preview_audio_json);
         $this->assertNull($processed?->preview_audio_role);
@@ -150,6 +152,7 @@ class ProcessStudyCardDraftActionTest extends TestCase
 
         $this->assertSame($draft->id, $secondAttempt?->id);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $secondAttempt?->refresh()->status);
+        $this->assertSame(1, $secondAttempt?->revision);
         $this->assertNotNull($secondAttempt?->updated_at);
         $this->assertSame($firstUpdatedAt, $secondAttempt->updated_at->toJSON());
         $this->assertTrue($firstEntry->is(SyncFeedEntry::query()->sole()));

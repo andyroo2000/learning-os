@@ -62,6 +62,7 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
         $response
             ->assertOk()
             ->assertExactJson([
+                'revision' => 1,
                 'previewAudio' => [
                     'id' => $response->json('previewAudio.id'),
                     'filename' => $response->json('previewAudio.filename'),
@@ -83,6 +84,7 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
         $draft->refresh();
         $this->assertSame($mediaAsset->id, $draft->preview_audio_json['id']);
         $this->assertSame(StudyCardAudioRole::Answer, $draft->preview_audio_role);
+        $this->assertSame(1, $draft->revision);
 
         $syncEntries = SyncFeedEntry::query()->orderBy('checkpoint')->get();
         $this->assertCount(2, $syncEntries);
@@ -173,6 +175,7 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
 
         $response
             ->assertOk()
+            ->assertJsonPath('revision', 1)
             ->assertJsonPath('imagePrompt', 'A commuter entering a Tokyo office.')
             ->assertJsonPath('imagePlacement', 'prompt')
             ->assertJsonPath('previewImage.mediaKind', 'image')
@@ -183,6 +186,7 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
         $this->assertStringEndsWith('.webp', $mediaAsset->original_filename);
         $this->assertSame($webpBytes, Storage::disk('media')->get($mediaAsset->path));
         $this->assertSame($mediaAsset->id, $draft->refresh()->preview_image_json['id']);
+        $this->assertSame(1, $draft->revision);
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -392,6 +396,49 @@ class GenerateStudyCardDraftPreviewMediaApiTest extends TestCase
             $syncEntries->pluck('operation')->all(),
         );
         $this->assertSame($syncEntries[0]->resource_id, $syncEntries[1]->resource_id);
+    }
+
+    public function test_it_discards_generated_media_when_the_draft_revision_changes_during_generation(): void
+    {
+        $user = $this->signIn();
+        $draft = $this->readyDraft($user);
+        Http::fake(function () use ($draft) {
+            StudyCardDraft::query()
+                ->whereKey($draft->id)
+                ->update([
+                    'answer_json' => json_encode([
+                        'expression' => '会社',
+                        'meaning' => 'business',
+                        'answerAudioVoiceId' => self::FISH_VOICE_ID,
+                    ], JSON_THROW_ON_ERROR),
+                    'revision' => 1,
+                ]);
+
+            return Http::response('ID3stale-audio-bytes');
+        });
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/preview-audio")
+            ->assertConflict()
+            ->assertJsonPath('code', 'draft_revision_conflict')
+            ->assertJsonPath('message', 'Study card draft changed since it was loaded.')
+            ->assertJsonPath('draft.revision', 1)
+            ->assertJsonPath('draft.answer.meaning', 'business')
+            ->assertJsonPath('draft.previewAudio', null);
+
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertSame([], Storage::disk('media')->allFiles());
+        $this->assertSame(1, $draft->refresh()->revision);
+        $this->assertNull($draft->preview_audio_json);
+
+        $syncEntries = SyncFeedEntry::query()
+            ->where('resource_type', MediaAssetSyncPayload::RESOURCE_TYPE)
+            ->orderBy('checkpoint')
+            ->get();
+        $this->assertCount(2, $syncEntries);
+        $this->assertSame(
+            [SyncFeedOperation::Create, SyncFeedOperation::Delete],
+            $syncEntries->pluck('operation')->all(),
+        );
     }
 
     public function test_audio_and_image_generation_share_one_user_scoped_rate_limit(): void

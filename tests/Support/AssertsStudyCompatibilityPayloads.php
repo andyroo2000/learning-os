@@ -11,6 +11,7 @@ trait AssertsStudyCompatibilityPayloads
     {
         return [
             'id',
+            'revision',
             'status',
             'creationKind',
             'cardType',

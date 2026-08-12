@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Services\StudyVocabBundleGenerator;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
@@ -143,6 +144,7 @@ class ProcessStudyVocabBundleDraftsAction
                     ? now()
                     : null;
                 $draft->error_message = null;
+                StudyCardDraftRevision::advance($draft);
                 $draft->save();
                 $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
                 $updated++;

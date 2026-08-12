@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\Study;
 use App\Domain\Study\Actions\GenerateStudyCardDraftPreviewAudioAction;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
+use App\Domain\Study\Exceptions\StudyCardDraftRevisionConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\GenerateStudyCardDraftPreviewRequest;
+use App\Http\Resources\Study\StudyCardDraftResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -21,6 +23,12 @@ class GenerateStudyCardDraftPreviewAudioController extends Controller
     ): JsonResponse {
         try {
             $draft = $generatePreviewAudio->handle($request->studyCardDraft());
+        } catch (StudyCardDraftRevisionConflictException $exception) {
+            return response()->json([
+                'code' => StudyCardDraftRevisionConflictException::CODE,
+                'message' => $exception->getMessage(),
+                'draft' => StudyCardDraftResource::make($exception->draft)->resolve($request),
+            ], 409);
         } catch (StudyCardDraftValidationException $exception) {
             throw ValidationException::withMessages([
                 $exception->field() => [$exception->getMessage()],
@@ -38,6 +46,7 @@ class GenerateStudyCardDraftPreviewAudioController extends Controller
         }
 
         return response()->json([
+            'revision' => $draft->revision,
             'previewAudio' => $draft->preview_audio_json,
             'previewAudioRole' => $draft->preview_audio_role?->value,
         ]);

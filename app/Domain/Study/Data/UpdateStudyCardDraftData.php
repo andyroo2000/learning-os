@@ -15,6 +15,7 @@ use DateTimeInterface;
 final readonly class UpdateStudyCardDraftData
 {
     private function __construct(
+        public ?int $expectedRevision,
         public bool $hasPrompt,
         public ?array $promptJson,
         public bool $hasAnswer,
@@ -44,6 +45,7 @@ final readonly class UpdateStudyCardDraftData
     ) {}
 
     public static function fromInput(
+        ?int $expectedRevision = null,
         bool $hasPrompt = false,
         ?array $promptJson = null,
         bool $hasAnswer = false,
@@ -99,6 +101,7 @@ final readonly class UpdateStudyCardDraftData
         }
 
         return new self(
+            expectedRevision: $expectedRevision,
             hasPrompt: $hasPrompt,
             promptJson: $promptJson,
             hasAnswer: $hasAnswer,

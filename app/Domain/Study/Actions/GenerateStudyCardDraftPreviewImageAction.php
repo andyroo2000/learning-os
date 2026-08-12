@@ -28,6 +28,8 @@ class GenerateStudyCardDraftPreviewImageAction
             throw StudyCardDraftConflictException::generatingCannotBeEdited();
         }
 
+        $expectedRevision = $draft->revision;
+
         if ($draft->image_placement === StudyCardImagePlacement::None) {
             throw StudyCardDraftValidationException::previewImageRequiresPlacement();
         }
@@ -48,6 +50,7 @@ class GenerateStudyCardDraftPreviewImageAction
 
         try {
             return $this->updateDraft->handle($draft, UpdateStudyCardDraftData::fromInput(
+                expectedRevision: $expectedRevision,
                 hasPreviewImage: true,
                 previewImageJson: $generated->mediaRef,
             ));

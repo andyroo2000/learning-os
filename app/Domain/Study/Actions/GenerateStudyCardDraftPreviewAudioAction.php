@@ -30,6 +30,7 @@ class GenerateStudyCardDraftPreviewAudioAction
             throw StudyCardDraftConflictException::generatingCannotBeEdited();
         }
 
+        $expectedRevision = $draft->revision;
         $text = $this->audioText($draft);
         if ($text === null) {
             throw StudyCardDraftValidationException::missingPreviewAudioText();
@@ -61,6 +62,7 @@ class GenerateStudyCardDraftPreviewAudioAction
 
         try {
             return $this->updateDraft->handle($draft, UpdateStudyCardDraftData::fromInput(
+                expectedRevision: $expectedRevision,
                 hasPreviewAudio: true,
                 previewAudioJson: $generated->mediaRef,
                 hasPreviewAudioRole: true,

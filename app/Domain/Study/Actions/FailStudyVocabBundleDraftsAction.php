@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -26,6 +27,7 @@ class FailStudyVocabBundleDraftsAction
             foreach ($drafts as $draft) {
                 $draft->status = StudyManualCardDraftStatus::Error;
                 $draft->error_message = $message;
+                StudyCardDraftRevision::advance($draft);
                 $draft->save();
 
                 DB::afterCommit(function () use ($draft): void {

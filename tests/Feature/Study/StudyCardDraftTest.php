@@ -25,6 +25,7 @@ class StudyCardDraftTest extends TestCase
         $this->assertTrue(Schema::hasColumns('study_card_drafts', [
             'id',
             'user_id',
+            'revision',
             'status',
             'creation_kind',
             'card_type',
@@ -74,6 +75,7 @@ class StudyCardDraftTest extends TestCase
 
         $draft->refresh();
 
+        $this->assertSame(0, $draft->revision);
         $this->assertSame(StudyManualCardDraftStatus::Ready, $draft->status);
         $this->assertSame(StudyCardCreationKind::ProductionImage, $draft->creation_kind);
         $this->assertSame(CardType::Production, $draft->card_type);
@@ -93,6 +95,7 @@ class StudyCardDraftTest extends TestCase
         $draft = new StudyCardDraft;
 
         $this->assertFalse($draft->isFillable('user_id'));
+        $this->assertFalse($draft->isFillable('revision'));
         $this->assertFalse($draft->isFillable('card_type'));
         $this->assertFalse($draft->isFillable('status'));
         $this->assertFalse($draft->isFillable('error_message'));

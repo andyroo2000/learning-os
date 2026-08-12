@@ -52,6 +52,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertCount(11, $drafts);
         $this->assertTrue($drafts->every(
             fn (StudyCardDraft $draft): bool => $draft->status === StudyManualCardDraftStatus::Ready
+                && $draft->revision === 1
                 && $draft->error_message === null
                 && $draft->preview_audio_json === null
                 && $draft->preview_image_json === null,
@@ -212,7 +213,8 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertCount(10, $failedDrafts);
         $this->assertTrue($failedDrafts->every(
             fn (StudyCardDraft $draft): bool => $draft->error_message
-                === ProcessStudyVocabBundleDrafts::EXHAUSTED_ERROR_MESSAGE,
+                === ProcessStudyVocabBundleDrafts::EXHAUSTED_ERROR_MESSAGE
+                && $draft->revision === 1,
         ));
         $syncCount = SyncFeedEntry::query()->count();
 
@@ -239,6 +241,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
 
         $this->assertNotNull($retried);
         $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->status);
+        $this->assertSame(2, $retried->revision);
         $this->assertSame(
             11,
             StudyCardDraft::query()

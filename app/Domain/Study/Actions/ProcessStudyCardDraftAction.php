@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\StudyCardDraftEnricher;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
@@ -107,6 +108,7 @@ class ProcessStudyCardDraftAction
 
             $lockedDraft->status = StudyManualCardDraftStatus::Ready;
             $lockedDraft->error_message = null;
+            StudyCardDraftRevision::advance($lockedDraft);
             $lockedDraft->save();
             $this->recordStudyCardDraftSyncEntry->handle(
                 $lockedDraft,
@@ -137,6 +139,7 @@ class ProcessStudyCardDraftAction
         $draft->preview_audio_role = null;
         $draft->preview_image_json = null;
         $draft->error_message = $message;
+        StudyCardDraftRevision::advance($draft);
         $draft->save();
     }
 

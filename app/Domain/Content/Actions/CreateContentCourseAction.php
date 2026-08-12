@@ -114,6 +114,8 @@ final class CreateContentCourseAction
                 return CreateContentCourseResult::created($course);
             });
         } catch (QueryException $exception) {
+            // Cooperative ConvoLab writers serialize on ContentSourceLock. Retain PK recovery for
+            // imports, maintenance code, or older deployments that can write without that lock.
             if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'content_courses')) {
                 throw $exception;
             }

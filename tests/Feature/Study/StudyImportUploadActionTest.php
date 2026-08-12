@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
 use App\Domain\Study\Actions\CleanupTerminalStudyImportArchivesAction;
@@ -2071,8 +2072,12 @@ class StudyImportUploadActionTest extends TestCase
                 'review_logs' => [
                     // Invalid source review timestamp: skipped instead of coerced to epoch.
                     ['id' => -1, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1],
-                    // Valid review row with an invalid duration: imported, with duration fields normalized to null.
-                    ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => -20, 'type' => 1],
+                    // Signed learning intervals are valid provenance; only the invalid duration is normalized to null.
+                    ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => -12, 'lastIvl' => -6, 'factor' => 2500, 'time' => -20, 'type' => 1],
+                    // Source metadata outside the review/domain and PostgreSQL integer contracts is nullable provenance.
+                    ['id' => 1700000000223, 'cid' => 701, 'ease' => 3, 'ivl' => PHP_INT_MAX, 'lastIvl' => PHP_INT_MIN, 'factor' => PHP_INT_MAX, 'time' => ReviewCardData::MAX_DURATION_MS + 1, 'type' => PHP_INT_MAX],
+                    // An out-of-range millisecond ID cannot be represented as a portable application timestamp.
+                    ['id' => PHP_INT_MAX, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1],
                     // Card 702 is present in the archive but skipped because its rendered text is blank.
                     ['id' => 1700000000456, 'cid' => 702, 'ease' => 4, 'ivl' => 21, 'lastIvl' => 12, 'factor' => 2600, 'time' => 760, 'type' => 1],
                     // Unsupported rating: skipped.
@@ -2091,26 +2096,28 @@ class StudyImportUploadActionTest extends TestCase
             'imported_decks' => 1,
             'imported_cards' => 2,
             'skipped_cards' => 1,
-            'imported_review_logs' => 1,
-            'skipped_review_logs' => 3,
+            'imported_review_logs' => 2,
+            'skipped_review_logs' => 4,
             'imported_media_assets' => 0,
             'skipped_media_assets' => 0,
         ], $processed?->summary_json);
 
-        $reviewEvent = CardReviewEvent::query()->sole();
+        $reviewEvent = CardReviewEvent::query()->where('source_review_id', 1700000000123)->sole();
 
         $this->assertSame(1700000000123, $reviewEvent->source_review_id);
         $this->assertSame('good', $reviewEvent->rating->value);
         // reviewed_at uses the existing second-precision schema; source_review_id preserves the Anki millisecond ID.
         $this->assertSame('2023-11-14T22:13:20.000000Z', $reviewEvent->reviewed_at?->toJSON());
         $this->assertNull($reviewEvent->duration_ms);
+        $this->assertSame(-12, $reviewEvent->source_interval);
+        $this->assertSame(-6, $reviewEvent->source_last_interval);
         $this->assertNull($reviewEvent->source_time_ms);
         $this->assertSame([
             'source_review_id' => 1700000000123,
             'source_card_id' => 701,
             'source_ease' => 3,
-            'source_interval' => 12,
-            'source_last_interval' => 6,
+            'source_interval' => -12,
+            'source_last_interval' => -6,
             'source_factor' => 2500,
             'source_time_ms' => -20,
             'source_review_type' => 1,
@@ -2118,8 +2125,24 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertDatabaseMissing('card_review_events', [
             'source_review_id' => -1,
         ]);
-        $this->assertSame(4, SyncFeedEntry::query()->count());
-        $this->assertSame(1, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
+        $this->assertDatabaseMissing('card_review_events', [
+            'source_review_id' => PHP_INT_MAX,
+        ]);
+
+        $boundedReviewEvent = CardReviewEvent::query()->where('source_review_id', 1700000000223)->sole();
+        $this->assertNull($boundedReviewEvent->duration_ms);
+        $this->assertNull($boundedReviewEvent->source_interval);
+        $this->assertNull($boundedReviewEvent->source_last_interval);
+        $this->assertNull($boundedReviewEvent->source_factor);
+        $this->assertNull($boundedReviewEvent->source_time_ms);
+        $this->assertNull($boundedReviewEvent->source_review_type);
+        $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_interval']);
+        $this->assertSame(PHP_INT_MIN, $boundedReviewEvent->raw_payload_json['source_last_interval']);
+        $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_factor']);
+        $this->assertSame(ReviewCardData::MAX_DURATION_MS + 1, $boundedReviewEvent->raw_payload_json['source_time_ms']);
+        $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_review_type']);
+        $this->assertSame(5, SyncFeedEntry::query()->count());
+        $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
     }
 
     public function test_process_job_skips_cards_with_blank_rendered_text(): void

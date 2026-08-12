@@ -78,12 +78,13 @@ trait BuildsStudyImportArchives
         $extraDecks = $options['extra_decks'] ?? [];
         $extraCards = $options['extra_cards'] ?? [];
         $fieldSeparator = "\x1f";
+        $basicNoteTypeName = $options['basic_note_type_name'] ?? 'Basic';
         $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
         $models = [
             (string) $basicNoteTypeId => [
                 'id' => $basicNoteTypeId,
-                'name' => 'Basic',
+                'name' => $basicNoteTypeName,
                 'flds' => [
                     ['name' => 'Front'],
                     ['name' => 'Back'],
@@ -166,7 +167,7 @@ trait BuildsStudyImportArchives
             }
 
             $statement = $pdo->prepare('INSERT INTO notetypes (id, name) VALUES (:id, :name)');
-            $statement->execute(['id' => $basicNoteTypeId, 'name' => 'Basic']);
+            $statement->execute(['id' => $basicNoteTypeId, 'name' => $basicNoteTypeName]);
             $statement->execute(['id' => $clozeNoteTypeId, 'name' => 'Cloze']);
         }
 

@@ -32,6 +32,8 @@ class Card extends Model
 
     public const MAX_VARIANT_STAGE = VariantMetadataLimits::MAX_STAGE;
 
+    public const MAX_SOURCE_NOTETYPE_NAME_LENGTH = 255;
+
     public const CLIENT_ID_ROUTE_PATTERN = '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})';
 
     /**

@@ -45,7 +45,7 @@ class UpdateDeckRequest extends FormRequest
         // Deck updates currently use a complete mutable payload, matching card updates.
         // This keeps nullable fields explicit until sync conflict semantics are introduced.
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:'.Deck::MAX_NAME_LENGTH],
             'description' => ['present', 'nullable', 'string', 'max:10000'],
         ];
     }

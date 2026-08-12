@@ -2,6 +2,8 @@
 
 namespace App\Domain\Study\Support;
 
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Models\StudyImportJob;
 use JsonException;
@@ -25,6 +27,11 @@ final class StudyImportCollectionDatabaseReader
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $deck = $this->targetDeck($pdo);
+
+            if (mb_strlen($deck->name) > Deck::MAX_NAME_LENGTH) {
+                throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
+            }
+
             $noteTypes = $this->noteTypesById($pdo);
             $cards = $this->fetchTargetDeckCards($pdo, $deck->sourceDeckId, $noteTypes);
 
@@ -309,6 +316,11 @@ final class StudyImportCollectionDatabaseReader
                     'fields' => [],
                     'templates' => [],
                 ];
+
+                if (mb_strlen($noteType['name']) > Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH) {
+                    throw StudyImportPreviewException::noteTypeNameTooLong(Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
+                }
+
                 $renderedText = $this->templateRenderer->render($noteType, $templateOrdinal, $noteFields);
 
                 return new StudyImportArchiveCard(

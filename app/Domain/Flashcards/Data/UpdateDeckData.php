@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Data;
 
+use App\Domain\Flashcards\Models\Deck;
 use InvalidArgumentException;
 
 final readonly class UpdateDeckData
@@ -12,7 +13,7 @@ final readonly class UpdateDeckData
     ) {}
 
     /**
-     * @throws InvalidArgumentException when the name is blank after trimming.
+     * @throws InvalidArgumentException when the normalized name is blank or exceeds its storage contract.
      */
     public static function fromInput(
         string $name,
@@ -24,6 +25,10 @@ final readonly class UpdateDeckData
 
         if ($name === '') {
             throw new InvalidArgumentException('Deck name is required.');
+        }
+
+        if (mb_strlen($name) > Deck::MAX_NAME_LENGTH) {
+            throw new InvalidArgumentException('Deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.');
         }
 
         return new self(

@@ -2,12 +2,16 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportArchiveReader;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use RuntimeException;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -253,6 +257,80 @@ class StudyImportArchiveReaderTest extends TestCase
         $this->assertSame(3, $archive->cardCount());
         $this->assertSame(2, $archive->reviewLogCount());
         $this->assertSame(1700000000000, $archive->cards[0]->sourceDeckId);
+    }
+
+    public function test_it_rejects_selected_deck_names_that_exceed_the_storage_contract(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/long-deck-name.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => str_repeat('d', Deck::MAX_NAME_LENGTH + 1),
+            ]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('The imported deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.');
+
+        app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/long-deck-name.colpkg',
+        );
+    }
+
+    #[DataProvider('collectionSchemaProvider')]
+    public function test_it_rejects_imported_note_type_names_that_exceed_the_storage_contract(bool $normalizedSchema): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/read/long-note-type-name.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'basic_note_type_name' => str_repeat('n', Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH + 1),
+                'normalized_schema' => $normalizedSchema,
+            ]),
+        );
+
+        $this->expectException(StudyImportPreviewException::class);
+        $this->expectExceptionMessage('Imported note type names must not exceed '.Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH.' characters.');
+
+        app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/long-note-type-name.colpkg',
+        );
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function collectionSchemaProvider(): array
+    {
+        return [
+            'legacy col.models JSON' => [false],
+            'normalized notetypes table' => [true],
+        ];
+    }
+
+    public function test_it_accepts_import_metadata_at_the_storage_contract_boundaries(): void
+    {
+        Storage::fake('study-imports');
+        $deckName = str_repeat('d', Deck::MAX_NAME_LENGTH);
+        $noteTypeName = str_repeat('n', Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
+        Storage::disk('study-imports')->put(
+            'study/imports/read/boundary-metadata.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => $deckName,
+                'basic_note_type_name' => $noteTypeName,
+                'normalized_schema' => true,
+            ]),
+        );
+
+        $archive = app(StudyImportArchiveReader::class)->read(
+            Storage::disk('study-imports'),
+            'study/imports/read/boundary-metadata.colpkg',
+        );
+
+        $this->assertSame($deckName, $archive->deckName);
+        $this->assertSame($noteTypeName, $archive->cards[0]->sourceNoteTypeName);
     }
 
     public function test_it_ignores_empty_builtin_default_deck_metadata_for_single_deck_exports(): void

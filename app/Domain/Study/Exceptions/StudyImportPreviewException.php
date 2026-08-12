@@ -44,6 +44,16 @@ final class StudyImportPreviewException extends RuntimeException
         return new self('The uncompressed media referenced by the archive manifest must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
     }
 
+    public static function deckNameTooLong(int $maxCharacters): self
+    {
+        return new self('The imported deck name must not exceed '.$maxCharacters.' characters.');
+    }
+
+    public static function noteTypeNameTooLong(int $maxCharacters): self
+    {
+        return new self('Imported note type names must not exceed '.$maxCharacters.' characters.');
+    }
+
     private static function bytesLabel(int $bytes): string
     {
         return $bytes === 1 ? 'byte' : 'bytes';

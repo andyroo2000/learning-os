@@ -200,6 +200,21 @@ class CreateDeckActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_names_that_exceed_the_storage_contract_for_direct_callers(): void
+    {
+        $user = User::factory()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Deck name must not exceed '.Deck::MAX_NAME_LENGTH.' characters.');
+
+        app(CreateDeckAction::class)->handle(
+            CreateDeckData::fromInput(
+                userId: $user->id,
+                name: str_repeat('d', Deck::MAX_NAME_LENGTH + 1),
+            ),
+        );
+    }
+
     public function test_it_rejects_invalid_provided_ulid(): void
     {
         $user = User::factory()->create();

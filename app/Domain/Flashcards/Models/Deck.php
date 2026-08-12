@@ -23,6 +23,8 @@ class Deck extends Model
     /** @use HasFactory<DeckFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings, SoftDeletes;
 
+    public const MAX_NAME_LENGTH = 255;
+
     /**
      * @var array<string, mixed>
      */

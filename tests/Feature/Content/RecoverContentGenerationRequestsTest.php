@@ -242,6 +242,30 @@ final class RecoverContentGenerationRequestsTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_command_fails_a_dialogue_request_after_its_episode_is_deleted(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $this->asConvoLabBrowser($user, convoLabUserId: $convoLabUserId);
+        $episode = $this->episode($user, $convoLabUserId);
+
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($episode->id),
+            'clientRequestId' => (string) Str::uuid(),
+        ])->assertOk();
+        $request = ContentGenerationRequest::query()->sole();
+        $episode->delete();
+        $this->assertDatabaseMissing('content_dialogue_generation_jobs', ['id' => $request->job_id]);
+        Queue::fake();
+
+        $this->artisan('content:recover-generation-requests')->assertSuccessful();
+
+        $this->assertSame('failed', $request->fresh()->state);
+        $this->assertSame('generation_resource_missing', $request->fresh()->error_code);
+        Queue::assertNothingPushed();
+    }
+
     public function test_command_leaves_active_in_flight_generation_requests_untouched(): void
     {
         Queue::fake();

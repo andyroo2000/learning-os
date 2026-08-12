@@ -17,6 +17,8 @@ final class ReconcileDispatchedContentGenerationRequestAction
     /** @return Collection<int, string> */
     public function candidateIds(int $limit): Collection
     {
+        // Keep these bulk candidate predicates aligned with the locked invariants in
+        // reconcileDialogue() and reconcileCourse(). handle() always rechecks them.
         return ContentGenerationRequest::query()
             ->whereIn('state', [
                 ContentGenerationRequestState::PENDING,

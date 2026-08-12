@@ -14,6 +14,7 @@ use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -56,22 +57,36 @@ class AttachMediaToCardController extends Controller
             throw $exception;
         }
 
-        if (! MediaAsset::query()->whereKey($mediaAsset->getKey())->where('user_id', $mediaAsset->user_id)->exists()) {
-            throw ValidationException::withMessages([
-                'media_asset_id' => 'The selected media asset id is invalid.',
-            ]);
-        }
+        return DB::transaction(function () use ($exception, $card, $mediaAsset): Card {
+            $lockedCard = Card::query()
+                ->whereKey($card->getKey())
+                ->whereHas('deck', fn ($query) => $query->where('user_id', $mediaAsset->user_id))
+                ->lockForUpdate()
+                ->first();
 
-        if ($card->mediaAssets()->whereKey($mediaAsset->getKey())->exists()) {
-            // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
-            // This assumes card_media has only the current unique pair constraint.
-            return $card->load('mediaAssets');
-        }
+            if ($lockedCard === null) {
+                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+            }
 
-        if (! Card::query()->whereKey($card->getKey())->exists()) {
-            throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
-        }
+            $lockedMediaAsset = MediaAsset::query()
+                ->whereKey($mediaAsset->getKey())
+                ->where('user_id', $mediaAsset->user_id)
+                ->lockForUpdate()
+                ->first();
 
-        throw $exception;
+            if ($lockedMediaAsset === null) {
+                throw ValidationException::withMessages([
+                    'media_asset_id' => 'The selected media asset id is invalid.',
+                ]);
+            }
+
+            if ($lockedCard->mediaAssets()->whereKey($lockedMediaAsset->getKey())->exists()) {
+                // Ordinary retries are no-ops; this covers the narrow duplicate-insert race.
+                // This assumes card_media has only the current unique pair constraint.
+                return $lockedCard->load('mediaAssets');
+            }
+
+            throw $exception;
+        });
     }
 }

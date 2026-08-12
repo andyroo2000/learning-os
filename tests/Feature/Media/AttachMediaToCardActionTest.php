@@ -15,6 +15,7 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
@@ -126,6 +127,52 @@ class AttachMediaToCardActionTest extends TestCase
         $this->assertNotNull($card->refresh()->updated_at);
         $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_rejects_a_stale_card_model_after_the_card_is_soft_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $staleCard = Card::query()->findOrFail($card->id);
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+
+        $card->delete();
+
+        try {
+            app(AttachMediaToCardAction::class)->handle(
+                AttachMediaToCardData::fromModels($staleCard, $mediaAsset),
+            );
+
+            $this->fail('Expected the deleted card to be rejected.');
+        } catch (ModelNotFoundException) {
+            $this->assertDatabaseMissing('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+
+    public function test_it_rejects_a_stale_card_model_after_its_deck_is_soft_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $staleCard = Card::query()->findOrFail($card->id);
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+
+        $card->deck->delete();
+
+        try {
+            app(AttachMediaToCardAction::class)->handle(
+                AttachMediaToCardData::fromModels($staleCard, $mediaAsset),
+            );
+
+            $this->fail('Expected the deleted card deck to be rejected.');
+        } catch (ModelNotFoundException) {
+            $this->assertDatabaseMissing('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_sync_without_detaching_reports_no_updated_changes_without_pivot_attributes(): void

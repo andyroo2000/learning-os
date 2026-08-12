@@ -17,21 +17,25 @@ class DeleteMediaAssetAction
 
     public function handle(DeleteMediaAssetData $data): void
     {
-        // Scoping by user makes missing, already-deleted, and cross-user assets the same
-        // no-op outcome for offline retry safety and to avoid asset enumeration.
-        $mediaAsset = MediaAsset::query()
-            ->whereKey($data->mediaAssetId)
-            ->where('user_id', $data->userId)
-            ->first();
+        DB::transaction(function () use ($data): void {
+            // Serialize the pivot snapshot with concurrent FK-backed attachments. Without
+            // this parent-row lock, an attachment can commit after the snapshot but before
+            // the hard delete and be cascade-deleted without a sync tombstone.
+            // Scoping by user keeps missing, already-deleted, and cross-user assets as the
+            // same no-op outcome for offline retry safety and to avoid asset enumeration.
+            $mediaAsset = MediaAsset::query()
+                ->whereKey($data->mediaAssetId)
+                ->where('user_id', $data->userId)
+                ->lockForUpdate()
+                ->first();
 
-        if ($mediaAsset === null) {
-            return;
-        }
+            if ($mediaAsset === null) {
+                return;
+            }
 
-        // Load the model before deleting so future Eloquent events can coordinate storage cleanup.
-        // Register storage cleanup on a MediaAsset deleted observer once physical uploads exist.
-        // MediaAsset is hard-deleted, so card_media cleanup can rely on ON DELETE CASCADE.
-        DB::transaction(function () use ($mediaAsset): void {
+            // Load the model before deleting so future Eloquent events can coordinate storage cleanup.
+            // Register storage cleanup on a MediaAsset deleted observer once physical uploads exist.
+            // MediaAsset is hard-deleted, so card_media cleanup can rely on ON DELETE CASCADE.
             $cardMediaPivots = $this->ownedCardMediaPivotsFor($mediaAsset);
 
             $mediaAsset->delete();
@@ -63,7 +67,7 @@ class DeleteMediaAssetAction
     private function ownedCardMediaPivotsFor(MediaAsset $mediaAsset): Collection
     {
         // Raw joins include soft-deleted cards/decks and avoid emitting tombstones for corrupt cross-owner pivots.
-        // Pivots inserted after this snapshot may be cascade-deleted without tombstones; callers should not attach during asset deletion.
+        // The caller holds the media row lock, so FK-backed attachments cannot commit between this snapshot and deletion.
         return DB::table('card_media')
             ->select(
                 'card_media.card_id',

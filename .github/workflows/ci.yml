@@ -146,6 +146,7 @@ jobs:
             tests/Feature/Flashcards/FlashcardDeletionLockPostgresTest.php \
             tests/Feature/Flashcards/HierarchyUpdateDeletionLockPostgresTest.php \
             tests/Feature/Content/ContentCreateIdempotencyPostgresTest.php \
+            tests/Feature/Content/ContentGenerationRequestPostgresTest.php \
             tests/Feature/Media/CardMediaAttachmentLockPostgresTest.php \
             tests/Feature/Media/CardMediaDetachmentLockPostgresTest.php \
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \

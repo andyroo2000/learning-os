@@ -12,3 +12,8 @@ Schedule::command('study:prune-import-archives')
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(60);
+
+Schedule::command('content:recover-generation-requests')
+    ->everyMinute()
+    ->onOneServer()
+    ->withoutOverlapping(5);

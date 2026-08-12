@@ -11,7 +11,7 @@ use App\Domain\Content\Support\ContentCourseGeneration;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Jobs\ProcessContentCourseGeneration;
 use App\Models\User;
-use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -38,7 +38,7 @@ class ProcessContentCourseGenerationJobTest extends TestCase
         $courseId = (string) Str::uuid();
         $job = new ProcessContentCourseGeneration(strtoupper($courseId), 4);
 
-        $this->assertInstanceOf(ShouldBeUniqueUntilProcessing::class, $job);
+        $this->assertInstanceOf(ShouldBeUnique::class, $job);
         $this->assertSame($courseId, $job->courseId);
         $this->assertSame(4, $job->attempt);
         $this->assertSame($courseId.':4', $job->uniqueId());
@@ -48,6 +48,7 @@ class ProcessContentCourseGenerationJobTest extends TestCase
         );
         $this->assertSame(ContentCourseGeneration::JOB_TRIES, $job->tries);
         $this->assertSame(ContentCourseGeneration::JOB_TIMEOUT_SECONDS, $job->timeout);
+        $this->assertSame(ContentCourseGeneration::STALE_AFTER_SECONDS, $job->uniqueFor);
         $this->assertTrue($job->failOnTimeout);
         $this->assertSame([ContentCourseGeneration::JOB_BACKOFF_SECONDS], $job->backoff());
         $this->assertSame('default', $job->queue);

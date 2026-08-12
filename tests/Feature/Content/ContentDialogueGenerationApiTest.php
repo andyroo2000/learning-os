@@ -6,6 +6,7 @@ use App\Domain\Content\Actions\ShowContentDialogueGenerationJobAction;
 use App\Domain\Content\Models\ContentDialogue;
 use App\Domain\Content\Models\ContentDialogueGenerationJob;
 use App\Domain\Content\Models\ContentEpisode;
+use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
@@ -92,7 +93,113 @@ class ContentDialogueGenerationApiTest extends TestCase
 
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertBadRequest()
-            ->assertExactJson(['message' => 'Dialogue is already being generated']);
+            ->assertJsonPath('message', 'Dialogue is already being generated')
+            ->assertJsonPath('state', 'failed');
+        Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
+    }
+
+    public function test_client_request_id_exactly_replays_and_rejects_changed_input(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $episode = $this->episode($user);
+        $this->authenticateWrite($user);
+        $clientRequestId = (string) Str::uuid();
+        $payload = [...$this->payload($episode->id), 'clientRequestId' => strtoupper($clientRequestId)];
+
+        $first = $this->postJson('/api/convolab/dialogue/generate', $payload)
+            ->assertOk()
+            ->assertJsonPath('clientRequestId', $clientRequestId)
+            ->assertJsonPath('state', 'pending');
+        $second = $this->postJson('/api/convolab/dialogue/generate', $payload)
+            ->assertOk()
+            ->assertJsonPath('clientRequestId', $clientRequestId)
+            ->assertJsonPath('jobId', $first->json('jobId'));
+
+        $this->assertSame($first->json(), $second->json());
+        $this->assertDatabaseCount('content_generation_requests', 1);
+        $this->assertDatabaseCount('content_dialogue_generation_jobs', 1);
+        Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
+
+        $changed = $payload;
+        $changed['dialogueLength'] = 7;
+        $this->postJson('/api/convolab/dialogue/generate', $changed)
+            ->assertConflict()
+            ->assertExactJson([
+                'code' => 'idempotency_conflict',
+                'message' => 'Client request ID was already used for a different generation request.',
+            ]);
+        $this->assertDatabaseCount('content_dialogue_generation_jobs', 1);
+    }
+
+    public function test_failed_client_request_replays_without_redispatching(): void
+    {
+        $user = User::factory()->create();
+        $episode = $this->episode($user);
+        $this->authenticateWrite($user);
+        $clientRequestId = (string) Str::uuid();
+        $payload = [...$this->payload($episode->id), 'clientRequestId' => $clientRequestId];
+
+        Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('Redis secret.'));
+        $this->postJson('/api/convolab/dialogue/generate', $payload)
+            ->assertServiceUnavailable()
+            ->assertJsonPath('clientRequestId', $clientRequestId)
+            ->assertJsonPath('state', 'failed');
+        $this->postJson('/api/convolab/dialogue/generate', $payload)
+            ->assertServiceUnavailable()
+            ->assertJsonPath('clientRequestId', $clientRequestId)
+            ->assertJsonPath('state', 'failed');
+
+        $this->assertSame('failed', ContentGenerationRequest::query()->sole()->state);
+        $this->assertDatabaseCount('content_dialogue_generation_jobs', 1);
+    }
+
+    public function test_client_request_ids_are_scoped_to_the_owner(): void
+    {
+        Queue::fake();
+        $clientRequestId = (string) Str::uuid();
+        $firstUser = User::factory()->create();
+        $firstEpisode = $this->episode($firstUser);
+        $this->authenticateWrite($firstUser);
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($firstEpisode->id),
+            'clientRequestId' => $clientRequestId,
+        ])->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->convoLabUserId = (string) Str::uuid();
+        $secondUser = User::factory()->create();
+        $secondEpisode = $this->episode($secondUser);
+        $this->authenticateWrite($secondUser);
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($secondEpisode->id),
+            'clientRequestId' => $clientRequestId,
+        ])->assertOk();
+
+        $this->assertDatabaseCount('content_generation_requests', 2);
+        $this->assertDatabaseCount('content_dialogue_generation_jobs', 2);
+        Queue::assertPushed(ProcessContentDialogueGeneration::class, 2);
+    }
+
+    public function test_rotating_client_request_ids_does_not_bypass_the_existing_user_rate_limit(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $episode = $this->episode($user);
+        $this->authenticateWrite($user);
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postJson('/api/convolab/dialogue/generate', [
+                ...$this->payload($episode->id),
+                'clientRequestId' => (string) Str::uuid(),
+            ])->assertStatus($attempt === 0 ? 200 : 400);
+        }
+        $this->postJson('/api/convolab/dialogue/generate', [
+            ...$this->payload($episode->id),
+            'clientRequestId' => (string) Str::uuid(),
+        ])->assertTooManyRequests();
+
+        $this->assertDatabaseCount('content_generation_requests', 10);
         Queue::assertPushed(ProcessContentDialogueGeneration::class, 1);
     }
 
@@ -150,7 +257,8 @@ class ContentDialogueGenerationApiTest extends TestCase
         Bus::shouldReceive('dispatch')->once()->andThrow(new RuntimeException('Redis secret.'));
         $this->postJson('/api/convolab/dialogue/generate', $this->payload($episode->id))
             ->assertServiceUnavailable()
-            ->assertExactJson(['message' => ContentDialogueGeneration::QUEUE_FAILED_MESSAGE]);
+            ->assertJsonPath('message', ContentDialogueGeneration::QUEUE_FAILED_MESSAGE)
+            ->assertJsonPath('state', 'failed');
 
         $job = ContentDialogueGenerationJob::query()->sole();
         $this->assertSame(ContentDialogueGeneration::STATE_FAILED, $job->state);
@@ -270,6 +378,8 @@ class ContentDialogueGenerationApiTest extends TestCase
             'job state' => [ContentDialogueGenerationJob::class, 'state'],
             'job progress' => [ContentDialogueGenerationJob::class, 'progress'],
             'job error' => [ContentDialogueGenerationJob::class, 'error_message'],
+            'request state' => [ContentGenerationRequest::class, 'state'],
+            'request dispatch token' => [ContentGenerationRequest::class, 'dispatch_token'],
         ];
     }
 

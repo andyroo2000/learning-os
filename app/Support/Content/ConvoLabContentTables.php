@@ -6,6 +6,7 @@ final class ConvoLabContentTables
 {
     /** @var list<string> */
     public const CONTENT_IN_DELETE_ORDER = [
+        'content_generation_requests',
         'content_course_core_items',
         'content_episode_courses',
         'content_courses',

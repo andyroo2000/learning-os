@@ -838,6 +838,63 @@ class StudyImportUploadActionTest extends TestCase
         $inner->assertMissing($sourceObjectPath);
     }
 
+    public function test_cancelled_archive_marker_save_failures_restore_in_memory_state_and_are_reconciled(): void
+    {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => null,
+        ]);
+        $sourceObjectPath = StudyImportUploadPath::forImportJob(
+            $user->id,
+            $importJob->id,
+            'cancel-marker-save-failure.colpkg',
+        );
+        $importJob->source_object_path = $sourceObjectPath;
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $failCleanupMarkerSave = true;
+        StudyImportJob::saving(function (StudyImportJob $saving) use (&$failCleanupMarkerSave, $importJob): void {
+            if ($failCleanupMarkerSave
+                && $saving->is($importJob)
+                && $saving->isDirty('archive_cleanup_resolved_at')) {
+                $failCleanupMarkerSave = false;
+
+                throw new RuntimeException('Simulated cleanup marker save failure.');
+            }
+        });
+
+        $cancelled = app(CancelStudyImportUploadAction::class)->handle($user->id, $importJob->id);
+
+        Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+        $this->assertNull($cancelled->archive_cleanup_attempted_at);
+        $this->assertNull($cancelled->archive_cleanup_resolved_at);
+        $this->assertFalse($cancelled->isDirty());
+        $persisted = StudyImportJob::query()->findOrFail($importJob->id);
+        $this->assertNull($persisted->archive_cleanup_attempted_at);
+        $this->assertNull($persisted->archive_cleanup_resolved_at);
+        Exceptions::assertReported(function (RuntimeException $exception) use ($sourceObjectPath): bool {
+            return $exception->getMessage()
+                    === 'Deleted a cancelled study import source archive but could not record cleanup completion: '
+                        .$sourceObjectPath
+                && $exception->getPrevious()?->getMessage() === 'Simulated cleanup marker save failure.';
+        });
+        Exceptions::assertReportedCount(1);
+
+        Exceptions::fake();
+        Carbon::setTestNow(now()->addHours(25));
+        $cleanup = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $cleanup->candidates);
+        $this->assertSame(0, $cleanup->deleted);
+        $this->assertSame(1, $cleanup->alreadyMissing);
+        $this->assertSame(0, $cleanup->failed);
+        $this->assertNotNull($persisted->refresh()->archive_cleanup_resolved_at);
+        Exceptions::assertNothingReported();
+    }
+
     #[DataProvider('cancelledArchiveDeletionFailureProvider')]
     public function test_cancelled_archive_delete_failures_are_reported_and_recovered_by_the_terminal_sweeper(
         bool $throwDuringDelete,
@@ -1222,6 +1279,67 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertNotNull($importJob->archive_cleanup_resolved_at);
         $this->assertNull($importJob->archive_cleanup_claim_token);
         $this->assertNull($importJob->archive_cleanup_error);
+    }
+
+    public function test_completed_archive_marker_save_failures_restore_in_memory_state_and_are_reconciled(): void
+    {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
+            'source_object_path' => null,
+        ]);
+        $sourceObjectPath = StudyImportUploadPath::forImportJob(
+            $importJob->user_id,
+            $importJob->id,
+            'completed-marker-save-failure.colpkg',
+        );
+        $importJob->source_object_path = $sourceObjectPath;
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put(
+            $sourceObjectPath,
+            $this->buildStudyImportArchiveBytes(['media_map' => [], 'media_entries' => []]),
+        );
+        $failCleanupMarkerSave = true;
+        StudyImportJob::saving(function (StudyImportJob $saving) use (&$failCleanupMarkerSave, $importJob): void {
+            if ($failCleanupMarkerSave
+                && $saving->is($importJob)
+                && $saving->isDirty('archive_cleanup_resolved_at')) {
+                $failCleanupMarkerSave = false;
+
+                throw new RuntimeException('Simulated cleanup marker save failure.');
+            }
+        });
+
+        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+        $this->assertNull($processed?->archive_cleanup_attempted_at);
+        $this->assertNull($processed?->archive_cleanup_resolved_at);
+        $this->assertFalse($processed?->isDirty());
+        $persisted = StudyImportJob::query()->findOrFail($importJob->id);
+        $this->assertNull($persisted->archive_cleanup_attempted_at);
+        $this->assertNull($persisted->archive_cleanup_resolved_at);
+        Exceptions::assertReported(function (RuntimeException $exception) use ($sourceObjectPath): bool {
+            return $exception->getMessage()
+                    === 'Deleted a completed study import source archive but could not record cleanup completion: '
+                        .$sourceObjectPath
+                && $exception->getPrevious()?->getMessage() === 'Simulated cleanup marker save failure.';
+        });
+        Exceptions::assertReportedCount(1);
+
+        Exceptions::fake();
+        Carbon::setTestNow(now()->addHours(25));
+        $cleanup = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $cleanup->candidates);
+        $this->assertSame(0, $cleanup->deleted);
+        $this->assertSame(1, $cleanup->alreadyMissing);
+        $this->assertSame(0, $cleanup->failed);
+        $this->assertNotNull($persisted->refresh()->archive_cleanup_resolved_at);
+        Exceptions::assertNothingReported();
     }
 
     #[DataProvider('completedSourceArchiveDeletionFailureProvider')]

@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportConflictException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportArchiveCleanupMarker;
 use App\Domain\Study\Support\StudyImportJobFailureMarker;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -85,18 +86,7 @@ class CancelStudyImportUploadAction
         Carbon $now,
     ): void {
         try {
-            $importJob->archive_cleanup_attempted_at = $now;
-            $importJob->archive_cleanup_resolved_at = $now;
-            $importJob->archive_cleanup_claim_token = null;
-            $importJob->archive_cleanup_error = null;
-            $timestamps = $importJob->timestamps;
-            $importJob->timestamps = false;
-
-            try {
-                $importJob->saveOrFail();
-            } finally {
-                $importJob->timestamps = $timestamps;
-            }
+            StudyImportArchiveCleanupMarker::markResolved($importJob, $now);
         } catch (Throwable $exception) {
             // The retention sweep will reconcile the now-missing archive after the marker-write failure.
             report(new RuntimeException(

@@ -9,9 +9,9 @@ use Illuminate\Support\Carbon;
 final class StudyImportJobFailureMarker
 {
     /**
-     * Shared failure-state helper used by in-process imports and queue exhaustion.
+     * Shared failure-state helper used by cancellation, in-process imports, and queue exhaustion.
      *
-     * Queue exhaustion callers hold the row lock; normal processing callers are the claimed worker.
+     * Queue exhaustion and cancellation callers hold the row lock; normal processing callers are the claimed worker.
      */
     public static function markFailed(StudyImportJob $importJob, string $message, Carbon $now): StudyImportJob
     {

@@ -30,8 +30,12 @@ final class StudyImportArchiveMediaImporter
      *
      * @param  list<StudyImportArchiveCard>  $importableCards
      */
-    public function copy(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $importableCards): StudyImportArchiveMediaCopy
-    {
+    public function copy(
+        StudyImportJob $importJob,
+        StudyImportArchiveRead $archive,
+        StudyImportArchiveSnapshot $snapshot,
+        array $importableCards,
+    ): StudyImportArchiveMediaCopy {
         $referencedFilenames = $this->referencedMediaFilenames($importableCards);
         $targets = $this->mediaTargets($importJob, $archive, $referencedFilenames);
 
@@ -46,9 +50,8 @@ final class StudyImportArchiveMediaImporter
         }
 
         try {
-            $copiedBySourceMediaRef = $this->archiveReader->copyMediaEntriesToDisk(
-                Storage::disk('study-imports'),
-                (string) $importJob->source_object_path,
+            $copiedBySourceMediaRef = $this->archiveReader->copyMediaEntriesFromSnapshotToDisk(
+                $snapshot,
                 Storage::disk(MediaAsset::DISK_MEDIA),
                 $targetPathsBySourceMediaRef,
             );

@@ -36,10 +36,15 @@ final class StudyImportArchiveImporter
     /**
      * @param  array<string, mixed>  $preview
      */
-    public function import(StudyImportJob $importJob, StudyImportArchiveRead $archive, array $preview, Carbon $now): StudyImportJob
-    {
+    public function import(
+        StudyImportJob $importJob,
+        StudyImportArchiveRead $archive,
+        StudyImportArchiveSnapshot $snapshot,
+        array $preview,
+        Carbon $now,
+    ): StudyImportJob {
         $importableCards = $this->importableCards($archive);
-        $mediaCopy = $this->mediaImporter->copy($importJob, $archive, $importableCards);
+        $mediaCopy = $this->mediaImporter->copy($importJob, $archive, $snapshot, $importableCards);
 
         try {
             return DB::transaction(function () use ($importJob, $archive, $preview, $now, $importableCards, $mediaCopy): StudyImportJob {

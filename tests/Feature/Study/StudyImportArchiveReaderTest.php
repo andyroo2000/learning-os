@@ -7,6 +7,7 @@ use App\Domain\Study\Support\StudyImportArchiveReader;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
+use LogicException;
 use ReflectionMethod;
 use RuntimeException;
 use Tests\Support\Study\BuildsStudyImportArchives;
@@ -16,6 +17,51 @@ use Throwable;
 class StudyImportArchiveReaderTest extends TestCase
 {
     use BuildsStudyImportArchives;
+
+    public function test_snapshot_keeps_collection_and_media_reads_on_the_same_archive_bytes(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $sourcePath = 'study/imports/read/snapshot.colpkg';
+        Storage::disk('study-imports')->put(
+            $sourcePath,
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'First archive',
+                'media_entries' => ['0' => 'first-audio'],
+            ]),
+        );
+        $reader = app(StudyImportArchiveReader::class);
+        $snapshot = $reader->snapshot(Storage::disk('study-imports'), $sourcePath);
+        $snapshotPath = $snapshot->path();
+
+        Storage::disk('study-imports')->put(
+            $sourcePath,
+            $this->buildStudyImportArchiveBytes([
+                'deck_name' => 'Replacement archive',
+                'media_entries' => ['0' => 'replacement-audio'],
+            ]),
+        );
+
+        try {
+            $archive = $reader->readSnapshot($snapshot);
+            $copied = $reader->copyMediaEntriesFromSnapshotToDisk(
+                $snapshot,
+                Storage::disk('media'),
+                ['0' => 'study/imports/media/word.mp3'],
+            );
+        } finally {
+            $snapshot->close();
+        }
+
+        $this->assertSame('First archive', $archive->deckName);
+        $this->assertSame(['0' => true], $copied);
+        $this->assertSame('first-audio', Storage::disk('media')->get('study/imports/media/word.mp3'));
+        $this->assertFileDoesNotExist($snapshotPath);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Study import archive snapshot has already been closed.');
+        $snapshot->path();
+    }
 
     public function test_copying_media_rechecks_the_individual_expansion_limit_before_writing(): void
     {
@@ -32,12 +78,21 @@ class StudyImportArchiveReaderTest extends TestCase
         );
         Config::set('study_import.archive_expansion.max_individual_media_bytes', 9);
 
-        $copied = app(StudyImportArchiveReader::class)->copyMediaEntriesToDisk(
+        $reader = app(StudyImportArchiveReader::class);
+        $snapshot = $reader->snapshot(
             Storage::disk('study-imports'),
             'study/imports/read/media-copy-limit.colpkg',
-            Storage::disk('media'),
-            ['0' => 'study/imports/media/word.mp3'],
         );
+
+        try {
+            $copied = $reader->copyMediaEntriesFromSnapshotToDisk(
+                $snapshot,
+                Storage::disk('media'),
+                ['0' => 'study/imports/media/word.mp3'],
+            );
+        } finally {
+            $snapshot->close();
+        }
 
         $this->assertSame(['0' => false], $copied);
         Storage::disk('media')->assertMissing('study/imports/media/word.mp3');

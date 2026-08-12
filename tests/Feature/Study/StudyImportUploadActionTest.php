@@ -841,6 +841,7 @@ class StudyImportUploadActionTest extends TestCase
             'completed_at' => now()->subHour(),
             'started_at' => null,
         ]);
+        $snapshotPathsBefore = $this->studyImportSnapshotPaths();
 
         $processed = app(ProcessStudyImportJobAction::class)->handle('  '.strtoupper($importJob->id).'  ');
 
@@ -1032,6 +1033,7 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'media_asset')->count());
         $this->assertSame(4, SyncFeedEntry::query()->where('resource_type', 'card_media')->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
+        $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
     }
 
     public function test_process_job_imports_single_non_default_deck_archives(): void
@@ -1251,6 +1253,7 @@ class StudyImportUploadActionTest extends TestCase
         $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
+        $snapshotPathsBefore = $this->studyImportSnapshotPaths();
         $this->app->bind(
             RecordMediaAssetSyncFeedEntryAction::class,
             fn (): RecordMediaAssetSyncFeedEntryAction => new class(app(RecordSyncFeedEntryAction::class)) extends RecordMediaAssetSyncFeedEntryAction
@@ -1273,6 +1276,7 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
         Storage::disk('media')->assertMissing('study/imports/'.$importJob->id.'/0-word.mp3');
         Storage::disk('media')->assertMissing('study/imports/'.$importJob->id.'/1-company.png');
+        $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
         Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Simulated media sync failure.');
     }
 
@@ -1489,12 +1493,14 @@ class StudyImportUploadActionTest extends TestCase
         $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
+        $snapshotPathsBefore = $this->studyImportSnapshotPaths();
 
         $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
 
         $this->assertSame(StudyImportStatus::Failed, $processed?->status);
         $this->assertSame('The uploaded collection database could not be parsed.', $processed?->error_message);
         $this->assertSame(now()->toJSON(), $processed?->completed_at->toJSON());
+        $this->assertSame($snapshotPathsBefore, $this->studyImportSnapshotPaths());
         Exceptions::assertReported(
             fn (StudyImportPreviewException $exception): bool => $exception->getMessage()
                 === 'The uploaded collection database could not be parsed.'
@@ -1526,6 +1532,22 @@ class StudyImportUploadActionTest extends TestCase
     public function test_process_job_returns_null_for_missing_imports(): void
     {
         $this->assertNull(app(ProcessStudyImportJobAction::class)->handle(strtolower((string) Str::ulid())));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function studyImportSnapshotPaths(): array
+    {
+        $paths = glob(sys_get_temp_dir().'/study-import-archive-*');
+
+        if ($paths === false) {
+            return [];
+        }
+
+        sort($paths);
+
+        return $paths;
     }
 
     /**

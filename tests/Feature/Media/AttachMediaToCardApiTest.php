@@ -365,6 +365,68 @@ class AttachMediaToCardApiTest extends TestCase
         $this->assertDatabaseCount('card_media', 0);
     }
 
+    public function test_it_does_not_recover_a_duplicate_attach_after_the_card_is_deleted(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                $data->card->delete();
+
+                throw new QueryException(
+                    connectionName: 'sqlite',
+                    sql: 'insert into card_media',
+                    bindings: [],
+                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                );
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_does_not_recover_a_duplicate_attach_after_the_card_deck_is_deleted(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $this->app->instance(AttachMediaToCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends AttachMediaToCardAction
+        {
+            public function handle(AttachMediaToCardData $data): Card
+            {
+                $data->card->deck->delete();
+
+                throw new QueryException(
+                    connectionName: 'sqlite',
+                    sql: 'insert into card_media',
+                    bindings: [],
+                    previous: new Exception('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                );
+            }
+        });
+
+        $response = $this->postJson("/api/cards/{$card->id}/media-assets", [
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+
+        $response->assertNotFound();
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_returns_not_found_when_action_detects_owner_mismatch(): void
     {
         $user = $this->signIn();

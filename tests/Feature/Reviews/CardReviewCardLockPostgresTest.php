@@ -10,6 +10,7 @@ use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
+use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -22,6 +23,57 @@ use Throwable;
 class CardReviewCardLockPostgresTest extends TestCase
 {
     public const LOCK_HOLD_MICROSECONDS = 400_000;
+
+    public function test_review_event_retries_match_postgresql_millisecond_storage_precision(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise timestamp storage precision.');
+        }
+
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $card = Card::factory()->for($deck)->create();
+        $eventId = '01k00000000000000000000009';
+        $firstData = ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T05:15:00.123111-04:00',
+            id: $eventId,
+            clientEventId: 'postgres-precision-event',
+            deviceId: 'postgres-precision-device',
+            clientCreatedAt: '2026-05-27T05:14:00.987111-04:00',
+        );
+        $replayData = ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00.123999Z',
+            id: $eventId,
+            clientEventId: 'postgres-precision-event',
+            deviceId: 'postgres-precision-device',
+            clientCreatedAt: '2026-05-27T09:14:00.987999Z',
+        );
+
+        try {
+            $first = app(ReviewCardAction::class)->handle($firstData);
+            $second = app(ReviewCardAction::class)->handle($replayData);
+            $stored = CardReviewEvent::query()->findOrFail($eventId);
+
+            $this->assertTrue($first->wasCreated);
+            $this->assertFalse($second->wasCreated);
+            $this->assertSame('2026-05-27T09:15:00.123000Z', $stored->reviewed_at->toJSON());
+            $this->assertSame('2026-05-27T09:14:00.987000Z', $stored->client_created_at->toJSON());
+            $this->assertSame(
+                1,
+                CardReviewEvent::query()->where('card_id', $card->id)->count(),
+            );
+        } finally {
+            $this->deleteFixtures($user, $course, $deck, [$card->id]);
+        }
+    }
 
     public function test_reversed_overlapping_batch_transactions_serialize_without_deadlocking(): void
     {

@@ -200,7 +200,7 @@ class StudyReviewCompatibilityApiTest extends TestCase
             'grade' => 'good',
             'durationMs' => 1250,
             'clientReviewId' => '  '.strtoupper($clientReviewId).'  ',
-            'reviewedAt' => '  2026-06-05T15:30:00.000Z  ',
+            'reviewedAt' => '  2026-06-05T15:30:00.123999Z  ',
             'timeZone' => 'America/New_York',
             'currentOverview' => ['newCount' => 99],
         ];
@@ -214,9 +214,13 @@ class StudyReviewCompatibilityApiTest extends TestCase
             ->map->only(['domain', 'resource_type', 'resource_id', 'operation', 'payload'])
             ->all();
 
-        $secondResponse = $this->postJson('/api/study/reviews', $payload);
+        $secondResponse = $this->postJson('/api/study/reviews', [
+            ...$payload,
+            'reviewedAt' => '2026-06-05T15:30:00.123111Z',
+        ]);
         $contextChangedResponse = $this->postJson('/api/study/reviews', [
             ...$payload,
+            'reviewedAt' => '2026-06-05T15:30:00.123555Z',
             // These response-context fields are intentionally outside the logical review identity.
             'timeZone' => 'Asia/Tokyo',
             'currentOverview' => ['newCount' => 0],
@@ -241,10 +245,14 @@ class StudyReviewCompatibilityApiTest extends TestCase
             'id' => $clientReviewId,
             'card_id' => $card->id,
             'rating' => CardReviewRating::Good->value,
-            'reviewed_at' => '2026-06-05 15:30:00',
+            'reviewed_at' => '2026-06-05 15:30:00.123',
             'duration_ms' => 1250,
         ]);
         $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertSame(
+            '2026-06-05T15:30:00.123000Z',
+            CardReviewEvent::query()->findOrFail($clientReviewId)->reviewed_at->toJSON(),
+        );
         $this->assertSame($cardAfterFirstReview->scheduler_state, $card->scheduler_state);
         $this->assertSame($cardAfterFirstReview->due_at->toJSON(), $card->due_at->toJSON());
         $this->assertSame(

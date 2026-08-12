@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support\DateTime;
 
 use App\Support\DateTime\StrictIsoDateTime;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class StrictIsoDateTimeTest extends TestCase
@@ -51,6 +52,30 @@ class StrictIsoDateTimeTest extends TestCase
         $parsed = StrictIsoDateTime::parseOrNull('2026-05-27T05:15:00-04:00');
 
         $this->assertSame('2026-05-27T09:15:00.000000Z', $parsed?->toJSON());
+    }
+
+    #[DataProvider('millisecondPrecisionProvider')]
+    public function test_it_normalizes_strict_iso_instants_to_utc_millisecond_precision(
+        string $input,
+        string $expected,
+    ): void {
+        $parsed = StrictIsoDateTime::parseMillisecondsOrNull($input);
+
+        $this->assertSame($expected, $parsed?->toJSON());
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function millisecondPrecisionProvider(): array
+    {
+        return [
+            'no fractional digits' => ['2026-05-27T09:15:00Z', '2026-05-27T09:15:00.000000Z'],
+            'one fractional digit' => ['2026-05-27T09:15:00.1Z', '2026-05-27T09:15:00.100000Z'],
+            'two fractional digits' => ['2026-05-27T09:15:00.12Z', '2026-05-27T09:15:00.120000Z'],
+            'three fractional digits' => ['2026-05-27T09:15:00.123Z', '2026-05-27T09:15:00.123000Z'],
+            'more than three fractional digits' => ['2026-05-27T09:15:00.123999Z', '2026-05-27T09:15:00.123000Z'],
+            'explicit offset before truncation' => ['2026-05-27T04:45:00.987654-04:30', '2026-05-27T09:15:00.987000Z'],
+            'pre-epoch instant' => ['1969-12-31T23:59:59.123999Z', '1969-12-31T23:59:59.123000Z'],
+        ];
     }
 
     public function test_it_returns_null_for_non_strict_or_unparseable_values(): void

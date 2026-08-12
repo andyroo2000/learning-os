@@ -147,12 +147,11 @@ class ReviewCardAction
                 $reviewEvent = new CardReviewEvent([
                     'card_id' => (string) $lockedCard->getKey(),
                     'rating' => $rating,
-                    'reviewed_at' => $data->reviewedAt,
                     'duration_ms' => $data->durationMs,
                     'client_event_id' => $data->clientEventId,
                     'device_id' => $data->deviceId,
-                    'client_created_at' => $data->clientCreatedAt,
                 ]);
+                $reviewEvent->setClientTimestamps($data->reviewedAt, $data->clientCreatedAt);
                 $reviewEvent->id = $reviewEventId;
 
                 $this->assignReviewSnapshots($reviewEvent, $lockedCard, $rating);

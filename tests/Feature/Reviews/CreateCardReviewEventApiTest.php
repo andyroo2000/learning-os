@@ -343,6 +343,87 @@ class CreateCardReviewEventApiTest extends TestCase
         $this->assertDatabaseCount('card_review_events', 1);
     }
 
+    #[DataProvider('reviewTimestampPrecisionProvider')]
+    public function test_it_normalizes_review_timestamps_to_database_precision_on_create_and_replay(
+        string $reviewedAt,
+        string $replayedAt,
+        string $expectedJson,
+        string $expectedDatabase,
+    ): void {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $id = strtolower((string) Str::ulid());
+        $payload = [
+            'id' => $id,
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => $reviewedAt,
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $payload);
+        $secondResponse = $this->postJson('/api/card-review-events', [
+            ...$payload,
+            'reviewed_at' => $replayedAt,
+        ]);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.reviewed_at', $expectedJson);
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.reviewed_at', $expectedJson);
+        $this->assertSame($firstResponse->json('data.reviewed_at'), $secondResponse->json('data.reviewed_at'));
+        $this->assertDatabaseHas('card_review_events', [
+            'id' => $id,
+            'reviewed_at' => $expectedDatabase,
+        ]);
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    public function test_it_normalizes_sync_metadata_timestamp_precision_on_create_and_replay(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $payload = [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+            'client_event_id' => 'precision-event',
+            'device_id' => 'precision-device',
+            'client_created_at' => '2026-05-27T05:14:00.987654-04:00',
+        ];
+
+        $firstResponse = $this->postJson('/api/card-review-events', $payload);
+        $secondResponse = $this->postJson('/api/card-review-events', $payload);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.987000Z');
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('data.id', $firstResponse->json('data.id'))
+            ->assertJsonPath('data.client_created_at', '2026-05-27T09:14:00.987000Z');
+        $this->assertDatabaseHas('card_review_events', [
+            'client_event_id' => 'precision-event',
+            'client_created_at' => '2026-05-27 09:14:00.987',
+        ]);
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
+    /** @return array<string, array{string, string, string, string}> */
+    public static function reviewTimestampPrecisionProvider(): array
+    {
+        return [
+            'no fractional digits' => ['2026-05-27T09:15:00Z', '2026-05-27T09:15:00Z', '2026-05-27T09:15:00.000000Z', '2026-05-27 09:15:00'],
+            'one fractional digit' => ['2026-05-27T09:15:00.1Z', '2026-05-27T09:15:00.1Z', '2026-05-27T09:15:00.100000Z', '2026-05-27 09:15:00.100'],
+            'two fractional digits' => ['2026-05-27T09:15:00.12Z', '2026-05-27T09:15:00.12Z', '2026-05-27T09:15:00.120000Z', '2026-05-27 09:15:00.120'],
+            'three fractional digits' => ['2026-05-27T09:15:00.123Z', '2026-05-27T09:15:00.123Z', '2026-05-27T09:15:00.123000Z', '2026-05-27 09:15:00.123'],
+            'more than three fractional digits' => ['2026-05-27T09:15:00.123111Z', '2026-05-27T09:15:00.123999Z', '2026-05-27T09:15:00.123000Z', '2026-05-27 09:15:00.123'],
+            'explicit offset' => ['2026-05-27T04:45:00.987111-04:30', '2026-05-27T09:15:00.987999Z', '2026-05-27T09:15:00.987000Z', '2026-05-27 09:15:00.987'],
+        ];
+    }
+
     #[DataProvider('syncPayloadMismatchProvider')]
     public function test_it_rejects_sync_metadata_retries_with_a_different_payload(string $field, mixed $value): void
     {

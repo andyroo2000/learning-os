@@ -12,10 +12,13 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 #[Fillable(['card_id', 'rating', 'reviewed_at', 'duration_ms', 'client_event_id', 'device_id', 'client_created_at'])]
 class CardReviewEvent extends Model
 {
+    public const STORAGE_DATE_FORMAT = 'Y-m-d H:i:s.v';
+
     /** @use HasFactory<CardReviewEventFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings;
 
@@ -71,6 +74,25 @@ class CardReviewEvent extends Model
         }
 
         return $this->cardForContext()?->deckCourseId();
+    }
+
+    public function setClientTimestamps(Carbon $reviewedAt, ?Carbon $clientCreatedAt): void
+    {
+        // These values are already normalized by ReviewCardData. Assign their
+        // storage strings directly so Eloquent's second-precision default does
+        // not discard milliseconds on client review writes.
+        $this->attributes['reviewed_at'] = self::formatClientTimestampForStorage($reviewedAt);
+        $this->attributes['client_created_at'] = $clientCreatedAt === null
+            ? null
+            : self::formatClientTimestampForStorage($clientCreatedAt);
+    }
+
+    public static function formatClientTimestampForStorage(Carbon $timestamp): string
+    {
+        // Callers must pass the UTC millisecond value normalized by ReviewCardData.
+        return $timestamp->microsecond === 0
+            ? $timestamp->format('Y-m-d H:i:s')
+            : $timestamp->format(self::STORAGE_DATE_FORMAT);
     }
 
     private function cardForContext(): ?Card

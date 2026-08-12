@@ -2,6 +2,7 @@
 
 namespace App\Support\DateTime;
 
+use DateTimeInterface;
 use Exception;
 use Illuminate\Support\Carbon;
 
@@ -23,6 +24,25 @@ class StrictIsoDateTime
         } catch (Exception) {
             return null;
         }
+    }
+
+    /**
+     * Parse a client instant at the precision shared by review storage and JS/Swift timestamps.
+     *
+     * Truncate instead of round so canonicalization never moves an event into the next millisecond.
+     */
+    public static function parseMillisecondsOrNull(string $value): ?Carbon
+    {
+        $parsed = self::parseOrNull($value);
+
+        return $parsed === null ? null : self::normalizeMilliseconds($parsed);
+    }
+
+    public static function normalizeMilliseconds(DateTimeInterface $value): Carbon
+    {
+        $normalized = Carbon::parse($value)->setTimezone('UTC');
+
+        return $normalized->setMicrosecond(intdiv($normalized->microsecond, 1000) * 1000);
     }
 
     /**

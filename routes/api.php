@@ -1,10 +1,6 @@
 <?php
 
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
-use App\Domain\Study\Support\StudySessionStartRateLimiter;
-use App\Http\Controllers\Api\Study\BuildStudyOfflineReserveController;
-use App\Http\Controllers\Api\Study\StartStudyLessonController;
-use App\Http\Controllers\Api\Study\StartStudySessionController;
 use Illuminate\Support\Facades\Route;
 
 /** @var callable(): void $publicMediaAnalyticsRoutes */
@@ -81,7 +77,10 @@ $studyPreferenceJapaneseRoutes = require __DIR__.'/api/study-preferences-japanes
 /** @var callable(): void $studyReviewRoutes */
 $studyReviewRoutes = require __DIR__.'/api/study-reviews.php';
 
-Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes, $syncFeedRoutes): void {
+/** @var callable(): void $studySessionBootstrapRoutes */
+$studySessionBootstrapRoutes = require __DIR__.'/api/study-session-bootstrap.php';
+
+Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $reviewRoutes, $studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes, $studySessionBootstrapRoutes, $syncFeedRoutes): void {
     $authRoutes['authenticatedConvoLab']();
     $adminRoutes();
     $contentRoutes();
@@ -95,13 +94,8 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     // Preserve the retired ConvoLab proxy ceilings: every request consumes the shared
     // network bucket, while reads consume an additional actor-scoped read or media bucket.
     Route::middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::NETWORK_NAME)
-        ->group(function () use ($studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes): void {
-            Route::post('/study/session/start', StartStudySessionController::class)
-                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
-            Route::post('/study/lessons/start', StartStudyLessonController::class)
-                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
-            Route::post('/study/offline-reserve', BuildStudyOfflineReserveController::class)
-                ->middleware('throttle:'.StudySessionStartRateLimiter::NAME);
+        ->group(function () use ($studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes, $studySessionBootstrapRoutes): void {
+            $studySessionBootstrapRoutes();
             $studyDailyAudioRoutes();
             $studyExportRoutes();
             $studyImportRoutes();
@@ -117,4 +111,4 @@ Route::middleware('auth:sanctum')->group(function () use ($adminRoutes, $authRou
     $deckRoutes();
 });
 
-unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes, $syncFeedRoutes);
+unset($adminRoutes, $authRoutes, $cardRoutes, $contentRoutes, $courseRoutes, $deckRoutes, $featureFlagRoutes, $mediaAssetRoutes, $publicMediaAnalyticsRoutes, $reviewRoutes, $studyActivityRoutes, $studyBrowserRoutes, $studyCardAuthoringRoutes, $studyCardLibraryRoutes, $studyCardMutationRoutes, $studyDailyAudioRoutes, $studyExportRoutes, $studyImportRoutes, $studyMediaRoutes, $studyPreferenceJapaneseRoutes, $studyReviewRoutes, $studySessionBootstrapRoutes, $syncFeedRoutes);

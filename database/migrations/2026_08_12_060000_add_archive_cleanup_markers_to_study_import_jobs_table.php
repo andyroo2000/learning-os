@@ -13,6 +13,7 @@ return new class extends Migration
         Schema::table('study_import_jobs', function (Blueprint $table): void {
             $table->timestamp('archive_cleanup_attempted_at')->nullable();
             $table->timestamp('archive_cleanup_resolved_at')->nullable();
+            $table->string('archive_cleanup_claim_token', 26)->nullable();
             $table->text('archive_cleanup_error')->nullable();
             $table->index(
                 ['status', 'archive_cleanup_resolved_at', 'completed_at', 'id'],
@@ -28,6 +29,7 @@ return new class extends Migration
             $table->dropColumn([
                 'archive_cleanup_attempted_at',
                 'archive_cleanup_resolved_at',
+                'archive_cleanup_claim_token',
                 'archive_cleanup_error',
             ]);
         });

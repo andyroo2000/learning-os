@@ -9,12 +9,15 @@ use App\Domain\Study\Support\StudyImportUploadPath;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
 final class CleanupCompletedStudyImportArchivesAction
 {
     public const DEFAULT_LIMIT = 500;
+
+    public const CLAIM_LEASE_MINUTES = 120;
 
     public function handle(
         bool $dryRun = false,
@@ -23,6 +26,7 @@ final class CleanupCompletedStudyImportArchivesAction
     ): StudyImportArchiveCleanupResult {
         $now ??= now();
         $cutoff = $now->copy()->subHours(StudyImportJob::COMPLETED_ARCHIVE_RETENTION_HOURS);
+        $claimExpiredBefore = $now->copy()->subMinutes(self::CLAIM_LEASE_MINUTES);
         $importJobIds = StudyImportJob::query()
             ->where('status', StudyImportStatus::Completed->value)
             ->whereNull('archive_cleanup_resolved_at')
@@ -30,6 +34,11 @@ final class CleanupCompletedStudyImportArchivesAction
             ->where('source_object_path', '<>', '')
             ->whereNotNull('completed_at')
             ->where('completed_at', '<=', $cutoff)
+            ->where(function ($query) use ($claimExpiredBefore): void {
+                $query->whereNull('archive_cleanup_claim_token')
+                    ->orWhereNull('archive_cleanup_attempted_at')
+                    ->orWhere('archive_cleanup_attempted_at', '<=', $claimExpiredBefore);
+            })
             ->orderBy('completed_at')
             ->orderBy('id')
             ->limit(min(5000, max(1, $limit)))
@@ -44,7 +53,12 @@ final class CleanupCompletedStudyImportArchivesAction
                 continue;
             }
 
-            $outcome = $this->cleanupImportJob((string) $importJobId, $cutoff, $now);
+            $outcome = $this->cleanupImportJob(
+                (string) $importJobId,
+                $cutoff,
+                $claimExpiredBefore,
+                $now,
+            );
 
             if ($outcome === 'deleted') {
                 $deleted++;
@@ -68,83 +82,125 @@ final class CleanupCompletedStudyImportArchivesAction
         );
     }
 
-    private function cleanupImportJob(string $importJobId, Carbon $cutoff, Carbon $now): string
-    {
-        $reportable = null;
-
+    private function cleanupImportJob(
+        string $importJobId,
+        Carbon $cutoff,
+        Carbon $claimExpiredBefore,
+        Carbon $now,
+    ): string {
         try {
-            $outcome = DB::transaction(function () use ($importJobId, $cutoff, $now, &$reportable): string {
-                $importJob = StudyImportJob::query()->whereKey($importJobId)->lockForUpdate()->first();
-
-                if (! $this->isEligible($importJob, $cutoff)) {
-                    return 'skipped';
-                }
-
-                $sourceObjectPath = (string) $importJob->source_object_path;
-
-                if (! $this->isSafeSourcePath($importJob, $sourceObjectPath)) {
-                    $message = 'Refusing to delete an unsafe completed study import source archive path: '.$sourceObjectPath;
-                    $this->markFailure($importJob, $message, $now, resolved: true);
-                    $reportable = new RuntimeException($message);
-
-                    return 'unsafe';
-                }
-
-                try {
-                    $disk = Storage::disk('study-imports');
-                    $exists = $disk->exists($sourceObjectPath);
-                } catch (Throwable $exception) {
-                    $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
-                    $this->markFailure($importJob, $message, $now);
-                    $reportable = new RuntimeException($message, previous: $exception);
-
-                    return 'failed';
-                }
-
-                if (! $exists) {
-                    $this->markCompleted($importJob, $now);
-
-                    return 'missing';
-                }
-
-                try {
-                    $deleted = $disk->delete($sourceObjectPath);
-                } catch (Throwable $exception) {
-                    $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
-                    $this->markFailure($importJob, $message, $now);
-                    $reportable = new RuntimeException($message, previous: $exception);
-
-                    return 'failed';
-                }
-
-                if (! $deleted) {
-                    $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
-                    $this->markFailure($importJob, $message, $now);
-                    $reportable = new RuntimeException($message);
-
-                    return 'failed';
-                }
-
-                $this->markCompleted($importJob, $now);
-
-                return 'deleted';
-            });
+            $claim = $this->claimImportJob($importJobId, $cutoff, $claimExpiredBefore, $now);
         } catch (Throwable $exception) {
             report($exception);
 
             return 'failed';
         }
 
-        if ($reportable !== null) {
-            report($reportable);
+        if ($claim === null) {
+            return 'skipped';
         }
 
-        return $outcome;
+        $sourceObjectPath = $claim['source_object_path'];
+
+        if (! $this->isSafeSourcePath(
+            $claim['user_id'],
+            $claim['import_job_id'],
+            $sourceObjectPath,
+        )) {
+            $message = 'Refusing to delete an unsafe completed study import source archive path: '.$sourceObjectPath;
+
+            return match ($this->finalizeFailure($claim, $message, $now, resolved: true)) {
+                true => $this->reportAndReturn($message, 'unsafe'),
+                false => 'skipped',
+                null => 'failed',
+            };
+        }
+
+        try {
+            $disk = Storage::disk('study-imports');
+            $exists = $disk->exists($sourceObjectPath);
+        } catch (Throwable $exception) {
+            $message = 'Unable to check for an orphaned completed study import source archive: '.$sourceObjectPath;
+
+            return match ($this->finalizeFailure($claim, $message, $now)) {
+                true => $this->reportAndReturn($message, 'failed', $exception),
+                false => 'skipped',
+                null => 'failed',
+            };
+        }
+
+        if (! $exists) {
+            return $this->finalizationOutcome($this->finalizeCompleted($claim, $now), 'missing');
+        }
+
+        try {
+            $deleted = $disk->delete($sourceObjectPath);
+        } catch (Throwable $exception) {
+            $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
+
+            return match ($this->finalizeFailure($claim, $message, $now)) {
+                true => $this->reportAndReturn($message, 'failed', $exception),
+                false => 'skipped',
+                null => 'failed',
+            };
+        }
+
+        if (! $deleted) {
+            $message = 'Unable to delete an orphaned completed study import source archive: '.$sourceObjectPath;
+
+            return match ($this->finalizeFailure($claim, $message, $now)) {
+                true => $this->reportAndReturn($message, 'failed'),
+                false => 'skipped',
+                null => 'failed',
+            };
+        }
+
+        return $this->finalizationOutcome($this->finalizeCompleted($claim, $now), 'deleted');
     }
 
-    private function isEligible(?StudyImportJob $importJob, Carbon $cutoff): bool
-    {
-        return $importJob !== null
+    /**
+     * @return array{import_job_id: string, user_id: string, source_object_path: string, claim_token: string}|null
+     */
+    private function claimImportJob(
+        string $importJobId,
+        Carbon $cutoff,
+        Carbon $claimExpiredBefore,
+        Carbon $now,
+    ): ?array {
+        return DB::transaction(function () use ($importJobId, $cutoff, $claimExpiredBefore, $now): ?array {
+            $importJob = StudyImportJob::query()->whereKey($importJobId)->lockForUpdate()->first();
+
+            if (! $this->isEligible($importJob, $cutoff, $claimExpiredBefore)) {
+                return null;
+            }
+
+            $claimToken = strtolower((string) Str::ulid());
+            $importJob->archive_cleanup_attempted_at = $now;
+            $importJob->archive_cleanup_claim_token = $claimToken;
+            $this->saveWithoutChangingImportHistoryOrder($importJob);
+
+            return [
+                'import_job_id' => (string) $importJob->id,
+                'user_id' => (string) $importJob->user_id,
+                'source_object_path' => (string) $importJob->source_object_path,
+                'claim_token' => $claimToken,
+            ];
+        });
+    }
+
+    private function isEligible(
+        ?StudyImportJob $importJob,
+        Carbon $cutoff,
+        Carbon $claimExpiredBefore,
+    ): bool {
+        $claimIsAvailable = $importJob !== null && (
+            ! is_string($importJob->archive_cleanup_claim_token)
+            || $importJob->archive_cleanup_claim_token === ''
+            || $importJob->archive_cleanup_attempted_at === null
+            || $importJob->archive_cleanup_attempted_at->lessThanOrEqualTo($claimExpiredBefore)
+        );
+
+        return $claimIsAvailable
             && $importJob->status === StudyImportStatus::Completed
             && $importJob->archive_cleanup_resolved_at === null
             && is_string($importJob->source_object_path)
@@ -153,9 +209,12 @@ final class CleanupCompletedStudyImportArchivesAction
             && $importJob->completed_at->lessThanOrEqualTo($cutoff);
     }
 
-    private function isSafeSourcePath(StudyImportJob $importJob, string $sourceObjectPath): bool
-    {
-        $prefix = StudyImportUploadPath::prefixForImportJob($importJob->user_id, $importJob->id);
+    private function isSafeSourcePath(
+        string $userId,
+        string $importJobId,
+        string $sourceObjectPath,
+    ): bool {
+        $prefix = StudyImportUploadPath::prefixForImportJob($userId, $importJobId);
 
         return str_starts_with($sourceObjectPath, $prefix)
             && strlen($sourceObjectPath) > strlen($prefix)
@@ -163,30 +222,90 @@ final class CleanupCompletedStudyImportArchivesAction
             && ! in_array('..', explode('/', $sourceObjectPath), true);
     }
 
-    private function markCompleted(StudyImportJob $importJob, Carbon $now): void
+    /** @param array{import_job_id: string, claim_token: string} $claim */
+    private function finalizeCompleted(array $claim, Carbon $now): ?bool
     {
-        $importJob->archive_cleanup_attempted_at = $now;
-        $importJob->archive_cleanup_resolved_at = $now;
-        $importJob->archive_cleanup_error = null;
-        $this->saveWithoutChangingImportHistoryOrder($importJob);
+        return $this->finalize($claim, function (StudyImportJob $importJob) use ($now): void {
+            $importJob->archive_cleanup_resolved_at = $now;
+            $importJob->archive_cleanup_claim_token = null;
+            $importJob->archive_cleanup_error = null;
+        });
     }
 
-    private function markFailure(
-        StudyImportJob $importJob,
+    /** @param array{import_job_id: string, claim_token: string} $claim */
+    private function finalizeFailure(
+        array $claim,
         string $message,
         Carbon $now,
         bool $resolved = false,
-    ): void {
-        $importJob->archive_cleanup_attempted_at = $now;
-        $importJob->archive_cleanup_resolved_at = $resolved ? $now : null;
-        $importJob->archive_cleanup_error = $message;
-        $this->saveWithoutChangingImportHistoryOrder($importJob);
+    ): ?bool {
+        return $this->finalize($claim, function (StudyImportJob $importJob) use ($message, $now, $resolved): void {
+            $importJob->archive_cleanup_resolved_at = $resolved ? $now : null;
+            $importJob->archive_cleanup_claim_token = null;
+            $importJob->archive_cleanup_error = $message;
+        });
+    }
+
+    /**
+     * @param  array{import_job_id: string, claim_token: string}  $claim
+     * @param  callable(StudyImportJob): void  $mutate
+     */
+    private function finalize(array $claim, callable $mutate): ?bool
+    {
+        try {
+            return DB::transaction(function () use ($claim, $mutate): bool {
+                $importJob = StudyImportJob::query()
+                    ->whereKey($claim['import_job_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($importJob === null
+                    || $importJob->archive_cleanup_resolved_at !== null
+                    || $importJob->archive_cleanup_claim_token !== $claim['claim_token']) {
+                    return false;
+                }
+
+                $mutate($importJob);
+                $this->saveWithoutChangingImportHistoryOrder($importJob);
+
+                return true;
+            });
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+    }
+
+    private function finalizationOutcome(?bool $finalized, string $successOutcome): string
+    {
+        return match ($finalized) {
+            true => $successOutcome,
+            false => 'skipped',
+            null => 'failed',
+        };
+    }
+
+    private function reportAndReturn(
+        string $message,
+        string $outcome,
+        ?Throwable $previous = null,
+    ): string {
+        report(new RuntimeException($message, previous: $previous));
+
+        return $outcome;
     }
 
     private function saveWithoutChangingImportHistoryOrder(StudyImportJob $importJob): void
     {
         // Operational cleanup markers must not make an old completed import appear newly updated in client lists.
+        $timestamps = $importJob->timestamps;
         $importJob->timestamps = false;
-        $importJob->saveOrFail();
+
+        try {
+            $importJob->saveOrFail();
+        } finally {
+            $importJob->timestamps = $timestamps;
+        }
     }
 }

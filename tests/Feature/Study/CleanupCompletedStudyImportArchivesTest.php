@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
@@ -78,6 +79,158 @@ class CleanupCompletedStudyImportArchivesTest extends TestCase
         $this->assertNull($importJob->refresh()->archive_cleanup_attempted_at);
         $this->assertNull($importJob->archive_cleanup_resolved_at);
         $this->assertNull($importJob->archive_cleanup_error);
+    }
+
+    public function test_cleanup_claims_before_storage_io_and_releases_the_database_transaction(): void
+    {
+        Storage::fake('study-imports');
+        $importJob = $this->completedImportJob('outside-transaction.colpkg', now()->subHours(25));
+        Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
+        $inner = Storage::disk('study-imports');
+        $observingDisk = new class($inner, $importJob->id) extends FilesystemAdapter
+        {
+            public array $transactionLevels = [];
+
+            public array $claimTokens = [];
+
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly string $importJobId,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function exists($path): bool
+            {
+                $this->observeClaim();
+
+                return $this->inner->exists($path);
+            }
+
+            public function delete($paths): bool
+            {
+                $this->observeClaim();
+
+                return $this->inner->delete($paths);
+            }
+
+            private function observeClaim(): void
+            {
+                $this->transactionLevels[] = DB::transactionLevel();
+                $this->claimTokens[] = StudyImportJob::query()
+                    ->findOrFail($this->importJobId)
+                    ->archive_cleanup_claim_token;
+            }
+        };
+        Storage::set('study-imports', $observingDisk);
+        $transactionLevelBeforeCleanup = DB::transactionLevel();
+
+        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $result->deleted);
+        $this->assertSame(
+            [$transactionLevelBeforeCleanup, $transactionLevelBeforeCleanup],
+            $observingDisk->transactionLevels,
+        );
+        $this->assertCount(2, array_filter($observingDisk->claimTokens));
+        $this->assertCount(1, array_unique($observingDisk->claimTokens));
+        $this->assertNull($importJob->refresh()->archive_cleanup_claim_token);
+    }
+
+    public function test_cleanup_does_not_finalize_a_claim_that_was_replaced_during_storage_io(): void
+    {
+        Storage::fake('study-imports');
+        $importJob = $this->completedImportJob('replaced-claim.colpkg', now()->subHours(25));
+        Storage::disk('study-imports')->put($importJob->source_object_path, 'archive');
+        $inner = Storage::disk('study-imports');
+        Storage::set('study-imports', new class($inner, $importJob->id) extends FilesystemAdapter
+        {
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly string $importJobId,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function exists($path): bool
+            {
+                StudyImportJob::query()->whereKey($this->importJobId)->update([
+                    'archive_cleanup_claim_token' => 'replacement-claim',
+                ]);
+
+                return $this->inner->exists($path);
+            }
+
+            public function delete($paths): bool
+            {
+                return $this->inner->delete($paths);
+            }
+        });
+
+        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $result->candidates);
+        $this->assertSame(0, $result->deleted);
+        $this->assertSame(0, $result->failed);
+        $importJob->refresh();
+        $this->assertSame('replacement-claim', $importJob->archive_cleanup_claim_token);
+        $this->assertNull($importJob->archive_cleanup_resolved_at);
+    }
+
+    public function test_cleanup_only_reclaims_an_unresolved_claim_after_the_lease_expires(): void
+    {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Storage::fake('study-imports');
+        $importJob = $this->completedImportJob('leased.colpkg', now()->subHours(25));
+        $importJob->archive_cleanup_attempted_at = now();
+        $importJob->archive_cleanup_claim_token = 'active-claim';
+        $importJob->saveOrFail();
+
+        $active = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+        $this->assertSame(0, $active->candidates);
+
+        $importJob->archive_cleanup_attempted_at = now()->subMinutes(
+            CleanupCompletedStudyImportArchivesAction::CLAIM_LEASE_MINUTES + 1,
+        );
+        $importJob->saveOrFail();
+        $expired = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $expired->candidates);
+        $this->assertSame(1, $expired->alreadyMissing);
+        $this->assertNull($importJob->refresh()->archive_cleanup_claim_token);
+        $this->assertNotNull($importJob->archive_cleanup_resolved_at);
+    }
+
+    public function test_cleanup_distinguishes_existence_check_failures_from_deletion_failures(): void
+    {
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        $importJob = $this->completedImportJob('exists-failure.colpkg', now()->subHours(25));
+        $inner = Storage::disk('study-imports');
+        Storage::set('study-imports', new class($inner) extends FilesystemAdapter
+        {
+            public function __construct(FilesystemAdapter $inner)
+            {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function exists($path): bool
+            {
+                throw new RuntimeException('Simulated existence-check failure.');
+            }
+        });
+
+        $result = app(CleanupCompletedStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $result->failed);
+        $this->assertSame(
+            'Unable to check for an orphaned completed study import source archive: '.$importJob->source_object_path,
+            $importJob->refresh()->archive_cleanup_error,
+        );
+        $this->assertNull($importJob->archive_cleanup_claim_token);
+        Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === $importJob->archive_cleanup_error
+            && $exception->getPrevious()?->getMessage() === 'Simulated existence-check failure.'
+        );
     }
 
     #[DataProvider('deletionFailureProvider')]

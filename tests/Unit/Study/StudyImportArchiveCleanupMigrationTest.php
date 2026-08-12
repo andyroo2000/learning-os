@@ -53,6 +53,7 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
                 [
                     'alter table "study_import_jobs" add column "archive_cleanup_attempted_at" datetime',
                     'alter table "study_import_jobs" add column "archive_cleanup_resolved_at" datetime',
+                    'alter table "study_import_jobs" add column "archive_cleanup_claim_token" varchar',
                     'alter table "study_import_jobs" add column "archive_cleanup_error" text',
                     'create index "'.self::CLEANUP_INDEX.'" on "study_import_jobs" ("status", "archive_cleanup_resolved_at", "completed_at", "id")',
                 ],
@@ -60,6 +61,7 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
                     'drop index "'.self::CLEANUP_INDEX.'"',
                     'alter table "study_import_jobs" drop column "archive_cleanup_attempted_at"',
                     'alter table "study_import_jobs" drop column "archive_cleanup_resolved_at"',
+                    'alter table "study_import_jobs" drop column "archive_cleanup_claim_token"',
                     'alter table "study_import_jobs" drop column "archive_cleanup_error"',
                 ],
             ],
@@ -69,12 +71,13 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
                 [
                     'alter table "study_import_jobs" add column "archive_cleanup_attempted_at" timestamp(0) without time zone null',
                     'alter table "study_import_jobs" add column "archive_cleanup_resolved_at" timestamp(0) without time zone null',
+                    'alter table "study_import_jobs" add column "archive_cleanup_claim_token" varchar(26) null',
                     'alter table "study_import_jobs" add column "archive_cleanup_error" text null',
                     'create index "'.self::CLEANUP_INDEX.'" on "study_import_jobs" ("status", "archive_cleanup_resolved_at", "completed_at", "id")',
                 ],
                 [
                     'drop index "'.self::CLEANUP_INDEX.'"',
-                    'alter table "study_import_jobs" drop column "archive_cleanup_attempted_at", drop column "archive_cleanup_resolved_at", drop column "archive_cleanup_error"',
+                    'alter table "study_import_jobs" drop column "archive_cleanup_attempted_at", drop column "archive_cleanup_resolved_at", drop column "archive_cleanup_claim_token", drop column "archive_cleanup_error"',
                 ],
             ],
             'mysql' => [
@@ -83,12 +86,13 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
                 [
                     'alter table `study_import_jobs` add `archive_cleanup_attempted_at` timestamp null',
                     'alter table `study_import_jobs` add `archive_cleanup_resolved_at` timestamp null',
+                    'alter table `study_import_jobs` add `archive_cleanup_claim_token` varchar(26) null',
                     'alter table `study_import_jobs` add `archive_cleanup_error` text null',
                     'alter table `study_import_jobs` add index `'.self::CLEANUP_INDEX.'`(`status`, `archive_cleanup_resolved_at`, `completed_at`, `id`)',
                 ],
                 [
                     'alter table `study_import_jobs` drop index `'.self::CLEANUP_INDEX.'`',
-                    'alter table `study_import_jobs` drop `archive_cleanup_attempted_at`, drop `archive_cleanup_resolved_at`, drop `archive_cleanup_error`',
+                    'alter table `study_import_jobs` drop `archive_cleanup_attempted_at`, drop `archive_cleanup_resolved_at`, drop `archive_cleanup_claim_token`, drop `archive_cleanup_error`',
                 ],
             ],
         ];
@@ -109,6 +113,7 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
         return new Blueprint($connection, 'study_import_jobs', function (Blueprint $table): void {
             $table->timestamp('archive_cleanup_attempted_at')->nullable();
             $table->timestamp('archive_cleanup_resolved_at')->nullable();
+            $table->string('archive_cleanup_claim_token', 26)->nullable();
             $table->text('archive_cleanup_error')->nullable();
             $table->index(
                 ['status', 'archive_cleanup_resolved_at', 'completed_at', 'id'],
@@ -124,6 +129,7 @@ class StudyImportArchiveCleanupMigrationTest extends TestCase
             $table->dropColumn([
                 'archive_cleanup_attempted_at',
                 'archive_cleanup_resolved_at',
+                'archive_cleanup_claim_token',
                 'archive_cleanup_error',
             ]);
         });

@@ -1081,6 +1081,11 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertSame($transactionLevelBeforeProcessing, $observingSourceDisk->transactionLevelDuringDelete);
         $this->assertSame(StudyImportStatus::Completed, $observingSourceDisk->persistedStatusDuringDelete);
         $sourceDisk->assertMissing($sourceObjectPath);
+        $importJob->refresh();
+        $this->assertNotNull($importJob->archive_cleanup_attempted_at);
+        $this->assertNotNull($importJob->archive_cleanup_resolved_at);
+        $this->assertNull($importJob->archive_cleanup_claim_token);
+        $this->assertNull($importJob->archive_cleanup_error);
     }
 
     #[DataProvider('completedSourceArchiveDeletionFailureProvider')]
@@ -1134,6 +1139,9 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertDatabaseCount('decks', 1);
         $this->assertDatabaseCount('cards', 3);
         $sourceDisk->assertExists($sourceObjectPath);
+        $this->assertNull($importJob->archive_cleanup_attempted_at);
+        $this->assertNull($importJob->archive_cleanup_resolved_at);
+        $this->assertNull($importJob->archive_cleanup_claim_token);
         Exceptions::assertReported(
             function (RuntimeException $exception) use ($sourceObjectPath, $throwDuringDelete): bool {
                 if ($exception->getMessage()

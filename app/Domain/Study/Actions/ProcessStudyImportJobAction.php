@@ -143,16 +143,43 @@ class ProcessStudyImportJobAction
         }
 
         try {
-            if (Storage::disk('study-imports')->delete($sourceObjectPath)) {
-                return;
-            }
-
-            report(new RuntimeException(
-                'Unable to delete a completed study import source archive: '.$sourceObjectPath,
-            ));
+            $deleted = Storage::disk('study-imports')->delete($sourceObjectPath);
         } catch (Throwable $exception) {
             report(new RuntimeException(
                 'Unable to delete a completed study import source archive: '.$sourceObjectPath,
+                previous: $exception,
+            ));
+
+            return;
+        }
+
+        if (! $deleted) {
+            report(new RuntimeException(
+                'Unable to delete a completed study import source archive: '.$sourceObjectPath,
+            ));
+
+            return;
+        }
+
+        try {
+            $now = now();
+            $importJob->archive_cleanup_attempted_at = $now;
+            $importJob->archive_cleanup_resolved_at = $now;
+            $importJob->archive_cleanup_claim_token = null;
+            $importJob->archive_cleanup_error = null;
+            $timestamps = $importJob->timestamps;
+            $importJob->timestamps = false;
+
+            try {
+                $importJob->saveOrFail();
+            } finally {
+                $importJob->timestamps = $timestamps;
+            }
+        } catch (Throwable $exception) {
+            // The retention sweep will reconcile the now-missing archive after the marker-write failure.
+            report(new RuntimeException(
+                'Deleted a completed study import source archive but could not record cleanup completion: '
+                    .$sourceObjectPath,
                 previous: $exception,
             ));
         }

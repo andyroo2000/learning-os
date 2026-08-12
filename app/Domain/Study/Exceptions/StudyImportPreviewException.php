@@ -41,7 +41,7 @@ final class StudyImportPreviewException extends RuntimeException
 
     public static function mediaExpansionTooLarge(int $maxBytes): self
     {
-        return new self('The uncompressed media referenced by the archive manifest must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
+        return new self('The uncompressed media referenced by the selected deck must not exceed '.$maxBytes.' '.self::bytesLabel($maxBytes).'.');
     }
 
     public static function deckNameTooLong(int $maxCharacters): self

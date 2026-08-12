@@ -11,7 +11,8 @@ return [
         // The largest locally observed media entry is 8.09 MB.
         'max_individual_media_bytes' => env('STUDY_IMPORT_MAX_INDIVIDUAL_MEDIA_BYTES', 100 * 1024 * 1024),
 
-        // The largest locally observed .colpkg expands to 1.13 GB of media.
+        // The largest locally observed .colpkg expands to 1.13 GB of media. This budget applies only
+        // to media referenced by the selected deck; unrelated package entries are never expanded.
         'max_total_media_bytes' => env('STUDY_IMPORT_MAX_TOTAL_MEDIA_BYTES', 4 * 1024 * 1024 * 1024),
     ],
 ];

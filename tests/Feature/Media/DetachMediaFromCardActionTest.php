@@ -5,8 +5,10 @@ namespace Tests\Feature\Media;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Media\Actions\DeleteMediaAssetAction;
 use App\Domain\Media\Actions\DetachMediaFromCardAction;
 use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
+use App\Domain\Media\Data\DeleteMediaAssetData;
 use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Exceptions\MediaOwnershipException;
 use App\Domain\Media\Models\MediaAsset;
@@ -15,6 +17,7 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\Support\Media\AssertsCardMediaSyncFeedEntries;
@@ -129,6 +132,79 @@ class DetachMediaFromCardActionTest extends TestCase
         $this->assertNotNull($card->refresh()->updated_at);
         $this->assertSame($originalUpdatedAt, $card->updated_at->toJSON());
         $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    public function test_it_is_idempotent_when_media_deletion_already_removed_the_attachment(): void
+    {
+        $card = Card::factory()->create();
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        app(DeleteMediaAssetAction::class)->handle(DeleteMediaAssetData::fromInput(
+            userId: $mediaAsset->user_id,
+            mediaAssetId: $mediaAsset->id,
+        ));
+        $checkpointAfterMediaDeletion = SyncFeedEntry::query()->max('checkpoint');
+
+        $updatedCard = app(DetachMediaFromCardAction::class)->handle(
+            DetachMediaFromCardData::fromModels($card, $mediaAsset),
+        );
+
+        $this->assertTrue($updatedCard->is($card));
+        $this->assertCount(0, $updatedCard->mediaAssets);
+        $this->assertDatabaseMissing('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+        $this->assertSame($checkpointAfterMediaDeletion, SyncFeedEntry::query()->max('checkpoint'));
+    }
+
+    public function test_it_rejects_a_stale_card_model_after_the_card_is_soft_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $staleCard = Card::query()->findOrFail($card->id);
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $card->delete();
+
+        try {
+            app(DetachMediaFromCardAction::class)->handle(
+                DetachMediaFromCardData::fromModels($staleCard, $mediaAsset),
+            );
+
+            $this->fail('Expected the deleted card to be rejected.');
+        } catch (ModelNotFoundException) {
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
+    }
+
+    public function test_it_rejects_a_stale_card_model_after_its_deck_is_soft_deleted(): void
+    {
+        $card = Card::factory()->create();
+        $staleCard = Card::query()->findOrFail($card->id);
+        $mediaAsset = $this->mediaAssetForCardOwner($card);
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $card->deck->delete();
+
+        try {
+            app(DetachMediaFromCardAction::class)->handle(
+                DetachMediaFromCardData::fromModels($staleCard, $mediaAsset),
+            );
+
+            $this->fail('Expected the deleted card deck to be rejected.');
+        } catch (ModelNotFoundException) {
+            $this->assertDatabaseHas('card_media', [
+                'card_id' => $card->id,
+                'media_asset_id' => $mediaAsset->id,
+            ]);
+            $this->assertDatabaseCount('sync_feed_entries', 0);
+        }
     }
 
     public function test_it_rejects_media_assets_owned_by_another_user(): void

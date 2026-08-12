@@ -24,11 +24,24 @@ class DeleteDeckAction
     public function handle(Deck $deck): DeleteDeckResult
     {
         return DB::transaction(function () use ($deck): DeleteDeckResult {
+            // Re-resolve under a row lock so stale and concurrent DELETE retries cannot
+            // refresh cascade timestamps or append duplicate child/deck tombstones.
+            $lockedDeck = Deck::query()
+                ->withTrashed()
+                ->whereKey($deck->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            $deck->setRawAttributes($lockedDeck->getAttributes(), true);
+            $deck->setRelations([]);
+
             if ($deck->trashed()) {
                 return DeleteDeckResult::unchanged($deck);
             }
 
             $liveCardIds = $deck->cards()
+                // Direct card deletion takes the same row lock before recording its tombstone.
+                // This keeps a concurrent card DELETE out of the cascade snapshot.
+                ->lockForUpdate()
                 ->pluck('cards.id');
 
             $deck->delete();

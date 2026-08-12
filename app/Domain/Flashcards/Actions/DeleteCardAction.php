@@ -22,11 +22,21 @@ class DeleteCardAction
      */
     public function handle(Card $card): DeleteCardResult
     {
-        if ($card->trashed()) {
-            return DeleteCardResult::unchanged($card);
-        }
-
         return DB::transaction(function () use ($card): DeleteCardResult {
+            // Re-resolve under a row lock so stale and concurrent DELETE retries cannot
+            // refresh deleted_at or append duplicate tombstones.
+            $lockedCard = Card::query()
+                ->withTrashed()
+                ->whereKey($card->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            $card->setRawAttributes($lockedCard->getAttributes(), true);
+            $card->setRelations([]);
+
+            if ($card->trashed()) {
+                return DeleteCardResult::unchanged($card);
+            }
+
             $userId = $card->ownerUserId();
 
             $card->delete();

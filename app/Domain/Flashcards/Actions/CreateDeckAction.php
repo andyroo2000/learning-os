@@ -82,6 +82,20 @@ class CreateDeckAction
         DB::beginTransaction();
 
         try {
+            if ($courseId !== null) {
+                // Match DeleteCourseAction's Course -> Deck lock order. Revalidate after
+                // the preflight read so creation cannot escape a concurrent course cascade.
+                $ownedCourse = Course::query()
+                    ->whereKey($courseId)
+                    ->where('user_id', $data->userId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($ownedCourse === null) {
+                    throw new DeckCourseNotFoundException($courseId);
+                }
+            }
+
             $deck->save();
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(

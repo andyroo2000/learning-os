@@ -225,6 +225,33 @@ class DeleteDeckActionTest extends TestCase
         }
     }
 
+    public function test_it_no_ops_for_a_stale_model_after_another_delete_completed(): void
+    {
+        $deck = Deck::factory()->create();
+        $card = Card::factory()->for($deck)->create();
+        $staleDeck = Deck::query()->findOrFail($deck->id);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:00'));
+
+        try {
+            app(DeleteDeckAction::class)->handle($deck);
+            $originalDeckDeletedAt = $deck->deleted_at;
+            $originalCardDeletedAt = $card->fresh()->deleted_at;
+
+            Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:01'));
+
+            $result = app(DeleteDeckAction::class)->handle($staleDeck);
+
+            $this->assertFalse($result->wasDeleted);
+            $this->assertSame($originalDeckDeletedAt?->toJSON(), $result->deck->deleted_at?->toJSON());
+            $this->assertSame($originalDeckDeletedAt?->toJSON(), $staleDeck->fresh()->deleted_at?->toJSON());
+            $this->assertSame($originalCardDeletedAt?->toJSON(), $card->fresh()->deleted_at?->toJSON());
+            $this->assertDatabaseCount('sync_feed_entries', 2);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_it_preserves_independently_deleted_card_timestamps(): void
     {
         $deck = Deck::factory()->create();

@@ -203,4 +203,28 @@ class DeleteCourseActionTest extends TestCase
             Carbon::setTestNow();
         }
     }
+
+    public function test_it_no_ops_for_a_stale_model_after_another_delete_completed(): void
+    {
+        $course = Course::factory()->for($this->signIn())->create();
+        $staleCourse = Course::query()->findOrFail($course->id);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:00'));
+
+        try {
+            app(DeleteCourseAction::class)->handle($course);
+            $originalDeletedAt = $course->deleted_at;
+
+            Carbon::setTestNow(Carbon::parse('2026-06-01 12:00:01'));
+
+            $result = app(DeleteCourseAction::class)->handle($staleCourse);
+
+            $this->assertFalse($result->wasDeleted);
+            $this->assertSame($originalDeletedAt?->toJSON(), $result->course->deleted_at?->toJSON());
+            $this->assertSame($originalDeletedAt?->toJSON(), $staleCourse->fresh()->deleted_at?->toJSON());
+            $this->assertDatabaseCount('sync_feed_entries', 1);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
 }

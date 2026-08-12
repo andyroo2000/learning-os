@@ -204,6 +204,16 @@ class ContentEpisodeWriteApiTest extends TestCase
         $this->assertDatabaseMissing('content_episodes', ['id' => $deletedId]);
     }
 
+    public function test_episode_create_rejects_a_malformed_client_uuid_without_writes(): void
+    {
+        $this->asConvoLabBrowser(User::factory()->create())
+            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => 'not-a-uuid'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id']);
+
+        $this->assertDatabaseCount('content_episodes', 0);
+    }
+
     public function test_create_uses_session_provenance_and_validates_the_legacy_input_domain(): void
     {
         $user = User::factory()->create();

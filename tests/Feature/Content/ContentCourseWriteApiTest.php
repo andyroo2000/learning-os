@@ -298,7 +298,15 @@ class ContentCourseWriteApiTest extends TestCase
         config()->set('services.openai.api_key', 'test-key');
         config()->set('services.openai.base_url', 'https://openai.example/v1');
         Http::fake(function () {
-            ContentCourse::query()->sole()->forceFill(['description' => 'Explicit concurrent update.'])->save();
+            $this->travel(1)->second();
+            try {
+                ContentCourse::query()->sole()->forceFill([
+                    'description' => 'Explicit concurrent update.',
+                    'description_generation_token' => null,
+                ])->save();
+            } finally {
+                $this->travelBack();
+            }
 
             return Http::response(['output_text' => 'Stale generated description.']);
         });
@@ -313,6 +321,17 @@ class ContentCourseWriteApiTest extends TestCase
             'id' => $response->json('id'),
             'description' => 'Explicit concurrent update.',
         ]);
+    }
+
+    public function test_course_create_rejects_a_malformed_client_uuid_without_writes(): void
+    {
+        $this->asConvoLabBrowser(User::factory()->create())
+            ->postJson('/api/convolab/courses', [...$this->inlinePayload(), 'id' => 'not-a-uuid'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id']);
+
+        $this->assertDatabaseCount('content_courses', 0);
+        $this->assertDatabaseCount('content_episodes', 0);
     }
 
     public function test_description_provider_failure_keeps_the_created_course_and_fallback(): void

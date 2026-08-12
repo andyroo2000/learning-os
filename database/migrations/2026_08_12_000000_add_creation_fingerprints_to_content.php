@@ -13,6 +13,7 @@ return new class extends Migration
         });
         Schema::table('content_courses', function (Blueprint $table): void {
             $table->string('creation_fingerprint', 64)->nullable();
+            $table->uuid('description_generation_token')->nullable();
         });
     }
 
@@ -20,6 +21,7 @@ return new class extends Migration
     {
         Schema::table('content_courses', function (Blueprint $table): void {
             $table->dropColumn('creation_fingerprint');
+            $table->dropColumn('description_generation_token');
         });
         Schema::table('content_episodes', function (Blueprint $table): void {
             $table->dropColumn('creation_fingerprint');

@@ -43,6 +43,7 @@ final class UpdateContentCourseAction
             }
             if ($data->hasDescription) {
                 $course->description = $data->description;
+                $course->description_generation_token = null;
             }
             if ($data->hasMaxLessonDurationMinutes) {
                 $course->max_lesson_duration_minutes = $data->maxLessonDurationMinutes;

@@ -41,8 +41,14 @@ final class CreateContentCourseAction
         }
 
         $episodeTitles = [];
+        $descriptionGenerationToken = $data->description === null ? (string) Str::uuid() : null;
         try {
-            $result = DB::transaction(function () use ($data, $fingerprint, &$episodeTitles): CreateContentCourseResult {
+            $result = DB::transaction(function () use (
+                $data,
+                $fingerprint,
+                &$episodeTitles,
+                $descriptionGenerationToken,
+            ): CreateContentCourseResult {
                 ContentSourceLock::acquireConvoLab(DB::connection());
 
                 if ($data->id !== null) {
@@ -92,6 +98,7 @@ final class CreateContentCourseAction
                 $course->speaker2_voice_id = $data->speaker2VoiceId;
                 $course->speaker2_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker2VoiceId);
                 $course->creation_fingerprint = $fingerprint;
+                $course->description_generation_token = $descriptionGenerationToken;
                 $course->save();
 
                 foreach ($episodes as $sortOrder => $episode) {
@@ -133,26 +140,31 @@ final class CreateContentCourseAction
                 $description = null;
             }
 
-            if ($description !== null) {
-                $courseId = $result->course->id;
-                $course = DB::transaction(function () use ($courseId, $description): ?ContentCourse {
-                    $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
-                    if (! $course instanceof ContentCourse) {
-                        return null;
-                    }
-
-                    // Do not overwrite an explicit description supplied by an update while the provider was running.
-                    if ($course->description === ContentCourseDefaults::description($course->target_language)) {
-                        $course->description = $description;
-                        $course->save();
-                    }
-
-                    return $course;
-                });
-
-                if ($course instanceof ContentCourse) {
-                    $result = CreateContentCourseResult::created($course);
+            $courseId = $result->course->id;
+            $course = DB::transaction(function () use (
+                $courseId,
+                $description,
+                $descriptionGenerationToken,
+            ): ?ContentCourse {
+                $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
+                if (! $course instanceof ContentCourse) {
+                    return null;
                 }
+
+                if (is_string($course->description_generation_token)
+                    && hash_equals($course->description_generation_token, $descriptionGenerationToken)) {
+                    if ($description !== null) {
+                        $course->description = $description;
+                    }
+                    $course->description_generation_token = null;
+                    $course->save();
+                }
+
+                return $course;
+            });
+
+            if ($course instanceof ContentCourse) {
+                $result = CreateContentCourseResult::created($course);
             }
         }
 

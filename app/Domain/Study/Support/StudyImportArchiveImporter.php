@@ -12,6 +12,7 @@ use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Flashcards\Sync\DeckSyncPayload;
 use App\Domain\Media\Models\MediaAsset;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
@@ -27,6 +28,12 @@ use Throwable;
 
 final class StudyImportArchiveImporter
 {
+    private const MAX_PORTABLE_REVIEW_TIMESTAMP_MILLISECONDS = 253_402_300_799_999;
+
+    private const POSTGRES_INTEGER_MIN = -2_147_483_648;
+
+    private const POSTGRES_INTEGER_MAX = 2_147_483_647;
+
     public function __construct(
         private readonly NewCardQueuePosition $newCardQueuePosition,
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
@@ -281,12 +288,12 @@ final class StudyImportArchiveImporter
             $reviewEvent->source_kind = StudyImportJob::SOURCE_TYPE_ANKI_COLPKG;
             $reviewEvent->source_review_id = $reviewLog->sourceReviewId;
             $reviewEvent->source_card_id = $reviewLog->sourceCardId;
-            $reviewEvent->source_ease = $reviewLog->sourceEase;
-            $reviewEvent->source_interval = $reviewLog->sourceInterval;
-            $reviewEvent->source_last_interval = $reviewLog->sourceLastInterval;
-            $reviewEvent->source_factor = $reviewLog->sourceFactor;
+            $reviewEvent->source_ease = $this->portableInteger($reviewLog->sourceEase);
+            $reviewEvent->source_interval = $this->portableInteger($reviewLog->sourceInterval);
+            $reviewEvent->source_last_interval = $this->portableInteger($reviewLog->sourceLastInterval);
+            $reviewEvent->source_factor = $this->portableInteger($reviewLog->sourceFactor);
             $reviewEvent->source_time_ms = $this->durationMs($reviewLog);
-            $reviewEvent->source_review_type = $reviewLog->sourceReviewType;
+            $reviewEvent->source_review_type = $this->portableInteger($reviewLog->sourceReviewType);
             $reviewEvent->raw_payload_json = $this->rawReviewLogPayload($reviewLog);
             $reviewEvent->created_at = $now;
             $reviewEvent->updated_at = $now;
@@ -316,7 +323,8 @@ final class StudyImportArchiveImporter
 
     private function reviewedAt(StudyImportArchiveReviewLog $reviewLog): ?Carbon
     {
-        if ($reviewLog->sourceReviewId <= 0) {
+        if ($reviewLog->sourceReviewId <= 0
+            || $reviewLog->sourceReviewId > self::MAX_PORTABLE_REVIEW_TIMESTAMP_MILLISECONDS) {
             return null;
         }
 
@@ -329,9 +337,20 @@ final class StudyImportArchiveImporter
 
     private function durationMs(StudyImportArchiveReviewLog $reviewLog): ?int
     {
-        return $reviewLog->sourceTimeMs === null || $reviewLog->sourceTimeMs < 0
+        return $reviewLog->sourceTimeMs === null
+            || $reviewLog->sourceTimeMs < 0
+            || $reviewLog->sourceTimeMs > ReviewCardData::MAX_DURATION_MS
             ? null
             : $reviewLog->sourceTimeMs;
+    }
+
+    private function portableInteger(?int $value): ?int
+    {
+        return $value === null
+            || $value < self::POSTGRES_INTEGER_MIN
+            || $value > self::POSTGRES_INTEGER_MAX
+            ? null
+            : $value;
     }
 
     /**

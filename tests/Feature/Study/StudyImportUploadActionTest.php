@@ -8,6 +8,7 @@ use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\CancelStudyImportUploadAction;
+use App\Domain\Study\Actions\CleanupTerminalStudyImportArchivesAction;
 use App\Domain\Study\Actions\CompleteStudyImportUploadAction;
 use App\Domain\Study\Actions\CreateStudyImportUploadSessionAction;
 use App\Domain\Study\Actions\ProcessStudyImportJobAction;
@@ -19,6 +20,7 @@ use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Exceptions\StudyImportUploadExpiredException;
 use App\Domain\Study\Exceptions\StudyImportValidationException;
 use App\Domain\Study\Models\StudyImportJob;
+use App\Domain\Study\Support\StudyImportUploadPath;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -771,16 +773,150 @@ class StudyImportUploadActionTest extends TestCase
         $importJob = StudyImportJob::factory()->for($user)->create([
             'source_object_path' => $sourceObjectPath,
         ]);
+        $cancelledAt = Carbon::parse('2026-06-05 11:45:00');
 
         $cancelled = app(CancelStudyImportUploadAction::class)->handle(
             userId: $user->id,
             importJobId: '  '.strtoupper($importJob->id).'  ',
+            now: $cancelledAt,
         );
 
         $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
         $this->assertSame('Study import upload was cancelled.', $cancelled->error_message);
-        $this->assertSame(now()->toJSON(), $cancelled->completed_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->completed_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->archive_cleanup_attempted_at->toJSON());
+        $this->assertSame($cancelledAt->toJSON(), $cancelled->archive_cleanup_resolved_at->toJSON());
         Storage::disk('study-imports')->assertMissing($sourceObjectPath);
+
+        Carbon::setTestNow(now()->addHours(25));
+        $cleanup = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(0, $cleanup->candidates);
+    }
+
+    public function test_cancel_commits_the_failed_state_before_deleting_the_archive(): void
+    {
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $sourceObjectPath = 'study/imports/'.$user->id.'/post-commit-cancel/core.colpkg';
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => $sourceObjectPath,
+        ]);
+        $transactionLevelBeforeCancellation = DB::transactionLevel();
+        $inner = Storage::disk('study-imports');
+        $observingDisk = new class($inner, $importJob->id) extends FilesystemAdapter
+        {
+            public ?int $transactionLevelDuringDelete = null;
+
+            public ?StudyImportStatus $persistedStatusDuringDelete = null;
+
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly string $importJobId,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function delete($paths): bool
+            {
+                $this->transactionLevelDuringDelete = DB::transactionLevel();
+                $this->persistedStatusDuringDelete = StudyImportJob::query()
+                    ->findOrFail($this->importJobId)
+                    ->status;
+
+                return $this->inner->delete($paths);
+            }
+        };
+        Storage::set('study-imports', $observingDisk);
+
+        $cancelled = app(CancelStudyImportUploadAction::class)->handle($user->id, $importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
+        $this->assertSame($transactionLevelBeforeCancellation, $observingDisk->transactionLevelDuringDelete);
+        $this->assertSame(StudyImportStatus::Failed, $observingDisk->persistedStatusDuringDelete);
+        $inner->assertMissing($sourceObjectPath);
+    }
+
+    #[DataProvider('cancelledArchiveDeletionFailureProvider')]
+    public function test_cancelled_archive_delete_failures_are_reported_and_recovered_by_the_terminal_sweeper(
+        bool $throwDuringDelete,
+    ): void {
+        Carbon::setTestNow('2026-08-12 06:00:00');
+        Exceptions::fake();
+        Storage::fake('study-imports');
+        $user = User::factory()->create();
+        $importJob = StudyImportJob::factory()->for($user)->create([
+            'source_object_path' => null,
+        ]);
+        $sourceObjectPath = StudyImportUploadPath::forImportJob(
+            $user->id,
+            $importJob->id,
+            'cancel-cleanup-failure.colpkg',
+        );
+        $importJob->source_object_path = $sourceObjectPath;
+        $importJob->saveOrFail();
+        Storage::disk('study-imports')->put($sourceObjectPath, 'PK zipped bytes');
+        $inner = Storage::disk('study-imports');
+        Storage::set('study-imports', new class($inner, $throwDuringDelete) extends FilesystemAdapter
+        {
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly bool $throwDuringDelete,
+            ) {
+                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
+            }
+
+            public function delete($paths): bool
+            {
+                if ($this->throwDuringDelete) {
+                    throw new RuntimeException('Simulated cancelled archive deletion failure.');
+                }
+
+                return false;
+            }
+        });
+
+        $cancelled = app(CancelStudyImportUploadAction::class)->handle($user->id, $importJob->id);
+
+        $this->assertSame(StudyImportStatus::Failed, $cancelled->status);
+        $this->assertSame('Study import upload was cancelled.', $cancelled->error_message);
+        $this->assertNull($cancelled->archive_cleanup_resolved_at);
+        $inner->assertExists($sourceObjectPath);
+        Exceptions::assertReported(function (RuntimeException $exception) use ($sourceObjectPath, $throwDuringDelete): bool {
+            if ($exception->getMessage() !== 'Unable to delete a cancelled study import source archive: '.$sourceObjectPath) {
+                return false;
+            }
+
+            return $throwDuringDelete
+                ? $exception->getPrevious()?->getMessage() === 'Simulated cancelled archive deletion failure.'
+                : $exception->getPrevious() === null;
+        });
+        Exceptions::assertReportedCount(1);
+
+        Exceptions::fake();
+        Storage::set('study-imports', $inner);
+        Carbon::setTestNow(now()->addHours(25));
+        $cleanup = app(CleanupTerminalStudyImportArchivesAction::class)->handle();
+
+        $this->assertSame(1, $cleanup->candidates);
+        $this->assertSame(1, $cleanup->deleted);
+        $this->assertSame(0, $cleanup->failed);
+        $inner->assertMissing($sourceObjectPath);
+        $this->assertSame(StudyImportStatus::Failed, $importJob->refresh()->status);
+        $this->assertNotNull($importJob->archive_cleanup_resolved_at);
+        Exceptions::assertNothingReported();
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function cancelledArchiveDeletionFailureProvider(): array
+    {
+        return [
+            'adapter returns false' => [false],
+            'adapter throws' => [true],
+        ];
     }
 
     public function test_cancel_rejects_processing_imports_and_returns_terminal_imports(): void

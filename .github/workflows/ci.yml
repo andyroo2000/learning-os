@@ -139,8 +139,11 @@ jobs:
       - name: Verify PostgreSQL migration status
         run: php artisan migrate:status --ansi
 
-      - name: Exercise review card locking against PostgreSQL
-        run: php artisan test tests/Feature/Reviews/CardReviewCardLockPostgresTest.php
+      - name: Exercise runtime row locking against PostgreSQL
+        run: |
+          php artisan test \
+            tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
+            tests/Feature/Study/StudyImportCancellationLockPostgresTest.php
 
       - name: Run rehearsal importer against PostgreSQL
         run: |

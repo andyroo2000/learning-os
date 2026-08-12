@@ -2072,8 +2072,8 @@ class StudyImportUploadActionTest extends TestCase
                 'review_logs' => [
                     // Invalid source review timestamp: skipped instead of coerced to epoch.
                     ['id' => -1, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => 980, 'type' => 1],
-                    // Valid review row with an invalid duration: imported, with duration fields normalized to null.
-                    ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => 12, 'lastIvl' => 6, 'factor' => 2500, 'time' => -20, 'type' => 1],
+                    // Signed learning intervals are valid provenance; only the invalid duration is normalized to null.
+                    ['id' => 1700000000123, 'cid' => 701, 'ease' => 3, 'ivl' => -12, 'lastIvl' => -6, 'factor' => 2500, 'time' => -20, 'type' => 1],
                     // Source metadata outside the review/domain and PostgreSQL integer contracts is nullable provenance.
                     ['id' => 1700000000223, 'cid' => 701, 'ease' => 3, 'ivl' => PHP_INT_MAX, 'lastIvl' => PHP_INT_MIN, 'factor' => PHP_INT_MAX, 'time' => ReviewCardData::MAX_DURATION_MS + 1, 'type' => PHP_INT_MAX],
                     // An out-of-range millisecond ID cannot be represented as a portable application timestamp.
@@ -2109,13 +2109,15 @@ class StudyImportUploadActionTest extends TestCase
         // reviewed_at uses the existing second-precision schema; source_review_id preserves the Anki millisecond ID.
         $this->assertSame('2023-11-14T22:13:20.000000Z', $reviewEvent->reviewed_at?->toJSON());
         $this->assertNull($reviewEvent->duration_ms);
+        $this->assertSame(-12, $reviewEvent->source_interval);
+        $this->assertSame(-6, $reviewEvent->source_last_interval);
         $this->assertNull($reviewEvent->source_time_ms);
         $this->assertSame([
             'source_review_id' => 1700000000123,
             'source_card_id' => 701,
             'source_ease' => 3,
-            'source_interval' => 12,
-            'source_last_interval' => 6,
+            'source_interval' => -12,
+            'source_last_interval' => -6,
             'source_factor' => 2500,
             'source_time_ms' => -20,
             'source_review_type' => 1,
@@ -2136,7 +2138,9 @@ class StudyImportUploadActionTest extends TestCase
         $this->assertNull($boundedReviewEvent->source_review_type);
         $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_interval']);
         $this->assertSame(PHP_INT_MIN, $boundedReviewEvent->raw_payload_json['source_last_interval']);
+        $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_factor']);
         $this->assertSame(ReviewCardData::MAX_DURATION_MS + 1, $boundedReviewEvent->raw_payload_json['source_time_ms']);
+        $this->assertSame(PHP_INT_MAX, $boundedReviewEvent->raw_payload_json['source_review_type']);
         $this->assertSame(5, SyncFeedEntry::query()->count());
         $this->assertSame(2, SyncFeedEntry::query()->where('resource_type', 'card_review_event')->count());
     }

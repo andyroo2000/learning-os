@@ -28,8 +28,10 @@ use Throwable;
 
 final class StudyImportArchiveImporter
 {
+    // Keep imported event times within the four-digit ISO-8601 year range used by API clients.
     private const MAX_PORTABLE_REVIEW_TIMESTAMP_MILLISECONDS = 253_402_300_799_999;
 
+    // Laravel integer columns are signed 32-bit values on the production PostgreSQL schema.
     private const POSTGRES_INTEGER_MIN = -2_147_483_648;
 
     private const POSTGRES_INTEGER_MAX = 2_147_483_647;

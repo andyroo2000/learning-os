@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Content\Actions\QueueIdempotentContentCourseGenerationAction;
 use App\Domain\Content\Actions\QueueIdempotentContentDialogueGenerationAction;
+use App\Domain\Content\Actions\ReconcileDispatchedContentGenerationRequestAction;
 use App\Domain\Content\Data\GenerateContentDialogueData;
 use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentGenerationRequestState;
@@ -19,9 +20,10 @@ final class RecoverContentGenerationRequests extends Command
     public function handle(
         QueueIdempotentContentDialogueGenerationAction $queueDialogue,
         QueueIdempotentContentCourseGenerationAction $queueCourse,
+        ReconcileDispatchedContentGenerationRequestAction $reconcileDispatched,
     ): int {
         $limit = max(1, min(1_000, (int) $this->option('limit')));
-        $requests = ContentGenerationRequest::query()
+        $recoveryRequests = ContentGenerationRequest::query()
             ->whereIn('state', [
                 ContentGenerationRequestState::PENDING,
                 ContentGenerationRequestState::ACTIVE,
@@ -47,7 +49,7 @@ final class RecoverContentGenerationRequests extends Command
             ->get();
 
         $dispatched = 0;
-        foreach ($requests as $request) {
+        foreach ($recoveryRequests as $request) {
             try {
                 match ($request->operation) {
                     ContentGenerationRequestState::DIALOGUE_OPERATION => $queueDialogue->handle(
@@ -72,7 +74,23 @@ final class RecoverContentGenerationRequests extends Command
             }
         }
 
-        $this->info("Recovered {$dispatched} generation request(s).");
+        $reconciled = 0;
+        $remaining = max(0, $limit - $recoveryRequests->count());
+        $reconciliationRequests = $remaining === 0
+            ? collect()
+            : $reconcileDispatched->candidateIds($remaining);
+
+        foreach ($reconciliationRequests as $requestId) {
+            try {
+                if ($reconcileDispatched->handle((string) $requestId)) {
+                    $reconciled++;
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $this->info("Recovered {$dispatched} and reconciled {$reconciled} generation request(s).");
 
         return self::SUCCESS;
     }

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Content\Actions\ReconcileDispatchedContentGenerationRequestAction;
 use App\Domain\Content\Actions\ReserveContentGenerationRequestAction;
 use App\Domain\Content\Data\GenerateContentDialogueData;
+use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentGenerationRequest;
 use App\Domain\Content\Support\ContentGenerationRequestFingerprint;
 use App\Domain\Content\Support\ContentGenerationRequestState;
+use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -66,6 +69,66 @@ final class ContentGenerationRequestPostgresTest extends TestCase
                 ->count());
         } finally {
             ContentGenerationRequest::query()->where('convolab_user_id', $convoLabUserId)->delete();
+            User::query()->whereKey($user->id)->delete();
+        }
+    }
+
+    public function test_overlapping_reconciliation_workers_terminalize_a_course_request_once(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise concurrent ledger recovery.');
+        }
+        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
+
+        $user = User::factory()->create();
+        $convoLabUserId = (string) Str::uuid();
+        $this->asConvoLabBrowser($user, convoLabUserId: $convoLabUserId);
+        $course = ContentCourse::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'source_system' => ContentSourceSystem::LEARNING_OS,
+            'title' => 'Reconciled Course',
+            'status' => 'ready',
+            'is_sample_content' => false,
+            'is_test_course' => false,
+            'native_language' => 'en',
+            'target_language' => 'ja',
+            'max_lesson_duration_minutes' => 30,
+            'l1_voice_id' => 'fishaudio:test',
+            'speaker1_gender' => 'female',
+            'speaker2_gender' => 'male',
+            'generation_attempt' => 1,
+        ]);
+        $request = ContentGenerationRequest::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'convolab_user_id' => $convoLabUserId,
+            'client_request_id' => (string) Str::uuid(),
+            'operation' => ContentGenerationRequestState::COURSE_OPERATION,
+            'resource_type' => 'course',
+            'resource_id' => $course->id,
+            'input_fingerprint' => hash('sha256', $course->id),
+            'input_payload' => [],
+            'state' => ContentGenerationRequestState::ACTIVE,
+            'job_id' => $course->id,
+            'job_attempt' => 1,
+            'dispatched_at' => now(),
+        ]);
+
+        try {
+            $results = $this->runConcurrentWorkers(fn (): string => app(
+                ReconcileDispatchedContentGenerationRequestAction::class,
+            )->handle($request->id) ? 'updated' : 'terminal');
+
+            $this->assertEqualsCanonicalizing(['updated', 'terminal'], $results);
+            $request->refresh();
+            $this->assertSame(ContentGenerationRequestState::COMPLETED, $request->state);
+            $this->assertSame(200, $request->response_status);
+            $this->assertNotNull($request->finished_at);
+        } finally {
+            ContentGenerationRequest::query()->whereKey($request->id)->delete();
+            ContentCourse::query()->whereKey($course->id)->delete();
             User::query()->whereKey($user->id)->delete();
         }
     }

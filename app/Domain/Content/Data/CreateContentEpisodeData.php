@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Data;
 
+use App\Domain\Content\Support\ContentEpisodeId;
 use App\Domain\Content\Support\ContentEpisodeInput;
 use App\Domain\Content\Support\ConvoLabUserId;
 use InvalidArgumentException;
@@ -18,6 +19,7 @@ final readonly class CreateContentEpisodeData
         public string $audioSpeed,
         public ?string $jlptLevel,
         public bool $autoGenerateAudio,
+        public ?string $id,
     ) {}
 
     public static function fromInput(
@@ -30,11 +32,16 @@ final readonly class CreateContentEpisodeData
         string $audioSpeed = 'medium',
         ?string $jlptLevel = null,
         bool $autoGenerateAudio = true,
+        ?string $id = null,
     ): self {
         $convoLabUserId = ConvoLabUserId::normalize($convoLabUserId);
         $title = trim($title);
         $sourceText = trim($sourceText);
+        $targetLanguage = trim($targetLanguage);
+        $nativeLanguage = trim($nativeLanguage);
         $audioSpeed = trim($audioSpeed);
+        $jlptLevel = $jlptLevel === null ? null : trim($jlptLevel);
+        $id = $id === null ? null : ContentEpisodeId::normalize($id);
 
         if ($userId <= 0) {
             throw new InvalidArgumentException('User ID must be a positive integer.');
@@ -68,6 +75,7 @@ final readonly class CreateContentEpisodeData
             $audioSpeed,
             $jlptLevel,
             $autoGenerateAudio,
+            $id,
         );
     }
 }

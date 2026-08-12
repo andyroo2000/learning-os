@@ -3,6 +3,7 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Models\ContentCourse;
+use App\Domain\Content\Models\ContentCourseTombstone;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
@@ -142,6 +143,138 @@ class ContentCourseWriteApiTest extends TestCase
         ]);
     }
 
+    public function test_client_uuid_inline_course_replay_skips_all_creation_side_effects(): void
+    {
+        config()->set('services.openai.api_key', 'test-key');
+        config()->set('services.openai.base_url', 'https://openai.example/v1');
+        Http::fake([
+            'https://openai.example/v1/responses' => Http::response([
+                'output_text' => 'Generated once.',
+            ]),
+        ]);
+        $user = User::factory()->create();
+        $sourceUserId = (string) Str::uuid();
+        $courseId = (string) Str::uuid();
+        $payload = [...$this->inlinePayload(), 'id' => strtoupper($courseId)];
+
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', $payload)
+            ->assertOk()
+            ->assertJsonPath('id', $courseId)
+            ->assertJsonPath('description', 'Generated once.')
+            ->assertJsonPath('existing', false);
+
+        $episodeId = ContentEpisode::query()->sole()->id;
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', [...$this->inlinePayload(), 'id' => $courseId])
+            ->assertOk()
+            ->assertJsonPath('id', $courseId)
+            ->assertJsonPath('description', 'Generated once.')
+            ->assertJsonPath('existing', true);
+
+        $this->assertDatabaseCount('content_courses', 1);
+        $this->assertDatabaseCount('content_episodes', 1);
+        $this->assertDatabaseHas('content_episode_courses', [
+            'convolab_course_id' => $courseId,
+            'episode_id' => $episodeId,
+        ]);
+        $this->assertSame(64, strlen(ContentCourse::query()->findOrFail($courseId)->creation_fingerprint));
+        Http::assertSentCount(1);
+    }
+
+    public function test_client_uuid_course_preserves_episode_order_and_conflicts_when_order_changes(): void
+    {
+        $user = User::factory()->create();
+        $sourceUserId = (string) Str::uuid();
+        $first = $this->episodeFor($user, $sourceUserId);
+        $second = $this->episodeFor($user, $sourceUserId);
+        $courseId = (string) Str::uuid();
+        $payload = [
+            ...$this->basePayload(),
+            'id' => $courseId,
+            'description' => 'No provider.',
+            'episodeIds' => [$first->id, $second->id],
+        ];
+
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', $payload)
+            ->assertOk()
+            ->assertJsonPath('existing', false);
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', $payload)
+            ->assertOk()
+            ->assertJsonPath('existing', true);
+        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', [...$payload, 'episodeIds' => [$second->id, $first->id]])
+            ->assertConflict()
+            ->assertJsonPath('code', 'idempotency_conflict');
+
+        $this->assertSame(
+            [$first->id, $second->id],
+            ContentCourse::query()->findOrFail($courseId)->courseEpisodes()->orderBy('sort_order')->pluck('episode_id')->all(),
+        );
+        $this->assertDatabaseCount('content_episode_courses', 2);
+    }
+
+    public function test_client_uuid_course_hides_cross_owner_collision_and_cannot_resurrect_tombstone(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $sourceUserId = (string) Str::uuid();
+        $courseId = (string) Str::uuid();
+        $payload = [...$this->inlinePayload(), 'id' => $courseId, 'description' => 'No provider.'];
+
+        $this->asConvoLabBrowser($owner, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', $payload)
+            ->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($other, convoLabUserId: (string) Str::uuid())
+            ->postJson('/api/convolab/courses', $payload)
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Course not found']);
+
+        $deletedId = (string) Str::uuid();
+        ContentCourseTombstone::query()->forceCreate([
+            'course_id' => $deletedId,
+            'user_id' => $owner->id,
+            'convolab_user_id' => $sourceUserId,
+            'deleted_at' => now(),
+        ]);
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser($owner, convoLabUserId: $sourceUserId)
+            ->postJson('/api/convolab/courses', [...$payload, 'id' => $deletedId])
+            ->assertGone()
+            ->assertJsonPath('code', 'content_gone');
+
+        $this->app['auth']->forgetGuards();
+        $this->asConvoLabBrowser(User::factory()->create(), convoLabUserId: (string) Str::uuid())
+            ->postJson('/api/convolab/courses', [...$payload, 'id' => $deletedId])
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Course not found']);
+
+        $this->assertDatabaseMissing('content_courses', ['id' => $deletedId]);
+    }
+
+    public function test_client_uuid_course_cannot_claim_a_legacy_null_fingerprint_row(): void
+    {
+        $user = User::factory()->create();
+        $course = $this->courseFor($user);
+
+        $this->asConvoLabBrowser($user, convoLabUserId: $course->convolab_user_id)
+            ->postJson('/api/convolab/courses', [
+                ...$this->inlinePayload(),
+                'id' => $course->id,
+                'description' => 'No provider.',
+            ])
+            ->assertConflict()
+            ->assertExactJson([
+                'code' => 'idempotency_conflict',
+                'message' => 'Creation ID was already used for different content.',
+            ]);
+
+        $this->assertDatabaseCount('content_courses', 1);
+    }
+
     public function test_missing_description_uses_the_legacy_ai_generation_when_available(): void
     {
         config()->set('services.openai.api_key', 'test-key');
@@ -164,6 +297,47 @@ class ContentCourseWriteApiTest extends TestCase
             && data_get($request->data(), 'model') === 'content-test-model'
             && data_get($request->data(), 'reasoning.effort') === 'low'
             && str_contains((string) data_get($request->data(), 'input.1.content.0.text'), 'New Course'));
+    }
+
+    public function test_description_provider_result_does_not_overwrite_a_concurrent_explicit_update(): void
+    {
+        config()->set('services.openai.api_key', 'test-key');
+        config()->set('services.openai.base_url', 'https://openai.example/v1');
+        Http::fake(function () {
+            $this->travel(1)->second();
+            try {
+                ContentCourse::query()->sole()->forceFill([
+                    'description' => 'Explicit concurrent update.',
+                    'description_generation_token' => null,
+                ])->save();
+            } finally {
+                $this->travelBack();
+            }
+
+            return Http::response(['output_text' => 'Stale generated description.']);
+        });
+        $user = User::factory()->create();
+
+        $response = $this->asConvoLabBrowser($user)
+            ->postJson('/api/convolab/courses', [...$this->inlinePayload(), 'id' => (string) Str::uuid()])
+            ->assertOk()
+            ->assertJsonPath('description', 'Explicit concurrent update.');
+
+        $this->assertDatabaseHas('content_courses', [
+            'id' => $response->json('id'),
+            'description' => 'Explicit concurrent update.',
+        ]);
+    }
+
+    public function test_course_create_rejects_a_malformed_client_uuid_without_writes(): void
+    {
+        $this->asConvoLabBrowser(User::factory()->create())
+            ->postJson('/api/convolab/courses', [...$this->inlinePayload(), 'id' => 'not-a-uuid'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['id']);
+
+        $this->assertDatabaseCount('content_courses', 0);
+        $this->assertDatabaseCount('content_episodes', 0);
     }
 
     public function test_description_provider_failure_keeps_the_created_course_and_fallback(): void

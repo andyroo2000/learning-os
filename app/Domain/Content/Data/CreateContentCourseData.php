@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Data;
 
 use App\Domain\Content\Support\ContentCourseDefaults;
+use App\Domain\Content\Support\ContentCourseId;
 use App\Domain\Content\Support\ContentEpisodeId;
 use App\Domain\Content\Support\ConvoLabUserId;
 use InvalidArgumentException;
@@ -26,6 +27,7 @@ final readonly class CreateContentCourseData
         public string $speaker2Gender,
         public ?string $speaker1VoiceId,
         public ?string $speaker2VoiceId,
+        public ?string $id,
     ) {}
 
     /** @param array<string, mixed> $input */
@@ -106,6 +108,11 @@ final readonly class CreateContentCourseData
             self::assertMaxLength($speaker2VoiceId, 255, 'Course speaker 2 voice');
         }
 
+        $id = $input['id'] ?? null;
+        if ($id !== null && ! is_string($id)) {
+            throw new InvalidArgumentException('Course ID must be a string or null.');
+        }
+
         return new self(
             userId: $userId,
             convoLabUserId: ConvoLabUserId::normalize($convoLabUserId),
@@ -122,6 +129,7 @@ final readonly class CreateContentCourseData
             speaker2Gender: $speaker2Gender,
             speaker1VoiceId: $speaker1VoiceId,
             speaker2VoiceId: $speaker2VoiceId,
+            id: $id === null ? null : ContentCourseId::normalize($id),
         );
     }
 

@@ -59,7 +59,7 @@ final readonly class CreateAdminScriptLabCourseAction
                     $data->nativeLanguage,
                     jlptLevel: $data->jlptLevel,
                     autoGenerateAudio: false,
-                ))
+                ))->episode
                 : ContentEpisode::query()
                     ->whereKey($data->episodeId)
                     ->where('user_id', $user->getKey())

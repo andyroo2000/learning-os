@@ -7,6 +7,15 @@ use Illuminate\Validation\Rule;
 
 class StoreContentEpisodeRequest extends ConvoLabContentWriteRequest
 {
+    protected function prepareForValidation(): void
+    {
+        parent::prepareForValidation();
+
+        if (is_string($this->input('id'))) {
+            $this->merge(['id' => strtolower(trim($this->input('id')))]);
+        }
+    }
+
     protected function blocksDemoMutation(): bool
     {
         return true;
@@ -17,6 +26,7 @@ class StoreContentEpisodeRequest extends ConvoLabContentWriteRequest
     {
         return [
             ...$this->convoLabUserIdRules(),
+            'id' => ['sometimes', 'required', 'uuid'],
             'title' => ['required', 'string', 'max:255'],
             'sourceText' => ['required', 'string'],
             'targetLanguage' => ['required', 'string', Rule::in(['ja'])],

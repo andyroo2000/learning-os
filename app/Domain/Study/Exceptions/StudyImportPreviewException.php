@@ -54,6 +54,21 @@ final class StudyImportPreviewException extends RuntimeException
         return new self('Imported note type names must not exceed '.$maxCharacters.' characters.');
     }
 
+    public static function invalidDeckNameEncoding(): self
+    {
+        return new self('The imported deck name must use valid UTF-8.');
+    }
+
+    public static function invalidNoteTypeNameEncoding(): self
+    {
+        return new self('Imported note type names must use valid UTF-8.');
+    }
+
+    public static function invalidCardTextEncoding(): self
+    {
+        return new self('Imported card text must use valid UTF-8.');
+    }
+
     private static function bytesLabel(int $bytes): string
     {
         return $bytes === 1 ? 'byte' : 'bytes';

@@ -418,7 +418,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         $this->assertTrue($deletedCard->refresh()->trashed());
     }
 
-    public function test_it_reuses_the_existing_default_study_deck_without_locking_the_user_row(): void
+    public function test_it_locks_the_owner_before_reusing_the_existing_default_study_deck(): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user, [
@@ -443,7 +443,7 @@ class StoreStudyCardCompatibilityApiTest extends TestCase
         }
 
         $this->assertSame($deck->id, $resolvedDeck->id);
-        $this->assertSame(0, $userQueries);
+        $this->assertSame(1, $userQueries);
     }
 
     public function test_manual_deck_resolution_requires_an_outer_transaction(): void

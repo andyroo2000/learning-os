@@ -33,17 +33,9 @@ class ResolveManualStudyDeckAction
         }
 
         return DB::transaction(function () use ($userId): Deck {
-            // A shared read lock blocks concurrent soft-deletes while allowing concurrent
-            // card creates against an existing manual deck. Reserve the user row lock for
-            // first-use creation races where no manual deck exists yet.
-            $existingDeck = $this->activeManualDeckQuery($userId)
-                ->sharedLock()
-                ->first();
-
-            if ($existingDeck !== null) {
-                return $existingDeck;
-            }
-
+            // Preserve the owner -> Deck order used by card creation and account deletion.
+            // Card creation already serializes its queue position on this owner row, so
+            // locking it here does not reduce effective manual-card create concurrency.
             $this->lockDeckOwner($userId);
 
             $existingDeck = $this->activeManualDeckQuery($userId)

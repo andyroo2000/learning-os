@@ -64,6 +64,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $response = $this->postJson('/api/study/card-drafts/'.strtoupper($draft->id).'/retry')
             ->assertOk()
             ->assertJsonPath('id', $draft->id)
+            ->assertJsonPath('revision', 1)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value)
             ->assertJsonPath('prompt.cueText', '会社')
             ->assertJsonPath('answer.meaning', 'company')
@@ -79,6 +80,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
 
         $draft->refresh();
         $this->assertSame(StudyManualCardDraftStatus::Generating, $draft->status);
+        $this->assertSame(1, $draft->revision);
         $this->assertNull($draft->preview_audio_json);
         $this->assertNull($draft->preview_audio_role);
         $this->assertNull($draft->preview_image_json);
@@ -99,6 +101,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
         $response = $this->postJson("/api/study/card-drafts/{$generatingDraft->id}/retry")
             ->assertOk()
             ->assertJsonPath('id', $generatingDraft->id)
+            ->assertJsonPath('revision', 0)
             ->assertJsonPath('status', StudyManualCardDraftStatus::Generating->value);
 
         $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());

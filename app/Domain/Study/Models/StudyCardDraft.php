@@ -34,6 +34,11 @@ class StudyCardDraft extends Model
     /** @use HasFactory<StudyCardDraftFactory> */
     use HasFactory, HasUlids, ResolvesCanonicalUlidRouteBindings;
 
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'revision' => 0,
+    ];
+
     public const MAX_IMAGE_PROMPT_LENGTH = 1000;
 
     public const MAX_VARIANT_ID_LENGTH = VariantMetadataLimits::MAX_ID_LENGTH;
@@ -97,6 +102,7 @@ class StudyCardDraft extends Model
     protected function casts(): array
     {
         return [
+            'revision' => 'integer',
             'status' => StudyManualCardDraftStatus::class,
             'creation_kind' => StudyCardCreationKind::class,
             'card_type' => CardType::class,

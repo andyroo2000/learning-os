@@ -16,6 +16,7 @@ class StudyCardDraftResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'revision' => $this->revision,
             'status' => $this->stringAttributeValue('status'),
             'creationKind' => $this->stringAttributeValue('creation_kind'),
             'cardType' => $this->stringAttributeValue('card_type'),

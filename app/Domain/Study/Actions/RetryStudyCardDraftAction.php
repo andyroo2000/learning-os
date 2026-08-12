@@ -6,6 +6,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,7 @@ class RetryStudyCardDraftAction
             }
 
             $draft->resetForRetry();
+            StudyCardDraftRevision::advance($draft);
             $draft->save();
             $this->recordStudyCardDraftSyncEntry->handle($draft, SyncFeedOperation::Update);
 

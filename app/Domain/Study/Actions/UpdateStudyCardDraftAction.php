@@ -8,6 +8,7 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Facades\DB;
 
@@ -37,6 +38,8 @@ class UpdateStudyCardDraftAction
             if ($lockedDraft === null) {
                 throw StudyCardDraftNotFoundException::notFound();
             }
+
+            StudyCardDraftRevision::assertExpected($lockedDraft, $data->expectedRevision);
 
             if ($lockedDraft->status === StudyManualCardDraftStatus::Generating) {
                 throw StudyCardDraftConflictException::generatingCannotBeEdited();
@@ -114,6 +117,7 @@ class UpdateStudyCardDraftAction
                 return $lockedDraft;
             }
 
+            StudyCardDraftRevision::advance($lockedDraft);
             $lockedDraft->save();
 
             $this->recordStudyCardDraftSyncEntry->handle($lockedDraft, SyncFeedOperation::Update);

@@ -21,6 +21,7 @@ class StudyCardDraftSyncPayloadTest extends TestCase
         $draft = new StudyCardDraft;
         $draft->setRawAttributes([
             'id' => '01ktt2q9z5vfpxsqgc3mwrdh35',
+            'revision' => 7,
             'status' => StudyManualCardDraftStatus::Ready->value,
             'creation_kind' => StudyCardCreationKind::ProductionImage->value,
             'card_type' => CardType::Production->value,
@@ -55,6 +56,7 @@ class StudyCardDraftSyncPayloadTest extends TestCase
         $this->assertSame('study_card_draft', StudyCardDraftSyncPayload::RESOURCE_TYPE);
         $this->assertSame([
             'id' => '01ktt2q9z5vfpxsqgc3mwrdh35',
+            'revision' => 7,
             'status' => 'ready',
             'creation_kind' => 'production-image',
             'card_type' => 'production',

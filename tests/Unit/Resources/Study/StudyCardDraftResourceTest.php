@@ -28,6 +28,7 @@ class StudyCardDraftResourceTest extends TestCase
         $draft = new StudyCardDraft;
         $draft->setRawAttributes([
             'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'revision' => 7,
             'status' => 'generating',
             'creation_kind' => 'production-image',
             'card_type' => 'production',
@@ -47,6 +48,7 @@ class StudyCardDraftResourceTest extends TestCase
         $this->assertSame($this->studyCardDraftCompatibilityPayloadKeys(), array_keys($resource));
         $this->assertStudyCardDraftCompatibilityPayloadHasShape($resource);
         $this->assertSame('generating', $resource['status']);
+        $this->assertSame(7, $resource['revision']);
         $this->assertSame('production-image', $resource['creationKind']);
         $this->assertSame('production', $resource['cardType']);
         $this->assertSame('prompt', $resource['imagePlacement']);
@@ -120,6 +122,8 @@ class StudyCardDraftResourceTest extends TestCase
 final class StudyCardDraftResourceSubject
 {
     public string $id = '01jzq4nny5xbnzw14q1g68b2yt';
+
+    public int $revision = 0;
 
     /** @var array<string, mixed>|null */
     public ?array $prompt_json = null;

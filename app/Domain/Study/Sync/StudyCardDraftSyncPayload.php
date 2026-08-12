@@ -21,6 +21,7 @@ final class StudyCardDraftSyncPayload
     {
         return [
             'id' => $draft->id,
+            'revision' => $draft->revision,
             'status' => self::enumValue($draft->status),
             'creation_kind' => self::enumValue($draft->creation_kind),
             'card_type' => self::enumValue($draft->card_type),

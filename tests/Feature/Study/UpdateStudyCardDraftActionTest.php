@@ -9,6 +9,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
+use App\Domain\Study\Exceptions\StudyCardDraftRevisionConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -264,6 +265,31 @@ class UpdateStudyCardDraftActionTest extends TestCase
         $this->assertSame(['meaning' => 'company'], $updated->answer_json);
         $this->assertNotNull($updated->updated_at);
         $this->assertSame($originalUpdatedAt, $updated->updated_at->toJSON());
+        $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_it_rejects_a_stale_expected_revision_before_mutating_the_locked_draft(): void
+    {
+        $draft = StudyCardDraft::factory()->ready()->create([
+            'revision' => 4,
+            'image_prompt' => 'Current prompt',
+        ]);
+
+        try {
+            app(UpdateStudyCardDraftAction::class)->handle($draft, UpdateStudyCardDraftData::fromInput(
+                expectedRevision: 3,
+                hasImagePrompt: true,
+                imagePrompt: 'Stale prompt',
+            ));
+            $this->fail('Expected a stale draft revision to be rejected.');
+        } catch (StudyCardDraftRevisionConflictException $e) {
+            $this->assertSame($draft->id, $e->draft->id);
+            $this->assertSame(4, $e->draft->revision);
+            $this->assertSame('Study card draft changed since it was loaded.', $e->getMessage());
+        }
+
+        $this->assertSame('Current prompt', $draft->refresh()->image_prompt);
+        $this->assertSame(4, $draft->revision);
         $this->assertSame(0, SyncFeedEntry::query()->count());
     }
 

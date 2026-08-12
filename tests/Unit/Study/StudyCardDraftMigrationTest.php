@@ -34,6 +34,10 @@ class StudyCardDraftMigrationTest extends TestCase
         $this->assertFileExists(
             LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_06_06_124000_add_committed_card_id_to_study_card_drafts_table.php',
         );
+
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_08_12_150000_add_revision_to_study_card_drafts_table.php',
+        );
     }
 
     #[DataProvider('studyCardDraftSqlProvider')]
@@ -78,6 +82,24 @@ class StudyCardDraftMigrationTest extends TestCase
 
         $alterSql = $this->addCommittedCardIdBlueprint($connection)->toSql();
         $dropColumnSql = $this->dropCommittedCardIdBlueprint($connection)->toSql();
+
+        $this->assertSame($expectedAlterSql, $alterSql);
+        $this->assertSame($expectedDropColumnSql, $dropColumnSql);
+    }
+
+    #[DataProvider('revisionSqlProvider')]
+    public function test_revision_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAlterSql,
+        array $expectedDropColumnSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        $alterSql = $this->addRevisionBlueprint($connection)->toSql();
+        $dropColumnSql = $this->dropRevisionBlueprint($connection)->toSql();
 
         $this->assertSame($expectedAlterSql, $alterSql);
         $this->assertSame($expectedDropColumnSql, $dropColumnSql);
@@ -171,6 +193,33 @@ class StudyCardDraftMigrationTest extends TestCase
     }
 
     /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function revisionSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                ['alter table "study_card_drafts" add column "revision" integer not null default \'0\''],
+                ['alter table "study_card_drafts" drop column "revision"'],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                ['alter table "study_card_drafts" add column "revision" bigint not null default \'0\''],
+                ['alter table "study_card_drafts" drop column "revision"'],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                ['alter table `study_card_drafts` add `revision` bigint unsigned not null default \'0\''],
+                ['alter table `study_card_drafts` drop `revision`'],
+            ],
+        ];
+    }
+
+    /**
      * @param  class-string<Connection>  $connectionClass
      */
     private function connection(string $connectionClass): Connection
@@ -226,6 +275,20 @@ class StudyCardDraftMigrationTest extends TestCase
     {
         return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
             $table->dropColumn('committed_card_id');
+        });
+    }
+
+    private function addRevisionBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
+            $table->unsignedBigInteger('revision')->default(0);
+        });
+    }
+
+    private function dropRevisionBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'study_card_drafts', function (Blueprint $table): void {
+            $table->dropColumn('revision');
         });
     }
 

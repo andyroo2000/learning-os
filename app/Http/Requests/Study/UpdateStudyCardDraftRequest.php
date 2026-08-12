@@ -80,6 +80,7 @@ class UpdateStudyCardDraftRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'expectedRevision' => ['sometimes', 'integer', 'min:0'],
             'prompt' => ['sometimes', 'array'],
             'answer' => ['sometimes', 'array'],
             'imagePlacement' => ['sometimes', 'nullable', 'string', Rule::in(StudyCardImagePlacement::values())],
@@ -158,6 +159,8 @@ class UpdateStudyCardDraftRequest extends FormRequest
     {
         return [
             ...$this->studyCardPayloadMessages(),
+            'expectedRevision.integer' => 'expectedRevision must be a non-negative integer.',
+            'expectedRevision.min' => 'expectedRevision must be a non-negative integer.',
             'prompt.array' => self::PAYLOAD_REQUIRED_MESSAGE,
             'answer.array' => self::PAYLOAD_REQUIRED_MESSAGE,
             'imagePlacement.in' => self::studyCardImagePlacementMessage(),
@@ -188,6 +191,31 @@ class UpdateStudyCardDraftRequest extends FormRequest
         }
 
         return $this->studyCardDraft;
+    }
+
+    public function expectedRevision(): ?int
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('expectedRevision', $validated)) {
+            return null;
+        }
+
+        $value = $validated['expectedRevision'];
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+
+            if ($integer !== false) {
+                return $integer;
+            }
+        }
+
+        throw new LogicException('expectedRevision called after validation failed to reject a non-integer value.');
     }
 
     public function hasPrompt(): bool

@@ -3,6 +3,7 @@
 namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Results\StudyMediaReferenceRepairResult;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
@@ -158,16 +159,30 @@ final class RepairLegacyStudyMediaReferencesAction
                 continue;
             }
 
+            $searchText = CardSearchText::fromContent(
+                frontText: $card->front_text,
+                backText: $card->back_text,
+                promptJson: $repairedPrompt,
+                answerJson: $repairedAnswer,
+            );
+            // Normalize before both persistence and payload construction so the sync timestamp
+            // is byte-for-byte equivalent across the supported database timestamp grammars.
+            $updatedAt = now()->startOfSecond();
+
             $connection->table('cards')
                 ->where('id', $card->id)
                 ->update([
                     'prompt_json' => $this->encodePayload($repairedPrompt),
                     'answer_json' => $this->encodePayload($repairedAnswer),
+                    'search_text' => $searchText,
+                    'updated_at' => $updatedAt,
                 ]);
 
             $cardModel = (new Card)->newFromBuilder((array) $card, $connection->getName());
             $cardModel->setAttribute('prompt_json', $repairedPrompt);
             $cardModel->setAttribute('answer_json', $repairedAnswer);
+            $cardModel->setAttribute('search_text', $searchText);
+            $cardModel->setAttribute('updated_at', $updatedAt);
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(

@@ -115,7 +115,10 @@ final class QueueIdempotentContentDialogueGenerationAction
 
         $dispatchToken = $this->claimDispatch->handle($result->request->id);
         if ($dispatchToken === null) {
-            return $result;
+            return new ContentDialogueGenerationRequestResult(
+                $result->request->fresh(),
+                $result->job,
+            );
         }
 
         try {

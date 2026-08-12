@@ -8,7 +8,7 @@ use App\Domain\Content\Support\ContentSourceLock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-final class ClaimContentGenerationDispatchAction
+class ClaimContentGenerationDispatchAction
 {
     public function handle(string $requestId): ?string
     {

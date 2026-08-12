@@ -121,7 +121,10 @@ final class QueueIdempotentContentCourseGenerationAction
 
         $dispatchToken = $this->claimDispatch->handle($result->request->id);
         if ($dispatchToken === null) {
-            return $result;
+            return new ContentCourseGenerationRequestResult(
+                $result->request->fresh(),
+                $result->started,
+            );
         }
 
         try {

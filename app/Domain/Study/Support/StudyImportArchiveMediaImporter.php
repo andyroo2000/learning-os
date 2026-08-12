@@ -7,7 +7,6 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
-use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use Illuminate\Support\Carbon;
@@ -23,6 +22,7 @@ final class StudyImportArchiveMediaImporter
         private readonly RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
         private readonly RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
         private readonly StudyImportArchiveReader $archiveReader,
+        private readonly StudyImportArchiveMediaEligibility $mediaEligibility,
     ) {}
 
     /**
@@ -92,7 +92,7 @@ final class StudyImportArchiveMediaImporter
 
         foreach ($copy->targets as $target) {
             $entry = $target['entry'];
-            $sourceFilename = $this->normalizedSourceFilename($entry);
+            $sourceFilename = $this->mediaEligibility->normalizedSourceFilename($entry);
 
             if ($sourceFilename === null) {
                 continue;
@@ -190,7 +190,7 @@ final class StudyImportArchiveMediaImporter
         foreach ($referencedFilenames as $filename) {
             $entry = $archive->mediaManifestByFilename[$filename] ?? null;
 
-            if (! $this->isImportableMediaEntry($entry)) {
+            if (! $this->mediaEligibility->isImportable($entry)) {
                 continue;
             }
 
@@ -227,23 +227,9 @@ final class StudyImportArchiveMediaImporter
         return array_keys($filenames);
     }
 
-    private function isImportableMediaEntry(?StudyImportArchiveMediaEntry $entry): bool
-    {
-        return $entry !== null
-            && $entry->hasContent
-            && $entry->sizeBytes !== null
-            && $entry->sizeBytes >= 1
-            && $entry->sizeBytes <= MediaAsset::MAX_JSON_SAFE_SIZE_BYTES
-            && $entry->checksumSha256 !== null
-            && strlen($entry->checksumSha256) === 64
-            && ctype_xdigit($entry->checksumSha256)
-            && mb_strlen($entry->sourceMediaRef) <= MediaAsset::MAX_PATH_LENGTH
-            && $this->normalizedSourceFilename($entry) !== null;
-    }
-
     private function mediaStoragePath(StudyImportJob $importJob, StudyImportArchiveMediaEntry $entry): ?string
     {
-        $filename = $this->normalizedSourceFilename($entry);
+        $filename = $this->mediaEligibility->normalizedSourceFilename($entry);
 
         if ($filename === null) {
             return null;
@@ -257,15 +243,6 @@ final class StudyImportArchiveMediaImporter
         }
 
         return $prefix.$this->limitFilename($filename, $availableFilenameLength);
-    }
-
-    private function normalizedSourceFilename(StudyImportArchiveMediaEntry $entry): ?string
-    {
-        $filename = OriginalFilename::normalize($entry->sourceFilename);
-
-        return $filename === null || mb_strlen($filename) > MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH
-            ? null
-            : $filename;
     }
 
     private function pathSegment(string $value): string

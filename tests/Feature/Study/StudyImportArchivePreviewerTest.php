@@ -225,9 +225,57 @@ class StudyImportArchivePreviewerTest extends TestCase
         );
 
         $this->assertSame(2, $preview['media_reference_count']);
-        $this->assertSame(0, $preview['skipped_media_count']);
+        $this->assertSame(1, $preview['skipped_media_count']);
         $this->assertSame([
             'Media file "company.png" is listed in the archive manifest but content entry "1" is missing.',
+        ], $preview['warnings']);
+    }
+
+    public function test_it_does_not_count_unreferenced_archive_media_as_skipped(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/unused-media.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'note_one_fields' => '会社[sound:word.mp3]'."\x1f".'company',
+                'media_map' => [
+                    '0' => 'word.mp3',
+                    '1' => 'unused.png',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/unused-media.colpkg',
+        );
+
+        $this->assertSame(1, $preview['media_reference_count']);
+        $this->assertSame(0, $preview['skipped_media_count']);
+        $this->assertSame([], $preview['warnings']);
+    }
+
+    public function test_it_reports_referenced_media_with_invalid_metadata_as_skipped(): void
+    {
+        Storage::fake('study-imports');
+        Storage::disk('study-imports')->put(
+            'study/imports/preview/empty-media.colpkg',
+            $this->buildStudyImportArchiveBytes([
+                'media_entries' => [
+                    '0' => '',
+                    '1' => 'image-bytes',
+                ],
+            ]),
+        );
+
+        $preview = app(StudyImportArchivePreviewer::class)->preview(
+            Storage::disk('study-imports'),
+            'study/imports/preview/empty-media.colpkg',
+        );
+
+        $this->assertSame(1, $preview['skipped_media_count']);
+        $this->assertSame([
+            'Media file "word.mp3" has unsupported or invalid archive metadata and will be skipped.',
         ], $preview['warnings']);
     }
 

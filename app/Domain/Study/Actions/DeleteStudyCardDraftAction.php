@@ -3,6 +3,7 @@
 namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftOwnerLock;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,7 @@ class DeleteStudyCardDraftAction
 {
     public function __construct(
         private readonly RecordStudyCardDraftSyncEntryAction $recordStudyCardDraftSyncEntry,
+        private readonly StudyCardDraftOwnerLock $draftOwnerLock,
     ) {}
 
     /**
@@ -31,6 +33,8 @@ class DeleteStudyCardDraftAction
         }
 
         DB::transaction(function () use ($userId, $canonicalDraftId): void {
+            $this->draftOwnerLock->acquire($userId);
+
             $draft = StudyCardDraft::query()
                 ->where('user_id', $userId)
                 ->whereKey($canonicalDraftId)

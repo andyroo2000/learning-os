@@ -268,6 +268,34 @@ class DetachMediaFromCardApiTest extends TestCase
         ]);
     }
 
+    public function test_it_returns_not_found_when_card_is_deleted_after_route_binding(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $card->mediaAssets()->attach($mediaAsset->id);
+
+        $this->app->instance(DetachMediaFromCardAction::class, new class(app(RecordCardMediaSyncFeedEntryAction::class)) extends DetachMediaFromCardAction
+        {
+            public function handle(DetachMediaFromCardData $data): Card
+            {
+                $data->card->delete();
+
+                return parent::handle($data);
+            }
+        });
+
+        $response = $this->deleteJson("/api/cards/{$card->id}/media-assets/{$mediaAsset->id}");
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas('card_media', [
+            'card_id' => $card->id,
+            'media_asset_id' => $mediaAsset->id,
+        ]);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_requires_authentication(): void
     {
         $card = Card::factory()->create();

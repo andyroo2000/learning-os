@@ -143,6 +143,7 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Media/CardMediaAttachmentLockPostgresTest.php \
+            tests/Feature/Media/CardMediaDetachmentLockPostgresTest.php \
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \
             tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
             tests/Feature/Study/StudyImportCancellationLockPostgresTest.php \

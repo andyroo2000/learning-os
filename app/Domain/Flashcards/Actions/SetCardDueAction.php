@@ -13,6 +13,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\DateTime\StrictIsoDateTime;
 use DateTimeZone;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -41,6 +42,21 @@ class SetCardDueAction
         );
 
         return DB::transaction(function () use ($card, $dueAt, $now): UpdateCardResult {
+            // Route authorization happens before this transaction. Re-resolve the live card
+            // under the same row lock used by review and deletion so stale scheduler state
+            // cannot overwrite a review or append an Update after a Delete tombstone.
+            $lockedCard = Card::query()
+                ->whereKey($card->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedCard === null) {
+                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+            }
+
+            $card->setRawAttributes($lockedCard->getAttributes(), true);
+            $card->setRelations([]);
+
             $nextStudyStatus = $this->restoredStudyStatus($card);
 
             if (($card->study_status ?? CardStudyStatus::New) !== $nextStudyStatus) {

@@ -11,6 +11,7 @@ use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -26,13 +27,34 @@ class UpdateCardStudyStatusAction
         $studyStatus = $this->normalizeStudyStatus($studyStatus);
 
         return DB::transaction(function () use ($card, $studyStatus): UpdateCardResult {
+            // New-card queue writers take the owner lock before card locks. Reserve the next
+            // position in that order even when the refreshed card ultimately keeps its current
+            // position, preventing an inversion with queue reorder and card creation.
+            $nextNewQueuePosition = $studyStatus === CardStudyStatus::New
+                ? $this->newCardQueuePosition()->nextForUser($card->ownerUserId())
+                : null;
+
+            // Re-resolve the live card under the same row lock used by review and deletion so
+            // stale study state cannot overwrite a review or follow a Delete tombstone.
+            $lockedCard = Card::query()
+                ->whereKey($card->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedCard === null) {
+                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+            }
+
+            $card->setRawAttributes($lockedCard->getAttributes(), true);
+            $card->setRelations([]);
+
             if (($card->study_status ?? CardStudyStatus::New) !== $studyStatus) {
                 $card->study_status = $studyStatus;
             }
 
             if ($studyStatus === CardStudyStatus::New) {
                 if ($card->new_queue_position === null) {
-                    $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($card->ownerUserId());
+                    $card->new_queue_position = $nextNewQueuePosition;
                 }
 
                 $card->due_at = null;

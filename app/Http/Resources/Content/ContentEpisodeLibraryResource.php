@@ -21,6 +21,7 @@ class ContentEpisodeLibraryResource extends JsonResource
             'createdAt' => ConvoLabTimestamp::serialize($this->created_at),
             'updatedAt' => ConvoLabTimestamp::serialize($this->updated_at),
             'dialogue' => $this->dialogue === null ? null : [
+                'turnCount' => $this->dialogueTurnCount(),
                 'speakers' => $this->dialogue->speakers
                     ->map(fn ($speaker): array => ['proficiency' => $speaker->proficiency])
                     ->values()
@@ -33,5 +34,20 @@ class ContentEpisodeLibraryResource extends JsonResource
                 '_count' => ['segments' => (int) $this->audioScript->segments_count],
             ],
         ];
+    }
+
+    private function dialogueTurnCount(): int
+    {
+        $attributes = $this->dialogue->getAttributes();
+
+        if (array_key_exists('sentences_count', $attributes)) {
+            return (int) $attributes['sentences_count'];
+        }
+
+        if ($this->dialogue->relationLoaded('sentences')) {
+            return $this->dialogue->sentences->count();
+        }
+
+        return $this->dialogue->sentences()->count();
     }
 }

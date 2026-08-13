@@ -15,6 +15,42 @@ use Illuminate\Support\Carbon;
  */
 final class FsrsReviewScheduler
 {
+    public const PROFILE = [
+        'algorithm' => 'FSRS-6',
+        'library' => 'ts-fsrs',
+        'library_version' => '5.3.3',
+        'weights' => [
+            0.212,
+            1.2931,
+            2.3065,
+            8.2956,
+            6.4133,
+            0.8334,
+            3.0194,
+            0.001,
+            1.8722,
+            0.1666,
+            0.796,
+            1.4835,
+            0.0614,
+            0.2629,
+            1.6483,
+            0.6014,
+            1.8729,
+            0.5425,
+            0.0912,
+            0.0658,
+            0.1542,
+        ],
+        'request_retention' => 0.9,
+        'maximum_interval_days' => 36500,
+        'minimum_stability' => 0.001,
+        'learning_steps_minutes' => [1, 10],
+        'relearning_steps_minutes' => [10],
+        'enable_fuzz' => false,
+        'enable_short_term' => true,
+    ];
+
     private const STATE_NEW = 0;
 
     private const STATE_LEARNING = 1;
@@ -31,46 +67,24 @@ final class FsrsReviewScheduler
 
     private const RATING_EASY = 4;
 
-    private const REQUEST_RETENTION = 0.9;
+    private const REQUEST_RETENTION = self::PROFILE['request_retention'];
 
-    private const MAXIMUM_INTERVAL_DAYS = 36500;
+    private const MAXIMUM_INTERVAL_DAYS = self::PROFILE['maximum_interval_days'];
 
-    private const MINIMUM_STABILITY = 0.001;
-
-    /** @var list<int> */
-    private const LEARNING_STEPS_MINUTES = [1, 10];
+    private const MINIMUM_STABILITY = self::PROFILE['minimum_stability'];
 
     /** @var list<int> */
-    private const RELEARNING_STEPS_MINUTES = [10];
+    private const LEARNING_STEPS_MINUTES = self::PROFILE['learning_steps_minutes'];
+
+    /** @var list<int> */
+    private const RELEARNING_STEPS_MINUTES = self::PROFILE['relearning_steps_minutes'];
 
     /**
      * Default FSRS-6 weights from ts-fsrs 5.3.3.
      *
      * @var list<float>
      */
-    private const WEIGHTS = [
-        0.212,
-        1.2931,
-        2.3065,
-        8.2956,
-        6.4133,
-        0.8334,
-        3.0194,
-        0.001,
-        1.8722,
-        0.1666,
-        0.796,
-        1.4835,
-        0.0614,
-        0.2629,
-        1.6483,
-        0.6014,
-        1.8729,
-        0.5425,
-        0.0912,
-        0.0658,
-        0.1542,
-    ];
+    private const WEIGHTS = self::PROFILE['weights'];
 
     private function __construct() {}
 

@@ -517,11 +517,13 @@ class ReviewCardBatchAction
             'id' => $item['id'],
             'card_id' => $item['card_id'],
             'rating' => $item['rating']->value,
-            'reviewed_at' => $item['reviewed_at'],
+            // Bulk inserts bypass Eloquent's date casting, so preserve the same
+            // millisecond contract used by single client review writes.
+            'reviewed_at' => CardReviewEvent::formatClientTimestampForStorage($item['reviewed_at']),
             'duration_ms' => $item['duration_ms'],
             'client_event_id' => $item['client_event_id'],
             'device_id' => $item['device_id'],
-            'client_created_at' => $item['client_created_at'],
+            'client_created_at' => CardReviewEvent::formatClientTimestampForStorage($item['client_created_at']),
             'created_at' => $now,
             'updated_at' => $now,
         ];

@@ -48,12 +48,13 @@ final readonly class ReviewCardData
     private static function normalizeTimestamp(DateTimeInterface|string $timestamp, string $field): Carbon
     {
         if ($timestamp instanceof DateTimeInterface) {
-            // Object callers already provide a parsed instant; string callers must use the client wire format.
-            return Carbon::parse($timestamp)->setTimezone('UTC');
+            // Client event timestamps are stored at millisecond precision in PostgreSQL/MySQL. Normalize before
+            // identity comparison too, so direct callers and transport retries share the database contract.
+            return StrictIsoDateTime::normalizeMilliseconds($timestamp);
         }
 
         $normalized = trim($timestamp);
-        $parsed = StrictIsoDateTime::parseOrNull($normalized);
+        $parsed = StrictIsoDateTime::parseMillisecondsOrNull($normalized);
 
         if ($parsed === null) {
             throw new InvalidArgumentException("{$field} must be a valid ISO-8601 datetime.");

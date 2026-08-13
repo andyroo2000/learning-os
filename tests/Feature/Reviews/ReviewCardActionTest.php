@@ -658,6 +658,35 @@ class ReviewCardActionTest extends TestCase
         );
     }
 
+    public function test_direct_callers_replay_sub_millisecond_review_instants_at_database_precision(): void
+    {
+        $card = Card::factory()->create();
+        $id = strtolower((string) Str::ulid());
+        $firstData = ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T05:15:00.123111-04:00',
+            id: $id,
+        );
+        $replayData = ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00.123999Z',
+            id: $id,
+        );
+
+        $first = $this->reviewCard($firstData);
+        $second = $this->reviewCard($replayData);
+
+        $this->assertTrue($first->wasCreated);
+        $this->assertFalse($second->wasCreated);
+        $this->assertSame($id, $second->reviewEvent->id);
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $second->reviewEvent->reviewed_at->toJSON());
+        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
     public function test_it_reports_cross_user_provided_ulid_conflicts_for_http_hiding(): void
     {
         $card = Card::factory()->create();

@@ -452,11 +452,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 [
                     'card_id' => $card->id,
                     'rating' => CardReviewRating::Good->value,
-                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'reviewed_at' => '2026-05-27T09:15:00.123111Z',
                     'duration_ms' => 1250,
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T09:14:00Z',
+                    'client_created_at' => '2026-05-27T09:14:00.987111Z',
                 ],
             ],
         ];
@@ -467,11 +467,11 @@ class CreateCardReviewEventBatchApiTest extends TestCase
                 [
                     'card_id' => $card->id,
                     'rating' => CardReviewRating::Good->value,
-                    'reviewed_at' => '2026-05-27T05:15:00-04:00',
+                    'reviewed_at' => '2026-05-27T05:15:00.123999-04:00',
                     'duration_ms' => '1250',
                     'client_event_id' => 'event-123',
                     'device_id' => 'device-abc',
-                    'client_created_at' => '2026-05-27T05:14:00-04:00',
+                    'client_created_at' => '2026-05-27T05:14:00.987654-04:00',
                 ],
             ],
         ]);
@@ -481,9 +481,14 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $firstResponse->json('data.0.id'))
             ->assertJsonPath('data.0.rating', CardReviewRating::Good->value)
-            ->assertJsonPath('data.0.reviewed_at', '2026-05-27T09:15:00.000000Z');
+            ->assertJsonPath('data.0.reviewed_at', '2026-05-27T09:15:00.123000Z')
+            ->assertJsonPath('data.0.client_created_at', '2026-05-27T09:14:00.987000Z');
 
         $this->assertDatabaseCount('card_review_events', 1);
+        $this->assertDatabaseHas('card_review_events', [
+            'reviewed_at' => '2026-05-27 09:15:00.123',
+            'client_created_at' => '2026-05-27 09:14:00.987',
+        ]);
     }
 
     #[DataProvider('syncPayloadMismatchProvider')]

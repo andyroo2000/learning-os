@@ -45,9 +45,9 @@ persist across PHP request lifecycles. Convo Lab authenticates to Learning OS
 with a stateful Sanctum browser session. The Convo Lab compatibility routes do
 not accept service or mobile bearer tokens.
 
-Production refuses to boot when the selected queue connection uses Laravel's
-`sync` driver. Run a separately managed `php artisan queue:work` service for
-mail, import, and content-generation jobs.
+Production refuses to boot when the selected queue connection is unconfigured
+or uses a non-durable driver. Run a separately managed `php artisan queue:work`
+service for mail, import, and content-generation jobs.
 
 ## Generation request replay and retention
 

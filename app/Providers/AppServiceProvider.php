@@ -65,6 +65,7 @@ use App\Policies\MediaAssetPolicy;
 use App\Support\Audio\AudioSpeechGenerator;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use App\Support\Images\ImageGenerator;
+use App\Support\Queue\ProductionQueueConfiguration;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -106,6 +107,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $queueConnection = (string) config('queue.default');
+        ProductionQueueConfiguration::assertSafe(
+            environment: (string) $this->app->environment(),
+            connection: $queueConnection,
+            driver: config("queue.connections.{$queueConnection}.driver"),
+        );
+
         // Keep policy wiring explicit while the API ownership model is still being shaped.
         Gate::policy(Card::class, CardPolicy::class);
         Gate::policy(CardReviewEvent::class, CardReviewEventPolicy::class);

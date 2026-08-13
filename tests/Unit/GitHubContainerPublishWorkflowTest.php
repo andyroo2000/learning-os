@@ -6,6 +6,19 @@ use PHPUnit\Framework\TestCase;
 
 class GitHubContainerPublishWorkflowTest extends TestCase
 {
+    public function test_container_smoke_uses_and_exercises_a_database_queue_worker(): void
+    {
+        $workflow = file_get_contents(dirname(__DIR__, 2).'/.github/workflows/container.yml');
+
+        $this->assertIsString($workflow);
+        $this->assertStringNotContainsString('--env QUEUE_CONNECTION=sync', $workflow);
+        $this->assertStringContainsString('name: Exercise database queue worker', $workflow);
+        $this->assertStringContainsString('SendPasswordResetLink::dispatch', $workflow);
+        $this->assertStringContainsString('php artisan queue:work database', $workflow);
+        $this->assertStringContainsString('--stop-when-empty', $workflow);
+        $this->assertStringContainsString('Queue worker left pending or failed jobs:', $workflow);
+    }
+
     public function test_manual_container_publishing_is_opt_in_main_only_and_least_privilege(): void
     {
         $workflow = file_get_contents(dirname(__DIR__, 2).'/.github/workflows/container.yml');

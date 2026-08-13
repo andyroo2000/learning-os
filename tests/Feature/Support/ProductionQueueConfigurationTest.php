@@ -19,7 +19,7 @@ class ProductionQueueConfigurationTest extends TestCase
 
             $this->expectException(LogicException::class);
             $this->expectExceptionMessage(
-                'Production queue connection [sync] uses the synchronous driver.',
+                'Production queue connection [sync] uses non-durable driver [sync].',
             );
 
             // Deliberately call boot() again; this configuration guard throws before later provider setup runs.

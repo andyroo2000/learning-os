@@ -205,7 +205,7 @@ jobs:
               "$TEST_IMAGE" "$@"
           }
 
-          queue_container php artisan tinker --execute='App\Jobs\SendPasswordResetLink::dispatch("container-queue-smoke-missing@example.com");'
+          queue_container php artisan tinker --execute='App\Jobs\SendPasswordResetLink::dispatch("container-queue-smoke-".Illuminate\Support\Str::uuid()."@example.com");'
           queued_jobs="$(queue_container php artisan tinker --execute='echo Illuminate\Support\Facades\DB::table("jobs")->count();')"
           test "$queued_jobs" = 1
 

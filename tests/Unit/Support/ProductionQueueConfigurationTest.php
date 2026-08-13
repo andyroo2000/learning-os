@@ -9,18 +9,31 @@ use PHPUnit\Framework\TestCase;
 
 class ProductionQueueConfigurationTest extends TestCase
 {
-    public function test_it_rejects_the_sync_driver_in_production(): void
+    #[DataProvider('nonDurableDriverProvider')]
+    public function test_it_rejects_non_durable_drivers_in_production(string $driver): void
     {
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage(
-            'Production queue connection [immediate] uses the synchronous driver.',
+            "Production queue connection [immediate] uses non-durable driver [{$driver}].",
         );
 
         ProductionQueueConfiguration::assertSafe(
             environment: 'production',
             connection: 'immediate',
-            driver: 'sync',
+            driver: $driver,
         );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function nonDurableDriverProvider(): array
+    {
+        return [
+            'sync' => ['sync'],
+            'deferred' => ['deferred'],
+            'background' => ['background'],
+            'failover' => ['failover'],
+            'custom' => ['custom'],
+        ];
     }
 
     public function test_it_rejects_an_unconfigured_connection_in_production(): void
@@ -54,6 +67,8 @@ class ProductionQueueConfigurationTest extends TestCase
         return [
             'production database' => ['production', 'database', 'database'],
             'production redis' => ['production', 'redis', 'redis'],
+            'production SQS' => ['production', 'sqs', 'sqs'],
+            'production Beanstalkd' => ['production', 'beanstalkd', 'beanstalkd'],
             'local sync' => ['local', 'sync', 'sync'],
             'testing sync' => ['testing', 'sync', 'sync'],
             'unknown local driver' => ['local', 'custom', null],

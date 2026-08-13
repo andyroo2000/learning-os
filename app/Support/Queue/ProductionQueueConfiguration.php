@@ -6,6 +6,9 @@ use LogicException;
 
 final class ProductionQueueConfiguration
 {
+    /** @var list<string> */
+    private const DURABLE_DRIVERS = ['database', 'redis', 'sqs', 'beanstalkd'];
+
     private function __construct() {}
 
     public static function assertSafe(
@@ -23,12 +26,12 @@ final class ProductionQueueConfiguration
             );
         }
 
-        if ($driver !== 'sync') {
+        if (in_array($driver, self::DURABLE_DRIVERS, true)) {
             return;
         }
 
         throw new LogicException(
-            "Production queue connection [{$connection}] uses the synchronous driver. "
+            "Production queue connection [{$connection}] uses non-durable driver [{$driver}]. "
             .'Configure a durable asynchronous queue and a separately managed worker.',
         );
     }

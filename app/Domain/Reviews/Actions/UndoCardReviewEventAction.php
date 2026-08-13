@@ -68,7 +68,7 @@ class UndoCardReviewEventAction
             $card->due_at = $this->nullableTimestamp($snapshot, 'due_at');
             $card->introduced_at = $this->nullableTimestamp($snapshot, 'introduced_at');
             $card->failed_at = $this->nullableTimestamp($snapshot, 'failed_at');
-            $card->last_reviewed_at = $this->nullableTimestamp($snapshot, 'last_reviewed_at');
+            $card->setLastReviewedAt($this->nullableTimestamp($snapshot, 'last_reviewed_at'));
             $card->saveOrFail();
 
             $userId = $card->ownerUserId();

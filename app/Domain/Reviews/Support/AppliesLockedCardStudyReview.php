@@ -40,7 +40,7 @@ trait AppliesLockedCardStudyReview
         $card->new_queue_position = null;
         $card->due_at = $schedule['dueAt'];
         $card->failed_at = $rating === CardReviewRating::Again ? $reviewedAt : null;
-        $card->last_reviewed_at = $reviewedAt;
+        $card->setLastReviewedAt($reviewedAt);
         $card->scheduler_state = $schedule['schedulerState'];
 
         if (! $card->isDirty([

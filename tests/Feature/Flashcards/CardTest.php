@@ -203,6 +203,33 @@ class CardTest extends TestCase
         $this->assertSame('2026-06-04T14:15:00.000000Z', $card->variant_unlocked_at->toJSON());
     }
 
+    public function test_last_reviewed_at_setter_preserves_milliseconds_and_detects_within_second_changes(): void
+    {
+        $card = Card::factory()->create();
+
+        $card->setLastReviewedAt(Carbon::parse('2026-06-03T14:15:00.123999Z'));
+
+        $this->assertTrue($card->isDirty('last_reviewed_at'));
+
+        $card->saveOrFail();
+        $card->refresh();
+
+        $this->assertSame('2026-06-03T14:15:00.123000Z', $card->last_reviewed_at?->toJSON());
+
+        $card->setLastReviewedAt(Carbon::parse('2026-06-03T14:15:00.123000Z'));
+
+        $this->assertFalse($card->isDirty('last_reviewed_at'));
+
+        $card->setLastReviewedAt(Carbon::parse('2026-06-03T14:15:00.456999Z'));
+
+        $this->assertTrue($card->isDirty('last_reviewed_at'));
+
+        $card->saveOrFail();
+        $card->refresh();
+
+        $this->assertSame('2026-06-03T14:15:00.456000Z', $card->last_reviewed_at?->toJSON());
+    }
+
     public function test_server_owned_card_state_and_import_source_fields_are_not_mass_assignable(): void
     {
         $card = new Card([

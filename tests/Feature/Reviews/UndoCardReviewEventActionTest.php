@@ -154,6 +154,38 @@ class UndoCardReviewEventActionTest extends TestCase
         $this->assertDatabaseMissing('card_review_events', ['id' => $laterReviewEvent->id]);
     }
 
+    public function test_it_restores_exact_millisecond_last_reviewed_at_from_the_prior_snapshot(): void
+    {
+        $card = Card::factory()->create();
+        $firstReviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00.123999Z')->reviewEvent;
+        $firstCardUpdate = $this->assertCardSyncPayloadRecorded(
+            $card->refresh()->load('deck'),
+            SyncFeedOperation::Update,
+        );
+        $laterReviewEvent = $this->reviewCard($card->refresh(), reviewedAt: '2026-05-27T09:15:00.456999Z')->reviewEvent;
+        $laterCardUpdate = $this->assertCardSyncPayloadRecorded(
+            $card->refresh()->load('deck'),
+            SyncFeedOperation::Update,
+            afterCheckpoint: $firstCardUpdate->checkpoint,
+        );
+
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $laterReviewEvent->card_state_before['last_reviewed_at']);
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($laterReviewEvent);
+
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $restoredCard->last_reviewed_at?->toJSON());
+        $this->assertDatabaseHas('card_review_events', ['id' => $firstReviewEvent->id]);
+        $this->assertDatabaseMissing('card_review_events', ['id' => $laterReviewEvent->id]);
+
+        $cardUpdate = $this->assertCardSyncPayloadRecorded(
+            $restoredCard->refresh()->load('deck'),
+            SyncFeedOperation::Update,
+            afterCheckpoint: $laterCardUpdate->checkpoint,
+        );
+
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $cardUpdate->payload['last_reviewed_at']);
+    }
+
     public function test_it_rejects_review_events_for_soft_deleted_cards(): void
     {
         $card = Card::factory()->create();

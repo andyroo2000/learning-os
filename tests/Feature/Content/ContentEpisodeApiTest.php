@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Admin\Models\AdminUserProjection;
+use App\Domain\Auth\Actions\UpdateConvoLabCurrentUserAction;
+use App\Domain\Auth\Data\UpdateConvoLabProfileData;
+use App\Domain\Auth\Support\ConvoLabAccountSource;
 use App\Domain\Content\Models\ContentAudioScript;
 use App\Domain\Content\Models\ContentAudioScriptMedia;
 use App\Domain\Content\Models\ContentAudioScriptRender;
@@ -14,6 +18,7 @@ use App\Domain\Content\Models\ContentImage;
 use App\Domain\Content\Models\ContentSentence;
 use App\Domain\Content\Models\ContentSpeaker;
 use App\Domain\Content\Support\ContentSourceSystem;
+use App\Http\Resources\Content\ContentEpisodeLibraryResource;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,7 +92,7 @@ class ContentEpisodeApiTest extends TestCase
         $this->dialogueEpisode($user, now()->addMinutes(2), (string) Str::uuid());
         ContentEpisode::query()->forceCreate($this->episodeAttributes($user, 'dialogue', now()->addMinutes(2)));
 
-        $this->getJson('/api/convolab/episodes?library=true&limit=10&offset=0')
+        $response = $this->getJson('/api/convolab/episodes?library=true&limit=10&offset=0')
             ->assertOk()
             ->assertJsonCount(2)
             ->assertJsonStructure(['0' => ['dialogue', 'audioScript']])
@@ -96,9 +101,100 @@ class ContentEpisodeApiTest extends TestCase
             ->assertJsonPath('0.audioScript._count.segments', 2)
             ->assertJsonPath('0.dialogue', null)
             ->assertJsonPath('1.id', $dialogueEpisode->id)
+            ->assertJsonPath('1.dialogue.turnCount', 2)
             ->assertJsonPath('1.dialogue.speakers.0.proficiency', 'beginner')
             ->assertJsonMissingPath('1.userId')
             ->assertJsonMissingPath('1.dialogue.sentences');
+
+        $this->assertSame(
+            ['turnCount', 'speakers'],
+            array_keys($response->json('1.dialogue')),
+            'The compact library dialogue payload must not grow to include sentence bodies.',
+        );
+    }
+
+    public function test_library_dialogue_turn_count_is_authoritative_for_zero_turns_and_copied_episode_ids(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $this->authenticate($user);
+
+        $source = $this->dialogueEpisode($otherUser, now()->subHour(), (string) Str::uuid());
+        $olderOwnedEpisode = $this->dialogueEpisode($user, now()->subMinute());
+        $copiedEpisode = ContentEpisode::query()->forceCreate([
+            ...$this->episodeAttributes($user, 'dialogue', now()),
+            'id' => (string) Str::uuid(),
+            'title' => $source->title,
+        ]);
+        ContentDialogue::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'episode_id' => $copiedEpisode->id,
+            'created_at' => now()->subHour(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/convolab/episodes?library=true&limit=1&offset=0')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $copiedEpisode->id)
+            ->assertJsonPath('0.dialogue.turnCount', 0)
+            ->assertJsonMissingPath('0.dialogue.sentences');
+
+        $this->assertIsInt($response->json('0.dialogue.turnCount'));
+        $this->assertNotSame($source->id, $response->json('0.id'));
+
+        $this->getJson('/api/convolab/episodes?library=true&limit=1&offset=1')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $olderOwnedEpisode->id)
+            ->assertJsonPath('0.dialogue.turnCount', 2);
+    }
+
+    public function test_library_dialogue_turn_count_survives_sample_copy_to_a_new_episode_id(): void
+    {
+        $templateOwner = User::factory()->create();
+        $template = $this->dialogueEpisode($templateOwner, now()->subDay(), (string) Str::uuid());
+        $template->is_sample_content = true;
+        $template->jlpt_level = 'N5';
+        $template->save();
+        $template->dialogue->speakers()->update(['proficiency' => 'N5']);
+
+        $account = $this->projectedUser();
+        app(UpdateConvoLabCurrentUserAction::class)->handle(
+            $account->convolab_id,
+            UpdateConvoLabProfileData::fromValidated([
+                'proficiencyLevel' => 'N5',
+                'onboardingCompleted' => true,
+            ]),
+        );
+
+        $this->asConvoLabBrowser(
+            User::query()->findOrFail($account->user_id),
+            convoLabUserId: $account->convolab_id,
+        );
+        $response = $this->getJson('/api/convolab/episodes?library=true&limit=10&offset=0')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.dialogue.turnCount', 2);
+
+        $this->assertNotSame($template->id, $response->json('0.id'));
+        $this->assertIsInt($response->json('0.dialogue.turnCount'));
+    }
+
+    public function test_library_resource_counts_persisted_sentences_when_called_without_the_aggregate(): void
+    {
+        $user = User::factory()->create();
+        $episode = $this->dialogueEpisode($user, now());
+        $episode->setRelation(
+            'dialogue',
+            $episode->dialogue()->with('speakers:id,dialogue_id,proficiency')->sole(),
+        );
+
+        $resource = (new ContentEpisodeLibraryResource($episode))->resolve(request());
+
+        $this->assertSame(2, $resource['dialogue']['turnCount']);
+        $this->assertIsInt($resource['dialogue']['turnCount']);
+        $this->assertArrayNotHasKey('sentences', $resource['dialogue']);
     }
 
     public function test_full_list_and_show_return_ordered_nested_compatibility_data(): void
@@ -185,7 +281,7 @@ class ContentEpisodeApiTest extends TestCase
             DB::disableQueryLog();
         }
 
-        $this->assertCount(4, $queries, 'Library reads should use one episode query and three bounded eager-load queries.');
+        $this->assertCount(4, $queries, 'Library reads should use one episode query and three bounded eager-load queries, including dialogue turn counts.');
     }
 
     private function dialogueEpisode(
@@ -309,6 +405,34 @@ class ContentEpisodeApiTest extends TestCase
     private function authenticate(User $user): void
     {
         $this->asConvoLabBrowser($user, convoLabUserId: $this->convoLabUserId);
+    }
+
+    private function projectedUser(): AdminUserProjection
+    {
+        $user = User::factory()->create();
+        $convoLabId = (string) Str::uuid();
+        DB::table('users')->where('id', $user->id)->update(['convolab_id' => $convoLabId]);
+        DB::table('admin_user_projections')->insert([
+            'convolab_id' => $convoLabId,
+            'user_id' => $user->id,
+            'email' => 'library-copy@example.com',
+            'name' => 'Library Copy',
+            'avatar_color' => 'indigo',
+            'role' => 'user',
+            'preferred_study_language' => 'ja',
+            'preferred_native_language' => 'en',
+            'proficiency_level' => 'N5',
+            'onboarding_completed' => false,
+            'seen_sample_content_guide' => false,
+            'seen_custom_content_guide' => false,
+            'email_verified' => true,
+            'email_verified_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+            'source_system' => ConvoLabAccountSource::CONVOLAB,
+        ]);
+
+        return AdminUserProjection::query()->findOrFail($convoLabId);
     }
 
     private function assertDialogueShape(mixed $response, ?string $prefix, ContentEpisode $episode): void

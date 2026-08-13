@@ -39,7 +39,9 @@ final class ListContentEpisodesAction
 
         if ($library) {
             return $query->with([
-                'dialogue.speakers:id,dialogue_id,proficiency',
+                'dialogue' => fn ($query) => $query
+                    ->withCount('sentences')
+                    ->with('speakers:id,dialogue_id,proficiency'),
                 'audioScript' => fn ($query) => $query->withCount('segments'),
             ])->get();
         }

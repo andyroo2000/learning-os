@@ -187,6 +187,40 @@ jobs:
           echo "::add-mask::$SMOKE_TOKEN"
           echo "SMOKE_TOKEN=$SMOKE_TOKEN" >> "$GITHUB_ENV"
 
+      - name: Exercise database queue worker
+        run: |
+          queue_container() {
+            docker run --rm \
+              --network learning-os-test \
+              --env APP_KEY="$TEST_APP_KEY" \
+              --env DB_CONNECTION=pgsql \
+              --env DB_HOST=learning-os-postgres \
+              --env DB_PORT=5432 \
+              --env DB_DATABASE=learning_os \
+              --env DB_USERNAME=learning_os \
+              --env DB_PASSWORD=container-test-password \
+              --env PGSQL_SSL_MODE=disable \
+              --env CACHE_STORE=database \
+              --env QUEUE_CONNECTION=database \
+              "$TEST_IMAGE" "$@"
+          }
+
+          queue_container php artisan tinker --execute='App\Jobs\SendPasswordResetLink::dispatch("container-queue-smoke-missing@example.com");'
+          queued_jobs="$(queue_container php artisan tinker --execute='echo Illuminate\Support\Facades\DB::table("jobs")->count();')"
+          test "$queued_jobs" = 1
+
+          queue_container php artisan queue:work database \
+            --queue=default \
+            --stop-when-empty \
+            --tries=1 \
+            --timeout=30
+
+          queue_state="$(queue_container php artisan tinker --execute='echo Illuminate\Support\Facades\DB::table("jobs")->count().":".Illuminate\Support\Facades\DB::table("failed_jobs")->count();')"
+          if [ "$queue_state" != 0:0 ]; then
+            echo "Queue worker left pending or failed jobs: $queue_state"
+            exit 1
+          fi
+
       - name: Start Learning OS
         run: |
           docker run --detach --rm \
@@ -202,7 +236,7 @@ jobs:
             --env DB_PASSWORD=container-test-password \
             --env PGSQL_SSL_MODE=disable \
             --env CACHE_STORE=database \
-            --env QUEUE_CONNECTION=sync \
+            --env QUEUE_CONNECTION=database \
             --env SESSION_DRIVER=database \
             $TEST_IMAGE
 

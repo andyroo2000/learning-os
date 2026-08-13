@@ -26,7 +26,7 @@ APP_DEBUG=false
 APP_KEY=base64:<32-byte Laravel application key>
 APP_URL=http://learning-os:8080
 LOG_CHANNEL=stderr
-QUEUE_CONNECTION=sync
+QUEUE_CONNECTION=database
 DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
@@ -45,8 +45,9 @@ persist across PHP request lifecycles. Convo Lab authenticates to Learning OS
 with a stateful Sanctum browser session. The Convo Lab compatibility routes do
 not accept service or mobile bearer tokens.
 
-Use `QUEUE_CONNECTION=database` with a separately managed
-`php artisan queue:work` service for import and content-generation jobs.
+Production refuses to boot when the selected queue connection uses Laravel's
+`sync` driver. Run a separately managed `php artisan queue:work` service for
+mail, import, and content-generation jobs.
 
 ## Generation request replay and retention
 

@@ -50,7 +50,7 @@ ENV APP_ENV=production \
     APP_DEBUG=false \
     CACHE_STORE=database \
     LOG_CHANNEL=stderr \
-    QUEUE_CONNECTION=sync \
+    QUEUE_CONNECTION=database \
     SERVER_NAME=:8080 \
     SESSION_DRIVER=database
 

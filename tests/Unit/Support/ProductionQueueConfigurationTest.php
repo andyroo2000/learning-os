@@ -1,0 +1,48 @@
+<?php
+
+namespace Tests\Unit\Support;
+
+use App\Support\Queue\ProductionQueueConfiguration;
+use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class ProductionQueueConfigurationTest extends TestCase
+{
+    public function test_it_rejects_the_sync_driver_in_production(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(
+            'Production queue connection [immediate] uses the synchronous driver.',
+        );
+
+        ProductionQueueConfiguration::assertSafe(
+            environment: 'production',
+            connection: 'immediate',
+            driver: 'sync',
+        );
+    }
+
+    #[DataProvider('safeConfigurationProvider')]
+    public function test_it_allows_non_production_or_asynchronous_configurations(
+        string $environment,
+        string $connection,
+        ?string $driver,
+    ): void {
+        ProductionQueueConfiguration::assertSafe($environment, $connection, $driver);
+
+        $this->addToAssertionCount(1);
+    }
+
+    /** @return array<string, array{string, string, string|null}> */
+    public static function safeConfigurationProvider(): array
+    {
+        return [
+            'production database' => ['production', 'database', 'database'],
+            'production redis' => ['production', 'redis', 'redis'],
+            'local sync' => ['local', 'sync', 'sync'],
+            'testing sync' => ['testing', 'sync', 'sync'],
+            'unknown production driver' => ['production', 'custom', null],
+        ];
+    }
+}

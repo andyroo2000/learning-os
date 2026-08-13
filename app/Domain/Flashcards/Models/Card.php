@@ -171,7 +171,8 @@ class Card extends Model
 
     public function setLastReviewedAt(?Carbon $reviewedAt): void
     {
-        // Direct attribute assignment uses Eloquent's second-precision default date format.
+        // Intentionally bypass Eloquent's public assignment path: it uses the model's
+        // second-precision default date format for both storage and dirty comparison.
         // Review inputs and snapshots are already normalized to the shared millisecond contract.
         $storedValue = $reviewedAt?->format(self::CLIENT_TIMESTAMP_STORAGE_FORMAT);
         $currentValue = $this->last_reviewed_at?->format(self::CLIENT_TIMESTAMP_STORAGE_FORMAT);

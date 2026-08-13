@@ -22,6 +22,7 @@ class ProductionQueueConfigurationTest extends TestCase
                 'Production queue connection [sync] uses the synchronous driver.',
             );
 
+            // Deliberately call boot() again; this configuration guard throws before later provider setup runs.
             (new AppServiceProvider($this->app))->boot();
         } finally {
             $this->app->detectEnvironment(fn (): string => $environment);

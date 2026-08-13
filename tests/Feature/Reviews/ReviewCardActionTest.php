@@ -18,6 +18,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -467,6 +468,30 @@ class ReviewCardActionTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
+    public function test_card_millisecond_chronology_rejects_an_older_within_second_review_without_an_event_tiebreaker(): void
+    {
+        $card = Card::factory()->create();
+        DB::table('cards')->where('id', $card->id)->update([
+            'last_reviewed_at' => '2026-05-27 09:15:00.456',
+        ]);
+
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00.123999Z',
+            ));
+
+            $this->fail('Expected within-second chronology conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_review_event_out_of_order', $exception->reason());
+        }
+
+        $this->assertSame('2026-05-27T09:15:00.456000Z', $card->refresh()->last_reviewed_at?->toJSON());
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
     public function test_it_uses_a_provided_ulid(): void
     {
         $card = Card::factory()->create();
@@ -682,9 +707,53 @@ class ReviewCardActionTest extends TestCase
         $this->assertFalse($second->wasCreated);
         $this->assertSame($id, $second->reviewEvent->id);
         $this->assertSame('2026-05-27T09:15:00.123000Z', $second->reviewEvent->reviewed_at->toJSON());
-        $this->assertSame(1, $card->refresh()->scheduler_state['reps']);
+        $card->refresh()->load('deck');
+
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $card->last_reviewed_at?->toJSON());
+        $this->assertSame('2026-05-27T09:15:00.123000Z', CardResource::make($card)->resolve()['last_reviewed_at']);
+        $this->assertSame(1, $card->scheduler_state['reps']);
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseCount('sync_feed_entries', 2);
+
+        $cardEntry = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->sole();
+
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $cardEntry->payload['last_reviewed_at']);
+    }
+
+    public function test_within_second_review_chronology_reaches_snapshots_resources_and_sync(): void
+    {
+        $card = Card::factory()->create();
+
+        $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00.123999Z',
+        ));
+        $later = $this->reviewCard(ReviewCardData::fromInput(
+            cardId: $card->id,
+            rating: CardReviewRating::Good->value,
+            reviewedAt: '2026-05-27T09:15:00.456999Z',
+        ));
+
+        $card->refresh()->load('deck');
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $later->reviewEvent->card_state_before['last_reviewed_at']);
+        $this->assertSame('2026-05-27T09:15:00.456000Z', $card->last_reviewed_at?->toJSON());
+        $this->assertSame('2026-05-27T09:15:00.456000Z', CardResource::make($card)->resolve()['last_reviewed_at']);
+
+        $cardEntries = SyncFeedEntry::query()
+            ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
+            ->where('resource_id', $card->id)
+            ->orderBy('checkpoint')
+            ->get();
+
+        $this->assertCount(2, $cardEntries);
+        $this->assertSame('2026-05-27T09:15:00.123000Z', $cardEntries[0]->payload['last_reviewed_at']);
+        $this->assertSame('2026-05-27T09:15:00.456000Z', $cardEntries[1]->payload['last_reviewed_at']);
+        $this->assertDatabaseCount('card_review_events', 2);
+        $this->assertDatabaseCount('sync_feed_entries', 4);
     }
 
     public function test_it_reports_cross_user_provided_ulid_conflicts_for_http_hiding(): void

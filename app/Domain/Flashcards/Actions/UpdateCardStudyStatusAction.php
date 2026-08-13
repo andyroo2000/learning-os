@@ -60,7 +60,7 @@ class UpdateCardStudyStatusAction
                 $card->due_at = null;
                 $card->introduced_at = null;
                 $card->failed_at = null;
-                $card->last_reviewed_at = null;
+                $card->setLastReviewedAt(null);
 
                 if ($card->isDirty([
                     'study_status',

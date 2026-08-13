@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use LogicException;
 
@@ -35,6 +36,8 @@ class Card extends Model
     public const MAX_SOURCE_NOTETYPE_NAME_LENGTH = 255;
 
     public const CLIENT_ID_ROUTE_PATTERN = '(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})';
+
+    private const CLIENT_TIMESTAMP_STORAGE_FORMAT = 'Y-m-d H:i:s.v';
 
     /**
      * @var array<string, mixed>
@@ -164,6 +167,23 @@ class Card extends Model
         return $this->source_note_id === null
             ? (string) $this->getKey()
             : (string) $this->source_note_id;
+    }
+
+    public function setLastReviewedAt(?Carbon $reviewedAt): void
+    {
+        // Intentionally bypass Eloquent's public assignment path: it uses the model's
+        // second-precision default date format for both storage and dirty comparison.
+        // Review inputs and snapshots are already normalized to the shared millisecond contract.
+        $storedValue = $reviewedAt?->format(self::CLIENT_TIMESTAMP_STORAGE_FORMAT);
+        $currentValue = $this->last_reviewed_at?->format(self::CLIENT_TIMESTAMP_STORAGE_FORMAT);
+
+        $this->attributes['last_reviewed_at'] = $storedValue;
+
+        if ($currentValue !== $storedValue) {
+            // Eloquent compares datetimes through the model's whole-second default format.
+            // Forget only this original so a within-second change remains dirty and is persisted.
+            unset($this->original['last_reviewed_at']);
+        }
     }
 
     /**

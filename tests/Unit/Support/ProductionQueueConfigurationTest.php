@@ -23,6 +23,20 @@ class ProductionQueueConfigurationTest extends TestCase
         );
     }
 
+    public function test_it_rejects_an_unconfigured_connection_in_production(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(
+            'Production queue connection [missing] is not configured.',
+        );
+
+        ProductionQueueConfiguration::assertSafe(
+            environment: 'production',
+            connection: 'missing',
+            driver: null,
+        );
+    }
+
     #[DataProvider('safeConfigurationProvider')]
     public function test_it_allows_non_production_or_asynchronous_configurations(
         string $environment,
@@ -42,7 +56,7 @@ class ProductionQueueConfigurationTest extends TestCase
             'production redis' => ['production', 'redis', 'redis'],
             'local sync' => ['local', 'sync', 'sync'],
             'testing sync' => ['testing', 'sync', 'sync'],
-            'unknown production driver' => ['production', 'custom', null],
+            'unknown local driver' => ['local', 'custom', null],
         ];
     }
 }

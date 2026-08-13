@@ -13,7 +13,17 @@ final class ProductionQueueConfiguration
         string $connection,
         ?string $driver,
     ): void {
-        if ($environment !== 'production' || $driver !== 'sync') {
+        if ($environment !== 'production') {
+            return;
+        }
+
+        if ($driver === null) {
+            throw new LogicException(
+                "Production queue connection [{$connection}] is not configured.",
+            );
+        }
+
+        if ($driver !== 'sync') {
             return;
         }
 

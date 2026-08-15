@@ -10,4 +10,10 @@ enum StudyActivityOrigin: string
     case GoogleCalendar = 'google_calendar';
     case WaniKani = 'wanikani';
     case System = 'system';
+
+    /** @return list<string> */
+    public static function clientValues(): array
+    {
+        return [self::Ios->value, self::Web->value];
+    }
 }

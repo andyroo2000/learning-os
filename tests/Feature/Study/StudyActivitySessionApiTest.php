@@ -116,6 +116,32 @@ class StudyActivitySessionApiTest extends TestCase
         ]);
     }
 
+    public function test_it_reserves_provider_and_system_origins_for_server_side_writers(): void
+    {
+        $this->signIn();
+
+        foreach (['legacy', 'google_calendar', 'wanikani', 'system'] as $index => $origin) {
+            $this->postJson('/api/study/activity-sessions/batch', [
+                'sessions' => [[
+                    'clientSessionId' => sprintf(
+                        '018f22d2-6d38-7000-8000-%012d',
+                        30 + $index,
+                    ),
+                    'category' => 'conversation',
+                    'activity' => 'conversation',
+                    'source' => 'manual',
+                    'origin' => $origin,
+                    'startedAt' => '2026-07-28T12:00:00Z',
+                    'endedAt' => '2026-07-28T13:00:00Z',
+                    'durationMs' => 3_600_000,
+                ]],
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors('sessions.0.origin');
+        }
+
+        $this->assertDatabaseCount('study_activity_sessions', 0);
+    }
+
     public function test_it_validates_bounded_dates_enums_and_durations(): void
     {
         $this->signIn();

@@ -16,6 +16,7 @@ class StudyActivitySessionResource extends JsonResource
             'category' => $this->category->value,
             'activity' => $this->activity->value,
             'source' => $this->source->value,
+            'origin' => $this->origin->value,
             'name' => $this->name,
             'startedAt' => ConvoLabTimestamp::serialize($this->started_at),
             'endedAt' => ConvoLabTimestamp::serialize($this->ended_at),

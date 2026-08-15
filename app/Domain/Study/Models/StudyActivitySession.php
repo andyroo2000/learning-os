@@ -4,6 +4,7 @@ namespace App\Domain\Study\Models;
 
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
+use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -22,6 +23,7 @@ class StudyActivitySession extends Model
             'category' => StudyActivityCategory::class,
             'activity' => StudyActivityKind::class,
             'source' => StudyActivitySource::class,
+            'origin' => StudyActivityOrigin::class,
             'started_at' => 'immutable_datetime',
             'ended_at' => 'immutable_datetime',
             'duration_ms' => 'integer',

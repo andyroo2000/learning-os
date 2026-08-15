@@ -5,6 +5,7 @@ namespace App\Http\Requests\Study;
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
+use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,13 +35,13 @@ class StoreStudyActivitySessionsRequest extends FormRequest
                 continue;
             }
 
-            foreach (['clientSessionId', 'category', 'activity', 'source', 'name'] as $key) {
+            foreach (['clientSessionId', 'category', 'activity', 'source', 'origin', 'name'] as $key) {
                 if (isset($session[$key]) && is_string($session[$key])) {
                     $sessions[$index][$key] = trim($session[$key]);
                 }
             }
 
-            foreach (['category', 'activity', 'source'] as $key) {
+            foreach (['category', 'activity', 'source', 'origin'] as $key) {
                 if (isset($sessions[$index][$key]) && is_string($sessions[$index][$key])) {
                     $sessions[$index][$key] = strtolower($sessions[$index][$key]);
                 }
@@ -75,6 +76,7 @@ class StoreStudyActivitySessionsRequest extends FormRequest
             'sessions.*.category' => ['required', Rule::enum(StudyActivityCategory::class)],
             'sessions.*.activity' => ['required', Rule::enum(StudyActivityKind::class)],
             'sessions.*.source' => ['required', Rule::enum(StudyActivitySource::class)],
+            'sessions.*.origin' => ['sometimes', Rule::enum(StudyActivityOrigin::class)],
             'sessions.*.name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'sessions.*.startedAt' => ['required', 'string', 'regex:'.self::ISO_8601_TIMESTAMP, 'date'],
             'sessions.*.endedAt' => ['required', 'string', 'regex:'.self::ISO_8601_TIMESTAMP, 'date', 'after_or_equal:sessions.*.startedAt'],

@@ -30,14 +30,17 @@ class UpsertStudyActivitySessionsAction
                     $session->clientSessionId,
                 ),
             );
-            $existingSources = StudyActivitySession::query()
+            $existingSessions = StudyActivitySession::query()
                 ->where('user_id', $userId)
                 ->whereIn('client_session_id', $clientSessionIds)
                 ->lockForUpdate()
-                ->pluck('source', 'client_session_id');
-            $protectedClientSessionIds = $existingSources
+                ->get()
+                ->keyBy('client_session_id');
+            $protectedClientSessionIds = $existingSessions
                 ->filter(
-                    fn (StudyActivitySource $source): bool => $source === StudyActivitySource::Automatic,
+                    fn (StudyActivitySession $session): bool => (
+                        $session->source === StudyActivitySource::Automatic
+                    ),
                 )
                 ->keys()
                 ->all();
@@ -59,8 +62,18 @@ class UpsertStudyActivitySessionsAction
                     // sync client must not upgrade a manual row into an automatic,
                     // permanently protected row by reusing its client session ID.
                     'source' => (
-                        $existingSources->get(StudyActivitySessionId::normalize($session->clientSessionId))
+                        $existingSessions->get(
+                            StudyActivitySessionId::normalize($session->clientSessionId),
+                        )?->source
                             ?? $session->source
+                    )->value,
+                    // Provenance is part of the event's identity and cannot be
+                    // rewritten by a retry using the same client session ID.
+                    'origin' => (
+                        $existingSessions->get(
+                            StudyActivitySessionId::normalize($session->clientSessionId),
+                        )?->origin
+                            ?? $session->origin
                     )->value,
                     'name' => $session->name,
                     'started_at' => $session->startedAt,

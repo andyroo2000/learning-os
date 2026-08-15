@@ -12,7 +12,10 @@ final class CreateGoogleCalendarConnectIntentAction
     public function handle(int $userId, string $completionTarget): string
     {
         $state = bin2hex(random_bytes(32));
-        GoogleCalendarConnectIntent::query()->where('expires_at', '<=', now())->delete();
+        GoogleCalendarConnectIntent::query()
+            ->where('user_id', $userId)
+            ->where('expires_at', '<=', now())
+            ->delete();
 
         (new GoogleCalendarConnectIntent)->forceFill([
             'state_hash' => hash('sha256', $state),

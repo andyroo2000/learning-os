@@ -55,6 +55,13 @@ class GoogleCalendarOAuthApiTest extends TestCase
         $this->postJson('/api/study/google-calendar/connect', ['completionTarget' => 'ios'])
             ->assertUnauthorized();
 
+        $otherUser = User::factory()->create();
+        (new GoogleCalendarConnectIntent)->forceFill([
+            'state_hash' => hash('sha256', 'other-user-expired-state'),
+            'user_id' => $otherUser->id,
+            'completion_target' => 'ios',
+            'expires_at' => now()->subMinute(),
+        ])->save();
         $user = User::factory()->create();
         $url = $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
             'completionTarget' => 'ios',
@@ -64,11 +71,12 @@ class GoogleCalendarOAuthApiTest extends TestCase
 
         $this->assertIsString($state);
         $this->assertSame(64, strlen($state));
-        $intent = GoogleCalendarConnectIntent::query()->firstOrFail();
+        $intent = GoogleCalendarConnectIntent::query()->where('user_id', $user->id)->firstOrFail();
         $this->assertSame(hash('sha256', $state), $intent->getKey());
         $this->assertSame('ios', $intent->completion_target);
         $this->assertSame('2026-08-15T20:10:00+00:00', $intent->expires_at->toIso8601String());
         $this->assertDatabaseMissing('google_calendar_connect_intents', ['state_hash' => $state]);
+        $this->assertDatabaseHas('google_calendar_connect_intents', ['user_id' => $otherUser->id]);
     }
 
     public function test_ios_intent_is_claimed_once_before_stateless_exchange(): void

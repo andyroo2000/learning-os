@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Calendar\Actions\ConnectGoogleCalendarAction;
+use App\Domain\Calendar\Actions\PruneExpiredGoogleCalendarConnectIntentsAction;
 use App\Domain\Calendar\Contracts\GoogleCalendarOAuthClient;
 use App\Domain\Calendar\Data\GoogleCalendarOAuthGrant;
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
@@ -15,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schedule;
 use Laravel\Socialite\Two\InvalidStateException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Tests\TestCase;
@@ -142,6 +144,26 @@ class GoogleCalendarOAuthApiTest extends TestCase
 
         $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
             ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=connected');
+    }
+
+    public function test_abandoned_intents_are_pruned_by_an_hourly_single_server_task(): void
+    {
+        $user = User::factory()->create();
+        foreach ([now()->subMinute(), now()->addMinute()] as $index => $expiry) {
+            (new GoogleCalendarConnectIntent)->forceFill([
+                'state_hash' => hash('sha256', 'scheduled-prune-'.$index),
+                'user_id' => $user->id, 'completion_target' => 'ios', 'expires_at' => $expiry,
+            ])->save();
+        }
+
+        $event = collect(Schedule::events())->first(fn ($event): bool => $event->description === 'calendar:prune-connect-intents');
+        $this->assertNotNull($event);
+        $this->assertSame('0 * * * *', $event->expression);
+        $this->assertTrue($event->onOneServer);
+        $this->assertTrue($event->withoutOverlapping);
+
+        app(PruneExpiredGoogleCalendarConnectIntentsAction::class)->handle();
+        $this->assertDatabaseCount('google_calendar_connect_intents', 1);
     }
 
     public function test_callback_persists_a_verified_grant_and_exposes_safe_status(): void

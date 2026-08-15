@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Calendar\Actions\PruneExpiredGoogleCalendarConnectIntentsAction;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -9,6 +10,12 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('study:prune-import-archives')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping(60);
+
+Schedule::call(fn () => app(PruneExpiredGoogleCalendarConnectIntentsAction::class)->handle())
+    ->name('calendar:prune-connect-intents')
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(60);

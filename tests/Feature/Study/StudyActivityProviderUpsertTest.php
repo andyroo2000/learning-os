@@ -41,30 +41,32 @@ class StudyActivityProviderUpsertTest extends TestCase
             $this->providerSessionData('018f22d2-6d38-7000-8000-000000000104', $key, 'Other user'),
         ])->sole();
         $this->assertNotSame($retry->id, $otherSession->id);
-        $this->assertDatabaseCount('study_activity_sessions', 2);
+        $batchUser = User::factory()->create();
+        $batch = app(UpsertStudyActivitySessionsAction::class)->handle($batchUser->id, [
+            $this->providerSessionData('018f22d2-6d38-7000-8000-000000000107', $key, 'Batch event'),
+            $this->providerSessionData('018f22d2-6d38-7000-8000-000000000108', $key, 'Batch retry'),
+        ]);
+        $this->assertSame($batch->first()->id, $batch->last()->id);
+        $this->assertSame('Batch retry', $batch->last()->name);
+        $this->assertDatabaseCount('study_activity_sessions', 3);
     }
 
     public function test_client_and_provider_identities_cannot_resolve_to_different_sessions(): void
     {
         $user = User::factory()->create();
         $clientSessionId = '018f22d2-6d38-7000-8000-000000000103';
-        app(UpsertStudyActivitySessionsAction::class)->handle($user->id, [
-            $this->providerSessionData(
-                $clientSessionId,
-                StudyActivitySourceKey::forGoogleCalendar('account', 'calendar', 'event-a'),
-                'Original event',
-            ),
-        ]);
-        app(UpsertStudyActivitySessionsAction::class)->handle($user->id, [
-            $this->providerSessionData(
-                '018f22d2-6d38-7000-8000-000000000106',
-                StudyActivitySourceKey::forGoogleCalendar('account', 'calendar', 'event-b'),
-                'Other event',
-            ),
-        ]);
-
         try {
             app(UpsertStudyActivitySessionsAction::class)->handle($user->id, [
+                $this->providerSessionData(
+                    $clientSessionId,
+                    StudyActivitySourceKey::forGoogleCalendar('account', 'calendar', 'event-a'),
+                    'Original event',
+                ),
+                $this->providerSessionData(
+                    '018f22d2-6d38-7000-8000-000000000106',
+                    StudyActivitySourceKey::forGoogleCalendar('account', 'calendar', 'event-b'),
+                    'Other event',
+                ),
                 $this->providerSessionData(
                     $clientSessionId,
                     StudyActivitySourceKey::forGoogleCalendar('account', 'calendar', 'event-b'),
@@ -74,12 +76,7 @@ class StudyActivityProviderUpsertTest extends TestCase
             $this->fail('Expected the provider identity conflict.');
         } catch (StudyActivityIdentityConflictException) {
         }
-
-        $this->assertDatabaseHas('study_activity_sessions', [
-            'user_id' => $user->id,
-            'client_session_id' => $clientSessionId,
-            'name' => 'Original event',
-        ]);
+        $this->assertDatabaseCount('study_activity_sessions', 0);
     }
 
     public function test_source_key_is_guarded_from_model_mass_assignment(): void

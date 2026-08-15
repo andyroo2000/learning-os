@@ -46,18 +46,19 @@ class UpsertStudyActivitySessionsAction
                 })
                 ->lockForUpdate()
                 ->get(['id', 'client_session_id', 'source', 'origin', 'source_key']);
-            $existingByClientId = $existingSessions
-                ->keyBy('client_session_id');
-            $existingBySource = $existingSessions
+            $identitiesByClientId = $existingSessions
+                ->mapWithKeys(fn (StudyActivitySession $session): array => [
+                    $session->client_session_id => $this->identity($session),
+                ]);
+            $identitiesBySource = $existingSessions
                 ->filter(fn (StudyActivitySession $session): bool => $session->source_key !== null)
-                ->keyBy(fn (StudyActivitySession $session): string => $this->sourceIdentity(
-                    $session->origin->value,
-                    $session->source_key,
-                ));
+                ->mapWithKeys(fn (StudyActivitySession $session): array => [
+                    $this->sourceIdentity($session->origin->value, $session->source_key) => $this->identity($session),
+                ]);
             $resolved = collect($sessions)
                 ->map(function (StudyActivitySessionData $session) use (
-                    $existingByClientId,
-                    $existingBySource,
+                    $identitiesByClientId,
+                    $identitiesBySource,
                 ): array {
                     $clientSessionId = StudyActivitySessionId::normalize($session->clientSessionId);
                     $sourceKey = $session->sourceKey?->value;
@@ -67,28 +68,38 @@ class UpsertStudyActivitySessionsAction
                         );
                     }
 
-                    $clientMatch = $existingByClientId->get($clientSessionId);
+                    $clientMatch = $identitiesByClientId->get($clientSessionId);
+                    $sourceIdentity = $sourceKey === null
+                        ? null
+                        : $this->sourceIdentity($session->origin->value, $sourceKey);
                     $sourceMatch = $sourceKey === null
                         ? null
-                        : $existingBySource->get($this->sourceIdentity($session->origin->value, $sourceKey));
+                        : $identitiesBySource->get($sourceIdentity);
                     if ($clientMatch !== null && $sourceMatch !== null
-                        && $clientMatch->getKey() !== $sourceMatch->getKey()) {
+                        && $clientMatch['client_session_id'] !== $sourceMatch['client_session_id']) {
                         throw new StudyActivityIdentityConflictException;
                     }
 
-                    $existingSession = $clientMatch ?? $sourceMatch;
-                    if ($existingSession !== null && $sourceKey !== null
-                        && ($existingSession->origin !== $session->origin
-                            || $existingSession->source_key === null
-                            || ! hash_equals($existingSession->source_key, $sourceKey))) {
+                    $identity = $clientMatch ?? $sourceMatch ?? [
+                        'existing' => null,
+                        'client_session_id' => $clientSessionId,
+                        'origin' => $session->origin->value,
+                        'source_key' => $sourceKey,
+                    ];
+                    if ($sourceKey !== null
+                        && ($identity['origin'] !== $session->origin->value
+                            || $identity['source_key'] === null
+                            || ! hash_equals($identity['source_key'], $sourceKey))) {
                         throw new StudyActivityIdentityConflictException;
+                    }
+                    $identitiesByClientId->put($clientSessionId, $identity);
+                    if ($sourceIdentity !== null) {
+                        $identitiesBySource->put($sourceIdentity, $identity);
                     }
 
                     return [
                         'session' => $session,
-                        'existing' => $existingSession,
-                        'client_session_id' => $existingSession?->client_session_id ?? $clientSessionId,
-                        'source_key' => $existingSession?->source_key ?? $sourceKey,
+                        ...$identity,
                     ];
                 });
             $rows = $resolved
@@ -125,6 +136,8 @@ class UpsertStudyActivitySessionsAction
                         'updated_at' => $now,
                     ];
                 })
+                ->keyBy('client_session_id')
+                ->values()
                 ->all();
 
             if ($rows !== []) {
@@ -161,6 +174,17 @@ class UpsertStudyActivitySessionsAction
     private function sourceIdentity(string $origin, string $sourceKey): string
     {
         return $origin.':'.$sourceKey;
+    }
+
+    /** @return array{existing: StudyActivitySession, client_session_id: string, origin: string, source_key: ?string} */
+    private function identity(StudyActivitySession $session): array
+    {
+        return [
+            'existing' => $session,
+            'client_session_id' => $session->client_session_id,
+            'origin' => $session->origin->value,
+            'source_key' => $session->source_key,
+        ];
     }
 
     private function lockUserOrFail(int $userId): void

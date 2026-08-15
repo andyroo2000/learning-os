@@ -78,7 +78,7 @@ class StoreStudyActivitySessionsRequest extends FormRequest
             'sessions.*.source' => ['required', Rule::enum(StudyActivitySource::class)],
             // Provider and system origins are reserved for trusted server-side
             // writers. Public sync clients may only identify their own platform.
-            'sessions.*.origin' => ['sometimes', Rule::in(StudyActivityOrigin::clientValues())],
+            'sessions.*.origin' => ['sometimes', 'nullable', Rule::in(StudyActivityOrigin::clientValues())],
             'sessions.*.name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'sessions.*.startedAt' => ['required', 'string', 'regex:'.self::ISO_8601_TIMESTAMP, 'date'],
             'sessions.*.endedAt' => ['required', 'string', 'regex:'.self::ISO_8601_TIMESTAMP, 'date', 'after_or_equal:sessions.*.startedAt'],

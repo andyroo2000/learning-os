@@ -116,6 +116,25 @@ class StudyActivitySessionApiTest extends TestCase
         ]);
     }
 
+    public function test_it_treats_an_explicit_null_origin_as_legacy_for_optional_field_compatibility(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [[
+                'clientSessionId' => '018f22d2-6d38-7000-8000-000000000029',
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'manual',
+                'origin' => null,
+                'startedAt' => '2026-07-28T12:00:00Z',
+                'endedAt' => '2026-07-28T13:00:00Z',
+                'durationMs' => 3_600_000,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('0.origin', 'legacy');
+    }
+
     public function test_it_reserves_provider_and_system_origins_for_server_side_writers(): void
     {
         $this->signIn();

@@ -16,6 +16,7 @@ use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
+use App\Domain\Calendar\Support\GoogleCalendarConnectionRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
@@ -473,6 +474,11 @@ class AppServiceProvider extends ServiceProvider
         $cardReviewEventUndoRateLimiter = new CardReviewEventUndoRateLimiter;
         RateLimiter::for(CardReviewEventUndoRateLimiter::NAME, function (Request $request) use ($cardReviewEventUndoRateLimiter): Limit {
             return $cardReviewEventUndoRateLimiter->limit($request);
+        });
+
+        $googleCalendarConnectionRateLimiter = new GoogleCalendarConnectionRateLimiter;
+        RateLimiter::for(GoogleCalendarConnectionRateLimiter::NAME, function (Request $request) use ($googleCalendarConnectionRateLimiter): Limit {
+            return $googleCalendarConnectionRateLimiter->limit($request);
         });
 
         $wanikaniConnectionRateLimiter = JapaneseKnowledgeRateLimiter::forConnection();

@@ -78,7 +78,7 @@ class DeckRouteContractTest extends TestCase
 
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'POST api/study/wanikani/sync',
+            'DELETE api/study/google-calendar',
             'GET|HEAD api/decks/{deck}',
         );
         $this->assertImmediatelyBefore(

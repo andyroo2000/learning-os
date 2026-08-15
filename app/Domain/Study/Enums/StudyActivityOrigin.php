@@ -16,4 +16,12 @@ enum StudyActivityOrigin: string
     {
         return [self::Ios->value, self::Web->value];
     }
+
+    public function supportsExternalSourceKey(): bool
+    {
+        return match ($this) {
+            self::GoogleCalendar => true,
+            self::Legacy, self::Ios, self::Web, self::WaniKani, self::System => false,
+        };
+    }
 }

@@ -7,6 +7,7 @@ use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Support\StudyActivitySessionId;
+use App\Domain\Study\Support\StudyActivitySourceKey;
 use Carbon\CarbonImmutable;
 
 final readonly class StudyActivitySessionData
@@ -23,6 +24,7 @@ final readonly class StudyActivitySessionData
         public ?int $audioPlaybackMs,
         public ?int $cardsCreated,
         public StudyActivityOrigin $origin = StudyActivityOrigin::Legacy,
+        public ?StudyActivitySourceKey $sourceKey = null,
     ) {}
 
     /** @param array<string, mixed> $session */
@@ -42,6 +44,7 @@ final readonly class StudyActivitySessionData
             origin: isset($session['origin'])
                 ? StudyActivityOrigin::from($session['origin'])
                 : StudyActivityOrigin::Legacy,
+            sourceKey: null,
         );
     }
 }

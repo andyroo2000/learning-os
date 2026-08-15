@@ -40,6 +40,11 @@ class StudyActivitySessionMigrationTest extends TestCase
             strlen('study_activity_sessions_user_id_ended_at_index'),
             'The end-time index name must fit PostgreSQL identifiers.',
         );
+        $this->assertLessThanOrEqual(
+            63,
+            strlen('study_activity_provider_source_unique'),
+            'The provider source index name must fit PostgreSQL identifiers.',
+        );
     }
 
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
@@ -77,6 +82,44 @@ class StudyActivitySessionMigrationTest extends TestCase
 
         $this->assertStringContainsString('origin', implode("\n", $add->toSql()));
         $this->assertStringContainsString('origin', implode("\n", $drop->toSql()));
+    }
+
+    #[DataProvider('grammarProvider')]
+    public function test_source_key_add_index_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+        $add = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->char('source_key', 64)->nullable()->after('origin');
+                $table->unique(
+                    ['user_id', 'origin', 'source_key'],
+                    'study_activity_provider_source_unique',
+                );
+            },
+        );
+        $drop = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->dropUnique('study_activity_provider_source_unique');
+                $table->dropColumn('source_key');
+            },
+        );
+
+        $this->assertStringContainsString(
+            'study_activity_provider_source_unique',
+            implode("\n", $add->toSql()),
+        );
+        $this->assertStringContainsString(
+            'study_activity_provider_source_unique',
+            implode("\n", $drop->toSql()),
+        );
     }
 
     #[DataProvider('grammarProvider')]
@@ -125,6 +168,7 @@ class StudyActivitySessionMigrationTest extends TestCase
             $table->string('activity', 32);
             $table->string('source', 24);
             $table->string('origin', 24)->default('legacy');
+            $table->char('source_key', 64)->nullable();
             $table->string('name', 120)->nullable();
             $table->timestampTz('started_at');
             $table->timestampTz('ended_at');
@@ -135,6 +179,10 @@ class StudyActivitySessionMigrationTest extends TestCase
             $table->unique(['user_id', 'client_session_id']);
             $table->index(['user_id', 'started_at']);
             $table->index(['user_id', 'ended_at']);
+            $table->unique(
+                ['user_id', 'origin', 'source_key'],
+                'study_activity_provider_source_unique',
+            );
         });
     }
 }

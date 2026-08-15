@@ -161,6 +161,28 @@ class StudyActivitySessionApiTest extends TestCase
         $this->assertDatabaseCount('study_activity_sessions', 0);
     }
 
+    public function test_it_rejects_server_owned_source_keys_from_public_sync_clients(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [[
+                'clientSessionId' => '018f22d2-6d38-7000-8000-000000000034',
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'manual',
+                'origin' => 'web',
+                'sourceKey' => str_repeat('a', 64),
+                'startedAt' => '2026-07-28T12:00:00Z',
+                'endedAt' => '2026-07-28T13:00:00Z',
+                'durationMs' => 3_600_000,
+            ]],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('sessions.0.sourceKey');
+
+        $this->assertDatabaseCount('study_activity_sessions', 0);
+    }
+
     public function test_it_validates_bounded_dates_enums_and_durations(): void
     {
         $this->signIn();

@@ -15,7 +15,7 @@ class StudyActivitySession extends Model
 {
     use HasUlids;
 
-    protected $guarded = ['id', 'user_id'];
+    protected $guarded = ['id', 'user_id', 'source_key'];
 
     protected function casts(): array
     {

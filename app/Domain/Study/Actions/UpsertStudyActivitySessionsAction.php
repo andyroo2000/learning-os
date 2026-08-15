@@ -4,12 +4,14 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivitySource;
+use App\Domain\Study\Exceptions\StudyActivityIdentityConflictException;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class UpsertStudyActivitySessionsAction
 {
@@ -30,36 +32,79 @@ class UpsertStudyActivitySessionsAction
                     $session->clientSessionId,
                 ),
             );
+            $sourceKeys = collect($sessions)
+                ->map(fn (StudyActivitySessionData $session): ?string => $session->sourceKey?->value)
+                ->filter()
+                ->values();
             $existingSessions = StudyActivitySession::query()
                 ->where('user_id', $userId)
-                ->whereIn('client_session_id', $clientSessionIds)
+                ->where(function ($query) use ($clientSessionIds, $sourceKeys): void {
+                    $query->whereIn('client_session_id', $clientSessionIds);
+                    if ($sourceKeys->isNotEmpty()) {
+                        $query->orWhereIn('source_key', $sourceKeys);
+                    }
+                })
                 ->lockForUpdate()
-                ->get(['client_session_id', 'source', 'origin'])
+                ->get(['id', 'client_session_id', 'source', 'origin', 'source_key']);
+            $existingByClientId = $existingSessions
                 ->keyBy('client_session_id');
-            $protectedClientSessionIds = $existingSessions
-                ->filter(
-                    fn (StudyActivitySession $session): bool => (
-                        $session->source === StudyActivitySource::Automatic
-                    ),
-                )
-                ->keys()
-                ->all();
-            $rows = collect($sessions)
-                ->reject(
-                    fn (StudyActivitySessionData $session): bool => in_array(
-                        StudyActivitySessionId::normalize($session->clientSessionId),
-                        $protectedClientSessionIds,
-                        true,
-                    ),
-                )
-                ->map(function (StudyActivitySessionData $session) use ($existingSessions, $now, $userId): array {
+            $existingBySource = $existingSessions
+                ->filter(fn (StudyActivitySession $session): bool => $session->source_key !== null)
+                ->keyBy(fn (StudyActivitySession $session): string => $this->sourceIdentity(
+                    $session->origin->value,
+                    $session->source_key,
+                ));
+            $resolved = collect($sessions)
+                ->map(function (StudyActivitySessionData $session) use (
+                    $existingByClientId,
+                    $existingBySource,
+                ): array {
                     $clientSessionId = StudyActivitySessionId::normalize($session->clientSessionId);
-                    $existingSession = $existingSessions->get($clientSessionId);
+                    $sourceKey = $session->sourceKey?->value;
+                    if ($sourceKey !== null && ! $session->origin->supportsExternalSourceKey()) {
+                        throw new InvalidArgumentException(
+                            'External source keys require their trusted matching provider origin.',
+                        );
+                    }
+
+                    $clientMatch = $existingByClientId->get($clientSessionId);
+                    $sourceMatch = $sourceKey === null
+                        ? null
+                        : $existingBySource->get($this->sourceIdentity($session->origin->value, $sourceKey));
+                    if ($clientMatch !== null && $sourceMatch !== null
+                        && $clientMatch->getKey() !== $sourceMatch->getKey()) {
+                        throw new StudyActivityIdentityConflictException;
+                    }
+
+                    $existingSession = $clientMatch ?? $sourceMatch;
+                    if ($existingSession !== null && $sourceKey !== null
+                        && ($existingSession->origin !== $session->origin
+                            || $existingSession->source_key === null
+                            || ! hash_equals($existingSession->source_key, $sourceKey))) {
+                        throw new StudyActivityIdentityConflictException;
+                    }
+
+                    return [
+                        'session' => $session,
+                        'existing' => $existingSession,
+                        'client_session_id' => $existingSession?->client_session_id ?? $clientSessionId,
+                        'source_key' => $existingSession?->source_key ?? $sourceKey,
+                    ];
+                });
+            $rows = $resolved
+                ->reject(fn (array $item): bool => (
+                    $item['existing']?->source === StudyActivitySource::Automatic
+                ))
+                ->map(function (array $item) use ($now, $userId): array {
+                    /** @var StudyActivitySessionData $session */
+                    $session = $item['session'];
+                    /** @var StudyActivitySession|null $existingSession */
+                    $existingSession = $item['existing'];
 
                     return [
                         'id' => (string) Str::ulid(),
                         'user_id' => $userId,
-                        'client_session_id' => $clientSessionId,
+                        'client_session_id' => $item['client_session_id'],
                         'category' => $session->category->value,
                         'activity' => $session->activity->value,
                         // A session's capture source is immutable once stored. In particular, a
@@ -69,6 +114,7 @@ class UpsertStudyActivitySessionsAction
                         // Provenance is part of the event's identity and cannot be
                         // rewritten by a retry using the same client session ID.
                         'origin' => ($existingSession?->origin ?? $session->origin)->value,
+                        'source_key' => $item['source_key'],
                         'name' => $session->name,
                         'started_at' => $session->startedAt,
                         'ended_at' => $session->endedAt,
@@ -99,18 +145,22 @@ class UpsertStudyActivitySessionsAction
                 );
             }
 
+            $resolvedClientSessionIds = $resolved->pluck('client_session_id');
             $byClientId = StudyActivitySession::query()
                 ->where('user_id', $userId)
-                ->whereIn('client_session_id', $clientSessionIds)
+                ->whereIn('client_session_id', $resolvedClientSessionIds)
                 ->get()
                 ->keyBy('client_session_id');
 
-            return collect($sessions)->map(
-                fn (StudyActivitySessionData $session): StudyActivitySession => $byClientId[
-                    StudyActivitySessionId::normalize($session->clientSessionId)
-                ],
+            return $resolved->map(
+                fn (array $item): StudyActivitySession => $byClientId[$item['client_session_id']],
             );
         });
+    }
+
+    private function sourceIdentity(string $origin, string $sourceKey): string
+    {
+        return $origin.':'.$sourceKey;
     }
 
     private function lockUserOrFail(int $userId): void

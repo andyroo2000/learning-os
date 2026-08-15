@@ -92,7 +92,7 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'POST api/study/wanikani/sync',
-            'GET|HEAD api/decks/{deck}',
+            'GET|HEAD api/study/google-calendar',
         );
     }
 

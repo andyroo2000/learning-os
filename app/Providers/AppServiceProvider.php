@@ -16,6 +16,8 @@ use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
+use App\Domain\Calendar\Contracts\GoogleCalendarOAuthClient;
+use App\Domain\Calendar\Services\SocialiteGoogleCalendarOAuthClient;
 use App\Domain\Calendar\Support\GoogleCalendarConnectionRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
@@ -99,6 +101,7 @@ class AppServiceProvider extends ServiceProvider
             ConvoLabGoogleOAuthClient::class,
             SocialiteConvoLabGoogleOAuthClient::class,
         );
+        $this->app->bind(GoogleCalendarOAuthClient::class, SocialiteGoogleCalendarOAuthClient::class);
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
     }
@@ -480,6 +483,15 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(GoogleCalendarConnectionRateLimiter::NAME, function (Request $request) use ($googleCalendarConnectionRateLimiter): Limit {
             return $googleCalendarConnectionRateLimiter->limit($request);
         });
+        foreach ([
+            GoogleCalendarConnectionRateLimiter::OAUTH_BEGIN,
+            GoogleCalendarConnectionRateLimiter::OAUTH_CALLBACK,
+        ] as $operation) {
+            RateLimiter::for(
+                $operation,
+                fn (Request $request): array => GoogleCalendarConnectionRateLimiter::oauth($operation, $request),
+            );
+        }
 
         $wanikaniConnectionRateLimiter = JapaneseKnowledgeRateLimiter::forConnection();
         RateLimiter::for(JapaneseKnowledgeRateLimiter::CONNECTION_NAME, function (Request $request) use ($wanikaniConnectionRateLimiter): Limit {

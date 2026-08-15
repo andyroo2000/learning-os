@@ -527,6 +527,17 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        DB::table('google_calendar_connections')->insert([
+            'user_id' => $existingUser->id,
+            'provider_account_id' => 'reset-boundary-account',
+            'account_email' => $existingUser->email,
+            'access_token' => 'encrypted-access-token',
+            'scopes' => json_encode(['calendar.readonly'], JSON_THROW_ON_ERROR),
+            'settings' => json_encode([], JSON_THROW_ON_ERROR),
+            'connected_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
         DB::table('user_known_kanji')->insert([
             'user_id' => $existingUser->id,
             'character' => '私',
@@ -584,6 +595,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
         $this->assertDatabaseCount('wanikani_connections', 0);
+        $this->assertDatabaseCount('google_calendar_connections', 0);
         $this->assertDatabaseCount('user_known_kanji', 0);
         $this->assertDatabaseCount('study_vocab_variant_sentences', 0);
         $this->assertDatabaseCount('study_vocab_variant_groups', 0);

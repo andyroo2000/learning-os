@@ -43,7 +43,7 @@ final class ConnectGoogleCalendarAction
                     'refresh_token' => $refreshToken,
                     'token_expires_at' => now()->addSeconds($grant->expiresIn),
                     'scopes' => $grant->scopes,
-                    'settings' => $connection->settings ?? ['calendarIds' => ['primary'], 'syncEnabled' => true],
+                    'settings' => $sameAccount ? ($connection?->settings ?? []) : [],
                     'sync_cursors' => $sameAccount ? $connection->sync_cursors : null,
                     'connected_at' => now(),
                     'last_synced_at' => $sameAccount ? $connection->last_synced_at : null,

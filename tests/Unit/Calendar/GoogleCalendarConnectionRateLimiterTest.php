@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 class GoogleCalendarConnectionRateLimiterTest extends TestCase
 {
-    public function test_disconnect_uses_a_typed_per_user_bucket(): void
+    public function test_provider_reads_and_writes_use_separate_typed_per_user_buckets(): void
     {
         $request = Request::create('/api/study/google-calendar', 'DELETE', [], [], [], [
             'REMOTE_ADDR' => '192.0.2.10',
@@ -23,11 +23,12 @@ class GoogleCalendarConnectionRateLimiterTest extends TestCase
             }
         });
 
-        $limit = (new GoogleCalendarConnectionRateLimiter)->limit($request);
-
-        $this->assertSame(10, $limit->maxAttempts);
-        $this->assertSame(60, $limit->decaySeconds);
-        $this->assertSame('google-calendar-connection-write:user:42', $limit->key);
+        foreach ([['limit', 10, 'google-calendar-connection-write'], ['read', 30, 'google-calendar-provider-read']] as [$method, $attempts, $bucket]) {
+            $limit = (new GoogleCalendarConnectionRateLimiter)->{$method}($request);
+            $this->assertSame($attempts, $limit->maxAttempts);
+            $this->assertSame(60, $limit->decaySeconds);
+            $this->assertSame($bucket.':user:42', $limit->key);
+        }
     }
 
     public function test_oauth_uses_separate_session_and_network_buckets(): void

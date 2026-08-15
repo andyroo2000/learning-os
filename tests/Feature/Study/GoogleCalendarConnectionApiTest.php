@@ -37,7 +37,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
                 'connected' => false,
                 'accountEmail' => null,
                 'scopes' => [],
-                'settings' => [],
+                'settings' => null,
                 'connectedAt' => null,
                 'lastSyncedAt' => null,
             ]);
@@ -57,7 +57,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
                 'connected' => true,
                 'accountEmail' => 'andrew@example.com',
                 'scopes' => ['calendar.readonly'],
-                'settings' => ['calendarIds' => ['primary'], 'syncEnabled' => true],
+                'settings' => ['calendarIds' => ['primary'], 'titleMatchTerms' => ['iTalki'], 'syncEnabled' => true],
                 'connectedAt' => '2026-08-15T14:00:00Z',
                 'lastSyncedAt' => '2026-08-15T14:11:12Z',
             ]);
@@ -71,6 +71,8 @@ class GoogleCalendarConnectionApiTest extends TestCase
         foreach (['access_token', 'refresh_token', 'sync_cursors', 'token_expires_at'] as $secret) {
             $this->assertArrayNotHasKey($secret, $connection->toArray());
         }
+        $connection->forceFill(['settings' => ['calendarIds' => ['primary'], 'syncEnabled' => true]])->save();
+        $this->actingAs($user)->getJson('/api/study/google-calendar')->assertJsonPath('settings', null);
     }
 
     public function test_disconnect_is_owner_scoped_and_idempotent(): void
@@ -139,7 +141,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
             'refresh_token' => 'refresh-secret',
             'token_expires_at' => Carbon::parse('2026-08-15T15:00:00Z'),
             'scopes' => ['calendar.readonly'],
-            'settings' => ['calendarIds' => ['primary'], 'syncEnabled' => true],
+            'settings' => ['calendarIds' => ['primary'], 'titleMatchTerms' => ['iTalki'], 'syncEnabled' => true],
             'sync_cursors' => ['primary' => 'cursor-secret'],
             'connected_at' => Carbon::parse('2026-08-15T14:00:00Z'),
             'last_synced_at' => null,

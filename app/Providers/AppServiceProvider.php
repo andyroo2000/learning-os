@@ -486,6 +486,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(GoogleCalendarConnectionRateLimiter::NAME, function (Request $request) use ($googleCalendarConnectionRateLimiter): Limit {
             return $googleCalendarConnectionRateLimiter->limit($request);
         });
+        RateLimiter::for(GoogleCalendarConnectionRateLimiter::READ_NAME, function (Request $request) use ($googleCalendarConnectionRateLimiter): Limit {
+            return $googleCalendarConnectionRateLimiter->read($request);
+        });
         foreach ([
             GoogleCalendarConnectionRateLimiter::OAUTH_BEGIN,
             GoogleCalendarConnectionRateLimiter::OAUTH_CALLBACK,

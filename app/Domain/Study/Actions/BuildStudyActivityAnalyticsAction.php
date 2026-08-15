@@ -47,7 +47,7 @@ final class BuildStudyActivityAnalyticsAction
             ->min('started_at');
         $earliestStart = $earliest === null
             ? $now->startOfDay()
-            : CarbonImmutable::parse($earliest)->setTimezone($timezone);
+            : CarbonImmutable::parse($earliest, 'UTC')->setTimezone($timezone);
         [$allStart, $allBucketUnit, $allBucketStep] = $adaptiveAllTime
             ? $this->allTimeBucketDefinition($earliestStart, $now, $weekStartsOn)
             : [$earliestStart->startOfYear(), 'year', 1];
@@ -246,8 +246,12 @@ final class BuildStudyActivityAnalyticsAction
         DateTimeZone $timezone,
         CarbonImmutable $now,
     ): void {
-        $startedAt = $session->started_at->setTimezone($timezone);
-        $recordedEnd = $session->ended_at->setTimezone($timezone);
+        // Database timestamps are UTC; parse the raw values explicitly so PHP's
+        // process timezone cannot move sessions between analytics buckets.
+        $startedAt = CarbonImmutable::parse((string) $session->getRawOriginal('started_at'), 'UTC')
+            ->setTimezone($timezone);
+        $recordedEnd = CarbonImmutable::parse((string) $session->getRawOriginal('ended_at'), 'UTC')
+            ->setTimezone($timezone);
         $elapsedMs = max(1, (int) round($startedAt->diffInRealMilliseconds($recordedEnd)));
         $endedAt = $recordedEnd->min($now);
         $category = $session->category->value;
@@ -303,9 +307,12 @@ final class BuildStudyActivityAnalyticsAction
             return 0;
         }
 
-        $overlapMs = (int) round($overlapStart->diffInRealMilliseconds($overlapEnd));
+        $overlapStartMs = (int) round($sessionStart->diffInRealMilliseconds($overlapStart));
+        $overlapEndMs = (int) round($sessionStart->diffInRealMilliseconds($overlapEnd));
+        $allocatedBefore = (int) round($durationMs * min(1, $overlapStartMs / $elapsedMs));
+        $allocatedThrough = (int) round($durationMs * min(1, $overlapEndMs / $elapsedMs));
 
-        return (int) round($durationMs * min(1, $overlapMs / $elapsedMs));
+        return max(0, $allocatedThrough - $allocatedBefore);
     }
 
     /** @return array<string, int> */

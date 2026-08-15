@@ -257,4 +257,148 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         );
         $this->assertSame(3_600_000, $all['totalMs']);
     }
+
+    public function test_golden_overlapping_allocations_conserve_every_millisecond_across_buckets(): void
+    {
+        $user = User::factory()->create();
+        $fixtures = [
+            ['review', 'card_review', '2026-07-28T03:30:00Z', '2026-07-28T04:30:00Z', 3_600_001],
+            ['listen', 'daily_audio', '2026-07-28T04:15:00Z', '2026-07-28T05:45:00Z', 900_001],
+            ['create', 'card_creation', '2026-07-28T06:00:00Z', '2026-07-28T09:00:00Z', 1_000],
+            ['immerse', 'tv', '2026-07-28T09:00:00Z', '2026-07-28T09:10:00Z', 600_000],
+            ['conversation', 'conversation', '2026-07-28T10:00:00Z', '2026-07-28T10:20:00Z', 1_200_000],
+            ['wanikani', 'wanikani_review', '2026-07-28T11:00:00Z', '2026-07-28T11:05:00Z', 300_000],
+        ];
+        foreach ($fixtures as $index => [$category, $activity, $startedAt, $endedAt, $durationMs]) {
+            $this->createAnalyticsSession(
+                $user,
+                "golden-{$index}",
+                $category,
+                $activity,
+                $startedAt,
+                $endedAt,
+                $durationMs,
+            );
+        }
+
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            $user->id,
+            new DateTimeZone('America/New_York'),
+            2,
+            CarbonImmutable::parse('2026-07-28T12:00:00-04:00'),
+            adaptiveAllTime: true,
+        );
+        $ranges = collect($result['ranges'])->keyBy('key');
+        $today = $ranges['today'];
+
+        $this->assertSame(4_801_001, $today['totalMs']);
+        $this->assertSame([
+            'review' => 1_800_000,
+            'listen' => 900_001,
+            'create' => 1_000,
+            'immerse' => 600_000,
+            'conversation' => 1_200_000,
+            'wanikani' => 300_000,
+        ], $today['categories']);
+        $this->assertSame(2_250_001, $today['buckets'][0]['totalMs']);
+        $this->assertSame(450_000, $today['buckets'][1]['totalMs']);
+        $this->assertSame([333, 334, 333], [
+            $today['buckets'][2]['categories']['create'],
+            $today['buckets'][3]['categories']['create'],
+            $today['buckets'][4]['categories']['create'],
+        ]);
+        $this->assertSame(6_601_002, $ranges['week']['totalMs']);
+
+        foreach ($ranges as $range) {
+            $this->assertSame($range['totalMs'], array_sum($range['categories']));
+            $this->assertSame($range['totalMs'], array_sum(array_column($range['buckets'], 'totalMs')));
+            foreach (array_keys($range['categories']) as $category) {
+                $this->assertSame(
+                    $range['categories'][$category],
+                    array_sum(array_column(array_column($range['buckets'], 'categories'), $category)),
+                );
+            }
+        }
+    }
+
+    public function test_empty_analytics_return_complete_zero_filled_ranges(): void
+    {
+        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
+            User::factory()->create()->id,
+            new DateTimeZone('UTC'),
+            2,
+            CarbonImmutable::parse('2026-07-28T12:00:00Z'),
+            adaptiveAllTime: true,
+        );
+
+        $this->assertCount(5, $result['ranges']);
+        foreach ($result['ranges'] as $range) {
+            $this->assertSame(0, $range['totalMs']);
+            $this->assertSame(array_fill_keys([
+                'review', 'listen', 'create', 'immerse', 'conversation', 'wanikani',
+            ], 0), $range['categories']);
+            $this->assertSame(0, array_sum(array_column($range['buckets'], 'totalMs')));
+        }
+    }
+
+    public function test_requested_timezone_is_stable_across_process_defaults_and_dst(): void
+    {
+        $user = User::factory()->create();
+        $this->createAnalyticsSession(
+            $user,
+            'dst-fallback',
+            'conversation',
+            'conversation',
+            '2026-11-01T05:30:00Z',
+            '2026-11-01T07:30:00Z',
+            7_200_000,
+        );
+        $previousTimezone = date_default_timezone_get();
+
+        try {
+            date_default_timezone_set('UTC');
+            $utcDefault = $this->analyticsFor($user, '2026-11-01T08:00:00Z');
+            date_default_timezone_set('Asia/Tokyo');
+            $tokyoDefault = $this->analyticsFor($user, '2026-11-01T08:00:00Z');
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+
+        $this->assertSame($utcDefault, $tokyoDefault);
+        $today = collect($utcDefault['ranges'])->firstWhere('key', 'today');
+        $this->assertCount(25, $today['buckets']);
+        $this->assertSame(7_200_000, $today['totalMs']);
+    }
+
+    private function analyticsFor(User $user, string $now): array
+    {
+        return app(BuildStudyActivityAnalyticsAction::class)->handle(
+            $user->id,
+            new DateTimeZone('America/New_York'),
+            1,
+            CarbonImmutable::parse($now),
+            adaptiveAllTime: true,
+        );
+    }
+
+    private function createAnalyticsSession(
+        User $user,
+        string $clientSessionId,
+        string $category,
+        string $activity,
+        string $startedAt,
+        string $endedAt,
+        int $durationMs,
+    ): void {
+        StudyActivitySession::query()->forceCreate([
+            'user_id' => $user->id,
+            'client_session_id' => $clientSessionId,
+            'category' => $category,
+            'activity' => $activity,
+            'source' => 'automatic',
+            'started_at' => $startedAt,
+            'ended_at' => $endedAt,
+            'duration_ms' => $durationMs,
+        ]);
+    }
 }

@@ -46,6 +46,7 @@ class ImportConvoLabRehearsalData extends Command
         'study_settings',
         'study_activity_sessions',
         'user_known_kanji',
+        'google_calendar_connect_intents',
         'google_calendar_connections',
         'wanikani_connections',
         'japanese_knowledge_profiles',

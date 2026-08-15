@@ -7,6 +7,7 @@ use App\Domain\Calendar\Data\GoogleCalendarOAuthGrant;
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GoogleProvider;
+use Laravel\Socialite\Two\User;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthClient
@@ -15,19 +16,28 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
 
     public function redirect(): RedirectResponse
     {
-        return $this->provider()
-            ->setScopes(['openid', 'email', self::CALENDAR_SCOPE])
-            ->with([
-                'access_type' => 'offline',
-                'include_granted_scopes' => 'true',
-                'prompt' => 'consent select_account',
-            ])
-            ->redirect();
+        return $this->consentProvider()->redirect();
+    }
+
+    public function authorizationUrl(string $state): string
+    {
+        return $this->consentProvider(['state' => $state])->stateless()->redirect()->getTargetUrl();
     }
 
     public function grant(): GoogleCalendarOAuthGrant
     {
         $user = $this->provider()->user();
+
+        return $this->mapGrant($user);
+    }
+
+    public function statelessGrant(): GoogleCalendarOAuthGrant
+    {
+        return $this->mapGrant($this->provider()->stateless()->user());
+    }
+
+    private function mapGrant(User $user): GoogleCalendarOAuthGrant
+    {
         $providerId = $user->getId();
         $email = $user->getEmail();
         $raw = $user->getRaw();
@@ -63,5 +73,18 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
     {
         /** @var GoogleProvider */
         return Socialite::buildProvider(GoogleProvider::class, config('services.google_calendar'));
+    }
+
+    /** @param array<string, string> $parameters */
+    private function consentProvider(array $parameters = []): GoogleProvider
+    {
+        return $this->provider()
+            ->setScopes(['openid', 'email', self::CALENDAR_SCOPE])
+            ->with([
+                'access_type' => 'offline',
+                'include_granted_scopes' => 'true',
+                'prompt' => 'consent select_account',
+                ...$parameters,
+            ]);
     }
 }

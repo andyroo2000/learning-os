@@ -3,9 +3,11 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Calendar\Actions\ConnectGoogleCalendarAction;
+use App\Domain\Calendar\Actions\PruneExpiredGoogleCalendarConnectIntentsAction;
 use App\Domain\Calendar\Contracts\GoogleCalendarOAuthClient;
 use App\Domain\Calendar\Data\GoogleCalendarOAuthGrant;
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
+use App\Domain\Calendar\Models\GoogleCalendarConnectIntent;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Http\Controllers\Web\Calendar\BeginGoogleCalendarOAuthController;
 use App\Http\Controllers\Web\Calendar\CompleteGoogleCalendarOAuthController;
@@ -14,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schedule;
 use Laravel\Socialite\Two\InvalidStateException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Tests\TestCase;
@@ -46,6 +49,121 @@ class GoogleCalendarOAuthApiTest extends TestCase
         $callback = Route::getRoutes()->getByAction(CompleteGoogleCalendarOAuthController::class);
         $this->assertSame(['web', 'auth:web', 'throttle:study-compatibility-network', 'throttle:study-compatibility-read', 'throttle:google-calendar-oauth-begin'], $begin?->gatherMiddleware());
         $this->assertSame(['web', 'throttle:study-compatibility-network', 'throttle:study-compatibility-read', 'throttle:google-calendar-oauth-callback'], $callback?->gatherMiddleware());
+    }
+
+    public function test_authenticated_api_creates_hashed_ten_minute_ios_intent(): void
+    {
+        Carbon::setTestNow('2026-08-15T20:00:00Z');
+        $this->postJson('/api/study/google-calendar/connect', ['completionTarget' => 'ios'])
+            ->assertUnauthorized();
+
+        $otherUser = User::factory()->create();
+        (new GoogleCalendarConnectIntent)->forceFill([
+            'state_hash' => hash('sha256', 'other-user-expired-state'),
+            'user_id' => $otherUser->id,
+            'completion_target' => 'ios',
+            'expires_at' => now()->subMinute(),
+        ])->save();
+        $user = User::factory()->create();
+        $url = $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'ios',
+        ])->assertOk()->json('authorizationUrl');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $state = $query['state'] ?? null;
+
+        $this->assertIsString($state);
+        $this->assertSame(64, strlen($state));
+        $intent = GoogleCalendarConnectIntent::query()->where('user_id', $user->id)->firstOrFail();
+        $this->assertSame(hash('sha256', $state), $intent->getKey());
+        $this->assertSame('ios', $intent->completion_target);
+        $this->assertSame('2026-08-15T20:10:00+00:00', $intent->expires_at->toIso8601String());
+        $this->assertDatabaseMissing('google_calendar_connect_intents', ['state_hash' => $state]);
+        $this->assertDatabaseHas('google_calendar_connect_intents', ['user_id' => $otherUser->id]);
+    }
+
+    public function test_ios_intent_is_claimed_once_before_stateless_exchange(): void
+    {
+        $user = User::factory()->create();
+        $url = $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'ios',
+        ])->json('authorizationUrl');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
+            ->assertRedirect('convolab://study-time?calendarConnection=connected');
+        $this->assertDatabaseCount('google_calendar_connect_intents', 0);
+        $this->assertDatabaseHas('google_calendar_connections', ['user_id' => $user->id]);
+
+        $this->get('/api/study/google-calendar/callback?code=replay&state='.$query['state'])
+            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+    }
+
+    public function test_expired_intent_is_consumed_and_untrusted_targets_use_safe_web_error(): void
+    {
+        Carbon::setTestNow('2026-08-15T20:00:00Z');
+        $user = User::factory()->create();
+        $url = $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'ios',
+        ])->json('authorizationUrl');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        Carbon::setTestNow('2026-08-15T20:11:00Z');
+
+        $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
+            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+        $this->assertDatabaseCount('google_calendar_connect_intents', 0);
+        $this->assertDatabaseCount('google_calendar_connections', 0);
+
+        $this->get('/api/study/google-calendar/callback?state='.str_repeat('a', 64))
+            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+    }
+
+    public function test_ios_denial_uses_fixed_deep_link_without_provider_text(): void
+    {
+        $user = User::factory()->create();
+        $url = $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'ios',
+        ])->json('authorizationUrl');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $response = $this->get('/api/study/google-calendar/callback?error=provider_secret&error_description=must-not-leak&state='.$query['state'])
+            ->assertRedirect('convolab://study-time?calendarConnection=error&reason=oauth_failed');
+        $this->assertStringNotContainsString('must-not-leak', $response->headers->get('Location'));
+    }
+
+    public function test_connect_intent_rejects_arbitrary_targets_and_web_completion_is_fixed(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'https://attacker.test',
+        ])->assertUnprocessable()->assertJsonValidationErrors('completionTarget');
+
+        $url = $this->postJson('/api/study/google-calendar/connect', [
+            'completionTarget' => 'web',
+        ])->json('authorizationUrl');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
+            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=connected');
+    }
+
+    public function test_abandoned_intents_are_pruned_by_an_hourly_single_server_task(): void
+    {
+        $user = User::factory()->create();
+        foreach ([now()->subMinute(), now()->addMinute()] as $index => $expiry) {
+            (new GoogleCalendarConnectIntent)->forceFill([
+                'state_hash' => hash('sha256', 'scheduled-prune-'.$index),
+                'user_id' => $user->id, 'completion_target' => 'ios', 'expires_at' => $expiry,
+            ])->save();
+        }
+
+        $event = collect(Schedule::events())->first(fn ($event): bool => $event->description === 'calendar:prune-connect-intents');
+        $this->assertNotNull($event);
+        $this->assertSame('0 * * * *', $event->expression);
+        $this->assertTrue($event->onOneServer);
+        $this->assertTrue($event->withoutOverlapping);
+
+        app(PruneExpiredGoogleCalendarConnectIntentsAction::class)->handle();
+        $this->assertDatabaseCount('google_calendar_connect_intents', 1);
     }
 
     public function test_callback_persists_a_verified_grant_and_exposes_safe_status(): void
@@ -176,10 +294,20 @@ final class FakeGoogleCalendarOAuthClient implements GoogleCalendarOAuthClient
         return new RedirectResponse('https://accounts.google.test/calendar');
     }
 
+    public function authorizationUrl(string $state): string
+    {
+        return 'https://accounts.google.test/calendar?state='.$state;
+    }
+
     public function grant(): GoogleCalendarOAuthGrant
     {
         throw_if($this->failure !== null, $this->failure);
 
         return $this->grant ?? new GoogleCalendarOAuthGrant('google-subject', 'andrew@example.com', 'access-secret', 'refresh-secret', 3600, [self::SCOPE]);
+    }
+
+    public function statelessGrant(): GoogleCalendarOAuthGrant
+    {
+        return $this->grant();
     }
 }

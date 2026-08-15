@@ -4,6 +4,7 @@ namespace Tests\Unit\Calendar;
 
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
 use App\Domain\Calendar\Services\SocialiteGoogleCalendarOAuthClient;
+use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GoogleProvider;
 use Laravel\Socialite\Two\User;
@@ -41,6 +42,34 @@ class SocialiteGoogleCalendarOAuthClientTest extends TestCase
         $this->assertSame('subject', $grant->providerAccountId);
         $this->assertSame('andrew@example.com', $grant->email);
         $this->assertSame('refresh', $grant->refreshToken);
+    }
+
+    public function test_native_authorization_and_grant_are_stateless_with_explicit_state(): void
+    {
+        $redirectProvider = new GoogleProvider(
+            Request::create('/api/study/google-calendar/connect', 'POST'),
+            'client-id',
+            'client-secret',
+            'https://convo-lab.test/api/study/google-calendar/callback',
+        );
+        Socialite::shouldReceive('buildProvider')->once()->andReturn($redirectProvider);
+
+        $url = app(SocialiteGoogleCalendarOAuthClient::class)->authorizationUrl('explicit-state');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertSame('explicit-state', $query['state']);
+        $this->assertSame('https://convo-lab.test/api/study/google-calendar/callback', $query['redirect_uri']);
+        $this->assertStringContainsString(SocialiteGoogleCalendarOAuthClient::CALENDAR_SCOPE, $query['scope']);
+
+        $grantProvider = Mockery::mock(GoogleProvider::class);
+        $grantProvider->shouldReceive('stateless')->once()->andReturnSelf();
+        $grantProvider->shouldReceive('user')->once()->andReturn(User::fake([
+            'id' => 'subject', 'email' => 'andrew@example.com', 'email_verified' => true,
+            'token' => 'access', 'refreshToken' => 'refresh', 'expiresIn' => 3600,
+            'approvedScopes' => [SocialiteGoogleCalendarOAuthClient::CALENDAR_SCOPE],
+        ]));
+        Socialite::shouldReceive('buildProvider')->once()->andReturn($grantProvider);
+
+        $this->assertSame('subject', app(SocialiteGoogleCalendarOAuthClient::class)->statelessGrant()->providerAccountId);
     }
 
     public function test_grant_rejects_missing_calendar_scope(): void

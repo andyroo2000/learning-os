@@ -9,5 +9,9 @@ interface GoogleCalendarOAuthClient
 {
     public function redirect(): RedirectResponse;
 
+    public function authorizationUrl(string $state): string;
+
     public function grant(): GoogleCalendarOAuthGrant;
+
+    public function statelessGrant(): GoogleCalendarOAuthGrant;
 }

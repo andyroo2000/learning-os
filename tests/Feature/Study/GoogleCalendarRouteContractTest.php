@@ -11,7 +11,8 @@ class GoogleCalendarRouteContractTest extends TestCase
     public function test_calendar_routes_are_authenticated_and_rate_limited(): void
     {
         $routes = collect(Route::getRoutes()->getRoutes())
-            ->filter(static fn (LaravelRoute $route): bool => $route->uri() === 'api/study/google-calendar')
+            ->filter(static fn (LaravelRoute $route): bool => str_starts_with($route->uri(), 'api/study/google-calendar')
+                && in_array('api', $route->gatherMiddleware(), strict: true))
             ->map(static fn (LaravelRoute $route): array => [
                 'methods' => implode('|', $route->methods()),
                 'action' => class_basename($route->getActionName()),
@@ -25,6 +26,11 @@ class GoogleCalendarRouteContractTest extends TestCase
                 'methods' => 'GET|HEAD',
                 'action' => 'ShowGoogleCalendarConnectionController',
                 'middleware' => ['api', 'auth:sanctum', 'throttle:study-compatibility-network', 'throttle:study-compatibility-read'],
+            ],
+            [
+                'methods' => 'POST',
+                'action' => 'CreateGoogleCalendarConnectIntentController',
+                'middleware' => ['api', 'auth:sanctum', 'throttle:study-compatibility-network', 'throttle:google-calendar-connection-write'],
             ],
             [
                 'methods' => 'DELETE',

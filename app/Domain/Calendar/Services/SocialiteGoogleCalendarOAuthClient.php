@@ -21,7 +21,7 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
 
     public function authorizationUrl(string $state): string
     {
-        return $this->consentProvider()->stateless()->with(['state' => $state])->redirect()->getTargetUrl();
+        return $this->consentProvider(['state' => $state])->stateless()->redirect()->getTargetUrl();
     }
 
     public function grant(): GoogleCalendarOAuthGrant
@@ -75,7 +75,8 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
         return Socialite::buildProvider(GoogleProvider::class, config('services.google_calendar'));
     }
 
-    private function consentProvider(): GoogleProvider
+    /** @param array<string, string> $parameters */
+    private function consentProvider(array $parameters = []): GoogleProvider
     {
         return $this->provider()
             ->setScopes(['openid', 'email', self::CALENDAR_SCOPE])
@@ -83,6 +84,7 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
                 'access_type' => 'offline',
                 'include_granted_scopes' => 'true',
                 'prompt' => 'consent select_account',
+                ...$parameters,
             ]);
     }
 }

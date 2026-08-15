@@ -59,6 +59,9 @@ class SocialiteGoogleCalendarOAuthClientTest extends TestCase
         $this->assertSame('explicit-state', $query['state']);
         $this->assertSame('https://convo-lab.test/api/study/google-calendar/callback', $query['redirect_uri']);
         $this->assertStringContainsString(SocialiteGoogleCalendarOAuthClient::CALENDAR_SCOPE, $query['scope']);
+        $this->assertSame('offline', $query['access_type']);
+        $this->assertSame('true', $query['include_granted_scopes']);
+        $this->assertSame('consent select_account', $query['prompt']);
 
         $grantProvider = Mockery::mock(GoogleProvider::class);
         $grantProvider->shouldReceive('stateless')->once()->andReturnSelf();

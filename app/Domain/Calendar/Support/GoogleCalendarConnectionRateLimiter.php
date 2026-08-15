@@ -10,6 +10,8 @@ final class GoogleCalendarConnectionRateLimiter
 {
     public const NAME = 'google-calendar-connection-write';
 
+    public const READ_NAME = 'google-calendar-provider-read';
+
     public const OAUTH_BEGIN = 'google-calendar-oauth-begin';
 
     public const OAUTH_CALLBACK = 'google-calendar-oauth-callback';
@@ -18,6 +20,15 @@ final class GoogleCalendarConnectionRateLimiter
     {
         return Limit::perMinute(10)->by(RateLimitKey::scopedUserOrNetwork(
             self::NAME,
+            $request->user()?->getAuthIdentifier(),
+            $request->ip(),
+        ));
+    }
+
+    public function read(Request $request): Limit
+    {
+        return Limit::perMinute(30)->by(RateLimitKey::scopedUserOrNetwork(
+            self::READ_NAME,
             $request->user()?->getAuthIdentifier(),
             $request->ip(),
         ));

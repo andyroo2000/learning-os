@@ -2,11 +2,12 @@
 
 namespace App\Domain\Calendar\Actions;
 
+use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
 
 final class ShowGoogleCalendarConnectionAction
 {
-    /** @return array{connected: bool, accountEmail: ?string, scopes: list<string>, settings: array<string, mixed>, connectedAt: ?string, lastSyncedAt: ?string} */
+    /** @return array{connected: bool, accountEmail: ?string, scopes: list<string>, settings: ?array, connectedAt: ?string, lastSyncedAt: ?string} */
     public function handle(int $userId): array
     {
         $connection = GoogleCalendarConnection::query()
@@ -18,7 +19,7 @@ final class ShowGoogleCalendarConnectionAction
                 'connected' => false,
                 'accountEmail' => null,
                 'scopes' => [],
-                'settings' => [],
+                'settings' => null,
                 'connectedAt' => null,
                 'lastSyncedAt' => null,
             ];
@@ -28,7 +29,7 @@ final class ShowGoogleCalendarConnectionAction
             'connected' => true,
             'accountEmail' => $connection->account_email,
             'scopes' => $connection->scopes ?? [],
-            'settings' => $connection->settings ?? [],
+            'settings' => GoogleCalendarSettings::fromStored($connection->settings)?->toArray(),
             'connectedAt' => $connection->connected_at?->utc()->toIso8601ZuluString(),
             'lastSyncedAt' => $connection->last_synced_at?->utc()->toIso8601ZuluString(),
         ];

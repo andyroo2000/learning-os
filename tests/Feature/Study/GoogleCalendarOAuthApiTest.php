@@ -179,7 +179,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
             'connected' => true,
             'accountEmail' => 'andrew@example.com',
             'scopes' => [FakeGoogleCalendarOAuthClient::SCOPE],
-            'settings' => ['calendarIds' => ['primary'], 'syncEnabled' => true],
+            'settings' => null,
             'connectedAt' => '2026-08-15T20:00:00Z',
             'lastSyncedAt' => null,
         ]);
@@ -193,14 +193,41 @@ class GoogleCalendarOAuthApiTest extends TestCase
         $user = User::factory()->create();
         $this->authorize($user);
         $this->get('/api/study/google-calendar/callback');
+        $connection = GoogleCalendarConnection::query()->firstOrFail();
+        $connection->forceFill([
+            'settings' => ['calendarIds' => ['private'], 'titleMatchTerms' => ['lesson'], 'syncEnabled' => true],
+            'sync_cursors' => ['private' => 'cursor'], 'last_synced_at' => Carbon::parse('2026-08-14T20:00:00Z'),
+        ])->save();
 
         $this->google->grant = $this->grant(accessToken: 'replacement', refreshToken: null);
         $this->authorize($user);
         $this->get('/api/study/google-calendar/callback')->assertRedirectContains('calendarConnection=connected');
 
-        $connection = GoogleCalendarConnection::query()->firstOrFail();
+        $connection->refresh();
         $this->assertSame('replacement', $connection->access_token);
         $this->assertSame('refresh-secret', $connection->refresh_token);
+        $this->assertSame(['private' => 'cursor'], $connection->sync_cursors);
+        $this->assertSame('2026-08-14T20:00:00+00:00', $connection->last_synced_at?->toIso8601String());
+        $this->assertSame(['private'], $connection->settings['calendarIds']);
+    }
+
+    public function test_connecting_a_different_account_clears_prior_calendar_settings(): void
+    {
+        $user = User::factory()->create();
+        $this->authorize($user);
+        $this->get('/api/study/google-calendar/callback');
+        GoogleCalendarConnection::query()->firstOrFail()->forceFill([
+            'settings' => ['calendarIds' => ['private'], 'titleMatchTerms' => ['lesson'], 'syncEnabled' => true],
+            'sync_cursors' => ['private' => 'cursor'], 'last_synced_at' => now(),
+        ])->save();
+        $this->google->grant = new GoogleCalendarOAuthGrant('different-subject', 'other@example.com', 'new-access', 'new-refresh', 3600, [FakeGoogleCalendarOAuthClient::SCOPE]);
+        $this->authorize($user);
+        $this->get('/api/study/google-calendar/callback');
+
+        $connection = GoogleCalendarConnection::query()->firstOrFail();
+        $this->assertSame([], $connection->settings);
+        $this->assertNull($connection->sync_cursors);
+        $this->assertNull($connection->last_synced_at);
     }
 
     public function test_callback_rejects_cross_user_account_conflicts(): void

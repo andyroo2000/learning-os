@@ -4,12 +4,15 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Models\StudyActivitySession;
+use App\Domain\Study\Support\StudyActivityDurationAllocator;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 
 final class BuildStudyActivityAnalyticsAction
 {
+    public function __construct(private readonly StudyActivityDurationAllocator $durationAllocator) {}
+
     private const RANGE_TODAY = 'today';
 
     private const RANGE_WEEK = 'week';
@@ -252,19 +255,18 @@ final class BuildStudyActivityAnalyticsAction
             ->setTimezone($timezone);
         $recordedEnd = CarbonImmutable::parse((string) $session->getRawOriginal('ended_at'), 'UTC')
             ->setTimezone($timezone);
-        $elapsedMs = max(1, (int) round($startedAt->diffInRealMilliseconds($recordedEnd)));
         $endedAt = $recordedEnd->min($now);
         $category = $session->category->value;
 
         foreach ($ranges as $rangeKey => &$range) {
             $window = $windows[$rangeKey];
-            $allocated = $this->allocatedDuration(
+            $allocated = $this->durationAllocator->forWindow(
                 $session->duration_ms,
-                $elapsedMs,
                 $startedAt,
                 $endedAt,
                 $window['startsAt'],
                 $window['endsAt'],
+                $recordedEnd,
             );
             if ($allocated === 0) {
                 continue;
@@ -274,13 +276,13 @@ final class BuildStudyActivityAnalyticsAction
             $range['categories'][$category] += $allocated;
             foreach ($range['buckets'] as $bucketIndex => &$bucket) {
                 $bucketWindow = $window['buckets'][$bucketIndex];
-                $bucketAllocation = $this->allocatedDuration(
+                $bucketAllocation = $this->durationAllocator->forWindow(
                     $session->duration_ms,
-                    $elapsedMs,
                     $startedAt,
                     $endedAt,
                     $bucketWindow['startsAt'],
                     $bucketWindow['endsAt'],
+                    $recordedEnd,
                 );
                 if ($bucketAllocation === 0) {
                     continue;
@@ -291,28 +293,6 @@ final class BuildStudyActivityAnalyticsAction
             unset($bucket);
         }
         unset($range);
-    }
-
-    private function allocatedDuration(
-        int $durationMs,
-        int $elapsedMs,
-        CarbonImmutable $sessionStart,
-        CarbonImmutable $sessionEnd,
-        CarbonImmutable $windowStart,
-        CarbonImmutable $windowEnd,
-    ): int {
-        $overlapStart = $sessionStart->max($windowStart);
-        $overlapEnd = $sessionEnd->min($windowEnd);
-        if ($overlapEnd->lessThanOrEqualTo($overlapStart)) {
-            return 0;
-        }
-
-        $overlapStartMs = (int) round($sessionStart->diffInRealMilliseconds($overlapStart));
-        $overlapEndMs = (int) round($sessionStart->diffInRealMilliseconds($overlapEnd));
-        $allocatedBefore = (int) round($durationMs * min(1, $overlapStartMs / $elapsedMs));
-        $allocatedThrough = (int) round($durationMs * min(1, $overlapEndMs / $elapsedMs));
-
-        return max(0, $allocatedThrough - $allocatedBefore);
     }
 
     /** @return array<string, int> */

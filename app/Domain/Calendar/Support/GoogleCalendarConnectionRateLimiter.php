@@ -10,6 +10,10 @@ final class GoogleCalendarConnectionRateLimiter
 {
     public const NAME = 'google-calendar-connection-write';
 
+    public const OAUTH_BEGIN = 'google-calendar-oauth-begin';
+
+    public const OAUTH_CALLBACK = 'google-calendar-oauth-callback';
+
     public function limit(Request $request): Limit
     {
         return Limit::perMinute(10)->by(RateLimitKey::scopedUserOrNetwork(
@@ -17,5 +21,17 @@ final class GoogleCalendarConnectionRateLimiter
             $request->user()?->getAuthIdentifier(),
             $request->ip(),
         ));
+    }
+
+    /** @return array{Limit, Limit} */
+    public static function oauth(string $operation, Request $request): array
+    {
+        $session = $request->hasSession() ? $request->session()->getId() : '';
+        $ip = $request->ip() ?: 'missing-ip';
+
+        return [
+            Limit::perMinute(10)->by($operation.':session:'.hash('sha256', $session)),
+            Limit::perMinute(60)->by($operation.':network:'.$ip),
+        ];
     }
 }

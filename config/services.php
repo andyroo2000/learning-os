@@ -49,6 +49,15 @@ return [
         ),
     ],
 
+    'google_calendar' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env(
+            'GOOGLE_CALENDAR_REDIRECT_URI',
+            rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/study/google-calendar/callback',
+        ),
+    ],
+
     'convolab' => [
         'client_url' => env('CONVOLAB_CLIENT_URL', 'http://localhost:5173'),
         'admin_emails' => array_values(array_filter(array_map(

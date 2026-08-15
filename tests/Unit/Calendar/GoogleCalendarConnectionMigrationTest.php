@@ -35,6 +35,22 @@ class GoogleCalendarConnectionMigrationTest extends TestCase
         $this->assertStringContainsString('foreign key', $compiled);
     }
 
+    #[DataProvider('grammarProvider')]
+    public function test_provider_account_unique_change_compiles_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+        $sql = (new Blueprint($connection, 'google_calendar_connections', function (Blueprint $table): void {
+            $table->string('provider_account_id', 255)->change();
+            $table->unique('provider_account_id', 'google_calendar_provider_account_unique');
+        }))->toSql();
+
+        $this->assertNotEmpty($sql);
+        $this->assertStringContainsString('provider_account_id', strtolower(implode(' ', $sql)));
+    }
+
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
     public static function grammarProvider(): array
     {

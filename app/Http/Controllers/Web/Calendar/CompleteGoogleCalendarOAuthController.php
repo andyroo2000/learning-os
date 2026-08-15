@@ -8,6 +8,7 @@ use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Two\InvalidStateException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Throwable;
 
@@ -44,7 +45,7 @@ final class CompleteGoogleCalendarOAuthController extends Controller
         } catch (GoogleCalendarOAuthException $exception) {
             return $this->result('error', $exception->reason());
         } catch (Throwable) {
-            report('Google Calendar OAuth callback failed.');
+            report(new RuntimeException('Google Calendar OAuth callback failed.'));
 
             return $this->result('error', 'oauth_failed');
         } finally {

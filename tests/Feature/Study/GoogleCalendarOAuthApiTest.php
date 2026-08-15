@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Calendar\Actions\ConnectGoogleCalendarAction;
 use App\Domain\Calendar\Contracts\GoogleCalendarOAuthClient;
 use App\Domain\Calendar\Data\GoogleCalendarOAuthGrant;
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
@@ -96,6 +97,17 @@ class GoogleCalendarOAuthApiTest extends TestCase
             ->assertRedirectContains('calendarConnection=error&reason=account_conflict');
 
         $this->assertDatabaseCount('google_calendar_connections', 1);
+    }
+
+    public function test_same_user_same_account_unique_race_is_idempotent(): void
+    {
+        $user = User::factory()->create();
+        $this->authorize($user);
+        $this->get('/api/study/google-calendar/callback');
+        $action = app(ConnectGoogleCalendarAction::class);
+
+        $this->assertTrue($action->sameUserWonRace($user->id, 'google-subject'));
+        $this->assertFalse($action->sameUserWonRace($user->id, 'different-subject'));
     }
 
     public function test_callback_handles_denial_invalid_binding_and_provider_failures_safely(): void

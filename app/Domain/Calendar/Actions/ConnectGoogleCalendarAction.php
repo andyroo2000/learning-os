@@ -56,8 +56,19 @@ final class ConnectGoogleCalendarAction
                 ->exists()) {
                 throw new GoogleCalendarOAuthException('account_conflict');
             }
+            if ($this->sameUserWonRace($userId, $grant->providerAccountId)) {
+                return;
+            }
 
             throw $exception;
         }
+    }
+
+    public function sameUserWonRace(int $userId, string $providerAccountId): bool
+    {
+        return GoogleCalendarConnection::query()
+            ->where('user_id', $userId)
+            ->where('provider_account_id', $providerAccountId)
+            ->exists();
     }
 }

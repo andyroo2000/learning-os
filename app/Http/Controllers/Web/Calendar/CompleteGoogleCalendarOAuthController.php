@@ -23,7 +23,7 @@ final class CompleteGoogleCalendarOAuthController extends Controller
     ): RedirectResponse {
         $userId = $request->user('web')?->getAuthIdentifier();
         if (! is_int($userId) || $request->session()->get(self::SESSION_USER_ID) !== $userId) {
-            $request->session()->forget(self::SESSION_USER_ID);
+            $request->session()->forget([self::SESSION_USER_ID, 'state']);
 
             return $this->result('error', 'invalid_state');
         }

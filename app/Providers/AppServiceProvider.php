@@ -17,6 +17,8 @@ use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
 use App\Domain\Calendar\Contracts\GoogleCalendarOAuthClient;
+use App\Domain\Calendar\Contracts\GoogleCalendarReadTransport;
+use App\Domain\Calendar\Services\LaravelGoogleCalendarReadTransport;
 use App\Domain\Calendar\Services\SocialiteGoogleCalendarOAuthClient;
 use App\Domain\Calendar\Support\GoogleCalendarConnectionRateLimiter;
 use App\Domain\Content\Support\ContentAudioRateLimiter;
@@ -102,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
             SocialiteConvoLabGoogleOAuthClient::class,
         );
         $this->app->bind(GoogleCalendarOAuthClient::class, SocialiteGoogleCalendarOAuthClient::class);
+        $this->app->bind(GoogleCalendarReadTransport::class, LaravelGoogleCalendarReadTransport::class);
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
     }

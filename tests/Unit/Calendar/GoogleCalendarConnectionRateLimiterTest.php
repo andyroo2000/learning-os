@@ -42,4 +42,13 @@ class GoogleCalendarConnectionRateLimiterTest extends TestCase
         $this->assertSame(60, $limits[1]->maxAttempts);
         $this->assertNotSame($limits[0]->key, $limits[1]->key);
     }
+
+    public function test_oauth_names_a_missing_session_bucket_without_hashing_empty_input(): void
+    {
+        $request = Request::create('/api/study/google-calendar/connect', 'GET', [], [], [], ['REMOTE_ADDR' => '192.0.2.10']);
+
+        $limits = GoogleCalendarConnectionRateLimiter::oauth(GoogleCalendarConnectionRateLimiter::OAUTH_BEGIN, $request);
+
+        $this->assertSame('google-calendar-oauth-begin:missing-session', $limits[0]->key);
+    }
 }

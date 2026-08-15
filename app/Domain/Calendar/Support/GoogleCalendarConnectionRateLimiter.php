@@ -26,11 +26,14 @@ final class GoogleCalendarConnectionRateLimiter
     /** @return array{Limit, Limit} */
     public static function oauth(string $operation, Request $request): array
     {
-        $session = $request->hasSession() ? $request->session()->getId() : '';
+        $sessionId = $request->hasSession() ? $request->session()->getId() : '';
+        $session = $sessionId === ''
+            ? 'missing-session'
+            : 'session:'.hash('sha256', $sessionId);
         $ip = $request->ip() ?: 'missing-ip';
 
         return [
-            Limit::perMinute(10)->by($operation.':session:'.hash('sha256', $session)),
+            Limit::perMinute(10)->by($operation.':'.$session),
             Limit::perMinute(60)->by($operation.':network:'.$ip),
         ];
     }

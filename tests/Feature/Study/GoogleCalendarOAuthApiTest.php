@@ -117,8 +117,12 @@ class GoogleCalendarOAuthApiTest extends TestCase
             ->assertRedirectContains('reason=invalid_state');
 
         $this->authorize($user);
-        $this->get('/api/study/google-calendar/callback?error=access_denied&error_description=secret')
+        $this->get('/api/study/google-calendar/callback?error=access_denied&error_description=secret&state=oauth-state')
             ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=access_denied');
+
+        $this->authorize($user);
+        $this->get('/api/study/google-calendar/callback?error=access_denied&state=forged')
+            ->assertRedirectContains('reason=invalid_state');
 
         $this->google->failure = new GoogleCalendarOAuthException('missing_token');
         $this->authorize($user);
@@ -146,6 +150,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
     private function authorize(User $user): void
     {
         $this->actingAs($user, 'web')->get('/api/study/google-calendar/connect')->assertRedirect();
+        session()->put('state', 'oauth-state');
     }
 
     private function grant(string $accessToken = 'access-secret', ?string $refreshToken = 'refresh-secret'): GoogleCalendarOAuthGrant

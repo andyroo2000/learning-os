@@ -31,6 +31,14 @@ final class CompleteGoogleCalendarOAuthController extends Controller
         try {
             $providerError = $request->query('error');
             if (is_string($providerError) && $providerError !== '') {
+                $expectedState = $request->session()->get('state');
+                $providedState = $request->query('state');
+                if (! is_string($expectedState)
+                    || ! is_string($providedState)
+                    || ! hash_equals($expectedState, $providedState)) {
+                    return $this->result('error', 'invalid_state');
+                }
+
                 return $this->result(
                     'error',
                     $providerError === 'access_denied' ? 'access_denied' : 'oauth_failed',

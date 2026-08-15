@@ -62,6 +62,7 @@ class StudyActivitySessionApiTest extends TestCase
         $this->postJson('/api/study/activity-sessions/batch', $payload)
             ->assertOk()
             ->assertJsonPath('0.category', 'create')
+            ->assertJsonPath('0.origin', 'legacy')
             ->assertJsonPath('0.cardsCreated', 12);
 
         $payload['sessions'][0]['name'] = 'Episode 4 vocabulary';
@@ -82,6 +83,84 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertJsonPath('0.clientSessionId', '018f22d2-6d38-7000-8000-000000000001');
     }
 
+    public function test_it_records_origin_without_allowing_retries_to_rewrite_provenance(): void
+    {
+        $user = $this->signIn();
+        $clientSessionId = '018f22d2-6d38-7000-8000-000000000020';
+        $session = [
+            'clientSessionId' => $clientSessionId,
+            'category' => 'conversation',
+            'activity' => 'conversation',
+            'source' => 'manual',
+            'origin' => 'ios',
+            'startedAt' => '2026-07-28T12:00:00Z',
+            'endedAt' => '2026-07-28T13:00:00Z',
+            'durationMs' => 3_600_000,
+        ];
+
+        $this->postJson('/api/study/activity-sessions/batch', ['sessions' => [$session]])
+            ->assertOk()
+            ->assertJsonPath('0.origin', 'ios');
+
+        $session['origin'] = 'web';
+        $session['name'] = 'Retry from another client';
+        $this->postJson('/api/study/activity-sessions/batch', ['sessions' => [$session]])
+            ->assertOk()
+            ->assertJsonPath('0.origin', 'ios')
+            ->assertJsonPath('0.name', 'Retry from another client');
+
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $clientSessionId,
+            'origin' => 'ios',
+        ]);
+    }
+
+    public function test_it_treats_an_explicit_null_origin_as_legacy_for_optional_field_compatibility(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/activity-sessions/batch', [
+            'sessions' => [[
+                'clientSessionId' => '018f22d2-6d38-7000-8000-000000000029',
+                'category' => 'conversation',
+                'activity' => 'conversation',
+                'source' => 'manual',
+                'origin' => null,
+                'startedAt' => '2026-07-28T12:00:00Z',
+                'endedAt' => '2026-07-28T13:00:00Z',
+                'durationMs' => 3_600_000,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('0.origin', 'legacy');
+    }
+
+    public function test_it_reserves_provider_and_system_origins_for_server_side_writers(): void
+    {
+        $this->signIn();
+
+        foreach (['legacy', 'google_calendar', 'wanikani', 'system'] as $index => $origin) {
+            $this->postJson('/api/study/activity-sessions/batch', [
+                'sessions' => [[
+                    'clientSessionId' => sprintf(
+                        '018f22d2-6d38-7000-8000-%012d',
+                        30 + $index,
+                    ),
+                    'category' => 'conversation',
+                    'activity' => 'conversation',
+                    'source' => 'manual',
+                    'origin' => $origin,
+                    'startedAt' => '2026-07-28T12:00:00Z',
+                    'endedAt' => '2026-07-28T13:00:00Z',
+                    'durationMs' => 3_600_000,
+                ]],
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors('sessions.0.origin');
+        }
+
+        $this->assertDatabaseCount('study_activity_sessions', 0);
+    }
+
     public function test_it_validates_bounded_dates_enums_and_durations(): void
     {
         $this->signIn();
@@ -92,6 +171,7 @@ class StudyActivitySessionApiTest extends TestCase
                 'category' => 'work',
                 'activity' => 'coding',
                 'source' => 'guess',
+                'origin' => 'guess',
                 'startedAt' => '2026-07-28T13:00:00Z',
                 'endedAt' => '2026-07-28T12:00:00Z',
                 'durationMs' => 86_400_001,
@@ -102,6 +182,7 @@ class StudyActivitySessionApiTest extends TestCase
                 'sessions.0.category',
                 'sessions.0.activity',
                 'sessions.0.source',
+                'sessions.0.origin',
                 'sessions.0.endedAt',
                 'sessions.0.durationMs',
             ]);
@@ -203,13 +284,15 @@ class StudyActivitySessionApiTest extends TestCase
                     'category' => ' REVIEW ',
                     'activity' => ' DAILY_AUDIO ',
                     'source' => 'automatic',
+                    'origin' => ' IOS ',
                     'startedAt' => '2026-07-28T12:00:00Z',
                     'endedAt' => '2026-07-28T12:30:00Z',
                     'durationMs' => 1_800_000,
                     'audioPlaybackMs' => 1_800_000,
                 ]],
             ])->assertOk()
-            ->assertJsonPath('0.category', 'listen');
+            ->assertJsonPath('0.category', 'listen')
+            ->assertJsonPath('0.origin', 'ios');
 
         $this->assertDatabaseHas('study_activity_sessions', [
             'user_id' => $user->id,

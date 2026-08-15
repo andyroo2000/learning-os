@@ -53,6 +53,33 @@ class StudyActivitySessionMigrationTest extends TestCase
     }
 
     #[DataProvider('grammarProvider')]
+    public function test_origin_column_add_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+        $add = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->string('origin', 24)->default('legacy')->after('source');
+            },
+        );
+        $drop = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->dropColumn('origin');
+            },
+        );
+
+        $this->assertStringContainsString('origin', implode("\n", $add->toSql()));
+        $this->assertStringContainsString('origin', implode("\n", $drop->toSql()));
+    }
+
+    #[DataProvider('grammarProvider')]
     public function test_end_time_index_rollback_compiles_for_supported_databases(
         string $connectionClass,
         string $grammarClass,
@@ -97,6 +124,7 @@ class StudyActivitySessionMigrationTest extends TestCase
             $table->string('category', 24);
             $table->string('activity', 32);
             $table->string('source', 24);
+            $table->string('origin', 24)->default('legacy');
             $table->string('name', 120)->nullable();
             $table->timestampTz('started_at');
             $table->timestampTz('ended_at');

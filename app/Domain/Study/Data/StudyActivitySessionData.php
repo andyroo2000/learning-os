@@ -4,6 +4,7 @@ namespace App\Domain\Study\Data;
 
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
+use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use Carbon\CarbonImmutable;
@@ -21,6 +22,7 @@ final readonly class StudyActivitySessionData
         public int $durationMs,
         public ?int $audioPlaybackMs,
         public ?int $cardsCreated,
+        public StudyActivityOrigin $origin = StudyActivityOrigin::Legacy,
     ) {}
 
     /** @param array<string, mixed> $session */
@@ -37,6 +39,9 @@ final readonly class StudyActivitySessionData
             durationMs: $session['durationMs'],
             audioPlaybackMs: $session['audioPlaybackMs'] ?? null,
             cardsCreated: $session['cardsCreated'] ?? null,
+            origin: isset($session['origin'])
+                ? StudyActivityOrigin::from($session['origin'])
+                : StudyActivityOrigin::Legacy,
         );
     }
 }

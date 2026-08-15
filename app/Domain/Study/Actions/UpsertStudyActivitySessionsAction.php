@@ -30,14 +30,17 @@ class UpsertStudyActivitySessionsAction
                     $session->clientSessionId,
                 ),
             );
-            $existingSources = StudyActivitySession::query()
+            $existingSessions = StudyActivitySession::query()
                 ->where('user_id', $userId)
                 ->whereIn('client_session_id', $clientSessionIds)
                 ->lockForUpdate()
-                ->pluck('source', 'client_session_id');
-            $protectedClientSessionIds = $existingSources
+                ->get(['client_session_id', 'source', 'origin'])
+                ->keyBy('client_session_id');
+            $protectedClientSessionIds = $existingSessions
                 ->filter(
-                    fn (StudyActivitySource $source): bool => $source === StudyActivitySource::Automatic,
+                    fn (StudyActivitySession $session): bool => (
+                        $session->source === StudyActivitySource::Automatic
+                    ),
                 )
                 ->keys()
                 ->all();
@@ -49,28 +52,33 @@ class UpsertStudyActivitySessionsAction
                         true,
                     ),
                 )
-                ->map(fn (StudyActivitySessionData $session): array => [
-                    'id' => (string) Str::ulid(),
-                    'user_id' => $userId,
-                    'client_session_id' => StudyActivitySessionId::normalize($session->clientSessionId),
-                    'category' => $session->category->value,
-                    'activity' => $session->activity->value,
-                    // A session's origin is immutable once stored. In particular, a
-                    // sync client must not upgrade a manual row into an automatic,
-                    // permanently protected row by reusing its client session ID.
-                    'source' => (
-                        $existingSources->get(StudyActivitySessionId::normalize($session->clientSessionId))
-                            ?? $session->source
-                    )->value,
-                    'name' => $session->name,
-                    'started_at' => $session->startedAt,
-                    'ended_at' => $session->endedAt,
-                    'duration_ms' => $session->durationMs,
-                    'audio_playback_ms' => $session->audioPlaybackMs,
-                    'cards_created' => $session->cardsCreated,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ])
+                ->map(function (StudyActivitySessionData $session) use ($existingSessions, $now, $userId): array {
+                    $clientSessionId = StudyActivitySessionId::normalize($session->clientSessionId);
+                    $existingSession = $existingSessions->get($clientSessionId);
+
+                    return [
+                        'id' => (string) Str::ulid(),
+                        'user_id' => $userId,
+                        'client_session_id' => $clientSessionId,
+                        'category' => $session->category->value,
+                        'activity' => $session->activity->value,
+                        // A session's capture source is immutable once stored. In particular, a
+                        // sync client must not upgrade a manual row into an automatic,
+                        // permanently protected row by reusing its client session ID.
+                        'source' => ($existingSession?->source ?? $session->source)->value,
+                        // Provenance is part of the event's identity and cannot be
+                        // rewritten by a retry using the same client session ID.
+                        'origin' => ($existingSession?->origin ?? $session->origin)->value,
+                        'name' => $session->name,
+                        'started_at' => $session->startedAt,
+                        'ended_at' => $session->endedAt,
+                        'duration_ms' => $session->durationMs,
+                        'audio_playback_ms' => $session->audioPlaybackMs,
+                        'cards_created' => $session->cardsCreated,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                })
                 ->all();
 
             if ($rows !== []) {

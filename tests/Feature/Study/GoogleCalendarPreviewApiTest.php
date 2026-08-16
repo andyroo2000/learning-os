@@ -55,6 +55,8 @@ class GoogleCalendarPreviewApiTest extends TestCase
         $this->postJson($url, ['calendarIds' => []])->assertUnprocessable()->assertJsonValidationErrors(['calendarIds', 'titleMatchTerms']);
         $this->postJson($url, ['calendarIds' => array_fill(0, 26, 'x'), 'titleMatchTerms' => ['x']])->assertUnprocessable();
         $this->postJson($url, ['calendarIds' => [str_repeat('x', 1025)], 'titleMatchTerms' => ['x']])->assertUnprocessable();
+        $this->postJson($url, ['calendarIds' => ['named' => 'x'], 'titleMatchTerms' => ['x']])->assertUnprocessable()->assertJsonValidationErrors('calendarIds');
+        $this->postJson($url, ['calendarIds' => ['x'], 'titleMatchTerms' => ['named' => 'x']])->assertUnprocessable()->assertJsonValidationErrors('titleMatchTerms');
         $this->postJson($url, ['calendarIds' => ['x'], 'titleMatchTerms' => array_fill(0, 51, 'x')])->assertUnprocessable();
         $this->postJson($url, ['calendarIds' => ['x'], 'titleMatchTerms' => [str_repeat('会', 101)]])->assertUnprocessable();
         $this->google->calendars = [new GoogleCalendar('work', 'Work', false, 'reader')];
@@ -90,9 +92,13 @@ class GoogleCalendarPreviewApiTest extends TestCase
             ], null, 'secret-sync-token'),
         ];
         $queries = 0;
-        DB::listen(static function ($query) use (&$queries): void {
+        $connectionQueries = 0;
+        DB::listen(static function ($query) use (&$queries, &$connectionQueries): void {
             if (str_contains($query->sql, 'study_activity_sessions')) {
                 $queries++;
+            }
+            if (str_starts_with(trim($query->sql), 'select') && str_contains($query->sql, 'google_calendar_connections')) {
+                $connectionQueries++;
             }
         });
 
@@ -113,6 +119,7 @@ class GoogleCalendarPreviewApiTest extends TestCase
             ['calendarId' => 'work', 'calendarName' => 'Work calendar', 'title' => 'iTalki boundary', 'startsAt' => '2026-07-15T11:30:00Z', 'endsAt' => '2026-07-15T12:30:00Z', 'durationMs' => 3_600_000, 'matchedTerms' => ['iTalki'], 'alreadySynced' => false],
         ], $response['matches']);
         $this->assertSame(1, $queries);
+        $this->assertSame(2, $connectionQueries);
         $this->assertSame([], GoogleCalendarConnection::query()->where('user_id', $owner->id)->value('settings'));
         $this->assertSame(2, StudyActivitySession::query()->count());
     }

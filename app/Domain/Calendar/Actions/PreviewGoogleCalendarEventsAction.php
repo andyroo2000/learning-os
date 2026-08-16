@@ -44,14 +44,14 @@ final class PreviewGoogleCalendarEventsAction
         $generatedAt = CarbonImmutable::instance(now())->utc();
         $startsAt = $generatedAt->subDays(self::WINDOW_DAYS);
         $connection = GoogleCalendarConnection::query()->where('user_id', $userId)->firstOrFail();
-        $available = collect($this->listCalendars->handle($userId)['calendars'])->keyBy('id');
+        $token = $this->accessToken->handle($userId);
+        $available = collect($this->listCalendars->handle($userId, $token)['calendars'])->keyBy('id');
         foreach ($settings->calendarIds as $calendarId) {
             if (! $available->has($calendarId)) {
                 throw new GoogleCalendarSelectionException;
             }
         }
 
-        $token = $this->accessToken->handle($userId);
         $matches = [];
         $scanned = 0;
         $requests = 0;

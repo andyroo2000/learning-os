@@ -19,9 +19,9 @@ final class ListReadableGoogleCalendarsAction
     ) {}
 
     /** @return array{calendars:list<array{id:string,name:string,primary:bool}>,truncated:bool} */
-    public function handle(int $userId): array
+    public function handle(int $userId, ?string $resolvedAccessToken = null): array
     {
-        $token = $this->accessToken->handle($userId);
+        $token = $resolvedAccessToken ?? $this->accessToken->handle($userId);
         $pageToken = null;
         $calendars = [];
         $seen = [];

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study;
 
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 final class UpdateGoogleCalendarSettingsRequest extends FormRequest
 {
@@ -28,6 +29,18 @@ final class UpdateGoogleCalendarSettingsRequest extends FormRequest
         $validated = $this->validated();
 
         return GoogleCalendarSettings::make($validated['calendarIds'], $validated['titleMatchTerms'], $validated['syncEnabled']);
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            foreach (['calendarIds', 'titleMatchTerms'] as $field) {
+                $value = $validator->getData()[$field] ?? null;
+                if (is_array($value) && ! array_is_list($value)) {
+                    $validator->errors()->add($field, "The $field field must be a list.");
+                }
+            }
+        }];
     }
 
     protected function prepareForValidation(): void

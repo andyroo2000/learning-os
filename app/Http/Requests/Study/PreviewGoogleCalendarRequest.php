@@ -26,6 +26,12 @@ final class PreviewGoogleCalendarRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            foreach (['calendarIds', 'titleMatchTerms'] as $field) {
+                $value = $validator->getData()[$field] ?? null;
+                if (is_array($value) && ! array_is_list($value)) {
+                    $validator->errors()->add($field, "The $field field must be a list.");
+                }
+            }
             $keys = array_keys($validator->getData());
             sort($keys);
             if ($keys !== ['calendarIds', 'titleMatchTerms']) {

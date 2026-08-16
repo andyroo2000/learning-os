@@ -12,6 +12,7 @@ use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class GoogleCalendarAccessTokenActionTest extends TestCase
@@ -70,6 +71,33 @@ class GoogleCalendarAccessTokenActionTest extends TestCase
         }
     }
 
+    public function test_provider_refresh_runs_without_a_transaction_and_cannot_overwrite_a_reconnect(): void
+    {
+        $user = User::factory()->create();
+        $connection = $this->connection($user);
+        $transactionLevel = DB::transactionLevel();
+        $this->google->grant = new GoogleCalendarTokenGrant('stale-grant', 3600, 'stale-refresh');
+        $this->google->onRefresh = function () use ($connection, $transactionLevel): void {
+            $this->assertSame($transactionLevel, DB::transactionLevel());
+            $connection->forceFill([
+                'provider_account_id' => 'replacement-account',
+                'access_token' => 'replacement-access',
+                'refresh_token' => 'replacement-refresh',
+                'token_expires_at' => now()->addHour(),
+            ])->save();
+        };
+
+        $this->assertSame('replacement-access', $this->action()->handle($user->id));
+        $this->assertSame(
+            [
+                'provider_account_id' => 'replacement-account',
+                'access_token' => 'replacement-access',
+                'refresh_token' => 'replacement-refresh',
+            ],
+            $connection->fresh()->only(['provider_account_id', 'access_token', 'refresh_token']),
+        );
+    }
+
     private function action(): GetGoogleCalendarAccessTokenAction
     {
         return app(GetGoogleCalendarAccessTokenAction::class);
@@ -92,9 +120,12 @@ final class FakeCalendarTransport implements GoogleCalendarReadTransport
 
     public ?GoogleCalendarTokenGrant $grant = null;
 
+    public ?\Closure $onRefresh = null;
+
     public function refresh(string $refreshToken): GoogleCalendarTokenGrant
     {
         $this->calls++;
+        ($this->onRefresh ?? static fn () => null)();
 
         return $this->grant ?? new GoogleCalendarTokenGrant('new-access', 3600, null);
     }

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\Study;
 
-use App\Domain\Calendar\Actions\PreviewGoogleCalendarEventsAction;
 use App\Domain\Calendar\Exceptions\GoogleCalendarProviderException;
 use App\Domain\Calendar\Exceptions\GoogleCalendarSelectionException;
+use App\Domain\Study\Actions\PreviewGoogleCalendarEventsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\PreviewGoogleCalendarRequest;
 use App\Http\Support\AuthenticatedUser;

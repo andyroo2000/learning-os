@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Domain\Calendar\Support;
+namespace App\Domain\Study\Support;
 
 use App\Domain\Calendar\Data\GoogleCalendarEvent;
-use App\Domain\Study\Support\StudyActivitySourceKey;
 use InvalidArgumentException;
 
 final class GoogleCalendarEventIdentity

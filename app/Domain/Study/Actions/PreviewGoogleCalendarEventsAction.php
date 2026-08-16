@@ -1,17 +1,19 @@
 <?php
 
-namespace App\Domain\Calendar\Actions;
+namespace App\Domain\Study\Actions;
 
+use App\Domain\Calendar\Actions\GetGoogleCalendarAccessTokenAction;
+use App\Domain\Calendar\Actions\ListReadableGoogleCalendarsAction;
 use App\Domain\Calendar\Contracts\GoogleCalendarReadTransport;
 use App\Domain\Calendar\Data\GoogleCalendarEvent;
 use App\Domain\Calendar\Data\GoogleCalendarEventQuery;
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Exceptions\GoogleCalendarSelectionException;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
-use App\Domain\Calendar\Support\GoogleCalendarEventIdentity;
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Models\StudyActivitySession;
+use App\Domain\Study\Support\GoogleCalendarEventIdentity;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Throwable;

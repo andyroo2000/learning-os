@@ -527,7 +527,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        DB::table('google_calendar_connections')->insert([
+        $calendarConnectionId = DB::table('google_calendar_connections')->insertGetId([
             'user_id' => $existingUser->id,
             'provider_account_id' => 'reset-boundary-account',
             'account_email' => $existingUser->email,
@@ -535,6 +535,17 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'scopes' => json_encode(['calendar.readonly'], JSON_THROW_ON_ERROR),
             'settings' => json_encode([], JSON_THROW_ON_ERROR),
             'connected_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('google_calendar_event_mirrors')->insert([
+            'google_calendar_connection_id' => $calendarConnectionId,
+            'source_key' => hash('sha256', 'reset-boundary-calendar-event'),
+            'calendar_id' => 'primary',
+            'provider_event_id' => 'reset-boundary-event',
+            'status' => 'confirmed',
+            'all_day' => false,
+            'observed_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -603,6 +614,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
         $this->assertDatabaseCount('wanikani_connections', 0);
+        $this->assertDatabaseCount('google_calendar_event_mirrors', 0);
         $this->assertDatabaseCount('google_calendar_connections', 0);
         $this->assertDatabaseCount('google_calendar_connect_intents', 0);
         $this->assertDatabaseCount('user_known_kanji', 0);

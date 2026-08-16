@@ -34,6 +34,10 @@ final class ConnectGoogleCalendarAction
                     throw new GoogleCalendarOAuthException('missing_refresh_token');
                 }
 
+                if ($connection !== null && ! $sameAccount) {
+                    $connection->eventMirrors()->delete();
+                }
+
                 $connection ??= new GoogleCalendarConnection;
                 $connection->forceFill([
                     'user_id' => $userId,

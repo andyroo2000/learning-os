@@ -40,6 +40,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
                 'settings' => null,
                 'connectedAt' => null,
                 'lastSyncedAt' => null,
+                'sync' => null,
             ]);
 
         $this->assertDatabaseCount('google_calendar_connections', 0);
@@ -50,6 +51,9 @@ class GoogleCalendarConnectionApiTest extends TestCase
         $user = User::factory()->create();
         $connection = $this->connection($user, [
             'last_synced_at' => Carbon::parse('2026-08-15T14:11:12.123456Z'),
+            'sync_status' => 'failed',
+            'sync_error_code' => 'provider_unavailable',
+            'sync_status_at' => Carbon::parse('2026-08-15T14:12:13.123456Z'),
         ]);
 
         $this->actingAs($user)->getJson('/api/study/google-calendar')
@@ -60,6 +64,11 @@ class GoogleCalendarConnectionApiTest extends TestCase
                 'settings' => ['calendarIds' => ['primary'], 'titleMatchTerms' => ['iTalki'], 'syncEnabled' => true],
                 'connectedAt' => '2026-08-15T14:00:00Z',
                 'lastSyncedAt' => '2026-08-15T14:11:12Z',
+                'sync' => [
+                    'status' => 'failed',
+                    'errorCode' => 'provider_unavailable',
+                    'statusAt' => '2026-08-15T14:12:13Z',
+                ],
             ]);
 
         $raw = DB::table('google_calendar_connections')->where('id', $connection->id)->first();

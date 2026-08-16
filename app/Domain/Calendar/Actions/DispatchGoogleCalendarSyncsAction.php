@@ -23,7 +23,6 @@ final class DispatchGoogleCalendarSyncsAction
             });
     }
 
-    /** The future manual-sync endpoint calls this with $requireEnabled=false. */
     public function connection(int $connectionId, bool $requireEnabled = true): bool
     {
         $run = null;

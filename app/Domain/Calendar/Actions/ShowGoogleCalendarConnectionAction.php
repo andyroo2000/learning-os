@@ -7,7 +7,7 @@ use App\Domain\Calendar\Models\GoogleCalendarConnection;
 
 final class ShowGoogleCalendarConnectionAction
 {
-    /** @return array{connected: bool, accountEmail: ?string, scopes: list<string>, settings: ?array, connectedAt: ?string, lastSyncedAt: ?string} */
+    /** @return array{connected: bool, accountEmail: ?string, scopes: list<string>, settings: ?array, connectedAt: ?string, lastSyncedAt: ?string, sync: ?array{status:string,errorCode:?string,statusAt:?string}} */
     public function handle(int $userId): array
     {
         $connection = GoogleCalendarConnection::query()
@@ -22,9 +22,16 @@ final class ShowGoogleCalendarConnectionAction
                 'settings' => null,
                 'connectedAt' => null,
                 'lastSyncedAt' => null,
+                'sync' => null,
             ];
         }
 
+        return $this->connection($connection);
+    }
+
+    /** @return array{connected: true, accountEmail: ?string, scopes: list<string>, settings: ?array, connectedAt: ?string, lastSyncedAt: ?string, sync: array{status:string,errorCode:?string,statusAt:?string}} */
+    public function connection(GoogleCalendarConnection $connection): array
+    {
         return [
             'connected' => true,
             'accountEmail' => $connection->account_email,
@@ -32,6 +39,11 @@ final class ShowGoogleCalendarConnectionAction
             'settings' => GoogleCalendarSettings::fromStored($connection->settings)?->toArray(),
             'connectedAt' => $connection->connected_at?->utc()->toIso8601ZuluString(),
             'lastSyncedAt' => $connection->last_synced_at?->utc()->toIso8601ZuluString(),
+            'sync' => [
+                'status' => $connection->sync_status->value,
+                'errorCode' => $connection->sync_error_code?->value,
+                'statusAt' => $connection->sync_status_at?->utc()->toIso8601ZuluString(),
+            ],
         ];
     }
 }

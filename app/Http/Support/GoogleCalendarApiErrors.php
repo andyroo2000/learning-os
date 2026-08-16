@@ -2,12 +2,23 @@
 
 namespace App\Http\Support;
 
+use App\Domain\Calendar\Exceptions\GoogleCalendarManualSyncException;
 use App\Domain\Calendar\Exceptions\GoogleCalendarProviderException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 
 final class GoogleCalendarApiErrors
 {
+    public static function manualSync(GoogleCalendarManualSyncException $exception): JsonResponse
+    {
+        [$status, $code, $message] = match ($exception->reason()) {
+            GoogleCalendarManualSyncException::SETTINGS_REQUIRED => [422, GoogleCalendarManualSyncException::SETTINGS_REQUIRED, 'Choose Google Calendar sync settings before syncing.'],
+            default => [503, GoogleCalendarManualSyncException::SYNC_UNAVAILABLE, 'Google Calendar sync is temporarily unavailable.'],
+        };
+
+        return response()->json(['error' => ['code' => $code, 'message' => $message]], $status);
+    }
+
     public static function response(ModelNotFoundException|GoogleCalendarProviderException $exception): JsonResponse
     {
         $reason = $exception instanceof ModelNotFoundException ? 'not_connected' : $exception->reason();

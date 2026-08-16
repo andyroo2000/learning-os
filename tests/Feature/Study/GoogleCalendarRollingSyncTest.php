@@ -23,6 +23,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schedule;
 use Tests\TestCase;
@@ -88,6 +89,20 @@ class GoogleCalendarRollingSyncTest extends TestCase
         $this->job($run)->handle(app(SyncGoogleCalendarEventMirrorsAction::class), app(ReconcileGoogleCalendarStudyEventsAction::class));
         $this->assertSame([['work', null, 'cursor-1']], $this->google->calls);
         $this->assertSame($user->id, $connection->user_id);
+    }
+
+    public function test_queue_backend_failure_marks_the_committed_run_failed(): void
+    {
+        Exceptions::fake();
+        config(['queue.default' => 'missing-calendar-test-driver']);
+        $connection = $this->connection(User::factory()->create());
+
+        $this->assertTrue(app(DispatchGoogleCalendarSyncsAction::class)->connection($connection->id));
+
+        $fresh = $connection->fresh();
+        $this->assertSame(GoogleCalendarSyncStatus::Failed, $fresh->sync_status);
+        $this->assertSame(GoogleCalendarSyncErrorCode::SyncFailed, $fresh->sync_error_code);
+        Exceptions::assertReported(fn (\InvalidArgumentException $e): bool => str_contains($e->getMessage(), 'missing-calendar-test-driver'));
     }
 
     public function test_manual_run_can_sync_while_disabled_but_automatic_and_stale_jobs_cannot(): void

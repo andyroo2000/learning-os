@@ -23,7 +23,8 @@ final class SyncGoogleCalendarEventMirrorsAction
 
     private const MAX_TOTAL_PAGES = 100;
 
-    private const MAX_ITEMS_PER_CALENDAR = 5000;
+    // 4,000 rows x 15 columns stays below PostgreSQL's 65,535 bind limit.
+    private const MAX_ITEMS_PER_CALENDAR = 4000;
 
     private const MAX_TOTAL_ITEMS = 10_000;
 
@@ -38,13 +39,13 @@ final class SyncGoogleCalendarEventMirrorsAction
 
     public function handle(int $userId, GoogleCalendarConnection $connection, CarbonImmutable $initialTimeMin): bool
     {
-        $beforeToken = $this->snapshot($userId, (int) $connection->getKey());
-        if ($beforeToken === null) {
+        $before = $this->snapshot($userId, (int) $connection->getKey());
+        if ($before === null) {
             return true;
         }
         $token = $this->accessToken->handle($userId);
         $snapshot = $this->snapshot($userId, (int) $connection->getKey());
-        if ($snapshot === null || $snapshot['account'] !== $beforeToken['account']) {
+        if ($snapshot === null || $snapshot['account'] !== $before['account']) {
             return false;
         }
 

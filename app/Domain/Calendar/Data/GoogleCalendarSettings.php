@@ -42,13 +42,16 @@ final readonly class GoogleCalendarSettings
     /** Later imports match a conversation when any configured term is a Unicode case-insensitive substring. */
     public function matchesTitle(string $title): bool
     {
-        foreach ($this->titleMatchTerms as $term) {
-            if (mb_stripos($title, $term, 0, 'UTF-8') !== false) {
-                return true;
-            }
-        }
+        return $this->matchedTerms($title) !== [];
+    }
 
-        return false;
+    /** @return list<string> */
+    public function matchedTerms(string $title): array
+    {
+        return array_values(array_filter(
+            $this->titleMatchTerms,
+            static fn (string $term): bool => mb_stripos($title, $term, 0, 'UTF-8') !== false,
+        ));
     }
 
     private static function strings(array $values, int $maximum, int $length, bool $fold): array

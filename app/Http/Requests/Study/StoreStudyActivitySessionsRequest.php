@@ -14,7 +14,7 @@ use Illuminate\Validation\Validator;
 
 class StoreStudyActivitySessionsRequest extends FormRequest
 {
-    public const MAX_DURATION_MS = 86_400_000;
+    public const MAX_DURATION_MS = StudyActivitySessionData::MAX_DURATION_MS;
 
     private const ISO_8601_TIMESTAMP = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/';
 

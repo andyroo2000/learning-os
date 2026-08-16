@@ -33,6 +33,11 @@ class GoogleCalendarRouteContractTest extends TestCase
                 'middleware' => ['api', 'auth:sanctum', 'throttle:study-compatibility-network', 'throttle:study-compatibility-read', 'throttle:google-calendar-provider-read'],
             ],
             [
+                'methods' => 'POST',
+                'action' => 'PreviewGoogleCalendarController',
+                'middleware' => ['api', 'auth:sanctum', 'throttle:study-compatibility-network', 'throttle:study-compatibility-read', 'throttle:google-calendar-provider-read'],
+            ],
+            [
                 'methods' => 'PUT',
                 'action' => 'UpdateGoogleCalendarSettingsController',
                 'middleware' => ['api', 'auth:sanctum', 'throttle:study-compatibility-network', 'throttle:google-calendar-connection-write'],

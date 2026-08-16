@@ -12,6 +12,8 @@ use Carbon\CarbonImmutable;
 
 final readonly class StudyActivitySessionData
 {
+    public const MAX_DURATION_MS = 86_400_000;
+
     public function __construct(
         public string $clientSessionId,
         public StudyActivityCategory $category,

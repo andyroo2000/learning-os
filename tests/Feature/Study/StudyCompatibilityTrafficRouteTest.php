@@ -43,6 +43,7 @@ class StudyCompatibilityTrafficRouteTest extends TestCase
         ];
         $postReadRoutes = [
             'api/study/cards/batch',
+            'api/study/google-calendar/preview',
         ];
 
         foreach ($this->compatibilityRoutes() as $route) {

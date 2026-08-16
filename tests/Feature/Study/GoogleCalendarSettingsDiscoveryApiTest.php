@@ -75,9 +75,11 @@ class GoogleCalendarSettingsDiscoveryApiTest extends TestCase
             'long id' => [['calendarIds' => [str_repeat('a', 1025)]], 'calendarIds.0'],
             'blank id' => [['calendarIds' => ['  ']], 'calendarIds.0'],
             'non string id' => [['calendarIds' => [4]], 'calendarIds.0'],
+            'object ids' => [['calendarIds' => ['named' => 'id']], 'calendarIds'],
             'empty terms' => [['titleMatchTerms' => []], 'titleMatchTerms'],
             'many terms' => [['titleMatchTerms' => array_fill(0, 51, 'term')], 'titleMatchTerms'],
             'long unicode term' => [['titleMatchTerms' => [str_repeat('会', 101)]], 'titleMatchTerms.0'],
+            'object terms' => [['titleMatchTerms' => ['named' => 'term']], 'titleMatchTerms'],
             'missing boolean' => [['syncEnabled' => null], 'syncEnabled'],
             'integer boolean' => [['syncEnabled' => 1], 'syncEnabled'],
         ];

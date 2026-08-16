@@ -105,6 +105,9 @@ class UpsertStudyActivitySessionsAction
             $rows = $resolved
                 ->reject(fn (array $item): bool => (
                     $item['existing']?->source === StudyActivitySource::Automatic
+                    || ($item['existing'] !== null
+                        && $item['session']->source === StudyActivitySource::Calendar
+                        && $item['existing']->source !== StudyActivitySource::Calendar)
                 ))
                 ->map(function (array $item) use ($now, $userId): array {
                     /** @var StudyActivitySessionData $session */

@@ -10,13 +10,10 @@ use App\Domain\Calendar\Data\GoogleCalendarEventQuery;
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Exceptions\GoogleCalendarSelectionException;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
-use App\Domain\Study\Data\StudyActivitySessionData;
+use App\Domain\Study\Data\GoogleCalendarStudyEvent;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Models\StudyActivitySession;
-use App\Domain\Study\Support\GoogleCalendarEventIdentity;
 use Carbon\CarbonImmutable;
-use DateTimeImmutable;
-use Throwable;
 
 final class PreviewGoogleCalendarEventsAction
 {
@@ -31,8 +28,6 @@ final class PreviewGoogleCalendarEventsAction
     private const MAX_SCANNED_EVENTS = 2000;
 
     private const MAX_MATCHES = 200;
-
-    private const TIMESTAMP = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/';
 
     public function __construct(
         private ListReadableGoogleCalendarsAction $listCalendars,
@@ -81,9 +76,15 @@ final class PreviewGoogleCalendarEventsAction
                     }
                     $scanned++;
                     if ($event instanceof GoogleCalendarEvent) {
-                        $match = $this->match($event, $settings, $connection->provider_account_id, $calendarId, $available[$calendarId]['name'], $generatedAt);
-                        if ($match !== null) {
-                            $matches[] = $match;
+                        $event = GoogleCalendarStudyEvent::fromProvider(
+                            $event, $settings, $connection->provider_account_id, $calendarId, $generatedAt,
+                        );
+                        if ($event !== null) {
+                            $matches[] = [
+                                'calendarId' => $calendarId, 'calendarName' => $available[$calendarId]['name'], 'title' => $event->title,
+                                'startsAt' => $event->startsAt->toIso8601ZuluString(), 'endsAt' => $event->endsAt->toIso8601ZuluString(),
+                                'durationMs' => $event->durationMs, 'matchedTerms' => $event->matchedTerms, '_sourceKey' => $event->sourceKey->value,
+                            ];
                         }
                     }
                 }
@@ -120,47 +121,5 @@ final class PreviewGoogleCalendarEventsAction
             'endsAt' => $generatedAt->toIso8601ZuluString(), 'scannedEventCount' => $scanned,
             'matchedEventCount' => $matchedCount, 'truncated' => $truncated, 'matches' => $matches,
         ];
-    }
-
-    /** @return array<string, mixed>|null */
-    private function match(GoogleCalendarEvent $event, GoogleCalendarSettings $settings, string $accountId, string $calendarId, string $calendarName, CarbonImmutable $now): ?array
-    {
-        $title = GoogleCalendarSettings::trimInput($event->summary, 4096);
-        if ($event->status !== 'confirmed' || ! is_string($title) || $title === '' || mb_strlen($title, 'UTF-8') > 4096) {
-            return null;
-        }
-        $terms = $settings->matchedTerms($title);
-        $start = $this->timestamp($event->start?->dateTime);
-        $end = $this->timestamp($event->end?->dateTime);
-        $key = GoogleCalendarEventIdentity::sourceKey($event, $accountId, $calendarId);
-        if ($terms === [] || $start === null || $end === null || $key === null) {
-            return null;
-        }
-        $duration = $end->getTimestampMs() - $start->getTimestampMs();
-        if ($duration <= 0 || $duration > StudyActivitySessionData::MAX_DURATION_MS || $end->isAfter($now)) {
-            return null;
-        }
-
-        return [
-            'calendarId' => $calendarId, 'calendarName' => $calendarName, 'title' => $title,
-            'startsAt' => $start->utc()->toIso8601ZuluString(), 'endsAt' => $end->utc()->toIso8601ZuluString(),
-            'durationMs' => $duration, 'matchedTerms' => $terms, '_sourceKey' => $key->value,
-        ];
-    }
-
-    private function timestamp(?string $value): ?CarbonImmutable
-    {
-        if ($value === null || preg_match(self::TIMESTAMP, $value) !== 1) {
-            return null;
-        }
-        try {
-            $timestamp = new DateTimeImmutable($value);
-            $errors = DateTimeImmutable::getLastErrors();
-
-            return is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)
-                ? null : CarbonImmutable::instance($timestamp);
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

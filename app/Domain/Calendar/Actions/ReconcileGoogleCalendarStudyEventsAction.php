@@ -1,0 +1,89 @@
+<?php
+
+namespace App\Domain\Calendar\Actions;
+
+use App\Domain\Calendar\Data\GoogleCalendarSettings;
+use App\Domain\Calendar\Models\GoogleCalendarConnection;
+use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
+use App\Domain\Study\Data\GoogleCalendarStudyEvent;
+use App\Domain\Study\Data\StudyActivitySessionData;
+use App\Domain\Study\Enums\StudyActivityCategory;
+use App\Domain\Study\Enums\StudyActivityKind;
+use App\Domain\Study\Enums\StudyActivityOrigin;
+use App\Domain\Study\Enums\StudyActivitySource;
+use App\Domain\Study\Models\StudyActivitySession;
+use App\Models\User;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+
+final class ReconcileGoogleCalendarStudyEventsAction
+{
+    private const CHUNK_SIZE = 250;
+
+    public function __construct(private UpsertStudyActivitySessionsAction $upsert) {}
+
+    /** @return array{upserted:int,deleted:int} */
+    public function handle(int $userId, GoogleCalendarConnection $connection): array
+    {
+        return DB::transaction(function () use ($userId, $connection): array {
+            User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+            $locked = GoogleCalendarConnection::query()
+                ->whereKey($connection->getKey())
+                ->where('user_id', $userId)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $settings = GoogleCalendarSettings::fromStored($locked->settings);
+            if ($settings === null || ! $settings->syncEnabled) {
+                return ['upserted' => 0, 'deleted' => 0];
+            }
+
+            $result = ['upserted' => 0, 'deleted' => 0];
+            $now = CarbonImmutable::instance(now())->utc();
+            $locked->eventMirrors()
+                ->whereIn('calendar_id', $settings->calendarIds)
+                ->orderBy('id')
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result): void {
+                    $sessions = [];
+                    $deleteKeys = [];
+                    foreach ($mirrors as $mirror) {
+                        $event = GoogleCalendarStudyEvent::fromMirror($mirror, $settings, $now);
+                        if ($event === null) {
+                            $deleteKeys[] = $mirror->source_key;
+
+                            continue;
+                        }
+                        $sessions[] = new StudyActivitySessionData(
+                            clientSessionId: 'google-calendar:'.substr($event->sourceKey->value, 0, 48),
+                            category: StudyActivityCategory::Conversation,
+                            activity: StudyActivityKind::Conversation,
+                            source: StudyActivitySource::Calendar,
+                            name: $event->ledgerName(),
+                            startedAt: $event->startsAt,
+                            endedAt: $event->endsAt,
+                            durationMs: $event->durationMs,
+                            audioPlaybackMs: null,
+                            cardsCreated: null,
+                            origin: StudyActivityOrigin::GoogleCalendar,
+                            sourceKey: $event->sourceKey,
+                        );
+                    }
+                    if ($sessions !== []) {
+                        $result['upserted'] += $this->upsert->handle($userId, $sessions)
+                            ->where('source', StudyActivitySource::Calendar)
+                            ->count();
+                    }
+                    if ($deleteKeys !== []) {
+                        $result['deleted'] += StudyActivitySession::query()
+                            ->where('user_id', $userId)
+                            ->where('origin', StudyActivityOrigin::GoogleCalendar)
+                            ->where('source', StudyActivitySource::Calendar)
+                            ->whereIn('source_key', $deleteKeys)
+                            ->delete();
+                    }
+                });
+
+            return $result;
+        });
+    }
+}

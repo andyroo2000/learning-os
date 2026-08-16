@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -118,13 +119,14 @@ class GoogleCalendarManualSyncApiTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_stale_active_run_is_replaced_and_redispatched(): void
+    #[DataProvider('staleActiveStatusProvider')]
+    public function test_stale_active_run_is_replaced_and_redispatched(GoogleCalendarSyncStatus $status): void
     {
         Queue::fake();
         $user = User::factory()->create();
         $oldRunId = '01K2XJ9E9G0000000000000009';
         $connection = $this->connection($user, [
-            'sync_status' => GoogleCalendarSyncStatus::Running,
+            'sync_status' => $status,
             'sync_run_id' => $oldRunId,
             'sync_status_at' => now()->subSeconds(GoogleCalendarSyncRun::STALE_AFTER_SECONDS + 1),
         ]);
@@ -137,6 +139,15 @@ class GoogleCalendarManualSyncApiTest extends TestCase
         $fresh = $connection->fresh();
         $this->assertNotSame($oldRunId, $fresh->sync_run_id);
         Queue::assertPushed(SyncGoogleCalendarConnection::class, fn ($job): bool => $job->runId === $fresh->sync_run_id);
+    }
+
+    /** @return array<string, array{GoogleCalendarSyncStatus}> */
+    public static function staleActiveStatusProvider(): array
+    {
+        return [
+            'queued' => [GoogleCalendarSyncStatus::Queued],
+            'running' => [GoogleCalendarSyncStatus::Running],
+        ];
     }
 
     public function test_queue_dispatch_failure_is_redacted_and_records_a_safe_failure(): void

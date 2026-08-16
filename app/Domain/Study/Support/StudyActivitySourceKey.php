@@ -12,6 +12,11 @@ final readonly class StudyActivitySourceKey
 
     private function __construct(public string $value) {}
 
+    public static function tryFromCanonical(string $value): ?self
+    {
+        return preg_match('/^[a-f0-9]{64}$/D', $value) === 1 ? new self($value) : null;
+    }
+
     public static function forGoogleCalendar(
         string $providerAccountId,
         string $calendarId,

@@ -45,6 +45,15 @@ class StudyActivitySourceKeyTest extends TestCase
         $this->assertSame(StudyActivitySourceKey::HASH_LENGTH, strlen($key->value));
     }
 
+    public function test_it_only_restores_canonical_source_keys(): void
+    {
+        $value = str_repeat('a', StudyActivitySourceKey::HASH_LENGTH);
+
+        $this->assertSame($value, StudyActivitySourceKey::tryFromCanonical($value)?->value);
+        $this->assertNull(StudyActivitySourceKey::tryFromCanonical(strtoupper($value)));
+        $this->assertNull(StudyActivitySourceKey::tryFromCanonical(substr($value, 1)));
+    }
+
     /** @return array<string, array{string, string, string, string}> */
     public static function invalidComponentProvider(): array
     {

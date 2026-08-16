@@ -154,6 +154,7 @@ jobs:
             tests/Feature/Media/MediaAssetDeletionLockPostgresTest.php \
             tests/Feature/Reviews/CardReviewCardLockPostgresTest.php \
             tests/Feature/Study/GoogleCalendarConnectIntentLockPostgresTest.php \
+            tests/Feature/Study/GoogleCalendarStudyEventReconciliationLockPostgresTest.php \
             tests/Feature/Study/ManualStudyCardOwnerLockPostgresTest.php \
             tests/Feature/Study/RepairLegacyStudyMediaReferencesLockPostgresTest.php \
             tests/Feature/Study/StudyActivitySessionLockPostgresTest.php \

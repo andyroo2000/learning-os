@@ -5,6 +5,7 @@ namespace App\Domain\Calendar\Actions;
 use App\Domain\Calendar\Data\GoogleCalendarOAuthGrant;
 use App\Domain\Calendar\Exceptions\GoogleCalendarOAuthException;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
+use App\Domain\Calendar\Support\GoogleCalendarSyncRun;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -51,6 +52,7 @@ final class ConnectGoogleCalendarAction
                     'sync_cursors' => $sameAccount ? $connection->sync_cursors : null,
                     'connected_at' => now(),
                     'last_synced_at' => $sameAccount ? $connection->last_synced_at : null,
+                    ...GoogleCalendarSyncRun::resetAttributes(),
                 ])->save();
             }, 3);
         } catch (UniqueConstraintViolationException $exception) {

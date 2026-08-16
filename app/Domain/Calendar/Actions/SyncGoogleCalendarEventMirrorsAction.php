@@ -37,14 +37,20 @@ final class SyncGoogleCalendarEventMirrorsAction
         private GoogleCalendarReadTransport $google,
     ) {}
 
-    public function handle(int $userId, GoogleCalendarConnection $connection, CarbonImmutable $initialTimeMin): bool
-    {
-        $before = $this->snapshot($userId, (int) $connection->getKey());
+    public function handle(
+        int $userId,
+        GoogleCalendarConnection $connection,
+        CarbonImmutable $initialTimeMin,
+        bool $allowDisabled = false,
+        bool $publishLastSynced = true,
+        ?string $expectedRunId = null,
+    ): bool {
+        $before = $this->snapshot($userId, (int) $connection->getKey(), $allowDisabled, $expectedRunId);
         if ($before === null) {
             return true;
         }
         $token = $this->accessToken->handle($userId);
-        $snapshot = $this->snapshot($userId, (int) $connection->getKey());
+        $snapshot = $this->snapshot($userId, (int) $connection->getKey(), $allowDisabled, $expectedRunId);
         if ($snapshot === null || $snapshot['account'] !== $before['account']) {
             return false;
         }
@@ -73,7 +79,7 @@ final class SyncGoogleCalendarEventMirrorsAction
             }
 
             if (! $this->commitCalendar($snapshot, $calendarId, $cursor, $rows, $nextCursor,
-                $index === array_key_last($snapshot['settings']->calendarIds))) {
+                $publishLastSynced && $index === array_key_last($snapshot['settings']->calendarIds))) {
                 return false;
             }
         }
@@ -81,15 +87,16 @@ final class SyncGoogleCalendarEventMirrorsAction
         return true;
     }
 
-    /** @return array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>}|null */
-    private function snapshot(int $userId, int $connectionId): ?array
+    /** @return array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string}|null */
+    private function snapshot(int $userId, int $connectionId, bool $allowDisabled, ?string $expectedRunId): ?array
     {
         $connection = GoogleCalendarConnection::query()
             ->whereKey($connectionId)
             ->where('user_id', $userId)
             ->firstOrFail();
         $settings = GoogleCalendarSettings::fromStored($connection->settings);
-        if ($settings === null || ! $settings->syncEnabled) {
+        if ($settings === null || (! $allowDisabled && ! $settings->syncEnabled)
+            || ($expectedRunId !== null && $connection->sync_run_id !== $expectedRunId)) {
             return null;
         }
 
@@ -99,6 +106,7 @@ final class SyncGoogleCalendarEventMirrorsAction
             'account' => $connection->provider_account_id,
             'settings' => $settings,
             'cursors' => $this->cursors($connection->sync_cursors),
+            'run' => $expectedRunId,
         ];
     }
 
@@ -237,7 +245,7 @@ final class SyncGoogleCalendarEventMirrorsAction
         }
     }
 
-    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>} $snapshot @param list<array<string,mixed>> $rows */
+    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string} $snapshot @param list<array<string,mixed>> $rows */
     private function commitCalendar(array $snapshot, string $calendarId, ?string $expectedCursor, array $rows, string $nextCursor, bool $last): bool
     {
         return DB::transaction(function () use ($snapshot, $calendarId, $expectedCursor, $rows, $nextCursor, $last): bool {
@@ -267,7 +275,7 @@ final class SyncGoogleCalendarEventMirrorsAction
         });
     }
 
-    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>} $snapshot */
+    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string} $snapshot */
     private function resetExpiredCalendar(array $snapshot, string $calendarId, string $expectedCursor): bool
     {
         return DB::transaction(function () use ($snapshot, $calendarId, $expectedCursor): bool {
@@ -288,13 +296,14 @@ final class SyncGoogleCalendarEventMirrorsAction
         });
     }
 
-    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>} $snapshot */
+    /** @param array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string} $snapshot */
     private function matches(?GoogleCalendarConnection $connection, array $snapshot, string $calendarId, ?string $expectedCursor): bool
     {
         $settings = $connection === null ? null : GoogleCalendarSettings::fromStored($connection->settings);
         $cursors = $connection === null ? [] : $this->cursors($connection->sync_cursors);
 
         return $connection !== null && $connection->provider_account_id === $snapshot['account']
+            && ($snapshot['run'] === null || $connection->sync_run_id === $snapshot['run'])
             && $settings?->toArray() === $snapshot['settings']->toArray()
             && in_array($calendarId, $settings->calendarIds, true)
             && ($cursors[$calendarId] ?? null) === $expectedCursor;

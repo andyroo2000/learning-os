@@ -24,17 +24,20 @@ final class ReconcileGoogleCalendarStudyEventsAction
     public function __construct(private UpsertStudyActivitySessionsAction $upsert) {}
 
     /** @return array{upserted:int,deleted:int} */
-    public function handle(int $userId, GoogleCalendarConnection $connection): array
+    public function handle(int $userId, GoogleCalendarConnection $connection, ?string $syncRunId = null, bool $allowDisabled = false): array
     {
-        return DB::transaction(function () use ($userId, $connection): array {
+        return DB::transaction(function () use ($userId, $connection, $syncRunId, $allowDisabled): array {
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $locked = GoogleCalendarConnection::query()
                 ->whereKey($connection->getKey())
                 ->where('user_id', $userId)
                 ->lockForUpdate()
                 ->firstOrFail();
+            if ($syncRunId !== null && $locked->sync_run_id !== $syncRunId) {
+                return ['upserted' => 0, 'deleted' => 0];
+            }
             $settings = GoogleCalendarSettings::fromStored($locked->settings);
-            if ($settings === null || ! $settings->syncEnabled) {
+            if ($settings === null || (! $allowDisabled && ! $settings->syncEnabled)) {
                 return ['upserted' => 0, 'deleted' => 0];
             }
 

@@ -15,6 +15,7 @@ use App\Domain\Study\Models\StudyActivitySession;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 final class ReconcileGoogleCalendarStudyEventsAction
@@ -30,9 +31,14 @@ final class ReconcileGoogleCalendarStudyEventsAction
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $locked = GoogleCalendarConnection::query()
                 ->whereKey($connection->getKey())
-                ->where('user_id', $userId)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+            if ($locked === null) {
+                return ['upserted' => 0, 'deleted' => 0];
+            }
+            if ((int) $locked->user_id !== $userId) {
+                throw (new ModelNotFoundException)->setModel(GoogleCalendarConnection::class);
+            }
             if ($syncRunId !== null && $locked->sync_run_id !== $syncRunId) {
                 return ['upserted' => 0, 'deleted' => 0];
             }

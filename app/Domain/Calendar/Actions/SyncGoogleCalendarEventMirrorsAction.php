@@ -12,6 +12,7 @@ use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
 use App\Domain\Study\Support\GoogleCalendarEventIdentity;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -92,8 +93,13 @@ final class SyncGoogleCalendarEventMirrorsAction
     {
         $connection = GoogleCalendarConnection::query()
             ->whereKey($connectionId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+            ->first();
+        if ($connection === null) {
+            return null;
+        }
+        if ((int) $connection->user_id !== $userId) {
+            throw (new ModelNotFoundException)->setModel(GoogleCalendarConnection::class);
+        }
         $settings = GoogleCalendarSettings::fromStored($connection->settings);
         if ($settings === null || (! $allowDisabled && ! $settings->syncEnabled)
             || ($expectedRunId !== null && $connection->sync_run_id !== $expectedRunId)) {

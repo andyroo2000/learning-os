@@ -70,6 +70,10 @@ class GoogleCalendarRollingSyncTest extends TestCase
         $event = collect(Schedule::events())->first(fn ($event): bool => $event->description === 'calendar:sync-connections');
         $this->assertNotNull($event);
         $this->assertSame('*/15 * * * *', $event->expression);
+
+        $enabled->forceFill(['sync_status' => GoogleCalendarSyncStatus::Running,
+            'sync_status_at' => now()->subSeconds(GoogleCalendarSyncRun::STALE_AFTER_SECONDS + 1)])->save();
+        $this->assertNotNull(GoogleCalendarSyncRun::queue($enabled->id, '01K2XJ9E9G0000000000000009'));
     }
 
     public function test_job_runs_initial_then_rolling_sync_and_reconciliation_pipeline(): void
@@ -140,6 +144,12 @@ class GoogleCalendarRollingSyncTest extends TestCase
         $this->assertNull($fresh->sync_cursors);
         $this->assertSame('01K2XJ9E9G0000000000000008', $fresh->sync_run_id);
         $this->assertSame(GoogleCalendarSyncStatus::Queued, $fresh->sync_status);
+
+        $other = $this->connection(User::factory()->create(), ['provider_account_id' => 'disconnect-race']);
+        $run = GoogleCalendarSyncRun::queue($other->id, '01K2XJ9E9G000000000000000A');
+        $this->google->beforeResponse = fn () => app(DisconnectGoogleCalendarAction::class)->handle($other->user_id);
+        $this->job($run)->handle(app(SyncGoogleCalendarEventMirrorsAction::class), app(ReconcileGoogleCalendarStudyEventsAction::class));
+        $this->assertDatabaseMissing('google_calendar_connections', ['id' => $other->id]);
     }
 
     public function test_failure_is_safe_and_disconnected_job_is_a_no_op(): void

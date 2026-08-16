@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Calendar\Actions\DispatchGoogleCalendarSyncsAction;
 use App\Domain\Calendar\Actions\PruneExpiredGoogleCalendarConnectIntentsAction;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -19,6 +20,12 @@ Schedule::call(fn () => app(PruneExpiredGoogleCalendarConnectIntentsAction::clas
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping(60);
+
+Schedule::call(fn () => app(DispatchGoogleCalendarSyncsAction::class)->handle())
+    ->name('calendar:sync-connections')
+    ->everyFifteenMinutes()
+    ->onOneServer()
+    ->withoutOverlapping(15);
 
 Schedule::command('content:recover-generation-requests')
     ->everyMinute()

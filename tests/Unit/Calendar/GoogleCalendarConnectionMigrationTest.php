@@ -52,6 +52,28 @@ class GoogleCalendarConnectionMigrationTest extends TestCase
     }
 
     #[DataProvider('grammarProvider')]
+    public function test_sync_state_change_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+        $up = (new Blueprint($connection, 'google_calendar_connections', function (Blueprint $table): void {
+            $table->string('sync_status', 16)->default('idle');
+            $table->char('sync_run_id', 26)->nullable();
+            $table->string('sync_error_code', 32)->nullable();
+            $table->timestampTz('sync_status_at', 6)->nullable();
+        }))->toSql();
+        $down = (new Blueprint($connection, 'google_calendar_connections', function (Blueprint $table): void {
+            $table->dropColumn(['sync_status', 'sync_run_id', 'sync_error_code', 'sync_status_at']);
+        }))->toSql();
+
+        $this->assertStringContainsString('sync_status', strtolower(implode(' ', $up)));
+        $this->assertStringContainsString('sync_run_id', strtolower(implode(' ', $up)));
+        $this->assertStringContainsString('drop', strtolower(implode(' ', $down)));
+    }
+
+    #[DataProvider('grammarProvider')]
     public function test_connect_intent_table_compiles_for_supported_databases(
         string $connectionClass,
         string $grammarClass,

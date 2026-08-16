@@ -4,6 +4,7 @@ namespace App\Domain\Calendar\Actions;
 
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
+use App\Domain\Calendar\Support\GoogleCalendarSyncRun;
 use Illuminate\Support\Facades\DB;
 
 final class UpdateGoogleCalendarSettingsAction
@@ -13,7 +14,8 @@ final class UpdateGoogleCalendarSettingsAction
         return DB::transaction(function () use ($userId, $settings): GoogleCalendarSettings {
             $connection = GoogleCalendarConnection::query()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
             if (GoogleCalendarSettings::fromStored($connection->settings)?->toArray() !== $settings->toArray()) {
-                $connection->forceFill(['settings' => $settings->toArray(), 'sync_cursors' => null, 'last_synced_at' => null])->save();
+                $connection->forceFill(['settings' => $settings->toArray(), 'sync_cursors' => null,
+                    'last_synced_at' => null, ...GoogleCalendarSyncRun::resetAttributes()])->save();
             }
 
             return $settings;

@@ -38,18 +38,17 @@ final class DispatchGoogleCalendarSyncsAction
                             $queued['connection'], $queued['user'], $queued['run'], $requireEnabled,
                         );
                     } catch (Throwable $e) {
-                        GoogleCalendarSyncRun::finish($queued['connection'], $queued['run'],
-                            GoogleCalendarSyncStatus::Failed, GoogleCalendarSyncErrorCode::SyncFailed);
                         report($e);
+                        try {
+                            GoogleCalendarSyncRun::finish($queued['connection'], $queued['run'],
+                                GoogleCalendarSyncStatus::Failed, GoogleCalendarSyncErrorCode::SyncFailed);
+                        } catch (Throwable $failure) {
+                            report($failure);
+                        }
                     }
                 },
             );
         } catch (Throwable $e) {
-            if ($run !== null) {
-                GoogleCalendarSyncRun::finish($run['connection'], $run['run'],
-                    GoogleCalendarSyncStatus::Failed,
-                    GoogleCalendarSyncErrorCode::SyncFailed);
-            }
             report($e);
 
             return false;

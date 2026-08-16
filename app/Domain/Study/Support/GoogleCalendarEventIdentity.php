@@ -11,7 +11,7 @@ final class GoogleCalendarEventIdentity
     {
         try {
             if ($event->recurringEventId !== null) {
-                $instance = $event->originalStartTime?->dateTime;
+                $instance = $event->originalStartTime?->dateTime ?? $event->originalStartTime?->date;
 
                 return $instance === null ? null : StudyActivitySourceKey::forGoogleCalendar($accountId, $calendarId, $event->recurringEventId, $instance);
             }

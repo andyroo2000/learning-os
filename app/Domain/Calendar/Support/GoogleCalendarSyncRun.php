@@ -52,6 +52,35 @@ final class GoogleCalendarSyncRun
         });
     }
 
+    /** @param Closure(array{connection:int,user:int,run:string}):void $afterCommit */
+    public static function queueManual(int $userId, string $runId, Closure $afterCommit): ?GoogleCalendarConnection
+    {
+        return DB::transaction(static function () use ($userId, $runId, $afterCommit): ?GoogleCalendarConnection {
+            $connection = GoogleCalendarConnection::query()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
+            if (GoogleCalendarSettings::fromStored($connection->settings) === null) {
+                return null;
+            }
+            if (in_array($connection->sync_status, [GoogleCalendarSyncStatus::Queued, GoogleCalendarSyncStatus::Running], true)
+                && $connection->sync_status_at?->isAfter(now()->subSeconds(self::STALE_AFTER_SECONDS))) {
+                return $connection;
+            }
+
+            $connection->forceFill([
+                'sync_status' => GoogleCalendarSyncStatus::Queued,
+                'sync_run_id' => $runId,
+                'sync_error_code' => null,
+                'sync_status_at' => now(),
+            ])->save();
+            DB::afterCommit(static fn () => $afterCommit([
+                'connection' => (int) $connection->id,
+                'user' => (int) $connection->user_id,
+                'run' => $runId,
+            ]));
+
+            return $connection;
+        });
+    }
+
     public static function claim(int $connectionId, string $runId, bool $requireEnabled = true): ?GoogleCalendarConnection
     {
         return DB::transaction(static function () use ($connectionId, $runId, $requireEnabled): ?GoogleCalendarConnection {

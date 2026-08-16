@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Study\DisconnectGoogleCalendarController;
 use App\Http\Controllers\Api\Study\ListReadableGoogleCalendarsController;
 use App\Http\Controllers\Api\Study\PreviewGoogleCalendarController;
 use App\Http\Controllers\Api\Study\ShowGoogleCalendarConnectionController;
+use App\Http\Controllers\Api\Study\SyncGoogleCalendarController;
 use App\Http\Controllers\Api\Study\UpdateGoogleCalendarSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,8 @@ return static function (): void {
     Route::post('/study/google-calendar/preview', PreviewGoogleCalendarController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME)
         ->middleware('throttle:'.GoogleCalendarConnectionRateLimiter::READ_NAME);
+    Route::post('/study/google-calendar/sync', SyncGoogleCalendarController::class)
+        ->middleware('throttle:'.GoogleCalendarConnectionRateLimiter::NAME);
     Route::put('/study/google-calendar/settings', UpdateGoogleCalendarSettingsController::class)
         ->middleware('throttle:'.GoogleCalendarConnectionRateLimiter::NAME);
     Route::post('/study/google-calendar/connect', CreateGoogleCalendarConnectIntentController::class)

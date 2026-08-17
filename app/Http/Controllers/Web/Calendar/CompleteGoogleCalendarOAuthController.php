@@ -106,7 +106,7 @@ final class CompleteGoogleCalendarOAuthController extends Controller
 
         $client = rtrim((string) config('services.convolab.client_url'), '/');
 
-        return redirect()->away($client.'/app/study/time?'.http_build_query($query));
+        return redirect()->away($client.'/app/settings/integrations?'.http_build_query($query));
     }
 
     private function intentResult(string $target, string $status, ?string $reason = null): RedirectResponse

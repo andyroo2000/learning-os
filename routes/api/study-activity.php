@@ -3,6 +3,7 @@
 use App\Domain\Study\Support\StudyActivitySessionRateLimiter;
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Http\Controllers\Api\Study\DeleteStudyActivitySessionController;
+use App\Http\Controllers\Api\Study\ListEditableStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ListStudyActivitySessionsController;
 use App\Http\Controllers\Api\Study\ShowPersonalWeeklyRecapController;
 use App\Http\Controllers\Api\Study\ShowStudyActivityAnalyticsController;
@@ -14,6 +15,8 @@ return static function (): void {
     Route::get('/study/overview', ShowStudyOverviewController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     Route::get('/study/activity-sessions', ListStudyActivitySessionsController::class)
+        ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+    Route::get('/study/activity-sessions/editable', ListEditableStudyActivitySessionsController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     Route::get('/study/activity-analytics', ShowStudyActivityAnalyticsController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);

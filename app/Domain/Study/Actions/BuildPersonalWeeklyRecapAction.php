@@ -22,13 +22,8 @@ final class BuildPersonalWeeklyRecapAction
         int $weekStartsOn,
         ?CarbonImmutable $now = null,
     ): array {
-        if ($weekStartsOn < 1 || $weekStartsOn > 7) {
-            throw new InvalidArgumentException('The first weekday must be between 1 and 7.');
-        }
-
         $now = ($now ?? CarbonImmutable::now($timezone))->setTimezone($timezone);
-        // Calendar.firstWeekday uses 1=Sunday … 7=Saturday; Carbon uses 0 … 6.
-        $currentWeekStart = $now->startOfWeek($weekStartsOn - 1);
+        $currentWeekStart = $this->currentWeekStart($timezone, $weekStartsOn, $now);
         $weekStart = $currentWeekStart->subWeek();
         $previousStart = $weekStart->subWeek();
         $weeks = [
@@ -68,6 +63,21 @@ final class BuildPersonalWeeklyRecapAction
             'week' => $weeks['week'],
             'previousWeek' => $weeks['previousWeek'],
         ];
+    }
+
+    public function currentWeekStart(
+        DateTimeZone $timezone,
+        int $weekStartsOn,
+        ?CarbonImmutable $now = null,
+    ): CarbonImmutable {
+        if ($weekStartsOn < 1 || $weekStartsOn > 7) {
+            throw new InvalidArgumentException('The first weekday must be between 1 and 7.');
+        }
+
+        $now = ($now ?? CarbonImmutable::now($timezone))->setTimezone($timezone);
+
+        // Calendar.firstWeekday uses 1=Sunday … 7=Saturday; Carbon uses 0 … 6.
+        return $now->startOfWeek($weekStartsOn - 1);
     }
 
     /** @return array<string, mixed> */

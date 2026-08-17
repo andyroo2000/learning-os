@@ -16,6 +16,7 @@ class StudyActivityRouteContractTest extends TestCase
         $actions = [
             'ShowStudyOverviewController',
             'ListStudyActivitySessionsController',
+            'ListEditableStudyActivitySessionsController',
             'ShowStudyActivityAnalyticsController',
             'StoreStudyActivitySessionsController',
             'DeleteStudyActivitySessionController',
@@ -41,6 +42,7 @@ class StudyActivityRouteContractTest extends TestCase
         $this->assertSame([
             $this->expectedRoute('GET|HEAD', 'api/study/overview', 'ShowStudyOverviewController'),
             $this->expectedRoute('GET|HEAD', 'api/study/activity-sessions', 'ListStudyActivitySessionsController'),
+            $this->expectedRoute('GET|HEAD', 'api/study/activity-sessions/editable', 'ListEditableStudyActivitySessionsController'),
             $this->expectedRoute('GET|HEAD', 'api/study/activity-analytics', 'ShowStudyActivityAnalyticsController'),
             $this->expectedRoute(
                 'POST',

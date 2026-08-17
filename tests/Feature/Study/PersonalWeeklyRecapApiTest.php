@@ -11,6 +11,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -19,6 +20,18 @@ use Tests\TestCase;
 class PersonalWeeklyRecapApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+    }
+
+    protected function tearDown(): void
+    {
+        Cache::flush();
+        parent::tearDown();
+    }
 
     public function test_it_requires_authentication_and_validates_calendar_options(): void
     {
@@ -70,6 +83,60 @@ class PersonalWeeklyRecapApiTest extends TestCase
                         'newCardsIntroduced' => 0,
                     ],
                 ]);
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_it_caches_a_completed_week_briefly_and_refreshes_after_expiry(): void
+    {
+        $user = $this->signIn();
+        $other = User::factory()->create();
+        $this->travelTo(CarbonImmutable::parse('2026-08-12T16:00:00Z'));
+
+        try {
+            $this->createActivitySession(
+                $user,
+                'review',
+                '2026-08-03T12:00:00Z',
+                '2026-08-03T13:00:00Z',
+                3_600_000,
+            );
+
+            $this->getJson('/api/study/weekly-recap?timezone=America%2FNew_York&weekStartsOn=2')
+                ->assertOk()
+                ->assertJsonPath('week.totalMs', 3_600_000);
+
+            $this->createActivitySession(
+                $user,
+                'conversation',
+                '2026-08-04T12:00:00Z',
+                '2026-08-04T12:30:00Z',
+                1_800_000,
+            );
+
+            $this->createActivitySession(
+                $other,
+                'conversation',
+                '2026-08-05T12:00:00Z',
+                '2026-08-05T12:20:00Z',
+                1_200_000,
+            );
+            $this->actingAs($other)
+                ->getJson('/api/study/weekly-recap?timezone=America%2FNew_York&weekStartsOn=2')
+                ->assertOk()
+                ->assertJsonPath('week.totalMs', 1_200_000);
+
+            $this->actingAs($user)
+                ->getJson('/api/study/weekly-recap?timezone=America%2FNew_York&weekStartsOn=2')
+                ->assertOk()
+                ->assertJsonPath('week.totalMs', 3_600_000);
+
+            $this->travel(16)->minutes();
+            $this->actingAs($user)
+                ->getJson('/api/study/weekly-recap?timezone=America%2FNew_York&weekStartsOn=2')
+                ->assertOk()
+                ->assertJsonPath('week.totalMs', 5_400_000);
         } finally {
             $this->travelBack();
         }

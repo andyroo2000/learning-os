@@ -18,7 +18,7 @@ final class DeleteStudyActivitySessionController extends Controller
     ): JsonResponse {
         if (! $deleteStudyActivitySession->handle(AuthenticatedUser::id($request), $clientSessionId)) {
             return response()->json([
-                'message' => 'Automatically recorded study activity cannot be deleted.',
+                'message' => 'Automatically recorded or provider-managed study activity cannot be deleted.',
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

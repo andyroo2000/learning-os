@@ -95,7 +95,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
         $this->assertDatabaseHas('google_calendar_connections', ['user_id' => $user->id]);
 
         $this->get('/api/study/google-calendar/callback?code=replay&state='.$query['state'])
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=error&reason=invalid_state');
     }
 
     public function test_expired_intent_is_consumed_and_untrusted_targets_use_safe_web_error(): void
@@ -109,12 +109,12 @@ class GoogleCalendarOAuthApiTest extends TestCase
         Carbon::setTestNow('2026-08-15T20:11:00Z');
 
         $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=error&reason=invalid_state');
         $this->assertDatabaseCount('google_calendar_connect_intents', 0);
         $this->assertDatabaseCount('google_calendar_connections', 0);
 
         $this->get('/api/study/google-calendar/callback?state='.str_repeat('a', 64))
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=invalid_state');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=error&reason=invalid_state');
     }
 
     public function test_ios_denial_uses_fixed_deep_link_without_provider_text(): void
@@ -143,7 +143,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
         parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
 
         $this->get('/api/study/google-calendar/callback?code=secret&state='.$query['state'])
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=connected');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=connected');
     }
 
     public function test_abandoned_intents_are_pruned_by_an_hourly_single_server_task(): void
@@ -173,7 +173,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
         $this->authorize($user);
 
         $this->get('/api/study/google-calendar/callback?code=secret-code')
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=connected');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=connected');
 
         $this->getJson('/api/study/google-calendar')->assertExactJson([
             'connected' => true,
@@ -264,7 +264,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
 
         $this->authorize($user);
         $this->get('/api/study/google-calendar/callback?error=access_denied&error_description=secret&state=oauth-state')
-            ->assertRedirect('https://convo-lab.test/app/study/time?calendarConnection=error&reason=access_denied');
+            ->assertRedirect('https://convo-lab.test/app/settings/integrations?calendarConnection=error&reason=access_denied');
 
         $this->authorize($user);
         $this->get('/api/study/google-calendar/callback?error=access_denied&state=forged')

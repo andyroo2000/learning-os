@@ -609,6 +609,7 @@ class StudyActivitySessionApiTest extends TestCase
         $manualId = '018f22d2-6d38-7000-8000-000000000020';
         $automaticId = '018f22d2-6d38-7000-8000-000000000021';
         $otherId = '018f22d2-6d38-7000-8000-000000000022';
+        $providerId = '018f22d2-6d38-7000-8000-000000000023';
         $this->createSession($user, [
             'client_session_id' => $manualId,
             'source' => 'manual',
@@ -621,6 +622,11 @@ class StudyActivitySessionApiTest extends TestCase
             'client_session_id' => $otherId,
             'source' => 'manual',
         ]);
+        $this->createSession($user, [
+            'client_session_id' => $providerId,
+            'source' => 'calendar',
+            'origin' => 'google_calendar',
+        ]);
 
         $this->deleteJson('/api/study/activity-sessions/'.strtoupper($manualId))
             ->assertNoContent();
@@ -628,7 +634,10 @@ class StudyActivitySessionApiTest extends TestCase
             ->assertNoContent();
         $this->deleteJson('/api/study/activity-sessions/'.$automaticId)
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Automatically recorded study activity cannot be deleted.');
+            ->assertJsonPath('message', 'Automatically recorded or provider-managed study activity cannot be deleted.');
+        $this->deleteJson('/api/study/activity-sessions/'.$providerId)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Automatically recorded or provider-managed study activity cannot be deleted.');
         $this->deleteJson('/api/study/activity-sessions/'.$otherId)
             ->assertNoContent();
 
@@ -643,6 +652,10 @@ class StudyActivitySessionApiTest extends TestCase
         $this->assertDatabaseHas('study_activity_sessions', [
             'user_id' => $other->id,
             'client_session_id' => $otherId,
+        ]);
+        $this->assertDatabaseHas('study_activity_sessions', [
+            'user_id' => $user->id,
+            'client_session_id' => $providerId,
         ]);
     }
 

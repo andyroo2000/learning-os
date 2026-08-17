@@ -2,7 +2,6 @@
 
 namespace App\Domain\Study\Actions;
 
-use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use App\Models\User;
@@ -14,8 +13,9 @@ final class DeleteStudyActivitySessionAction
     /**
      * Delete an owned editable session.
      *
-     * Missing and unowned IDs are retry-safe successes. Automatic sessions are
-     * immutable and return false so the HTTP adapter can report that conflict.
+     * Missing and unowned IDs are retry-safe successes. Automatic and
+     * provider-managed sessions are immutable and return false so the HTTP
+     * adapter can report that conflict.
      */
     public function handle(int $userId, string $clientSessionId): bool
     {
@@ -43,7 +43,7 @@ final class DeleteStudyActivitySessionAction
                 return true;
             }
 
-            if ($session->source === StudyActivitySource::Automatic) {
+            if (! $session->source->isUserEditable() || ! $session->origin->isUserEditable()) {
                 return false;
             }
 

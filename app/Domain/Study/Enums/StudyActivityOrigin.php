@@ -17,6 +17,17 @@ enum StudyActivityOrigin: string
         return [self::Ios->value, self::Web->value];
     }
 
+    /** @return list<string> */
+    public static function userEditableValues(): array
+    {
+        return [self::Legacy->value, self::Ios->value, self::Web->value];
+    }
+
+    public function isUserEditable(): bool
+    {
+        return in_array($this->value, self::userEditableValues(), true);
+    }
+
     public function supportsExternalSourceKey(): bool
     {
         return match ($this) {

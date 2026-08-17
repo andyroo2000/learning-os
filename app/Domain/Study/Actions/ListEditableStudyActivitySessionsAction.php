@@ -15,15 +15,8 @@ final class ListEditableStudyActivitySessionsAction
     {
         return StudyActivitySession::query()
             ->where('user_id', $userId)
-            ->whereIn('origin', [
-                StudyActivityOrigin::Legacy->value,
-                StudyActivityOrigin::Ios->value,
-                StudyActivityOrigin::Web->value,
-            ])
-            ->whereIn('source', [
-                StudyActivitySource::Manual->value,
-                StudyActivitySource::Calendar->value,
-            ])
+            ->whereIn('origin', StudyActivityOrigin::userEditableValues())
+            ->whereIn('source', StudyActivitySource::userEditableValues())
             ->orderByDesc('started_at')
             ->orderByDesc('id')
             ->cursorPaginate($pageSize->value());

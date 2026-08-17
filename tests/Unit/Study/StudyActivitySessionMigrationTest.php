@@ -45,6 +45,11 @@ class StudyActivitySessionMigrationTest extends TestCase
             strlen('study_activity_provider_source_unique'),
             'The provider source index name must fit PostgreSQL identifiers.',
         );
+        $this->assertLessThanOrEqual(
+            63,
+            strlen('study_activity_user_started_id_index'),
+            'The editable-session pagination index name must fit PostgreSQL identifiers.',
+        );
     }
 
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
@@ -144,6 +149,52 @@ class StudyActivitySessionMigrationTest extends TestCase
         $this->assertStringContainsString(
             'study_activity_sessions_user_id_ended_at_index',
             implode("\n", $sql),
+        );
+    }
+
+    #[DataProvider('grammarProvider')]
+    public function test_editable_pagination_index_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+        $add = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                // Keep this compile-only blueprint aligned with the pagination migration.
+                $table->dropIndex('study_activity_sessions_user_id_started_at_index');
+                $table->index(
+                    ['user_id', 'started_at', 'id'],
+                    'study_activity_user_started_id_index',
+                );
+            },
+        );
+        $drop = new Blueprint(
+            $connection,
+            'study_activity_sessions',
+            function (Blueprint $table): void {
+                $table->dropIndex('study_activity_user_started_id_index');
+                $table->index(
+                    ['user_id', 'started_at'],
+                    'study_activity_sessions_user_id_started_at_index',
+                );
+            },
+        );
+
+        $this->assertStringContainsString(
+            'study_activity_user_started_id_index',
+            implode("\n", $add->toSql()),
+        );
+        $this->assertStringContainsString(
+            'study_activity_user_started_id_index',
+            implode("\n", $drop->toSql()),
+        );
+        $this->assertStringContainsString(
+            'study_activity_sessions_user_id_started_at_index',
+            implode("\n", $drop->toSql()),
         );
     }
 

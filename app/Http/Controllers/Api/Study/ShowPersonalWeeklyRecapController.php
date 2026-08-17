@@ -20,7 +20,7 @@ final class ShowPersonalWeeklyRecapController extends Controller
         $timezone = $request->timezone();
         $weekStartsOn = $request->weekStartsOn();
         $now = CarbonImmutable::now($timezone);
-        $currentWeekStart = $now->startOfWeek($weekStartsOn - 1);
+        $currentWeekStart = $recap->currentWeekStart($timezone, $weekStartsOn, $now);
         $cacheKey = implode(':', [
             'study-weekly-recap-v1',
             $userId,

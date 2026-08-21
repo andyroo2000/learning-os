@@ -239,6 +239,23 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $this->assertDatabaseCount('study_activity_sessions', 3);
     }
 
+    public function test_matching_events_within_one_calendar_remain_distinct(): void
+    {
+        $user = User::factory()->create();
+        $connection = $this->connection($user);
+        $startsAt = CarbonImmutable::parse('2026-08-20T13:00:00Z');
+        $endsAt = CarbonImmutable::parse('2026-08-20T14:00:00Z');
+        $this->mirror($connection, 'first', [
+            'title' => 'iTalki lesson', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
+        ]);
+        $this->mirror($connection, 'second', [
+            'title' => 'iTalki lesson', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
+        ]);
+
+        $this->assertSame(['upserted' => 2, 'deleted' => 0], $this->action()->handle($user->id, $connection));
+        $this->assertDatabaseCount('study_activity_sessions', 2);
+    }
+
     public function test_deselected_calendars_preserve_history_and_cannot_create_or_update(): void
     {
         $user = User::factory()->create();

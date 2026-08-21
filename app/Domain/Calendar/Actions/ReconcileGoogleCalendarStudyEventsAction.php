@@ -49,28 +49,38 @@ final class ReconcileGoogleCalendarStudyEventsAction
 
             $result = ['upserted' => 0, 'deleted' => 0];
             $now = CarbonImmutable::instance(now())->utc();
-            $canonicalSources = [];
+            // The bounded mirror window is scanned twice so canonical calendar
+            // selection remains stable even when Google forces a mirror reset.
+            $sourcesByCalendar = [];
             $locked->eventMirrors()
                 ->whereIn('calendar_id', $settings->calendarIds)
                 ->orderBy('id')
-                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, &$canonicalSources): void {
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, &$sourcesByCalendar): void {
                     foreach ($mirrors as $mirror) {
                         $event = GoogleCalendarStudyEvent::fromMirror($mirror, $settings, $now);
                         if ($event === null) {
                             continue;
                         }
                         $deduplicationKey = $event->deduplicationKey();
-                        $canonicalSource = $canonicalSources[$deduplicationKey] ?? null;
-                        if ($canonicalSource === null || strcmp($event->sourceKey->value, $canonicalSource) < 0) {
+                        $calendarSource = $sourcesByCalendar[$deduplicationKey][$mirror->calendar_id] ?? null;
+                        if ($calendarSource === null || strcmp($event->sourceKey->value, $calendarSource) < 0) {
                             // Source keys survive mirror resets, unlike auto-increment IDs.
-                            $canonicalSources[$deduplicationKey] = $event->sourceKey->value;
+                            $sourcesByCalendar[$deduplicationKey][$mirror->calendar_id] = $event->sourceKey->value;
                         }
                     }
                 });
+            $canonicalCalendars = [];
+            foreach ($sourcesByCalendar as $deduplicationKey => $calendarSources) {
+                if (count($calendarSources) < 2) {
+                    continue;
+                }
+                $canonicalSource = min($calendarSources);
+                $canonicalCalendars[$deduplicationKey] = (string) array_search($canonicalSource, $calendarSources, true);
+            }
             $locked->eventMirrors()
                 ->whereIn('calendar_id', $settings->calendarIds)
                 ->orderBy('id')
-                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result, $canonicalSources): void {
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result, $canonicalCalendars): void {
                     $sessions = [];
                     $deleteKeys = [];
                     foreach ($mirrors as $mirror) {
@@ -81,7 +91,8 @@ final class ReconcileGoogleCalendarStudyEventsAction
                             continue;
                         }
                         $deduplicationKey = $event->deduplicationKey();
-                        if ($event->sourceKey->value !== $canonicalSources[$deduplicationKey]) {
+                        $canonicalCalendar = $canonicalCalendars[$deduplicationKey] ?? null;
+                        if ($canonicalCalendar !== null && $mirror->calendar_id !== $canonicalCalendar) {
                             $deleteKeys[] = $mirror->source_key;
 
                             continue;

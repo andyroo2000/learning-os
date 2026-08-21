@@ -49,10 +49,11 @@ final class ReconcileGoogleCalendarStudyEventsAction
 
             $result = ['upserted' => 0, 'deleted' => 0];
             $now = CarbonImmutable::instance(now())->utc();
+            $seenEvents = [];
             $locked->eventMirrors()
                 ->whereIn('calendar_id', $settings->calendarIds)
                 ->orderBy('id')
-                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result): void {
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result, &$seenEvents): void {
                     $sessions = [];
                     $deleteKeys = [];
                     foreach ($mirrors as $mirror) {
@@ -62,6 +63,15 @@ final class ReconcileGoogleCalendarStudyEventsAction
 
                             continue;
                         }
+                        $deduplicationKey = $event->deduplicationKey();
+                        if (isset($seenEvents[$deduplicationKey])) {
+                            $deleteKeys[] = $mirror->source_key;
+
+                            continue;
+                        }
+                        // Mirror IDs are stable, so the first matching event remains the
+                        // canonical ledger source across retries and chunk boundaries.
+                        $seenEvents[$deduplicationKey] = true;
                         $sessions[] = new StudyActivitySessionData(
                             clientSessionId: 'google-calendar:'.substr($event->sourceKey->value, 0, 48),
                             category: StudyActivityCategory::Conversation,

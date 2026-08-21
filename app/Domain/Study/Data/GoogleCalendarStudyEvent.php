@@ -9,6 +9,7 @@ use App\Domain\Study\Support\GoogleCalendarEventIdentity;
 use App\Domain\Study\Support\StudyActivitySourceKey;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
+use Illuminate\Support\Str;
 use Throwable;
 
 final readonly class GoogleCalendarStudyEvent
@@ -65,6 +66,15 @@ final readonly class GoogleCalendarStudyEvent
     public function ledgerName(): string
     {
         return mb_substr($this->title, 0, 120, 'UTF-8');
+    }
+
+    public function deduplicationKey(): string
+    {
+        return hash('sha256', implode("\0", [
+            mb_strtolower(Str::squish($this->title), 'UTF-8'),
+            $this->startsAt->toJSON(),
+            $this->endsAt->toJSON(),
+        ]));
     }
 
     private static function make(

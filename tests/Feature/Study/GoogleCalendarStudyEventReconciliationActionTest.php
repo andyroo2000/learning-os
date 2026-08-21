@@ -71,6 +71,7 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
             ['confirmed', ['title' => 'Dentist appointment']],
             ['confirmed', ['ends_at' => now()->addHour()]],
             ['confirmed', ['ends_at' => now()->subHours(2)]],
+            ['confirmed', ['starts_at' => now()->subHour(), 'ends_at' => now()->subHours(2)]],
             ['confirmed', ['starts_at' => now()->subHours(26), 'ends_at' => now()->subHour()]],
         ];
         foreach ($cases as $index => [$status, $overrides]) {
@@ -86,7 +87,7 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $result = $this->action()->handle($user->id, $connection);
 
         $this->assertSame(0, $result['upserted']);
-        $this->assertSame(7, $result['deleted']);
+        $this->assertSame(8, $result['deleted']);
         $this->assertDatabaseCount('study_activity_sessions', 4);
         foreach (['manual', 'system', 'wanikani', 'other-owner'] as $clientId) {
             $this->assertDatabaseHas('study_activity_sessions', ['client_session_id' => $clientId]);

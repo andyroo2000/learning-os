@@ -116,6 +116,33 @@ class GoogleCalendarMirrorIngestionActionTest extends TestCase
         $this->assertSame('old-cursor', $connection->fresh()->sync_cursors['work']);
     }
 
+    public function test_non_positive_duration_events_are_mirrored_without_blocking_cursor_advance(): void
+    {
+        $user = User::factory()->create();
+        $connection = $this->connection($user);
+        $this->google->responses = [new GoogleCalendarPage([
+            $this->timed('zero-duration', 'Zero', '2026-08-15T10:00:00Z', '2026-08-15T10:00:00Z'),
+            $this->timed('reversed-duration', 'Reversed', '2026-08-15T12:00:00Z', '2026-08-15T11:00:00Z'),
+        ], null, 'cursor-1')];
+
+        $this->assertTrue($this->action()->handle(
+            $user->id,
+            $connection,
+            CarbonImmutable::parse('2026-01-01T00:00:00Z'),
+        ));
+
+        $this->assertSame(['work' => 'cursor-1'], $connection->fresh()->sync_cursors);
+        $this->assertSame([
+            ['reversed-duration', '2026-08-15T12:00:00.000000Z', '2026-08-15T11:00:00.000000Z'],
+            ['zero-duration', '2026-08-15T10:00:00.000000Z', '2026-08-15T10:00:00.000000Z'],
+        ], GoogleCalendarEventMirror::query()->orderBy('provider_event_id')->get()
+            ->map(fn (GoogleCalendarEventMirror $mirror): array => [
+                $mirror->provider_event_id,
+                $mirror->starts_at->toJSON(),
+                $mirror->ends_at->toJSON(),
+            ])->all());
+    }
+
     public function test_expired_cursor_clears_only_that_calendar_then_performs_one_fresh_sync(): void
     {
         $user = User::factory()->create();

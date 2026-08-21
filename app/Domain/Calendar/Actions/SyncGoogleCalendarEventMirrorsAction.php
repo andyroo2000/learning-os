@@ -188,7 +188,7 @@ final class SyncGoogleCalendarEventMirrorsAction
         [$startsAt, $startAllDay] = $this->time($event->start);
         [$endsAt, $endAllDay] = $this->time($event->end);
         if (($startsAt === null) !== ($endsAt === null)
-            || ($startsAt !== null && ($startAllDay !== $endAllDay || ! $endsAt->isAfter($startsAt)))
+            || ($startsAt !== null && $startAllDay !== $endAllDay)
             || ($event->status !== 'cancelled' && $startsAt === null)) {
             throw $this->invalidResponse();
         }

@@ -100,26 +100,28 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $connection = $this->connection($user, ['work', 'personal']);
         $startsAt = CarbonImmutable::parse('2026-08-20T13:00:00Z');
         $endsAt = CarbonImmutable::parse('2026-08-20T14:00:00Z');
-        $canonical = $this->mirror($connection, 'japanese-lessons-copy', [
+        $first = $this->mirror($connection, 'japanese-lessons-copy', [
             'title' => 'Andrew + Moeko -3', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
         $duplicate = $this->mirror($connection, 'primary-copy', [
             'calendar_id' => 'personal', 'title' => 'andrew +   MOEKO -3',
             'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
+        $canonical = strcmp($first->source_key, $duplicate->source_key) < 0 ? $first : $duplicate;
+        $nonCanonical = $canonical->is($first) ? $duplicate : $first;
         $duplicateSession = $this->createSession(
             $user,
             'existing-duplicate',
             StudyActivitySource::Calendar,
             StudyActivityOrigin::GoogleCalendar,
-            $duplicate->source_key,
+            $nonCanonical->source_key,
         );
 
         $this->assertSame(['upserted' => 1, 'deleted' => 1], $this->action()->handle($user->id, $connection));
         $session = StudyActivitySession::query()->sole();
         $this->assertSame($canonical->source_key, $session->source_key);
         $this->assertNotSame($duplicateSession->id, $session->id);
-        $this->assertSame('Andrew + Moeko -3', $session->name);
+        $this->assertSame($canonical->title, $session->name);
         $this->assertSame($startsAt->getTimestamp(), $session->started_at->getTimestamp());
         $this->assertSame(3_600_000, $session->duration_ms);
 
@@ -133,13 +135,16 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $connection = $this->connection($user, ['work', 'personal']);
         $startsAt = CarbonImmutable::parse('2026-08-20T13:00:00Z');
         $endsAt = CarbonImmutable::parse('2026-08-20T14:00:00Z');
-        $canonical = $this->mirror($connection, 'japanese-lessons-copy', [
+        $first = $this->mirror($connection, 'japanese-lessons-copy', [
             'title' => 'Andrew + Moeko -3', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
-        $fallback = $this->mirror($connection, 'primary-copy', [
+        $second = $this->mirror($connection, 'primary-copy', [
             'calendar_id' => 'personal', 'title' => 'Andrew + Moeko -3',
             'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
+        [$canonical, $fallback] = strcmp($first->source_key, $second->source_key) < 0
+            ? [$first, $second]
+            : [$second, $first];
         $this->action()->handle($user->id, $connection);
         $canonical->forceFill(['status' => 'cancelled'])->save();
 
@@ -149,13 +154,45 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $this->assertDatabaseMissing('study_activity_sessions', ['source_key' => $canonical->source_key]);
     }
 
+    public function test_canonical_source_survives_mirror_recreation_in_the_opposite_order(): void
+    {
+        $user = User::factory()->create();
+        $connection = $this->connection($user, ['work', 'personal']);
+        $startsAt = CarbonImmutable::parse('2026-08-20T13:00:00Z');
+        $endsAt = CarbonImmutable::parse('2026-08-20T14:00:00Z');
+        $first = $this->mirror($connection, 'japanese-lessons-copy', [
+            'title' => 'Moeko lesson', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
+        ]);
+        $second = $this->mirror($connection, 'primary-copy', [
+            'calendar_id' => 'personal', 'title' => 'Moeko lesson',
+            'starts_at' => $startsAt, 'ends_at' => $endsAt,
+        ]);
+        [$canonical, $duplicate] = strcmp($first->source_key, $second->source_key) < 0
+            ? [$first, $second]
+            : [$second, $first];
+        $this->action()->handle($user->id, $connection);
+        $sessionId = StudyActivitySession::query()->sole()->id;
+        $canonicalAttributes = $canonical->getAttributes();
+        $duplicateAttributes = $duplicate->getAttributes();
+        $first->delete();
+        $second->delete();
+        unset($canonicalAttributes['id'], $duplicateAttributes['id']);
+        GoogleCalendarEventMirror::query()->forceCreate($duplicateAttributes);
+        GoogleCalendarEventMirror::query()->forceCreate($canonicalAttributes);
+
+        $this->assertSame(['upserted' => 1, 'deleted' => 0], $this->action()->handle($user->id, $connection));
+        $session = StudyActivitySession::query()->sole();
+        $this->assertSame($sessionId, $session->id);
+        $this->assertSame($canonical->source_key, $session->source_key);
+    }
+
     public function test_duplicate_events_are_deduplicated_across_reconciliation_chunks(): void
     {
         $user = User::factory()->create();
         $connection = $this->connection($user, ['work', 'personal']);
         $startsAt = CarbonImmutable::parse('2026-08-20T13:00:00Z');
         $endsAt = CarbonImmutable::parse('2026-08-20T14:00:00Z');
-        $canonical = $this->mirror($connection, 'canonical', [
+        $first = $this->mirror($connection, 'canonical', [
             'title' => 'Moeko lesson', 'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
         for ($index = 0; $index < 249; $index++) {
@@ -165,12 +202,14 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
             'calendar_id' => 'personal', 'title' => 'moeko   LESSON',
             'starts_at' => $startsAt, 'ends_at' => $endsAt,
         ]);
+        $canonical = strcmp($first->source_key, $duplicate->source_key) < 0 ? $first : $duplicate;
+        $nonCanonical = $canonical->is($first) ? $duplicate : $first;
         $this->createSession(
             $user,
             'existing-duplicate',
             StudyActivitySource::Calendar,
             StudyActivityOrigin::GoogleCalendar,
-            $duplicate->source_key,
+            $nonCanonical->source_key,
         );
 
         $this->assertSame(['upserted' => 1, 'deleted' => 1], $this->action()->handle($user->id, $connection));

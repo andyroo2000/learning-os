@@ -49,11 +49,28 @@ final class ReconcileGoogleCalendarStudyEventsAction
 
             $result = ['upserted' => 0, 'deleted' => 0];
             $now = CarbonImmutable::instance(now())->utc();
-            $seenEvents = [];
+            $canonicalSources = [];
             $locked->eventMirrors()
                 ->whereIn('calendar_id', $settings->calendarIds)
                 ->orderBy('id')
-                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result, &$seenEvents): void {
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, &$canonicalSources): void {
+                    foreach ($mirrors as $mirror) {
+                        $event = GoogleCalendarStudyEvent::fromMirror($mirror, $settings, $now);
+                        if ($event === null) {
+                            continue;
+                        }
+                        $deduplicationKey = $event->deduplicationKey();
+                        $canonicalSource = $canonicalSources[$deduplicationKey] ?? null;
+                        if ($canonicalSource === null || strcmp($event->sourceKey->value, $canonicalSource) < 0) {
+                            // Source keys survive mirror resets, unlike auto-increment IDs.
+                            $canonicalSources[$deduplicationKey] = $event->sourceKey->value;
+                        }
+                    }
+                });
+            $locked->eventMirrors()
+                ->whereIn('calendar_id', $settings->calendarIds)
+                ->orderBy('id')
+                ->chunkById(self::CHUNK_SIZE, function (Collection $mirrors) use ($settings, $now, $userId, &$result, $canonicalSources): void {
                     $sessions = [];
                     $deleteKeys = [];
                     foreach ($mirrors as $mirror) {
@@ -64,14 +81,11 @@ final class ReconcileGoogleCalendarStudyEventsAction
                             continue;
                         }
                         $deduplicationKey = $event->deduplicationKey();
-                        if (isset($seenEvents[$deduplicationKey])) {
+                        if ($event->sourceKey->value !== $canonicalSources[$deduplicationKey]) {
                             $deleteKeys[] = $mirror->source_key;
 
                             continue;
                         }
-                        // Mirror IDs are stable, so the first matching event remains the
-                        // canonical ledger source across retries and chunk boundaries.
-                        $seenEvents[$deduplicationKey] = true;
                         $sessions[] = new StudyActivitySessionData(
                             clientSessionId: 'google-calendar:'.substr($event->sourceKey->value, 0, 48),
                             category: StudyActivityCategory::Conversation,

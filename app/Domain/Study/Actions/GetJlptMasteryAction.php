@@ -11,7 +11,7 @@ use UnexpectedValueException;
 final class GetJlptMasteryAction
 {
     /**
-     * @return array{N5: array{vocabulary: array{mastery_percent: int, covered: int, total: int}, grammar: array{mastery_percent: int, covered: int, total: int}}}
+     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, matched: int, covered: int, total: int}}}
      */
     public function handle(int $userId, ?string $courseId = null, ?string $deckId = null): array
     {
@@ -28,13 +28,10 @@ final class GetJlptMasteryAction
             ->select('links.concept_id')
             ->selectRaw(<<<SQL
                 MAX(CASE
-                    WHEN cards.study_status = ? AND {$stability} >= 365 THEN 1.0
-                    WHEN cards.study_status = ? AND {$stability} >= 90 THEN 0.75
-                    WHEN cards.study_status = ? AND {$stability} >= 30 THEN 0.5
-                    WHEN cards.study_status = ? AND {$stability} >= 7 THEN 0.25
+                    WHEN cards.study_status = ? AND {$stability} >= 7 THEN 1
                     ELSE 0.0
-                END) AS mastery_weight
-                SQL, array_fill(0, 4, CardStudyStatus::Review->value));
+                END) AS known_weight
+                SQL, [CardStudyStatus::Review->value]);
 
         $rows = DB::table('learning_concepts as concepts')
             ->leftJoinSub($bestCard, 'best_card', 'best_card.concept_id', '=', 'concepts.id')
@@ -48,7 +45,7 @@ final class GetJlptMasteryAction
             ->select('concepts.kind')
             ->selectRaw('COUNT(concepts.id) AS total')
             ->selectRaw('COALESCE(SUM(CASE WHEN best_card.concept_id IS NULL THEN 0 ELSE 1 END), 0) AS covered')
-            ->selectRaw('COALESCE(SUM(best_card.mastery_weight), 0) AS mastery_points')
+            ->selectRaw('COALESCE(SUM(best_card.known_weight), 0) AS known_count')
             ->get()
             ->keyBy('kind');
 
@@ -60,14 +57,19 @@ final class GetJlptMasteryAction
         ];
     }
 
-    /** @return array{mastery_percent: int, covered: int, total: int} */
+    /** @return array{mastery_percent: int, known: int, matched: int, covered: int, total: int} */
     private function metric(?object $row): array
     {
         $total = (int) ($row?->total ?? 0);
+        $known = (int) ($row?->known_count ?? 0);
+        $matched = (int) ($row?->covered ?? 0);
 
         return [
-            'mastery_percent' => $total === 0 ? 0 : (int) round(((float) $row->mastery_points / $total) * 100),
-            'covered' => (int) ($row?->covered ?? 0),
+            'mastery_percent' => $total === 0 ? 0 : (int) round(($known / $total) * 100),
+            'known' => $known,
+            'matched' => $matched,
+            // Retain the original key for older clients while they migrate to matched.
+            'covered' => $matched,
             'total' => $total,
         ];
     }

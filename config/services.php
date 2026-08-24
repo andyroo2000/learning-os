@@ -39,6 +39,10 @@ return [
         'base_url' => env('WANIKANI_API_BASE_URL', 'https://api.wanikani.com/v2'),
     ],
 
+    'mecab' => [
+        'binary' => env('MECAB_BINARY', 'mecab'),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

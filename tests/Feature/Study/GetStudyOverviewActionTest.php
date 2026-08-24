@@ -437,10 +437,10 @@ class GetStudyOverviewActionTest extends TestCase
         $deletedDeckCard = $this->cardWithStudyStatus($deletedDeck, CardStudyStatus::Review, [
             'scheduler_state' => ['stability' => 365],
         ]);
-        $otherActiveDeckCard = $this->cardWithStudyStatus(
+        $guruCardInOtherActiveDeck = $this->cardWithStudyStatus(
             $this->deckFor($user),
             CardStudyStatus::Review,
-            ['scheduler_state' => ['stability' => 365]],
+            ['scheduler_state' => ['stability' => 7]],
         );
 
         foreach ([$otherUserCard, $deletedCard, $deletedDeckCard] as $excludedCard) {
@@ -457,7 +457,7 @@ class GetStudyOverviewActionTest extends TestCase
         }
 
         DB::table('card_learning_concepts')->insert([
-            'card_id' => $otherActiveDeckCard->id,
+            'card_id' => $guruCardInOtherActiveDeck->id,
             'concept_id' => 'n5-vocab-1381380-ebec6584',
             'match_method' => 'exact',
             'match_source' => 'backfill',
@@ -473,10 +473,10 @@ class GetStudyOverviewActionTest extends TestCase
         $n5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id)['jlpt_mastery']['N5'];
         $deckN5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id, deckId: $deck->id)['jlpt_mastery']['N5'];
 
-        $this->assertSame(['mastery_percent' => 0, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
-        $this->assertSame(['mastery_percent' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
-        $this->assertSame(['mastery_percent' => 0, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
-        $this->assertSame(['mastery_percent' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 2, 'matched' => 2, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
         $this->assertArrayNotHasKey('overall', $n5);
     }
 

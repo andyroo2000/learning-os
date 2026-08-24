@@ -9,6 +9,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Japanese\Contracts\JapaneseTokenizer;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -105,7 +106,7 @@ class CreateCardActionTest extends TestCase
             'concept_id' => 'n5-vocab-1198550-2120ff50',
             'match_method' => 'exact',
             'match_source' => 'creation',
-            'classifier_version' => 'n5-rules-v2',
+            'classifier_version' => 'n5-rules-v3',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $cardId,
@@ -118,6 +119,66 @@ class CreateCardActionTest extends TestCase
             DB::table('card_learning_concepts')->where('card_id', $cardId)->distinct()->count('concept_id'),
         );
         $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_matches_inflected_n5_vocabulary_tokens_inside_a_sentence(): void
+    {
+        $this->mock(JapaneseTokenizer::class)
+            ->shouldReceive('tokenize')
+            ->once()
+            ->with(['新しい本を読みました。'])
+            ->andReturn([[
+                ['surface' => '新しい', 'base' => '新しい'],
+                ['surface' => '本', 'base' => '本'],
+                ['surface' => 'を', 'base' => 'を'],
+                ['surface' => '読み', 'base' => '読む'],
+                ['surface' => 'ました', 'base' => 'ます'],
+            ]]);
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '新しい本を読みました。',
+                backText: 'I read a new book.',
+            ),
+        );
+
+        foreach ([
+            'n5-vocab-1361490-8ae27e3b',
+            'n5-vocab-1522150-0e8f798d',
+            'n5-vocab-1456360-eb7e6759',
+        ] as $conceptId) {
+            $this->assertDatabaseHas('card_learning_concepts', [
+                'card_id' => $result->card->id,
+                'concept_id' => $conceptId,
+                'match_method' => 'token',
+                'match_source' => 'creation',
+                'classifier_version' => 'n5-rules-v3',
+            ]);
+        }
+    }
+
+    public function test_it_does_not_tokenize_bracket_furigana_as_sentence_vocabulary(): void
+    {
+        $this->mock(JapaneseTokenizer::class)
+            ->shouldReceive('tokenize')
+            ->once()
+            ->with(['本'])
+            ->andReturn([[
+                ['surface' => '本', 'base' => '本'],
+            ]]);
+        $deck = Deck::factory()->create();
+
+        app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '本[ほん]',
+                backText: 'book',
+            ),
+        );
     }
 
     public function test_it_does_not_fan_an_ambiguous_grammar_surface_out_to_unrelated_concepts(): void
@@ -155,13 +216,51 @@ class CreateCardActionTest extends TestCase
             ),
         );
 
-        $vocabularyMatches = DB::table('card_learning_concepts as links')
-            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
-            ->where('links.card_id', $result->card->id)
-            ->where('concepts.kind', 'vocabulary')
-            ->pluck('concepts.id');
+        foreach ([
+            'n5-vocab-1343460-7b4aecdf',
+            'n5-vocab-1467720-a379d413',
+            'n5-vocab-1275320-9949d874',
+        ] as $ambiguousConceptId) {
+            $this->assertDatabaseMissing('card_learning_concepts', [
+                'card_id' => $result->card->id,
+                'concept_id' => $ambiguousConceptId,
+            ]);
+        }
+    }
 
-        $this->assertCount(0, $vocabularyMatches);
+    public function test_it_does_not_infer_ambiguous_vocabulary_tokens_inside_a_sentence(): void
+    {
+        $this->mock(JapaneseTokenizer::class)
+            ->shouldReceive('tokenize')
+            ->once()
+            ->with(['今日はあついです。'])
+            ->andReturn([[
+                ['surface' => '今日', 'base' => '今日'],
+                ['surface' => 'は', 'base' => 'は'],
+                ['surface' => 'あつい', 'base' => 'あつい'],
+                ['surface' => 'です', 'base' => 'です'],
+            ]]);
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '今日はあついです。',
+                backText: 'It is hot today.',
+            ),
+        );
+
+        foreach ([
+            'n5-vocab-1343460-7b4aecdf',
+            'n5-vocab-1467720-a379d413',
+            'n5-vocab-1275320-9949d874',
+        ] as $ambiguousConceptId) {
+            $this->assertDatabaseMissing('card_learning_concepts', [
+                'card_id' => $result->card->id,
+                'concept_id' => $ambiguousConceptId,
+            ]);
+        }
     }
 
     public function test_client_id_retries_compare_variant_timestamps_at_persisted_precision(): void

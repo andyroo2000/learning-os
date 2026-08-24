@@ -68,9 +68,13 @@ class ShowStudyOverviewApiTest extends TestCase
                 )
                 ->assertJsonPath('learningReadiness.projectedDailyReviewMinutes', null)
                 ->assertJsonPath('jlptMastery.N5.vocabulary.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N5.vocabulary.known', 0)
+                ->assertJsonPath('jlptMastery.N5.vocabulary.matched', 0)
                 ->assertJsonPath('jlptMastery.N5.vocabulary.covered', 0)
                 ->assertJsonPath('jlptMastery.N5.vocabulary.total', 684)
                 ->assertJsonPath('jlptMastery.N5.grammar.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N5.grammar.known', 0)
+                ->assertJsonPath('jlptMastery.N5.grammar.matched', 0)
                 ->assertJsonPath('jlptMastery.N5.grammar.covered', 0)
                 ->assertJsonPath('jlptMastery.N5.grammar.total', 77)
                 ->assertJsonStructure([

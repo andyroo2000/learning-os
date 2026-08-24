@@ -95,6 +95,8 @@ class StudyOverviewCompatibilityResource extends JsonResource
                 if (is_array($metric)) {
                     $result[$level][$kind] = [
                         'masteryPercent' => $metric['mastery_percent'],
+                        'known' => $metric['known'],
+                        'matched' => $metric['matched'],
                         'covered' => $metric['covered'],
                         'total' => $metric['total'],
                     ];

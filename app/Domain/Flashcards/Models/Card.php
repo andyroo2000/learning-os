@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\CardLearningConcept;
+use App\Domain\Study\Models\LearningConcept;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Support\Identifiers\CanonicalUlid;
 use App\Support\VariantMetadataLimits;
@@ -258,6 +260,15 @@ class Card extends Model
     {
         return $this->belongsToMany(MediaAsset::class, 'card_media')
             ->orderBy('media_assets.id')
+            ->withTimestamps();
+    }
+
+    /** @return BelongsToMany<LearningConcept, $this> */
+    public function learningConcepts(): BelongsToMany
+    {
+        return $this->belongsToMany(LearningConcept::class, 'card_learning_concepts', 'card_id', 'concept_id')
+            ->using(CardLearningConcept::class)
+            ->withPivot(['match_method', 'confidence', 'classifier_version', 'evidence'])
             ->withTimestamps();
     }
 }

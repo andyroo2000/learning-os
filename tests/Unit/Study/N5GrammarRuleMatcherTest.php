@@ -368,6 +368,15 @@ OUTPUT, 1)[0];
                 ['n5-grammar-question-words-basic', 'n5-grammar-nanji-what-time'],
                 ['n5-grammar-counter-people-nin', 'n5-grammar-counter-ji-oclock'],
             ],
+            'ikutsu is not a numbered tsu counter example' => [
+                'いくつありますか。',
+                [
+                    ['いくつ', 'いくつ', '代名詞'], ['あり', '有る', '動詞-非自立可能'],
+                    ['ます', 'ます', '助動詞'], ['か', 'か', '助詞-終助詞'],
+                ],
+                ['n5-grammar-ikutsu-how-many'],
+                ['n5-grammar-counter-tsu'],
+            ],
             'clock time is not toki' => [
                 '三時に行きます。',
                 [

@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 
 enum StudyMasteryLevel: string
 {
+    public const int GURU_STABILITY_DAYS = 7;
+
     case Apprentice = 'apprentice';
     case Guru = 'guru';
     case Master = 'master';
@@ -34,7 +36,7 @@ enum StudyMasteryLevel: string
             $stabilityDays >= 365 => self::Burned,
             $stabilityDays >= 90 => self::Enlightened,
             $stabilityDays >= 30 => self::Master,
-            $stabilityDays >= 7 => self::Guru,
+            $stabilityDays >= self::GURU_STABILITY_DAYS => self::Guru,
             default => self::Apprentice,
         };
     }

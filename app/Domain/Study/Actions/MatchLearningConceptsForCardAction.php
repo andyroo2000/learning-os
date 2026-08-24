@@ -3,6 +3,8 @@
 namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Japanese\Contracts\JapaneseTokenizer;
+use App\Domain\Japanese\Exceptions\JapaneseTokenizationException;
 use App\Domain\Study\Enums\LearningConceptMatchMethod;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Results\LearningConceptMatchResult;
@@ -11,13 +13,26 @@ use Illuminate\Support\Facades\DB;
 
 final class MatchLearningConceptsForCardAction
 {
-    public const CLASSIFIER_VERSION = 'n5-rules-v2';
+    public const CLASSIFIER_VERSION = 'n5-rules-v3';
+
+    private const FURIGANA_FIELD_PATTERN = '/^([^\s\[\]]+)\[([^\[\]]+)]$/u';
+
+    public function __construct(private readonly JapaneseTokenizer $tokenizer) {}
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
     {
         $candidates = $this->candidates($card);
         $matches = [];
-        $normalizedCandidates = array_values(array_unique(array_column($candidates, 'normalized')));
+        $tokenCandidates = $this->tokenCandidates($candidates);
+
+        if ($source === LearningConceptMatchSource::Backfill && $this->tokenizer->hadFailure()) {
+            throw new JapaneseTokenizationException('Japanese tokenization failed during concept backfill.');
+        }
+
+        $normalizedCandidates = array_values(array_unique([
+            ...array_column($candidates, 'normalized'),
+            ...array_keys($tokenCandidates),
+        ]));
 
         if ($normalizedCandidates !== []) {
             $vocabularyAliases = DB::table('learning_concept_aliases as aliases')
@@ -34,15 +49,37 @@ final class MatchLearningConceptsForCardAction
             $unambiguousVocabularyAliases = $vocabularyAliases
                 ->groupBy('normalized_key')
                 ->filter(fn ($aliases): bool => $aliases->unique('concept_id')->count() === 1)
-                ->map->first();
+                ->values();
 
-            foreach ($unambiguousVocabularyAliases as $alias) {
-                $candidate = $this->firstCandidate($candidates, $alias->normalized_key);
-                $matches[$alias->concept_id] = [
-                    'method' => LearningConceptMatchMethod::Exact,
-                    'confidence' => 1.0,
-                    'evidence' => ['field' => $candidate['field'], 'matchedText' => $candidate['raw'], 'aliasKind' => $alias->alias_kind],
-                ];
+            foreach ($unambiguousVocabularyAliases as $aliases) {
+                $alias = $aliases->first();
+                $candidate = $this->candidate($candidates, $alias->normalized_key);
+
+                if ($candidate !== null) {
+                    $matches[$alias->concept_id] = [
+                        'method' => LearningConceptMatchMethod::Exact,
+                        'confidence' => 1.0,
+                        'evidence' => ['field' => $candidate['field'], 'matchedText' => $candidate['raw'], 'aliasKind' => $alias->alias_kind],
+                    ];
+
+                    continue;
+                }
+
+                $expressionAlias = $aliases->firstWhere('alias_kind', 'expression');
+                $tokenCandidate = $tokenCandidates[$alias->normalized_key] ?? null;
+
+                if ($expressionAlias !== null && $tokenCandidate !== null) {
+                    $matches[$expressionAlias->concept_id] = [
+                        'method' => LearningConceptMatchMethod::Token,
+                        'confidence' => 0.9,
+                        'evidence' => [
+                            'field' => $tokenCandidate['field'],
+                            'matchedText' => $tokenCandidate['raw'],
+                            'token' => $tokenCandidate['token'],
+                            'tokenForm' => $tokenCandidate['form'],
+                        ],
+                    ];
+                }
             }
 
             $grammarAliases = DB::table('learning_concept_aliases as aliases')
@@ -144,7 +181,7 @@ final class MatchLearningConceptsForCardAction
 
             $this->appendCandidate($candidates, $field, $raw);
 
-            if (preg_match('/^(.+?)\[([^\]]+)]$/u', trim($raw), $parts) === 1) {
+            if (preg_match(self::FURIGANA_FIELD_PATTERN, trim($raw), $parts) === 1) {
                 $this->appendCandidate($candidates, $field.'.expression', $parts[1]);
                 $this->appendCandidate($candidates, $field.'.reading', $parts[2]);
             }
@@ -165,9 +202,9 @@ final class MatchLearningConceptsForCardAction
 
     /**
      * @param  list<array{field: string, raw: string, normalized: string}>  $candidates
-     * @return array{field: string, raw: string, normalized: string}
+     * @return array{field: string, raw: string, normalized: string}|null
      */
-    private function firstCandidate(array $candidates, string $normalized): array
+    private function candidate(array $candidates, string $normalized): ?array
     {
         foreach ($candidates as $candidate) {
             if ($candidate['normalized'] === $normalized) {
@@ -175,6 +212,57 @@ final class MatchLearningConceptsForCardAction
             }
         }
 
-        return $candidates[0];
+        return null;
+    }
+
+    /**
+     * @param  list<array{field: string, raw: string, normalized: string}>  $candidates
+     * @return array<string, array{field: string, raw: string, token: string, form: string}>
+     */
+    private function tokenCandidates(array $candidates): array
+    {
+        $tokenizable = [];
+
+        foreach ($candidates as $candidate) {
+            if ($this->isReadingField($candidate['field'])
+                || preg_match(self::FURIGANA_FIELD_PATTERN, trim($candidate['raw'])) === 1
+            ) {
+                continue;
+            }
+
+            $candidate['tokenizationText'] = preg_replace('/\[[^\]]+]/u', '', $candidate['raw']) ?? $candidate['raw'];
+            $tokenizable[] = $candidate;
+        }
+
+        $tokenGroups = $this->tokenizer->tokenize(array_column($tokenizable, 'tokenizationText'));
+        $result = [];
+
+        foreach ($tokenizable as $index => $candidate) {
+            foreach ($tokenGroups[$index] ?? [] as $token) {
+                foreach (['surface', 'base'] as $form) {
+                    $normalized = LearningConceptText::normalize($token[$form]);
+
+                    if ($normalized === '') {
+                        continue;
+                    }
+
+                    $result[$normalized] ??= [
+                        'field' => $candidate['field'],
+                        'raw' => $candidate['raw'],
+                        'token' => $token[$form],
+                        'form' => $form,
+                    ];
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function isReadingField(string $field): bool
+    {
+        $field = strtolower($field);
+
+        return str_contains($field, 'reading') || str_contains($field, 'kana');
     }
 }

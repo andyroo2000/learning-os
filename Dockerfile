@@ -19,8 +19,12 @@ RUN composer dump-autoload --no-dev --optimize
 FROM dunglas/frankenphp:1-php8.4-bookworm
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends --yes ffmpeg \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+        ffmpeg \
+        mecab \
+        mecab-ipadic-utf8 \
     && rm -rf /var/lib/apt/lists/* \
+    && printf '%s\n' '本を読みました。' | mecab | grep --quiet '読む' \
     && install-php-extensions gd pdo_pgsql opcache zip \
     && printf '%s\n' \
         'opcache.validate_timestamps=0' \

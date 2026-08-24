@@ -34,6 +34,8 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
+use App\Domain\Japanese\Contracts\JapaneseTokenizer;
+use App\Domain\Japanese\Services\MecabJapaneseTokenizer;
 use App\Domain\Japanese\Support\JapaneseKnowledgeRateLimiter;
 use App\Domain\Media\Contracts\StaticMediaObjectStore;
 use App\Domain\Media\Contracts\StaticMediaObjectWriter;
@@ -107,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GoogleCalendarReadTransport::class, LaravelGoogleCalendarReadTransport::class);
         $this->app->bind(AudioSpeechGenerator::class, FishAudioSpeechGenerator::class);
         $this->app->bind(ImageGenerator::class, OpenAiStudyImageGenerator::class);
+        $this->app->singleton(JapaneseTokenizer::class, MecabJapaneseTokenizer::class);
     }
 
     /**

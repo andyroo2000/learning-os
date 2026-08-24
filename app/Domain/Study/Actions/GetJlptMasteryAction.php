@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Enums\LearningConceptKind;
 use App\Domain\Study\Enums\LearningConceptReviewStatus;
+use App\Domain\Study\Enums\StudyMasteryLevel;
 use Illuminate\Support\Facades\DB;
 use UnexpectedValueException;
 
@@ -28,10 +29,10 @@ final class GetJlptMasteryAction
             ->select('links.concept_id')
             ->selectRaw(<<<SQL
                 MAX(CASE
-                    WHEN cards.study_status = ? AND {$stability} >= 7 THEN 1
-                    ELSE 0.0
+                    WHEN cards.study_status = ? AND {$stability} >= ? THEN 1
+                    ELSE 0
                 END) AS known_weight
-                SQL, [CardStudyStatus::Review->value]);
+                SQL, [CardStudyStatus::Review->value, StudyMasteryLevel::GURU_STABILITY_DAYS]);
 
         $rows = DB::table('learning_concepts as concepts')
             ->leftJoinSub($bestCard, 'best_card', 'best_card.concept_id', '=', 'concepts.id')

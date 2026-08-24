@@ -21,7 +21,8 @@ Vocabulary and grammar remain separate metrics; there is no combined score.
 - The immutable `resources/jlpt/v1` catalog has 684 vocabulary concepts and 77
   grammar concepts. Checksums and row counts are enforced by the data migration.
 - Attribution and the data licenses are preserved beside the catalog.
-- Vocabulary uses exact normalized expression or reading matches.
+- Vocabulary uses exact normalized expression or reading matches. Keys shared by
+  homographs or homophones are considered ambiguous and do not match by themselves.
 - Grammar uses surface fragments of at least two Japanese characters. This is
   deliberately conservative and will undercount patterns that are expressed only
   by a one-character particle or by a conjugation absent from the catalog pattern.

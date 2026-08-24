@@ -29,7 +29,14 @@ final class MatchLearningConceptsForCardAction
                 ->whereIn('aliases.normalized_key', $normalizedCandidates)
                 ->get(['aliases.concept_id', 'aliases.alias_kind', 'aliases.normalized_key']);
 
-            foreach ($vocabularyAliases as $alias) {
+            // Exact spelling and reading keys can still be homographs/homophones. A key
+            // such as あつい must not credit every unrelated word that shares its reading.
+            $unambiguousVocabularyAliases = $vocabularyAliases
+                ->groupBy('normalized_key')
+                ->filter(fn ($aliases): bool => $aliases->unique('concept_id')->count() === 1)
+                ->map->first();
+
+            foreach ($unambiguousVocabularyAliases as $alias) {
                 $candidate = $this->firstCandidate($candidates, $alias->normalized_key);
                 $matches[$alias->concept_id] = [
                     'method' => LearningConceptMatchMethod::Exact,

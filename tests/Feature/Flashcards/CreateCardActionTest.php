@@ -142,6 +142,28 @@ class CreateCardActionTest extends TestCase
         $this->assertCount(0, $grammarMatches);
     }
 
+    public function test_it_does_not_fan_an_ambiguous_vocabulary_reading_out_to_homophones(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'あつい',
+                backText: 'hot or thick',
+            ),
+        );
+
+        $vocabularyMatches = DB::table('card_learning_concepts as links')
+            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
+            ->where('links.card_id', $result->card->id)
+            ->where('concepts.kind', 'vocabulary')
+            ->pluck('concepts.id');
+
+        $this->assertCount(0, $vocabularyMatches);
+    }
+
     public function test_client_id_retries_compare_variant_timestamps_at_persisted_precision(): void
     {
         $deck = Deck::factory()->create();

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Contracts\JapaneseTokenizer;
+use App\Domain\Japanese\Exceptions\JapaneseTokenizationException;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Support\Identifiers\CanonicalUlid;
@@ -47,9 +48,9 @@ final class BackfillLearningConceptsCommand extends Command
             }
 
             foreach ($cards as $card) {
-                $result = $matcher->handle($card, LearningConceptMatchSource::Backfill, ! $dryRun);
-
-                if ($tokenizer->hadFailure()) {
+                try {
+                    $result = $matcher->handle($card, LearningConceptMatchSource::Backfill, ! $dryRun);
+                } catch (JapaneseTokenizationException) {
                     $this->error('Japanese tokenization failed during the backfill. Restore MeCab and rerun from the beginning.');
 
                     return self::FAILURE;

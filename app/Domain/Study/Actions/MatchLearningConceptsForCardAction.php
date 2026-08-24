@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Contracts\JapaneseTokenizer;
+use App\Domain\Japanese\Exceptions\JapaneseTokenizationException;
 use App\Domain\Study\Enums\LearningConceptMatchMethod;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Results\LearningConceptMatchResult;
@@ -23,6 +24,11 @@ final class MatchLearningConceptsForCardAction
         $candidates = $this->candidates($card);
         $matches = [];
         $tokenCandidates = $this->tokenCandidates($candidates);
+
+        if ($source === LearningConceptMatchSource::Backfill && $this->tokenizer->hadFailure()) {
+            throw new JapaneseTokenizationException('Japanese tokenization failed during concept backfill.');
+        }
+
         $normalizedCandidates = array_values(array_unique([
             ...array_column($candidates, 'normalized'),
             ...array_keys($tokenCandidates),

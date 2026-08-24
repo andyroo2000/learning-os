@@ -79,4 +79,41 @@ class BackfillLearningConceptsCommandTest extends TestCase
 
         $this->assertDatabaseCount('card_learning_concepts', 0);
     }
+
+    public function test_mid_run_tokenizer_failure_does_not_persist_a_degraded_card(): void
+    {
+        $this->app->instance(JapaneseTokenizer::class, new class implements JapaneseTokenizer
+        {
+            private int $calls = 0;
+
+            private bool $failed = false;
+
+            public function tokenize(array $texts): array
+            {
+                $this->calls++;
+
+                if ($this->calls > 1) {
+                    $this->failed = true;
+                }
+
+                return array_fill(0, count($texts), []);
+            }
+
+            public function hadFailure(): bool
+            {
+                return $this->failed;
+            }
+        });
+        $deck = Deck::factory()->create();
+        Card::factory()->for($deck)->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+        ]);
+
+        $this->artisan('learning-concepts:backfill')
+            ->expectsOutputToContain('Japanese tokenization failed during the backfill')
+            ->assertFailed();
+
+        $this->assertDatabaseCount('card_learning_concepts', 0);
+    }
 }

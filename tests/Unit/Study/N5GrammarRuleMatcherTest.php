@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Study;
 
+use App\Domain\Japanese\Services\MecabJapaneseTokenizer;
 use App\Domain\Study\Support\LearningConceptText;
 use App\Domain\Study\Support\N5GrammarRuleMatcher;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -43,6 +44,42 @@ class N5GrammarRuleMatcherTest extends TestCase
         ]]);
 
         $this->assertSame([], $matches);
+    }
+
+    public function test_it_classifies_production_ipadic_token_shapes(): void
+    {
+        $tokens = (new MecabJapaneseTokenizer)->parseOutput(<<<'OUTPUT'
+静か	名詞,形容動詞語幹,*,*,*,*,静か,シズカ,シズカ
+な	助動詞,*,*,*,特殊・ダ,体言接続,だ,ナ,ナ
+部屋	名詞,一般,*,*,*,*,部屋,ヘヤ,ヘヤ
+に	助詞,格助詞,一般,*,*,*,に,ニ,ニ
+三	名詞,数,*,*,*,*,三,サン,サン
+人	名詞,接尾,助数詞,*,*,*,人,ニン,ニン
+い	動詞,自立,*,*,一段,連用形,いる,イ,イ
+ます	助動詞,*,*,*,特殊・マス,基本形,ます,マス,マス
+。	記号,句点,*,*,*,*,。,。,。
+三	名詞,数,*,*,*,*,三,サン,サン
+時	名詞,接尾,助数詞,*,*,*,時,ジ,ジ
+に	助詞,格助詞,一般,*,*,*,に,ニ,ニ
+家	名詞,一般,*,*,*,*,家,イエ,イエ
+から	助詞,格助詞,一般,*,*,*,から,カラ,カラ
+来	動詞,自立,*,*,カ変・来ル,連用形,来る,キ,キ
+ます	助動詞,*,*,*,特殊・マス,基本形,ます,マス,マス
+EOS
+OUTPUT, 1)[0];
+
+        $matches = (new N5GrammarRuleMatcher)->match([[
+            'field' => 'frontText',
+            'raw' => '静かな部屋に三人います。三時に家から来ます。',
+            'normalized' => '静かな部屋に三人います。三時に家から来ます。',
+            'tokens' => $tokens,
+        ]]);
+
+        $this->assertArrayHasKey('n5-grammar-na-adjective-attributive', $matches);
+        $this->assertArrayHasKey('n5-grammar-counter-people-nin', $matches);
+        $this->assertArrayHasKey('n5-grammar-counter-ji-oclock', $matches);
+        $this->assertArrayHasKey('n5-grammar-particle-kara-from', $matches);
+        $this->assertArrayNotHasKey('n5-grammar-toki-ni-when-basic', $matches);
     }
 
     /**
@@ -155,6 +192,18 @@ class N5GrammarRuleMatcherTest extends TestCase
                 ['n5-grammar-kara-cause'],
                 ['n5-grammar-particle-kara-from'],
             ],
+            'kara from fallback without subtype' => [
+                '家から来ます。',
+                [['家', '家', '名詞'], ['から', 'から', '助詞', '*'], ['来', '来る', '動詞'], ['ます', 'ます', '助動詞']],
+                ['n5-grammar-particle-kara-from'],
+                ['n5-grammar-kara-cause'],
+            ],
+            'kara because fallback without subtype' => [
+                '寒いから帰ります。',
+                [['寒い', '寒い', '形容詞'], ['から', 'から', '助詞', '*'], ['帰り', '帰る', '動詞'], ['ます', 'ます', '助動詞']],
+                ['n5-grammar-kara-cause'],
+                ['n5-grammar-particle-kara-from'],
+            ],
             'polite past negative' => [
                 '読みませんでした。',
                 [['読み', '読む', '動詞-一般'], ['ませ', 'ます', '助動詞'], ['ん', 'ぬ', '助動詞'], ['でし', 'です', '助動詞'], ['た', 'た', '助動詞']],
@@ -208,6 +257,16 @@ class N5GrammarRuleMatcherTest extends TestCase
                 ['n5-grammar-na-adj-te-joining-de'],
                 ['n5-grammar-particle-de-means'],
             ],
+            'case particle de followed by topic wa' => [
+                'ここでは写真を撮らないでください。',
+                [
+                    ['ここ', 'ここ', '代名詞'], ['で', 'で', '助詞-格助詞'], ['は', 'は', '助詞-係助詞'],
+                    ['写真', '写真', '名詞-普通名詞-一般'], ['を', 'を', '助詞-格助詞'], ['撮ら', '撮る', '動詞-一般'],
+                    ['ない', 'ない', '助動詞'], ['で', 'て', '助詞-接続助詞'], ['ください', '下さる', '動詞-非自立可能'],
+                ],
+                ['n5-grammar-particle-de-means', 'n5-grammar-nai-de-kudasai'],
+                ['n5-grammar-dewa-arimasen-negative-polite-copula'],
+            ],
             'noun structures and location' => [
                 '机の上に本と鉛筆があります。',
                 [
@@ -249,6 +308,18 @@ class N5GrammarRuleMatcherTest extends TestCase
                     ['で', 'で', '助詞-格助詞'], ['買い', '買う', '動詞-一般'], ['まし', 'ます', '助動詞'], ['た', 'た', '助動詞'],
                 ],
                 ['n5-grammar-counter-people-nin', 'n5-grammar-jikan-time-duration', 'n5-grammar-counter-hon-long', 'n5-grammar-counter-en-money'],
+            ],
+            'adjacent tokens do not create counters' => [
+                '健一人生について話しました。健一本店で働いています。',
+                [
+                    ['健一', '健一', '名詞-固有名詞-人名-名'], ['人生', '人生', '名詞-普通名詞-一般'],
+                    ['に', 'に', '助詞-格助詞'], ['つい', 'つく', '動詞-一般'], ['て', 'て', '助詞-接続助詞'],
+                    ['話し', '話す', '動詞-一般'], ['まし', 'ます', '助動詞'], ['た', 'た', '助動詞'], ['。', '。', '補助記号-句点'],
+                    ['健一', '健一', '名詞-固有名詞-人名-名'], ['本店', '本店', '名詞-普通名詞-一般'], ['で', 'で', '助詞-格助詞'],
+                    ['働い', '働く', '動詞-一般'], ['て', 'て', '助詞-接続助詞'], ['い', '居る', '動詞-非自立可能'], ['ます', 'ます', '助動詞'],
+                ],
+                ['n5-grammar-mashita-polite-past-verb', 'n5-grammar-te-imasu-progressive'],
+                ['n5-grammar-counter-people-nin', 'n5-grammar-counter-hon-long'],
             ],
             'remaining counters and every prefix' => [
                 '毎日、三時五分に二枚と一つを買います。私は二十歳です。',

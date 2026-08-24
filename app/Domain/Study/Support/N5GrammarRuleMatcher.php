@@ -95,10 +95,8 @@ final class N5GrammarRuleMatcher
 
         foreach ($candidates as $candidate) {
             foreach ($this->significantTokenSegments($candidate['tokens']) as $tokens) {
-                $text = implode('', array_column($tokens, 'normalizedSurface'));
-
                 foreach (self::SUPPORTED_CONCEPT_IDS as $conceptId) {
-                    if (isset($matches[$conceptId]) || ! $this->matches($conceptId, $text, $tokens)) {
+                    if (isset($matches[$conceptId]) || ! $this->matches($conceptId, $tokens)) {
                         continue;
                     }
 
@@ -115,7 +113,7 @@ final class N5GrammarRuleMatcher
     }
 
     /** @param list<array<string, string>> $tokens */
-    private function matches(string $conceptId, string $text, array $tokens): bool
+    private function matches(string $conceptId, array $tokens): bool
     {
         return match ($conceptId) {
             'n5-grammar-desu-polite-copula' => $this->hasSuffixAfter($tokens, 'です', $this->isNoun(...)),
@@ -166,8 +164,8 @@ final class N5GrammarRuleMatcher
             'n5-grammar-ga-hoshii-wanting-thing' => $this->hasAnyTokenPhrase($tokens, ['がほしい', 'が欲しい']),
             'n5-grammar-hou-ga-comparative' => $this->hasTokenPhrase($tokens, 'のほうが') && $this->hasTokenSurface($tokens, 'より'),
             'n5-grammar-ichiban-superlative' => $this->hasTokenSurface($tokens, '一番'),
-            'n5-grammar-counter-tsu' => preg_match('/(?:一|二|三|四|五|六|七|八|九|いく)つ/u', $text) === 1,
-            'n5-grammar-counter-people-nin' => preg_match('/(?:一人|二人|[0-9０-９三四五六七八九十百何]+人)/u', $text) === 1,
+            'n5-grammar-counter-tsu' => $this->hasNumberCounter($tokens, 'つ', '(?:一|二|三|四|五|六|七|八|九|いく)'),
+            'n5-grammar-counter-people-nin' => $this->hasNumberCounter($tokens, '人'),
             'n5-grammar-question-words-basic' => $this->hasAnyTokenSurface($tokens, ['何', '誰', 'どこ', 'いつ', 'どう', 'どうして', '何時', '何曜日']),
             'n5-grammar-nai-de-kudasai' => $this->hasTokenPhrase($tokens, 'ないでください'),
             'n5-grammar-particle-ya-non-exhaustive' => $this->hasParticle($tokens, 'や'),
@@ -188,14 +186,14 @@ final class N5GrammarRuleMatcher
             'n5-grammar-ikura-how-much' => $this->hasTokenSurface($tokens, 'いくら'),
             'n5-grammar-nanji-what-time' => $this->hasTokenPhrase($tokens, '何時'),
             'n5-grammar-nanyoubi-day-of-week' => $this->hasAnyTokenPhrase($tokens, ['何曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']),
-            'n5-grammar-counter-ji-oclock' => preg_match('/[0-9０-９一二三四五六七八九十何]+時(?!間)/u', $text) === 1,
-            'n5-grammar-counter-fun-minute' => preg_match('/[0-9０-９一二三四五六七八九十何]+分/u', $text) === 1,
-            'n5-grammar-counter-sai-age' => preg_match('/[0-9０-９一二三四五六七八九十何]+(?:歳|才)/u', $text) === 1,
-            'n5-grammar-counter-en-money' => preg_match('/[0-9０-９一二三四五六七八九十百千万何]+円/u', $text) === 1,
-            'n5-grammar-counter-hon-long' => preg_match('/[0-9０-９一二三四五六七八九十何]+本/u', $text) === 1,
-            'n5-grammar-counter-mai-flat' => preg_match('/[0-9０-９一二三四五六七八九十何]+枚/u', $text) === 1,
-            'n5-grammar-mai-every-prefix' => preg_match('/毎(?:日|朝|晩|夜|週|月|年)/u', $text) === 1,
-            'n5-grammar-jikan-time-duration' => preg_match('/[0-9０-９一二三四五六七八九十何]+時間/u', $text) === 1,
+            'n5-grammar-counter-ji-oclock' => $this->hasNumberCounter($tokens, '時'),
+            'n5-grammar-counter-fun-minute' => $this->hasNumberCounter($tokens, '分'),
+            'n5-grammar-counter-sai-age' => $this->hasAnyNumberCounter($tokens, ['歳', '才']),
+            'n5-grammar-counter-en-money' => $this->hasNumberCounter($tokens, '円'),
+            'n5-grammar-counter-hon-long' => $this->hasNumberCounter($tokens, '本'),
+            'n5-grammar-counter-mai-flat' => $this->hasNumberCounter($tokens, '枚'),
+            'n5-grammar-mai-every-prefix' => $this->hasAnyTokenPhrase($tokens, ['毎日', '毎朝', '毎晩', '毎夜', '毎週', '毎月', '毎年']),
+            'n5-grammar-jikan-time-duration' => $this->hasNumberCounter($tokens, '時間'),
             'n5-grammar-i-adj-desu-politeness' => $this->hasSuffixAfter($tokens, 'です', $this->isIAdjective(...)),
             'n5-grammar-kara-cause' => $this->hasParticleSubtype($tokens, 'から', '接続助詞'),
         };
@@ -268,7 +266,10 @@ final class N5GrammarRuleMatcher
 
             // UniDic classifies the copular で in ではありません as a case
             // particle. Do not turn a negative copula into a means/location hit.
-            if ($surface === 'で' && ($tokens[$index + 1]['normalizedSurface'] ?? '') === 'は') {
+            if ($surface === 'で'
+                && ($this->isNoun($tokens[$index - 1] ?? []) || $this->isNaAdjective($tokens[$index - 1] ?? []))
+                && $this->tokensMatchAt($tokens, $index, 'ではありません')
+            ) {
                 continue;
             }
 
@@ -296,7 +297,9 @@ final class N5GrammarRuleMatcher
                 return true;
             }
 
-            if ($features !== ' ') {
+            $partOfSpeechSubtype = $token['partOfSpeechSubtype'] ?? '';
+
+            if (! in_array($partOfSpeechSubtype, ['', '*'], true)) {
                 continue;
             }
 
@@ -499,6 +502,57 @@ final class N5GrammarRuleMatcher
     {
         foreach ($phrases as $phrase) {
             if ($this->hasTokenPhrase($tokens, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasNumberCounter(
+        array $tokens,
+        string $counter,
+        string $numberPattern = '[0-9０-９一二三四五六七八九十百千万何]+',
+    ): bool {
+        foreach ($tokens as $index => $token) {
+            $surface = $token['normalizedSurface'] ?? '';
+
+            if (preg_match('/^'.$numberPattern.preg_quote($counter, '/').'$/u', $surface) === 1) {
+                if ($counter !== '時' || ($tokens[$index + 1]['normalizedSurface'] ?? '') !== '間') {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (preg_match('/^'.$numberPattern.'$/u', $surface) !== 1
+                || ! $this->tokensMatchAt($tokens, $index + 1, $counter)
+            ) {
+                continue;
+            }
+
+            if ($counter === '時'
+                && ($tokens[$index + 1]['normalizedSurface'] ?? '') === '時'
+                && ($tokens[$index + 2]['normalizedSurface'] ?? '') === '間'
+            ) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @param  list<string>  $counters
+     */
+    private function hasAnyNumberCounter(array $tokens, array $counters): bool
+    {
+        foreach ($counters as $counter) {
+            if ($this->hasNumberCounter($tokens, $counter)) {
                 return true;
             }
         }

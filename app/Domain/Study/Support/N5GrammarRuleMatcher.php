@@ -94,21 +94,20 @@ final class N5GrammarRuleMatcher
         $matches = [];
 
         foreach ($candidates as $candidate) {
-            $tokens = $this->significantTokens($candidate['tokens']);
-            $text = $tokens === []
-                ? $candidate['normalized']
-                : implode('', array_column($tokens, 'normalizedSurface'));
+            foreach ($this->significantTokenSegments($candidate['tokens']) as $tokens) {
+                $text = implode('', array_column($tokens, 'normalizedSurface'));
 
-            foreach (self::SUPPORTED_CONCEPT_IDS as $conceptId) {
-                if (isset($matches[$conceptId]) || ! $this->matches($conceptId, $text, $tokens)) {
-                    continue;
+                foreach (self::SUPPORTED_CONCEPT_IDS as $conceptId) {
+                    if (isset($matches[$conceptId]) || ! $this->matches($conceptId, $text, $tokens)) {
+                        continue;
+                    }
+
+                    $matches[$conceptId] = [
+                        'field' => $candidate['field'],
+                        'matchedText' => $candidate['raw'],
+                        'rule' => $conceptId,
+                    ];
                 }
-
-                $matches[$conceptId] = [
-                    'field' => $candidate['field'],
-                    'matchedText' => $candidate['raw'],
-                    'rule' => $conceptId,
-                ];
             }
         }
 
@@ -141,14 +140,14 @@ final class N5GrammarRuleMatcher
             'n5-grammar-particle-ka-question' => $this->hasSentenceEndingParticle($tokens, 'か'),
             'n5-grammar-particle-ne-seeking-agreement' => $this->hasSentenceEndingParticle($tokens, 'ね'),
             'n5-grammar-particle-yo-emphasis' => $this->hasSentenceEndingParticle($tokens, 'よ'),
-            'n5-grammar-kore-sore-are-demonstratives' => $this->containsAny($text, ['これ', 'それ', 'あれ', 'どれ']),
-            'n5-grammar-kono-sono-ano-dono-attributive' => $this->containsAny($text, ['この', 'その', 'あの', 'どの']),
-            'n5-grammar-koko-soko-asoko-doko' => $this->containsAny($text, ['ここ', 'そこ', 'あそこ', 'どこ']),
-            'n5-grammar-arimasu-existence-inanimate' => str_contains($text, 'あります'),
-            'n5-grammar-imasu-existence-animate' => $this->containsAny($text, ['がいます', 'にいます']) && ! $this->containsAny($text, ['ています', 'でいます']),
+            'n5-grammar-kore-sore-are-demonstratives' => $this->hasAnyTokenSurface($tokens, ['これ', 'それ', 'あれ', 'どれ']),
+            'n5-grammar-kono-sono-ano-dono-attributive' => $this->hasAnyTokenSurface($tokens, ['この', 'その', 'あの', 'どの']),
+            'n5-grammar-koko-soko-asoko-doko' => $this->hasAnyTokenSurface($tokens, ['ここ', 'そこ', 'あそこ', 'どこ']),
+            'n5-grammar-arimasu-existence-inanimate' => $this->hasTokenPhrase($tokens, 'あります'),
+            'n5-grammar-imasu-existence-animate' => $this->hasSurfaceBeforePhrase($tokens, ['が', 'に'], 'います'),
             'n5-grammar-te-form-basic' => $this->hasVerbConnectingParticle($tokens),
-            'n5-grammar-te-kudasai-request' => $this->containsAny($text, ['てください', 'でください']),
-            'n5-grammar-te-imasu-progressive' => $this->containsAny($text, ['ています', 'ている', 'ていました', 'ていません', 'ていない', 'でいます', 'でいる', 'でいました', 'でいません', 'でいない']),
+            'n5-grammar-te-kudasai-request' => $this->hasAnyTokenPhrase($tokens, ['てください', 'でください']),
+            'n5-grammar-te-imasu-progressive' => $this->hasAnyTokenPhrase($tokens, ['ています', 'ている', 'ていました', 'ていません', 'ていない', 'でいます', 'でいる', 'でいました', 'でいません', 'でいない']),
             'n5-grammar-nai-form' => $this->hasVerbAuxiliary($tokens, 'ない'),
             'n5-grammar-ta-form' => $this->hasVerbAuxiliary($tokens, 'た', 'だ'),
             'n5-grammar-i-adjective-nonpast' => $this->hasNonpastIAdjective($tokens),
@@ -164,31 +163,31 @@ final class N5GrammarRuleMatcher
             'n5-grammar-mashou-volitional' => $this->hasSuffixAfter($tokens, 'ましょう', $this->isVerb(...)),
             'n5-grammar-mashou-ka-invitation' => $this->hasSuffixAfter($tokens, 'ましょうか', $this->isVerb(...)),
             'n5-grammar-tai-desire' => $this->hasVerbAuxiliary($tokens, 'たい'),
-            'n5-grammar-ga-hoshii-wanting-thing' => $this->containsAny($text, ['がほしい', 'が欲しい']),
-            'n5-grammar-hou-ga-comparative' => str_contains($text, 'のほうが') && str_contains($text, 'より'),
-            'n5-grammar-ichiban-superlative' => str_contains($text, '一番'),
+            'n5-grammar-ga-hoshii-wanting-thing' => $this->hasAnyTokenPhrase($tokens, ['がほしい', 'が欲しい']),
+            'n5-grammar-hou-ga-comparative' => $this->hasTokenPhrase($tokens, 'のほうが') && $this->hasTokenSurface($tokens, 'より'),
+            'n5-grammar-ichiban-superlative' => $this->hasTokenSurface($tokens, '一番'),
             'n5-grammar-counter-tsu' => preg_match('/(?:一|二|三|四|五|六|七|八|九|いく)つ/u', $text) === 1,
             'n5-grammar-counter-people-nin' => preg_match('/(?:一人|二人|[0-9０-９三四五六七八九十百何]+人)/u', $text) === 1,
-            'n5-grammar-question-words-basic' => $this->containsAny($text, ['何', '誰', 'どこ', 'いつ', 'どう', 'どうして']),
-            'n5-grammar-nai-de-kudasai' => str_contains($text, 'ないでください'),
+            'n5-grammar-question-words-basic' => $this->hasAnyTokenSurface($tokens, ['何', '誰', 'どこ', 'いつ', 'どう', 'どうして', '何時', '何曜日']),
+            'n5-grammar-nai-de-kudasai' => $this->hasTokenPhrase($tokens, 'ないでください'),
             'n5-grammar-particle-ya-non-exhaustive' => $this->hasParticle($tokens, 'や'),
             'n5-grammar-masenka-invitation' => $this->hasSuffixAfter($tokens, 'ませんか', $this->isVerb(...)),
-            'n5-grammar-mou-ta-already' => str_contains($text, 'もう') && $this->hasPastPredicate($tokens),
-            'n5-grammar-mada-not-yet' => str_contains($text, 'まだ') && $this->containsAny($text, ['ていない', 'ている', 'でいない', 'でいる']),
-            'n5-grammar-toki-ni-when-basic' => str_contains($text, 'とき'),
-            'n5-grammar-issho-ni-together' => $this->containsAny($text, ['と一緒に', 'といっしょに']),
-            'n5-grammar-dake-only-basic' => str_contains($text, 'だけ'),
+            'n5-grammar-mou-ta-already' => $this->hasTokenSurface($tokens, 'もう') && $this->hasPastPredicate($tokens),
+            'n5-grammar-mada-not-yet' => $this->hasTokenSurface($tokens, 'まだ') && $this->hasAnyTokenPhrase($tokens, ['ていない', 'ている', 'でいない', 'でいる']),
+            'n5-grammar-toki-ni-when-basic' => $this->hasTokiConstruction($tokens),
+            'n5-grammar-issho-ni-together' => $this->hasAnyTokenPhrase($tokens, ['と一緒に', 'といっしょに']),
+            'n5-grammar-dake-only-basic' => $this->hasTokenSurface($tokens, 'だけ'),
             'n5-grammar-i-adj-adverbial-ku' => $this->hasIAdjectiveBeforeVerb($tokens),
             'n5-grammar-na-adj-adverbial-ni' => $this->hasCategorySurfaceCategory($tokens, $this->isNaAdjective(...), 'に', $this->isVerb(...)),
             'n5-grammar-i-adj-te-joining-kute' => $this->hasIAdjectiveInflection($tokens, ['くて']),
             'n5-grammar-na-adj-te-joining-de' => $this->hasCopularConnector($tokens),
             'n5-grammar-mo-mo-both' => $this->particleCount($tokens, 'も') >= 2,
             'n5-grammar-to-exhaustive-listing' => $this->hasNounParticleNoun($tokens, 'と'),
-            'n5-grammar-location-nouns-ue-shita' => preg_match('/の(?:上|下|中|前|後ろ|横|隣|間)(?:に|で|へ)/u', $text) === 1,
-            'n5-grammar-ikutsu-how-many' => str_contains($text, 'いくつ'),
-            'n5-grammar-ikura-how-much' => str_contains($text, 'いくら'),
-            'n5-grammar-nanji-what-time' => str_contains($text, '何時'),
-            'n5-grammar-nanyoubi-day-of-week' => str_contains($text, '曜日'),
+            'n5-grammar-location-nouns-ue-shita' => $this->hasRelativeLocation($tokens),
+            'n5-grammar-ikutsu-how-many' => $this->hasTokenSurface($tokens, 'いくつ'),
+            'n5-grammar-ikura-how-much' => $this->hasTokenSurface($tokens, 'いくら'),
+            'n5-grammar-nanji-what-time' => $this->hasTokenPhrase($tokens, '何時'),
+            'n5-grammar-nanyoubi-day-of-week' => $this->hasAnyTokenPhrase($tokens, ['何曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']),
             'n5-grammar-counter-ji-oclock' => preg_match('/[0-9０-９一二三四五六七八九十何]+時(?!間)/u', $text) === 1,
             'n5-grammar-counter-fun-minute' => preg_match('/[0-9０-９一二三四五六七八九十何]+分/u', $text) === 1,
             'n5-grammar-counter-sai-age' => preg_match('/[0-9０-９一二三四五六七八九十何]+(?:歳|才)/u', $text) === 1,
@@ -204,38 +203,42 @@ final class N5GrammarRuleMatcher
 
     /**
      * @param  list<array<string, string>>  $tokens
-     * @return list<array<string, string>>
+     * @return list<list<array<string, string>>>
      */
-    private function significantTokens(array $tokens): array
+    private function significantTokenSegments(array $tokens): array
     {
-        $result = [];
+        $segments = [];
+        $segment = [];
 
         foreach ($tokens as $token) {
             $surface = LearningConceptText::normalize($token['surface'] ?? '');
             $partOfSpeech = $token['partOfSpeech'] ?? '';
 
             if ($surface === '' || str_starts_with($partOfSpeech, '記号') || str_starts_with($partOfSpeech, '補助記号')) {
+                if ($segment !== []) {
+                    $segments[] = $segment;
+                    $segment = [];
+                }
+
                 continue;
             }
 
             $token['normalizedSurface'] = $surface;
-            $result[] = $token;
+            $segment[] = $token;
         }
 
-        return $result;
+        if ($segment !== []) {
+            $segments[] = $segment;
+        }
+
+        return $segments;
     }
 
     /** @param list<array<string, string>> $tokens */
     private function hasSuffixAfter(array $tokens, string $suffix, callable $category): bool
     {
         for ($index = 0; $index < count($tokens); $index++) {
-            if (! $category($tokens[$index])) {
-                continue;
-            }
-
-            $tail = implode('', array_column(array_slice($tokens, $index + 1), 'normalizedSurface'));
-
-            if (str_starts_with($tail, $suffix)) {
+            if ($category($tokens[$index]) && $this->tokensMatchAt($tokens, $index + 1, $suffix)) {
                 return true;
             }
         }
@@ -400,10 +403,22 @@ final class N5GrammarRuleMatcher
                 continue;
             }
 
-            $tail = implode('', array_column(array_slice($tokens, $index), 'normalizedSurface'));
-
             foreach ($suffixes as $suffix) {
-                if (str_contains($tail, $suffix)) {
+                $phrase = '';
+
+                for ($tailIndex = $index; $tailIndex < count($tokens); $tailIndex++) {
+                    $phrase .= $tokens[$tailIndex]['normalizedSurface'];
+
+                    if (str_ends_with($phrase, $suffix)) {
+                        return true;
+                    }
+
+                    if (mb_strlen($phrase, 'UTF-8') > mb_strlen($token['normalizedSurface'].$suffix, 'UTF-8')) {
+                        break;
+                    }
+                }
+
+                if (str_ends_with($token['normalizedSurface'] ?? '', $suffix)) {
                     return true;
                 }
             }
@@ -465,6 +480,150 @@ final class N5GrammarRuleMatcher
     }
 
     /** @param list<array<string, string>> $tokens */
+    private function hasTokenPhrase(array $tokens, string $phrase): bool
+    {
+        for ($index = 0; $index < count($tokens); $index++) {
+            if ($this->tokensMatchAt($tokens, $index, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @param  list<string>  $phrases
+     */
+    private function hasAnyTokenPhrase(array $tokens, array $phrases): bool
+    {
+        foreach ($phrases as $phrase) {
+            if ($this->hasTokenPhrase($tokens, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function tokensMatchAt(array $tokens, int $start, string $phrase): bool
+    {
+        $candidate = '';
+        $phraseLength = mb_strlen($phrase, 'UTF-8');
+
+        for ($index = $start; $index < count($tokens); $index++) {
+            $candidate .= $tokens[$index]['normalizedSurface'];
+            $candidateLength = mb_strlen($candidate, 'UTF-8');
+
+            if ($candidateLength >= $phraseLength) {
+                return $candidate === $phrase;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @param  list<string>  $surfaces
+     */
+    private function hasSurfaceBeforePhrase(array $tokens, array $surfaces, string $phrase): bool
+    {
+        for ($index = 0; $index < count($tokens) - 1; $index++) {
+            if (in_array($tokens[$index]['normalizedSurface'] ?? '', $surfaces, true)
+                && $this->tokensMatchAt($tokens, $index + 1, $phrase)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasTokenSurface(array $tokens, string $surface): bool
+    {
+        foreach ($tokens as $token) {
+            if (($token['normalizedSurface'] ?? '') === $surface) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @param  list<string>  $surfaces
+     */
+    private function hasAnyTokenSurface(array $tokens, array $surfaces): bool
+    {
+        foreach ($surfaces as $surface) {
+            if ($this->hasTokenSurface($tokens, $surface)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasRelativeLocation(array $tokens): bool
+    {
+        $locations = ['上', '下', '中', '前', '後ろ', '横', '隣', '間'];
+
+        for ($index = 1; $index < count($tokens) - 2; $index++) {
+            if (($tokens[$index]['normalizedSurface'] ?? '') === 'の'
+                && $this->isNoun($tokens[$index - 1])
+                && in_array($tokens[$index + 1]['normalizedSurface'] ?? '', $locations, true)
+                && in_array($tokens[$index + 2]['normalizedSurface'] ?? '', ['に', 'で', 'へ'], true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasTokiConstruction(array $tokens): bool
+    {
+        foreach ($tokens as $index => $token) {
+            $surface = $token['normalizedSurface'] ?? '';
+
+            if ($surface === 'とき') {
+                return true;
+            }
+
+            if ($surface !== '時' || $index === 0) {
+                continue;
+            }
+
+            $previous = $tokens[$index - 1];
+            $previousSurface = $previous['normalizedSurface'] ?? '';
+            $previousFeatures = ($previous['partOfSpeech'] ?? '').' '.($previous['partOfSpeechSubtype'] ?? '');
+
+            if (str_contains($previousFeatures, '数詞')
+                || preg_match('/^[0-9０-９一二三四五六七八九十百何]+$/u', $previousSurface) === 1
+            ) {
+                continue;
+            }
+
+            if (in_array($previousSurface, ['の', 'な'], true)
+                || $this->isNoun($previous)
+                || $this->isVerb($previous)
+                || $this->isIAdjective($previous)
+                || $this->isNaAdjective($previous)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array<string, string>> $tokens */
     private function particleCount(array $tokens, string $surface): int
     {
         return count(array_filter(
@@ -508,17 +667,5 @@ final class N5GrammarRuleMatcher
     private function isAuxiliary(array $token): bool
     {
         return str_starts_with($token['partOfSpeech'] ?? '', '助動詞');
-    }
-
-    /** @param list<string> $needles */
-    private function containsAny(string $text, array $needles): bool
-    {
-        foreach ($needles as $needle) {
-            if (str_contains($text, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

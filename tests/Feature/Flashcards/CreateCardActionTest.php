@@ -276,6 +276,28 @@ class CreateCardActionTest extends TestCase
         $this->assertSame(['n5-grammar-desu-polite-copula'], $grammarMatches->all());
     }
 
+    public function test_it_skips_automatic_grammar_links_when_tokenization_is_unavailable(): void
+    {
+        config()->set('services.mecab.binary', '/definitely-missing/convolab-mecab');
+        Log::spy();
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '学生です。',
+                backText: 'I am a student.',
+            ),
+        );
+
+        $this->assertSame(0, DB::table('card_learning_concepts as links')
+            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
+            ->where('links.card_id', $result->card->id)
+            ->where('concepts.kind', 'grammar')
+            ->count());
+    }
+
     public function test_it_does_not_fan_an_ambiguous_vocabulary_reading_out_to_homophones(): void
     {
         $deck = Deck::factory()->create();

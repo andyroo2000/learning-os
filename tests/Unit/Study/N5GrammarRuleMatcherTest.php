@@ -31,6 +31,20 @@ class N5GrammarRuleMatcherTest extends TestCase
         $this->assertSame($catalogIds, $supportedIds);
     }
 
+    public function test_it_skips_grammar_classification_without_tokenizer_output(): void
+    {
+        $text = '学生です。もう帰りました。';
+
+        $matches = (new N5GrammarRuleMatcher)->match([[
+            'field' => 'frontText',
+            'raw' => $text,
+            'normalized' => LearningConceptText::normalize($text),
+            'tokens' => [],
+        ]]);
+
+        $this->assertSame([], $matches);
+    }
+
     /**
      * @param  list<array{string, string, string, string?: string, string?: string}>  $tokenRows
      * @param  list<string>  $expected
@@ -80,6 +94,15 @@ class N5GrammarRuleMatcherTest extends TestCase
                 [['学生', '学生', '名詞-普通名詞-一般'], ['です', 'です', '助動詞']],
                 ['n5-grammar-desu-polite-copula'],
                 ['n5-grammar-i-adj-desu-politeness', 'n5-grammar-na-adjective-nonpast'],
+            ],
+            'suffix must align to complete tokens' => [
+                '友達だいすき。学生です。',
+                [
+                    ['友達', '友達', '名詞-普通名詞-一般'], ['だいすき', '大好き', '形状詞-一般'], ['。', '。', '補助記号-句点'],
+                    ['学生', '学生', '名詞-普通名詞-一般'], ['です', 'です', '助動詞'], ['。', '。', '補助記号-句点'],
+                ],
+                ['n5-grammar-desu-polite-copula'],
+                ['n5-grammar-da-plain-copula'],
             ],
             'noun copula variants' => [
                 '学生だ。学生でした。学生ではありません。',
@@ -146,6 +169,15 @@ class N5GrammarRuleMatcherTest extends TestCase
                 '読んだ。',
                 [['読ん', '読む', '動詞-一般'], ['だ', 'た', '助動詞']],
                 ['n5-grammar-ta-form'],
+            ],
+            'adjacent tokens do not create mou' => [
+                '友達もうちに来ました。',
+                [
+                    ['友達', '友達', '名詞-普通名詞-一般'], ['も', 'も', '助詞-係助詞'], ['うち', 'うち', '名詞-普通名詞-一般'],
+                    ['に', 'に', '助詞-格助詞'], ['来', '来る', '動詞-一般'], ['まし', 'ます', '助動詞'], ['た', 'た', '助動詞'],
+                ],
+                ['n5-grammar-mashita-polite-past-verb'],
+                ['n5-grammar-mou-ta-already'],
             ],
             'i adjective negative and past' => [
                 '高くない。安かった。',
@@ -235,6 +267,25 @@ class N5GrammarRuleMatcherTest extends TestCase
                     'n5-grammar-counter-tsu',
                     'n5-grammar-counter-sai-age',
                 ],
+            ],
+            'time questions and toki' => [
+                '何時ですか。何曜日ですか。学生の時に勉強しました。',
+                [
+                    ['何', '何', '名詞-数詞'], ['時', '時', '名詞-普通名詞-助数詞可能'], ['です', 'です', '助動詞'], ['か', 'か', '助詞-終助詞'], ['。', '。', '補助記号-句点'],
+                    ['何曜', '何曜', '名詞-普通名詞-一般'], ['日', '日', '名詞-普通名詞-副詞可能'], ['です', 'です', '助動詞'], ['か', 'か', '助詞-終助詞'], ['。', '。', '補助記号-句点'],
+                    ['学生', '学生', '名詞-普通名詞-一般'], ['の', 'の', '助詞-格助詞'], ['時', '時', '名詞-普通名詞-副詞可能'], ['に', 'に', '助詞-格助詞'],
+                    ['勉強', '勉強', '名詞-普通名詞-サ変可能'], ['し', '為る', '動詞-非自立可能'], ['まし', 'ます', '助動詞'], ['た', 'た', '助動詞'],
+                ],
+                ['n5-grammar-nanji-what-time', 'n5-grammar-nanyoubi-day-of-week', 'n5-grammar-toki-ni-when-basic'],
+            ],
+            'clock time is not toki' => [
+                '三時に行きます。',
+                [
+                    ['三', '三', '名詞-数詞'], ['時', '時', '名詞-普通名詞-助数詞可能'], ['に', 'に', '助詞-格助詞'],
+                    ['行き', '行く', '動詞-一般'], ['ます', 'ます', '助動詞'],
+                ],
+                ['n5-grammar-counter-ji-oclock'],
+                ['n5-grammar-toki-ni-when-basic'],
             ],
         ];
     }

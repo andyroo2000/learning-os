@@ -84,6 +84,22 @@ class CreateCardActionTest extends TestCase
 
     public function test_it_matches_n5_vocabulary_and_grammar_when_a_card_is_created_without_duplicate_retry_links(): void
     {
+        $sentenceTokens = [
+            ['surface' => '会社', 'base' => '会社', 'partOfSpeech' => '名詞-普通名詞-一般'],
+            ['surface' => 'が', 'base' => 'が', 'partOfSpeech' => '助詞-格助詞'],
+            ['surface' => 'あり', 'base' => '有る', 'partOfSpeech' => '動詞-非自立可能'],
+            ['surface' => 'ます', 'base' => 'ます', 'partOfSpeech' => '助動詞'],
+            ['surface' => '。', 'base' => '。', 'partOfSpeech' => '補助記号-句点'],
+        ];
+        $this->mock(JapaneseTokenizer::class)
+            ->shouldReceive('tokenize')
+            ->once()
+            ->with(['会社があります。', '会社があります。', '会社', '会社があります。'])
+            ->andReturn([$sentenceTokens, $sentenceTokens, [[
+                'surface' => '会社',
+                'base' => '会社',
+                'partOfSpeech' => '名詞-普通名詞-一般',
+            ]], $sentenceTokens]);
         $deck = Deck::factory()->create();
         $cardId = strtolower((string) Str::ulid());
         $data = CreateCardData::fromInput(

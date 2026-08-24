@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Japanese\Contracts\JapaneseTokenizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -14,6 +15,18 @@ class BackfillLearningConceptsCommandTest extends TestCase
 
     public function test_backfill_is_dry_runnable_resumable_and_idempotent(): void
     {
+        $this->app->instance(JapaneseTokenizer::class, new class implements JapaneseTokenizer
+        {
+            public function tokenize(array $texts): array
+            {
+                return array_fill(0, count($texts), []);
+            }
+
+            public function hadFailure(): bool
+            {
+                return false;
+            }
+        });
         $deck = Deck::factory()->create();
         $firstId = strtolower((string) Str::ulid());
         $secondId = strtolower((string) Str::ulid());

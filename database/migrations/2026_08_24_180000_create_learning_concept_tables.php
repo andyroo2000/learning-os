@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('expression', 500);
             $table->string('normalized_key', 500);
             $table->string('reading', 500)->nullable();
+            $table->string('normalized_reading', 500)->nullable();
             $table->text('meaning');
             $table->string('source_name');
             $table->string('source_id');
@@ -32,10 +33,30 @@ return new class extends Migration
             );
         });
 
+        Schema::create('learning_concept_aliases', function (Blueprint $table): void {
+            $table->string('concept_id', 100);
+            $table->string('alias_kind', 32);
+            $table->string('normalized_key', 500);
+
+            $table->foreign('concept_id')
+                ->references('id')
+                ->on('learning_concepts')
+                ->cascadeOnDelete();
+            $table->primary(
+                ['concept_id', 'alias_kind', 'normalized_key'],
+                'learning_concept_aliases_pk',
+            );
+            $table->index(
+                ['alias_kind', 'normalized_key', 'concept_id'],
+                'learning_concept_aliases_lookup_idx',
+            );
+        });
+
         Schema::create('card_learning_concepts', function (Blueprint $table): void {
             $table->foreignUlid('card_id')->constrained()->cascadeOnDelete();
             $table->string('concept_id', 100);
             $table->string('match_method', 32);
+            $table->string('match_source', 32);
             $table->decimal('confidence', 5, 4)->nullable();
             $table->string('classifier_version', 100)->nullable();
             $table->json('evidence')->nullable();
@@ -59,6 +80,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('card_learning_concepts');
+        Schema::dropIfExists('learning_concept_aliases');
         Schema::dropIfExists('learning_concepts');
     }
 };

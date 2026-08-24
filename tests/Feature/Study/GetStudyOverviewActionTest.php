@@ -220,9 +220,9 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(5, $overview['total_cards']);
         $this->assertSame($nextDueAt->toJSON(), $overview['next_due_at']);
 
-        // Overview reads remain bounded as the collection grows: aggregate, mastery,
-        // recent recall, projected workload, and latest import.
-        $this->assertCount(5, $queries, $queries->pluck('query')->implode("\n"));
+        // Overview reads remain bounded as the collection grows: aggregate, card mastery,
+        // JLPT mastery, recent recall, projected workload, and latest import.
+        $this->assertCount(6, $queries, $queries->pluck('query')->implode("\n"));
 
         // Lock the conditional aggregate shape so bucket counts do not drift back to per-metric queries.
         $cardMetricQueries = $queries->filter(
@@ -387,6 +387,99 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(3, $overview['learning_readiness']['suggested_batch_size']);
     }
 
+    public function test_it_reports_separate_n5_vocabulary_and_grammar_mastery_using_the_strongest_linked_card(): void
+    {
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $weakVocabularyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 7],
+        ]);
+        $strongVocabularyCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 365],
+        ]);
+        $grammarCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 90],
+        ]);
+
+        foreach ([$weakVocabularyCard, $strongVocabularyCard] as $card) {
+            DB::table('card_learning_concepts')->insert([
+                'card_id' => $card->id,
+                'concept_id' => 'n5-vocab-1198550-2120ff50',
+                'match_method' => 'exact',
+                'match_source' => 'backfill',
+                'confidence' => 1,
+                'classifier_version' => 'n5-rules-v1',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('card_learning_concepts')->insert([
+            'card_id' => $grammarCard->id,
+            'concept_id' => 'n5-grammar-arimasu-existence-inanimate',
+            'match_method' => 'surface',
+            'match_source' => 'backfill',
+            'confidence' => 0.7,
+            'classifier_version' => 'n5-rules-v1',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $otherUserCard = $this->cardWithStudyStatus(
+            $this->deckFor(User::factory()->create()),
+            CardStudyStatus::Review,
+            ['scheduler_state' => ['stability' => 365]],
+        );
+        $deletedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 365],
+        ]);
+        $deletedDeck = $this->deckFor($user);
+        $deletedDeckCard = $this->cardWithStudyStatus($deletedDeck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 365],
+        ]);
+        $otherActiveDeckCard = $this->cardWithStudyStatus(
+            $this->deckFor($user),
+            CardStudyStatus::Review,
+            ['scheduler_state' => ['stability' => 365]],
+        );
+
+        foreach ([$otherUserCard, $deletedCard, $deletedDeckCard] as $excludedCard) {
+            DB::table('card_learning_concepts')->insert([
+                'card_id' => $excludedCard->id,
+                'concept_id' => 'n5-vocab-1198180-ada066ed',
+                'match_method' => 'exact',
+                'match_source' => 'backfill',
+                'confidence' => 1,
+                'classifier_version' => 'n5-rules-v1',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('card_learning_concepts')->insert([
+            'card_id' => $otherActiveDeckCard->id,
+            'concept_id' => 'n5-vocab-1381380-ebec6584',
+            'match_method' => 'exact',
+            'match_source' => 'backfill',
+            'confidence' => 1,
+            'classifier_version' => 'n5-rules-v1',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $deletedCard->delete();
+        $deletedDeck->delete();
+
+        $n5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id)['jlpt_mastery']['N5'];
+        $deckN5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id, deckId: $deck->id)['jlpt_mastery']['N5'];
+
+        $this->assertSame(['mastery_percent' => 0, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
+        $this->assertArrayNotHasKey('overall', $n5);
+    }
+
     public function test_readiness_uses_recall_and_projected_review_time_instead_of_raw_due_count(): void
     {
         $now = Carbon::parse('2026-08-05T12:00:00Z');
@@ -504,6 +597,7 @@ class GetStudyOverviewActionTest extends TestCase
         }
 
         $this->assertArrayNotHasKey('mastery_spread', $overview);
+        $this->assertArrayNotHasKey('jlpt_mastery', $overview);
         $this->assertArrayNotHasKey('learning_readiness', $overview);
         $this->assertCount(2, $queries);
     }

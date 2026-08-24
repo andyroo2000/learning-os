@@ -67,6 +67,12 @@ class ShowStudyOverviewApiTest extends TestCase
                     StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
                 )
                 ->assertJsonPath('learningReadiness.projectedDailyReviewMinutes', null)
+                ->assertJsonPath('jlptMastery.N5.vocabulary.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N5.vocabulary.covered', 0)
+                ->assertJsonPath('jlptMastery.N5.vocabulary.total', 684)
+                ->assertJsonPath('jlptMastery.N5.grammar.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N5.grammar.covered', 0)
+                ->assertJsonPath('jlptMastery.N5.grammar.total', 77)
                 ->assertJsonStructure([
                     'learningReadiness' => [
                         'timedReviewSampleSize',
@@ -74,6 +80,7 @@ class ShowStudyOverviewApiTest extends TestCase
                         'reviewTimeHeadroomMinutes',
                     ],
                 ])
+                ->assertJsonMissingPath('jlptMastery.N5.overall')
                 ->assertJsonPath('totalCards', 3);
         } finally {
             Carbon::setTestNow();

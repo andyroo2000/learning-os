@@ -3,6 +3,7 @@
 namespace App\Domain\Study\Models;
 
 use App\Domain\Study\Enums\LearningConceptMatchMethod;
+use App\Domain\Study\Enums\LearningConceptMatchSource;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 final class CardLearningConcept extends Pivot
@@ -13,6 +14,7 @@ final class CardLearningConcept extends Pivot
     {
         return [
             'match_method' => LearningConceptMatchMethod::class,
+            'match_source' => LearningConceptMatchSource::class,
             'confidence' => 'decimal:4',
             'evidence' => 'array',
         ];

@@ -13,6 +13,8 @@ use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
+use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -36,6 +38,7 @@ class CreateCardAction
         private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
         private readonly ?Closure $afterClientIdPrecheckMiss = null,
         private readonly ?Closure $afterClientIdUniqueConflict = null,
+        private readonly ?MatchLearningConceptsForCardAction $matchLearningConcepts = null,
     ) {
         if (($afterClientIdPrecheckMiss !== null || $afterClientIdUniqueConflict !== null) && ! app()->runningUnitTests()) {
             throw new LogicException('Card creation race hooks may only be used in tests.');
@@ -145,6 +148,7 @@ class CreateCardAction
 
             $card->scheduler_state = CardSchedulerState::freshNew();
             $card->save();
+            $this->learningConceptMatcher()->handle($card, LearningConceptMatchSource::Creation);
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
                     userId: $data->userId,
@@ -192,6 +196,11 @@ class CreateCardAction
     private function newCardQueuePosition(): NewCardQueuePosition
     {
         return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
+    }
+
+    private function learningConceptMatcher(): MatchLearningConceptsForCardAction
+    {
+        return $this->matchLearningConcepts ?? app(MatchLearningConceptsForCardAction::class);
     }
 
     private function findExistingCard(string $id): ?Card

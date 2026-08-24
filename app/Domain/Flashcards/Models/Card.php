@@ -268,7 +268,7 @@ class Card extends Model
     {
         return $this->belongsToMany(LearningConcept::class, 'card_learning_concepts', 'card_id', 'concept_id')
             ->using(CardLearningConcept::class)
-            ->withPivot(['match_method', 'confidence', 'classifier_version', 'evidence'])
+            ->withPivot(['match_method', 'match_source', 'confidence', 'classifier_version', 'evidence'])
             ->withTimestamps();
     }
 }

@@ -33,6 +33,7 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'latestImport' => $this->latestImport(),
             'nextDueAt' => $this->overviewValue('next_due_at'),
             'masterySpread' => $this->overviewValue('mastery_spread'),
+            'jlptMastery' => $this->jlptMastery(),
             'learningReadiness' => $this->learningReadiness(),
         ];
     }
@@ -70,6 +71,38 @@ class StudyOverviewCompatibilityResource extends JsonResource
     private function overviewValue(string $key): mixed
     {
         return $this->resource[$key] ?? null;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function jlptMastery(): ?array
+    {
+        $mastery = $this->resource['jlpt_mastery'] ?? null;
+
+        if (! is_array($mastery)) {
+            return null;
+        }
+
+        $result = [];
+
+        foreach ($mastery as $level => $kinds) {
+            if (! is_array($kinds)) {
+                continue;
+            }
+
+            foreach (['vocabulary', 'grammar'] as $kind) {
+                $metric = $kinds[$kind] ?? null;
+
+                if (is_array($metric)) {
+                    $result[$level][$kind] = [
+                        'masteryPercent' => $metric['mastery_percent'],
+                        'covered' => $metric['covered'],
+                        'total' => $metric['total'],
+                    ];
+                }
+            }
+        }
+
+        return $result;
     }
 
     /**

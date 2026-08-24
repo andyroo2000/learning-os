@@ -20,6 +20,9 @@ class LearningConceptMigrationTest extends TestCase
     private const IDENTIFIERS = [
         'learning_concepts_coverage_idx',
         'learning_concepts_match_idx',
+        'learning_concept_aliases_concept_id_foreign',
+        'learning_concept_aliases_pk',
+        'learning_concept_aliases_lookup_idx',
         'card_learning_concepts_card_id_foreign',
         'card_learning_concepts_concept_id_foreign',
         'card_learning_concepts_pk',
@@ -44,6 +47,7 @@ class LearningConceptMigrationTest extends TestCase
         // Compile-only cross-dialect coverage mirrors the migration blueprint; the feature test
         // boots the real migration and checks the resulting SQLite schema and relationships.
         $this->assertNotEmpty($this->conceptBlueprint($connection)->toSql());
+        $this->assertNotEmpty($this->aliasBlueprint($connection)->toSql());
         $this->assertNotEmpty($this->linkBlueprint($connection)->toSql());
         $this->assertStringContainsString(
             'card_learning_concepts',
@@ -63,10 +67,13 @@ class LearningConceptMigrationTest extends TestCase
 
         $this->assertIsString($contents);
         $linkDrop = strpos($contents, "Schema::dropIfExists('card_learning_concepts')");
+        $aliasDrop = strpos($contents, "Schema::dropIfExists('learning_concept_aliases')");
         $conceptDrop = strpos($contents, "Schema::dropIfExists('learning_concepts')");
         $this->assertIsInt($linkDrop);
+        $this->assertIsInt($aliasDrop);
         $this->assertIsInt($conceptDrop);
-        $this->assertLessThan($conceptDrop, $linkDrop);
+        $this->assertLessThan($aliasDrop, $linkDrop);
+        $this->assertLessThan($conceptDrop, $aliasDrop);
     }
 
     public function test_all_identifiers_fit_the_postgres_limit(): void
@@ -107,6 +114,7 @@ class LearningConceptMigrationTest extends TestCase
             $table->string('expression', 500);
             $table->string('normalized_key', 500);
             $table->string('reading', 500)->nullable();
+            $table->string('normalized_reading', 500)->nullable();
             $table->text('meaning');
             $table->string('source_name');
             $table->string('source_id');
@@ -130,6 +138,7 @@ class LearningConceptMigrationTest extends TestCase
             $table->foreignUlid('card_id')->constrained()->cascadeOnDelete();
             $table->string('concept_id', 100);
             $table->string('match_method', 32);
+            $table->string('match_source', 32);
             $table->decimal('confidence', 5, 4)->nullable();
             $table->string('classifier_version', 100)->nullable();
             $table->json('evidence')->nullable();
@@ -142,6 +151,22 @@ class LearningConceptMigrationTest extends TestCase
             $table->index(
                 ['concept_id', 'card_id'],
                 'card_learning_concepts_concept_card_idx',
+            );
+        });
+    }
+
+    private function aliasBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'learning_concept_aliases', function (Blueprint $table): void {
+            $table->create();
+            $table->string('concept_id', 100);
+            $table->string('alias_kind', 32);
+            $table->string('normalized_key', 500);
+            $table->foreign('concept_id')->references('id')->on('learning_concepts')->cascadeOnDelete();
+            $table->primary(['concept_id', 'alias_kind', 'normalized_key'], 'learning_concept_aliases_pk');
+            $table->index(
+                ['alias_kind', 'normalized_key', 'concept_id'],
+                'learning_concept_aliases_lookup_idx',
             );
         });
     }

@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Enums\LearningConceptKind;
 use App\Domain\Study\Enums\LearningConceptMatchMethod;
+use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Enums\LearningConceptReviewStatus;
 use App\Domain\Study\Models\LearningConcept;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,6 +36,7 @@ class LearningConceptSchemaTest extends TestCase
 
         $card->learningConcepts()->attach($concept->id, [
             'match_method' => LearningConceptMatchMethod::Exact->value,
+            'match_source' => LearningConceptMatchSource::Creation->value,
             'confidence' => 1,
             'classifier_version' => 'exact-v1',
             'evidence' => ['field' => 'answer.expression'],
@@ -46,6 +48,7 @@ class LearningConceptSchemaTest extends TestCase
         $this->assertSame(LearningConceptKind::Vocabulary, $matchedConcept->kind);
         $this->assertSame(LearningConceptReviewStatus::Seed, $matchedConcept->review_status);
         $this->assertSame(LearningConceptMatchMethod::Exact, $matchedConcept->pivot->match_method);
+        $this->assertSame(LearningConceptMatchSource::Creation, $matchedConcept->pivot->match_source);
         $this->assertSame('1.0000', $matchedConcept->pivot->confidence);
         $this->assertSame('exact-v1', $matchedConcept->pivot->classifier_version);
         $this->assertSame(['field' => 'answer.expression'], $matchedConcept->pivot->evidence);
@@ -69,7 +72,8 @@ class LearningConceptSchemaTest extends TestCase
         ]);
 
         $card->learningConcepts()->attach($concept->id, [
-            'match_method' => LearningConceptMatchMethod::Backfill->value,
+            'match_method' => LearningConceptMatchMethod::Surface->value,
+            'match_source' => LearningConceptMatchSource::Backfill->value,
         ]);
         $concept->delete();
 
@@ -93,6 +97,7 @@ class LearningConceptSchemaTest extends TestCase
         ]);
         $card->learningConcepts()->attach($secondConcept->id, [
             'match_method' => LearningConceptMatchMethod::Exact->value,
+            'match_source' => LearningConceptMatchSource::Backfill->value,
         ]);
         $card->forceDelete();
 
@@ -106,14 +111,17 @@ class LearningConceptSchemaTest extends TestCase
     {
         $learningConceptIndexes = collect(Schema::getIndexes('learning_concepts'))->pluck('name');
         $linkIndexes = collect(Schema::getIndexes('card_learning_concepts'))->pluck('name');
+        $aliasIndexes = collect(Schema::getIndexes('learning_concept_aliases'))->pluck('name');
 
         $this->assertContains('learning_concepts_coverage_idx', $learningConceptIndexes);
         $this->assertContains('learning_concepts_match_idx', $learningConceptIndexes);
         $this->assertContains('card_learning_concepts_concept_card_idx', $linkIndexes);
+        $this->assertContains('learning_concept_aliases_lookup_idx', $aliasIndexes);
         $this->assertTrue(DB::getSchemaBuilder()->hasColumns('card_learning_concepts', [
             'card_id',
             'concept_id',
             'match_method',
+            'match_source',
             'confidence',
             'classifier_version',
             'evidence',

@@ -28,6 +28,7 @@ class StudyOverviewResource extends JsonResource
         'latest_import',
         'next_due_at',
         'mastery_spread',
+        'jlpt_mastery',
         'learning_readiness',
     ];
 

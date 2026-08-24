@@ -20,11 +20,32 @@ OUTPUT, 2);
 
         $this->assertSame([
             [
-                ['surface' => '読み', 'base' => '読む'],
-                ['surface' => 'ました', 'base' => 'ます'],
+                [
+                    'surface' => '読み',
+                    'base' => '読む',
+                    'partOfSpeech' => '動詞',
+                    'partOfSpeechSubtype' => '自立',
+                    'conjugationType' => '五段・マ行',
+                    'conjugationForm' => '連用形',
+                ],
+                [
+                    'surface' => 'ました',
+                    'base' => 'ます',
+                    'partOfSpeech' => '助動詞',
+                    'partOfSpeechSubtype' => '*',
+                    'conjugationType' => '特殊・マス',
+                    'conjugationForm' => '連用形',
+                ],
             ],
             [
-                ['surface' => '本', 'base' => '本'],
+                [
+                    'surface' => '本',
+                    'base' => '本',
+                    'partOfSpeech' => '名詞',
+                    'partOfSpeechSubtype' => '一般',
+                    'conjugationType' => '*',
+                    'conjugationForm' => '*',
+                ],
             ],
         ], $groups);
     }
@@ -38,7 +59,14 @@ OUTPUT, 2);
 
         $this->assertSame([
             [
-                ['surface' => '読み', 'base' => '読む'],
+                [
+                    'surface' => '読み',
+                    'base' => '読む',
+                    'partOfSpeech' => '動詞-一般',
+                    'partOfSpeechSubtype' => '',
+                    'conjugationType' => '五段-マ行',
+                    'conjugationForm' => '連用形-一般',
+                ],
             ],
             [],
         ], $groups);

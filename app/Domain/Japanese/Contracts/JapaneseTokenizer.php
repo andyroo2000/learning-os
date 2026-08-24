@@ -6,7 +6,7 @@ interface JapaneseTokenizer
 {
     /**
      * @param  list<string>  $texts
-     * @return list<list<array{surface: string, base: string}>>
+     * @return list<list<array{surface: string, base: string, partOfSpeech: string, partOfSpeechSubtype: string, conjugationType: string, conjugationForm: string}>>
      */
     public function tokenize(array $texts): array;
 

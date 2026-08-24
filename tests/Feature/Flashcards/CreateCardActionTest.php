@@ -106,13 +106,14 @@ class CreateCardActionTest extends TestCase
             'concept_id' => 'n5-vocab-1198550-2120ff50',
             'match_method' => 'exact',
             'match_source' => 'creation',
-            'classifier_version' => 'n5-rules-v3',
+            'classifier_version' => 'n5-rules-v4',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $cardId,
             'concept_id' => 'n5-grammar-arimasu-existence-inanimate',
-            'match_method' => 'surface',
+            'match_method' => 'classifier',
             'match_source' => 'creation',
+            'classifier_version' => 'n5-rules-v4',
         ]);
         $this->assertSame(
             DB::table('card_learning_concepts')->where('card_id', $cardId)->count(),
@@ -155,7 +156,7 @@ class CreateCardActionTest extends TestCase
                 'concept_id' => $conceptId,
                 'match_method' => 'token',
                 'match_source' => 'creation',
-                'classifier_version' => 'n5-rules-v3',
+                'classifier_version' => 'n5-rules-v4',
             ]);
         }
     }
@@ -244,8 +245,17 @@ class CreateCardActionTest extends TestCase
         ]);
     }
 
-    public function test_it_does_not_fan_an_ambiguous_grammar_surface_out_to_unrelated_concepts(): void
+    public function test_it_classifies_a_noun_copula_without_fanning_out_to_adjective_concepts(): void
     {
+        $this->mock(JapaneseTokenizer::class)
+            ->shouldReceive('tokenize')
+            ->once()
+            ->with(['学生です。'])
+            ->andReturn([[
+                ['surface' => '学生', 'base' => '学生', 'partOfSpeech' => '名詞-普通名詞-一般'],
+                ['surface' => 'です', 'base' => 'です', 'partOfSpeech' => '助動詞'],
+                ['surface' => '。', 'base' => '。', 'partOfSpeech' => '補助記号-句点'],
+            ]]);
         $deck = Deck::factory()->create();
 
         $result = app(CreateCardAction::class)->handle(
@@ -263,7 +273,7 @@ class CreateCardActionTest extends TestCase
             ->where('concepts.kind', 'grammar')
             ->pluck('concepts.id');
 
-        $this->assertCount(0, $grammarMatches);
+        $this->assertSame(['n5-grammar-desu-polite-copula'], $grammarMatches->all());
     }
 
     public function test_it_does_not_fan_an_ambiguous_vocabulary_reading_out_to_homophones(): void

@@ -9,21 +9,26 @@ use App\Domain\Study\Enums\LearningConceptMatchMethod;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Results\LearningConceptMatchResult;
 use App\Domain\Study\Support\LearningConceptText;
+use App\Domain\Study\Support\N5GrammarRuleMatcher;
 use Illuminate\Support\Facades\DB;
 
 final class MatchLearningConceptsForCardAction
 {
-    public const CLASSIFIER_VERSION = 'n5-rules-v3';
+    public const CLASSIFIER_VERSION = 'n5-rules-v4';
 
     private const FURIGANA_FIELD_PATTERN = '/^([^\s\[\]]+)\[([^\[\]]+)]$/u';
 
-    public function __construct(private readonly JapaneseTokenizer $tokenizer) {}
+    public function __construct(
+        private readonly JapaneseTokenizer $tokenizer,
+        private readonly N5GrammarRuleMatcher $grammarMatcher,
+    ) {}
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
     {
         $candidates = $this->candidates($card);
         $matches = [];
-        $tokenCandidates = $this->tokenCandidates($candidates);
+        $tokenizedCandidates = $this->tokenizedCandidates($candidates);
+        $tokenCandidates = $this->tokenCandidates($tokenizedCandidates);
 
         if ($source === LearningConceptMatchSource::Backfill && $this->tokenizer->hadFailure()) {
             throw new JapaneseTokenizationException('Japanese tokenization failed during concept backfill.');
@@ -82,33 +87,12 @@ final class MatchLearningConceptsForCardAction
                 }
             }
 
-            $grammarAliases = DB::table('learning_concept_aliases as aliases')
-                ->join('learning_concepts as concepts', 'concepts.id', '=', 'aliases.concept_id')
-                ->where('concepts.language', 'ja')
-                ->where('concepts.jlpt_level', 5)
-                ->where('concepts.kind', 'grammar')
-                ->where('aliases.alias_kind', 'surface')
-                ->get(['aliases.concept_id', 'aliases.normalized_key']);
-
-            // A short surface such as です can appear in several catalog patterns. Treating
-            // every concept that shares it as demonstrated would fan one card out into a
-            // collection of unrelated grammar points, so only use catalog-unique surfaces.
-            $unambiguousGrammarAliases = $grammarAliases
-                ->groupBy('normalized_key')
-                ->filter(fn ($aliases): bool => $aliases->unique('concept_id')->count() === 1)
-                ->map->first();
-
-            foreach ($unambiguousGrammarAliases as $alias) {
-                foreach ($candidates as $candidate) {
-                    if (str_contains($candidate['normalized'], $alias->normalized_key)) {
-                        $matches[$alias->concept_id] ??= [
-                            'method' => LearningConceptMatchMethod::Surface,
-                            'confidence' => 0.7,
-                            'evidence' => ['field' => $candidate['field'], 'matchedText' => $candidate['raw'], 'surface' => $alias->normalized_key],
-                        ];
-                        break;
-                    }
-                }
+            foreach ($this->grammarMatcher->match($tokenizedCandidates) as $conceptId => $evidence) {
+                $matches[$conceptId] = [
+                    'method' => LearningConceptMatchMethod::Classifier,
+                    'confidence' => 0.85,
+                    'evidence' => $evidence,
+                ];
             }
         }
 
@@ -217,9 +201,9 @@ final class MatchLearningConceptsForCardAction
 
     /**
      * @param  list<array{field: string, raw: string, normalized: string}>  $candidates
-     * @return array<string, array{field: string, raw: string, token: string, form: string}>
+     * @return list<array{field: string, raw: string, normalized: string, tokens: list<array<string, string>>}>
      */
-    private function tokenCandidates(array $candidates): array
+    private function tokenizedCandidates(array $candidates): array
     {
         $tokenizable = [];
 
@@ -231,14 +215,30 @@ final class MatchLearningConceptsForCardAction
             }
 
             $candidate['tokenizationText'] = preg_replace('/\[[^\]]+]/u', '', $candidate['raw']) ?? $candidate['raw'];
+            $candidate['normalized'] = LearningConceptText::normalize($candidate['tokenizationText']);
             $tokenizable[] = $candidate;
         }
 
         $tokenGroups = $this->tokenizer->tokenize(array_column($tokenizable, 'tokenizationText'));
-        $result = [];
 
         foreach ($tokenizable as $index => $candidate) {
-            foreach ($tokenGroups[$index] ?? [] as $token) {
+            $tokenizable[$index]['tokens'] = $tokenGroups[$index] ?? [];
+            unset($tokenizable[$index]['tokenizationText']);
+        }
+
+        return $tokenizable;
+    }
+
+    /**
+     * @param  list<array{field: string, raw: string, normalized: string, tokens: list<array<string, string>>}>  $candidates
+     * @return array<string, array{field: string, raw: string, token: string, form: string}>
+     */
+    private function tokenCandidates(array $candidates): array
+    {
+        $result = [];
+
+        foreach ($candidates as $candidate) {
+            foreach ($candidate['tokens'] as $token) {
                 foreach (['surface', 'base'] as $form) {
                     $normalized = LearningConceptText::normalize($token[$form]);
 

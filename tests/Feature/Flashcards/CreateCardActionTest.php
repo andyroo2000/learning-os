@@ -295,7 +295,6 @@ class CreateCardActionTest extends TestCase
     public function test_it_skips_automatic_grammar_links_when_tokenization_is_unavailable(): void
     {
         config()->set('services.mecab.binary', '/definitely-missing/convolab-mecab');
-        Log::spy();
         $deck = Deck::factory()->create();
 
         $result = app(CreateCardAction::class)->handle(

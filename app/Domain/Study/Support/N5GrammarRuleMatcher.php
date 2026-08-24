@@ -4,7 +4,12 @@ namespace App\Domain\Study\Support;
 
 final class N5GrammarRuleMatcher
 {
-    /** @var list<string> */
+    /**
+     * Every catalog ID must also have an explicit arm in matches(); the catalog
+     * completeness test exercises this invariant whenever either list changes.
+     *
+     * @var list<string>
+     */
     public const SUPPORTED_CONCEPT_IDS = [
         'n5-grammar-desu-polite-copula',
         'n5-grammar-da-plain-copula',

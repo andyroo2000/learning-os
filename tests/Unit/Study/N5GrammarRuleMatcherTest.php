@@ -237,6 +237,15 @@ OUTPUT, 1)[0];
                 ['n5-grammar-i-adjective-negative', 'n5-grammar-i-adjective-past'],
                 ['n5-grammar-nai-form', 'n5-grammar-ta-form'],
             ],
+            'polite i adjective negative is not adverbial' => [
+                '高くありません。',
+                [
+                    ['高く', '高い', '形容詞-一般', '', '連用形-一般'], ['あり', '有る', '動詞-非自立可能'],
+                    ['ませ', 'ます', '助動詞'], ['ん', 'ぬ', '助動詞'],
+                ],
+                ['n5-grammar-i-adjective-negative'],
+                ['n5-grammar-i-adj-adverbial-ku'],
+            ],
             'adjective adverb' => [
                 '早く走ります。',
                 [['早く', '早い', '形容詞-一般', '', '連用形-一般'], ['走り', '走る', '動詞-一般'], ['ます', 'ます', '助動詞']],
@@ -348,6 +357,16 @@ OUTPUT, 1)[0];
                     ['勉強', '勉強', '名詞-普通名詞-サ変可能'], ['し', '為る', '動詞-非自立可能'], ['まし', 'ます', '助動詞'], ['た', 'た', '助動詞'],
                 ],
                 ['n5-grammar-nanji-what-time', 'n5-grammar-nanyoubi-day-of-week', 'n5-grammar-toki-ni-when-basic'],
+            ],
+            'question counter forms are not numbered counter examples' => [
+                '何人来ますか。何時ですか。',
+                [
+                    ['何', '何', '名詞-数詞'], ['人', '人', '接尾辞-名詞的-助数詞'], ['来', '来る', '動詞-一般'],
+                    ['ます', 'ます', '助動詞'], ['か', 'か', '助詞-終助詞'], ['。', '。', '補助記号-句点'],
+                    ['何', '何', '名詞-数詞'], ['時', '時', '接尾辞-名詞的-助数詞'], ['です', 'です', '助動詞'], ['か', 'か', '助詞-終助詞'],
+                ],
+                ['n5-grammar-question-words-basic', 'n5-grammar-nanji-what-time'],
+                ['n5-grammar-counter-people-nin', 'n5-grammar-counter-ji-oclock'],
             ],
             'clock time is not toki' => [
                 '三時に行きます。',

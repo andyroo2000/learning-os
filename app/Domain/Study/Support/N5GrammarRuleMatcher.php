@@ -459,6 +459,7 @@ final class N5GrammarRuleMatcher
             if ($this->isIAdjective($tokens[$index])
                 && str_ends_with($tokens[$index]['normalizedSurface'] ?? '', 'く')
                 && $this->isVerb($tokens[$index + 1])
+                && ! $this->tokensMatchAt($tokens, $index + 1, 'ありません')
             ) {
                 return true;
             }
@@ -513,7 +514,7 @@ final class N5GrammarRuleMatcher
     private function hasNumberCounter(
         array $tokens,
         string $counter,
-        string $numberPattern = '[0-9０-９一二三四五六七八九十百千万何]+',
+        string $numberPattern = '[0-9０-９一二三四五六七八九十百千万]+',
     ): bool {
         foreach ($tokens as $index => $token) {
             $surface = $token['normalizedSurface'] ?? '';

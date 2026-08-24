@@ -14,6 +14,8 @@ final class MatchLearningConceptsForCardAction
 {
     public const CLASSIFIER_VERSION = 'n5-rules-v3';
 
+    private const FURIGANA_FIELD_PATTERN = '/^([^\s\[\]]+)\[([^\[\]]+)]$/u';
+
     public function __construct(private readonly JapaneseTokenizer $tokenizer) {}
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
@@ -173,7 +175,7 @@ final class MatchLearningConceptsForCardAction
 
             $this->appendCandidate($candidates, $field, $raw);
 
-            if (preg_match('/^(.+?)\[([^\]]+)]$/u', trim($raw), $parts) === 1) {
+            if (preg_match(self::FURIGANA_FIELD_PATTERN, trim($raw), $parts) === 1) {
                 $this->appendCandidate($candidates, $field.'.expression', $parts[1]);
                 $this->appendCandidate($candidates, $field.'.reading', $parts[2]);
             }
@@ -213,12 +215,20 @@ final class MatchLearningConceptsForCardAction
      */
     private function tokenCandidates(array $candidates): array
     {
-        $tokenizable = array_values(array_filter(
-            $candidates,
-            fn (array $candidate): bool => ! $this->isReadingField($candidate['field'])
-                && preg_match('/^(.+?)\[([^\]]+)]$/u', trim($candidate['raw'])) !== 1,
-        ));
-        $tokenGroups = $this->tokenizer->tokenize(array_column($tokenizable, 'raw'));
+        $tokenizable = [];
+
+        foreach ($candidates as $candidate) {
+            if ($this->isReadingField($candidate['field'])
+                || preg_match(self::FURIGANA_FIELD_PATTERN, trim($candidate['raw'])) === 1
+            ) {
+                continue;
+            }
+
+            $candidate['tokenizationText'] = preg_replace('/\[[^\]]+]/u', '', $candidate['raw']) ?? $candidate['raw'];
+            $tokenizable[] = $candidate;
+        }
+
+        $tokenGroups = $this->tokenizer->tokenize(array_column($tokenizable, 'tokenizationText'));
         $result = [];
 
         foreach ($tokenizable as $index => $candidate) {

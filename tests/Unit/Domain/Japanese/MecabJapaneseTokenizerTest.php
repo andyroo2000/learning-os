@@ -52,6 +52,7 @@ OUTPUT, 2);
 
         $this->assertSame([[], []], $tokenizer->tokenize(['本', '読む']));
         $this->assertSame([[]], $tokenizer->tokenize(['学生']));
+        $this->assertTrue($tokenizer->hadFailure());
 
         Log::shouldHaveReceived('warning')
             ->once()

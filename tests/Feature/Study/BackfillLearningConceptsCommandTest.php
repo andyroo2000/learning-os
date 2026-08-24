@@ -50,4 +50,20 @@ class BackfillLearningConceptsCommandTest extends TestCase
         $this->artisan('learning-concepts:backfill')->assertSuccessful();
         $this->assertSame($linkCount, $second->learningConcepts()->count());
     }
+
+    public function test_backfill_fails_before_changing_cards_when_tokenization_is_unavailable(): void
+    {
+        config()->set('services.mecab.binary', '/definitely-missing/convolab-mecab');
+        $deck = Deck::factory()->create();
+        Card::factory()->for($deck)->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+        ]);
+
+        $this->artisan('learning-concepts:backfill')
+            ->expectsOutputToContain('Japanese tokenization is unavailable. No cards were changed')
+            ->assertFailed();
+
+        $this->assertDatabaseCount('card_learning_concepts', 0);
+    }
 }

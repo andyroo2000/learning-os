@@ -42,6 +42,11 @@ final class MecabJapaneseTokenizer implements JapaneseTokenizer
         return $this->parseOutput($process->getOutput(), count($texts));
     }
 
+    public function hadFailure(): bool
+    {
+        return $this->reportedFailure;
+    }
+
     /**
      * MeCab's IPA dictionary emits comma-separated features with the lemma at
      * index 6. Homebrew's default UniDic format is tabular with the lemma in

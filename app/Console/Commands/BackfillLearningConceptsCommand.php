@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Japanese\Contracts\JapaneseTokenizer;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Support\Identifiers\CanonicalUlid;
@@ -17,7 +18,7 @@ final class BackfillLearningConceptsCommand extends Command
 
     protected $description = 'Match active cards to the versioned JLPT learning-concept catalog';
 
-    public function handle(MatchLearningConceptsForCardAction $matcher): int
+    public function handle(MatchLearningConceptsForCardAction $matcher, JapaneseTokenizer $tokenizer): int
     {
         try {
             [$after, $chunk] = $this->validatedOptions();
@@ -30,6 +31,14 @@ final class BackfillLearningConceptsCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
         $processed = $matchedCards = $links = 0;
 
+        $tokenizer->tokenize(['日本語']);
+
+        if ($tokenizer->hadFailure()) {
+            $this->error('Japanese tokenization is unavailable. No cards were changed; restore MeCab and rerun the backfill.');
+
+            return self::FAILURE;
+        }
+
         while (true) {
             $cards = $this->activeCards($after)->limit($chunk)->get();
 
@@ -39,6 +48,12 @@ final class BackfillLearningConceptsCommand extends Command
 
             foreach ($cards as $card) {
                 $result = $matcher->handle($card, LearningConceptMatchSource::Backfill, ! $dryRun);
+
+                if ($tokenizer->hadFailure()) {
+                    $this->error('Japanese tokenization failed during the backfill. Restore MeCab and rerun from the beginning.');
+
+                    return self::FAILURE;
+                }
                 $processed++;
                 $matchedCards += $result->conceptCount > 0 ? 1 : 0;
                 $links += $result->conceptCount;

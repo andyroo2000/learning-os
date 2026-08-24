@@ -9,4 +9,6 @@ interface JapaneseTokenizer
      * @return list<list<array{surface: string, base: string}>>
      */
     public function tokenize(array $texts): array;
+
+    public function hadFailure(): bool;
 }

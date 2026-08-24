@@ -31,6 +31,7 @@ class ImportConvoLabRehearsalData extends Command
         'admin_course_line_renderings',
         ...ConvoLabContentTables::RESET_IN_DELETE_ORDER,
         'card_media',
+        'card_learning_concepts',
         'card_review_events',
         'sync_feed_entries',
         'daily_audio_practice_tracks',

@@ -105,7 +105,7 @@ class CreateCardActionTest extends TestCase
             'concept_id' => 'n5-vocab-1198550-2120ff50',
             'match_method' => 'exact',
             'match_source' => 'creation',
-            'classifier_version' => 'n5-rules-v1',
+            'classifier_version' => 'n5-rules-v2',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $cardId,
@@ -118,6 +118,28 @@ class CreateCardActionTest extends TestCase
             DB::table('card_learning_concepts')->where('card_id', $cardId)->distinct()->count('concept_id'),
         );
         $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_does_not_fan_an_ambiguous_grammar_surface_out_to_unrelated_concepts(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '学生です。',
+                backText: 'I am a student.',
+            ),
+        );
+
+        $grammarMatches = DB::table('card_learning_concepts as links')
+            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
+            ->where('links.card_id', $result->card->id)
+            ->where('concepts.kind', 'grammar')
+            ->pluck('concepts.id');
+
+        $this->assertCount(0, $grammarMatches);
     }
 
     public function test_client_id_retries_compare_variant_timestamps_at_persisted_precision(): void

@@ -148,7 +148,6 @@ class CreateCardAction
 
             $card->scheduler_state = CardSchedulerState::freshNew();
             $card->save();
-            $this->learningConceptMatcher()->handle($card, LearningConceptMatchSource::Creation);
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
                     userId: $data->userId,
@@ -159,6 +158,7 @@ class CreateCardAction
                     payload: CardSyncPayload::fromCard($card),
                 ),
             );
+            DB::afterCommit(fn () => $this->matchLearningConceptsBestEffort($card));
         } catch (QueryException $exception) {
             DB::rollBack();
 
@@ -201,6 +201,20 @@ class CreateCardAction
     private function learningConceptMatcher(): MatchLearningConceptsForCardAction
     {
         return $this->matchLearningConcepts ?? app(MatchLearningConceptsForCardAction::class);
+    }
+
+    private function matchLearningConceptsBestEffort(Card $card): void
+    {
+        try {
+            $this->learningConceptMatcher()->handle($card, LearningConceptMatchSource::Creation);
+        } catch (Throwable $exception) {
+            // Concept analytics must never prevent the primary card-creation workflow.
+            // The resumable backfill can repair a missed best-effort match later.
+            Log::warning('Learning concept matching failed after card creation.', [
+                'card_id' => $card->getKey(),
+                'exception' => $exception,
+            ]);
+        }
     }
 
     private function findExistingCard(string $id): ?Card

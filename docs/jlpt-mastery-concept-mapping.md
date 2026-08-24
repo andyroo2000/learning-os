@@ -12,8 +12,7 @@ Vocabulary and grammar remain separate metrics; there is no combined score.
   Japanese grammar surface fragments.
 - `card_learning_concepts` stores one link per card/concept pair together with
   how and when the match was made, an optional confidence, classifier version, and JSON
-  evidence. The composite primary key supplies the conflict target for
-  idempotent upserts and prevents duplicate links.
+  evidence. The composite primary key prevents duplicate links.
 - Coverage queries can start from the concept denominator index and join through
   the concept-first link index. Card-first reads use the pivot primary key.
 
@@ -26,9 +25,12 @@ Vocabulary and grammar remain separate metrics; there is no combined score.
 - Grammar uses surface fragments of at least two Japanese characters. This is
   deliberately conservative and will undercount patterns that are expressed only
   by a one-character particle or by a conjugation absent from the catalog pattern.
+  Surface fragments shared by more than one catalog concept (such as `です`) are
+  considered ambiguous and do not produce automatic matches.
 - Both manual cards and cards committed from drafts converge on `CreateCardAction`.
-  New-card matching runs in the same transaction as card creation and sync-feed
-  recording. Idempotent create retries do not add duplicate links.
+  New-card matching runs as a best-effort post-commit analytic so a matching
+  failure cannot block card creation. Content edits refresh automatic links;
+  manual links are preserved. Idempotent create retries do not add duplicate links.
 - Existing active cards can be processed with
   `php artisan learning-concepts:backfill`. Use `--after=<card ULID>` to resume,
   `--chunk=<1-2000>` to bound batches, or `--dry-run` to measure without writing.

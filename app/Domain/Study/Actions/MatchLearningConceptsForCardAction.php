@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 final class MatchLearningConceptsForCardAction
 {
-    public const CLASSIFIER_VERSION = 'n5-rules-v1';
+    public const CLASSIFIER_VERSION = 'n5-rules-v2';
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
     {
@@ -46,7 +46,15 @@ final class MatchLearningConceptsForCardAction
                 ->where('aliases.alias_kind', 'surface')
                 ->get(['aliases.concept_id', 'aliases.normalized_key']);
 
-            foreach ($grammarAliases as $alias) {
+            // A short surface such as です can appear in several catalog patterns. Treating
+            // every concept that shares it as demonstrated would fan one card out into a
+            // collection of unrelated grammar points, so only use catalog-unique surfaces.
+            $unambiguousGrammarAliases = $grammarAliases
+                ->groupBy('normalized_key')
+                ->filter(fn ($aliases): bool => $aliases->unique('concept_id')->count() === 1)
+                ->map->first();
+
+            foreach ($unambiguousGrammarAliases as $alias) {
                 foreach ($candidates as $candidate) {
                     if (str_contains($candidate['normalized'], $alias->normalized_key)) {
                         $matches[$alias->concept_id] ??= [
@@ -60,34 +68,47 @@ final class MatchLearningConceptsForCardAction
             }
         }
 
-        if (! $persist || $matches === []) {
+        if (! $persist) {
             return new LearningConceptMatchResult(count($matches), 0);
         }
 
-        $now = now();
-        $rows = [];
+        $persistedCount = DB::transaction(function () use ($card, $matches, $source): int {
+            $manualConceptIds = DB::table('card_learning_concepts')
+                ->where('card_id', $card->getKey())
+                ->where('match_source', LearningConceptMatchSource::Manual->value)
+                ->pluck('concept_id')
+                ->all();
 
-        foreach ($matches as $conceptId => $match) {
-            $rows[] = [
-                'card_id' => $card->getKey(),
-                'concept_id' => $conceptId,
-                'match_method' => $match['method']->value,
-                'match_source' => $source->value,
-                'confidence' => $match['confidence'],
-                'classifier_version' => self::CLASSIFIER_VERSION,
-                'evidence' => json_encode($match['evidence'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
+            DB::table('card_learning_concepts')
+                ->where('card_id', $card->getKey())
+                ->where('match_source', '!=', LearningConceptMatchSource::Manual->value)
+                ->delete();
 
-        DB::table('card_learning_concepts')->upsert(
-            $rows,
-            ['card_id', 'concept_id'],
-            ['match_method', 'match_source', 'confidence', 'classifier_version', 'evidence', 'updated_at'],
-        );
+            $now = now();
+            $rows = [];
 
-        return new LearningConceptMatchResult(count($matches), count($rows));
+            foreach (array_diff_key($matches, array_flip($manualConceptIds)) as $conceptId => $match) {
+                $rows[] = [
+                    'card_id' => $card->getKey(),
+                    'concept_id' => $conceptId,
+                    'match_method' => $match['method']->value,
+                    'match_source' => $source->value,
+                    'confidence' => $match['confidence'],
+                    'classifier_version' => self::CLASSIFIER_VERSION,
+                    'evidence' => json_encode($match['evidence'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if ($rows !== []) {
+                DB::table('card_learning_concepts')->insert($rows);
+            }
+
+            return count($rows);
+        });
+
+        return new LearningConceptMatchResult(count($matches), $persistedCount);
     }
 
     /** @return list<array{field: string, raw: string, normalized: string}> */

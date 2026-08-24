@@ -7,6 +7,8 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
+use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -15,12 +17,15 @@ use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use Throwable;
 
 class UpdateCardAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?MatchLearningConceptsForCardAction $matchLearningConcepts = null,
     ) {}
 
     public function handle(Card $card, UpdateCardData $data): UpdateCardResult
@@ -33,7 +38,7 @@ class UpdateCardAction
             throw new InvalidArgumentException('Card back text is required.');
         }
 
-        return DB::transaction(function () use ($card, $data): UpdateCardResult {
+        $result = DB::transaction(function () use ($card, $data): UpdateCardResult {
             // Route authorization happens before this transaction. Re-resolve the live card
             // under the same row lock used by deletion so a stale model cannot append an
             // Update feed entry after its Delete tombstone.
@@ -151,8 +156,28 @@ class UpdateCardAction
                 ),
             );
 
+            if ($contentWasUpdated) {
+                DB::afterCommit(fn () => $this->matchLearningConceptsBestEffort($card));
+            }
+
             return UpdateCardResult::updated($card);
         });
+
+        return $result;
+    }
+
+    private function matchLearningConceptsBestEffort(Card $card): void
+    {
+        try {
+            ($this->matchLearningConcepts ?? app(MatchLearningConceptsForCardAction::class))
+                ->handle($card, LearningConceptMatchSource::Creation);
+        } catch (Throwable $exception) {
+            // Analytics are best-effort and the resumable backfill repairs missed matches.
+            Log::warning('Learning concept matching failed after card update.', [
+                'card_id' => $card->getKey(),
+                'exception' => $exception,
+            ]);
+        }
     }
 
     private function timestampJson(?DateTimeInterface $timestamp): ?string

@@ -81,6 +81,89 @@ class CreateCardActionTest extends TestCase
         }
     }
 
+    public function test_it_matches_n5_vocabulary_and_grammar_when_a_card_is_created_without_duplicate_retry_links(): void
+    {
+        $deck = Deck::factory()->create();
+        $cardId = strtolower((string) Str::ulid());
+        $data = CreateCardData::fromInput(
+            userId: $deck->user_id,
+            deckId: $deck->id,
+            frontText: '会社があります。',
+            backText: 'There is a company.',
+            promptJson: ['cueText' => '会社があります。'],
+            answerJson: ['expression' => '会社', 'expressionReading' => '会社[かいしゃ]', 'sentenceJp' => '会社があります。'],
+            id: $cardId,
+        );
+
+        $first = app(CreateCardAction::class)->handle($data);
+        $second = app(CreateCardAction::class)->handle($data);
+
+        $this->assertTrue($first->wasCreated);
+        $this->assertFalse($second->wasCreated);
+        $this->assertDatabaseHas('card_learning_concepts', [
+            'card_id' => $cardId,
+            'concept_id' => 'n5-vocab-1198550-2120ff50',
+            'match_method' => 'exact',
+            'match_source' => 'creation',
+            'classifier_version' => 'n5-rules-v2',
+        ]);
+        $this->assertDatabaseHas('card_learning_concepts', [
+            'card_id' => $cardId,
+            'concept_id' => 'n5-grammar-arimasu-existence-inanimate',
+            'match_method' => 'surface',
+            'match_source' => 'creation',
+        ]);
+        $this->assertSame(
+            DB::table('card_learning_concepts')->where('card_id', $cardId)->count(),
+            DB::table('card_learning_concepts')->where('card_id', $cardId)->distinct()->count('concept_id'),
+        );
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_does_not_fan_an_ambiguous_grammar_surface_out_to_unrelated_concepts(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: '学生です。',
+                backText: 'I am a student.',
+            ),
+        );
+
+        $grammarMatches = DB::table('card_learning_concepts as links')
+            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
+            ->where('links.card_id', $result->card->id)
+            ->where('concepts.kind', 'grammar')
+            ->pluck('concepts.id');
+
+        $this->assertCount(0, $grammarMatches);
+    }
+
+    public function test_it_does_not_fan_an_ambiguous_vocabulary_reading_out_to_homophones(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $result = app(CreateCardAction::class)->handle(
+            CreateCardData::fromInput(
+                userId: $deck->user_id,
+                deckId: $deck->id,
+                frontText: 'あつい',
+                backText: 'hot or thick',
+            ),
+        );
+
+        $vocabularyMatches = DB::table('card_learning_concepts as links')
+            ->join('learning_concepts as concepts', 'concepts.id', '=', 'links.concept_id')
+            ->where('links.card_id', $result->card->id)
+            ->where('concepts.kind', 'vocabulary')
+            ->pluck('concepts.id');
+
+        $this->assertCount(0, $vocabularyMatches);
+    }
+
     public function test_client_id_retries_compare_variant_timestamps_at_persisted_precision(): void
     {
         $deck = Deck::factory()->create();

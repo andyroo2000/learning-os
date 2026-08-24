@@ -443,6 +443,17 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
     {
         $this->seedConvoLabSourceData();
         $existingUser = User::factory()->create();
+        $conceptCard = Card::factory()->create();
+        DB::table('card_learning_concepts')->insert([
+            'card_id' => $conceptCard->id,
+            'concept_id' => 'n5-vocab-1198550-2120ff50',
+            'match_method' => 'exact',
+            'match_source' => 'backfill',
+            'confidence' => 1,
+            'classifier_version' => 'n5-rules-v1',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         Course::factory()->for($existingUser)->create();
         $contentCourse = ContentCourse::query()->forceCreate([
             'id' => (string) Str::uuid(),
@@ -611,6 +622,8 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('admin_course_line_renderings', 0);
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertDatabaseCount('card_learning_concepts', 0);
+        $this->assertDatabaseCount('learning_concepts', 761);
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
         $this->assertDatabaseCount('wanikani_connections', 0);

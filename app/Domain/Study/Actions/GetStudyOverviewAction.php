@@ -36,6 +36,8 @@ class GetStudyOverviewAction
 
     private const STRONG_HEADROOM_MINUTES = 30;
 
+    public function __construct(private readonly GetJlptMasteryAction $getJlptMastery) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -84,6 +86,7 @@ class GetStudyOverviewAction
 
         $masterySpread = $this->masterySpread($userId, $courseId, $deckId);
         $overview['mastery_spread'] = $masterySpread;
+        $overview['jlpt_mastery'] = $this->getJlptMastery->handle($userId, $courseId, $deckId);
         $overview['learning_readiness'] = $this->learningReadiness(
             userId: $userId,
             courseId: $courseId,

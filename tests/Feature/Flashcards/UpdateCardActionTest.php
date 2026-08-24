@@ -16,6 +16,7 @@ use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -129,6 +130,61 @@ class UpdateCardActionTest extends TestCase
 
         $this->assertSame(['type' => 'text', 'text' => 'What is ATP?'], $entry->payload['prompt_json']);
         $this->assertSame(['type' => 'text', 'text' => 'Cellular energy currency.'], $entry->payload['answer_json']);
+    }
+
+    public function test_it_refreshes_automatic_concept_links_when_card_content_changes_and_preserves_manual_links(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'front_text' => '会社',
+            'back_text' => 'Company',
+        ]);
+        $now = now();
+
+        DB::table('card_learning_concepts')->insert([
+            [
+                'card_id' => $card->id,
+                'concept_id' => 'n5-vocab-1198550-2120ff50',
+                'match_method' => 'exact',
+                'match_source' => 'backfill',
+                'confidence' => 1,
+                'classifier_version' => 'n5-rules-v1',
+                'evidence' => '{}',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'card_id' => $card->id,
+                'concept_id' => 'n5-grammar-desu-polite-copula',
+                'match_method' => 'manual',
+                'match_source' => 'manual',
+                'confidence' => 1,
+                'classifier_version' => null,
+                'evidence' => '{}',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        app(UpdateCardAction::class)->handle(
+            $card,
+            UpdateCardData::fromInput(frontText: '学生', backText: 'Student'),
+        );
+
+        $this->assertDatabaseMissing('card_learning_concepts', [
+            'card_id' => $card->id,
+            'concept_id' => 'n5-vocab-1198550-2120ff50',
+        ]);
+        $this->assertDatabaseHas('card_learning_concepts', [
+            'card_id' => $card->id,
+            'concept_id' => 'n5-vocab-1206900-452102ad',
+            'match_source' => 'creation',
+            'classifier_version' => 'n5-rules-v2',
+        ]);
+        $this->assertDatabaseHas('card_learning_concepts', [
+            'card_id' => $card->id,
+            'concept_id' => 'n5-grammar-desu-polite-copula',
+            'match_source' => 'manual',
+        ]);
     }
 
     public function test_it_updates_structured_content_when_legacy_text_fields_are_omitted(): void

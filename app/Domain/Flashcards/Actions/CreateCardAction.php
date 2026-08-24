@@ -13,6 +13,8 @@ use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
+use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -36,6 +38,7 @@ class CreateCardAction
         private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
         private readonly ?Closure $afterClientIdPrecheckMiss = null,
         private readonly ?Closure $afterClientIdUniqueConflict = null,
+        private readonly ?MatchLearningConceptsForCardAction $matchLearningConcepts = null,
     ) {
         if (($afterClientIdPrecheckMiss !== null || $afterClientIdUniqueConflict !== null) && ! app()->runningUnitTests()) {
             throw new LogicException('Card creation race hooks may only be used in tests.');
@@ -155,6 +158,7 @@ class CreateCardAction
                     payload: CardSyncPayload::fromCard($card),
                 ),
             );
+            DB::afterCommit(fn () => $this->matchLearningConceptsBestEffort($card));
         } catch (QueryException $exception) {
             DB::rollBack();
 
@@ -192,6 +196,25 @@ class CreateCardAction
     private function newCardQueuePosition(): NewCardQueuePosition
     {
         return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
+    }
+
+    private function learningConceptMatcher(): MatchLearningConceptsForCardAction
+    {
+        return $this->matchLearningConcepts ?? app(MatchLearningConceptsForCardAction::class);
+    }
+
+    private function matchLearningConceptsBestEffort(Card $card): void
+    {
+        try {
+            $this->learningConceptMatcher()->handle($card, LearningConceptMatchSource::Creation);
+        } catch (Throwable $exception) {
+            // Concept analytics must never prevent the primary card-creation workflow.
+            // The resumable backfill can repair a missed best-effort match later.
+            Log::warning('Learning concept matching failed after card creation.', [
+                'card_id' => $card->getKey(),
+                'exception' => $exception,
+            ]);
+        }
     }
 
     private function findExistingCard(string $id): ?Card

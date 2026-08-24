@@ -20,6 +20,26 @@ class StudyOverviewCompatibilityResourceTest extends TestCase
         $this->assertSame(1, $payload['failedDueCount']);
     }
 
+    public function test_it_exposes_separate_camel_case_jlpt_vocabulary_and_grammar_metrics(): void
+    {
+        $payload = (new StudyOverviewCompatibilityResource([
+            'jlpt_mastery' => [
+                'N5' => [
+                    'vocabulary' => ['mastery_percent' => 34, 'covered' => 280, 'total' => 684],
+                    'grammar' => ['mastery_percent' => 21, 'covered' => 29, 'total' => 77],
+                ],
+            ],
+        ]))->toArray(new Request);
+
+        $this->assertSame([
+            'N5' => [
+                'vocabulary' => ['masteryPercent' => 34, 'covered' => 280, 'total' => 684],
+                'grammar' => ['masteryPercent' => 21, 'covered' => 29, 'total' => 77],
+            ],
+        ], $payload['jlptMastery']);
+        $this->assertArrayNotHasKey('overall', $payload['jlptMastery']['N5']);
+    }
+
     public function test_it_uses_convolab_millisecond_timestamps_for_the_latest_import(): void
     {
         $import = new StudyImportJob;

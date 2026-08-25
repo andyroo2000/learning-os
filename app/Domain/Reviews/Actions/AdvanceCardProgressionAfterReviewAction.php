@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Actions;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
@@ -81,19 +82,28 @@ final class AdvanceCardProgressionAfterReviewAction
         }
 
         $stageCards = $cards->where('variant_stage', $reviewedStage)->values();
+        $nextStageCards = $nextStage === null
+            ? collect()
+            : $cards->where('variant_stage', $nextStage)->values();
+        $unlockRequirement = $this->unlockRequirement($nextStageCards);
 
         // A partially unlocked stage is invalid metadata. Fail closed rather than
         // allowing its available subset to advance past locked sibling cards.
         if ($stageCards->isEmpty()
             || $stageCards->contains(fn (Card $card): bool => ! $card->isProgressionAvailable())
-            || ! $this->stageHasDemonstratedRetrieval($stageCards, $reviewedAt, $reviewEventId)
+            || ! $this->stageMeetsRequirement(
+                $stageCards,
+                $unlockRequirement,
+                $reviewedAt,
+                $reviewEventId,
+            )
         ) {
             return;
         }
 
         if ($nextStage !== null) {
             $this->unlockStage(
-                $cards->where('variant_stage', $nextStage)->values(),
+                $nextStageCards,
                 $reviewedCard->ownerUserId(),
                 $reviewedAt,
             );
@@ -122,6 +132,56 @@ final class AdvanceCardProgressionAfterReviewAction
         CardReviewCardLock::apply($query->getQuery());
 
         return $query->get()->values();
+    }
+
+    /** @param Collection<int, Card> $stageCards */
+    private function stageMeetsRequirement(
+        Collection $stageCards,
+        ?CardProgressionUnlockRequirement $requirement,
+        Carbon $reviewedAt,
+        string $reviewEventId,
+    ): bool {
+        if ($requirement === null) {
+            return false;
+        }
+
+        if ($requirement !== CardProgressionUnlockRequirement::SuccessfulRetrieval) {
+            return $this->reviewWasSuccessful($reviewEventId)
+                && $stageCards->every(
+                    fn (Card $card): bool => $requirement->isSatisfiedByMastery($card),
+                );
+        }
+
+        return $this->stageHasDemonstratedRetrieval($stageCards, $reviewedAt, $reviewEventId);
+    }
+
+    /** @param Collection<int, Card> $nextStageCards */
+    private function unlockRequirement(Collection $nextStageCards): ?CardProgressionUnlockRequirement
+    {
+        if ($nextStageCards->isEmpty()) {
+            return CardProgressionUnlockRequirement::SuccessfulRetrieval;
+        }
+
+        $requirements = $nextStageCards
+            ->map(fn (Card $card): string => $card->variant_unlock_requirement?->value
+                ?? CardProgressionUnlockRequirement::SuccessfulRetrieval->value)
+            ->unique()
+            ->values();
+
+        // Inconsistent stage metadata is ambiguous, so leave the stage locked.
+        if ($requirements->count() !== 1) {
+            return null;
+        }
+
+        return CardProgressionUnlockRequirement::from($requirements->sole());
+    }
+
+    private function reviewWasSuccessful(string $reviewEventId): bool
+    {
+        return CardReviewEvent::query()
+            ->whereKey($reviewEventId)
+            ->whereIn('rating', [CardReviewRating::Good->value, CardReviewRating::Easy->value])
+            ->exists();
     }
 
     /** @param Collection<int, Card> $stageCards */

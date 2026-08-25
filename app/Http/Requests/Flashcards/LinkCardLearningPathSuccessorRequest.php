@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Requests\Concerns\NormalizesUlidInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class LinkCardLearningPathSuccessorRequest extends FormRequest
 {
@@ -33,6 +35,20 @@ class LinkCardLearningPathSuccessorRequest extends FormRequest
     {
         return [
             'successor_card_id' => ['required', 'string', 'ulid'],
+            'unlock_requirement' => [
+                'sometimes',
+                'string',
+                Rule::in(CardProgressionUnlockRequirement::values()),
+            ],
         ];
+    }
+
+    public function unlockRequirement(): CardProgressionUnlockRequirement
+    {
+        $value = $this->validated('unlock_requirement');
+
+        return is_string($value)
+            ? CardProgressionUnlockRequirement::from($value)
+            : CardProgressionUnlockRequirement::SuccessfulRetrieval;
     }
 }

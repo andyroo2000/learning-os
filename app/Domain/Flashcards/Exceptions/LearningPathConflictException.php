@@ -53,6 +53,14 @@ final class LearningPathConflictException extends RuntimeException
         );
     }
 
+    public static function unlockRequirementMismatch(): self
+    {
+        return new self(
+            'The successor card is already linked with a different unlock requirement.',
+            'learning_path_unlock_requirement_mismatch',
+        );
+    }
+
     public static function stageLimitReached(): self
     {
         return new self(

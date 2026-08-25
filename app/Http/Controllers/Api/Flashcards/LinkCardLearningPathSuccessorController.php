@@ -29,7 +29,7 @@ class LinkCardLearningPathSuccessorController extends Controller
 
         $this->authorize('update', $successor);
 
-        $cards = $linkSuccessor->handle($card, $successor);
+        $cards = $linkSuccessor->handle($card, $successor, $request->unlockRequirement());
 
         return CardLearningPathResource::make([
             'anchor' => $card->refresh(),

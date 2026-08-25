@@ -100,6 +100,7 @@ final class SyncWaniKaniKanjiAction
                     $vocabularyMatches,
                     $syncStartedAt,
                 );
+                $this->reconcileStaleVocabularyMatches($userId, $syncStartedAt);
 
                 if ($added > 0) {
                     $profile->increment('knowledge_version', $added);
@@ -199,6 +200,7 @@ final class SyncWaniKaniKanjiAction
                 'meanings' => json_encode($item->meanings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                 'hidden_at' => $item->hiddenAt,
                 'source_updated_at' => $item->subjectUpdatedAt,
+                'matcher_version' => WaniKaniVocabularyConceptMatcher::VERSION,
                 'created_at' => $syncedAt,
                 'updated_at' => $syncedAt,
             ];
@@ -227,6 +229,7 @@ final class SyncWaniKaniKanjiAction
                     'meanings',
                     'hidden_at',
                     'source_updated_at',
+                    'matcher_version',
                     'updated_at',
                 ],
             );
@@ -255,6 +258,61 @@ final class SyncWaniKaniKanjiAction
             );
         }
 
+        $this->replaceVocabularyMatches($subjectIds, $matches, $syncedAt);
+
+        return $vocabularyAdded;
+    }
+
+    private function reconcileStaleVocabularyMatches(int $userId, CarbonImmutable $syncedAt): void
+    {
+        $subjects = DB::table('wanikani_subjects as subjects')
+            ->join('user_wanikani_assignments as assignments', 'assignments.subject_id', '=', 'subjects.subject_id')
+            ->where('assignments.user_id', $userId)
+            ->where(function ($query): void {
+                $query->whereNull('subjects.matcher_version')
+                    ->orWhere('subjects.matcher_version', '!=', WaniKaniVocabularyConceptMatcher::VERSION);
+            })
+            ->orderBy('subjects.subject_id')
+            ->lockForUpdate()
+            ->get(['subjects.subject_id', 'subjects.characters', 'subjects.readings']);
+
+        if ($subjects->isEmpty()) {
+            return;
+        }
+
+        $storedSubjects = $subjects->map(static function (object $subject): array {
+            $readings = json_decode((string) $subject->readings, true, flags: JSON_THROW_ON_ERROR);
+            if (! is_array($readings)
+                || ! array_is_list($readings)
+                || array_filter($readings, static fn (mixed $reading): bool => ! is_string($reading)) !== []
+            ) {
+                throw new \UnexpectedValueException('Stored WaniKani readings must be a JSON list.');
+            }
+
+            return [
+                'subject_id' => (int) $subject->subject_id,
+                'characters' => (string) $subject->characters,
+                'readings' => $readings,
+            ];
+        })->all();
+        $subjectIds = array_column($storedSubjects, 'subject_id');
+        $matches = $this->vocabularyMatcher->matchSubjects($storedSubjects);
+
+        $this->replaceVocabularyMatches($subjectIds, $matches, $syncedAt);
+        DB::table('wanikani_subjects')
+            ->whereIn('subject_id', $subjectIds)
+            ->update([
+                'matcher_version' => WaniKaniVocabularyConceptMatcher::VERSION,
+                'updated_at' => $syncedAt,
+            ]);
+    }
+
+    /**
+     * @param  list<int>  $subjectIds
+     * @param  list<array{subject_id: int, concept_id: string, match_method: string, confidence: float}>  $matches
+     */
+    private function replaceVocabularyMatches(array $subjectIds, array $matches, CarbonImmutable $syncedAt): void
+    {
         DB::table('wanikani_subject_learning_concepts')
             ->whereIn('subject_id', $subjectIds)
             ->delete();
@@ -268,7 +326,5 @@ final class SyncWaniKaniKanjiAction
         foreach (array_chunk($matchRows, 50) as $rows) {
             DB::table('wanikani_subject_learning_concepts')->insert($rows);
         }
-
-        return $vocabularyAdded;
     }
 }

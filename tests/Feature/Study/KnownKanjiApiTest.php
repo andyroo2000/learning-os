@@ -457,6 +457,63 @@ class KnownKanjiApiTest extends TestCase
         $this->assertDatabaseCount('user_wanikani_assignments', 0);
     }
 
+    public function test_sync_rematches_stored_subjects_when_the_matcher_catalog_version_changes(): void
+    {
+        $user = $this->signIn();
+        Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            return Http::response($this->assignmentCollection([]));
+        });
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+
+        $now = now();
+        DB::table('wanikani_subjects')->insert([
+            'subject_id' => 900,
+            'subject_type' => 'vocabulary',
+            'characters' => '赤',
+            'normalized_key' => '赤',
+            'readings' => json_encode(['あか'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            'meanings' => json_encode(['Red'], JSON_THROW_ON_ERROR),
+            'matcher_version' => 'wanikani-exact-v0',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('user_wanikani_assignments')->insert([
+            'user_id' => $user->id,
+            'subject_id' => 900,
+            'srs_stage' => 5,
+            'passed_at' => $now,
+            'hidden' => false,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->postJson('/api/study/wanikani/sync')
+            ->assertOk()
+            ->assertExactJson([
+                'added' => 0,
+                'effectiveTotal' => 0,
+                'version' => 0,
+                'reviewCount' => 0,
+                'vocabularyAdded' => 0,
+                'vocabularyKnownTotal' => 1,
+                'vocabularyMatchedTotal' => 1,
+            ]);
+
+        $this->assertDatabaseHas('wanikani_subjects', [
+            'subject_id' => 900,
+            'matcher_version' => 'wanikani-exact-v1',
+        ]);
+        $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
+            'subject_id' => 900,
+            'concept_id' => 'n5-vocab-2013900-2dacb910',
+            'matcher_version' => 'wanikani-exact-v1',
+        ]);
+    }
+
     public function test_removing_a_manual_marker_keeps_wanikani_evidence_known(): void
     {
         $user = $this->signIn();

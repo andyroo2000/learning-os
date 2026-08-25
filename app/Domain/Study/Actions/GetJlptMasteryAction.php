@@ -40,6 +40,7 @@ final class GetJlptMasteryAction
                 END) AS known_weight
                 SQL, [CardStudyStatus::Review->value, StudyMasteryLevel::GURU_STABILITY_DAYS]);
 
+        $includeWaniKani = $courseId === null && $deckId === null;
         $wanikaniKnown = DB::table('user_wanikani_assignments as assignments')
             ->join(
                 'wanikani_subject_learning_concepts as links',
@@ -49,18 +50,26 @@ final class GetJlptMasteryAction
             )
             ->where('assignments.user_id', $userId)
             ->whereNotNull('assignments.passed_at')
-            // Scoped overview calls describe the selected card set; user-wide external
-            // evidence belongs only in the unfiltered Study Time mastery estimate.
-            ->when(
-                $courseId !== null || $deckId !== null,
-                fn ($query) => $query->whereRaw('1 = 0'),
-            )
             ->distinct()
             ->select('links.concept_id');
 
+        $wanikaniKnownPredicate = $includeWaniKani
+            ? 'wanikani_known.concept_id IS NOT NULL'
+            : '0 = 1';
         $rows = DB::table('learning_concepts as concepts')
             ->leftJoinSub($bestCard, 'best_card', 'best_card.concept_id', '=', 'concepts.id')
-            ->leftJoinSub($wanikaniKnown, 'wanikani_known', 'wanikani_known.concept_id', '=', 'concepts.id')
+            // Scoped calls describe only the selected card set, so they skip the
+            // user-wide WaniKani join instead of executing a neutralized subquery.
+            ->when(
+                $includeWaniKani,
+                fn ($query) => $query->leftJoinSub(
+                    $wanikaniKnown,
+                    'wanikani_known',
+                    'wanikani_known.concept_id',
+                    '=',
+                    'concepts.id',
+                ),
+            )
             ->where('concepts.language', 'ja')
             ->where('concepts.jlpt_level', 5)
             ->whereIn('concepts.review_status', [
@@ -71,10 +80,10 @@ final class GetJlptMasteryAction
             ->select('concepts.kind')
             ->selectRaw('COUNT(concepts.id) AS total')
             ->selectRaw('COALESCE(SUM(CASE WHEN best_card.concept_id IS NULL THEN 0 ELSE 1 END), 0) AS covered')
-            ->selectRaw('COALESCE(SUM(CASE WHEN best_card.known_weight = 1 OR wanikani_known.concept_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS known_count')
+            ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 OR {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_count")
             ->selectRaw('COALESCE(SUM(CASE WHEN best_card.known_weight = 1 THEN 1 ELSE 0 END), 0) AS known_from_cards')
-            ->selectRaw('COALESCE(SUM(CASE WHEN wanikani_known.concept_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS known_from_wanikani')
-            ->selectRaw('COALESCE(SUM(CASE WHEN best_card.known_weight = 1 AND wanikani_known.concept_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS known_from_both')
+            ->selectRaw("COALESCE(SUM(CASE WHEN {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_wanikani")
+            ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 AND {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_both")
             ->get()
             ->keyBy('kind');
 

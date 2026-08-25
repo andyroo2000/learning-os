@@ -84,6 +84,7 @@ class WaniKaniVocabularyMigrationTest extends TestCase
                 $table->json('meanings');
                 $table->timestamp('hidden_at', 6)->nullable();
                 $table->timestamp('source_updated_at', 6)->nullable();
+                $table->string('matcher_version', 100)->nullable();
                 $table->timestamps();
             }),
             new Blueprint($connection, 'user_wanikani_assignments', function (Blueprint $table): void {

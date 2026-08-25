@@ -115,6 +115,8 @@ final class WaniKaniApiClient
             $srsStage = $data['srs_stage'] ?? null;
             $hidden = $data['hidden'] ?? false;
 
+            // Vocabulary sync deliberately fails closed. Skipping a malformed row while
+            // advancing the incremental cursor could permanently undercount mastery.
             if (! is_int($subjectId)
                 || ! in_array($subjectType, ['vocabulary', 'kana_vocabulary'], true)
                 || ! is_int($srsStage)

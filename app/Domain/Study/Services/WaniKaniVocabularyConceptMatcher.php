@@ -18,7 +18,23 @@ final class WaniKaniVocabularyConceptMatcher
      */
     public function match(array $progress): array
     {
-        if ($progress === []) {
+        return $this->matchSubjects(array_map(
+            static fn (WaniKaniVocabularyProgress $item): array => [
+                'subject_id' => $item->subjectId,
+                'characters' => $item->characters,
+                'readings' => $item->readings,
+            ],
+            $progress,
+        ));
+    }
+
+    /**
+     * @param  list<array{subject_id: int, characters: string, readings: list<string>}>  $subjects
+     * @return list<array{subject_id: int, concept_id: string, match_method: string, confidence: float}>
+     */
+    public function matchSubjects(array $subjects): array
+    {
+        if ($subjects === []) {
             return [];
         }
 
@@ -44,14 +60,14 @@ final class WaniKaniVocabularyConceptMatcher
         }
 
         $matches = [];
-        foreach ($progress as $item) {
-            $expression = LearningConceptText::normalize($item->characters);
+        foreach ($subjects as $subject) {
+            $expression = LearningConceptText::normalize($subject['characters']);
             $candidateIds = array_keys($expressions[$expression] ?? []);
             $method = 'expression';
 
             if (count($candidateIds) > 1) {
                 $normalizedReadings = array_fill_keys(
-                    array_map(LearningConceptText::normalize(...), $item->readings),
+                    array_map(LearningConceptText::normalize(...), $subject['readings']),
                     true,
                 );
                 $candidateIds = array_values(array_filter(
@@ -71,7 +87,7 @@ final class WaniKaniVocabularyConceptMatcher
             }
 
             $matches[] = [
-                'subject_id' => $item->subjectId,
+                'subject_id' => $subject['subject_id'],
                 'concept_id' => $candidateIds[0],
                 'match_method' => $method,
                 'confidence' => 1.0,

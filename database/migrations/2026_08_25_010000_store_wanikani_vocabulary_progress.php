@@ -25,6 +25,9 @@ return new class extends Migration
             $table->json('meanings');
             $table->timestamp('hidden_at', 6)->nullable();
             $table->timestamp('source_updated_at', 6)->nullable();
+            // Subjects without a current version are rematched on the user's next sync,
+            // including subjects that no longer appear in WaniKani's incremental feed.
+            $table->string('matcher_version', 100)->nullable();
             $table->timestamps();
         });
 

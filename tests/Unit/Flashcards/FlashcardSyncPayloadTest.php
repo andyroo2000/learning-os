@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
@@ -113,6 +114,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
             'variant_stage' => 1,
             'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Guru->value,
             'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
@@ -160,6 +162,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'variant_kind' => 'sentence_audio_recognition',
             'variant_stage' => 1,
             'variant_status' => 'available',
+            'variant_unlock_requirement' => 'guru',
             'variant_unlocked_at' => '2026-06-04T14:15:00.000000Z',
             'variant_retired_at' => null,
             'due_at' => '2026-06-05T14:15:00.000000Z',
@@ -205,6 +208,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'variant_kind' => null,
             'variant_stage' => null,
             'variant_status' => null,
+            'variant_unlock_requirement' => null,
             'variant_unlocked_at' => null,
             'variant_retired_at' => null,
             'due_at' => null,
@@ -243,6 +247,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'variant_kind' => null,
             'variant_stage' => null,
             'variant_status' => null,
+            'variant_unlock_requirement' => null,
             'variant_unlocked_at' => null,
             'variant_retired_at' => null,
             'due_at' => null,
@@ -276,6 +281,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'variant_kind' => null,
             'variant_stage' => null,
             'variant_status' => null,
+            'variant_unlock_requirement' => null,
             'variant_unlocked_at' => null,
             'variant_retired_at' => null,
             'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),

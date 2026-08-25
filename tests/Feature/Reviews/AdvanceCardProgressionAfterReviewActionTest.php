@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -31,6 +32,42 @@ use Tests\TestCase;
 class AdvanceCardProgressionAfterReviewActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_guru_and_master_requirements_use_the_reviewed_cards_current_fsrs_mastery(): void
+    {
+        [$user, $deck] = $this->learnerDeck();
+        $guruPredecessor = $this->familyCard($deck, 'path-guru', 1, VocabVariantStatus::Available, [
+            'study_status' => CardStudyStatus::Review,
+            'scheduler_state' => ['stability' => 6.99, 'difficulty' => 5],
+        ]);
+        $guruSuccessor = $this->familyCard($deck, 'path-guru', 2, VocabVariantStatus::Locked, [
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Guru,
+        ]);
+        $masterPredecessor = $this->familyCard($deck, 'path-master', 1, VocabVariantStatus::Available, [
+            'study_status' => CardStudyStatus::Review,
+            'scheduler_state' => ['stability' => 29.99, 'difficulty' => 5],
+        ]);
+        $masterSuccessor = $this->familyCard($deck, 'path-master', 2, VocabVariantStatus::Locked, [
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Master,
+        ]);
+
+        $this->advance($guruPredecessor);
+        $this->advance($masterPredecessor);
+        $this->assertSame(VocabVariantStatus::Locked->value, $guruSuccessor->refresh()->variant_status);
+        $this->assertSame(VocabVariantStatus::Locked->value, $masterSuccessor->refresh()->variant_status);
+
+        $guruPredecessor->forceFill(['scheduler_state' => ['stability' => 7, 'difficulty' => 5]])->saveQuietly();
+        $masterPredecessor->forceFill(['scheduler_state' => ['stability' => 30, 'difficulty' => 5]])->saveQuietly();
+
+        $this->advance($guruPredecessor);
+        $this->advance($masterPredecessor, CardReviewRating::Again);
+        $this->assertSame(VocabVariantStatus::Available->value, $guruSuccessor->refresh()->variant_status);
+        $this->assertSame(VocabVariantStatus::Locked->value, $masterSuccessor->refresh()->variant_status);
+
+        $this->advance($masterPredecessor);
+        $this->assertSame(VocabVariantStatus::Available->value, $masterSuccessor->refresh()->variant_status);
+        $this->assertSame($user->id, $masterSuccessor->ownerUserId());
+    }
 
     public function test_every_card_in_the_active_stage_needs_two_successes_before_the_next_sparse_stage_unlocks(): void
     {
@@ -553,5 +590,28 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
             rating: $rating->value,
             reviewedAt: $reviewedAt,
         ));
+    }
+
+    private function advance(Card $card, CardReviewRating $rating = CardReviewRating::Good): void
+    {
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'rating' => $rating->value,
+            'reviewed_at' => now(),
+        ]);
+
+        DB::transaction(function () use ($card, $reviewEvent): void {
+            app(NewCardQueuePosition::class)->lockOwner($card->ownerUserId());
+            $lockedCard = Card::query()
+                ->with('deck')
+                ->whereKey($card->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            app(AdvanceCardProgressionAfterReviewAction::class)->handle(
+                $lockedCard,
+                $reviewEvent->reviewed_at,
+                $reviewEvent->id,
+            );
+        });
     }
 }

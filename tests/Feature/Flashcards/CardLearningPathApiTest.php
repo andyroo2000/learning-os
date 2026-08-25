@@ -3,6 +3,8 @@
 namespace Tests\Feature\Flashcards;
 
 use App\Domain\Flashcards\Actions\LinkCardLearningPathSuccessorAction;
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Data\ReviewCardData;
@@ -47,6 +49,13 @@ class CardLearningPathApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['successor_card_id']);
+
+        $this->putJson("/api/cards/{$card->id}/learning-path/successor", [
+            'successor_card_id' => strtolower((string) str()->ulid()),
+            'unlock_requirement' => 'eventually',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['unlock_requirement']);
     }
 
     public function test_it_creates_and_lists_a_generic_learning_path(): void
@@ -92,6 +101,7 @@ class CardLearningPathApiTest extends TestCase
                 'variant_group_id' => $groupId,
                 'variant_stage' => 2,
                 'variant_status' => VocabVariantStatus::Locked->value,
+                'variant_unlock_requirement' => CardProgressionUnlockRequirement::SuccessfulRetrieval->value,
                 'variant_unlocked_at' => null,
                 'new_queue_position' => null,
             ]);
@@ -116,6 +126,43 @@ class CardLearningPathApiTest extends TestCase
                 ->assertJsonPath('data.group_id', $groupId)
                 ->assertJsonPath('data.anchor_card_id', $successor->id)
                 ->assertJsonCount(2, 'data.stages');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_it_persists_a_master_requirement_and_immediately_unlocks_for_a_mastered_predecessor(): void
+    {
+        Carbon::setTestNow('2026-08-25T12:00:00Z');
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            $predecessor = Card::factory()->for($deck)->create([
+                'study_status' => CardStudyStatus::Review,
+                'scheduler_state' => ['stability' => 30, 'difficulty' => 5],
+            ]);
+            $successor = Card::factory()->for($deck)->create(['new_queue_position' => 8]);
+
+            $this->putJson("/api/cards/{$predecessor->id}/learning-path/successor", [
+                'successor_card_id' => $successor->id,
+                'unlock_requirement' => CardProgressionUnlockRequirement::Master->value,
+            ])
+                ->assertOk()
+                ->assertJsonPath(
+                    'data.stages.1.cards.0.variant_unlock_requirement',
+                    CardProgressionUnlockRequirement::Master->value,
+                )
+                ->assertJsonPath(
+                    'data.stages.1.cards.0.variant_status',
+                    VocabVariantStatus::Available->value,
+                );
+
+            $successor->refresh();
+            $this->assertSame(CardProgressionUnlockRequirement::Master, $successor->variant_unlock_requirement);
+            $this->assertSame(VocabVariantStatus::Available->value, $successor->variant_status);
+            $this->assertSame('2026-08-25T12:00:00.000000Z', $successor->variant_unlocked_at?->toJSON());
+            $this->assertSame(8, $successor->new_queue_position);
         } finally {
             Carbon::setTestNow();
         }

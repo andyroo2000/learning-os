@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Models;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
@@ -160,6 +161,7 @@ class Card extends Model
             'new_queue_position' => 'integer',
             'scheduler_state' => 'array',
             'variant_stage' => 'integer',
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::class,
             'variant_unlocked_at' => 'datetime',
             'variant_retired_at' => 'datetime',
             'convolab_note_created_at' => 'datetime',

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flashcards;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
@@ -73,6 +74,7 @@ class CardTest extends TestCase
             'variant_kind',
             'variant_stage',
             'variant_status',
+            'variant_unlock_requirement',
             'variant_unlocked_at',
             'variant_retired_at',
             'created_at',
@@ -279,6 +281,7 @@ class CardTest extends TestCase
             'variant_kind' => VocabVariantKind::WordTextRecognition->value,
             'variant_stage' => 4,
             'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Master->value,
             'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
             'search_text' => 'client-owned text',
         ]);
@@ -326,6 +329,7 @@ class CardTest extends TestCase
         $this->assertNull($card->variant_kind);
         $this->assertNull($card->variant_stage);
         $this->assertNull($card->variant_status);
+        $this->assertNull($card->variant_unlock_requirement);
         $this->assertNull($card->variant_unlocked_at);
     }
 

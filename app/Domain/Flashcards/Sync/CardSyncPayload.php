@@ -45,6 +45,7 @@ final class CardSyncPayload
             'variant_kind' => self::scalarValue($card->variant_kind),
             'variant_stage' => $card->variant_stage,
             'variant_status' => self::scalarValue($card->variant_status),
+            'variant_unlock_requirement' => self::scalarValue($card->variant_unlock_requirement),
             'variant_unlocked_at' => $card->variant_unlocked_at?->toJSON(),
             'variant_retired_at' => $card->variant_retired_at?->toJSON(),
             'due_at' => $card->due_at?->toJSON(),

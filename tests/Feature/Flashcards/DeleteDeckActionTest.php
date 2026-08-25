@@ -86,6 +86,7 @@ class DeleteDeckActionTest extends TestCase
                 'variant_kind' => null,
                 'variant_stage' => null,
                 'variant_status' => null,
+                'variant_unlock_requirement' => null,
                 'variant_unlocked_at' => null,
                 'variant_retired_at' => null,
                 'due_at' => null,

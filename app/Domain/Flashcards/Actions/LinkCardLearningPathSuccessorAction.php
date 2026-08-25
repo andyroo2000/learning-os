@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Actions;
 
+use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Exceptions\LearningPathConflictException;
 use App\Domain\Flashcards\Models\Card;
@@ -33,8 +34,11 @@ final class LinkCardLearningPathSuccessorAction
     ) {}
 
     /** @return Collection<int, Card> */
-    public function handle(Card $predecessor, Card $successor): Collection
-    {
+    public function handle(
+        Card $predecessor,
+        Card $successor,
+        CardProgressionUnlockRequirement $unlockRequirement = CardProgressionUnlockRequirement::SuccessfulRetrieval,
+    ): Collection {
         if ((string) $predecessor->getKey() === (string) $successor->getKey()) {
             throw LearningPathConflictException::sameCard();
         }
@@ -45,7 +49,7 @@ final class LinkCardLearningPathSuccessorAction
             throw (new ModelNotFoundException)->setModel(Card::class, [$successor->getKey()]);
         }
 
-        return DB::transaction(function () use ($predecessor, $successor, $userId): Collection {
+        return DB::transaction(function () use ($predecessor, $successor, $unlockRequirement, $userId): Collection {
             $this->newCardQueuePosition()->lockOwner($userId);
             $cards = $this->lockedCards($userId, [
                 (string) $predecessor->getKey(),
@@ -76,10 +80,17 @@ final class LinkCardLearningPathSuccessorAction
                 $livePredecessor->variant_unlocked_at = $unlockedAt;
                 $livePredecessor->variant_retired_at = null;
 
-                // Persist the newly locked successor first so a legacy predecessor
-                // without a queue position does not reserve a slot after a card that
-                // is being removed from that same queue in this transaction.
-                $this->assignLockedStage($liveSuccessor, $groupId, 2);
+                // Persist the successor first so a legacy predecessor without a queue
+                // position is ordered after any successor that remains available.
+                $this->assignSuccessorStage(
+                    $liveSuccessor,
+                    $groupId,
+                    2,
+                    $unlockRequirement,
+                    collect([$livePredecessor]),
+                    $userId,
+                    $unlockedAt,
+                );
                 $this->saveAndSync($liveSuccessor, $userId);
 
                 if (($livePredecessor->study_status ?? CardStudyStatus::New) === CardStudyStatus::New
@@ -129,7 +140,15 @@ final class LinkCardLearningPathSuccessorAction
                 throw LearningPathConflictException::stageLimitReached();
             }
 
-            $this->assignLockedStage($liveSuccessor, $groupId, $expectedStage);
+            $this->assignSuccessorStage(
+                $liveSuccessor,
+                $groupId,
+                $expectedStage,
+                $unlockRequirement,
+                $familyCards->where('variant_stage', $livePredecessor->variant_stage)->values(),
+                $userId,
+                now()->utc()->startOfSecond(),
+            );
             $this->saveAndSync($liveSuccessor, $userId);
 
             return $this->familyCards($userId, $groupId);
@@ -192,6 +211,7 @@ final class LinkCardLearningPathSuccessorAction
             && $card->variant_kind === null
             && $card->variant_stage === null
             && $card->variant_status === null
+            && $card->variant_unlock_requirement === null
             && $card->variant_unlocked_at === null;
     }
 
@@ -215,14 +235,33 @@ final class LinkCardLearningPathSuccessorAction
                 ->count() > 1);
     }
 
-    private function assignLockedStage(Card $card, string $groupId, int $stage): void
-    {
+    /** @param Collection<int, Card> $predecessorStageCards */
+    private function assignSuccessorStage(
+        Card $card,
+        string $groupId,
+        int $stage,
+        CardProgressionUnlockRequirement $unlockRequirement,
+        Collection $predecessorStageCards,
+        int $userId,
+        \DateTimeInterface $linkedAt,
+    ): void {
+        $isImmediatelyAvailable = $predecessorStageCards->isNotEmpty()
+            && $predecessorStageCards->every(
+                fn (Card $predecessor): bool => $unlockRequirement->isSatisfiedByMastery($predecessor),
+            );
+
         $card->variant_group_id = $groupId;
         $card->variant_stage = $stage;
-        $card->variant_status = VocabVariantStatus::Locked->value;
-        $card->variant_unlocked_at = null;
+        $card->variant_status = $isImmediatelyAvailable
+            ? VocabVariantStatus::Available->value
+            : VocabVariantStatus::Locked->value;
+        $card->variant_unlock_requirement = $unlockRequirement;
+        $card->variant_unlocked_at = $isImmediatelyAvailable ? $linkedAt : null;
         $card->variant_retired_at = null;
-        $card->new_queue_position = null;
+        $card->new_queue_position = $isImmediatelyAvailable
+            && ($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New
+                ? $card->new_queue_position ?? $this->newCardQueuePosition()->nextForUser($userId)
+                : null;
     }
 
     private function saveAndSync(Card $card, int $userId): void

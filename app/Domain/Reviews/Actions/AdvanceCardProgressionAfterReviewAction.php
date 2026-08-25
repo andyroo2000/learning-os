@@ -69,6 +69,15 @@ final class AdvanceCardProgressionAfterReviewAction
             return;
         }
 
+        $nextStage = $cards
+            ->pluck('variant_stage')
+            ->filter(fn (?int $stage): bool => $stage !== null && $stage > $reviewedStage)
+            ->min();
+
+        if ($nextStage === null && $this->familyHasAlreadyGraduated($cards, $reviewedStage)) {
+            return;
+        }
+
         $stageCards = $cards->where('variant_stage', $reviewedStage)->values();
 
         // A partially unlocked stage is invalid metadata. Fail closed rather than
@@ -79,11 +88,6 @@ final class AdvanceCardProgressionAfterReviewAction
         ) {
             return;
         }
-
-        $nextStage = $cards
-            ->pluck('variant_stage')
-            ->filter(fn (?int $stage): bool => $stage !== null && $stage > $reviewedStage)
-            ->min();
 
         if ($nextStage !== null) {
             $this->unlockStage($cards->where('variant_stage', $nextStage)->values(), $reviewedCard->ownerUserId());
@@ -99,6 +103,8 @@ final class AdvanceCardProgressionAfterReviewAction
     {
         $query = Card::query()
             ->with('deck')
+            // Cards in deleted decks are no longer learner-visible family members; keeping
+            // them in the gate would make an active family impossible to finish.
             ->whereHas('deck', fn ($query) => $query->where('user_id', $reviewedCard->ownerUserId()))
             ->where('cards.variant_group_id', $reviewedCard->variant_group_id);
 
@@ -110,31 +116,60 @@ final class AdvanceCardProgressionAfterReviewAction
     /** @param Collection<int, Card> $stageCards */
     private function stageHasDemonstratedRetrieval(Collection $stageCards): bool
     {
-        $eventsByCard = CardReviewEvent::query()
-            ->whereIn('card_id', $stageCards->pluck('id'))
-            ->orderBy('card_id')
-            ->orderBy('reviewed_at')
-            ->orderBy('id')
-            ->get(['card_id', 'rating', 'reviewed_at', 'id'])
-            ->groupBy('card_id');
+        return $stageCards->every(fn (Card $card): bool => $this->cardHasDemonstratedRetrieval($card));
+    }
 
-        return $stageCards->every(function (Card $card) use ($eventsByCard): bool {
-            $successfulRetrievals = 0;
+    private function cardHasDemonstratedRetrieval(Card $card): bool
+    {
+        $latestAgainQuery = CardReviewEvent::query()
+            ->where('card_id', $card->id)
+            ->where('rating', CardReviewRating::Again->value);
+        $successfulReviewQuery = CardReviewEvent::query()
+            ->where('card_id', $card->id)
+            ->whereIn('rating', [CardReviewRating::Good->value, CardReviewRating::Easy->value]);
 
-            foreach ($eventsByCard->get($card->id, collect()) as $event) {
-                if ($card->variant_unlocked_at !== null && $event->reviewed_at->lt($card->variant_unlocked_at)) {
-                    continue;
-                }
+        if ($card->variant_unlocked_at !== null) {
+            $latestAgainQuery->where('reviewed_at', '>=', $card->variant_unlocked_at);
+            $successfulReviewQuery->where('reviewed_at', '>=', $card->variant_unlocked_at);
+        }
 
-                if ($event->rating === CardReviewRating::Again) {
-                    $successfulRetrievals = 0;
-                } elseif (in_array($event->rating, [CardReviewRating::Good, CardReviewRating::Easy], true)) {
-                    $successfulRetrievals++;
-                }
-            }
+        $latestAgain = $latestAgainQuery
+            ->orderByDesc('reviewed_at')
+            ->orderByDesc('id')
+            ->first(['reviewed_at', 'id']);
 
-            return $successfulRetrievals >= self::REQUIRED_SUCCESSFUL_RETRIEVALS;
-        });
+        if ($latestAgain !== null) {
+            $successfulReviewQuery->where(function ($query) use ($latestAgain): void {
+                $query
+                    ->where('reviewed_at', '>', $latestAgain->reviewed_at)
+                    ->orWhere(function ($query) use ($latestAgain): void {
+                        $query
+                            ->where('reviewed_at', $latestAgain->reviewed_at)
+                            ->where('id', '>', $latestAgain->id);
+                    });
+            });
+        }
+
+        // Fetch at most the threshold: progression only needs to know whether two
+        // qualifying events exist, never the total size of the review history.
+        return $successfulReviewQuery
+            ->orderByDesc('reviewed_at')
+            ->orderByDesc('id')
+            ->limit(self::REQUIRED_SUCCESSFUL_RETRIEVALS)
+            ->get(['id'])
+            ->count() === self::REQUIRED_SUCCESSFUL_RETRIEVALS;
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private function familyHasAlreadyGraduated(Collection $cards, int $finalStage): bool
+    {
+        $earlierCards = $cards
+            ->filter(fn (Card $card): bool => $card->variant_stage !== null && $card->variant_stage < $finalStage);
+
+        // A one-stage family has no unlock or retirement side effect to perform.
+        return $earlierCards->isEmpty()
+            || $earlierCards->every(fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value
+                && $card->study_status === CardStudyStatus::Suspended);
     }
 
     /** @param Collection<int, Card> $stageCards */
@@ -156,6 +191,8 @@ final class AdvanceCardProgressionAfterReviewAction
             $card->variant_unlocked_at = $unlockedAt;
 
             if (($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New) {
+                // The review writer holds the owner lock for this transaction, so reserving
+                // once and incrementing locally cannot collide with another queue writer.
                 $nextQueuePosition ??= $this->newCardQueuePosition()->nextForUser($userId);
                 $card->new_queue_position = $nextQueuePosition++;
             } else {

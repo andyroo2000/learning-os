@@ -5,7 +5,9 @@ namespace Tests\Feature\Reviews;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
+use App\Domain\Reviews\Actions\AdvanceCardProgressionAfterReviewAction;
 use App\Domain\Reviews\Actions\ReviewCardAction;
 use App\Domain\Reviews\Actions\ReviewCardBatchAction;
 use App\Domain\Reviews\Actions\UndoCardReviewEventAction;
@@ -199,12 +201,56 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
         );
 
         $this->assertFalse($listeningCard->refresh()->isProgressionAvailable());
+        $this->assertSame(CardStudyStatus::Suspended, $listeningCard->study_status);
         $this->assertNull($listeningCard->new_queue_position);
 
         $this->review($transferCard, CardReviewRating::Again, '2026-08-25T09:10:00Z');
 
         $this->assertFalse($listeningCard->refresh()->isProgressionAvailable());
         $this->assertSame(CardStudyStatus::Suspended, $recognitionCard->refresh()->study_status);
+    }
+
+    public function test_an_already_graduated_family_skips_the_unbounded_review_history_query(): void
+    {
+        [$user, $deck] = $this->learnerDeck();
+        $this->familyCard($deck, 'path-complete', 1, VocabVariantStatus::Locked, [
+            'study_status' => CardStudyStatus::Suspended,
+        ]);
+        $finalCard = $this->familyCard($deck, 'path-complete', 2, VocabVariantStatus::Available, [
+            'study_status' => CardStudyStatus::Review,
+        ]);
+        CardReviewEvent::factory()->count(20)->for($finalCard)->create([
+            'rating' => CardReviewRating::Good,
+        ]);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        try {
+            DB::transaction(function () use ($user, $finalCard): void {
+                app(NewCardQueuePosition::class)->lockOwner($user->id);
+                $lockedFinalCard = Card::query()
+                    ->with('deck')
+                    ->whereKey($finalCard->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                app(AdvanceCardProgressionAfterReviewAction::class)->handle($lockedFinalCard);
+            });
+            $queries = collect(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $historyQueries = $queries->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'from "card_review_events"')
+                && str_contains($sql, '"rating"');
+        });
+
+        $this->assertCount(0, $historyQueries);
     }
 
     public function test_progression_groups_are_scoped_to_the_card_owner(): void

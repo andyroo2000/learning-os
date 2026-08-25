@@ -12,6 +12,7 @@ use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\DateTime\StrictIsoDateTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -61,8 +62,14 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::missingSnapshot();
             }
 
+            $preserveProgressionRetirement = $card->variant_status === VocabVariantStatus::Locked->value
+                && $card->study_status === CardStudyStatus::Suspended;
+
             // Keep this restore list in sync with CardReviewStateSnapshot::beforeReview().
             $card->study_status = $this->studyStatus($snapshot);
+            if ($preserveProgressionRetirement) {
+                $card->study_status = CardStudyStatus::Suspended;
+            }
             $card->new_queue_position = $this->nullableInteger($snapshot, 'new_queue_position');
             if (! $card->isProgressionAvailable()) {
                 $card->new_queue_position = null;

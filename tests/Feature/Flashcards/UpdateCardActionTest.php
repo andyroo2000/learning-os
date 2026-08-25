@@ -783,7 +783,7 @@ class UpdateCardActionTest extends TestCase
             ],
             'malformed variant kind' => [
                 ['hasVariantKind' => true, 'variantKind' => 'not-a-kind'],
-                'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze.',
+                'Variant kind must be one of: sentence_audio_recognition, sentence_text_recognition, word_audio_recognition, word_text_recognition, sentence_cloze, sentence_production.',
             ],
             'malformed variant status' => [
                 ['hasVariantStatus' => true, 'variantStatus' => 'unknown'],

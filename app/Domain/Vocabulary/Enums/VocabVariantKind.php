@@ -9,6 +9,7 @@ enum VocabVariantKind: string
     case WordAudioRecognition = 'word_audio_recognition';
     case WordTextRecognition = 'word_text_recognition';
     case SentenceCloze = 'sentence_cloze';
+    case SentenceProduction = 'sentence_production';
 
     /**
      * @return list<string>

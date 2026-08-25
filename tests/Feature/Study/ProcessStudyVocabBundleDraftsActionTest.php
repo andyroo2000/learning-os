@@ -11,6 +11,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Models\StudyVocabVariantSentence;
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
+use App\Domain\Study\Services\StudyVocabBundleGenerator;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Jobs\ProcessStudyCardDraft;
 use App\Jobs\ProcessStudyVocabBundleDrafts;
@@ -38,7 +39,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
 
         $updated = app(ProcessStudyVocabBundleDraftsAction::class)->handle($group->id);
 
-        $this->assertSame(11, $updated);
+        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, $updated);
         $group->refresh();
         $this->assertSame('会社', $group->target_word);
         $this->assertSame('会社[かいしゃ]', $group->target_reading);
@@ -49,7 +50,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertSame('I work at this company.', $sentences[0]->sentence_en);
 
         $drafts = StudyCardDraft::query()->orderBy('variant_stage')->get();
-        $this->assertCount(11, $drafts);
+        $this->assertCount(StudyVocabBundleGenerator::DRAFT_COUNT, $drafts);
         $this->assertTrue($drafts->every(
             fn (StudyCardDraft $draft): bool => $draft->status === StudyManualCardDraftStatus::Ready
                 && $draft->revision === 1
@@ -72,7 +73,11 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertNotNull($cloze);
         $this->assertSame('both', $cloze->image_placement->value);
         $this->assertStringContainsString('I work at this company.', $cloze->image_prompt);
-        $this->assertSame($initialSyncCount + 11, SyncFeedEntry::query()->count());
+        $production = $drafts->firstWhere('variant_kind', 'sentence_production');
+        $this->assertNotNull($production);
+        $this->assertSame('I work at this company.', $production->prompt_json['cueText']);
+        $this->assertSame('この会社で働いています。', $production->answer_json['expression']);
+        $this->assertSame($initialSyncCount + StudyVocabBundleGenerator::DRAFT_COUNT, SyncFeedEntry::query()->count());
         $updateEntries = SyncFeedEntry::query()
             ->where('checkpoint', '>', $initialSyncCount)
             ->get();
@@ -102,7 +107,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $group = $this->createBundle();
         $action = app(ProcessStudyVocabBundleDraftsAction::class);
 
-        $this->assertSame(11, $action->handle($group->id));
+        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, $action->handle($group->id));
         $syncCount = SyncFeedEntry::query()->count();
         $this->assertSame(0, $action->handle(strtolower($group->id)));
         $this->assertSame($syncCount, SyncFeedEntry::query()->count());
@@ -144,7 +149,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
 
         $this->assertSame('会社', $group->fresh()->target_word);
         $this->assertSame(
-            11,
+            StudyVocabBundleGenerator::DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Generating)
@@ -181,7 +186,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
 
         $this->assertSame(StudyManualCardDraftStatus::Ready, $readyDraft->refresh()->status);
         $this->assertSame(
-            10,
+            StudyVocabBundleGenerator::DRAFT_COUNT - 1,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Generating)
@@ -210,7 +215,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
             ->where('variant_group_id', $group->id)
             ->where('status', StudyManualCardDraftStatus::Error)
             ->get();
-        $this->assertCount(10, $failedDrafts);
+        $this->assertCount(StudyVocabBundleGenerator::DRAFT_COUNT - 1, $failedDrafts);
         $this->assertTrue($failedDrafts->every(
             fn (StudyCardDraft $draft): bool => $draft->error_message
                 === ProcessStudyVocabBundleDrafts::EXHAUSTED_ERROR_MESSAGE
@@ -243,7 +248,7 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
         $this->assertSame(StudyManualCardDraftStatus::Generating, $retried->status);
         $this->assertSame(2, $retried->revision);
         $this->assertSame(
-            11,
+            StudyVocabBundleGenerator::DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Generating)

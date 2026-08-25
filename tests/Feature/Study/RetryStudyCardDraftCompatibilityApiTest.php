@@ -9,6 +9,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
+use App\Domain\Study\Services\StudyVocabBundleGenerator;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Jobs\ProcessStudyCardDraft;
 use App\Jobs\ProcessStudyVocabBundleDrafts;
@@ -153,7 +154,7 @@ class RetryStudyCardDraftCompatibilityApiTest extends TestCase
 
         $this->assertStudyCardDraftCompatibilityPayloadHasShape($response->json());
         $this->assertSame(
-            11,
+            StudyVocabBundleGenerator::DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Generating)

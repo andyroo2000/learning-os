@@ -16,7 +16,7 @@ class StudyVocabBundleGenerator
 {
     public const SENTENCE_COUNT = 3;
 
-    public const DRAFT_COUNT = 11;
+    public const DRAFT_COUNT = 14;
 
     public function __construct(
         private readonly OpenAiStudyCardGenerator $openAi,
@@ -245,6 +245,23 @@ PROMPT;
                 5,
                 $sentence['ordinal'],
                 $this->clozeImagePrompt($sentence['sentenceEn'], $sentence['notes']),
+            );
+        }
+
+        foreach ($sentences as $sentence) {
+            $variants[] = $this->variant(
+                StudyCardCreationKind::ProductionText,
+                ['cueText' => $sentence['sentenceEn']],
+                [
+                    'expression' => $sentence['sentenceJp'],
+                    'expressionReading' => $sentence['sentenceReading'],
+                    'meaning' => $sentence['sentenceEn'],
+                    'notes' => $sentence['notes'],
+                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                ],
+                VocabVariantKind::SentenceProduction,
+                6,
+                $sentence['ordinal'],
             );
         }
 

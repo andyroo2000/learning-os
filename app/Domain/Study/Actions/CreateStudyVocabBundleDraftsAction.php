@@ -153,6 +153,19 @@ class CreateStudyVocabBundleDraftsAction
                 'sentenceOrdinal' => $ordinal,
             ];
         }
+        foreach ([0, 1, 2] as $ordinal) {
+            $label = $this->placeholderLabel($ordinal, $targetWord);
+            $variants[] = [
+                'creationKind' => StudyCardCreationKind::ProductionText,
+                'cardType' => CardType::Production,
+                'prompt' => ['cueText' => "Generating English cue for {$targetWord}"],
+                'answer' => $this->placeholderAnswer($label),
+                'variantKind' => VocabVariantKind::SentenceProduction,
+                'variantStage' => 6,
+                'variantStatus' => VocabVariantStatus::Locked,
+                'sentenceOrdinal' => $ordinal,
+            ];
+        }
 
         return $variants;
     }

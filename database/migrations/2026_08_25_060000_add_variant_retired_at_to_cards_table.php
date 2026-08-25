@@ -15,8 +15,9 @@ return new class extends Migration
             $table->timestamp('variant_retired_at')->nullable()->after('variant_unlocked_at');
         });
 
-        // Preserve families graduated before the dedicated signal existed. A retired
-        // stage must sit below an available final stage with no still-locked stage above it.
+        // Preserve families graduated before the dedicated signal existed. Every
+        // suspended/locked stage below an available final stage is retired unless a
+        // later locked stage is still active (not suspended).
         DB::table('cards')
             ->whereNotNull('variant_group_id')
             ->where('variant_status', VocabVariantStatus::Locked->value)
@@ -60,6 +61,15 @@ return new class extends Migration
                     ->whereColumn('locked_later_deck.user_id', 'current_locked_deck.user_id')
                     ->whereColumn('locked_later_card.variant_stage', '>', 'cards.variant_stage')
                     ->where('locked_later_card.variant_status', VocabVariantStatus::Locked->value)
+                    ->where(function ($query): void {
+                        $query
+                            ->whereNull('locked_later_card.study_status')
+                            ->orWhere(
+                                'locked_later_card.study_status',
+                                '!=',
+                                CardStudyStatus::Suspended->value,
+                            );
+                    })
                     ->whereNull('locked_later_deck.deleted_at')
                     ->whereNull('current_locked_deck.deleted_at')
                     ->whereNull('locked_later_card.deleted_at');

@@ -19,15 +19,21 @@ class VariantRetiredAtMigrationTest extends TestCase
     {
         $user = User::factory()->create();
         $deck = $this->deckFor($user);
-        $retired = Card::factory()->for($deck)->create([
+        $firstRetired = Card::factory()->for($deck)->create([
             'variant_group_id' => 'completed-family',
             'variant_stage' => 1,
             'variant_status' => VocabVariantStatus::Locked->value,
             'study_status' => CardStudyStatus::Suspended->value,
         ]);
-        Card::factory()->for($deck)->create([
+        $secondRetired = Card::factory()->for($deck)->create([
             'variant_group_id' => 'completed-family',
             'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'study_status' => CardStudyStatus::Suspended->value,
+        ]);
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => 'completed-family',
+            'variant_stage' => 3,
             'variant_status' => VocabVariantStatus::Available->value,
         ]);
 
@@ -67,7 +73,8 @@ class VariantRetiredAtMigrationTest extends TestCase
         );
         $migration->up();
 
-        $this->assertNotNull(DB::table('cards')->where('id', $retired->id)->value('variant_retired_at'));
+        $this->assertNotNull(DB::table('cards')->where('id', $firstRetired->id)->value('variant_retired_at'));
+        $this->assertNotNull(DB::table('cards')->where('id', $secondRetired->id)->value('variant_retired_at'));
         $this->assertNull(DB::table('cards')->where('id', $notFinished->id)->value('variant_retired_at'));
         $this->assertNull(DB::table('cards')->where('id', $ownerIsolated->id)->value('variant_retired_at'));
     }

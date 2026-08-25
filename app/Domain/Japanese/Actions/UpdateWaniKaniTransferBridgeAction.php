@@ -34,7 +34,7 @@ final class UpdateWaniKaniTransferBridgeAction
                 return $connection;
             });
 
-            return $connection->fresh() ?? $connection;
+            return $connection;
         } finally {
             $lock->release();
         }

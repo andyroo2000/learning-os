@@ -174,6 +174,7 @@ class WaniKaniTransferBridgeTest extends TestCase
                 $this->assertInstanceOf(ShouldBeUnique::class, $job);
                 $this->assertSame(3, $job->tries);
                 $this->assertSame(300, $job->timeout);
+                $this->assertSame(1800, $job->uniqueFor);
                 $this->assertSame([60, 300], $job->backoff());
 
                 return $job->userId === $enabled->id;

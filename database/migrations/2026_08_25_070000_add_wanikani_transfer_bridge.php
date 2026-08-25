@@ -20,6 +20,8 @@ return new class extends Migration
         });
 
         Schema::table('study_vocab_variant_groups', function (Blueprint $table): void {
+            // The group is the durable progression/provenance boundary for its cards. Keeping
+            // the source subject here makes one DB constraint the automatic-import idempotency guard.
             $table->unsignedBigInteger('wanikani_subject_id')->nullable();
             $table->string('automatic_import_status', 32)->nullable();
             $table->text('automatic_import_error')->nullable();

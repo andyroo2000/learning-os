@@ -20,6 +20,10 @@ class SyncWaniKaniTransferConnection implements ShouldBeUnique, ShouldQueue
 
     public int $timeout = 300;
 
+    // Bound abandoned unique locks beyond three timeout windows and both backoffs.
+    // If this expires while work still exists, the per-user sync lock remains authoritative.
+    public int $uniqueFor = 1800;
+
     public function __construct(public readonly int $userId)
     {
         $this->onQueue(self::QUEUE_NAME);

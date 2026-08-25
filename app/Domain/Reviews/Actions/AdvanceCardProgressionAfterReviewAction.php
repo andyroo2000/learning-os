@@ -101,7 +101,12 @@ final class AdvanceCardProgressionAfterReviewAction
             return;
         }
 
-        $this->suspendRedundantStages($cards, $reviewedStage, $reviewedCard->ownerUserId());
+        $this->suspendRedundantStages(
+            $cards,
+            $reviewedStage,
+            $reviewedCard->ownerUserId(),
+            $reviewedAt,
+        );
     }
 
     /** @return Collection<int, Card> */
@@ -200,7 +205,8 @@ final class AdvanceCardProgressionAfterReviewAction
         // A one-stage family has no unlock or retirement side effect to perform.
         return $earlierCards->isEmpty()
             || $earlierCards->every(fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value
-                && $card->study_status === CardStudyStatus::Suspended);
+                && $card->study_status === CardStudyStatus::Suspended
+                && $card->variant_retired_at !== null);
     }
 
     /** @param Collection<int, Card> $stageCards */
@@ -218,6 +224,7 @@ final class AdvanceCardProgressionAfterReviewAction
         foreach ($lockedCards as $card) {
             $card->variant_status = VocabVariantStatus::Available->value;
             $card->variant_unlocked_at = $unlockedAt;
+            $card->variant_retired_at = null;
 
             if (($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New) {
                 // The review writer holds the owner lock for this transaction, so reserving
@@ -233,19 +240,29 @@ final class AdvanceCardProgressionAfterReviewAction
     }
 
     /** @param Collection<int, Card> $cards */
-    private function suspendRedundantStages(Collection $cards, int $finalStage, int $userId): void
-    {
+    private function suspendRedundantStages(
+        Collection $cards,
+        int $finalStage,
+        int $userId,
+        Carbon $retiredAt,
+    ): void {
         $cards
             ->filter(fn (Card $card): bool => $card->variant_stage !== null && $card->variant_stage < $finalStage)
-            ->each(function (Card $card) use ($userId): void {
+            ->each(function (Card $card) use ($retiredAt, $userId): void {
                 // Locked + suspended acts as a durable retired state. Review undo restores
                 // scheduler snapshots but does not alter variant metadata, so it cannot
                 // accidentally return graduated practice to a learner's queue.
                 $card->variant_status = VocabVariantStatus::Locked->value;
+                $card->variant_retired_at = $retiredAt;
                 $card->study_status = CardStudyStatus::Suspended;
                 $card->new_queue_position = null;
 
-                if ($card->isDirty(['variant_status', 'study_status', 'new_queue_position'])) {
+                if ($card->isDirty([
+                    'variant_status',
+                    'variant_retired_at',
+                    'study_status',
+                    'new_queue_position',
+                ])) {
                     $this->saveAndSync($card, $userId);
                 }
             });

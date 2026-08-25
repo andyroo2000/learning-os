@@ -49,10 +49,10 @@ final class ListStudyLearningItemsAction
             ->whereHas('deck', fn (Builder $query) => $query->where('user_id', $userId))
             ->where(function (Builder $query) use ($userId): void {
                 $query
-                    ->whereRaw("trim(coalesce(cards.variant_group_id, '')) = ''")
+                    ->whereNull('cards.variant_group_id')
                     ->orWhere(function (Builder $query) use ($userId): void {
                         $query
-                            ->whereRaw("trim(coalesce(cards.variant_group_id, '')) <> ''")
+                            ->whereNotNull('cards.variant_group_id')
                             ->whereNotExists(function ($siblings) use ($userId): void {
                                 $siblings
                                     ->selectRaw('1')
@@ -90,7 +90,7 @@ final class ListStudyLearningItemsAction
                     $query
                         ->where(function (Builder $ungrouped) use ($searchPattern): void {
                             $ungrouped
-                                ->whereRaw("trim(coalesce(cards.variant_group_id, '')) = ''")
+                                ->whereNull('cards.variant_group_id')
                                 ->whereRaw(
                                     "lower(coalesce(cards.search_text, '')) like ? escape ?",
                                     [$searchPattern, '\\'],
@@ -98,7 +98,7 @@ final class ListStudyLearningItemsAction
                         })
                         ->orWhere(function (Builder $grouped) use ($searchPattern, $userId): void {
                             $grouped
-                                ->whereRaw("trim(coalesce(cards.variant_group_id, '')) <> ''")
+                                ->whereNotNull('cards.variant_group_id')
                                 ->whereExists(function ($matches) use ($searchPattern, $userId): void {
                                     $matches
                                         ->selectRaw('1')
@@ -281,7 +281,8 @@ final class ListStudyLearningItemsAction
     {
         if ($cards->isNotEmpty() && $cards->every(
             fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value
-                && $card->study_status === CardStudyStatus::Suspended,
+                && $card->study_status === CardStudyStatus::Suspended
+                && $card->variant_retired_at !== null,
         )) {
             return self::RETIRED_STAGE_STATUS;
         }

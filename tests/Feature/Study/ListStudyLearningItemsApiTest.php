@@ -197,6 +197,7 @@ class ListStudyLearningItemsApiTest extends TestCase
                 'study_status' => $stage === 3
                     ? CardStudyStatus::Review->value
                     : CardStudyStatus::Suspended->value,
+                'variant_retired_at' => $stage === 3 ? null : now()->subMinute(),
             ]);
         }
 
@@ -205,6 +206,32 @@ class ListStudyLearningItemsApiTest extends TestCase
             ->assertJsonPath('items.0.currentStageNumber', 3)
             ->assertJsonPath('items.0.retiredStageCount', 2)
             ->assertJsonPath('items.0.transferDemonstrated', true);
+    }
+
+    public function test_a_manually_suspended_locked_stage_is_not_reported_as_retired(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $groupId = 'manual-suspend';
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => $groupId,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'study_status' => CardStudyStatus::Suspended->value,
+            'variant_retired_at' => null,
+        ]);
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => $groupId,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'study_status' => CardStudyStatus::Review->value,
+        ]);
+
+        $this->getJson('/api/study/learning-items')
+            ->assertOk()
+            ->assertJsonPath('items.0.stages.0.status', VocabVariantStatus::Locked->value)
+            ->assertJsonPath('items.0.retiredStageCount', 0)
+            ->assertJsonPath('items.0.transferDemonstrated', false);
     }
 
     public function test_it_loads_a_page_of_grouped_items_without_per_family_queries(): void

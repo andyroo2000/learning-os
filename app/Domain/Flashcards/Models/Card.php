@@ -161,6 +161,7 @@ class Card extends Model
             'scheduler_state' => 'array',
             'variant_stage' => 'integer',
             'variant_unlocked_at' => 'datetime',
+            'variant_retired_at' => 'datetime',
             'convolab_note_created_at' => 'datetime',
             'convolab_note_updated_at' => 'datetime',
             'convolab_note_source_notetype_id' => 'integer',

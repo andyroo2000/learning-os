@@ -49,6 +49,7 @@ class CardFactory extends Factory
             'variant_stage' => null,
             'variant_status' => null,
             'variant_unlocked_at' => null,
+            'variant_retired_at' => null,
         ];
     }
 }

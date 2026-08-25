@@ -145,6 +145,16 @@ class UpdateCardAction
                 }
             }
 
+            if ($data->hasVariantGroupId
+                || $data->hasVariantStage
+                || $data->hasVariantStatus
+                || $data->hasVariantUnlockedAt
+            ) {
+                // Retirement is a server-owned progression result. Explicit authoring
+                // changes invalidate that historic membership state.
+                $card->variant_retired_at = null;
+            }
+
             $contentWasUpdated = $card->isDirty(['front_text', 'back_text', 'prompt_json', 'answer_json']);
 
             if ($contentWasUpdated) {

@@ -63,6 +63,7 @@ class ShowCardApiTest extends TestCase
                     'variant_stage' => null,
                     'variant_status' => null,
                     'variant_unlocked_at' => null,
+                    'variant_retired_at' => null,
                     'due_at' => '2026-06-05T14:15:00.000000Z',
                     'introduced_at' => '2026-06-01T14:15:00.000000Z',
                     'failed_at' => '2026-06-02T14:15:00.000000Z',

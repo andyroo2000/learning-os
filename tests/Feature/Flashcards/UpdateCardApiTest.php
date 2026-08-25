@@ -317,6 +317,7 @@ class UpdateCardApiTest extends TestCase
             'variant_stage' => 2,
             'variant_status' => VocabVariantStatus::Locked,
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'variant_retired_at' => Carbon::parse('2026-06-05T15:15:00Z'),
         ]);
 
         $response = $this
@@ -343,6 +344,7 @@ class UpdateCardApiTest extends TestCase
 
         $card->refresh();
         $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_retired_at);
         $this->assertNull($card->variant_sentence_id);
         $this->assertNull($card->variant_kind);
         $this->assertNull($card->variant_stage);

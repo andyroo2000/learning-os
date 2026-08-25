@@ -252,12 +252,16 @@ final class WaniKaniApiClient
     private function requestUrl(string $apiToken, string $url, array $query): Response
     {
         try {
-            $response = Http::acceptJson()
+            $request = Http::acceptJson()
                 ->withToken($apiToken)
                 ->withHeaders(['Wanikani-Revision' => self::REVISION])
                 ->timeout(10)
-                ->retry(2, 150, throw: false)
-                ->get($url, $query);
+                ->retry(2, 150, throw: false);
+            // WaniKani's pagination URL already contains the active filters and cursor.
+            // Passing an empty query array to Laravel replaces that query string.
+            $response = $query === []
+                ? $request->get($url)
+                : $request->get($url, $query);
         } catch (ConnectionException) {
             throw WaniKaniApiException::unavailable();
         }

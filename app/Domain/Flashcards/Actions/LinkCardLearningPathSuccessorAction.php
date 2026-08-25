@@ -187,6 +187,8 @@ final class LinkCardLearningPathSuccessorAction
     private function hasNoProgressionMetadata(Card $card): bool
     {
         return ($card->variant_group_id === null || trim((string) $card->variant_group_id) === '')
+            && $card->variant_sentence_id === null
+            && $card->variant_kind === null
             && $card->variant_stage === null
             && $card->variant_status === null
             && $card->variant_unlocked_at === null;

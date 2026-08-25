@@ -10,6 +10,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -187,6 +188,22 @@ class CardLearningPathApiTest extends TestCase
         $this->link($partialPredecessor, $availableTarget)
             ->assertConflict()
             ->assertJsonPath('reason', 'learning_path_invalid_predecessor');
+
+        $orphanedKindPredecessor = Card::factory()->for($deck)->create([
+            'variant_kind' => VocabVariantKind::WordTextRecognition->value,
+        ]);
+
+        $this->link($orphanedKindPredecessor, $availableTarget)
+            ->assertConflict()
+            ->assertJsonPath('reason', 'learning_path_invalid_predecessor');
+
+        $orphanedSentenceSuccessor = Card::factory()->for($deck)->create([
+            'variant_sentence_id' => 'orphaned-sentence',
+        ]);
+
+        $this->link($availableTarget, $orphanedSentenceSuccessor)
+            ->assertConflict()
+            ->assertJsonPath('reason', 'learning_path_successor_already_linked');
 
         $invalidFamilyPredecessor = Card::factory()->for($deck)->create([
             'variant_group_id' => 'partial-family',

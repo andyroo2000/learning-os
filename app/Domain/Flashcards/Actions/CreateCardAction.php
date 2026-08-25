@@ -134,7 +134,9 @@ class CreateCardAction
 
         try {
             if ($data->variantStatus === VocabVariantStatus::Locked) {
-                $this->newCardQueuePosition()->lockOwner($data->userId);
+                if (is_string($data->variantGroupId) && trim($data->variantGroupId) !== '') {
+                    $this->newCardQueuePosition()->lockOwner($data->userId);
+                }
                 $card->new_queue_position = null;
             } else {
                 $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);

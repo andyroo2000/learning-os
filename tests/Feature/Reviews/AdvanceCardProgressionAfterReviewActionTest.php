@@ -22,6 +22,7 @@ use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -53,8 +54,8 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
 
         $this->assertSame(VocabVariantStatus::Available->value, $firstTransferCard->refresh()->variant_status);
         $this->assertSame(VocabVariantStatus::Available->value, $secondTransferCard->refresh()->variant_status);
-        $this->assertSame('2026-08-25T12:00:00.000000Z', $firstTransferCard->variant_unlocked_at?->toJSON());
-        $this->assertSame('2026-08-25T12:00:00.000000Z', $secondTransferCard->variant_unlocked_at?->toJSON());
+        $this->assertSame('2026-08-25T09:15:00.000000Z', $firstTransferCard->variant_unlocked_at?->toJSON());
+        $this->assertSame('2026-08-25T09:15:00.000000Z', $secondTransferCard->variant_unlocked_at?->toJSON());
         $this->assertSame(5, $firstTransferCard->new_queue_position);
         $this->assertSame(6, $secondTransferCard->new_queue_position);
 
@@ -151,6 +152,7 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
         $textCard = $this->familyCard($deck, 'path-offline', 2, VocabVariantStatus::Locked);
         $wordCard = $this->familyCard($deck, 'path-offline', 3, VocabVariantStatus::Locked);
         $textReviewId = strtolower((string) Str::ulid());
+        $wordReviewId = strtolower((string) Str::ulid());
 
         $result = app(ReviewCardBatchAction::class)->handle([
             ReviewCardData::fromInput(
@@ -178,18 +180,41 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
                 deviceId: 'offline-progression-test',
                 clientCreatedAt: '2026-08-25T09:10:00Z',
             ),
+            ReviewCardData::fromInput(
+                cardId: $textCard->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-08-25T09:15:00Z',
+                clientEventId: 'offline-text-2',
+                deviceId: 'offline-progression-test',
+                clientCreatedAt: '2026-08-25T09:15:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $wordCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-08-25T09:20:00Z',
+                id: $wordReviewId,
+                clientEventId: 'offline-word-1',
+                deviceId: 'offline-progression-test',
+                clientCreatedAt: '2026-08-25T09:20:00Z',
+            ),
         ]);
 
         $this->assertTrue($result->hasCreatedEvents);
-        $this->assertCount(3, $result->reviewEvents);
+        $this->assertCount(5, $result->reviewEvents);
         $this->assertSame(VocabVariantStatus::Available->value, $textCard->refresh()->variant_status);
-        $this->assertSame(CardStudyStatus::Learning, $textCard->study_status);
+        $this->assertSame('2026-08-25T09:05:00.000000Z', $textCard->variant_unlocked_at?->toJSON());
         $this->assertNull($textCard->new_queue_position);
-        $this->assertSame(VocabVariantStatus::Locked->value, $wordCard->refresh()->variant_status);
+        $this->assertSame(VocabVariantStatus::Available->value, $wordCard->refresh()->variant_status);
+        $this->assertSame('2026-08-25T09:15:00.000000Z', $wordCard->variant_unlocked_at?->toJSON());
+        $this->assertSame(CardStudyStatus::Learning, $wordCard->study_status);
+        $this->assertNull($wordCard->new_queue_position);
 
         $textReview = CardReviewEvent::query()->findOrFail($textReviewId);
         $this->assertSame(CardStudyStatus::New->value, $textReview->card_state_before['study_status']);
         $this->assertSame(1, $textReview->card_state_before['new_queue_position']);
+        $wordReview = CardReviewEvent::query()->findOrFail($wordReviewId);
+        $this->assertSame(CardStudyStatus::New->value, $wordReview->card_state_before['study_status']);
+        $this->assertSame(1, $wordReview->card_state_before['new_queue_position']);
         $this->assertSame($user->id, $textCard->ownerUserId());
     }
 
@@ -447,6 +472,47 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
         $this->assertNull($card->refresh()->variant_group_id);
         $this->assertSame($user->id, $card->ownerUserId());
         $this->assertSame($transactionLevelBeforeReview, DB::transactionLevel());
+    }
+
+    public function test_a_batch_retries_if_progression_metadata_is_added_after_its_owner_preflight(): void
+    {
+        [$user, $deck] = $this->learnerDeck();
+        $card = Card::factory()->for($deck)->create();
+        $reviewCards = new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardBatchAction
+        {
+            protected function cardsById(Collection $preparedItems): Collection
+            {
+                Card::query()->whereKey($preparedItems->first()['card_id'])->update([
+                    'variant_group_id' => 'newly-linked-batch-path',
+                    'variant_stage' => 1,
+                    'variant_status' => VocabVariantStatus::Available->value,
+                ]);
+
+                return parent::cardsById($preparedItems);
+            }
+        };
+
+        try {
+            $reviewCards->handle([
+                ReviewCardData::fromInput(
+                    cardId: $card->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-08-25T09:05:00Z',
+                    clientEventId: 'batch-owner-race',
+                    deviceId: 'batch-owner-race-device',
+                    clientCreatedAt: '2026-08-25T09:05:00Z',
+                ),
+            ]);
+            $this->fail('Expected a retryable batch progression lock refresh was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertTrue($exception->isRetryable());
+            $this->assertSame('card_review_event_retry', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertNull($card->refresh()->variant_group_id);
+        $this->assertSame($user->id, $card->ownerUserId());
     }
 
     /** @return array{User, Deck} */

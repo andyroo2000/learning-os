@@ -92,7 +92,11 @@ final class AdvanceCardProgressionAfterReviewAction
         }
 
         if ($nextStage !== null) {
-            $this->unlockStage($cards->where('variant_stage', $nextStage)->values(), $reviewedCard->ownerUserId());
+            $this->unlockStage(
+                $cards->where('variant_stage', $nextStage)->values(),
+                $reviewedCard->ownerUserId(),
+                $reviewedAt,
+            );
 
             return;
         }
@@ -200,7 +204,7 @@ final class AdvanceCardProgressionAfterReviewAction
     }
 
     /** @param Collection<int, Card> $stageCards */
-    private function unlockStage(Collection $stageCards, int $userId): void
+    private function unlockStage(Collection $stageCards, int $userId, Carbon $unlockedAt): void
     {
         $lockedCards = $stageCards
             ->filter(fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value)
@@ -211,8 +215,6 @@ final class AdvanceCardProgressionAfterReviewAction
         }
 
         $nextQueuePosition = null;
-        $unlockedAt = now();
-
         foreach ($lockedCards as $card) {
             $card->variant_status = VocabVariantStatus::Available->value;
             $card->variant_unlocked_at = $unlockedAt;

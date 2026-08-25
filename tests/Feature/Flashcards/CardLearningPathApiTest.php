@@ -202,6 +202,17 @@ class CardLearningPathApiTest extends TestCase
             ->assertJsonCount(3, 'data.stages');
         $this->assertSame($syncCount, SyncFeedEntry::query()->where('user_id', $user->id)->count());
 
+        $this->putJson("/api/cards/{$second->id}/learning-path/successor", [
+            'successor_card_id' => $third->id,
+            'unlock_requirement' => CardProgressionUnlockRequirement::Master->value,
+        ])
+            ->assertConflict()
+            ->assertJsonPath('reason', 'learning_path_unlock_requirement_mismatch');
+        $this->assertSame(
+            CardProgressionUnlockRequirement::SuccessfulRetrieval,
+            $third->refresh()->variant_unlock_requirement,
+        );
+
         $this->link($first, $other)
             ->assertConflict()
             ->assertJsonPath('reason', 'learning_path_predecessor_not_tail');
@@ -362,6 +373,28 @@ class CardLearningPathApiTest extends TestCase
         ]);
 
         $this->link($mixedStagePredecessor, $availableTarget)
+            ->assertConflict()
+            ->assertJsonPath('reason', 'learning_path_invalid_family');
+
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => 'mixed-requirement-family',
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+        ]);
+        $mixedRequirementPredecessor = Card::factory()->for($deck)->create([
+            'variant_group_id' => 'mixed-requirement-family',
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Guru,
+        ]);
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => 'mixed-requirement-family',
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Master,
+        ]);
+
+        $this->link($mixedRequirementPredecessor, $availableTarget)
             ->assertConflict()
             ->assertJsonPath('reason', 'learning_path_invalid_family');
 

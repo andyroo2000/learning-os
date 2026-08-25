@@ -115,6 +115,7 @@ final class LinkCardLearningPathSuccessorAction
                 || $familyCards->contains(fn (Card $card): bool => ! $this->hasValidProgressionMetadata($card))
                 || ! $familyCards->contains(fn (Card $card): bool => $card->isProgressionAvailable())
                 || $this->hasMixedStageAvailability($familyCards)
+                || $this->hasMixedStageUnlockRequirements($familyCards)
             ) {
                 throw LearningPathConflictException::invalidFamilyMetadata();
             }
@@ -125,6 +126,13 @@ final class LinkCardLearningPathSuccessorAction
             if ($liveSuccessor->variant_group_id === $groupId
                 && $liveSuccessor->variant_stage === $expectedStage
             ) {
+                $persistedRequirement = $liveSuccessor->variant_unlock_requirement
+                    ?? CardProgressionUnlockRequirement::SuccessfulRetrieval;
+
+                if ($persistedRequirement !== $unlockRequirement) {
+                    throw LearningPathConflictException::unlockRequirementMismatch();
+                }
+
                 return $this->familyCards($userId, $groupId);
             }
 
@@ -231,6 +239,18 @@ final class LinkCardLearningPathSuccessorAction
             ->groupBy('variant_stage')
             ->contains(fn (Collection $stageCards): bool => $stageCards
                 ->pluck('variant_status')
+                ->unique()
+                ->count() > 1);
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private function hasMixedStageUnlockRequirements(Collection $cards): bool
+    {
+        return $cards
+            ->groupBy('variant_stage')
+            ->contains(fn (Collection $stageCards): bool => $stageCards
+                ->map(fn (Card $card): string => $card->variant_unlock_requirement?->value
+                    ?? CardProgressionUnlockRequirement::SuccessfulRetrieval->value)
                 ->unique()
                 ->count() > 1);
     }

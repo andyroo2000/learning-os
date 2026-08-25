@@ -8,7 +8,7 @@ use App\Domain\Japanese\Models\WaniKaniConnection;
 
 final class ShowKnownKanjiAction
 {
-    /** @return array{version: int, kanji: list<string>, manualKanji: list<string>, wanikani: array{connected: bool, lastSyncedAt: ?string}} */
+    /** @return array{version: int, kanji: list<string>, manualKanji: list<string>, wanikani: array{connected: bool, lastSyncedAt: ?string, reviewCount: ?int, reviewCountUpdatedAt: ?string}} */
     public function handle(int $userId): array
     {
         $profile = JapaneseKnowledgeProfile::query()->where('user_id', $userId)->first();
@@ -28,6 +28,8 @@ final class ShowKnownKanjiAction
             'wanikani' => [
                 'connected' => $connection !== null,
                 'lastSyncedAt' => $connection?->last_synced_at?->toJSON(),
+                'reviewCount' => $connection?->review_count,
+                'reviewCountUpdatedAt' => $connection?->review_count_updated_at?->toJSON(),
             ],
         ];
     }

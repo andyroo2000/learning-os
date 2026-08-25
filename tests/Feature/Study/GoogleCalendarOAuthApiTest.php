@@ -183,6 +183,7 @@ class GoogleCalendarOAuthApiTest extends TestCase
             'connectedAt' => '2026-08-15T20:00:00Z',
             'lastSyncedAt' => null,
             'sync' => ['status' => 'idle', 'errorCode' => null, 'statusAt' => '2026-08-15T20:00:00Z'],
+            'nextLesson' => null,
         ]);
         $raw = DB::table('google_calendar_connections')->first();
         $this->assertNotSame('access-secret', $raw->access_token);

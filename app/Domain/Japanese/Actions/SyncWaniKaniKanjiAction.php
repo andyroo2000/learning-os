@@ -2,6 +2,7 @@
 
 namespace App\Domain\Japanese\Actions;
 
+use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Japanese\Models\JapaneseKnowledgeProfile;
 use App\Domain\Japanese\Models\UserKnownKanji;
@@ -10,6 +11,7 @@ use App\Domain\Japanese\Services\WaniKaniApiClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class SyncWaniKaniKanjiAction
 {
@@ -17,7 +19,7 @@ final class SyncWaniKaniKanjiAction
 
     public function __construct(private readonly WaniKaniApiClient $client) {}
 
-    /** @return array{added: int, effectiveTotal: int, version: int} */
+    /** @return array{added: int, effectiveTotal: int, version: int, reviewCount: int|null} */
     public function handle(int $userId): array
     {
         $lock = Cache::lock("wanikani-sync:user:{$userId}", 300);
@@ -30,8 +32,20 @@ final class SyncWaniKaniKanjiAction
             $syncStartedAt = CarbonImmutable::now('UTC');
             $updatedAfter = $connection->assignments_synced_through_at?->subMinutes(self::OVERLAP_MINUTES);
             $passedKanji = $this->client->passedKanji((string) $connection->api_token, $updatedAfter);
+            $reviewCount = null;
+            $reviewCountFetched = false;
 
-            return DB::transaction(function () use ($userId, $connection, $syncStartedAt, $passedKanji): array {
+            try {
+                $reviewCount = $this->client->immediateReviewCount((string) $connection->api_token);
+                $reviewCountFetched = true;
+            } catch (WaniKaniApiException $exception) {
+                Log::warning('WaniKani review count refresh failed; preserving the cached count.', [
+                    'user_id' => $userId,
+                    'status' => $exception->getCode(),
+                ]);
+            }
+
+            return DB::transaction(function () use ($userId, $connection, $syncStartedAt, $passedKanji, $reviewCount, $reviewCountFetched): array {
                 $profile = JapaneseKnowledgeProfile::lockForUser($userId);
                 $added = 0;
 
@@ -68,6 +82,10 @@ final class SyncWaniKaniKanjiAction
                     ->firstOrFail();
                 $lockedConnection->assignments_synced_through_at = $syncStartedAt;
                 $lockedConnection->last_synced_at = $syncStartedAt;
+                if ($reviewCountFetched) {
+                    $lockedConnection->review_count = $reviewCount;
+                    $lockedConnection->review_count_updated_at = $syncStartedAt;
+                }
                 $lockedConnection->save();
 
                 $effectiveTotal = UserKnownKanji::query()
@@ -81,6 +99,7 @@ final class SyncWaniKaniKanjiAction
                     'added' => $added,
                     'effectiveTotal' => $effectiveTotal,
                     'version' => (int) $profile->knowledge_version,
+                    'reviewCount' => $lockedConnection->review_count,
                 ];
             });
         } finally {

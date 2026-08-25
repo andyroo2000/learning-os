@@ -22,6 +22,23 @@ final class WaniKaniApiClient
         $this->request($apiToken, '/user');
     }
 
+    public function immediateReviewCount(string $apiToken): int
+    {
+        $response = $this->requestUrl(
+            $apiToken,
+            $this->baseUrl().'/assignments',
+            ['immediately_available_for_review' => 'true'],
+        );
+        $payload = $response->json();
+        $count = is_array($payload) ? ($payload['total_count'] ?? null) : null;
+
+        if (! is_int($count) || $count < 0) {
+            throw WaniKaniApiException::invalidResponse();
+        }
+
+        return $count;
+    }
+
     /** @return list<WaniKaniPassedKanji> */
     public function passedKanji(string $apiToken, ?CarbonImmutable $updatedAfter): array
     {

@@ -4,9 +4,11 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Japanese\Models\UserKnownKanji;
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -33,6 +35,8 @@ class KnownKanjiApiTest extends TestCase
                 'wanikani' => [
                     'connected' => false,
                     'lastSyncedAt' => null,
+                    'reviewCount' => null,
+                    'reviewCountUpdatedAt' => null,
                 ],
             ]);
 
@@ -163,6 +167,8 @@ class KnownKanjiApiTest extends TestCase
         $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
         $connection->assignments_synced_through_at = now()->subHour();
         $connection->last_synced_at = now()->subHour();
+        $connection->review_count = 12;
+        $connection->review_count_updated_at = now()->subHour();
         $connection->save();
 
         $this->putJson('/api/study/wanikani', ['apiToken' => 'first-token'])->assertOk();
@@ -172,6 +178,8 @@ class KnownKanjiApiTest extends TestCase
         $connection->refresh();
         $this->assertNull($connection->assignments_synced_through_at);
         $this->assertNull($connection->last_synced_at);
+        $this->assertNull($connection->review_count);
+        $this->assertNull($connection->review_count_updated_at);
     }
 
     public function test_sync_adds_only_ever_passed_kanji_and_uses_incremental_updates_afterward(): void
@@ -184,7 +192,9 @@ class KnownKanjiApiTest extends TestCase
                     $this->assignment(440, '2026-07-15T12:00:00.000000Z'),
                     $this->assignment(441, null),
                 ]))
-                ->push($this->assignmentCollection([])),
+                ->push($this->assignmentCollection([], totalCount: 32))
+                ->push($this->assignmentCollection([]))
+                ->push($this->assignmentCollection([], totalCount: 9)),
             'api.wanikani.com/v2/subjects*' => Http::response($this->subjectCollection([
                 $this->kanjiSubject(440, '一'),
             ])),
@@ -194,11 +204,11 @@ class KnownKanjiApiTest extends TestCase
 
         $this->postJson('/api/study/wanikani/sync')
             ->assertOk()
-            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1]);
+            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 32]);
 
         $this->postJson('/api/study/wanikani/sync')
             ->assertOk()
-            ->assertExactJson(['added' => 0, 'effectiveTotal' => 1, 'version' => 1]);
+            ->assertExactJson(['added' => 0, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 9]);
 
         $this->assertDatabaseHas('user_known_kanji', [
             'user_id' => $user->id,
@@ -214,9 +224,87 @@ class KnownKanjiApiTest extends TestCase
             ->map(fn (array $pair) => $pair[0])
             ->filter(fn ($request): bool => str_contains($request->url(), '/assignments'))
             ->values();
-        $this->assertCount(2, $assignmentRequests);
-        $this->assertStringNotContainsString('updated_after=', $assignmentRequests[0]->url());
-        $this->assertStringContainsString('updated_after=', $assignmentRequests[1]->url());
+        $kanjiAssignmentRequests = $assignmentRequests->reject(
+            fn ($request): bool => str_contains($request->url(), 'immediately_available_for_review=true'),
+        )->values();
+        $reviewCountRequests = $assignmentRequests->filter(
+            fn ($request): bool => str_contains($request->url(), 'immediately_available_for_review=true'),
+        )->values();
+        $this->assertCount(2, $kanjiAssignmentRequests);
+        $this->assertCount(2, $reviewCountRequests);
+        $this->assertStringNotContainsString('updated_after=', $kanjiAssignmentRequests[0]->url());
+        $this->assertStringContainsString('updated_after=', $kanjiAssignmentRequests[1]->url());
+        $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
+        $this->getJson('/api/study/known-kanji')
+            ->assertJsonPath('wanikani.reviewCount', 9)
+            ->assertJsonPath(
+                'wanikani.reviewCountUpdatedAt',
+                $connection->review_count_updated_at->toJSON(),
+            );
+    }
+
+    public function test_review_count_failure_preserves_a_successful_kanji_sync_and_cached_count(): void
+    {
+        Log::spy();
+        $user = $this->signIn();
+        Http::fake([
+            'api.wanikani.com/v2/user' => Http::response(['object' => 'user']),
+            'api.wanikani.com/v2/assignments*' => Http::sequence()
+                ->push($this->assignmentCollection([
+                    $this->assignment(440, '2026-07-15T12:00:00.000000Z'),
+                ]))
+                ->push(['data' => []]),
+            'api.wanikani.com/v2/subjects*' => Http::response($this->subjectCollection([
+                $this->kanjiSubject(440, '一'),
+            ])),
+        ]);
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+        $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
+        $previousCountUpdatedAt = now()->subHour();
+        $connection->review_count = 41;
+        $connection->review_count_updated_at = $previousCountUpdatedAt;
+        $connection->save();
+        $previousCountUpdatedAt = $connection->fresh()->review_count_updated_at;
+
+        $this->postJson('/api/study/wanikani/sync')
+            ->assertOk()
+            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 41]);
+
+        $this->assertDatabaseHas('user_known_kanji', [
+            'user_id' => $user->id,
+            'character' => '一',
+            'wanikani_subject_id' => 440,
+        ]);
+        $connection->refresh();
+        $this->assertNotNull($connection->last_synced_at);
+        $this->assertSame(41, $connection->review_count);
+        $this->assertTrue($connection->review_count_updated_at->equalTo($previousCountUpdatedAt));
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('WaniKani review count refresh failed; preserving the cached count.', [
+                'user_id' => $user->id,
+                'status' => 502,
+            ]);
+    }
+
+    #[DataProvider('wanikaniProcessOwnedSummaryFieldProvider')]
+    public function test_wanikani_process_owned_summary_fields_are_mass_assignment_guarded(
+        string $field,
+        mixed $value,
+    ): void {
+        $this->expectException(MassAssignmentException::class);
+
+        (new WaniKaniConnection)->fill([$field => $value]);
+    }
+
+    /** @return array<string, array{string, mixed}> */
+    public static function wanikaniProcessOwnedSummaryFieldProvider(): array
+    {
+        return [
+            'review count' => ['review_count', 12],
+            'review count timestamp' => ['review_count_updated_at', '2026-08-24T18:00:00Z'],
+        ];
     }
 
     public function test_removing_a_manual_marker_keeps_wanikani_evidence_known(): void
@@ -264,9 +352,14 @@ class KnownKanjiApiTest extends TestCase
         ];
     }
 
-    private function assignmentCollection(array $assignments): array
+    private function assignmentCollection(array $assignments, ?int $totalCount = null): array
     {
-        return ['object' => 'collection', 'pages' => ['next_url' => null], 'data' => $assignments];
+        return [
+            'object' => 'collection',
+            'pages' => ['next_url' => null],
+            'total_count' => $totalCount ?? count($assignments),
+            'data' => $assignments,
+        ];
     }
 
     private function kanjiSubject(int $id, string $character): array

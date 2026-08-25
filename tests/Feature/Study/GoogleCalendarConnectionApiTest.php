@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
+use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
 use App\Models\User;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\QueryException;
@@ -41,6 +42,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
                 'connectedAt' => null,
                 'lastSyncedAt' => null,
                 'sync' => null,
+                'nextLesson' => null,
             ]);
 
         $this->assertDatabaseCount('google_calendar_connections', 0);
@@ -69,6 +71,7 @@ class GoogleCalendarConnectionApiTest extends TestCase
                     'errorCode' => 'provider_unavailable',
                     'statusAt' => '2026-08-15T14:12:13Z',
                 ],
+                'nextLesson' => null,
             ]);
 
         $raw = DB::table('google_calendar_connections')->where('id', $connection->id)->first();
@@ -108,6 +111,33 @@ class GoogleCalendarConnectionApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('connected', false)
             ->assertJsonPath('accountEmail', null);
+    }
+
+    public function test_status_exposes_the_next_owned_title_matched_lesson(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-24T18:00:00Z'), function (): void {
+            $user = User::factory()->create();
+            $connection = $this->connection($user);
+            GoogleCalendarEventMirror::query()->forceCreate([
+                'google_calendar_connection_id' => $connection->id,
+                'source_key' => hash('sha256', 'next-italki'),
+                'calendar_id' => 'primary',
+                'provider_event_id' => 'next-italki',
+                'status' => 'confirmed',
+                'title' => 'iTalki with Yuki',
+                'starts_at' => now()->addHour(),
+                'ends_at' => now()->addHours(2),
+                'all_day' => false,
+                'observed_at' => now(),
+            ]);
+
+            $response = $this->actingAs($user)->getJson('/api/study/google-calendar')->assertOk();
+            $this->assertSame([
+                'title' => 'iTalki with Yuki',
+                'startsAt' => '2026-08-24T19:00:00Z',
+                'endsAt' => '2026-08-24T20:00:00Z',
+            ], $response->json('nextLesson'));
+        });
     }
 
     public function test_connection_is_deleted_with_its_owner(): void

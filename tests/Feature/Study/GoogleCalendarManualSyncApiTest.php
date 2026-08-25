@@ -67,6 +67,7 @@ class GoogleCalendarManualSyncApiTest extends TestCase
                 'connectedAt' => '2026-08-16T15:16:17Z',
                 'lastSyncedAt' => '2026-08-15T15:16:17Z',
                 'sync' => ['status' => 'queued', 'errorCode' => null, 'statusAt' => '2026-08-16T15:16:17Z'],
+                'nextLesson' => null,
             ]);
 
         Queue::assertPushed(SyncGoogleCalendarConnection::class, function ($job) use ($connection, $user): bool {

@@ -52,7 +52,7 @@ final class MecabJapaneseTokenizer implements JapaneseTokenizer
      * index 6. Homebrew's default UniDic format is tabular with the lemma in
      * the fourth column, so accepting both keeps local development portable.
      *
-     * @return list<list<array{surface: string, base: string}>>
+     * @return list<list<array{surface: string, base: string, partOfSpeech: string, partOfSpeechSubtype: string, conjugationType: string, conjugationForm: string}>>
      */
     public function parseOutput(string $output, int $expectedGroups): array
     {
@@ -82,13 +82,25 @@ final class MecabJapaneseTokenizer implements JapaneseTokenizer
             if (str_contains($features, ',')) {
                 $featureColumns = explode(',', $features);
                 $base = $featureColumns[6] ?? $surface;
+                $partOfSpeech = $featureColumns[0] ?? '';
+                $partOfSpeechSubtype = $featureColumns[1] ?? '';
+                $conjugationType = $featureColumns[4] ?? '';
+                $conjugationForm = $featureColumns[5] ?? '';
             } else {
                 $base = $columns[3] ?? $surface;
+                $partOfSpeech = $columns[4] ?? '';
+                $partOfSpeechSubtype = '';
+                $conjugationType = $columns[5] ?? '';
+                $conjugationForm = $columns[6] ?? '';
             }
 
             $tokens[] = [
                 'surface' => $surface,
                 'base' => $base === '' || $base === '*' ? $surface : $base,
+                'partOfSpeech' => $partOfSpeech,
+                'partOfSpeechSubtype' => $partOfSpeechSubtype,
+                'conjugationType' => $conjugationType,
+                'conjugationForm' => $conjugationForm,
             ];
         }
 

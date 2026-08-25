@@ -19,8 +19,6 @@ class UpdateWaniKaniTransferBridgeRequest extends FormRequest
 
     public function enabled(): bool
     {
-        $this->validated('enabled');
-
-        return $this->boolean('enabled');
+        return (bool) $this->validated('enabled');
     }
 }

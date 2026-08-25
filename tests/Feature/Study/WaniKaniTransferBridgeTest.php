@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Japanese\Actions\RunDailyWaniKaniTransferBridgeAction;
+use App\Domain\Japanese\Actions\SyncWaniKaniKanjiAction;
 use App\Domain\Japanese\Models\WaniKaniConnection;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
@@ -206,6 +207,33 @@ class WaniKaniTransferBridgeTest extends TestCase
             app(RunDailyWaniKaniTransferBridgeAction::class)->handle(),
         );
         Exceptions::assertReported(fn (\RuntimeException $exception): bool => $exception->getMessage() === 'queue unavailable');
+    }
+
+    public function test_daily_job_ignores_disconnect_disable_and_manual_sync_races(): void
+    {
+        $user = User::factory()->create();
+        $connection = $this->connection($user, [
+            'transfer_bridge_enabled' => true,
+            'transfer_bridge_enabled_at' => now(),
+        ]);
+        $job = new SyncWaniKaniTransferConnection($user->id);
+        $lock = Cache::lock("wanikani-sync:user:{$user->id}", 30);
+        $this->assertTrue($lock->get());
+
+        try {
+            $job->handle(app(SyncWaniKaniKanjiAction::class));
+        } finally {
+            $lock->release();
+        }
+
+        $connection->transfer_bridge_enabled = false;
+        $connection->save();
+        $job->handle(app(SyncWaniKaniKanjiAction::class));
+
+        $connection->delete();
+        $job->handle(app(SyncWaniKaniKanjiAction::class));
+
+        $this->assertDatabaseCount('wanikani_connections', 0);
     }
 
     /** @param array<string, mixed> $attributes */

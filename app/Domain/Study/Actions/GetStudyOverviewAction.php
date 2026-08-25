@@ -10,6 +10,7 @@ use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudyListScopeFilter;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\DateTime\ServerTimestamp;
 use DateTimeInterface;
 use DateTimeZone;
@@ -184,6 +185,8 @@ class GetStudyOverviewAction
         $activeDueStatusPlaceholders = $this->statusPlaceholders($activeDueStatuses, 'active due statuses');
         $learningStatusPlaceholders = $this->statusPlaceholders($learningStatuses, 'learning statuses');
         $suspendedStatusPlaceholders = $this->statusPlaceholders($suspendedStatuses, 'suspended statuses');
+        $progressionAvailable = '(cards.variant_status IS NULL OR cards.variant_status = ?)';
+        $availableVariantStatus = VocabVariantStatus::Available->value;
         $nowFormatted = $now->toDateTimeString();
         $dayStartFormatted = $dayStart->toDateTimeString();
         $dayEndFormatted = $dayEnd->toDateTimeString();
@@ -217,14 +220,14 @@ class GetStudyOverviewAction
                         AND introduced_cards.introduced_at >= ?
                         AND introduced_cards.introduced_at < ?
                 ) AS new_cards_introduced_today,
-                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
-                COALESCE(SUM(CASE WHEN cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
-                COALESCE(SUM(CASE WHEN cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
-                COALESCE(SUM(CASE WHEN cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
-                MIN(CASE WHEN cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
+                MIN(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at IS NOT NULL THEN cards.due_at ELSE NULL END) AS next_due_at
                 SQL, [
                 $userId,
                 StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
@@ -236,22 +239,30 @@ class GetStudyOverviewAction
                 $dayStartFormatted,
                 $dayEndFormatted,
                 // due_count
+                $availableVariantStatus,
                 ...$activeDueStatuses,
                 $nowFormatted,
                 // failed_due_count
+                $availableVariantStatus,
                 ...$activeDueStatuses,
                 $nowFormatted,
                 // failed_count
+                $availableVariantStatus,
                 ...$activeDueStatuses,
                 // new_count
+                $availableVariantStatus,
                 CardStudyStatus::New->value,
                 // learning_count
+                $availableVariantStatus,
                 ...$learningStatuses,
                 // review_count
+                $availableVariantStatus,
                 CardStudyStatus::Review->value,
                 // suspended_count
+                $availableVariantStatus,
                 ...$suspendedStatuses,
                 // next_due_at
+                $availableVariantStatus,
                 ...$activeDueStatuses,
             ])
             ->first();
@@ -282,6 +293,7 @@ class GetStudyOverviewAction
     {
         $stability = $this->schedulerStabilityExpression();
         $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            ->whereProgressionAvailable()
             // Only introduced, active cards contribute to motivational mastery load.
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->selectRaw(<<<SQL
@@ -372,6 +384,7 @@ class GetStudyOverviewAction
                 3,
             );
         $projectedSevenDayReviews = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+            ->whereProgressionAvailable()
             ->whereIn('cards.study_status', $this->activeDueStatuses())
             ->whereNotNull('cards.due_at')
             ->where('cards.due_at', '<=', $now->copy()->addDays(7))

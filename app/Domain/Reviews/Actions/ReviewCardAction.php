@@ -127,6 +127,10 @@ class ReviewCardAction
                     }
                 }
 
+                if (! $lockedCard->isProgressionAvailable()) {
+                    throw CardReviewEventConflictException::progressionLocked($lockedCard->ownerUserId());
+                }
+
                 $reviewEventId = $data->id === null
                     ? strtolower((string) Str::ulid())
                     : CanonicalUlid::normalize($data->id);

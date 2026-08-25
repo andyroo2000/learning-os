@@ -18,6 +18,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Http\Resources\Flashcards\CardResource;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,31 @@ use Tests\TestCase;
 class ReviewCardActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_rejects_new_review_events_for_progression_locked_cards(): void
+    {
+        $card = Card::factory()->create([
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        try {
+            $this->reviewCard(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-05-27T09:15:00Z',
+            ));
+            $this->fail('Expected progression-locked review conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_progression_locked', $exception->reason());
+            $this->assertFalse($exception->isRetryable());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertSame(CardStudyStatus::New, $card->refresh()->study_status);
+        $this->assertNull($card->due_at);
+        $this->assertNull($card->scheduler_state);
+    }
 
     public function test_it_records_a_card_review_event(): void
     {
@@ -271,6 +297,7 @@ class ReviewCardActionTest extends TestCase
             'study_status' => CardStudyStatus::Review,
             'due_at' => '2026-06-10T09:15:00Z',
             'introduced_at' => '2026-05-20T09:15:00Z',
+            'variant_status' => VocabVariantStatus::Locked->value,
             // Existing events win as idempotent retries even when legacy card state has advanced past them.
             'last_reviewed_at' => '2026-05-28T09:15:00Z',
         ]);

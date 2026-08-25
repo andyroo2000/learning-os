@@ -44,6 +44,7 @@ class ListStudyNewCardQueueAction
             ->whereNull('decks.deleted_at')
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
+            ->whereProgressionAvailable()
             ->where('cards.study_status', CardStudyStatus::New->value)
             ->when($searchPattern !== null, fn ($query) => $query->whereRaw(
                 "lower(coalesce(cards.search_text, '')) like ? escape ?",

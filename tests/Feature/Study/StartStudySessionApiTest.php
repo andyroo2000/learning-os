@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Closure;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -122,7 +123,7 @@ class StartStudySessionApiTest extends TestCase
                 'variant_sentence_id' => 'sentence-1',
                 'variant_kind' => 'recognition',
                 'variant_stage' => 2,
-                'variant_status' => 'unlocked',
+                'variant_status' => VocabVariantStatus::Available->value,
                 'variant_unlocked_at' => Carbon::parse('2026-07-12T12:00:00Z'),
             ]);
 
@@ -163,6 +164,43 @@ class StartStudySessionApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_locked_variants_are_excluded_from_session_and_lesson_queues(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'new_cards_per_day' => 20,
+        ]);
+        $availableReviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => now()->subMinute(),
+            'variant_status' => VocabVariantStatus::Available->value,
+        ]);
+        $lockedReviewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => now()->subMinute(),
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+        $availableNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+        ]);
+        $lockedNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->postJson('/api/study/session/start')
+            ->assertOk()
+            ->assertJsonPath('cards.0.id', $availableReviewCard->id)
+            ->assertJsonMissing(['id' => $lockedReviewCard->id])
+            ->assertJsonCount(1, 'cards');
+
+        $this->postJson('/api/study/lessons/start')
+            ->assertOk()
+            ->assertJsonPath('cards.0.id', $availableNewCard->id)
+            ->assertJsonMissing(['id' => $lockedNewCard->id])
+            ->assertJsonCount(1, 'cards');
     }
 
     public function test_start_preserves_native_card_identifiers_and_nullable_source_metadata(): void

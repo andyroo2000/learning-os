@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Actions\StartStudyLessonAction;
 use App\Domain\Study\Actions\StartStudySessionAction;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Http\Resources\Study\StudySessionResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,10 @@ class StartStudySessionActionTest extends TestCase
         ]);
         $firstDueCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
             'due_at' => $now->copy()->subHour(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subDay(),
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 1,
@@ -112,6 +117,10 @@ class StartStudySessionActionTest extends TestCase
         ]);
         $thirdNewCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 3,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 0,
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
 
         $result = app(StartStudyLessonAction::class)->handle(

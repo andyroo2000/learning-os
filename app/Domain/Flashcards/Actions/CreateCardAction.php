@@ -18,6 +18,7 @@ use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
 use Carbon\CarbonImmutable;
@@ -132,7 +133,9 @@ class CreateCardAction
         DB::beginTransaction();
 
         try {
-            $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);
+            $card->new_queue_position = $data->variantStatus === VocabVariantStatus::Locked
+                ? null
+                : $this->newCardQueuePosition()->nextForUser($data->userId);
 
             // Preserve the existing queue-owner -> Deck lock order. Revalidate after the
             // preflight read so creation cannot escape a concurrent deck/course cascade.

@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\ListNewCardsAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,10 @@ class ListNewCardsActionTest extends TestCase
         $tieBreakCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'id' => '01j00000000000000000000003',
             'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::New);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [

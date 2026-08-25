@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Actions\ListDueCardsAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use App\Support\Pagination\CursorPageSize;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,6 +32,10 @@ class ListDueCardsActionTest extends TestCase
         ]);
         $secondDueCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
             'due_at' => $now->copy()->subMinute(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now->copy()->subDay(),
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
             'due_at' => $now->copy()->addMinute(),

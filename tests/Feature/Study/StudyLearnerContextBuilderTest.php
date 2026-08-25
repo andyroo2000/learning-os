@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Services\StudyLearnerContextBuilder;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -33,6 +34,11 @@ class StudyLearnerContextBuilderTest extends TestCase
         $this->cardFor($user, [
             'study_status' => CardStudyStatus::New,
             'answer_json' => ['expression' => '除外'],
+        ]);
+        $this->cardFor($user, [
+            'study_status' => CardStudyStatus::Review,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'answer_json' => ['expression' => '未解禁'],
         ]);
         $this->cardFor(User::factory()->create(), [
             'study_status' => CardStudyStatus::Review,

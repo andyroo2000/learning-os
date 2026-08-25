@@ -53,7 +53,9 @@ class UpdateCardStudyStatusAction
             }
 
             if ($studyStatus === CardStudyStatus::New) {
-                if ($card->new_queue_position === null) {
+                if (! $card->isProgressionAvailable()) {
+                    $card->new_queue_position = null;
+                } elseif ($card->new_queue_position === null) {
                     $card->new_queue_position = $nextNewQueuePosition;
                 }
 

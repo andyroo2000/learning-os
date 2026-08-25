@@ -76,6 +76,7 @@ class ReviewCardBatchAction
 
             $createdItems = $this->canonicalItemsForInsert($preparedItems, $existingReviewEventsBySyncKey);
 
+            $this->assertCreatedCardsAreProgressionAvailable($createdItems, $cardsById);
             $this->assertCreatedItemsAppendToChronology($createdItems, $cardsById);
 
             $rows = $createdItems
@@ -234,6 +235,24 @@ class ReviewCardBatchAction
             // Equivalent duplicates may differ only by whether one supplied the canonical event ID.
             ->map(fn (Collection $items): array => $items->firstWhere('client_supplied_id', true) ?? $items->first())
             ->values();
+    }
+
+    /**
+     * Exact retries remain valid even if a card is locked later; only new review events are gated.
+     *
+     * @param  Collection<int, array{card_id: string}>  $createdItems
+     * @param  Collection<string, Card>  $cardsById
+     */
+    private function assertCreatedCardsAreProgressionAvailable(Collection $createdItems, Collection $cardsById): void
+    {
+        foreach ($createdItems->pluck('card_id')->unique() as $cardId) {
+            $card = $cardsById->get($cardId)
+                ?? throw new RuntimeException('Card missing while validating progression availability.');
+
+            if (! $card->isProgressionAvailable()) {
+                throw CardReviewEventConflictException::progressionLocked($card->ownerUserId());
+            }
+        }
     }
 
     /**

@@ -16,6 +16,8 @@ final class CardReviewEventConflictException extends RuntimeException
 
     private const IDENTITY_REQUIRED_MESSAGE = 'Equal-timestamp review events require an explicit id or complete sync metadata.';
 
+    private const PROGRESSION_LOCKED_MESSAGE = 'Card is locked by a learning progression.';
+
     private const CONFLICT_REASON = 'card_review_event_id_conflict';
 
     private const RETRYABLE_REASON = 'card_review_event_retry';
@@ -23,6 +25,8 @@ final class CardReviewEventConflictException extends RuntimeException
     private const OUT_OF_ORDER_REASON = 'card_review_event_out_of_order';
 
     private const IDENTITY_REQUIRED_REASON = 'card_review_event_identity_required';
+
+    private const PROGRESSION_LOCKED_REASON = 'card_progression_locked';
 
     private function __construct(
         string $message,
@@ -67,6 +71,15 @@ final class CardReviewEventConflictException extends RuntimeException
             message: self::IDENTITY_REQUIRED_MESSAGE,
             conflictingUserId: $conflictingUserId,
             reason: self::IDENTITY_REQUIRED_REASON,
+        );
+    }
+
+    public static function progressionLocked(int $conflictingUserId): self
+    {
+        return new self(
+            message: self::PROGRESSION_LOCKED_MESSAGE,
+            conflictingUserId: $conflictingUserId,
+            reason: self::PROGRESSION_LOCKED_REASON,
         );
     }
 

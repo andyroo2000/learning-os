@@ -11,6 +11,7 @@ use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\Support\AssertsCardReviewEventSyncFeedEntries;
@@ -75,6 +76,36 @@ class UndoCardReviewEventActionTest extends TestCase
             SyncFeedOperation::Update,
             afterCheckpoint: $reviewCardEntry->checkpoint,
         );
+    }
+
+    public function test_it_does_not_restore_a_queue_position_while_the_card_is_progression_locked(): void
+    {
+        $card = Card::factory()->create([
+            'study_status' => CardStudyStatus::Review,
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+        $reviewEvent = CardReviewEvent::factory()->for($card)->create([
+            'card_state_before' => [
+                'study_status' => CardStudyStatus::New->value,
+                'new_queue_position' => 7,
+                'scheduler_state' => null,
+                'due_at' => null,
+                'introduced_at' => null,
+                'failed_at' => null,
+                'last_reviewed_at' => null,
+            ],
+        ]);
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+        $this->assertSame(CardStudyStatus::New, $restoredCard->study_status);
+        $this->assertSame(VocabVariantStatus::Locked->value, $restoredCard->variant_status);
+        $this->assertNull($restoredCard->new_queue_position);
+        $this->assertDatabaseMissing('card_review_events', ['id' => $reviewEvent->id]);
+        $this->assertNull($this->assertCardSyncPayloadRecorded(
+            $restoredCard->refresh()->load('deck'),
+            SyncFeedOperation::Update,
+        )->payload['new_queue_position']);
     }
 
     public function test_it_rejects_undoing_a_review_that_is_not_the_latest_for_the_card(): void

@@ -18,6 +18,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -130,7 +131,10 @@ class ReviewCardBatchActionTest extends TestCase
         ];
 
         $firstResult = app(ReviewCardBatchAction::class)->handle($items);
-        Card::query()->whereKey($card->id)->update(['last_reviewed_at' => '2026-05-27T09:20:00Z']);
+        Card::query()->whereKey($card->id)->update([
+            'last_reviewed_at' => '2026-05-27T09:20:00Z',
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
 
         $retryResult = app(ReviewCardBatchAction::class)->handle($items);
 
@@ -139,6 +143,43 @@ class ReviewCardBatchActionTest extends TestCase
         $this->assertSame('2026-05-27T09:20:00.000000Z', $card->refresh()->last_reviewed_at->toJSON());
         $this->assertDatabaseCount('card_review_events', 1);
         $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
+    public function test_it_rejects_new_batch_events_for_progression_locked_cards_atomically(): void
+    {
+        $availableCard = Card::factory()->create();
+        $lockedCard = Card::factory()->create([
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $availableCard->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27T09:15:00Z',
+                    clientEventId: 'event-available',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:14:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $lockedCard->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-05-27T09:16:00Z',
+                    clientEventId: 'event-locked',
+                    deviceId: 'device-abc',
+                    clientCreatedAt: '2026-05-27T09:15:00Z',
+                ),
+            ]);
+            $this->fail('Expected progression-locked batch conflict was not thrown.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_progression_locked', $exception->reason());
+        }
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertNull($availableCard->refresh()->scheduler_state);
+        $this->assertNull($lockedCard->refresh()->scheduler_state);
     }
 
     public function test_created_batch_reviews_update_card_study_state_in_review_order(): void

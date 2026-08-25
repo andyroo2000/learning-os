@@ -14,6 +14,7 @@ use App\Domain\Reviews\Results\ReviewCardResult;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Values\SyncMetadata;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -27,6 +28,25 @@ use Tests\TestCase;
 class CreateCardReviewEventApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_rejects_reviews_for_progression_locked_cards(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->postJson('/api/card-review-events', [
+            'card_id' => $card->id,
+            'rating' => CardReviewRating::Good->value,
+            'reviewed_at' => '2026-05-27T09:15:00Z',
+        ])
+            ->assertConflict()
+            ->assertJsonPath('reason', 'card_progression_locked');
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
 
     public function test_it_creates_a_card_review_event(): void
     {

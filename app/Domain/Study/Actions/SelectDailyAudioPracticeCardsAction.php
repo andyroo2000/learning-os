@@ -119,6 +119,7 @@ class SelectDailyAudioPracticeCardsAction
     {
         return Card::query()
             ->ownedByActiveDeck($userId)
+            ->whereProgressionAvailable()
             ->whereIn('cards.study_status', [
                 CardStudyStatus::New->value,
                 CardStudyStatus::Learning->value,

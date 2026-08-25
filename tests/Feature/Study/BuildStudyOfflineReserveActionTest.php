@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Actions\BuildStudyOfflineReserveAction;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,14 @@ class BuildStudyOfflineReserveActionTest extends TestCase
         ]);
         $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
             'due_at' => $now->copy()->addDays(5)->addSecond(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'due_at' => $now,
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 0,
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
         $newCards = collect(range(1, 12))->map(fn (int $position) => $this->cardWithStudyStatus(
             $deck,

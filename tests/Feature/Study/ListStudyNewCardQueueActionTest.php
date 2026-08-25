@@ -6,6 +6,7 @@ use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Support\NewCardQueueLimits;
 use App\Domain\Study\Actions\ListStudyNewCardQueueAction;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,10 @@ class ListStudyNewCardQueueActionTest extends TestCase
         ]);
         $secondCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
             'new_queue_position' => 2,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 3,
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
 
         $page = app(ListStudyNewCardQueueAction::class)->handle(

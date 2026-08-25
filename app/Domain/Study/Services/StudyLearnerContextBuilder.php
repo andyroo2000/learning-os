@@ -15,6 +15,7 @@ class StudyLearnerContextBuilder
         try {
             $cards = Card::query()
                 ->ownedByActiveDeck($userId)
+                ->whereProgressionAvailable()
                 ->whereIn('cards.study_status', [
                     CardStudyStatus::Learning->value,
                     CardStudyStatus::Relearning->value,

@@ -14,6 +14,7 @@ use App\Domain\Reviews\Results\ReviewCardBatchResult;
 use App\Domain\Reviews\Support\CardReviewEventCreateRateLimiter;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Values\SyncMetadata;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,6 +29,30 @@ use Tests\TestCase;
 class CreateCardReviewEventBatchApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_rejects_a_batch_containing_a_progression_locked_card(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->postJson('/api/card-review-events/batch', [
+            'events' => [[
+                'card_id' => $card->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => '2026-05-27T09:15:00Z',
+                'client_event_id' => 'event-locked',
+                'device_id' => 'device-abc',
+                'client_created_at' => '2026-05-27T09:14:00Z',
+            ]],
+        ])
+            ->assertConflict()
+            ->assertJsonPath('reason', 'card_progression_locked');
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
 
     public function test_it_creates_card_review_events_in_a_batch(): void
     {

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Models;
 
+use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Models\User;
 use Database\Factories\StudyVocabVariantGroupFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -33,6 +34,9 @@ class StudyVocabVariantGroup extends Model
     {
         return [
             'include_learner_context' => 'boolean',
+            'wanikani_subject_id' => 'integer',
+            'automatic_import_status' => AutomaticStudyVocabImportStatus::class,
+            'automatic_imported_at' => 'immutable_datetime',
         ];
     }
 

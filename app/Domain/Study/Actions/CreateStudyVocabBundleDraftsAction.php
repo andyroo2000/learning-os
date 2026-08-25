@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Data\CreateStudyCardDraftData;
 use App\Domain\Study\Data\CreateStudyVocabBundleData;
+use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
@@ -35,6 +36,10 @@ class CreateStudyVocabBundleDraftsAction
             $group->source_sentence = $data->sourceSentence;
             $group->source_context = $data->context;
             $group->include_learner_context = $data->includeLearnerContext;
+            $group->wanikani_subject_id = $data->waniKaniSubjectId;
+            $group->automatic_import_status = $data->waniKaniSubjectId === null
+                ? null
+                : AutomaticStudyVocabImportStatus::Generating;
             $group->save();
 
             $sentences = collect([0, 1, 2])->map(function (int $ordinal) use ($data, $group): StudyVocabVariantSentence {

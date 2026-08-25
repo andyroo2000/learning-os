@@ -29,6 +29,9 @@ class WaniKaniConnection extends Model
             'last_synced_at' => 'immutable_datetime',
             'review_count' => 'integer',
             'review_count_updated_at' => 'immutable_datetime',
+            'transfer_bridge_enabled' => 'boolean',
+            'transfer_bridge_enabled_at' => 'immutable_datetime',
+            'transfer_bridge_last_imported_at' => 'immutable_datetime',
         ];
     }
 }

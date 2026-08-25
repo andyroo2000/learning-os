@@ -15,6 +15,10 @@ class StudyVocabBundleModelFillableTest extends TestCase
         $this->assertContains('target_word', $group->getFillable());
         $this->assertNotContains('target_reading', $group->getFillable());
         $this->assertNotContains('target_meaning', $group->getFillable());
+        $this->assertNotContains('wanikani_subject_id', $group->getFillable());
+        $this->assertNotContains('automatic_import_status', $group->getFillable());
+        $this->assertNotContains('automatic_import_error', $group->getFillable());
+        $this->assertNotContains('automatic_imported_at', $group->getFillable());
     }
 
     public function test_provider_generated_sentence_fields_are_not_mass_assignable(): void

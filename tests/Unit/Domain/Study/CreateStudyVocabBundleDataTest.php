@@ -81,4 +81,11 @@ class CreateStudyVocabBundleDataTest extends TestCase
 
         CreateStudyVocabBundleData::fromInput(0, '会社', null, null, true);
     }
+
+    public function test_it_rejects_nonpositive_wanikani_subject_ids(): void
+    {
+        $this->expectException(LogicException::class);
+
+        CreateStudyVocabBundleData::fromInput(1, '会社', null, null, true, 0);
+    }
 }

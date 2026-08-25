@@ -303,6 +303,8 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
         $this->assertNotSame(CardStudyStatus::Suspended, $transferCard->refresh()->study_status);
         $this->assertSame(VocabVariantStatus::Locked->value, $listeningCard->variant_status);
         $this->assertSame(VocabVariantStatus::Locked->value, $recognitionCard->variant_status);
+        $this->assertSame('2026-08-25T09:05:00.000000Z', $listeningCard->variant_retired_at?->toJSON());
+        $this->assertSame('2026-08-25T09:05:00.000000Z', $recognitionCard->variant_retired_at?->toJSON());
         $this->assertNull($listeningCard->new_queue_position);
         $this->assertNull($recognitionCard->new_queue_position);
 
@@ -312,6 +314,7 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
                 ->where('resource_type', CardSyncPayload::RESOURCE_TYPE)
                 ->where('resource_id', $suspendedCard->id)
                 ->where('payload->study_status', CardStudyStatus::Suspended->value)
+                ->where('payload->variant_retired_at', '2026-08-25T09:05:00.000000Z')
                 ->exists());
         }
 
@@ -334,6 +337,7 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
         [$user, $deck] = $this->learnerDeck();
         $this->familyCard($deck, 'path-complete', 1, VocabVariantStatus::Locked, [
             'study_status' => CardStudyStatus::Suspended,
+            'variant_retired_at' => '2026-08-25T08:00:00Z',
         ]);
         $finalCard = $this->familyCard($deck, 'path-complete', 2, VocabVariantStatus::Available, [
             'study_status' => CardStudyStatus::Review,

@@ -42,6 +42,7 @@ class CardResource extends JsonResource
             'variant_stage' => $this->variant_stage,
             'variant_status' => $this->scalarValue($this->variant_status),
             'variant_unlocked_at' => $this->variant_unlocked_at?->toJSON(),
+            'variant_retired_at' => $this->variant_retired_at?->toJSON(),
             'due_at' => $this->due_at?->toJSON(),
             'introduced_at' => $this->introduced_at?->toJSON(),
             'failed_at' => $this->failed_at?->toJSON(),

@@ -74,6 +74,7 @@ class CardTest extends TestCase
             'variant_stage',
             'variant_status',
             'variant_unlocked_at',
+            'variant_retired_at',
             'created_at',
             'updated_at',
             'deleted_at',

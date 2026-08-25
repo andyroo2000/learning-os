@@ -145,6 +145,17 @@ class UpdateCardAction
                 }
             }
 
+            if ($card->isDirty([
+                'variant_group_id',
+                'variant_stage',
+                'variant_status',
+                'variant_unlocked_at',
+            ])) {
+                // Retirement is a server-owned progression result. Explicit authoring
+                // changes invalidate that historic membership state.
+                $card->variant_retired_at = null;
+            }
+
             $contentWasUpdated = $card->isDirty(['front_text', 'back_text', 'prompt_json', 'answer_json']);
 
             if ($contentWasUpdated) {
@@ -169,6 +180,7 @@ class UpdateCardAction
                 'variant_stage',
                 'variant_status',
                 'variant_unlocked_at',
+                'variant_retired_at',
                 'new_queue_position',
                 ...($contentWasUpdated ? ['search_text'] : []),
             ]);

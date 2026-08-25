@@ -16,6 +16,7 @@ class StudyCardLibraryRouteContractTest extends TestCase
         $actions = [
             'ListStudyNewCardQueueController',
             'ListStudyCardsController',
+            'ListStudyLearningItemsController',
             'ListStudyCardBatchController',
             'ShowStudyCardController',
             'ReorderStudyNewCardQueueController',
@@ -41,6 +42,11 @@ class StudyCardLibraryRouteContractTest extends TestCase
         $this->assertSame([
             $this->expectedRoute('GET|HEAD', 'api/study/new-queue', 'ListStudyNewCardQueueController'),
             $this->expectedRoute('GET|HEAD', 'api/study/cards', 'ListStudyCardsController'),
+            $this->expectedRoute(
+                'GET|HEAD',
+                'api/study/learning-items',
+                'ListStudyLearningItemsController',
+            ),
             $this->expectedRoute('POST', 'api/study/cards/batch', 'ListStudyCardBatchController'),
             $this->expectedRoute(
                 'GET|HEAD',

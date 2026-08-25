@@ -74,6 +74,7 @@ final class LinkCardLearningPathSuccessorAction
                 $livePredecessor->variant_stage = 1;
                 $livePredecessor->variant_status = VocabVariantStatus::Available->value;
                 $livePredecessor->variant_unlocked_at = $unlockedAt;
+                $livePredecessor->variant_retired_at = null;
 
                 // Persist the newly locked successor first so a legacy predecessor
                 // without a queue position does not reserve a slot after a card that
@@ -220,6 +221,7 @@ final class LinkCardLearningPathSuccessorAction
         $card->variant_stage = $stage;
         $card->variant_status = VocabVariantStatus::Locked->value;
         $card->variant_unlocked_at = null;
+        $card->variant_retired_at = null;
         $card->new_queue_position = null;
     }
 

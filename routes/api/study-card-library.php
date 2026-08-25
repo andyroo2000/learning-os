@@ -5,6 +5,7 @@ use App\Domain\Flashcards\Support\NewCardQueueReorderRateLimiter;
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Http\Controllers\Api\Study\ListStudyCardBatchController;
 use App\Http\Controllers\Api\Study\ListStudyCardsController;
+use App\Http\Controllers\Api\Study\ListStudyLearningItemsController;
 use App\Http\Controllers\Api\Study\ListStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ReorderStudyNewCardQueueController;
 use App\Http\Controllers\Api\Study\ShowStudyCardController;
@@ -14,6 +15,8 @@ return static function (): void {
     Route::get('/study/new-queue', ListStudyNewCardQueueController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     Route::get('/study/cards', ListStudyCardsController::class)
+        ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+    Route::get('/study/learning-items', ListStudyLearningItemsController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     // Sync clients resolve one feed page per request instead of spending the
     // shared compatibility quota on one card-detail request per feed entry.

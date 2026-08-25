@@ -317,6 +317,7 @@ class UpdateCardApiTest extends TestCase
             'variant_stage' => 2,
             'variant_status' => VocabVariantStatus::Locked,
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'variant_retired_at' => Carbon::parse('2026-06-05T15:15:00Z'),
         ]);
 
         $response = $this
@@ -343,6 +344,7 @@ class UpdateCardApiTest extends TestCase
 
         $card->refresh();
         $this->assertNull($card->variant_group_id);
+        $this->assertNull($card->variant_retired_at);
         $this->assertNull($card->variant_sentence_id);
         $this->assertNull($card->variant_kind);
         $this->assertNull($card->variant_stage);
@@ -351,6 +353,41 @@ class UpdateCardApiTest extends TestCase
 
         $entry = SyncFeedEntry::query()->sole();
         $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+    }
+
+    public function test_resubmitting_unchanged_variant_metadata_preserves_retirement(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_stage' => 3,
+            'variant_status' => VocabVariantStatus::Available,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'variant_retired_at' => Carbon::parse('2026-06-05T15:15:00Z'),
+            'new_queue_position' => 1,
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_stage' => 3,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => '2026-06-05T14:15:00Z',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath(
+                'data.variant_retired_at',
+                '2026-06-05T15:15:00.000000Z',
+            );
+
+        $card->refresh();
+        $this->assertSame('2026-06-05T15:15:00.000000Z', $card->variant_retired_at?->toJSON());
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_preserves_structured_content_when_omitted(): void

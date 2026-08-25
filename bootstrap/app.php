@@ -4,6 +4,7 @@ use App\Domain\Admin\Exceptions\AdminMutationException;
 use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Domain\Content\Exceptions\ContentGenerationCooldownException;
 use App\Domain\Content\Exceptions\ContentGenerationQuotaExceededException;
+use App\Domain\Flashcards\Exceptions\LearningPathConflictException;
 use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ContentGenerationCooldownException::class,
             ContentGenerationQuotaExceededException::class,
         ]);
+        $exceptions->dontReport(LearningPathConflictException::class);
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);
         $exceptions->dontReport([WaniKaniApiException::class, WaniKaniSyncInProgressException::class]);
 
@@ -95,6 +97,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 'X-RateLimit-Remaining' => (string) $quota['remaining'],
                 'X-RateLimit-Reset' => $quota['resetsAt'],
             ]);
+        });
+
+        $exceptions->render(function (LearningPathConflictException $exception, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
+            ], 409);
         });
 
         $exceptions->render(function (WaniKaniSyncInProgressException $exception, Request $request): ?JsonResponse {

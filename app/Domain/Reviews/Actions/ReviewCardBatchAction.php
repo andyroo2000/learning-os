@@ -4,6 +4,7 @@ namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
@@ -40,6 +41,8 @@ class ReviewCardBatchAction
 
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?AdvanceCardProgressionAfterReviewAction $advanceCardProgression = null,
+        private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
     ) {}
 
     /**
@@ -58,7 +61,9 @@ class ReviewCardBatchAction
         $preparedItems = $this->normalizeDuplicateSyncKeyIds($preparedItems);
 
         return DB::transaction(function () use ($preparedItems): ReviewCardBatchResult {
+            $progressionOwnerIds = $this->lockProgressionOwners($preparedItems);
             $cardsById = $this->cardsById($preparedItems);
+            $this->assertLiveProgressionOwnersWereLocked($cardsById, $progressionOwnerIds);
             $preparedItems = $this->useStoredCardIds($preparedItems, $cardsById);
             $cardsById = $cardsById->keyBy(fn (Card $card): string => (string) $card->getKey());
 
@@ -129,7 +134,7 @@ class ReviewCardBatchAction
             if ($createdItems->isNotEmpty()) {
                 $createdReviewEvents = $this->createdReviewEventsForItems($createdItems, $reviewEventsBySyncKey);
 
-                $this->recordAndApplyCreatedReviewEvents($createdReviewEvents, $cardsById);
+                $this->recordAndApplyCreatedReviewEvents($createdReviewEvents, $cardsById, $progressionOwnerIds);
             }
 
             return $rows->isNotEmpty()
@@ -578,9 +583,13 @@ class ReviewCardBatchAction
     /**
      * @param  Collection<int, CardReviewEvent>  $reviewEvents
      * @param  Collection<string, Card>  $cardsById
+     * @param  Collection<int, int>  $progressionOwnerIds
      */
-    private function recordAndApplyCreatedReviewEvents(Collection $reviewEvents, Collection $cardsById): void
-    {
+    private function recordAndApplyCreatedReviewEvents(
+        Collection $reviewEvents,
+        Collection $cardsById,
+        Collection $progressionOwnerIds,
+    ): void {
         $reviewEvents
             ->sort(fn (CardReviewEvent $left, CardReviewEvent $right): int => CardReviewChronology::compare(
                 $left->reviewed_at,
@@ -588,7 +597,7 @@ class ReviewCardBatchAction
                 $right->reviewed_at,
                 $right->id,
             ))
-            ->each(function (CardReviewEvent $reviewEvent) use ($cardsById): void {
+            ->each(function (CardReviewEvent $reviewEvent) use ($cardsById, $progressionOwnerIds): void {
                 $card = $cardsById->get($reviewEvent->card_id)
                     ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
 
@@ -608,7 +617,79 @@ class ReviewCardBatchAction
                 );
 
                 $this->applyLockedCardStudyReview($card, $reviewEvent->rating, $reviewEvent->reviewed_at);
+
+                if ($progressionOwnerIds->contains($card->ownerUserId())
+                    && AdvanceCardProgressionAfterReviewAction::supports($card)
+                ) {
+                    $this->advanceCardProgression()->handle($card);
+                }
             });
+    }
+
+    /**
+     * Lock progression owners before card rows so advancement can safely lock a whole family.
+     *
+     * @param  Collection<int, array{card_id: string}>  $preparedItems
+     * @return Collection<int, int>
+     */
+    private function lockProgressionOwners(Collection $preparedItems): Collection
+    {
+        $candidateCardIds = $preparedItems
+            ->pluck('card_id')
+            ->flatMap(fn (string $cardId): array => CanonicalUlid::databaseCandidates($cardId))
+            ->unique()
+            ->values();
+
+        $ownerIds = Card::query()
+            ->selectSub(
+                Deck::query()
+                    ->withTrashed()
+                    ->select('user_id')
+                    ->whereColumn('decks.id', 'cards.deck_id')
+                    ->limit(1),
+                'owner_user_id',
+            )
+            ->whereKey($candidateCardIds)
+            ->whereNotNull('variant_group_id')
+            ->whereNotNull('variant_stage')
+            ->get()
+            ->map(fn (Card $card): int => $card->ownerUserId())
+            ->unique()
+            ->sort()
+            ->values();
+
+        $ownerIds->each(fn (int $userId): mixed => $this->newCardQueuePosition()->lockOwner($userId));
+
+        return $ownerIds;
+    }
+
+    /**
+     * @param  Collection<string, Card>  $cardsById
+     * @param  Collection<int, int>  $progressionOwnerIds
+     */
+    private function assertLiveProgressionOwnersWereLocked(
+        Collection $cardsById,
+        Collection $progressionOwnerIds,
+    ): void {
+        $metadataWasAddedWhileWaiting = $cardsById->contains(
+            fn (Card $card): bool => AdvanceCardProgressionAfterReviewAction::supports($card)
+                && ! $progressionOwnerIds->contains($card->ownerUserId()),
+        );
+
+        if ($metadataWasAddedWhileWaiting) {
+            throw CardReviewEventConflictException::retryableConflict();
+        }
+    }
+
+    private function advanceCardProgression(): AdvanceCardProgressionAfterReviewAction
+    {
+        return $this->advanceCardProgression
+            ?? new AdvanceCardProgressionAfterReviewAction($this->recordSyncFeedEntry);
+    }
+
+    private function newCardQueuePosition(): NewCardQueuePosition
+    {
+        return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
     }
 
     /**

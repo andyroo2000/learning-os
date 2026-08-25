@@ -12,6 +12,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -225,6 +226,72 @@ class CardReviewCardLockPostgresTest extends TestCase
             $this->assertDatabaseCount('sync_feed_entries', 2);
         } finally {
             $this->deleteFixtures($user, $course, $deck, [$card->id]);
+        }
+    }
+
+    public function test_concurrent_reviews_of_different_cards_in_one_progression_stage_unlock_without_deadlocking(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise runtime row-lock behavior.');
+        }
+
+        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
+
+        $user = User::factory()->create();
+        $course = Course::factory()->create(['user_id' => $user->id]);
+        $deck = Deck::factory()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+        ]);
+        $firstCard = Card::factory()->for($deck)->create([
+            'variant_group_id' => 'postgres-progression-lock',
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'variant_group_id' => 'postgres-progression-lock',
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+        ]);
+        $nextCard = Card::factory()->for($deck)->create([
+            'variant_group_id' => 'postgres-progression-lock',
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+        $cardIds = [$firstCard->id, $secondCard->id, $nextCard->id];
+
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27T09:00:00Z',
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => '2026-05-27T09:00:00Z',
+        ]);
+
+        try {
+            $results = $this->runConcurrentWorkers([
+                [
+                    'card_ids' => [$firstCard->id],
+                    'event_prefix' => 'postgres-progression-a',
+                    'mode' => 'single',
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'start_delay_microseconds' => 0,
+                ],
+                [
+                    'card_ids' => [$secondCard->id],
+                    'event_prefix' => 'postgres-progression-b',
+                    'mode' => 'single',
+                    'reviewed_at' => '2026-05-27T09:15:00Z',
+                    'start_delay_microseconds' => 100_000,
+                ],
+            ]);
+
+            $this->assertSame(['created', 'created'], array_column($results, 'outcome'));
+            $this->assertSame(VocabVariantStatus::Available->value, $nextCard->refresh()->variant_status);
+            $this->assertNotNull($nextCard->new_queue_position);
+        } finally {
+            $this->deleteFixtures($user, $course, $deck, $cardIds);
         }
     }
 

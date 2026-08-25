@@ -45,10 +45,24 @@ class UpdateCardAction
         $result = DB::transaction(function () use ($card, $data): UpdateCardResult {
             // Queue writers serialize on the owner before card rows. Reserve a possible
             // position in that order, then re-check the live card after locking it.
-            $availableQueuePosition = $data->hasVariantStatus
-                && $data->variantStatus !== VocabVariantStatus::Locked
-                    ? $this->newCardQueuePosition()->nextForUser($card->ownerUserId())
-                    : null;
+            $needsAvailableQueuePosition = $data->hasVariantStatus
+                && $data->variantStatus !== VocabVariantStatus::Locked;
+            $ownerId = $card->ownerUserId();
+            $hasCurrentOrRequestedProgressionGroup = (
+                is_string($card->variant_group_id)
+                && trim($card->variant_group_id) !== ''
+            )
+                || ($data->hasVariantGroupId && is_string($data->variantGroupId) && trim($data->variantGroupId) !== '');
+
+            if ($needsAvailableQueuePosition) {
+                $availableQueuePosition = $this->newCardQueuePosition()->nextForUser($ownerId);
+            } else {
+                $availableQueuePosition = null;
+
+                if ($hasCurrentOrRequestedProgressionGroup) {
+                    $this->newCardQueuePosition()->lockOwner($ownerId);
+                }
+            }
 
             // Route authorization happens before this transaction. Re-resolve the live card
             // under the same row lock used by deletion so a stale model cannot append an

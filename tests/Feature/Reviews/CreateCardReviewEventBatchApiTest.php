@@ -1240,8 +1240,9 @@ class CreateCardReviewEventBatchApiTest extends TestCase
             fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select'),
         );
 
-        // Auth, ownership, card lookup, idempotency, and latest chronology stay bounded for large batches.
-        $this->assertLessThanOrEqual(5, $selectQueries->count());
+        // Auth, ownership, progression-owner discovery, card lookup, idempotency, and
+        // latest chronology stay bounded for large batches.
+        $this->assertLessThanOrEqual(6, $selectQueries->count());
         $this->assertDatabaseCount('card_review_events', 10);
     }
 

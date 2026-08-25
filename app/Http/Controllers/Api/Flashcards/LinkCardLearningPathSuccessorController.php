@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Flashcards;
 
 use App\Domain\Flashcards\Actions\LinkCardLearningPathSuccessorAction;
-use App\Domain\Flashcards\Exceptions\LearningPathConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Flashcards\LinkCardLearningPathSuccessorRequest;
@@ -31,14 +30,7 @@ class LinkCardLearningPathSuccessorController extends Controller
 
         Gate::authorize('update', $successor);
 
-        try {
-            $cards = $linkSuccessor->handle($card, $successor);
-        } catch (LearningPathConflictException $exception) {
-            return response()->json([
-                'message' => $exception->getMessage(),
-                'reason' => $exception->reason(),
-            ], 409);
-        }
+        $cards = $linkSuccessor->handle($card, $successor);
 
         return CardLearningPathResource::make([
             'anchor' => $card->refresh(),

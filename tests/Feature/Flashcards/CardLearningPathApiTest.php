@@ -161,6 +161,51 @@ class CardLearningPathApiTest extends TestCase
         $this->assertNull($other->refresh()->variant_group_id);
     }
 
+    public function test_it_extends_a_generated_family_with_multiple_cards_in_its_tail_stage(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $groupId = 'generated-multi-card-tail';
+        Card::factory()->for($deck)->create([
+            'variant_group_id' => $groupId,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
+            'variant_sentence_id' => 'generated-sentence-1',
+        ]);
+        $firstTailCard = Card::factory()->for($deck)->create([
+            'variant_group_id' => $groupId,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition->value,
+            'variant_sentence_id' => 'generated-sentence-1',
+        ]);
+        $secondTailCard = Card::factory()->for($deck)->create([
+            'variant_group_id' => $groupId,
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Locked->value,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition->value,
+            'variant_sentence_id' => 'generated-sentence-2',
+        ]);
+        $successor = Card::factory()->for($deck)->create();
+
+        $this->link($firstTailCard, $successor)
+            ->assertOk()
+            ->assertJsonPath('data.group_id', $groupId)
+            ->assertJsonCount(3, 'data.stages')
+            ->assertJsonCount(2, 'data.stages.1.cards')
+            ->assertJsonPath('data.stages.2.number', 3)
+            ->assertJsonPath('data.stages.2.cards.0.id', $successor->id);
+
+        $this->assertSame(VocabVariantStatus::Locked->value, $firstTailCard->refresh()->variant_status);
+        $this->assertSame('generated-sentence-1', $firstTailCard->variant_sentence_id);
+        $this->assertSame(VocabVariantStatus::Locked->value, $secondTailCard->refresh()->variant_status);
+        $this->assertSame('generated-sentence-2', $secondTailCard->variant_sentence_id);
+        $this->assertSame($groupId, $successor->refresh()->variant_group_id);
+        $this->assertSame(3, $successor->variant_stage);
+        $this->assertSame(VocabVariantStatus::Locked->value, $successor->variant_status);
+    }
+
     public function test_it_rejects_self_links_existing_memberships_and_partial_metadata(): void
     {
         $user = $this->signIn();

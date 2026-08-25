@@ -289,6 +289,7 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonPath('data.variant_kind', VocabVariantKind::SentenceCloze->value)
             ->assertJsonPath('data.variant_stage', 3)
             ->assertJsonPath('data.variant_status', VocabVariantStatus::Available->value)
+            ->assertJsonPath('data.new_queue_position', 1)
             ->assertJsonPath('data.variant_unlocked_at', '2026-06-04T08:45:30.000000Z');
 
         $card->refresh();
@@ -297,6 +298,7 @@ class UpdateCardApiTest extends TestCase
         $this->assertSame(VocabVariantKind::SentenceCloze->value, $card->variant_kind);
         $this->assertSame(3, $card->variant_stage);
         $this->assertSame(VocabVariantStatus::Available->value, $card->variant_status);
+        $this->assertSame(1, $card->new_queue_position);
         $this->assertSame('2026-06-04T08:45:30.000000Z', $card->variant_unlocked_at?->toJSON());
 
         $entry = SyncFeedEntry::query()->sole();

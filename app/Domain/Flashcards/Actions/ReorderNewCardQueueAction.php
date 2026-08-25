@@ -56,6 +56,7 @@ class ReorderNewCardQueueAction
                 ->join('decks', 'decks.id', '=', 'cards.deck_id')
                 ->where('decks.user_id', $userId)
                 ->whereNull('decks.deleted_at')
+                ->whereProgressionAvailable()
                 ->where('cards.study_status', CardStudyStatus::New->value)
                 ->whereIn('cards.id', $databaseCardIds);
 

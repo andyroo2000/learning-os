@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\SelectDailyAudioPracticeCardsAction;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +57,11 @@ class SelectDailyAudioPracticeCardsActionTest extends TestCase
         $eligible = $this->card($activeDeck, [
             'study_status' => CardStudyStatus::Review,
             'due_at' => $now->subHour(),
+        ]);
+        $this->card($activeDeck, [
+            'study_status' => CardStudyStatus::Review,
+            'due_at' => $now->subDay(),
+            'variant_status' => VocabVariantStatus::Locked->value,
         ]);
         $this->card($activeDeck, ['study_status' => CardStudyStatus::Suspended]);
         $this->card($activeDeck, ['study_status' => CardStudyStatus::Buried]);

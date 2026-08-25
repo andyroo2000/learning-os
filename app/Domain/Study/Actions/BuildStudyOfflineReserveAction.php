@@ -69,6 +69,7 @@ class BuildStudyOfflineReserveAction
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at')
+            ->whereProgressionAvailable()
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
     }

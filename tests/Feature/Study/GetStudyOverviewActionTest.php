@@ -9,6 +9,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyOverviewAction;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -23,6 +24,49 @@ class GetStudyOverviewActionTest extends TestCase
 {
     use RefreshDatabase;
     use SetsCardStudyStatus;
+
+    public function test_locked_progression_cards_are_excluded_from_scheduler_metrics(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create(['new_cards_per_day' => 20]);
+
+        foreach ([CardStudyStatus::New, CardStudyStatus::Learning, CardStudyStatus::Review] as $index => $status) {
+            $this->cardWithStudyStatus($deck, $status, [
+                'new_queue_position' => $status === CardStudyStatus::New ? $index + 1 : null,
+                'due_at' => $status === CardStudyStatus::New ? null : $now->copy()->subHour(),
+                'failed_at' => $status === CardStudyStatus::New ? null : $now->copy()->subDay(),
+                'variant_status' => VocabVariantStatus::Locked->value,
+            ]);
+        }
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Suspended, [
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame(0, $overview['due_count']);
+        $this->assertSame(0, $overview['failed_count']);
+        $this->assertSame(0, $overview['failed_due_count']);
+        $this->assertSame(0, $overview['new_count']);
+        $this->assertSame(0, $overview['learning_count']);
+        $this->assertSame(0, $overview['review_count']);
+        $this->assertSame(0, $overview['suspended_count']);
+        $this->assertNull($overview['next_due_at']);
+        $this->assertSame(4, $overview['total_cards']);
+        $this->assertSame([
+            'apprentice' => 0,
+            'guru' => 0,
+            'master' => 0,
+            'enlightened' => 0,
+            'burned' => 0,
+        ], $overview['mastery_spread']);
+        $this->assertSame(0, $overview['learning_readiness']['projected_seven_day_reviews']);
+    }
 
     public function test_it_returns_owned_active_card_counts_and_daily_new_card_allowance(): void
     {
@@ -442,8 +486,12 @@ class GetStudyOverviewActionTest extends TestCase
             CardStudyStatus::Review,
             ['scheduler_state' => ['stability' => 7]],
         );
+        $lockedCard = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'scheduler_state' => ['stability' => 365],
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
 
-        foreach ([$otherUserCard, $deletedCard, $deletedDeckCard] as $excludedCard) {
+        foreach ([$otherUserCard, $deletedCard, $deletedDeckCard, $lockedCard] as $excludedCard) {
             DB::table('card_learning_concepts')->insert([
                 'card_id' => $excludedCard->id,
                 'concept_id' => 'n5-vocab-1198180-ada066ed',

@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Study\Enums\LearningConceptKind;
 use App\Domain\Study\Enums\LearningConceptReviewStatus;
 use App\Domain\Study\Enums\StudyMasteryLevel;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Support\Facades\DB;
 use UnexpectedValueException;
 
@@ -23,6 +24,11 @@ final class GetJlptMasteryAction
             ->where('decks.user_id', $userId)
             ->whereNull('cards.deleted_at')
             ->whereNull('decks.deleted_at')
+            ->where(function ($query): void {
+                $query
+                    ->whereNull('cards.variant_status')
+                    ->orWhere('cards.variant_status', VocabVariantStatus::Available->value);
+            })
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
             ->groupBy('links.concept_id')

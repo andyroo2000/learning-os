@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudyCardActionRateLimiter;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Http\Middleware\TrimStrings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -303,6 +304,28 @@ class PerformCardStudyActionApiTest extends TestCase
             ->assertJsonPath('data.overview.learning_count', 0);
 
         $this->assertSame('new', SyncFeedEntry::query()->sole()->payload['study_status']);
+    }
+
+    public function test_forgetting_a_progression_locked_card_does_not_queue_it(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Relearning,
+            'new_queue_position' => 7,
+            'due_at' => '2026-06-05T14:15:00Z',
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->postJson("/api/cards/{$card->id}/actions", [
+            'action' => 'forget',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.card.study_status', 'new')
+            ->assertJsonPath('data.card.new_queue_position', null)
+            ->assertJsonPath('data.overview.new_count', 0);
+
+        $this->assertNull($card->refresh()->new_queue_position);
+        $this->assertSame(VocabVariantStatus::Locked->value, $card->variant_status);
+        $this->assertNull(SyncFeedEntry::query()->sole()->payload['new_queue_position']);
     }
 
     public function test_it_unsuspends_a_card_and_preserves_existing_due_date(): void

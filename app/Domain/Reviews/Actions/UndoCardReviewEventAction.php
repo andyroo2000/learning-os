@@ -64,6 +64,9 @@ class UndoCardReviewEventAction
             // Keep this restore list in sync with CardReviewStateSnapshot::beforeReview().
             $card->study_status = $this->studyStatus($snapshot);
             $card->new_queue_position = $this->nullableInteger($snapshot, 'new_queue_position');
+            if (! $card->isProgressionAvailable()) {
+                $card->new_queue_position = null;
+            }
             $card->scheduler_state = $this->nullableArray($snapshot, 'scheduler_state');
             $card->due_at = $this->nullableTimestamp($snapshot, 'due_at');
             $card->introduced_at = $this->nullableTimestamp($snapshot, 'introduced_at');

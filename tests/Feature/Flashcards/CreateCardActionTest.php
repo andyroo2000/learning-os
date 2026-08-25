@@ -406,6 +406,31 @@ class CreateCardActionTest extends TestCase
         $this->assertCardSyncPayloadRecorded($firstResult->card->refresh(), SyncFeedOperation::Create);
     }
 
+    public function test_locked_variants_do_not_receive_new_queue_positions(): void
+    {
+        $deck = Deck::factory()->create();
+
+        $locked = app(CreateCardAction::class)->handle(CreateCardData::fromInput(
+            userId: $deck->user_id,
+            deckId: $deck->id,
+            frontText: 'locked front',
+            backText: 'locked back',
+            variantStatus: VocabVariantStatus::Locked,
+        ))->card->refresh();
+        $available = app(CreateCardAction::class)->handle(CreateCardData::fromInput(
+            userId: $deck->user_id,
+            deckId: $deck->id,
+            frontText: 'available front',
+            backText: 'available back',
+            variantStatus: VocabVariantStatus::Available,
+        ))->card->refresh();
+
+        $this->assertNull($locked->new_queue_position);
+        $this->assertSame(1, $available->new_queue_position);
+        $this->assertCardSyncPayloadRecorded($locked, SyncFeedOperation::Create);
+        $this->assertCardSyncPayloadRecorded($available, SyncFeedOperation::Create);
+    }
+
     public function test_it_treats_blank_variant_enum_metadata_as_absent_for_direct_callers(): void
     {
         $deck = Deck::factory()->create();

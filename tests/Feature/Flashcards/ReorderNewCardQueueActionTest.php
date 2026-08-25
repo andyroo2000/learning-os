@@ -9,6 +9,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
@@ -97,6 +98,20 @@ class ReorderNewCardQueueActionTest extends TestCase
             'id' => $queuedCard->id,
             'new_queue_position' => 9,
         ]);
+    }
+
+    public function test_it_rejects_locked_progression_cards(): void
+    {
+        $user = User::factory()->create();
+        $lockedCard = $this->cardWithStudyStatus($this->deckFor($user), CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->expectException(CardValidationException::class);
+        $this->expectExceptionMessage('Every reordered card must be an active new card owned by the user.');
+
+        app(ReorderNewCardQueueAction::class)->handle($user->id, [$lockedCard->id]);
     }
 
     public function test_it_repairs_multiple_legacy_null_positions_deterministically(): void

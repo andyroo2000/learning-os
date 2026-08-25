@@ -8,6 +8,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Models\CardLearningConcept;
 use App\Domain\Study\Models\LearningConcept;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\Concerns\ResolvesCanonicalUlidRouteBindings;
 use App\Support\Identifiers\CanonicalUlid;
 use App\Support\VariantMetadataLimits;
@@ -86,6 +87,25 @@ class Card extends Model
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->whereNull('decks.deleted_at');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWhereProgressionAvailable(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query
+                ->whereNull('cards.variant_status')
+                ->orWhere('cards.variant_status', VocabVariantStatus::Available->value);
+        });
+    }
+
+    public function isProgressionAvailable(): bool
+    {
+        return $this->variant_status === null
+            || $this->variant_status === VocabVariantStatus::Available->value;
     }
 
     /**

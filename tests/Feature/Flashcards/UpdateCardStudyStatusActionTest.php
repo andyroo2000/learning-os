@@ -11,6 +11,7 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -125,6 +126,28 @@ class UpdateCardStudyStatusActionTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_new_status_does_not_queue_progression_locked_cards(): void
+    {
+        $card = $this->cardFor($this->signIn(), [
+            'study_status' => CardStudyStatus::Review,
+            'new_queue_position' => 7,
+            'due_at' => '2026-06-05T14:15:00Z',
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $result = app(UpdateCardStudyStatusAction::class)->handle($card, CardStudyStatus::New);
+
+        $this->assertTrue($result->wasUpdated);
+        $this->assertSame(CardStudyStatus::New, $result->card->study_status);
+        $this->assertNull($result->card->new_queue_position);
+        $this->assertNull($result->card->due_at);
+        $this->assertSame(VocabVariantStatus::Locked->value, $result->card->variant_status);
+        $this->assertNull($this->assertCardSyncPayloadRecorded(
+            $result->card,
+            SyncFeedOperation::Update,
+        )->payload['new_queue_position']);
     }
 
     public function test_non_new_status_clears_new_queue_position(): void

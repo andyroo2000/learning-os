@@ -3,15 +3,18 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\UpdateCardData;
+use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
 use App\Domain\Flashcards\Support\CardSearchText;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -26,6 +29,7 @@ class UpdateCardAction
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
         private readonly ?MatchLearningConceptsForCardAction $matchLearningConcepts = null,
+        private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
     ) {}
 
     public function handle(Card $card, UpdateCardData $data): UpdateCardResult
@@ -39,6 +43,13 @@ class UpdateCardAction
         }
 
         $result = DB::transaction(function () use ($card, $data): UpdateCardResult {
+            // Queue writers serialize on the owner before card rows. Reserve a possible
+            // position in that order, then re-check the live card after locking it.
+            $availableQueuePosition = $data->hasVariantStatus
+                && $data->variantStatus !== VocabVariantStatus::Locked
+                    ? $this->newCardQueuePosition()->nextForUser($card->ownerUserId())
+                    : null;
+
             // Route authorization happens before this transaction. Re-resolve the live card
             // under the same row lock used by deletion so a stale model cannot append an
             // Update feed entry after its Delete tombstone.
@@ -104,6 +115,14 @@ class UpdateCardAction
                 if ($this->variantEnumValue($card->variant_status) !== $data->variantStatus?->value) {
                     $card->variant_status = $data->variantStatus?->value;
                 }
+
+                if (($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New) {
+                    if ($data->variantStatus === VocabVariantStatus::Locked) {
+                        $card->new_queue_position = null;
+                    } elseif ($card->new_queue_position === null) {
+                        $card->new_queue_position = $availableQueuePosition;
+                    }
+                }
             }
 
             if ($data->hasVariantUnlockedAt) {
@@ -136,6 +155,7 @@ class UpdateCardAction
                 'variant_stage',
                 'variant_status',
                 'variant_unlocked_at',
+                'new_queue_position',
                 ...($contentWasUpdated ? ['search_text'] : []),
             ]);
 
@@ -202,5 +222,10 @@ class UpdateCardAction
         }
 
         return (int) $value;
+    }
+
+    private function newCardQueuePosition(): NewCardQueuePosition
+    {
+        return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
     }
 }

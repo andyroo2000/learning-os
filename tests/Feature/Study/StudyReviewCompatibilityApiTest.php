@@ -17,6 +17,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
@@ -48,6 +49,24 @@ class StudyReviewCompatibilityApiTest extends TestCase
             'cardId' => $card->id,
             'grade' => 'good',
         ])->assertUnauthorized();
+    }
+
+    public function test_it_rejects_reviews_for_progression_locked_cards(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'variant_status' => VocabVariantStatus::Locked->value,
+        ]);
+
+        $this->postJson('/api/study/reviews', [
+            'cardId' => $card->id,
+            'grade' => CardReviewRating::Good->value,
+        ])
+            ->assertConflict()
+            ->assertJsonPath('reason', 'card_progression_locked');
+
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_records_a_study_review_with_a_convolab_compatible_response(): void

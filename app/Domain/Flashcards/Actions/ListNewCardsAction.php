@@ -41,6 +41,7 @@ class ListNewCardsAction
             ->whereNull('decks.deleted_at')
             ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
             ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
+            ->whereProgressionAvailable()
             ->where('cards.study_status', CardStudyStatus::New->value);
 
         return NewCardQueueOrdering::positionedCards($query)

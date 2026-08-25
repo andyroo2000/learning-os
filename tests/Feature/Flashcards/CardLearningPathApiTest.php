@@ -206,6 +206,44 @@ class CardLearningPathApiTest extends TestCase
         $this->assertSame(VocabVariantStatus::Locked->value, $successor->variant_status);
     }
 
+    public function test_it_preserves_existing_scheduler_progress_when_a_reviewed_successor_is_locked(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $predecessor = Card::factory()->for($deck)->create();
+        $successor = Card::factory()->for($deck)->create();
+        $this->review($successor, CardReviewRating::Good, '2026-08-25T09:00:00Z');
+        $successor->refresh();
+        $schedulerBefore = [
+            'study_status' => $successor->study_status,
+            'last_reviewed_at' => $successor->last_reviewed_at?->toJSON(),
+            'due_at' => $successor->due_at?->toJSON(),
+            'introduced_at' => $successor->introduced_at?->toJSON(),
+            'scheduler_state' => $successor->scheduler_state,
+        ];
+
+        $this->link($predecessor, $successor)->assertOk();
+        $successor->refresh();
+
+        $this->assertSame(VocabVariantStatus::Locked->value, $successor->variant_status);
+        $this->assertNull($successor->new_queue_position);
+        $this->assertSame($schedulerBefore['study_status'], $successor->study_status);
+        $this->assertSame($schedulerBefore['last_reviewed_at'], $successor->last_reviewed_at?->toJSON());
+        $this->assertSame($schedulerBefore['due_at'], $successor->due_at?->toJSON());
+        $this->assertSame($schedulerBefore['introduced_at'], $successor->introduced_at?->toJSON());
+        $this->assertSame($schedulerBefore['scheduler_state'], $successor->scheduler_state);
+
+        $this->postJson('/api/card-review-events', [
+            'card_id' => $successor->id,
+            'rating' => CardReviewRating::Easy->value,
+            'reviewed_at' => '2026-08-25T09:05:00Z',
+        ])
+            ->assertConflict()
+            ->assertJsonPath('reason', 'card_progression_locked');
+
+        $this->assertDatabaseCount('card_review_events', 1);
+    }
+
     public function test_it_rejects_self_links_existing_memberships_and_partial_metadata(): void
     {
         $user = $this->signIn();

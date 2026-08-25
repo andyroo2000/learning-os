@@ -10,7 +10,6 @@ use App\Http\Resources\Flashcards\CardLearningPathResource;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Gate;
 
 class LinkCardLearningPathSuccessorController extends Controller
 {
@@ -28,7 +27,7 @@ class LinkCardLearningPathSuccessorController extends Controller
             throw (new ModelNotFoundException)->setModel(Card::class, [$successorId]);
         }
 
-        Gate::authorize('update', $successor);
+        $this->authorize('update', $successor);
 
         $cards = $linkSuccessor->handle($card, $successor);
 

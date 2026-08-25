@@ -145,11 +145,12 @@ class UpdateCardAction
                 }
             }
 
-            if ($data->hasVariantGroupId
-                || $data->hasVariantStage
-                || $data->hasVariantStatus
-                || $data->hasVariantUnlockedAt
-            ) {
+            if ($card->isDirty([
+                'variant_group_id',
+                'variant_stage',
+                'variant_status',
+                'variant_unlocked_at',
+            ])) {
                 // Retirement is a server-owned progression result. Explicit authoring
                 // changes invalidate that historic membership state.
                 $card->variant_retired_at = null;

@@ -355,7 +355,7 @@ class UpdateCardApiTest extends TestCase
         $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
-    public function test_resubmitting_unchanged_variant_metadata_persists_retirement_reset(): void
+    public function test_resubmitting_unchanged_variant_metadata_preserves_retirement(): void
     {
         $user = $this->signIn();
         $card = $this->cardFor($user, [
@@ -366,6 +366,7 @@ class UpdateCardApiTest extends TestCase
             'variant_status' => VocabVariantStatus::Available,
             'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'variant_retired_at' => Carbon::parse('2026-06-05T15:15:00Z'),
+            'new_queue_position' => 1,
         ]);
 
         $response = $this->putJson("/api/cards/{$card->id}", [
@@ -379,14 +380,14 @@ class UpdateCardApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.variant_retired_at', null);
+            ->assertJsonPath(
+                'data.variant_retired_at',
+                '2026-06-05T15:15:00.000000Z',
+            );
 
         $card->refresh();
-        $this->assertNull($card->variant_retired_at);
-
-        $entry = SyncFeedEntry::query()->sole();
-        $this->assertNull($entry->payload['variant_retired_at']);
-        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+        $this->assertSame('2026-06-05T15:15:00.000000Z', $card->variant_retired_at?->toJSON());
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_it_preserves_structured_content_when_omitted(): void

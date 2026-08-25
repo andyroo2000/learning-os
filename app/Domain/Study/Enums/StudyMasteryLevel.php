@@ -8,6 +8,8 @@ enum StudyMasteryLevel: string
 {
     public const int GURU_STABILITY_DAYS = 7;
 
+    public const int BURNED_STABILITY_DAYS = 365;
+
     case Apprentice = 'apprentice';
     case Guru = 'guru';
     case Master = 'master';
@@ -33,7 +35,7 @@ enum StudyMasteryLevel: string
         $stabilityDays = is_int($stability) || is_float($stability) ? (float) $stability : 0.0;
 
         return match (true) {
-            $stabilityDays >= 365 => self::Burned,
+            $stabilityDays >= self::BURNED_STABILITY_DAYS => self::Burned,
             $stabilityDays >= 90 => self::Enlightened,
             $stabilityDays >= 30 => self::Master,
             $stabilityDays >= self::GURU_STABILITY_DAYS => self::Guru,

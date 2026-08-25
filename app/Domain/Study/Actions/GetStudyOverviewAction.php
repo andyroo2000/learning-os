@@ -301,7 +301,7 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
                 COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 30 AND {$stability} < 90 THEN 1 ELSE 0 END), 0) AS master,
                 COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 90 AND {$stability} < 365 THEN 1 ELSE 0 END), 0) AS enlightened,
-                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 365 THEN 1 ELSE 0 END), 0) AS burned
+                COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= ? THEN 1 ELSE 0 END), 0) AS burned
                 SQL, [
                 CardStudyStatus::Learning->value,
                 CardStudyStatus::Relearning->value,
@@ -309,6 +309,7 @@ class GetStudyOverviewAction
                 CardStudyStatus::Review->value,
                 CardStudyStatus::Review->value,
                 CardStudyStatus::Review->value,
+                StudyMasteryLevel::BURNED_STABILITY_DAYS,
             ])
             ->first();
 

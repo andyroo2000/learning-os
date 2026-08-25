@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Http\Controllers\Api\Flashcards;
+
+use App\Domain\Flashcards\Actions\LinkCardLearningPathSuccessorAction;
+use App\Domain\Flashcards\Exceptions\LearningPathConflictException;
+use App\Domain\Flashcards\Models\Card;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Flashcards\LinkCardLearningPathSuccessorRequest;
+use App\Http\Resources\Flashcards\CardLearningPathResource;
+use App\Support\Identifiers\CanonicalUlid;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
+
+class LinkCardLearningPathSuccessorController extends Controller
+{
+    public function __invoke(
+        LinkCardLearningPathSuccessorRequest $request,
+        Card $card,
+        LinkCardLearningPathSuccessorAction $linkSuccessor,
+    ): JsonResponse {
+        $successorId = (string) $request->validated('successor_card_id');
+        $successor = Card::query()
+            ->whereIn('id', CanonicalUlid::databaseCandidates($successorId))
+            ->first();
+
+        if ($successor === null) {
+            throw (new ModelNotFoundException)->setModel(Card::class, [$successorId]);
+        }
+
+        Gate::authorize('update', $successor);
+
+        try {
+            $cards = $linkSuccessor->handle($card, $successor);
+        } catch (LearningPathConflictException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception->reason(),
+            ], 409);
+        }
+
+        return CardLearningPathResource::make([
+            'anchor' => $card->refresh(),
+            'cards' => $cards,
+        ])->response();
+    }
+}

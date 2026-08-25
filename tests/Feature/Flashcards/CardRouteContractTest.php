@@ -44,6 +44,12 @@ class CardRouteContractTest extends TestCase
             ),
             $this->expectedRoute(
                 'GET|HEAD',
+                'api/cards/{card}/learning-path',
+                'ShowCardLearningPathController',
+                wheres: ['card' => $ulid],
+            ),
+            $this->expectedRoute(
+                'GET|HEAD',
                 'api/cards/{card}/review-events',
                 'ListCardReviewEventsController',
                 wheres: ['card' => $ulid],
@@ -93,6 +99,13 @@ class CardRouteContractTest extends TestCase
                 'PUT',
                 'api/cards/{card}',
                 'UpdateCardController',
+                'study-card-update',
+                ['card' => $ulid],
+            ),
+            $this->expectedRoute(
+                'PUT',
+                'api/cards/{card}/learning-path/successor',
+                'LinkCardLearningPathSuccessorController',
                 'study-card-update',
                 ['card' => $ulid],
             ),

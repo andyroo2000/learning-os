@@ -7,12 +7,14 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Http\Controllers\Api\Flashcards\DeleteCardController;
+use App\Http\Controllers\Api\Flashcards\LinkCardLearningPathSuccessorController;
 use App\Http\Controllers\Api\Flashcards\ListCardsController;
 use App\Http\Controllers\Api\Flashcards\ListDueCardsController;
 use App\Http\Controllers\Api\Flashcards\ListNewCardsController;
 use App\Http\Controllers\Api\Flashcards\PerformCardStudyActionController;
 use App\Http\Controllers\Api\Flashcards\ReorderNewCardQueueController;
 use App\Http\Controllers\Api\Flashcards\ShowCardController;
+use App\Http\Controllers\Api\Flashcards\ShowCardLearningPathController;
 use App\Http\Controllers\Api\Flashcards\StoreCardController;
 use App\Http\Controllers\Api\Flashcards\UpdateCardController;
 use App\Http\Controllers\Api\Flashcards\UpdateCardStudyStatusController;
@@ -29,6 +31,7 @@ return static function (): void {
     Route::post('/cards/new/reorder', ReorderNewCardQueueController::class)
         ->middleware('throttle:'.NewCardQueueReorderRateLimiter::NAME);
     Route::get('/cards/{card}', ShowCardController::class)->whereUlid('card');
+    Route::get('/cards/{card}/learning-path', ShowCardLearningPathController::class)->whereUlid('card');
     Route::get('/cards/{card}/review-events', ListCardReviewEventsController::class)->whereUlid('card');
     Route::get('/cards/{card}/media-assets', ListCardMediaAssetsController::class)->whereUlid('card');
     // Card-media relation writes have their own retry-friendly rate limits.
@@ -50,6 +53,9 @@ return static function (): void {
         ->whereUlid('card')
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::put('/cards/{card}', UpdateCardController::class)
+        ->whereUlid('card')
+        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+    Route::put('/cards/{card}/learning-path/successor', LinkCardLearningPathSuccessorController::class)
         ->whereUlid('card')
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::delete('/cards/{card}', DeleteCardController::class)

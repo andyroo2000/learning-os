@@ -143,6 +143,7 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Database/PostgresTimezoneContractTest.php \
+            tests/Feature/Flashcards/CardLearningPathPostgresTest.php \
             tests/Feature/Flashcards/CardStudyMutationLockPostgresTest.php \
             tests/Feature/Flashcards/CardUpdateDeletionLockPostgresTest.php \
             tests/Feature/Flashcards/FlashcardDeletionLockPostgresTest.php \

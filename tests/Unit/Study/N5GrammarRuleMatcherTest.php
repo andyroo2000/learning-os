@@ -240,7 +240,7 @@ OUTPUT, 1)[0];
                     ['安かっ', '安い', '形容詞-一般', '', '連用形-促音便'], ['た', 'た', '助動詞'],
                 ],
                 ['n5-grammar-i-adjective-negative', 'n5-grammar-i-adjective-past'],
-                ['n5-grammar-nai-form', 'n5-grammar-ta-form'],
+                ['n5-grammar-i-adjective-nonpast', 'n5-grammar-nai-form', 'n5-grammar-ta-form'],
             ],
             'polite i adjective negative is not adverbial' => [
                 '高くありません。',
@@ -334,6 +334,14 @@ OUTPUT, 1)[0];
                 ],
                 ['n5-grammar-mashita-polite-past-verb', 'n5-grammar-te-imasu-progressive'],
                 ['n5-grammar-counter-people-nin', 'n5-grammar-counter-hon-long'],
+            ],
+            'arabic digit tsu counter' => [
+                'りんごが3つあります。',
+                [
+                    ['りんご', '林檎', '名詞-普通名詞-一般'], ['が', 'が', '助詞-格助詞'], ['3', '3', '名詞-数詞'],
+                    ['つ', 'つ', '接尾辞-名詞的-助数詞'], ['あり', '有る', '動詞-非自立可能'], ['ます', 'ます', '助動詞'],
+                ],
+                ['n5-grammar-counter-tsu'],
             ],
             'remaining counters and every prefix' => [
                 '毎日、三時五分に二枚と一つを買います。私は二十歳です。',

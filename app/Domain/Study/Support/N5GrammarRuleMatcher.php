@@ -169,7 +169,7 @@ final class N5GrammarRuleMatcher
             'n5-grammar-ga-hoshii-wanting-thing' => $this->hasAnyTokenPhrase($tokens, ['がほしい', 'が欲しい']),
             'n5-grammar-hou-ga-comparative' => $this->hasTokenPhrase($tokens, 'のほうが') && $this->hasTokenSurface($tokens, 'より'),
             'n5-grammar-ichiban-superlative' => $this->hasTokenSurface($tokens, '一番'),
-            'n5-grammar-counter-tsu' => $this->hasNumberCounter($tokens, 'つ', '[一二三四五六七八九]'),
+            'n5-grammar-counter-tsu' => $this->hasNumberCounter($tokens, 'つ', '[0-9０-９一二三四五六七八九]'),
             'n5-grammar-counter-people-nin' => $this->hasNumberCounter($tokens, '人'),
             'n5-grammar-question-words-basic' => $this->hasAnyTokenSurface($tokens, ['何', '誰', 'どこ', 'いつ', 'どう', 'どうして', '何時', '何曜日']),
             'n5-grammar-nai-de-kudasai' => $this->hasTokenPhrase($tokens, 'ないでください'),
@@ -393,6 +393,15 @@ final class N5GrammarRuleMatcher
     {
         foreach ($tokens as $index => $token) {
             if (! $this->isIAdjective($token)) {
+                continue;
+            }
+
+            $surface = LearningConceptText::normalize($token['surface'] ?? '');
+            $base = LearningConceptText::normalize($token['base'] ?? '');
+
+            if (in_array($surface, ['ない', '無い', 'たい'], true)
+                || in_array($base, ['ない', '無い', 'たい'], true)
+            ) {
                 continue;
             }
 

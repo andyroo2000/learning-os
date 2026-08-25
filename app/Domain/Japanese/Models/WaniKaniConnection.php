@@ -25,6 +25,7 @@ class WaniKaniConnection extends Model
         return [
             'api_token' => 'encrypted',
             'assignments_synced_through_at' => 'immutable_datetime',
+            'vocabulary_assignments_synced_through_at' => 'immutable_datetime',
             'last_synced_at' => 'immutable_datetime',
             'review_count' => 'integer',
             'review_count_updated_at' => 'immutable_datetime',

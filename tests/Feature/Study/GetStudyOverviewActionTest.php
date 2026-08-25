@@ -518,13 +518,57 @@ class GetStudyOverviewActionTest extends TestCase
         $deletedCard->delete();
         $deletedDeck->delete();
 
+        $otherUser = User::factory()->create();
+        DB::table('wanikani_subjects')->insert([
+            [
+                'subject_id' => 9001,
+                'subject_type' => 'vocabulary',
+                'characters' => '上げる',
+                'normalized_key' => '上げる',
+                'readings' => json_encode(['あげる'], JSON_THROW_ON_ERROR),
+                'meanings' => json_encode(['to raise'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'subject_id' => 9002,
+                'subject_type' => 'vocabulary',
+                'characters' => '赤',
+                'normalized_key' => '赤',
+                'readings' => json_encode(['あか'], JSON_THROW_ON_ERROR),
+                'meanings' => json_encode(['red'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'subject_id' => 9003,
+                'subject_type' => 'vocabulary',
+                'characters' => '青',
+                'normalized_key' => '青',
+                'readings' => json_encode(['あお'], JSON_THROW_ON_ERROR),
+                'meanings' => json_encode(['blue'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+        DB::table('wanikani_subject_learning_concepts')->insert([
+            ['subject_id' => 9001, 'concept_id' => 'n5-vocab-1198550-2120ff50', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
+            ['subject_id' => 9002, 'concept_id' => 'n5-vocab-1198180-ada066ed', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
+            ['subject_id' => 9003, 'concept_id' => 'n5-vocab-1275320-9949d874', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+        DB::table('user_wanikani_assignments')->insert([
+            ['user_id' => $user->id, 'subject_id' => 9001, 'srs_stage' => 5, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $user->id, 'subject_id' => 9002, 'srs_stage' => 7, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $otherUser->id, 'subject_id' => 9003, 'srs_stage' => 9, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
         $n5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id)['jlpt_mastery']['N5'];
         $deckN5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id, deckId: $deck->id)['jlpt_mastery']['N5'];
 
-        $this->assertSame(['mastery_percent' => 0, 'known' => 2, 'matched' => 2, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
-        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
-        $this->assertSame(['mastery_percent' => 0, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
-        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'matched' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 3, 'known_from_cards' => 2, 'known_from_wanikani' => 2, 'known_from_both' => 1, 'matched' => 2, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
+        $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
         $this->assertArrayNotHasKey('overall', $n5);
     }
 

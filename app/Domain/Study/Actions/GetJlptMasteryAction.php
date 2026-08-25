@@ -13,7 +13,7 @@ use UnexpectedValueException;
 final class GetJlptMasteryAction
 {
     /**
-     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, matched: int, covered: int, total: int}}}
+     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}}
      */
     public function handle(int $userId, ?string $courseId = null, ?string $deckId = null): array
     {
@@ -40,8 +40,36 @@ final class GetJlptMasteryAction
                 END) AS known_weight
                 SQL, [CardStudyStatus::Review->value, StudyMasteryLevel::GURU_STABILITY_DAYS]);
 
+        $includeWaniKani = $courseId === null && $deckId === null;
+        $wanikaniKnown = DB::table('user_wanikani_assignments as assignments')
+            ->join(
+                'wanikani_subject_learning_concepts as links',
+                'links.subject_id',
+                '=',
+                'assignments.subject_id',
+            )
+            ->where('assignments.user_id', $userId)
+            ->whereNotNull('assignments.passed_at')
+            ->distinct()
+            ->select('links.concept_id');
+
+        $wanikaniKnownPredicate = $includeWaniKani
+            ? 'wanikani_known.concept_id IS NOT NULL'
+            : '0 = 1';
         $rows = DB::table('learning_concepts as concepts')
             ->leftJoinSub($bestCard, 'best_card', 'best_card.concept_id', '=', 'concepts.id')
+            // Scoped calls describe only the selected card set, so they skip the
+            // user-wide WaniKani join instead of executing a neutralized subquery.
+            ->when(
+                $includeWaniKani,
+                fn ($query) => $query->leftJoinSub(
+                    $wanikaniKnown,
+                    'wanikani_known',
+                    'wanikani_known.concept_id',
+                    '=',
+                    'concepts.id',
+                ),
+            )
             ->where('concepts.language', 'ja')
             ->where('concepts.jlpt_level', 5)
             ->whereIn('concepts.review_status', [
@@ -52,7 +80,10 @@ final class GetJlptMasteryAction
             ->select('concepts.kind')
             ->selectRaw('COUNT(concepts.id) AS total')
             ->selectRaw('COALESCE(SUM(CASE WHEN best_card.concept_id IS NULL THEN 0 ELSE 1 END), 0) AS covered')
-            ->selectRaw('COALESCE(SUM(best_card.known_weight), 0) AS known_count')
+            ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 OR {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_count")
+            ->selectRaw('COALESCE(SUM(CASE WHEN best_card.known_weight = 1 THEN 1 ELSE 0 END), 0) AS known_from_cards')
+            ->selectRaw("COALESCE(SUM(CASE WHEN {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_wanikani")
+            ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 AND {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_both")
             ->get()
             ->keyBy('kind');
 
@@ -64,7 +95,9 @@ final class GetJlptMasteryAction
         ];
     }
 
-    /** @return array{mastery_percent: int, known: int, matched: int, covered: int, total: int} */
+    /**
+     * @return array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}
+     */
     private function metric(?object $row): array
     {
         $total = (int) ($row?->total ?? 0);
@@ -74,6 +107,9 @@ final class GetJlptMasteryAction
         return [
             'mastery_percent' => $total === 0 ? 0 : (int) round(($known / $total) * 100),
             'known' => $known,
+            'known_from_cards' => (int) ($row?->known_from_cards ?? 0),
+            'known_from_wanikani' => (int) ($row?->known_from_wanikani ?? 0),
+            'known_from_both' => (int) ($row?->known_from_both ?? 0),
             'matched' => $matched,
             // Retain the original key for older clients while they migrate to matched.
             'covered' => $matched,

@@ -25,16 +25,16 @@ class StudyOverviewCompatibilityResourceTest extends TestCase
         $payload = (new StudyOverviewCompatibilityResource([
             'jlpt_mastery' => [
                 'N5' => [
-                    'vocabulary' => ['mastery_percent' => 34, 'known' => 233, 'matched' => 280, 'covered' => 280, 'total' => 684],
-                    'grammar' => ['mastery_percent' => 21, 'known' => 16, 'matched' => 29, 'covered' => 29, 'total' => 77],
+                    'vocabulary' => ['mastery_percent' => 34, 'known' => 233, 'known_from_cards' => 220, 'known_from_wanikani' => 30, 'known_from_both' => 17, 'matched' => 280, 'covered' => 280, 'total' => 684],
+                    'grammar' => ['mastery_percent' => 21, 'known' => 16, 'known_from_cards' => 16, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 29, 'covered' => 29, 'total' => 77],
                 ],
             ],
         ]))->toArray(new Request);
 
         $this->assertSame([
             'N5' => [
-                'vocabulary' => ['masteryPercent' => 34, 'known' => 233, 'matched' => 280, 'covered' => 280, 'total' => 684],
-                'grammar' => ['masteryPercent' => 21, 'known' => 16, 'matched' => 29, 'covered' => 29, 'total' => 77],
+                'vocabulary' => ['masteryPercent' => 34, 'known' => 233, 'knownFromCards' => 220, 'knownFromWaniKani' => 30, 'knownFromBoth' => 17, 'matched' => 280, 'covered' => 280, 'total' => 684],
+                'grammar' => ['masteryPercent' => 21, 'known' => 16, 'knownFromCards' => 16, 'knownFromWaniKani' => 0, 'knownFromBoth' => 0, 'matched' => 29, 'covered' => 29, 'total' => 77],
             ],
         ], $payload['jlptMastery']);
         $this->assertArrayNotHasKey('overall', $payload['jlptMastery']['N5']);

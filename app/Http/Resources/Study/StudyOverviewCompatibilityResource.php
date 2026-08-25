@@ -96,6 +96,9 @@ class StudyOverviewCompatibilityResource extends JsonResource
                     $result[$level][$kind] = [
                         'masteryPercent' => $metric['mastery_percent'],
                         'known' => $metric['known'],
+                        'knownFromCards' => $metric['known_from_cards'],
+                        'knownFromWaniKani' => $metric['known_from_wanikani'],
+                        'knownFromBoth' => $metric['known_from_both'],
                         'matched' => $metric['matched'],
                         'covered' => $metric['covered'],
                         'total' => $metric['total'],

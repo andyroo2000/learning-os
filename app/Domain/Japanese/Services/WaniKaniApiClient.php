@@ -3,6 +3,7 @@
 namespace App\Domain\Japanese\Services;
 
 use App\Domain\Japanese\Data\WaniKaniPassedKanji;
+use App\Domain\Japanese\Data\WaniKaniVocabularyProgress;
 use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
@@ -98,6 +99,110 @@ final class WaniKaniApiClient
         return $result;
     }
 
+    /** @return list<WaniKaniVocabularyProgress> */
+    public function vocabularyProgress(string $apiToken, ?CarbonImmutable $updatedAfter): array
+    {
+        $query = ['subject_types' => 'vocabulary,kana_vocabulary'];
+        if ($updatedAfter !== null) {
+            $query['updated_after'] = $updatedAfter->utc()->format('Y-m-d\TH:i:s.u\Z');
+        }
+
+        $assignmentsBySubjectId = [];
+        foreach ($this->collection($apiToken, '/assignments', $query) as $assignment) {
+            $data = $this->resourceData($assignment);
+            $subjectId = $data['subject_id'] ?? null;
+            $subjectType = $data['subject_type'] ?? null;
+            $srsStage = $data['srs_stage'] ?? null;
+            $hidden = $data['hidden'] ?? false;
+
+            // Vocabulary sync deliberately fails closed. Skipping a malformed row while
+            // advancing the incremental cursor could permanently undercount mastery.
+            if (! is_int($subjectId)
+                || ! in_array($subjectType, ['vocabulary', 'kana_vocabulary'], true)
+                || ! is_int($srsStage)
+                || $srsStage < 0
+                || $srsStage > 9
+                || ! is_bool($hidden)
+            ) {
+                throw WaniKaniApiException::invalidResponse();
+            }
+
+            $assignmentsBySubjectId[$subjectId] = [
+                'subjectType' => $subjectType,
+                'srsStage' => $srsStage,
+                'passedAt' => $this->optionalTimestamp($data['passed_at'] ?? null),
+                'burnedAt' => $this->optionalTimestamp($data['burned_at'] ?? null),
+                'hidden' => $hidden,
+                'updatedAt' => $this->optionalTimestamp($assignment['data_updated_at'] ?? null),
+            ];
+        }
+
+        if ($assignmentsBySubjectId === []) {
+            return [];
+        }
+
+        $subjectsById = [];
+        foreach (array_chunk(array_keys($assignmentsBySubjectId), self::SUBJECT_BATCH_SIZE) as $subjectIds) {
+            foreach ($this->collection($apiToken, '/subjects', ['ids' => implode(',', $subjectIds)]) as $subject) {
+                $id = $subject['id'] ?? null;
+                $object = $subject['object'] ?? null;
+                $data = $this->resourceData($subject);
+                $characters = $data['characters'] ?? null;
+
+                if (! is_int($id)
+                    || ! in_array($object, ['vocabulary', 'kana_vocabulary'], true)
+                    || ! is_string($characters)
+                    || $characters === ''
+                ) {
+                    throw WaniKaniApiException::invalidResponse();
+                }
+
+                $readings = $object === 'kana_vocabulary'
+                    ? [$characters]
+                    : $this->acceptedValues($data['readings'] ?? null, 'reading');
+                $meanings = $this->acceptedValues($data['meanings'] ?? null, 'meaning');
+
+                if ($readings === [] || $meanings === []) {
+                    throw WaniKaniApiException::invalidResponse();
+                }
+
+                $subjectsById[$id] = [
+                    'subjectType' => $object,
+                    'characters' => $characters,
+                    'readings' => $readings,
+                    'meanings' => $meanings,
+                    'hiddenAt' => $this->optionalTimestamp($data['hidden_at'] ?? null),
+                    'updatedAt' => $this->optionalTimestamp($subject['data_updated_at'] ?? null),
+                ];
+            }
+        }
+
+        $result = [];
+        foreach ($assignmentsBySubjectId as $subjectId => $assignment) {
+            $subject = $subjectsById[$subjectId] ?? null;
+            if ($subject === null || $subject['subjectType'] !== $assignment['subjectType']) {
+                throw WaniKaniApiException::invalidResponse();
+            }
+
+            $result[] = new WaniKaniVocabularyProgress(
+                subjectId: $subjectId,
+                subjectType: $subject['subjectType'],
+                characters: $subject['characters'],
+                readings: $subject['readings'],
+                meanings: $subject['meanings'],
+                srsStage: $assignment['srsStage'],
+                passedAt: $assignment['passedAt'],
+                burnedAt: $assignment['burnedAt'],
+                hidden: $assignment['hidden'],
+                assignmentUpdatedAt: $assignment['updatedAt'],
+                subjectUpdatedAt: $subject['updatedAt'],
+                hiddenAt: $subject['hiddenAt'],
+            );
+        }
+
+        return $result;
+    }
+
     /**
      * @param  array<string, string>  $query
      * @return list<array<string, mixed>>
@@ -178,6 +283,50 @@ final class WaniKaniApiClient
         }
 
         return $data;
+    }
+
+    private function optionalTimestamp(mixed $value): ?CarbonImmutable
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw WaniKaniApiException::invalidResponse();
+        }
+
+        try {
+            return CarbonImmutable::parse($value)->utc();
+        } catch (\Throwable) {
+            throw WaniKaniApiException::invalidResponse();
+        }
+    }
+
+    /** @return list<string> */
+    private function acceptedValues(mixed $items, string $valueKey): array
+    {
+        if (! is_array($items)) {
+            throw WaniKaniApiException::invalidResponse();
+        }
+
+        $values = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                throw WaniKaniApiException::invalidResponse();
+            }
+
+            $value = $item[$valueKey] ?? null;
+            $accepted = $item['accepted_answer'] ?? true;
+            if (! is_string($value) || $value === '' || ! is_bool($accepted)) {
+                throw WaniKaniApiException::invalidResponse();
+            }
+
+            if ($accepted) {
+                $values[] = $value;
+            }
+        }
+
+        return array_values(array_unique($values));
     }
 
     private function baseUrl(): string

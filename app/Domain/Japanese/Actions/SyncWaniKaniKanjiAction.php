@@ -15,6 +15,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class SyncWaniKaniKanjiAction
 {
@@ -23,6 +24,7 @@ final class SyncWaniKaniKanjiAction
     public function __construct(
         private readonly WaniKaniApiClient $client,
         private readonly WaniKaniVocabularyConceptMatcher $vocabularyMatcher,
+        private readonly DispatchWaniKaniTransferImportsAction $dispatchTransferImports,
     ) {}
 
     /**
@@ -59,7 +61,7 @@ final class SyncWaniKaniKanjiAction
                 ]);
             }
 
-            return DB::transaction(function () use (
+            $result = DB::transaction(function () use (
                 $userId,
                 $connection,
                 $syncStartedAt,
@@ -153,6 +155,16 @@ final class SyncWaniKaniKanjiAction
                     'vocabularyMatchedTotal' => $vocabularyMatchedTotal,
                 ];
             });
+
+            try {
+                // Keep candidate selection behind the same sync lock so it always observes the
+                // vocabulary progress persisted by this provider response.
+                $this->dispatchTransferImports->handle($userId);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+
+            return $result;
         } finally {
             $lock->release();
         }

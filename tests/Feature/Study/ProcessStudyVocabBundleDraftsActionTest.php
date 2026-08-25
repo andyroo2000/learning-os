@@ -10,6 +10,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Models\StudyVocabVariantSentence;
+use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Study\Services\StudyVocabBundleGenerator;
 use App\Domain\Sync\Models\SyncFeedEntry;
@@ -118,8 +119,12 @@ class ProcessStudyVocabBundleDraftsActionTest extends TestCase
     {
         $job = new ProcessStudyVocabBundleDrafts(strtolower((string) str()->ulid()));
 
-        $this->assertSame(120, $job->timeout);
-        $this->assertGreaterThan(OpenAiStudyCardGenerator::TIMEOUT_SECONDS, $job->timeout);
+        $this->assertSame(600, $job->timeout);
+        $this->assertGreaterThan(
+            OpenAiStudyCardGenerator::TIMEOUT_SECONDS + (4 * FishAudioSpeechGenerator::TIMEOUT_SECONDS),
+            $job->timeout,
+        );
+        $this->assertSame(3600, $job->uniqueFor);
         $this->assertSame(4, $job->tries);
         $this->assertSame([10, 30, 60], $job->backoff());
     }

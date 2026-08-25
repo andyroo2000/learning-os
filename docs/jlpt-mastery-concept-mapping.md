@@ -30,6 +30,14 @@ N4. Vocabulary and grammar remain separate metrics; there is no combined score.
   by a one-character particle or by a conjugation absent from the catalog pattern.
   Surface fragments shared by more than one catalog concept (such as `です`) are
   considered ambiguous and do not produce automatic matches.
+- N4 grammar matching currently recognizes a curated set of high-signal surface
+  constructions. Form-only rules such as potential, passive, causative, and some
+  conditionals remain in the denominator but are intentionally not auto-matched
+  until their morphology can be distinguished reliably. More-specific constructions
+  suppress their nested general rule (for example, `なくてもいい` does not also
+  credit the ordinary `てもいい` permission rule). Ambiguous fragments such as
+  `なら` and casual quotation `って` are likewise left unmatched because they also
+  occur inside unrelated forms and ordinary te-form words.
 - Both manual cards and cards committed from drafts converge on `CreateCardAction`.
   New-card matching runs as a best-effort post-commit analytic so a matching
   failure cannot block card creation. Content edits refresh automatic links;

@@ -59,6 +59,7 @@ class ProcessDailyAudioPracticeAction
                 $atoms,
                 $l1VoiceId,
                 $l2VoiceId,
+                $practice->target_duration_minutes,
             ),
             'dialogue' => $this->contextTrackGenerator->generateDialogue(
                 $atoms,

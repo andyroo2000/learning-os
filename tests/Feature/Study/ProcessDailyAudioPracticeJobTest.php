@@ -150,12 +150,13 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                 fn ($cards): bool => $cards->sole()->is($card),
             )->andReturn(collect([$atom]));
         });
-        $this->mock(DailyAudioDrillScriptGenerator::class, function (MockInterface $mock) use ($generated): void {
+        $this->mock(DailyAudioDrillScriptGenerator::class, function (MockInterface $mock) use ($generated, $practice): void {
             $mock->shouldReceive('generate')
                 ->once()
-                ->withArgs(fn ($atoms, $l1, $l2): bool => $atoms->count() === 1
+                ->withArgs(fn ($atoms, $l1, $l2, $targetDurationMinutes): bool => $atoms->count() === 1
                     && $l1 === config('daily_audio.l1_voice_id')
-                    && $l2 === config('daily_audio.l2_voice_id'))
+                    && $l2 === config('daily_audio.l2_voice_id')
+                    && $targetDurationMinutes === $practice->target_duration_minutes)
                 ->andReturn($generated);
         });
         $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {

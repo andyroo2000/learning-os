@@ -550,26 +550,45 @@ class GetStudyOverviewActionTest extends TestCase
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'subject_id' => 9004,
+                'subject_type' => 'vocabulary',
+                'characters' => '安心',
+                'normalized_key' => '安心',
+                'readings' => json_encode(['あんしん'], JSON_THROW_ON_ERROR),
+                'meanings' => json_encode(['relief'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
         DB::table('wanikani_subject_learning_concepts')->insert([
             ['subject_id' => 9001, 'concept_id' => 'n5-vocab-1198550-2120ff50', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
             ['subject_id' => 9002, 'concept_id' => 'n5-vocab-1198180-ada066ed', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
             ['subject_id' => 9003, 'concept_id' => 'n5-vocab-1275320-9949d874', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
+            ['subject_id' => 9004, 'concept_id' => 'n4-vocab-1153890-afd1a981', 'match_method' => 'expression', 'confidence' => 1, 'matcher_version' => 'test', 'created_at' => now(), 'updated_at' => now()],
         ]);
         DB::table('user_wanikani_assignments')->insert([
             ['user_id' => $user->id, 'subject_id' => 9001, 'srs_stage' => 5, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
             ['user_id' => $user->id, 'subject_id' => 9002, 'srs_stage' => 7, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
             ['user_id' => $otherUser->id, 'subject_id' => 9003, 'srs_stage' => 9, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $user->id, 'subject_id' => 9004, 'srs_stage' => 5, 'passed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         $n5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id)['jlpt_mastery']['N5'];
         $deckN5 = app(GetStudyOverviewAction::class)->handle(userId: $user->id, deckId: $deck->id)['jlpt_mastery']['N5'];
+        $n4 = app(GetStudyOverviewAction::class)->handle(userId: $user->id)['jlpt_mastery']['N4'];
+        $deckN4 = app(GetStudyOverviewAction::class)->handle(userId: $user->id, deckId: $deck->id)['jlpt_mastery']['N4'];
 
         $this->assertSame(['mastery_percent' => 0, 'known' => 3, 'known_from_cards' => 2, 'known_from_wanikani' => 2, 'known_from_both' => 1, 'matched' => 2, 'covered' => 2, 'total' => 684], $n5['vocabulary']);
         $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 77], $n5['grammar']);
         $this->assertSame(['mastery_percent' => 0, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 684], $deckN5['vocabulary']);
         $this->assertSame(['mastery_percent' => 1, 'known' => 1, 'known_from_cards' => 1, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 1, 'covered' => 1, 'total' => 77], $deckN5['grammar']);
         $this->assertArrayNotHasKey('overall', $n5);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 1, 'known_from_cards' => 0, 'known_from_wanikani' => 1, 'known_from_both' => 0, 'matched' => 0, 'covered' => 0, 'total' => 640], $n4['vocabulary']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 0, 'known_from_cards' => 0, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 0, 'covered' => 0, 'total' => 89], $n4['grammar']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 0, 'known_from_cards' => 0, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 0, 'covered' => 0, 'total' => 640], $deckN4['vocabulary']);
+        $this->assertSame(['mastery_percent' => 0, 'known' => 0, 'known_from_cards' => 0, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 0, 'covered' => 0, 'total' => 89], $deckN4['grammar']);
+        $this->assertArrayNotHasKey('overall', $n4);
     }
 
     public function test_readiness_uses_recall_and_projected_review_time_instead_of_raw_due_count(): void

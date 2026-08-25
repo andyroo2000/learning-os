@@ -28,6 +28,7 @@ class WaniKaniVocabularyConceptMatcherTest extends TestCase
             ['subject_id' => 2, 'characters' => '生', 'readings' => ['せい']],
             ['subject_id' => 3, 'characters' => '橋', 'readings' => ['はし']],
             ['subject_id' => 4, 'characters' => 'おやつ', 'readings' => ['おやつ']],
+            ['subject_id' => 5, 'characters' => '安心', 'readings' => ['あんしん']],
         ]);
 
         $this->assertSame([
@@ -46,6 +47,12 @@ class WaniKaniVocabularyConceptMatcherTest extends TestCase
             [
                 'subject_id' => 4,
                 'concept_id' => 'test-snack',
+                'match_method' => 'expression',
+                'confidence' => 1.0,
+            ],
+            [
+                'subject_id' => 5,
+                'concept_id' => 'n4-vocab-1153890-afd1a981',
                 'match_method' => 'expression',
                 'confidence' => 1.0,
             ],

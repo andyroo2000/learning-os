@@ -28,6 +28,10 @@ class StudyOverviewCompatibilityResourceTest extends TestCase
                     'vocabulary' => ['mastery_percent' => 34, 'known' => 233, 'known_from_cards' => 220, 'known_from_wanikani' => 30, 'known_from_both' => 17, 'matched' => 280, 'covered' => 280, 'total' => 684],
                     'grammar' => ['mastery_percent' => 21, 'known' => 16, 'known_from_cards' => 16, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 29, 'covered' => 29, 'total' => 77],
                 ],
+                'N4' => [
+                    'vocabulary' => ['mastery_percent' => 18, 'known' => 115, 'known_from_cards' => 90, 'known_from_wanikani' => 40, 'known_from_both' => 15, 'matched' => 130, 'covered' => 130, 'total' => 640],
+                    'grammar' => ['mastery_percent' => 9, 'known' => 8, 'known_from_cards' => 8, 'known_from_wanikani' => 0, 'known_from_both' => 0, 'matched' => 12, 'covered' => 12, 'total' => 89],
+                ],
             ],
         ]))->toArray(new Request);
 
@@ -36,8 +40,13 @@ class StudyOverviewCompatibilityResourceTest extends TestCase
                 'vocabulary' => ['masteryPercent' => 34, 'known' => 233, 'knownFromCards' => 220, 'knownFromWaniKani' => 30, 'knownFromBoth' => 17, 'matched' => 280, 'covered' => 280, 'total' => 684],
                 'grammar' => ['masteryPercent' => 21, 'known' => 16, 'knownFromCards' => 16, 'knownFromWaniKani' => 0, 'knownFromBoth' => 0, 'matched' => 29, 'covered' => 29, 'total' => 77],
             ],
+            'N4' => [
+                'vocabulary' => ['masteryPercent' => 18, 'known' => 115, 'knownFromCards' => 90, 'knownFromWaniKani' => 40, 'knownFromBoth' => 15, 'matched' => 130, 'covered' => 130, 'total' => 640],
+                'grammar' => ['masteryPercent' => 9, 'known' => 8, 'knownFromCards' => 8, 'knownFromWaniKani' => 0, 'knownFromBoth' => 0, 'matched' => 12, 'covered' => 12, 'total' => 89],
+            ],
         ], $payload['jlptMastery']);
         $this->assertArrayNotHasKey('overall', $payload['jlptMastery']['N5']);
+        $this->assertArrayNotHasKey('overall', $payload['jlptMastery']['N4']);
     }
 
     public function test_it_uses_convolab_millisecond_timestamps_for_the_latest_import(): void

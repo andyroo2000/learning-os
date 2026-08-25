@@ -1,0 +1,641 @@
+concept_id,jlpt_level,expression,reading,meaning,source,source_id,review_status
+n4-vocab-2394370-44999f8c,N4,あ,あ,Ah,"Jonathan Waller JLPT vocabulary list",2394370,seed
+n4-vocab-2085080-81fc2484,N4,ああ,ああ,"like that","Jonathan Waller JLPT vocabulary list",2085080,seed
+n4-vocab-1151120-dd5be587,N4,あいさつ,あいさつ,"to greet","Jonathan Waller JLPT vocabulary list",1151120,seed
+n4-vocab-1215230-1b4d9174,N4,間,あいだ,"a space","Jonathan Waller JLPT vocabulary list",1215230,seed
+n4-vocab-1284430-ea658d8c,N4,合う,あう,"to match","Jonathan Waller JLPT vocabulary list",1284430,seed
+n4-vocab-1383260-9237d9f5,N4,あかちゃん,あかちゃん,infant,"Jonathan Waller JLPT vocabulary list",1383260,seed
+n4-vocab-1352290-954799a1,N4,上る,あがる,"to rise","Jonathan Waller JLPT vocabulary list",1352290,seed
+n4-vocab-1383310-08088d3b,N4,赤ん坊,あかんぼう,baby,"Jonathan Waller JLPT vocabulary list",1383310,seed
+n4-vocab-1586270-d222d884,N4,空く,あく,"to open, to become empty","Jonathan Waller JLPT vocabulary list",1586270,seed
+n4-vocab-1015220-a4496366,N4,アクセサリー,アクセサリー,accessory,"Jonathan Waller JLPT vocabulary list",1015220,seed
+n4-vocab-1352320-52c1d677,N4,あげる,あげる,"to give","Jonathan Waller JLPT vocabulary list",1352320,seed
+n4-vocab-1390800-411970bd,N4,浅い,あさい,"shallow,superficial","Jonathan Waller JLPT vocabulary list",1390800,seed
+n4-vocab-1526960-ae54e298,N4,味,あじ,flavour,"Jonathan Waller JLPT vocabulary list",1526960,seed
+n4-vocab-1015840-8be077a6,N4,アジア,アジア,Asia,"Jonathan Waller JLPT vocabulary list",1015840,seed
+n4-vocab-1584660-223d5b00,N4,明日,あす,tomorrow,"Jonathan Waller JLPT vocabulary list",1584660,seed
+n4-vocab-1542070-0cac4e4f,N4,遊び,あそび,play,"Jonathan Waller JLPT vocabulary list",1542070,seed
+n4-vocab-1333550-72aab6a6,N4,集る,あつまる,"to gather","Jonathan Waller JLPT vocabulary list",1333550,seed
+n4-vocab-1333560-3ec8ea21,N4,集める,あつめる,"to collect something","Jonathan Waller JLPT vocabulary list",1333560,seed
+n4-vocab-1017330-3fe714d2,N4,アナウンサー,アナウンサー,announcer,"Jonathan Waller JLPT vocabulary list",1017330,seed
+n4-vocab-1929050-efecc5d0,N4,アフリカ,アフリカ,Africa,"Jonathan Waller JLPT vocabulary list",1929050,seed
+n4-vocab-1149830-a9b2fb0f,N4,アメリカ,アメリカ,America,"Jonathan Waller JLPT vocabulary list",1149830,seed
+n4-vocab-1323010-81916ddb,N4,謝る,あやまる,"to apologize","Jonathan Waller JLPT vocabulary list",1323010,seed
+n4-vocab-1019280-bba9c7ae,N4,アルコール,アルコール,alcohol,"Jonathan Waller JLPT vocabulary list",1019280,seed
+n4-vocab-1019420-787c9339,N4,アルバイト,アルバイト,"part-time job","Jonathan Waller JLPT vocabulary list",1019420,seed
+n4-vocab-1153890-afd1a981,N4,安心,あんしん,relief,"Jonathan Waller JLPT vocabulary list",1153890,seed
+n4-vocab-1153930-c0c75d9e,N4,安全,あんぜん,safety,"Jonathan Waller JLPT vocabulary list",1153930,seed
+n4-vocab-1000590-9b5c4bf2,N4,あんな,あんな,such,"Jonathan Waller JLPT vocabulary list",1000590,seed
+n4-vocab-1154860-a265d110,N4,案内,あんない,"to guide","Jonathan Waller JLPT vocabulary list",1154860,seed
+n4-vocab-1155060-cfc154b1,N4,以下,いか,"less than","Jonathan Waller JLPT vocabulary list",1155060,seed
+n4-vocab-1155090-bd7bd028,N4,以外,いがい,"with the exception of","Jonathan Waller JLPT vocabulary list",1155090,seed
+n4-vocab-1159810-9a6bdff2,N4,医学,いがく,"medical science","Jonathan Waller JLPT vocabulary list",1159810,seed
+n4-vocab-1378520-f340df86,N4,生きる,いきる,"to live","Jonathan Waller JLPT vocabulary list",1378520,seed
+n4-vocab-1156530-fcd9e639,N4,意見,いけん,opinion,"Jonathan Waller JLPT vocabulary list",1156530,seed
+n4-vocab-1382440-02459eea,N4,石,いし,stone,"Jonathan Waller JLPT vocabulary list",1382440,seed
+n4-vocab-1195140-e53ef7f1,N4,いじめる,いじめる,"to tease","Jonathan Waller JLPT vocabulary list",1195140,seed
+n4-vocab-1155120-d9b37de6,N4,以上,いじょう,"more than,this is all","Jonathan Waller JLPT vocabulary list",1155120,seed
+n4-vocab-1228650-11e5d707,N4,急ぐ,いそぐ,"to hurry","Jonathan Waller JLPT vocabulary list",1228650,seed
+n4-vocab-1421900-5bd0683d,N4,致す,いたす,"(humble) to do","Jonathan Waller JLPT vocabulary list",1421900,seed
+n4-vocab-1587290-6dabc664,N4,いただく,いただく,"(humble) to receive","Jonathan Waller JLPT vocabulary list",1587290,seed
+n4-vocab-1576250-9cac0cfe,N4,一度,いちど,once,"Jonathan Waller JLPT vocabulary list",1576250,seed
+n4-vocab-1164010-4d898c93,N4,一生懸命,いっしょうけんめい,"with utmost effort","Jonathan Waller JLPT vocabulary list",1164010,seed
+n4-vocab-1165670-e11a751a,N4,一杯,いっぱい,full,"Jonathan Waller JLPT vocabulary list",1165670,seed
+n4-vocab-1311450-be03ad5c,N4,糸,いと,thread,"Jonathan Waller JLPT vocabulary list",1311450,seed
+n4-vocab-1155180-8d47f055,N4,以内,いない,within,"Jonathan Waller JLPT vocabulary list",1155180,seed
+n4-vocab-1442750-ae76b559,N4,田舎,いなか,countryside,"Jonathan Waller JLPT vocabulary list",1442750,seed
+n4-vocab-1222770-57465e3b,N4,祈る,いのる,"to pray","Jonathan Waller JLPT vocabulary list",1222770,seed
+n4-vocab-1000940-6d56f232,N4,いらっしゃる,いらっしゃる,"(respectful) to be,to come or to go","Jonathan Waller JLPT vocabulary list",1000940,seed
+n4-vocab-1357250-f9918459,N4,植える,うえる,"to plant,to grow","Jonathan Waller JLPT vocabulary list",1357250,seed
+n4-vocab-1305700-77ec51bf,N4,伺う,うかがう,"to visit","Jonathan Waller JLPT vocabulary list",1305700,seed
+n4-vocab-1588060-84e90680,N4,受付,うけつけ,receipt,"Jonathan Waller JLPT vocabulary list",1588060,seed
+n4-vocab-1329590-824df849,N4,受ける,うける,"to take a lesson or test","Jonathan Waller JLPT vocabulary list",1329590,seed
+n4-vocab-1451210-23c620fe,N4,動く,うごく,"to move","Jonathan Waller JLPT vocabulary list",1451210,seed
+n4-vocab-1172400-bb43dba3,N4,嘘,うそ,"a lie","Jonathan Waller JLPT vocabulary list",1172400,seed
+n4-vocab-1457730-02a26875,N4,内,うち,within,"Jonathan Waller JLPT vocabulary list",1457730,seed
+n4-vocab-1408810-3db7df54,N4,打つ,うつ,"to hit","Jonathan Waller JLPT vocabulary list",1408810,seed
+n4-vocab-1486360-8e9f8927,N4,美しい,うつくしい,beautiful,"Jonathan Waller JLPT vocabulary list",1486360,seed
+n4-vocab-1588320-fe7e8264,N4,写す,うつす,"to copy or photograph","Jonathan Waller JLPT vocabulary list",1588320,seed
+n4-vocab-1158210-3bc421af,N4,移る,うつる,"to move house or transfer","Jonathan Waller JLPT vocabulary list",1158210,seed
+n4-vocab-1562850-a79e5cb8,N4,腕,うで,arm,"Jonathan Waller JLPT vocabulary list",1562850,seed
+n4-vocab-1310460-547e6f06,N4,上手い,うまい,delicious,"Jonathan Waller JLPT vocabulary list",1310460,seed
+n4-vocab-1550190-af3d6fa9,N4,裏,うら,"reverse side","Jonathan Waller JLPT vocabulary list",1550190,seed
+n4-vocab-1588550-abeab4e1,N4,売り場,うりば,"place where things are sold","Jonathan Waller JLPT vocabulary list",1588550,seed
+n4-vocab-1219510-15c71f1e,N4,うれしい,うれしい,glad,"Jonathan Waller JLPT vocabulary list",1219510,seed
+n4-vocab-1001090-9e064547,N4,うん,うん,"(informal) yes","Jonathan Waller JLPT vocabulary list",1001090,seed
+n4-vocab-1172830-97286352,N4,運転,うんてん,"to drive","Jonathan Waller JLPT vocabulary list",1172830,seed
+n4-vocab-1172870-ac01e82f,N4,運転手,うんてんしゅ,driver,"Jonathan Waller JLPT vocabulary list",1172870,seed
+n4-vocab-1172910-06ebbd35,N4,運動,うんどう,"to exercise","Jonathan Waller JLPT vocabulary list",1172910,seed
+n4-vocab-1028580-ce7d0ad6,N4,エスカレーター,エスカレーター,escalator,"Jonathan Waller JLPT vocabulary list",1028580,seed
+n4-vocab-1310530-72f9111d,N4,枝,えだ,"branch, twig","Jonathan Waller JLPT vocabulary list",1310530,seed
+n4-vocab-1588730-0037b625,N4,選ぶ,えらぶ,"to choose","Jonathan Waller JLPT vocabulary list",1588730,seed
+n4-vocab-1178450-2bd76dec,N4,遠慮,えんりょ,"to be reserved, to be restrained","Jonathan Waller JLPT vocabulary list",1178450,seed
+n4-vocab-1001180-9180745c,N4,おいでになる,おいでになる,"(respectful) to be","Jonathan Waller JLPT vocabulary list",1001180,seed
+n4-vocab-1612770-4766dfbd,N4,お祝い,おいわい,congratulation,"Jonathan Waller JLPT vocabulary list",1612770,seed
+n4-vocab-1032030-d0713170,N4,オートバイ,オートバイ,motorcycle,"Jonathan Waller JLPT vocabulary list",1032030,seed
+n4-vocab-1001640-3ae1b533,N4,おかげ,おかげ,"owing to","Jonathan Waller JLPT vocabulary list",1001640,seed
+n4-vocab-1190860-20f6b2c9,N4,おかしい,おかしい,"strange or funny","Jonathan Waller JLPT vocabulary list",1190860,seed
+n4-vocab-1182620-9b178a79,N4,億,おく,"one hundred million","Jonathan Waller JLPT vocabulary list",1182620,seed
+n4-vocab-1182710-b37eef61,N4,屋上,おくじょう,rooftop,"Jonathan Waller JLPT vocabulary list",1182710,seed
+n4-vocab-1589030-b8b7ba4e,N4,贈り物,おくりもの,gift,"Jonathan Waller JLPT vocabulary list",1589030,seed
+n4-vocab-1402730-0199c964,N4,送る,おくる,"to send","Jonathan Waller JLPT vocabulary list",1402730,seed
+n4-vocab-1589040-7357ebf2,N4,遅れる,おくれる,"to be late","Jonathan Waller JLPT vocabulary list",1589040,seed
+n4-vocab-1223660-3b67d0a8,N4,起す,おこす,"to wake","Jonathan Waller JLPT vocabulary list",1223660,seed
+n4-vocab-1589060-6998ff96,N4,行う,おこなう,"to do","Jonathan Waller JLPT vocabulary list",1589060,seed
+n4-vocab-1445690-02ce8881,N4,怒る,おこる,"to get angry,to be angry","Jonathan Waller JLPT vocabulary list",1445690,seed
+n4-vocab-1589110-cffcc943,N4,押し入れ,おしいれ,closet,"Jonathan Waller JLPT vocabulary list",1589110,seed
+n4-vocab-1002170-fc4b16a8,N4,お嬢さん,おじょうさん,"young lady","Jonathan Waller JLPT vocabulary list",1002170,seed
+n4-vocab-1002400-b6374a15,N4,お宅,おたく,"(polite) your house","Jonathan Waller JLPT vocabulary list",1002400,seed
+n4-vocab-1548550-3a5c7c1a,N4,落る,おちる,"to fall or drop","Jonathan Waller JLPT vocabulary list",1548550,seed
+n4-vocab-1238840-a60522c1,N4,おっしゃる,おっしゃる,"(respectful) to say","Jonathan Waller JLPT vocabulary list",1238840,seed
+n4-vocab-1496480-5b97a6da,N4,夫,おっと,husband,"Jonathan Waller JLPT vocabulary list",1496480,seed
+n4-vocab-1270550-cd8a899e,N4,おつり,おつり,"change from purchase, balance","Jonathan Waller JLPT vocabulary list",1270550,seed
+n4-vocab-1576900-dea76170,N4,音,おと,"sound,note","Jonathan Waller JLPT vocabulary list",1576900,seed
+n4-vocab-1589260-8e39ab3d,N4,落す,おとす,"to drop","Jonathan Waller JLPT vocabulary list",1589260,seed
+n4-vocab-1546880-173d5c97,N4,踊り,おどり,"a dance","Jonathan Waller JLPT vocabulary list",1546880,seed
+n4-vocab-1538440-39d51730,N4,踊る,おどる,"to dance","Jonathan Waller JLPT vocabulary list",1538440,seed
+n4-vocab-1238680-3a4698f3,N4,驚く,おどろく,"to be surprised","Jonathan Waller JLPT vocabulary list",1238680,seed
+n4-vocab-1604135-f83b20d4,N4,お祭り,おまつり,festival,"Jonathan Waller JLPT vocabulary list",1604135,seed
+n4-vocab-1001870-c6903f7d,N4,お見舞い,おみまい,"calling on someone who is ill,enquiry","Jonathan Waller JLPT vocabulary list",1001870,seed
+n4-vocab-1002500-8ce4b2a4,N4,お土産,おみやげ,souvenir,"Jonathan Waller JLPT vocabulary list",1002500,seed
+n4-vocab-1309260-cbb28605,N4,思い出す,おもいだす,"to remember","Jonathan Waller JLPT vocabulary list",1309260,seed
+n4-vocab-1589350-057ce351,N4,思う,おもう,"to think,to feel","Jonathan Waller JLPT vocabulary list",1589350,seed
+n4-vocab-1217070-9d2f7e57,N4,おもちゃ,おもちゃ,toy,"Jonathan Waller JLPT vocabulary list",1217070,seed
+n4-vocab-1489340-71b0eb88,N4,表,おもて,"the front","Jonathan Waller JLPT vocabulary list",1489340,seed
+n4-vocab-1365040-c9e5ca9b,N4,親,おや,parents,"Jonathan Waller JLPT vocabulary list",1365040,seed
+n4-vocab-1589500-7b11fbbf,N4,下りる,おりる,"to get off","Jonathan Waller JLPT vocabulary list",1589500,seed
+n4-vocab-1385910-61b4dd5f,N4,折る,おる,"to break or to fold","Jonathan Waller JLPT vocabulary list",1385910,seed
+n4-vocab-1270810-7a8b31df,N4,お礼,おれい,"expression of gratitude","Jonathan Waller JLPT vocabulary list",1270810,seed
+n4-vocab-1385920-eb3fbf39,N4,折れる,おれる,"to break or be folded","Jonathan Waller JLPT vocabulary list",1385920,seed
+n4-vocab-1589590-f7970e33,N4,終わり,おわり,"the end","Jonathan Waller JLPT vocabulary list",1589590,seed
+n4-vocab-1036290-adf1172e,N4,カーテン,カーテン,curtain,"Jonathan Waller JLPT vocabulary list",1036290,seed
+n4-vocab-1201280-5df1885d,N4,海岸,かいがん,coast,"Jonathan Waller JLPT vocabulary list",1201280,seed
+n4-vocab-1198360-c252b135,N4,会議,かいぎ,meeting,"Jonathan Waller JLPT vocabulary list",1198360,seed
+n4-vocab-1198380-f14c68b8,N4,会議室,かいぎしつ,"meeting room","Jonathan Waller JLPT vocabulary list",1198380,seed
+n4-vocab-1198660-992f0c56,N4,会場,かいじょう,"assembly hall or meeting place","Jonathan Waller JLPT vocabulary list",1198660,seed
+n4-vocab-1198880-2bf1fae5,N4,会話,かいわ,conversation,"Jonathan Waller JLPT vocabulary list",1198880,seed
+n4-vocab-1221250-758896d2,N4,帰り,かえり,return,"Jonathan Waller JLPT vocabulary list",1221250,seed
+n4-vocab-1510650-d03dcef4,N4,変える,かえる,"to change","Jonathan Waller JLPT vocabulary list",1510650,seed
+n4-vocab-1192700-2b085487,N4,科学,かがく,science,"Jonathan Waller JLPT vocabulary list",1192700,seed
+n4-vocab-1238550-2a2abc9e,N4,鏡,かがみ,mirror,"Jonathan Waller JLPT vocabulary list",1238550,seed
+n4-vocab-1357210-2e8bc5d0,N4,飾る,かざる,"to decorate","Jonathan Waller JLPT vocabulary list",1357210,seed
+n4-vocab-1193950-c25fdc73,N4,火事,かじ,fire,"Jonathan Waller JLPT vocabulary list",1193950,seed
+n4-vocab-1040060-a5d7c3b3,N4,ガス,ガス,petrol,"Jonathan Waller JLPT vocabulary list",1040060,seed
+n4-vocab-1040250-5a9ab3c5,N4,ガソリン,ガソリン,petrol,"Jonathan Waller JLPT vocabulary list",1040250,seed
+n4-vocab-1040260-a900e3f3,N4,ガソリンスタンド,ガソリンスタンド,"petrol station","Jonathan Waller JLPT vocabulary list",1040260,seed
+n4-vocab-1257110-9d7975d4,N4,堅い,かたい,hard,"Jonathan Waller JLPT vocabulary list",1257110,seed
+n4-vocab-1257110-c9287eb8,N4,硬い,かたい,hard,"Jonathan Waller JLPT vocabulary list",1257110,seed
+n4-vocab-1257110-b5b67adb,N4,固い,かたい,hard,"Jonathan Waller JLPT vocabulary list",1257110,seed
+n4-vocab-1250220-035da889,N4,形,かたち,shape,"Jonathan Waller JLPT vocabulary list",1250220,seed
+n4-vocab-1511790-6ba21d2c,N4,片付ける,かたづける,"to tidy up","Jonathan Waller JLPT vocabulary list",1511790,seed
+n4-vocab-1195840-51dd6ff2,N4,課長,かちょう,"section manager","Jonathan Waller JLPT vocabulary list",1195840,seed
+n4-vocab-1346150-99dae8c6,N4,勝つ,かつ,"to win","Jonathan Waller JLPT vocabulary list",1346150,seed
+n4-vocab-1590480-f58cbd60,N4,格好,かっこう,appearance,"Jonathan Waller JLPT vocabulary list",1590480,seed
+n4-vocab-1192420-94e52cfa,N4,家内,かない,housewife,"Jonathan Waller JLPT vocabulary list",1192420,seed
+n4-vocab-1483190-75af7b69,N4,悲しい,かなしい,sad,"Jonathan Waller JLPT vocabulary list",1483190,seed
+n4-vocab-1487400-a3ba34d8,N4,必ず,かならず,"certainly,necessarily","Jonathan Waller JLPT vocabulary list",1487400,seed
+n4-vocab-2429350-dc0a539d,N4,お金持ち,おかねもち,"rich man","Jonathan Waller JLPT vocabulary list",2429350,seed
+n4-vocab-1242970-b5eb0efe,N4,金持ち,かねもち,"rich man","Jonathan Waller JLPT vocabulary list",1242970,seed
+n4-vocab-1483150-cb68ea96,N4,彼女,かのじょ,"she,girlfriend","Jonathan Waller JLPT vocabulary list",1483150,seed
+n4-vocab-1509290-449184ed,N4,壁,かべ,wall,"Jonathan Waller JLPT vocabulary list",1509290,seed
+n4-vocab-1279680-8b9dc62f,N4,かまう,かまう,"to mind","Jonathan Waller JLPT vocabulary list",1279680,seed
+n4-vocab-1477950-c65aabb8,N4,髪,かみ,hair,"Jonathan Waller JLPT vocabulary list",1477950,seed
+n4-vocab-1209240-3ea02b2f,N4,噛む,かむ,"to bite,to chew","Jonathan Waller JLPT vocabulary list",1209240,seed
+n4-vocab-1432850-1c7ad8aa,N4,通う,かよう,"to commute","Jonathan Waller JLPT vocabulary list",1432850,seed
+n4-vocab-1040380-d201c538,N4,ガラス,ガラス,"a glass pane","Jonathan Waller JLPT vocabulary list",1040380,seed
+n4-vocab-1483070-12662fb8,N4,彼,かれ,"he,boyfriend","Jonathan Waller JLPT vocabulary list",1483070,seed
+n4-vocab-1483090-b9d2151c,N4,彼ら,かれら,they,"Jonathan Waller JLPT vocabulary list",1483090,seed
+n4-vocab-1209650-329bbbd0,N4,乾く,かわく,"to get dry","Jonathan Waller JLPT vocabulary list",1209650,seed
+n4-vocab-1590770-12a01a76,N4,代わり,かわり,"substitute,alternate","Jonathan Waller JLPT vocabulary list",1590770,seed
+n4-vocab-1510790-b9c40bf5,N4,変わる,かわる,"to change","Jonathan Waller JLPT vocabulary list",1510790,seed
+n4-vocab-1281020-e5fb10a0,N4,考える,かんがえる,"to consider","Jonathan Waller JLPT vocabulary list",1281020,seed
+n4-vocab-1215810-73f49a82,N4,関係,かんけい,relationship,"Jonathan Waller JLPT vocabulary list",1215810,seed
+n4-vocab-1213870-d1a80272,N4,看護婦,かんごふ,"female nurse","Jonathan Waller JLPT vocabulary list",1213870,seed
+n4-vocab-1214330-7e3d1409,N4,簡単,かんたん,simple,"Jonathan Waller JLPT vocabulary list",1214330,seed
+n4-vocab-1221520-7f639f77,N4,気,き,"spirit,mood","Jonathan Waller JLPT vocabulary list",1221520,seed
+n4-vocab-1220800-fa9ef560,N4,機会,きかい,opportunity,"Jonathan Waller JLPT vocabulary list",1220800,seed
+n4-vocab-1218560-0a30c06a,N4,危険,きけん,danger,"Jonathan Waller JLPT vocabulary list",1218560,seed
+n4-vocab-1591150-300de3b5,N4,聞こえる,きこえる,"to be heard","Jonathan Waller JLPT vocabulary list",1591150,seed
+n4-vocab-1222700-c8a47be7,N4,汽車,きしゃ,"steam train","Jonathan Waller JLPT vocabulary list",1222700,seed
+n4-vocab-1225130-b2cea819,N4,技術,ぎじゅつ,"art,technology,skill","Jonathan Waller JLPT vocabulary list",1225130,seed
+n4-vocab-1222840-e89f8186,N4,季節,きせつ,season,"Jonathan Waller JLPT vocabulary list",1222840,seed
+n4-vocab-1223021-5e217cdd,N4,規則,きそく,regulations,"Jonathan Waller JLPT vocabulary list",1223021,seed
+n4-vocab-1003430-b33adee9,N4,きっと,きっと,surely,"Jonathan Waller JLPT vocabulary list",1003430,seed
+n4-vocab-1258710-208a0527,N4,絹,きぬ,silk,"Jonathan Waller JLPT vocabulary list",1258710,seed
+n4-vocab-1262530-b9eee5df,N4,厳しい,きびしい,strict,"Jonathan Waller JLPT vocabulary list",1262530,seed
+n4-vocab-1222590-aa642421,N4,気分,きぶん,mood,"Jonathan Waller JLPT vocabulary list",1222590,seed
+n4-vocab-1591420-3a4512f7,N4,決る,きまる,"to be decided","Jonathan Waller JLPT vocabulary list",1591420,seed
+n4-vocab-1247250-61e82eae,N4,君,きみ,"(informal) You (used by men towards women)","Jonathan Waller JLPT vocabulary list",1247250,seed
+n4-vocab-1254180-e1ee46e7,N4,決める,きめる,"to decide","Jonathan Waller JLPT vocabulary list",1254180,seed
+n4-vocab-1591430-a1f0cdf2,N4,気持ち,きもち,"feeling,mood","Jonathan Waller JLPT vocabulary list",1591430,seed
+n4-vocab-1423240-ef71e2c2,N4,着物,きもの,kimono,"Jonathan Waller JLPT vocabulary list",1423240,seed
+n4-vocab-1226630-2123a15a,N4,客,きゃく,"guest,customer","Jonathan Waller JLPT vocabulary list",1226630,seed
+n4-vocab-1228560-c8aa0db6,N4,急,きゅう,"urgent, steep","Jonathan Waller JLPT vocabulary list",1228560,seed
+n4-vocab-1228690-c49e35bd,N4,急行,きゅうこう,"speedy, express","Jonathan Waller JLPT vocabulary list",1228690,seed
+n4-vocab-1236950-f0a0ca82,N4,教育,きょういく,education,"Jonathan Waller JLPT vocabulary list",1236950,seed
+n4-vocab-1237030-c9888757,N4,教会,きょうかい,church,"Jonathan Waller JLPT vocabulary list",1237030,seed
+n4-vocab-1234140-41ad5753,N4,競争,きょうそう,competition,"Jonathan Waller JLPT vocabulary list",1234140,seed
+n4-vocab-1238410-26233f9a,N4,興味,きょうみ,"an interest","Jonathan Waller JLPT vocabulary list",1238410,seed
+n4-vocab-1242350-29064b4b,N4,近所,きんじょ,neighbourhood,"Jonathan Waller JLPT vocabulary list",1242350,seed
+n4-vocab-1592500-bec2c892,N4,具合,ぐあい,"condition,health","Jonathan Waller JLPT vocabulary list",1592500,seed
+n4-vocab-1245470-dd766227,N4,空気,くうき,"air,atmosphere","Jonathan Waller JLPT vocabulary list",1245470,seed
+n4-vocab-1245570-9d24ea31,N4,空港,くうこう,airport,"Jonathan Waller JLPT vocabulary list",1245570,seed
+n4-vocab-1401910-ccc07253,N4,草,くさ,grass,"Jonathan Waller JLPT vocabulary list",1401910,seed
+n4-vocab-1184280-c53f8939,N4,くださる,くださる,"(respectful) to give","Jonathan Waller JLPT vocabulary list",1184280,seed
+n4-vocab-1592270-169b3d2b,N4,首,くび,neck,"Jonathan Waller JLPT vocabulary list",1592270,seed
+n4-vocab-1173100-616ca1d9,N4,雲,くも,cloud,"Jonathan Waller JLPT vocabulary list",1173100,seed
+n4-vocab-1483540-104fa908,N4,比べる,くらべる,"to compare","Jonathan Waller JLPT vocabulary list",1483540,seed
+n4-vocab-1269130-18ec1468,N4,呉れる,くれる,"to give","Jonathan Waller JLPT vocabulary list",1269130,seed
+n4-vocab-1514960-aa6138de,N4,暮れる,くれる,"to get dark,to come to an end","Jonathan Waller JLPT vocabulary list",1514960,seed
+n4-vocab-1247260-66f6240b,N4,君,くん,"suffix for familiar young male","Jonathan Waller JLPT vocabulary list",1247260,seed
+n4-vocab-1533820-ab86a3a9,N4,毛,け,"hair or fur","Jonathan Waller JLPT vocabulary list",1533820,seed
+n4-vocab-1252090-9ded59a8,N4,計画,けいかく,"to plan","Jonathan Waller JLPT vocabulary list",1252090,seed
+n4-vocab-1251270-617fe400,N4,経験,けいけん,"to experience","Jonathan Waller JLPT vocabulary list",1251270,seed
+n4-vocab-1251320-b23ad66e,N4,経済,けいざい,"finance,economy","Jonathan Waller JLPT vocabulary list",1251320,seed
+n4-vocab-1252390-345f30f6,N4,警察,けいさつ,police,"Jonathan Waller JLPT vocabulary list",1252390,seed
+n4-vocab-1047860-72b7ca6f,N4,ケーキ,ケーキ,cake,"Jonathan Waller JLPT vocabulary list",1047860,seed
+n4-vocab-1200220-d383d4cc,N4,怪我,けが,"to injure","Jonathan Waller JLPT vocabulary list",1200220,seed
+n4-vocab-1250870-5947f3bc,N4,景色,けしき,"scene,landscape","Jonathan Waller JLPT vocabulary list",1250870,seed
+n4-vocab-1350080-8005fbcb,N4,消しゴム,けしゴム,eraser,"Jonathan Waller JLPT vocabulary list",1350080,seed
+n4-vocab-1185290-7a7c9ea9,N4,下宿,げしゅく,lodging,"Jonathan Waller JLPT vocabulary list",1185290,seed
+n4-vocab-1254130-cc96879c,N4,決して,けっして,never,"Jonathan Waller JLPT vocabulary list",1254130,seed
+n4-vocab-2853889-e4e7e225,N4,けれど,けれど,however,"Jonathan Waller JLPT vocabulary list",2853889,seed
+n4-vocab-2853889-88e1bc0f,N4,けれども,けれども,however,"Jonathan Waller JLPT vocabulary list",2853889,seed
+n4-vocab-1261190-c0db6003,N4,原因,げんいん,"cause,source","Jonathan Waller JLPT vocabulary list",1261190,seed
+n4-vocab-1257040-c516b1e9,N4,喧嘩,けんか,"to quarrel","Jonathan Waller JLPT vocabulary list",1257040,seed
+n4-vocab-1258520-309b1bf4,N4,研究,けんきゅう,research,"Jonathan Waller JLPT vocabulary list",1258520,seed
+n4-vocab-1258570-cb664c78,N4,研究室,けんきゅうしつ,"study room,laboratory","Jonathan Waller JLPT vocabulary list",1258570,seed
+n4-vocab-1260000-d89fd5e6,N4,見物,けんぶつ,sightseeing,"Jonathan Waller JLPT vocabulary list",1260000,seed
+n4-vocab-1307770-0998c512,N4,子,こ,child,"Jonathan Waller JLPT vocabulary list",1307770,seed
+n4-vocab-1004310-44595620,N4,斯う,こう,"this way","Jonathan Waller JLPT vocabulary list",1004310,seed
+n4-vocab-1282490-c314cfca,N4,郊外,こうがい,outskirts,"Jonathan Waller JLPT vocabulary list",1282490,seed
+n4-vocab-1282260-2e0646af,N4,講義,こうぎ,lecture,"Jonathan Waller JLPT vocabulary list",1282260,seed
+n4-vocab-1278040-5d202b38,N4,工業,こうぎょう,"the manufacturing industry","Jonathan Waller JLPT vocabulary list",1278040,seed
+n4-vocab-1283500-63960fac,N4,高校,こうこう,"high school","Jonathan Waller JLPT vocabulary list",1283500,seed
+n4-vocab-1283510-c9a0cbc5,N4,高校生,こうこうせい,"high school student","Jonathan Waller JLPT vocabulary list",1283510,seed
+n4-vocab-1578700-dd74bce4,N4,工場,こうじょう,factory,"Jonathan Waller JLPT vocabulary list",1578700,seed
+n4-vocab-1279590-e6d233fb,N4,校長,こうちょう,headmaster,"Jonathan Waller JLPT vocabulary list",1279590,seed
+n4-vocab-1272280-df804579,N4,交通,こうつう,"traffic,transportation","Jonathan Waller JLPT vocabulary list",1272280,seed
+n4-vocab-1282340-4e4acc67,N4,講堂,こうどう,auditorium,"Jonathan Waller JLPT vocabulary list",1282340,seed
+n4-vocab-1283860-a0f3cad3,N4,高等学校,こうとうがっこう,"high school","Jonathan Waller JLPT vocabulary list",1283860,seed
+n4-vocab-1274820-2d599f54,N4,公務員,こうむいん,"government worker","Jonathan Waller JLPT vocabulary list",1274820,seed
+n4-vocab-1286400-4a1d4b9d,N4,国際,こくさい,international,"Jonathan Waller JLPT vocabulary list",1286400,seed
+n4-vocab-1360480-28597ee7,N4,心,こころ,"core,heart","Jonathan Waller JLPT vocabulary list",1360480,seed
+n4-vocab-1270390-51593ca4,N4,御主人,ごしゅじん,"(honorable) your husband","Jonathan Waller JLPT vocabulary list",1270390,seed
+n4-vocab-1267180-76f3e6c9,N4,故障,こしょう,"to break-down","Jonathan Waller JLPT vocabulary list",1267180,seed
+n4-vocab-1593570-7cf6b30d,N4,ご存じ,ごぞんじ,"knowing,acquaintance","Jonathan Waller JLPT vocabulary list",1593570,seed
+n4-vocab-1449530-75828126,N4,答,こたえ,response,"Jonathan Waller JLPT vocabulary list",1449530,seed
+n4-vocab-1593590-006c3494,N4,ごちそう,ごちそう,"a feast","Jonathan Waller JLPT vocabulary list",1593590,seed
+n4-vocab-2524270-491c26b9,N4,こと,こと,"thing,matter","Jonathan Waller JLPT vocabulary list",2524270,seed
+n4-vocab-1348530-54323200,N4,小鳥,ことり,"small bird","Jonathan Waller JLPT vocabulary list",1348530,seed
+n4-vocab-1004690-3575d167,N4,このあいだ,このあいだ,"the other day,recently","Jonathan Waller JLPT vocabulary list",1004690,seed
+n4-vocab-1004710-211387cf,N4,このごろ,このごろ,"these days,nowadays","Jonathan Waller JLPT vocabulary list",1004710,seed
+n4-vocab-1295530-5a5b0e11,N4,細かい,こまかい,"small, fine","Jonathan Waller JLPT vocabulary list",1295530,seed
+n4-vocab-1369900-05d36605,N4,塵,ごみ,rubbish,"Jonathan Waller JLPT vocabulary list",1369900,seed
+n4-vocab-1593410-2354311d,N4,込む,こむ,"to be crowded","Jonathan Waller JLPT vocabulary list",1593410,seed
+n4-vocab-1508750-069273e8,N4,米,こめ,"uncooked rice","Jonathan Waller JLPT vocabulary list",1508750,seed
+n4-vocab-2217040-a0f6bcfc,N4,ごらんになる,ごらんになる,"(respectful) to see","Jonathan Waller JLPT vocabulary list",2217040,seed
+n4-vocab-1004790-be32140e,N4,これから,これから,"after this","Jonathan Waller JLPT vocabulary list",1004790,seed
+n4-vocab-1593480-38e2966f,N4,怖い,こわい,frightening,"Jonathan Waller JLPT vocabulary list",1593480,seed
+n4-vocab-1199890-c9ce4280,N4,壊す,こわす,"to break","Jonathan Waller JLPT vocabulary list",1199890,seed
+n4-vocab-1199900-3d86e722,N4,壊れる,こわれる,"to be broken","Jonathan Waller JLPT vocabulary list",1199900,seed
+n4-vocab-1051970-69de8249,N4,コンサート,コンサート,concert,"Jonathan Waller JLPT vocabulary list",1051970,seed
+n4-vocab-1289370-54977b43,N4,今度,こんど,"now,next time","Jonathan Waller JLPT vocabulary list",1289370,seed
+n4-vocab-1053350-463dc2bd,N4,コンピュータ,コンピュータ,computer,"Jonathan Waller JLPT vocabulary list",1053350,seed
+n4-vocab-1053350-e6db34bb,N4,コンピューター,コンピューター,computer,"Jonathan Waller JLPT vocabulary list",1053350,seed
+n4-vocab-1289520-d251fd66,N4,今夜,こんや,tonight,"Jonathan Waller JLPT vocabulary list",1289520,seed
+n4-vocab-1293780-fbb4d929,N4,最近,さいきん,"latest,nowadays","Jonathan Waller JLPT vocabulary list",1293780,seed
+n4-vocab-1293810-7a3e901f,N4,最後,さいご,"last,end","Jonathan Waller JLPT vocabulary list",1293810,seed
+n4-vocab-1293990-2b3dd7e8,N4,最初,さいしょ,"beginning,first","Jonathan Waller JLPT vocabulary list",1293990,seed
+n4-vocab-1297110-9f646d43,N4,坂,さか,"slope,hill","Jonathan Waller JLPT vocabulary list",1297110,seed
+n4-vocab-1593670-f6356022,N4,探す,さがす,"to look for","Jonathan Waller JLPT vocabulary list",1593670,seed
+n4-vocab-1184160-f42674cc,N4,下る,さがる,"to get down,to descend","Jonathan Waller JLPT vocabulary list",1184160,seed
+n4-vocab-1379750-d365a3d2,N4,盛ん,さかん,"popularity,prosperous","Jonathan Waller JLPT vocabulary list",1379750,seed
+n4-vocab-1184170-c4d3cc92,N4,下げる,さげる,"to hang,to lower,to move back","Jonathan Waller JLPT vocabulary list",1184170,seed
+n4-vocab-1291270-2dfe8b27,N4,差し上げる,さしあげる,"(polite) to give","Jonathan Waller JLPT vocabulary list",1291270,seed
+n4-vocab-1005180-9024687f,N4,先,さっき,"some time ago","Jonathan Waller JLPT vocabulary list",1005180,seed
+n4-vocab-1579720-16fc7948,N4,寂しい,さびしい,lonely,"Jonathan Waller JLPT vocabulary list",1579720,seed
+n4-vocab-1293640-e3978c0d,N4,さ来月,さらいげつ,"the month after next","Jonathan Waller JLPT vocabulary list",1293640,seed
+n4-vocab-1293650-8a94e140,N4,さ来週,さらいしゅう,"the week after next","Jonathan Waller JLPT vocabulary list",1293650,seed
+n4-vocab-1057850-049fffd3,N4,サラダ,サラダ,salad,"Jonathan Waller JLPT vocabulary list",1057850,seed
+n4-vocab-1403040-900d216d,N4,騒ぐ,さわぐ,"to make noise,to be excited","Jonathan Waller JLPT vocabulary list",1403040,seed
+n4-vocab-1357980-0788cc01,N4,触る,さわる,"to touch","Jonathan Waller JLPT vocabulary list",1357980,seed
+n4-vocab-1303770-23e38223,N4,産業,さんぎょう,industry,"Jonathan Waller JLPT vocabulary list",1303770,seed
+n4-vocab-1058480-794780dd,N4,サンダル,サンダル,sandal,"Jonathan Waller JLPT vocabulary list",1058480,seed
+n4-vocab-1058580-b5579bc9,N4,サンドイッチ,サンドイッチ,sandwich,"Jonathan Waller JLPT vocabulary list",1058580,seed
+n4-vocab-1304680-ae260b9c,N4,残念,ざんねん,disappointment,"Jonathan Waller JLPT vocabulary list",1304680,seed
+n4-vocab-1308090-95f991a9,N4,市,し,city,"Jonathan Waller JLPT vocabulary list",1308090,seed
+n4-vocab-1315130-19d62a5b,N4,字,じ,character,"Jonathan Waller JLPT vocabulary list",1315130,seed
+n4-vocab-1312420-1624c2f6,N4,試合,しあい,"match,game","Jonathan Waller JLPT vocabulary list",1312420,seed
+n4-vocab-1594110-7f04c847,N4,仕方,しかた,method,"Jonathan Waller JLPT vocabulary list",1594110,seed
+n4-vocab-1394730-a2405769,N4,然る,しかる,"a particular","Jonathan Waller JLPT vocabulary list",1394730,seed
+n4-vocab-1312350-68c194a0,N4,試験,しけん,examination,"Jonathan Waller JLPT vocabulary list",1312350,seed
+n4-vocab-1313850-2ce5d20f,N4,事故,じこ,accident,"Jonathan Waller JLPT vocabulary list",1313850,seed
+n4-vocab-1421210-878d142a,N4,地震,じしん,earthquake,"Jonathan Waller JLPT vocabulary list",1421210,seed
+n4-vocab-1316300-a7d5442d,N4,時代,じだい,era,"Jonathan Waller JLPT vocabulary list",1316300,seed
+n4-vocab-1185930-ce9454cb,N4,下着,したぎ,underwear,"Jonathan Waller JLPT vocabulary list",1185930,seed
+n4-vocab-1310260-d8c3b334,N4,支度,したく,"to prepare","Jonathan Waller JLPT vocabulary list",1310260,seed
+n4-vocab-1594400-5f5492d8,N4,しっかり,しっかり,"firmly,steadily","Jonathan Waller JLPT vocabulary list",1594400,seed
+n4-vocab-1320140-ccc860cf,N4,失敗,しっぱい,"failure,mistake","Jonathan Waller JLPT vocabulary list",1320140,seed
+n4-vocab-1595270-393b3500,N4,辞典,じてん,dictionary,"Jonathan Waller JLPT vocabulary list",1595270,seed
+n4-vocab-1490670-bf896dd2,N4,品物,しなもの,goods,"Jonathan Waller JLPT vocabulary list",1490670,seed
+n4-vocab-1304420-efa06eef,N4,しばらく,しばらく,"little while","Jonathan Waller JLPT vocabulary list",1304420,seed
+n4-vocab-1446760-e7316745,N4,島,しま,island,"Jonathan Waller JLPT vocabulary list",1446760,seed
+n4-vocab-1308690-13890cd4,N4,市民,しみん,citizen,"Jonathan Waller JLPT vocabulary list",1308690,seed
+n4-vocab-1314400-fa108ee6,N4,事務所,じむしょ,office,"Jonathan Waller JLPT vocabulary list",1314400,seed
+n4-vocab-1322700-95bd82e4,N4,社会,しゃかい,"society,public","Jonathan Waller JLPT vocabulary list",1322700,seed
+n4-vocab-1322920-648d587f,N4,社長,しゃちょう,"company president","Jonathan Waller JLPT vocabulary list",1322920,seed
+n4-vocab-1323500-5afc4d30,N4,じゃま,じゃま,"hindrance,intrusion","Jonathan Waller JLPT vocabulary list",1323500,seed
+n4-vocab-1065680-00a2733b,N4,ジャム,ジャム,jam,"Jonathan Waller JLPT vocabulary list",1065680,seed
+n4-vocab-1318720-8e493789,N4,自由,じゆう,freedom,"Jonathan Waller JLPT vocabulary list",1318720,seed
+n4-vocab-1333090-3e534c7b,N4,習慣,しゅうかん,"custom,manners","Jonathan Waller JLPT vocabulary list",1333090,seed
+n4-vocab-1334080-f17c9c41,N4,住所,じゅうしょ,"an address,a residence","Jonathan Waller JLPT vocabulary list",1334080,seed
+n4-vocab-1335440-efc54ecf,N4,柔道,じゅうどう,judo,"Jonathan Waller JLPT vocabulary list",1335440,seed
+n4-vocab-1335080-a56a68dc,N4,十分,じゅうぶん,enough,"Jonathan Waller JLPT vocabulary list",1335080,seed
+n4-vocab-1339460-f6ccc6e2,N4,出席,しゅっせき,"to attend","Jonathan Waller JLPT vocabulary list",1339460,seed
+n4-vocab-1340000-38a66032,N4,出発,しゅっぱつ,"to depart","Jonathan Waller JLPT vocabulary list",1340000,seed
+n4-vocab-1329000-6907bc95,N4,趣味,しゅみ,hobby,"Jonathan Waller JLPT vocabulary list",1329000,seed
+n4-vocab-1341670-71311c3a,N4,準備,じゅんび,"to prepare","Jonathan Waller JLPT vocabulary list",1341670,seed
+n4-vocab-1351430-865d0ff7,N4,紹介,しょうかい,introduction,"Jonathan Waller JLPT vocabulary list",1351430,seed
+n4-vocab-1347870-64f00f8d,N4,小学校,しょうがっこう,"elementary school","Jonathan Waller JLPT vocabulary list",1347870,seed
+n4-vocab-1348430-6ae234b4,N4,小説,しょうせつ,novel,"Jonathan Waller JLPT vocabulary list",1348430,seed
+n4-vocab-1349610-73f8d8a6,N4,招待,しょうたい,"to invite","Jonathan Waller JLPT vocabulary list",1349610,seed
+n4-vocab-1349480-c3270f46,N4,承知,しょうち,"to consent","Jonathan Waller JLPT vocabulary list",1349480,seed
+n4-vocab-1347710-5d18e522,N4,将来,しょうらい,"future,prospects","Jonathan Waller JLPT vocabulary list",1347710,seed
+n4-vocab-1358490-ef80f917,N4,食事,しょくじ,"to have a meal","Jonathan Waller JLPT vocabulary list",1358490,seed
+n4-vocab-1358680-c8bbc232,N4,食料品,しょくりょうひん,groceries,"Jonathan Waller JLPT vocabulary list",1358680,seed
+n4-vocab-1345250-fee04d0c,N4,女性,じょせい,woman,"Jonathan Waller JLPT vocabulary list",1345250,seed
+n4-vocab-1420410-14d0b640,N4,知らせる,しらせる,"to notify","Jonathan Waller JLPT vocabulary list",1420410,seed
+n4-vocab-1429060-0ba8144b,N4,調べる,しらべる,"to investigate","Jonathan Waller JLPT vocabulary list",1429060,seed
+n4-vocab-1367300-bead1a8d,N4,人口,じんこう,population,"Jonathan Waller JLPT vocabulary list",1367300,seed
+n4-vocab-1364670-bb00128d,N4,神社,じんじゃ,"Shinto shrine","Jonathan Waller JLPT vocabulary list",1364670,seed
+n4-vocab-1365250-afa9c9c5,N4,親切,しんせつ,kindness,"Jonathan Waller JLPT vocabulary list",1365250,seed
+n4-vocab-1360930-fd0596f2,N4,心配,しんぱい,"to worry","Jonathan Waller JLPT vocabulary list",1360930,seed
+n4-vocab-1362400-74646356,N4,新聞社,しんぶんしゃ,"newspaper company","Jonathan Waller JLPT vocabulary list",1362400,seed
+n4-vocab-1371320-b2e4cc6f,N4,水泳,すいえい,swimming,"Jonathan Waller JLPT vocabulary list",1371320,seed
+n4-vocab-1371920-6e88b308,N4,水道,すいどう,"water supply","Jonathan Waller JLPT vocabulary list",1371920,seed
+n4-vocab-1372800-27050d7a,N4,ずいぶん,ずいぶん,extremely,"Jonathan Waller JLPT vocabulary list",1372800,seed
+n4-vocab-1372980-d01bf66e,N4,数学,すうがく,"mathematics,arithmetic","Jonathan Waller JLPT vocabulary list",1372980,seed
+n4-vocab-1066680-c15600ed,N4,スーツ,スーツ,suit,"Jonathan Waller JLPT vocabulary list",1066680,seed
+n4-vocab-1066690-ab1176a9,N4,スーツケース,スーツケース,suitcase,"Jonathan Waller JLPT vocabulary list",1066690,seed
+n4-vocab-1195970-85a9ce99,N4,過ぎる,すぎる,"to exceed","Jonathan Waller JLPT vocabulary list",1195970,seed
+n4-vocab-1586265-f6a5cd9a,N4,空く,すく,"to become empty","Jonathan Waller JLPT vocabulary list",1586265,seed
+n4-vocab-1068550-bf3769d5,N4,スクリーン,スクリーン,screen,"Jonathan Waller JLPT vocabulary list",1068550,seed
+n4-vocab-1374550-0f6b90f4,N4,凄い,すごい,terrific,"Jonathan Waller JLPT vocabulary list",1374550,seed
+n4-vocab-1365980-7356911c,N4,進む,すすむ,"to make progress","Jonathan Waller JLPT vocabulary list",1365980,seed
+n4-vocab-1006110-8af190c8,N4,すっかり,すっかり,completely,"Jonathan Waller JLPT vocabulary list",1006110,seed
+n4-vocab-1006140-8d9cb059,N4,すっと,すっと,"straight,all of a sudden","Jonathan Waller JLPT vocabulary list",1006140,seed
+n4-vocab-1070280-e20994bd,N4,ステーキ,ステーキ,steak,"Jonathan Waller JLPT vocabulary list",1070280,seed
+n4-vocab-1322320-6172a29f,N4,捨てる,すてる,"to throw away","Jonathan Waller JLPT vocabulary list",1322320,seed
+n4-vocab-1070650-a5ada871,N4,ステレオ,ステレオ,stereo,"Jonathan Waller JLPT vocabulary list",1070650,seed
+n4-vocab-1291500-ba88cdfa,N4,砂,すな,sand,"Jonathan Waller JLPT vocabulary list",1291500,seed
+n4-vocab-1397300-bc4b5a80,N4,すばらしい,すばらしい,wonderful,"Jonathan Waller JLPT vocabulary list",1397300,seed
+n4-vocab-1208640-a538753f,N4,滑る,すべる,"to slide,to slip","Jonathan Waller JLPT vocabulary list",1208640,seed
+n4-vocab-1246440-a447f841,N4,隅,すみ,"corner,nook","Jonathan Waller JLPT vocabulary list",1246440,seed
+n4-vocab-1295070-5c43c279,N4,済む,すむ,"to finish","Jonathan Waller JLPT vocabulary list",1295070,seed
+n4-vocab-1567450-9432a6ec,N4,掏摸,すり,pickpocket,"Jonathan Waller JLPT vocabulary list",1567450,seed
+n4-vocab-1006280-225cc2dd,N4,すると,すると,then,"Jonathan Waller JLPT vocabulary list",1006280,seed
+n4-vocab-1378860-818e5988,N4,生活,せいかつ,"to live","Jonathan Waller JLPT vocabulary list",1378860,seed
+n4-vocab-1378990-1bb1ec04,N4,生産,せいさん,"to produce","Jonathan Waller JLPT vocabulary list",1378990,seed
+n4-vocab-1375970-e3e3267a,N4,政治,せいじ,"politics,government","Jonathan Waller JLPT vocabulary list",1375970,seed
+n4-vocab-1381100-ac176317,N4,西洋,せいよう,"western countries","Jonathan Waller JLPT vocabulary list",1381100,seed
+n4-vocab-1373860-74a5b322,N4,世界,せかい,"the world","Jonathan Waller JLPT vocabulary list",1373860,seed
+n4-vocab-1382250-c9954610,N4,席,せき,seat,"Jonathan Waller JLPT vocabulary list",1382250,seed
+n4-vocab-1386460-716dcd9d,N4,説明,せつめい,explanation,"Jonathan Waller JLPT vocabulary list",1386460,seed
+n4-vocab-1472800-b5f8f32b,N4,背中,せなか,"back of the body","Jonathan Waller JLPT vocabulary list",1472800,seed
+n4-vocab-1374530-cd5cb44a,N4,ぜひ,ぜひ,"without fail","Jonathan Waller JLPT vocabulary list",1374530,seed
+n4-vocab-1374300-e3c266ff,N4,世話,せわ,"to look after","Jonathan Waller JLPT vocabulary list",1374300,seed
+n4-vocab-1391780-030486a5,N4,線,せん,line,"Jonathan Waller JLPT vocabulary list",1391780,seed
+n4-vocab-1395620-df83fb9a,N4,全然,ぜんぜん,"not entirely (used in a negative sentence)","Jonathan Waller JLPT vocabulary list",1395620,seed
+n4-vocab-1390360-b9611736,N4,戦争,せんそう,war,"Jonathan Waller JLPT vocabulary list",1390360,seed
+n4-vocab-1388410-5a6e16a7,N4,先輩,せんぱい,senior,"Jonathan Waller JLPT vocabulary list",1388410,seed
+n4-vocab-1006610-88dd8d8e,N4,そう,そう,really,"Jonathan Waller JLPT vocabulary list",1006610,seed
+n4-vocab-1401210-25938fd5,N4,相談,そうだん,"to discuss","Jonathan Waller JLPT vocabulary list",1401210,seed
+n4-vocab-1160570-8c051f86,N4,育てる,そだてる,"to rear,to bring up","Jonathan Waller JLPT vocabulary list",1160570,seed
+n4-vocab-1405890-603c3508,N4,卒業,そつぎょう,graduation,"Jonathan Waller JLPT vocabulary list",1405890,seed
+n4-vocab-1396840-0c61521d,N4,祖父,そふ,grandfather,"Jonathan Waller JLPT vocabulary list",1396840,seed
+n4-vocab-1075500-31863f8b,N4,ソフト,ソフト,soft,"Jonathan Waller JLPT vocabulary list",1075500,seed
+n4-vocab-1396860-c1f497f7,N4,祖母,そぼ,grandmother,"Jonathan Waller JLPT vocabulary list",1396860,seed
+n4-vocab-1007000-79653fbf,N4,それで,それで,"because of that","Jonathan Waller JLPT vocabulary list",1007000,seed
+n4-vocab-1007040-cc8c0a86,N4,それに,それに,moreover,"Jonathan Waller JLPT vocabulary list",1007040,seed
+n4-vocab-1007060-259c49c8,N4,それほど,それほど,"to that extent","Jonathan Waller JLPT vocabulary list",1007060,seed
+n4-vocab-1345605-1283c194,N4,そろそろ,そろそろ,"gradually,soon","Jonathan Waller JLPT vocabulary list",1345605,seed
+n4-vocab-1007130-deae677d,N4,そんな,そんな,"that sort of","Jonathan Waller JLPT vocabulary list",1007130,seed
+n4-vocab-2008740-52e7f432,N4,そんなに,そんなに,"so much,like that","Jonathan Waller JLPT vocabulary list",2008740,seed
+n4-vocab-1411300-93d7e3c0,N4,退院,たいいん,"to leave hospital","Jonathan Waller JLPT vocabulary list",1411300,seed
+n4-vocab-1413260-7a85fa4f,N4,大学生,だいがくせい,"university student","Jonathan Waller JLPT vocabulary list",1413260,seed
+n4-vocab-1413940-73bd503b,N4,大事,だいじ,"important,valuable,serious matter","Jonathan Waller JLPT vocabulary list",1413940,seed
+n4-vocab-1414470-26cffdba,N4,大体,だいたい,generally,"Jonathan Waller JLPT vocabulary list",1414470,seed
+n4-vocab-1414580-624c1496,N4,大抵,たいてい,usually,"Jonathan Waller JLPT vocabulary list",1414580,seed
+n4-vocab-1075940-88980e5f,N4,タイプ,タイプ,"type,style","Jonathan Waller JLPT vocabulary list",1075940,seed
+n4-vocab-1414920-d6afc13d,N4,大分,だいぶ,greatly,"Jonathan Waller JLPT vocabulary list",1414920,seed
+n4-vocab-1596780-459523d5,N4,台風,たいふう,typhoon,"Jonathan Waller JLPT vocabulary list",1596780,seed
+n4-vocab-1445790-a5bd0fe6,N4,倒れる,たおれる,"to break down","Jonathan Waller JLPT vocabulary list",1445790,seed
+n4-vocab-1007310-85890dbc,N4,だから,だから,"so,therefore","Jonathan Waller JLPT vocabulary list",1007310,seed
+n4-vocab-1596930-b5148351,N4,確か,たしか,definite,"Jonathan Waller JLPT vocabulary list",1596930,seed
+n4-vocab-1404700-4a4bc4fe,N4,足す,たす,"to add a number","Jonathan Waller JLPT vocabulary list",1404700,seed
+n4-vocab-1518070-b5f5852b,N4,訪ねる,たずねる,"to visit","Jonathan Waller JLPT vocabulary list",1518070,seed
+n4-vocab-1369940-d1d2694b,N4,尋ねる,たずねる,"to ask","Jonathan Waller JLPT vocabulary list",1369940,seed
+n4-vocab-1376600-1a83302d,N4,正しい,ただしい,correct,"Jonathan Waller JLPT vocabulary list",1376600,seed
+n4-vocab-1356750-499d2da1,N4,畳,たたみ,"Japanese straw mat","Jonathan Waller JLPT vocabulary list",1356750,seed
+n4-vocab-1551530-a7032f31,N4,立てる,たてる,"to stand something up","Jonathan Waller JLPT vocabulary list",1551530,seed
+n4-vocab-1257330-9b1059d1,N4,建てる,たてる,"to build","Jonathan Waller JLPT vocabulary list",1257330,seed
+n4-vocab-1556370-7c28752d,N4,例えば,たとえば,"for example","Jonathan Waller JLPT vocabulary list",1556370,seed
+n4-vocab-1416700-63339eca,N4,棚,たな,shelves,"Jonathan Waller JLPT vocabulary list",1416700,seed
+n4-vocab-1207250-a39282e0,N4,楽しみ,たのしみ,joy,"Jonathan Waller JLPT vocabulary list",1207250,seed
+n4-vocab-1207270-b5947582,N4,楽む,たのしむ,"to enjoy oneself","Jonathan Waller JLPT vocabulary list",1207270,seed
+n4-vocab-1634500-344e88d3,N4,たまに,たまに,occasionally,"Jonathan Waller JLPT vocabulary list",1634500,seed
+n4-vocab-1157080-b9b58836,N4,為,ため,"in order to","Jonathan Waller JLPT vocabulary list",1157080,seed
+n4-vocab-1409110-27f7a247,N4,だめ,だめ,"no good","Jonathan Waller JLPT vocabulary list",1409110,seed
+n4-vocab-1404740-45c57de2,N4,足りる,たりる,"to be enough","Jonathan Waller JLPT vocabulary list",1404740,seed
+n4-vocab-1420160-cadd8dcd,N4,男性,だんせい,male,"Jonathan Waller JLPT vocabulary list",1420160,seed
+n4-vocab-1419860-2f9eb499,N4,暖房,だんぼう,heating,"Jonathan Waller JLPT vocabulary list",1419860,seed
+n4-vocab-1255060-778156e1,N4,血,ち,blood,"Jonathan Waller JLPT vocabulary list",1255060,seed
+n4-vocab-1077550-f1b68e12,N4,チェック,チェック,"to check","Jonathan Waller JLPT vocabulary list",1077550,seed
+n4-vocab-1554820-78c5f8dc,N4,力,ちから,"strength,power","Jonathan Waller JLPT vocabulary list",1554820,seed
+n4-vocab-1007560-26620a16,N4,ちっとも,ちっとも,"not at all (used with a negative verb)","Jonathan Waller JLPT vocabulary list",1007560,seed
+n4-vocab-1007660-39e15706,N4,ちゃん,ちゃん,"suffix for familiar female person","Jonathan Waller JLPT vocabulary list",1007660,seed
+n4-vocab-1426530-89c03f39,N4,注意,ちゅうい,caution,"Jonathan Waller JLPT vocabulary list",1426530,seed
+n4-vocab-1423650-71a02e0d,N4,中学校,ちゅうがっこう,"junior high school,middle school","Jonathan Waller JLPT vocabulary list",1423650,seed
+n4-vocab-1426590-9cc824e2,N4,注射,ちゅうしゃ,injection,"Jonathan Waller JLPT vocabulary list",1426590,seed
+n4-vocab-1426920-0fb2aba2,N4,駐車場,ちゅうしゃじょう,"parking lot","Jonathan Waller JLPT vocabulary list",1426920,seed
+n4-vocab-1421540-56e4a00c,N4,地理,ちり,geography,"Jonathan Waller JLPT vocabulary list",1421540,seed
+n4-vocab-1597780-961401db,N4,捕まえる,つかまえる,"to seize","Jonathan Waller JLPT vocabulary list",1597780,seed
+n4-vocab-1255430-0310849e,N4,月,つき,moon,"Jonathan Waller JLPT vocabulary list",1255430,seed
+n4-vocab-1495740-f0153666,N4,付く,つく,"to be attached","Jonathan Waller JLPT vocabulary list",1495740,seed
+n4-vocab-1433680-afe0c41e,N4,漬ける,つける,"to soak,to pickle","Jonathan Waller JLPT vocabulary list",1433680,seed
+n4-vocab-1444980-01de7a61,N4,都合,つごう,"circumstances,convenience","Jonathan Waller JLPT vocabulary list",1444980,seed
+n4-vocab-1441870-fa0fcd16,N4,伝える,つたえる,"to report","Jonathan Waller JLPT vocabulary list",1441870,seed
+n4-vocab-1405790-01487fa0,N4,続く,つづく,"to be continued","Jonathan Waller JLPT vocabulary list",1405790,seed
+n4-vocab-1405800-24f9dc72,N4,続ける,つづける,"to continue","Jonathan Waller JLPT vocabulary list",1405800,seed
+n4-vocab-1584060-e204b32e,N4,包む,つつむ,"to wrap","Jonathan Waller JLPT vocabulary list",1584060,seed
+n4-vocab-1294330-f8e1b822,N4,妻,つま,"(humble) wife","Jonathan Waller JLPT vocabulary list",1294330,seed
+n4-vocab-1382980-47808ee6,N4,積もり,つもり,intention,"Jonathan Waller JLPT vocabulary list",1382980,seed
+n4-vocab-1434120-d17956dd,N4,釣る,つる,"to fish","Jonathan Waller JLPT vocabulary list",1434120,seed
+n4-vocab-1559290-27631a11,N4,連れる,つれる,"to lead","Jonathan Waller JLPT vocabulary list",1559290,seed
+n4-vocab-1427360-ad67c73b,N4,丁寧,ていねい,polite,"Jonathan Waller JLPT vocabulary list",1427360,seed
+n4-vocab-1079290-8b838e1f,N4,テキスト,テキスト,"text,text book","Jonathan Waller JLPT vocabulary list",1079290,seed
+n4-vocab-1437450-24378de0,N4,適当,てきとう,suitability,"Jonathan Waller JLPT vocabulary list",1437450,seed
+n4-vocab-1340460-02b78ad3,N4,できるだけ,できるだけ,"as much as possible","Jonathan Waller JLPT vocabulary list",1340460,seed
+n4-vocab-1328190-270e88cf,N4,手伝う,てつだう,"to assist","Jonathan Waller JLPT vocabulary list",1328190,seed
+n4-vocab-1080000-197fa663,N4,テニス,テニス,tennis,"Jonathan Waller JLPT vocabulary list",1080000,seed
+n4-vocab-1328090-90140088,N4,手袋,てぶくろ,glove,"Jonathan Waller JLPT vocabulary list",1328090,seed
+n4-vocab-1315240-f10c32a9,N4,寺,てら,temple,"Jonathan Waller JLPT vocabulary list",1315240,seed
+n4-vocab-1441390-e0793ef5,N4,点,てん,"point,dot","Jonathan Waller JLPT vocabulary list",1441390,seed
+n4-vocab-1440670-59f3237e,N4,店員,てんいん,"shop assistant","Jonathan Waller JLPT vocabulary list",1440670,seed
+n4-vocab-1438770-b2dd6198,N4,天気予報,てんきよほう,"weather forecast","Jonathan Waller JLPT vocabulary list",1438770,seed
+n4-vocab-1443660-657bc037,N4,電灯,でんとう,"electric light","Jonathan Waller JLPT vocabulary list",1443660,seed
+n4-vocab-1443760-10994961,N4,電報,でんぽう,telegram,"Jonathan Waller JLPT vocabulary list",1443760,seed
+n4-vocab-1440660-5293f948,N4,展覧会,てんらんかい,exhibition,"Jonathan Waller JLPT vocabulary list",1440660,seed
+n4-vocab-1621470-7b89b391,N4,都,と,metropolitan,"Jonathan Waller JLPT vocabulary list",1621470,seed
+n4-vocab-1454180-8ad71fbe,N4,道具,どうぐ,"tool,means","Jonathan Waller JLPT vocabulary list",1454180,seed
+n4-vocab-1449890-ea721bf1,N4,到頭,とうとう,"finally, after all","Jonathan Waller JLPT vocabulary list",1449890,seed
+n4-vocab-1451490-8310a6f7,N4,動物園,どうぶつえん,zoo,"Jonathan Waller JLPT vocabulary list",1451490,seed
+n4-vocab-1177820-0ea4b316,N4,遠く,とおく,distant,"Jonathan Waller JLPT vocabulary list",1177820,seed
+n4-vocab-1433030-16ea1d3f,N4,通る,とおる,"to go through","Jonathan Waller JLPT vocabulary list",1433030,seed
+n4-vocab-1454670-e230b972,N4,特に,とくに,"particularly,especially","Jonathan Waller JLPT vocabulary list",1454670,seed
+n4-vocab-1455280-95e97e5c,N4,特別,とくべつ,special,"Jonathan Waller JLPT vocabulary list",1455280,seed
+n4-vocab-1349410-fd828bf9,N4,とこや,とこや,barber,"Jonathan Waller JLPT vocabulary list",1349410,seed
+n4-vocab-1582200-7e967e4f,N4,途中,とちゅう,"on the way","Jonathan Waller JLPT vocabulary list",1582200,seed
+n4-vocab-1454750-95e4cc68,N4,特急,とっきゅう,"limited express train (faster than an express train)","Jonathan Waller JLPT vocabulary list",1454750,seed
+n4-vocab-1457210-9538a0dc,N4,届ける,とどける,"to reach","Jonathan Waller JLPT vocabulary list",1457210,seed
+n4-vocab-1474850-673eda4e,N4,泊まる,とまる,"to lodge at","Jonathan Waller JLPT vocabulary list",1474850,seed
+n4-vocab-1310670-520fe5c1,N4,止める,とめる,"to stop something","Jonathan Waller JLPT vocabulary list",1310670,seed
+n4-vocab-1326830-98367f6e,N4,取り替える,とりかえる,"to exchange","Jonathan Waller JLPT vocabulary list",1326830,seed
+n4-vocab-1599340-96e9e4e6,N4,泥棒,どろぼう,thief,"Jonathan Waller JLPT vocabulary list",1599340,seed
+n4-vocab-1009320-79cc02d1,N4,どんどん,どんどん,"more and more","Jonathan Waller JLPT vocabulary list",1009320,seed
+n4-vocab-1599390-db5ee84e,N4,直す,なおす,"to fix,to repair","Jonathan Waller JLPT vocabulary list",1599390,seed
+n4-vocab-2846390-a8ed7e73,N4,直る,なおる,"to be fixed,to be repaired","Jonathan Waller JLPT vocabulary list",2846390,seed
+n4-vocab-1599400-3037b778,N4,治る,なおる,"to be cured,to heal","Jonathan Waller JLPT vocabulary list",1599400,seed
+n4-vocab-1599420-f89b3114,N4,中々,なかなか,considerably,"Jonathan Waller JLPT vocabulary list",1599420,seed
+n4-vocab-1229840-852e7cc7,N4,泣く,なく,"to weep","Jonathan Waller JLPT vocabulary list",1229840,seed
+n4-vocab-1529550-6a801b13,N4,無くなる,なくなる,"to disappear,to get lost","Jonathan Waller JLPT vocabulary list",1529550,seed
+n4-vocab-1518540-13e8ed28,N4,亡くなる,なくなる,"to die","Jonathan Waller JLPT vocabulary list",1518540,seed
+n4-vocab-1447000-7fd96976,N4,投げる,なげる,"to throw or cast away","Jonathan Waller JLPT vocabulary list",1447000,seed
+n4-vocab-1157090-21219a56,N4,なさる,なさる,"(respectful) to do","Jonathan Waller JLPT vocabulary list",1157090,seed
+n4-vocab-1532910-33caefb2,N4,鳴る,なる,"to sound","Jonathan Waller JLPT vocabulary list",1532910,seed
+n4-vocab-1375620-9286c13a,N4,なるべく,なるべく,"as much as possible","Jonathan Waller JLPT vocabulary list",1375620,seed
+n4-vocab-1375820-889f1f33,N4,なるほど,なるほど,"now I understand","Jonathan Waller JLPT vocabulary list",1375820,seed
+n4-vocab-1212670-bb6cbac8,N4,慣れる,なれる,"to grow accustomed to","Jonathan Waller JLPT vocabulary list",1212670,seed
+n4-vocab-1599760-d1d037b3,N4,におい,におい,"a smell","Jonathan Waller JLPT vocabulary list",1599760,seed
+n4-vocab-1244310-232dc75e,N4,苦い,にがい,bitter,"Jonathan Waller JLPT vocabulary list",1244310,seed
+n4-vocab-1599800-a468c69b,N4,二階建て,にかいだて,"two storied","Jonathan Waller JLPT vocabulary list",1599800,seed
+n4-vocab-1450330-5f0a96fd,N4,逃げる,にげる,"to escape","Jonathan Waller JLPT vocabulary list",1450330,seed
+n4-vocab-1463930-2410537e,N4,日記,にっき,journal,"Jonathan Waller JLPT vocabulary list",1463930,seed
+n4-vocab-1465720-b225fc35,N4,入院,にゅういん,"to hospitalise","Jonathan Waller JLPT vocabulary list",1465720,seed
+n4-vocab-1465850-8708beb5,N4,入学,にゅうがく,"to enter school or university","Jonathan Waller JLPT vocabulary list",1465850,seed
+n4-vocab-1314600-32527208,N4,似る,にる,"to be similar","Jonathan Waller JLPT vocabulary list",1314600,seed
+n4-vocab-1367120-a60bb174,N4,人形,にんぎょう,"doll, figure","Jonathan Waller JLPT vocabulary list",1367120,seed
+n4-vocab-1448440-43549e42,N4,盗む,ぬすむ,"to steal","Jonathan Waller JLPT vocabulary list",1448440,seed
+n4-vocab-1444270-4d1b6570,N4,塗る,ぬる,"to paint,to plaster","Jonathan Waller JLPT vocabulary list",1444270,seed
+n4-vocab-1467620-6e3f22ee,N4,ぬれる,ぬれる,"to get wet","Jonathan Waller JLPT vocabulary list",1467620,seed
+n4-vocab-1600160-763a04b8,N4,ねだん,ねだん,price,"Jonathan Waller JLPT vocabulary list",1600160,seed
+n4-vocab-1467710-267850fd,N4,熱,ねつ,fever,"Jonathan Waller JLPT vocabulary list",1467710,seed
+n4-vocab-1467910-021bfac9,N4,ねっしん,ねっしん,enthusiasm,"Jonathan Waller JLPT vocabulary list",1467910,seed
+n4-vocab-1360320-54b91fc7,N4,寝坊,ねぼう,"sleeping in late","Jonathan Waller JLPT vocabulary list",1360320,seed
+n4-vocab-1529330-2c49955c,N4,眠い,ねむい,sleepy,"Jonathan Waller JLPT vocabulary list",1529330,seed
+n4-vocab-1529390-f10ef202,N4,眠る,ねむる,"to sleep","Jonathan Waller JLPT vocabulary list",1529390,seed
+n4-vocab-1304510-919c118b,N4,残る,のこる,"to remain","Jonathan Waller JLPT vocabulary list",1304510,seed
+n4-vocab-1600280-6e30088d,N4,喉,のど,throat,"Jonathan Waller JLPT vocabulary list",1600280,seed
+n4-vocab-1600470-9e601fa2,N4,乗り換える,のりかえる,"to change between buses or trains","Jonathan Waller JLPT vocabulary list",1600470,seed
+n4-vocab-1600530-abf71a50,N4,乗り物,のりもの,vehicle,"Jonathan Waller JLPT vocabulary list",1600530,seed
+n4-vocab-1546550-b42eb048,N4,葉,は,leaf,"Jonathan Waller JLPT vocabulary list",1546550,seed
+n4-vocab-1355810-43bca0bf,N4,場合,ばあい,situation,"Jonathan Waller JLPT vocabulary list",1355810,seed
+n4-vocab-1100810-bd19f08a,N4,パート,パート,"part time","Jonathan Waller JLPT vocabulary list",1100810,seed
+n4-vocab-1473230-14b8b900,N4,倍,ばい,double,"Jonathan Waller JLPT vocabulary list",1473230,seed
+n4-vocab-1472270-eb18e4e1,N4,拝見,はいけん,"(humble) to look at","Jonathan Waller JLPT vocabulary list",1472270,seed
+n4-vocab-1313080-4bf41463,N4,歯医者,はいしゃ,dentist,"Jonathan Waller JLPT vocabulary list",1313080,seed
+n4-vocab-1172660-a4f83134,N4,運ぶ,はこぶ,"to transport","Jonathan Waller JLPT vocabulary list",1172660,seed
+n4-vocab-1307550-ce571f5a,N4,始める,はじめる,"to begin","Jonathan Waller JLPT vocabulary list",1307550,seed
+n4-vocab-1355850-0ed00a94,N4,場所,ばしょ,location,"Jonathan Waller JLPT vocabulary list",1355850,seed
+n4-vocab-1476430-ad45569a,N4,筈,はず,"it should be so","Jonathan Waller JLPT vocabulary list",1476430,seed
+n4-vocab-1421630-0fc11349,N4,恥ずかしい,はずかしい,embarrassed,"Jonathan Waller JLPT vocabulary list",1421630,seed
+n4-vocab-1101570-2b886a30,N4,パソコン,パソコン,"personal computer","Jonathan Waller JLPT vocabulary list",1101570,seed
+n4-vocab-1477170-15bf8701,N4,発音,はつおん,pronunciation,"Jonathan Waller JLPT vocabulary list",1477170,seed
+n4-vocab-1010150-c8232e9a,N4,はっきり,はっきり,clearly,"Jonathan Waller JLPT vocabulary list",1010150,seed
+n4-vocab-1194660-7531e51a,N4,花見,はなみ,"cherry-blossom viewing","Jonathan Waller JLPT vocabulary list",1194660,seed
+n4-vocab-1555440-4b177368,N4,林,はやし,"woods,forester","Jonathan Waller JLPT vocabulary list",1555440,seed
+n4-vocab-1501620-0f96620e,N4,払う,はらう,"to pay","Jonathan Waller JLPT vocabulary list",1501620,seed
+n4-vocab-1482340-12916d49,N4,番組,ばんぐみ,"television or radio program","Jonathan Waller JLPT vocabulary list",1482340,seed
+n4-vocab-1480670-be33ee96,N4,反対,はんたい,opposition,"Jonathan Waller JLPT vocabulary list",1480670,seed
+n4-vocab-1096770-89f0f8af,N4,ハンドバッグ,ハンドバッグ,handbag　,"Jonathan Waller JLPT vocabulary list",1096770,seed
+n4-vocab-1463770-485740cd,N4,日,ひ,"day, sun","Jonathan Waller JLPT vocabulary list",1463770,seed
+n4-vocab-1193610-3689503e,N4,火,ひ,fire,"Jonathan Waller JLPT vocabulary list",1193610,seed
+n4-vocab-1106400-c34c3af9,N4,ピアノ,ピアノ,piano,"Jonathan Waller JLPT vocabulary list",1106400,seed
+n4-vocab-1556630-e2c40c03,N4,冷える,ひえる,"to grow cold","Jonathan Waller JLPT vocabulary list",1556630,seed
+n4-vocab-1272780-e274dbc8,N4,光,ひかり,light,"Jonathan Waller JLPT vocabulary list",1272780,seed
+n4-vocab-1272820-630e15d8,N4,光る,ひかる,"to shine,to glitter","Jonathan Waller JLPT vocabulary list",1272820,seed
+n4-vocab-1601650-74643466,N4,引き出し,ひきだし,"drawer,drawing out","Jonathan Waller JLPT vocabulary list",1601650,seed
+n4-vocab-1601660-93c314d2,N4,引き出す,ひきだす,"to withdraw","Jonathan Waller JLPT vocabulary list",1601660,seed
+n4-vocab-1601810-46e332f6,N4,髭,ひげ,beard,"Jonathan Waller JLPT vocabulary list",1601810,seed
+n4-vocab-1485520-e9e3ada7,N4,飛行場,ひこうじょう,airport,"Jonathan Waller JLPT vocabulary list",1485520,seed
+n4-vocab-1227370-2e51869d,N4,久しぶり,ひさしぶり,"after a long time","Jonathan Waller JLPT vocabulary list",1227370,seed
+n4-vocab-1486460-158f5ad5,N4,美術館,びじゅつかん,"art gallery","Jonathan Waller JLPT vocabulary list",1486460,seed
+n4-vocab-1484930-c9c50ea9,N4,非常に,ひじょうに,extremely,"Jonathan Waller JLPT vocabulary list",1484930,seed
+n4-vocab-1226360-8ae807d4,N4,びっくり,びっくり,"to be surprised","Jonathan Waller JLPT vocabulary list",1226360,seed
+n4-vocab-1169340-f4635cc9,N4,引っ越す,ひっこす,"to move house","Jonathan Waller JLPT vocabulary list",1169340,seed
+n4-vocab-1487660-8a885888,N4,必要,ひつよう,necessary,"Jonathan Waller JLPT vocabulary list",1487660,seed
+n4-vocab-1602060-3540dccf,N4,ひどい,ひどい,awful,"Jonathan Waller JLPT vocabulary list",1602060,seed
+n4-vocab-1202440-d1ab2e23,N4,開く,ひらく,"to open an event","Jonathan Waller JLPT vocabulary list",1202440,seed
+n4-vocab-1106010-ea38e768,N4,ビル,ビル,"building or bill","Jonathan Waller JLPT vocabulary list",1106010,seed
+n4-vocab-1581710-ba458594,N4,昼間,ひるま,"daytime,during the day","Jonathan Waller JLPT vocabulary list",1581710,seed
+n4-vocab-1426290-4dc7ab3e,N4,昼休み,ひるやすみ,"noon break","Jonathan Waller JLPT vocabulary list",1426290,seed
+n4-vocab-1332570-6ee86060,N4,拾う,ひろう,"to pick up,to gather","Jonathan Waller JLPT vocabulary list",1332570,seed
+n4-vocab-1108180-83f4f870,N4,ファックス,ファックス,fax,"Jonathan Waller JLPT vocabulary list",1108180,seed
+n4-vocab-1602440-237bc4e7,N4,増える,ふえる,"to increase","Jonathan Waller JLPT vocabulary list",1602440,seed
+n4-vocab-1362640-557771c5,N4,深い,ふかい,deep,"Jonathan Waller JLPT vocabulary list",1362640,seed
+n4-vocab-1501350-aab90f61,N4,複雑,ふくざつ,"complexity,complication","Jonathan Waller JLPT vocabulary list",1501350,seed
+n4-vocab-1500800-4e248751,N4,復習,ふくしゅう,revision,"Jonathan Waller JLPT vocabulary list",1500800,seed
+n4-vocab-1499460-33ee970c,N4,部長,ぶちょう,"head of a section","Jonathan Waller JLPT vocabulary list",1499460,seed
+n4-vocab-1497190-9430035c,N4,普通,ふつう,"usually, or a train that stops at every station","Jonathan Waller JLPT vocabulary list",1497190,seed
+n4-vocab-1499230-9b6fe32f,N4,葡萄,ぶどう,grapes,"Jonathan Waller JLPT vocabulary list",1499230,seed
+n4-vocab-1408220-5e3e42ea,N4,太る,ふとる,"to become fat","Jonathan Waller JLPT vocabulary list",1408220,seed
+n4-vocab-1496890-94afdeff,N4,布団,ふとん,"Japanese bedding, futon","Jonathan Waller JLPT vocabulary list",1496890,seed
+n4-vocab-1602800-44c5b0e3,N4,舟,ふね,ship,"Jonathan Waller JLPT vocabulary list",1602800,seed
+n4-vocab-1494860-8f86c02b,N4,不便,ふべん,inconvenience,"Jonathan Waller JLPT vocabulary list",1494860,seed
+n4-vocab-1450270-2263f8e6,N4,踏む,ふむ,"to step on","Jonathan Waller JLPT vocabulary list",1450270,seed
+n4-vocab-1282770-37b57e40,N4,降り出す,ふりだす,"to start to rain","Jonathan Waller JLPT vocabulary list",1282770,seed
+n4-vocab-1116840-c77cd087,N4,プレゼント,プレゼント,present,"Jonathan Waller JLPT vocabulary list",1116840,seed
+n4-vocab-1505120-bc0f7b45,N4,文化,ぶんか,culture,"Jonathan Waller JLPT vocabulary list",1505120,seed
+n4-vocab-1505190-99c6cc90,N4,文学,ぶんがく,literature,"Jonathan Waller JLPT vocabulary list",1505190,seed
+n4-vocab-1505600-328331f5,N4,文法,ぶんぽう,grammar,"Jonathan Waller JLPT vocabulary list",1505600,seed
+n4-vocab-1509430-e5a44da2,N4,別,べつ,different,"Jonathan Waller JLPT vocabulary list",1509430,seed
+n4-vocab-1120010-533e140c,N4,ベル,ベル,bell,"Jonathan Waller JLPT vocabulary list",1120010,seed
+n4-vocab-1510640-567a639b,N4,変,へん,strange,"Jonathan Waller JLPT vocabulary list",1510640,seed
+n4-vocab-1512220-15a0cdae,N4,返事,へんじ,reply,"Jonathan Waller JLPT vocabulary list",1512220,seed
+n4-vocab-1520120-c5612cc6,N4,貿易,ぼうえき,trade,"Jonathan Waller JLPT vocabulary list",1520120,seed
+n4-vocab-1516750-6dbf3518,N4,放送,ほうそう,"to broadcast","Jonathan Waller JLPT vocabulary list",1516750,seed
+n4-vocab-1517480-ef5c9cf2,N4,法律,ほうりつ,law,"Jonathan Waller JLPT vocabulary list",1517480,seed
+n4-vocab-1521400-9a0e3bea,N4,僕,ぼく,"I (used by males)","Jonathan Waller JLPT vocabulary list",1521400,seed
+n4-vocab-1376310-b3812554,N4,星,ほし,star,"Jonathan Waller JLPT vocabulary list",1376310,seed
+n4-vocab-1436510-e504cde2,N4,程,ほど,extent,"Jonathan Waller JLPT vocabulary list",1436510,seed
+n4-vocab-1522050-ce20df86,N4,ほとんど,ほとんど,mostly,"Jonathan Waller JLPT vocabulary list",1522050,seed
+n4-vocab-1603550-c7c832b7,N4,ほめる,ほめる,"to praise","Jonathan Waller JLPT vocabulary list",1603550,seed
+n4-vocab-1523400-6a750c3b,N4,翻訳,ほんやく,translation,"Jonathan Waller JLPT vocabulary list",1523400,seed
+n4-vocab-1302070-78143c22,N4,参る,まいる,"(humble) to go,to come","Jonathan Waller JLPT vocabulary list",1302070,seed
+n4-vocab-1497980-19ecbdff,N4,負ける,まける,"to lose","Jonathan Waller JLPT vocabulary list",1497980,seed
+n4-vocab-1364360-67ea65ef,N4,まじめ,まじめ,serious,"Jonathan Waller JLPT vocabulary list",1364360,seed
+n4-vocab-1387240-0ca82c45,N4,先ず,まず,"first of all","Jonathan Waller JLPT vocabulary list",1387240,seed
+n4-vocab-1524990-21450baf,N4,または,または,"or,otherwise","Jonathan Waller JLPT vocabulary list",1524990,seed
+n4-vocab-1215330-939ba219,N4,間違える,まちがえる,"to make a mistake","Jonathan Waller JLPT vocabulary list",1215330,seed
+n4-vocab-1215260-5e6e2922,N4,間に合う,まにあう,"to be in time for","Jonathan Waller JLPT vocabulary list",1215260,seed
+n4-vocab-1604290-c6799c09,N4,周り,まわり,surroundings,"Jonathan Waller JLPT vocabulary list",1604290,seed
+n4-vocab-1604300-7b744828,N4,回る,まわる,"to go around","Jonathan Waller JLPT vocabulary list",1604300,seed
+n4-vocab-1526920-54d69e3b,N4,漫画,まんが,comic,"Jonathan Waller JLPT vocabulary list",1526920,seed
+n4-vocab-1604350-1e09406b,N4,真ん中,まんなか,middle,"Jonathan Waller JLPT vocabulary list",1604350,seed
+n4-vocab-1259140-96f91f71,N4,見える,みえる,"to be in sight","Jonathan Waller JLPT vocabulary list",1259140,seed
+n4-vocab-1267280-93e2b1b5,N4,湖,みずうみ,lake,"Jonathan Waller JLPT vocabulary list",1267280,seed
+n4-vocab-1527040-2c9958ff,N4,味噌,みそ,"bean paste","Jonathan Waller JLPT vocabulary list",1527040,seed
+n4-vocab-1604550-12ada430,N4,見つかる,みつかる,"to be discovered","Jonathan Waller JLPT vocabulary list",1604550,seed
+n4-vocab-1604570-62ce2736,N4,見つける,みつける,"to discover","Jonathan Waller JLPT vocabulary list",1604570,seed
+n4-vocab-1202150-72811769,N4,皆,みな,everybody,"Jonathan Waller JLPT vocabulary list",1202150,seed
+n4-vocab-1279990-799050b3,N4,港,みなと,harbour,"Jonathan Waller JLPT vocabulary list",1279990,seed
+n4-vocab-1604800-7af08748,N4,向かう,むかう,"to face","Jonathan Waller JLPT vocabulary list",1604800,seed
+n4-vocab-1253190-ff430526,N4,迎える,むかえる,"to go out to meet","Jonathan Waller JLPT vocabulary list",1253190,seed
+n4-vocab-1382370-196c8691,N4,昔,むかし,"olden days, former","Jonathan Waller JLPT vocabulary list",1382370,seed
+n4-vocab-1426680-0fdd35d4,N4,虫,むし,insect,"Jonathan Waller JLPT vocabulary list",1426680,seed
+n4-vocab-1404390-8693eef1,N4,息子,むすこ,"(humble) son","Jonathan Waller JLPT vocabulary list",1404390,seed
+n4-vocab-1531190-b91b2c42,N4,娘,むすめ,"(humble) daughter","Jonathan Waller JLPT vocabulary list",1531190,seed
+n4-vocab-1530970-34d7f9a3,N4,無理,むり,impossible,"Jonathan Waller JLPT vocabulary list",1530970,seed
+n4-vocab-1346370-462fff15,N4,召し上がる,めしあがる,"(polite) to eat","Jonathan Waller JLPT vocabulary list",1346370,seed
+n4-vocab-1431850-be4d55a6,N4,珍しい,めずらしい,rare,"Jonathan Waller JLPT vocabulary list",1431850,seed
+n4-vocab-1362950-56ae66cc,N4,申し上げる,もうしあげる,"(humble) to say,to tell","Jonathan Waller JLPT vocabulary list",1362950,seed
+n4-vocab-1363090-51da37d1,N4,申す,もうす,"(humble) to be called,to say","Jonathan Waller JLPT vocabulary list",1363090,seed
+n4-vocab-2015610-2fec1638,N4,もうすぐ,もうすぐ,soon,"Jonathan Waller JLPT vocabulary list",2015610,seed
+n4-vocab-2607730-2be9d5f0,N4,もし,もし,if,"Jonathan Waller JLPT vocabulary list",2607730,seed
+n4-vocab-1535780-a9254315,N4,もちろん,もちろん,"of course","Jonathan Waller JLPT vocabulary list",1535780,seed
+n4-vocab-1293700-3e9b36ae,N4,最も,もっとも,extremely,"Jonathan Waller JLPT vocabulary list",1293700,seed
+n4-vocab-1535880-c44decbe,N4,戻る,もどる,"to turn back","Jonathan Waller JLPT vocabulary list",1535880,seed
+n4-vocab-1534870-621fc79c,N4,木綿,もめん,cotton,"Jonathan Waller JLPT vocabulary list",1534870,seed
+n4-vocab-1535910-09451b4d,N4,もらう,もらう,"to receive","Jonathan Waller JLPT vocabulary list",1535910,seed
+n4-vocab-1362490-6e19cfec,N4,森,もり,forest,"Jonathan Waller JLPT vocabulary list",1362490,seed
+n4-vocab-1350600-41c08e85,N4,焼く,やく,"to bake,to grill","Jonathan Waller JLPT vocabulary list",1350600,seed
+n4-vocab-1538130-0236ee18,N4,約束,やくそく,promise,"Jonathan Waller JLPT vocabulary list",1538130,seed
+n4-vocab-1537980-f0a98d5b,N4,役に立つ,やくにたつ,"to be helpful","Jonathan Waller JLPT vocabulary list",1537980,seed
+n4-vocab-1350610-2ba43825,N4,焼ける,やける,"to burn,to be roasted","Jonathan Waller JLPT vocabulary list",1350610,seed
+n4-vocab-1539040-646dcd3c,N4,優しい,やさしい,kind,"Jonathan Waller JLPT vocabulary list",1539040,seed
+n4-vocab-1605510-f9f47bc1,N4,痩せる,やせる,"to become thin","Jonathan Waller JLPT vocabulary list",1605510,seed
+n4-vocab-1012800-d271c9a9,N4,やっと,やっと,"at last","Jonathan Waller JLPT vocabulary list",1012800,seed
+n4-vocab-2772770-f1bdd46a,N4,やはり,やはり,"as I thought,absolutely","Jonathan Waller JLPT vocabulary list",2772770,seed
+n4-vocab-1012810-ded855da,N4,やっぱり,やっぱり,"as I thought,absolutely","Jonathan Waller JLPT vocabulary list",1012810,seed
+n4-vocab-1310640-621ac3af,N4,止む,やむ,"to stop","Jonathan Waller JLPT vocabulary list",1310640,seed
+n4-vocab-1310680-dca83698,N4,止める,やめる,"to stop","Jonathan Waller JLPT vocabulary list",1310680,seed
+n4-vocab-1605630-a6558955,N4,柔らかい,やわらかい,soft,"Jonathan Waller JLPT vocabulary list",1605630,seed
+n4-vocab-1448580-6fd89918,N4,湯,ゆ,"hot water","Jonathan Waller JLPT vocabulary list",1448580,seed
+n4-vocab-1538820-8066fe83,N4,輸出,ゆしゅつ,"to export","Jonathan Waller JLPT vocabulary list",1538820,seed
+n4-vocab-1538870-c3f8870e,N4,輸入,ゆにゅう,"to import","Jonathan Waller JLPT vocabulary list",1538870,seed
+n4-vocab-1309650-0c0cb21e,N4,指,ゆび,finger,"Jonathan Waller JLPT vocabulary list",1309650,seed
+n4-vocab-1310050-c413be39,N4,指輪,ゆびわ,"finger ring","Jonathan Waller JLPT vocabulary list",1310050,seed
+n4-vocab-1529410-e836aac5,N4,夢,ゆめ,dream,"Jonathan Waller JLPT vocabulary list",1529410,seed
+n4-vocab-1545710-c81ed926,N4,揺れる,ゆれる,"to shake,to sway","Jonathan Waller JLPT vocabulary list",1545710,seed
+n4-vocab-1546200-7c2ba3e4,N4,用,よう,use,"Jonathan Waller JLPT vocabulary list",1546200,seed
+n4-vocab-1546220-db15bfc1,N4,用意,ようい,preparation,"Jonathan Waller JLPT vocabulary list",1546220,seed
+n4-vocab-1546300-8f4fd029,N4,用事,ようじ,"things to do","Jonathan Waller JLPT vocabulary list",1546300,seed
+n4-vocab-1179005-8b2e6ec4,N4,汚れる,よごれる,"to get dirty","Jonathan Waller JLPT vocabulary list",1179005,seed
+n4-vocab-1543070-214b4ccf,N4,予習,よしゅう,"preparation for a lesson","Jonathan Waller JLPT vocabulary list",1543070,seed
+n4-vocab-1543240-02aa7ca0,N4,予定,よてい,arrangement,"Jonathan Waller JLPT vocabulary list",1543240,seed
+n4-vocab-1543750-d06bd742,N4,予約,よやく,reservation,"Jonathan Waller JLPT vocabulary list",1543750,seed
+n4-vocab-1219680-b3783d96,N4,寄る,よる,"to visit","Jonathan Waller JLPT vocabulary list",1219680,seed
+n4-vocab-1218760-5bc9b6b7,N4,喜ぶ,よろこぶ,"to be delighted","Jonathan Waller JLPT vocabulary list",1218760,seed
+n4-vocab-1224880-c0d91a8d,N4,よろしい,よろしい,"(respectful) OK,all right","Jonathan Waller JLPT vocabulary list",1224880,seed
+n4-vocab-1550140-f3928411,N4,理由,りゆう,reason,"Jonathan Waller JLPT vocabulary list",1550140,seed
+n4-vocab-1549660-27052a83,N4,利用,りよう,utilization,"Jonathan Waller JLPT vocabulary list",1549660,seed
+n4-vocab-1554010-a8893c7c,N4,両方,りょうほう,"both sides","Jonathan Waller JLPT vocabulary list",1554010,seed
+n4-vocab-1553130-a6b3ec2b,N4,旅館,りょかん,"Japanese hotel","Jonathan Waller JLPT vocabulary list",1553130,seed
+n4-vocab-1552760-6b00d1d1,N4,留守,るす,absence,"Jonathan Waller JLPT vocabulary list",1552760,seed
+n4-vocab-1557290-14aebc2b,N4,冷房,れいぼう,"air conditioning","Jonathan Waller JLPT vocabulary list",1557290,seed
+n4-vocab-1558050-f33e11d9,N4,歴史,れきし,history,"Jonathan Waller JLPT vocabulary list",1558050,seed
+n4-vocab-1145130-bd2282d9,N4,レジ,レジ,register,"Jonathan Waller JLPT vocabulary list",1145130,seed
+n4-vocab-1145990-9906af78,N4,レポート,レポート,report,"Jonathan Waller JLPT vocabulary list",1145990,seed
+n4-vocab-1145990-cafd9bf7,N4,リポート,リポート,report,"Jonathan Waller JLPT vocabulary list",1145990,seed
+n4-vocab-1559900-ae525942,N4,連絡,れんらく,contact,"Jonathan Waller JLPT vocabulary list",1559900,seed
+n4-vocab-1148520-4db2cf4f,N4,ワープロ,ワープロ,"word processor","Jonathan Waller JLPT vocabulary list",1148520,seed
+n4-vocab-1501660-d0f83ab7,N4,沸かす,わかす,"to boil,to heat","Jonathan Waller JLPT vocabulary list",1501660,seed
+n4-vocab-1606590-5c9e7bac,N4,別れる,わかれる,"to separate","Jonathan Waller JLPT vocabulary list",1606590,seed
+n4-vocab-1606680-c8c63e1d,N4,沸く,わく,"to boil, to grow hot,to get excited","Jonathan Waller JLPT vocabulary list",1606680,seed
+n4-vocab-1538330-773da09d,N4,訳,わけ,"meaning,reason","Jonathan Waller JLPT vocabulary list",1538330,seed
+n4-vocab-1519230-5892e539,N4,忘れ物,わすれもの,"lost article","Jonathan Waller JLPT vocabulary list",1519230,seed
+n4-vocab-1351360-1e155766,N4,笑う,わらう,"to laugh,to smile","Jonathan Waller JLPT vocabulary list",1351360,seed
+n4-vocab-1606810-dcf7cc6f,N4,割合,わりあい,"rate,ratio,percentage","Jonathan Waller JLPT vocabulary list",1606810,seed
+n4-vocab-1208020-79442f56,N4,割れる,われる,"to break","Jonathan Waller JLPT vocabulary list",1208020,seed
+n4-vocab-2005990-69a6d10a,N4,泳ぎ方,およぎかた,"way of swimming","Jonathan Waller JLPT vocabulary list",2005990,seed

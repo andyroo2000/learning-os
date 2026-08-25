@@ -1,0 +1,90 @@
+concept_id,jlpt_level,pattern,meaning,source,source_id,review_status
+n4-grammar-potential-form,N4,"Verb → potential form","can do / is able to do","Japanese Language Data",potential-form,draft
+n4-grammar-passive-form,N4,"Verb → passive form","is done (passive); also expresses adversity / indirect affect","Japanese Language Data",passive-form,draft
+n4-grammar-causative-form,N4,"Verb → causative form","make / let someone do something","Japanese Language Data",causative-form,draft
+n4-grammar-ta-koto-ga-aru,N4,"Verb-た + ことがある","have done ___ (experience)","Japanese Language Data",ta-koto-ga-aru,draft
+n4-grammar-tsumori-intention,N4,"Verb (dictionary form) + つもり","intend to / plan to ___","Japanese Language Data",tsumori-intention,draft
+n4-grammar-to-omou,N4,"Plain form + と思う","I think (that) ___","Japanese Language Data",to-omou,draft
+n4-grammar-to-iu,N4,"Quoted phrase + と言う","say that ___; be called ___","Japanese Language Data",to-iu,draft
+n4-grammar-darou-deshou-conjecture,N4,"Plain form + だろう / でしょう","probably / I guess / it will probably be","Japanese Language Data",darou-deshou-conjecture,draft
+n4-grammar-kamoshirenai-might,N4,"Plain form + かもしれない","might / may / perhaps","Japanese Language Data",kamoshirenai-might,draft
+n4-grammar-hazu-expected,N4,"Plain form + はず","should be / ought to be / is expected to","Japanese Language Data",hazu-expected,draft
+n4-grammar-tara-conditional,N4,"Verb-た + ら","if / when ___ (general conditional)","Japanese Language Data",tara-conditional,draft
+n4-grammar-ba-conditional,N4,"Verb → ば form","if ___ (general/hypothetical conditional)","Japanese Language Data",ba-conditional,draft
+n4-grammar-to-conditional,N4,"Verb (dictionary form) + と","whenever / when (natural consequence)","Japanese Language Data",to-conditional,draft
+n4-grammar-nara-conditional,N4,"X + なら","if (it is the case that) ___; as for ___","Japanese Language Data",nara-conditional,draft
+n4-grammar-volitional-form,N4,"Verb → volitional form","let's ___; I shall ___ (plain volitional)","Japanese Language Data",volitional-form,draft
+n4-grammar-te-wa-ikenai-prohibition,N4,"Verb-て + はいけない / はいけません","must not ___ (prohibition)","Japanese Language Data",te-wa-ikenai-prohibition,draft
+n4-grammar-te-mo-ii-permission,N4,"Verb-て + もいい / もいいです","may / it's okay to ___ (permission)","Japanese Language Data",te-mo-ii-permission,draft
+n4-grammar-nakereba-naranai,N4,"Verb-ない stem + なければならない","must / have to / need to","Japanese Language Data",nakereba-naranai,draft
+n4-grammar-nakute-mo-ii,N4,"Verb-なく + てもいい","don't have to / it's okay not to","Japanese Language Data",nakute-mo-ii,draft
+n4-grammar-node-cause,N4,"Plain form + ので","because / since ___ (softer, more objective than から)","Japanese Language Data",node-cause,draft
+n4-grammar-ga-kedo-although,N4,"Clause + が / けど / けれども","but / although / however","Japanese Language Data",ga-kedo-although,draft
+n4-grammar-n-desu-explanation,N4,"Plain form + んです / のです","explains, gives reason, or softly asserts: 'it's that ___'","Japanese Language Data",n-desu-explanation,draft
+n4-grammar-ni-naru-become,N4,"X + になる","become ___","Japanese Language Data",ni-naru-become,draft
+n4-grammar-ni-suru-decide,N4,"X + にする","decide on / make it ___","Japanese Language Data",ni-suru-decide,draft
+n4-grammar-hajimeru-auxiliary,N4,"Verb stem + 始める","begin to ___ / start ___ing","Japanese Language Data",hajimeru-auxiliary,draft
+n4-grammar-owaru-finish,N4,"Verb stem + 終わる","finish ___ing","Japanese Language Data",owaru-finish,draft
+n4-grammar-sugiru-too-much,N4,"Verb stem / adj stem + すぎる","too much / overly ___","Japanese Language Data",sugiru-too-much,draft
+n4-grammar-yasui-easy,N4,"Verb stem + やすい","easy to ___","Japanese Language Data",yasui-easy,draft
+n4-grammar-nikui-hard,N4,"Verb stem + にくい","hard to ___ / difficult to ___","Japanese Language Data",nikui-hard,draft
+n4-grammar-noun-modifying-clause,N4,"Plain-form clause + Noun","noun-modifying (attributive) clauses: 'the ___ that ___'","Japanese Language Data",noun-modifying-clause,draft
+n4-grammar-tari-tari-suru,N4,"Verb-た + り + Verb-た + り + する","do things like X and Y (non-exhaustive list of actions)","Japanese Language Data",tari-tari-suru,draft
+n4-grammar-jidoushi-tadoushi,N4,"Transitive verb (他動詞) vs intransitive verb (自動詞) pairs","verb pairs distinguishing 'X does Y' (transitive) from 'Y happens' (intransitive)","Japanese Language Data",jidoushi-tadoushi,draft
+n4-grammar-garu-third-person-emotion,N4,"i-adj stem / 〜たい stem + がる","show signs of / appear to feel (third-person emotion)","Japanese Language Data",garu-third-person-emotion,draft
+n4-grammar-kata-way-of-doing,N4,"Verb ます-stem + 方","way of doing / how to do","Japanese Language Data",kata-way-of-doing,draft
+n4-grammar-you-ni-suru,N4,"Verb plain non-past + ようにする / ようにしている","make it so that / try to do (habitually)","Japanese Language Data",you-ni-suru,draft
+n4-grammar-te-kara-after-doing,N4,"Verb-て form + から","after doing X (then Y)","Japanese Language Data",te-kara-after-doing,draft
+n4-grammar-mae-ni-before-doing,N4,"V plain non-past / noun + の + 前に","before doing X / before X","Japanese Language Data",mae-ni-before-doing,draft
+n4-grammar-ato-de-after-doing,N4,"V-た form / noun + の + 後で","after doing X / after X","Japanese Language Data",ato-de-after-doing,draft
+n4-grammar-koto-ga-dekiru,N4,"V plain non-past + ことができる","can do / is able to do","Japanese Language Data",koto-ga-dekiru,draft
+n4-grammar-koto-ni-suru-decide,N4,"V plain non-past / V ない + ことにする","decide to (active personal decision)","Japanese Language Data",koto-ni-suru-decide,draft
+n4-grammar-koto-ni-naru-be-decided,N4,"V plain non-past / V ない + ことになる","it is decided that / comes to be that","Japanese Language Data",koto-ni-naru-be-decided,draft
+n4-grammar-nasai-command,N4,"Verb ます-stem + なさい","(do it) — gentle command","Japanese Language Data",nasai-command,draft
+n4-grammar-te-hoshii-want-someone,N4,"V-て form + ほしい","want someone (else) to do X","Japanese Language Data",te-hoshii-want-someone,draft
+n4-grammar-shi-reason-listing,N4,"Plain form + し (+ plain form + し + ...)","and / besides (non-exhaustive listing of reasons or facts)","Japanese Language Data",shi-reason-listing,draft
+n4-grammar-you-to-omou-volitional-intent,N4,"Verb volitional form + と思う","I think I will / intend to do","Japanese Language Data",you-to-omou-volitional-intent,draft
+n4-grammar-te-kureru-favor-received,N4,"V-て form + くれる","(someone) does a favor for me / us","Japanese Language Data",te-kureru-favor-received,draft
+n4-grammar-te-morau-request-favor,N4,"V-て form + もらう","I receive the favor of X doing Y / I have X do Y","Japanese Language Data",te-morau-request-favor,draft
+n4-grammar-te-ageru-favor-given,N4,"V-て form + あげる","I do a favor for (someone outside my in-group)","Japanese Language Data",te-ageru-favor-given,draft
+n4-grammar-ageru-give-outward,N4,"Giver が Receiver に Object を あげる","to give (outward, from in-group to out-group)","Japanese Language Data",ageru-give-outward,draft
+n4-grammar-kureru-give-toward,N4,"Giver が (Receiver に) Object を くれる","to give (toward speaker / in-group)","Japanese Language Data",kureru-give-toward,draft
+n4-grammar-morau-receive,N4,"Receiver が Giver に / から Object を もらう","to receive","Japanese Language Data",morau-receive,draft
+n4-grammar-o-v-kudasai-polite-honor,N4,"お + V ます-stem + ください (or ご + Sino-Japanese noun + ください)","please do (very polite honorific request)","Japanese Language Data",o-v-kudasai-polite-honor,draft
+n4-grammar-sonkeigo-reru-rareru,N4,"Verb → passive form (honorific usage)","honorific use of passive form (polite way to describe superior's actions)","Japanese Language Data",sonkeigo-reru-rareru,draft
+n4-grammar-humble-o-suru,N4,"お + V ます-stem + する (or ご + Sino-Japanese noun + する)","humble form: I will do X (for a superior)","Japanese Language Data",humble-o-suru,draft
+n4-grammar-sou-iu-kou-iu,N4,"こういう / そういう / ああいう / どういう + noun","this kind of / that kind of / that kind of (over there) / what kind of","Japanese Language Data",sou-iu-kou-iu,draft
+n4-grammar-tai-to-omou-want-to-think,N4,"Verb stem + たいと思う","I (think I) want to do","Japanese Language Data",tai-to-omou-want-to-think,draft
+n4-grammar-ba-ai-in-case,N4,"V plain / i-adj / na-adj な / noun の + 場合(は)","in the case of / in the event that / if","Japanese Language Data",ba-ai-in-case,draft
+n4-grammar-zutsu-each-per,N4,"Number + counter + ずつ","each / per / at a rate of","Japanese Language Data",zutsu-each-per,draft
+n4-grammar-tsumori-datta-had-intended,N4,"V plain non-past + つもりだった","had intended to / was going to","Japanese Language Data",tsumori-datta-had-intended,draft
+n4-grammar-hazu-datta-was-supposed,N4,"V plain / i-adj / noun の / na-adj な + はずだった","was supposed to / should have been","Japanese Language Data",hazu-datta-was-supposed,draft
+n4-grammar-demo-noun-even,N4,"Noun + でも","even (a) / or something (casual suggestion)","Japanese Language Data",demo-noun-even,draft
+n4-grammar-te-itadaku-polite-favor-received,N4,"V-て form + いただく","I humbly receive the favor of X doing Y (humble)","Japanese Language Data",te-itadaku-polite-favor-received,draft
+n4-grammar-ba-ii-should,N4,"Verb ば-form + いい","should / just need to / it'd be good if","Japanese Language Data",ba-ii-should,draft
+n4-grammar-yaru-casual-giving,N4,"Giver が Receiver に Object を やる","to give (casual / to inferiors, pets, plants)","Japanese Language Data",yaru-casual-giving,draft
+n4-grammar-v-temo-even-if,N4,"V-て form + も","even if / even though (hypothetical or counterfactual contrast)","Japanese Language Data",v-temo-even-if,draft
+n4-grammar-irassharu-honorific,N4,"いらっしゃる (honorific of 行く / 来る / いる)","(honorific) to go / to come / to be (at a place)","Japanese Language Data",irassharu-honorific,draft
+n4-grammar-ossharu-honorific,N4,"おっしゃる (honorific of 言う)","(honorific) to say","Japanese Language Data",ossharu-honorific,draft
+n4-grammar-goran-ni-naru-honorific,N4,"ご覧になる (honorific of 見る)","(honorific) to see / to look at","Japanese Language Data",goran-ni-naru-honorific,draft
+n4-grammar-nasaru-honorific,N4,"なさる (honorific of する)","(honorific) to do","Japanese Language Data",nasaru-honorific,draft
+n4-grammar-mairu-humble,N4,"参る (humble of 行く / 来る)","(humble) to go / to come","Japanese Language Data",mairu-humble,draft
+n4-grammar-mousu-humble,N4,"申す (humble of 言う)","(humble) to say / to be called (a name)","Japanese Language Data",mousu-humble,draft
+n4-grammar-itadaku-humble-verb,N4,"いただく (humble of もらう / 食べる / 飲む)","(humble) to receive / to eat / to drink","Japanese Language Data",itadaku-humble-verb,draft
+n4-grammar-kudasaru-honorific-verb,N4,"くださる (honorific of くれる)","(honorific) (someone superior) gives to me / us","Japanese Language Data",kudasaru-honorific-verb,draft
+n4-grammar-shika-nai,N4,"Noun (or V plain) + しか + negative predicate","only / nothing but (negative-polarity 'only')","Japanese Language Data",shika-nai,draft
+n4-grammar-ga-suki-kirai,N4,"Noun + が + 好き / 嫌い","like / dislike (object takes が, not を)","Japanese Language Data",ga-suki-kirai,draft
+n4-grammar-ga-wakaru,N4,"Noun + が + わかる","understand (object takes が, not を)","Japanese Language Data",ga-wakaru,draft
+n4-grammar-ga-dekiru,N4,"Noun + が + できる","can do / is possible (object takes が, not を)","Japanese Language Data",ga-dekiru,draft
+n4-grammar-ga-kikoeru-mieru,N4,"Noun + が + 聞こえる / 見える","is audible / is visible (spontaneous perception; object takes が)","Japanese Language Data",ga-kikoeru-mieru,draft
+n4-grammar-dakara-so,N4,"だから (sentence-initial)","so / therefore / that's why","Japanese Language Data",dakara-so,draft
+n4-grammar-sorede-and-then,N4,"それで (sentence-initial)","and then / so / as a result","Japanese Language Data",sorede-and-then,draft
+n4-grammar-sorekara-after,N4,"それから (sentence-initial)","and then / after that / in addition","Japanese Language Data",sorekara-after,draft
+n4-grammar-shikashi-but,N4,"しかし (sentence-initial)","but / however (formal)","Japanese Language Data",shikashi-but,draft
+n4-grammar-kedomo-formal-but,N4,"けれども (mid-sentence or sentence-initial)","but / however (formal-neutral)","Japanese Language Data",kedomo-formal-but,draft
+n4-grammar-toka-listing,N4,"X とか Y (とか)","like X and Y / things like (non-exhaustive casual listing)","Japanese Language Data",toka-listing,draft
+n4-grammar-tte-quotation,N4,"Plain form / phrase + って","(casual) that... / they said... / the thing called...","Japanese Language Data",tte-quotation,draft
+n4-grammar-soredemo-even-so,N4,"それでも (sentence-initial)","even so / nonetheless / still","Japanese Language Data",soredemo-even-so,draft
+n4-grammar-sou-da-appearance,N4,"Verb-stem / い-adj stem / な-adj root + そう(だ/です)","looks like / seems (appearance-based judgment)","Japanese Language Data",sou-da-appearance,draft
+n4-grammar-sou-da-hearsay,N4,"Plain form + そう(だ/です)","I heard that / apparently (reported speech)","Japanese Language Data",sou-da-hearsay,draft
+n4-grammar-you-ka-to-omou,N4,"Verb volitional + かと思う","thinking of doing / half-considering","Japanese Language Data",you-ka-to-omou,draft

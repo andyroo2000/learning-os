@@ -295,7 +295,7 @@ class KnownKanjiApiTest extends TestCase
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 500,
             'concept_id' => 'n5-vocab-2013900-2dacb910',
-            'matcher_version' => 'wanikani-exact-v1',
+            'matcher_version' => 'wanikani-exact-v2',
         ]);
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 503,
@@ -505,12 +505,12 @@ class KnownKanjiApiTest extends TestCase
 
         $this->assertDatabaseHas('wanikani_subjects', [
             'subject_id' => 900,
-            'matcher_version' => 'wanikani-exact-v1',
+            'matcher_version' => 'wanikani-exact-v2',
         ]);
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 900,
             'concept_id' => 'n5-vocab-2013900-2dacb910',
-            'matcher_version' => 'wanikani-exact-v1',
+            'matcher_version' => 'wanikani-exact-v2',
         ]);
     }
 

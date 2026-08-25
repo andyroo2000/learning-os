@@ -1,7 +1,7 @@
 # JLPT mastery concept mapping
 
-The first vertical slice provides an intentionally approximate N5 mastery estimate.
-Vocabulary and grammar remain separate metrics; there is no combined score.
+The mastery estimate is intentionally approximate and currently covers N5 and
+N4. Vocabulary and grammar remain separate metrics; there is no combined score.
 
 ## Data model
 
@@ -18,8 +18,10 @@ Vocabulary and grammar remain separate metrics; there is no combined score.
 
 ## Catalog and matching
 
-- The immutable `resources/jlpt/v1` catalog has 684 vocabulary concepts and 77
-  grammar concepts. Checksums and row counts are enforced by the data migration.
+- The immutable `resources/jlpt/v1` catalog has 684 N5 vocabulary concepts, 77
+  N5 grammar concepts, 640 N4 vocabulary concepts, and 89 N4 grammar concepts.
+  N4 is a level-specific bucket rather than a cumulative N5+N4 denominator.
+  Checksums and row counts are enforced by the data migrations.
 - Attribution and the data licenses are preserved beside the catalog.
 - Vocabulary uses exact normalized expression or reading matches. Keys shared by
   homographs or homophones are considered ambiguous and do not match by themselves.
@@ -53,10 +55,14 @@ The compatibility API shape is:
     "N5": {
       "vocabulary": {"masteryPercent": 34, "covered": 280, "total": 684},
       "grammar": {"masteryPercent": 21, "covered": 29, "total": 77}
+    },
+    "N4": {
+      "vocabulary": {"masteryPercent": 18, "covered": 120, "total": 640},
+      "grammar": {"masteryPercent": 9, "covered": 12, "total": 89}
     }
   }
 }
 ```
 
-Future slices can add reviewed semantic grammar classification and N4–N1
-catalogs without changing the N5 response contract.
+Future slices can add reviewed semantic grammar classification and N3–N1
+catalogs without changing the existing level response contracts.

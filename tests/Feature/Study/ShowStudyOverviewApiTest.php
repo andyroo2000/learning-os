@@ -83,6 +83,17 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('jlptMastery.N5.grammar.matched', 0)
                 ->assertJsonPath('jlptMastery.N5.grammar.covered', 0)
                 ->assertJsonPath('jlptMastery.N5.grammar.total', 77)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.known', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.knownFromCards', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.knownFromWaniKani', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.knownFromBoth', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.matched', 0)
+                ->assertJsonPath('jlptMastery.N4.vocabulary.total', 640)
+                ->assertJsonPath('jlptMastery.N4.grammar.masteryPercent', 0)
+                ->assertJsonPath('jlptMastery.N4.grammar.known', 0)
+                ->assertJsonPath('jlptMastery.N4.grammar.matched', 0)
+                ->assertJsonPath('jlptMastery.N4.grammar.total', 89)
                 ->assertJsonStructure([
                     'learningReadiness' => [
                         'timedReviewSampleSize',
@@ -91,6 +102,7 @@ class ShowStudyOverviewApiTest extends TestCase
                     ],
                 ])
                 ->assertJsonMissingPath('jlptMastery.N5.overall')
+                ->assertJsonMissingPath('jlptMastery.N4.overall')
                 ->assertJsonPath('totalCards', 3);
         } finally {
             Carbon::setTestNow();

@@ -13,7 +13,7 @@ use UnexpectedValueException;
 final class GetJlptMasteryAction
 {
     /**
-     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}}
+     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}, N4: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}}
      */
     public function handle(int $userId, ?string $courseId = null, ?string $deckId = null): array
     {
@@ -71,13 +71,13 @@ final class GetJlptMasteryAction
                 ),
             )
             ->where('concepts.language', 'ja')
-            ->where('concepts.jlpt_level', 5)
+            ->whereIn('concepts.jlpt_level', [4, 5])
             ->whereIn('concepts.review_status', [
                 LearningConceptReviewStatus::Seed->value,
                 LearningConceptReviewStatus::Draft->value,
             ])
-            ->groupBy('concepts.kind')
-            ->select('concepts.kind')
+            ->groupBy('concepts.jlpt_level', 'concepts.kind')
+            ->select('concepts.jlpt_level', 'concepts.kind')
             ->selectRaw('COUNT(concepts.id) AS total')
             ->selectRaw('COALESCE(SUM(CASE WHEN best_card.concept_id IS NULL THEN 0 ELSE 1 END), 0) AS covered')
             ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 OR {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_count")
@@ -85,12 +85,16 @@ final class GetJlptMasteryAction
             ->selectRaw("COALESCE(SUM(CASE WHEN {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_wanikani")
             ->selectRaw("COALESCE(SUM(CASE WHEN best_card.known_weight = 1 AND {$wanikaniKnownPredicate} THEN 1 ELSE 0 END), 0) AS known_from_both")
             ->get()
-            ->keyBy('kind');
+            ->keyBy(fn (object $row): string => (string) $row->jlpt_level.'-'.$row->kind);
 
         return [
             'N5' => [
-                'vocabulary' => $this->metric($rows->get(LearningConceptKind::Vocabulary->value)),
-                'grammar' => $this->metric($rows->get(LearningConceptKind::Grammar->value)),
+                'vocabulary' => $this->metric($rows->get('5-'.LearningConceptKind::Vocabulary->value)),
+                'grammar' => $this->metric($rows->get('5-'.LearningConceptKind::Grammar->value)),
+            ],
+            'N4' => [
+                'vocabulary' => $this->metric($rows->get('4-'.LearningConceptKind::Vocabulary->value)),
+                'grammar' => $this->metric($rows->get('4-'.LearningConceptKind::Grammar->value)),
             ],
         ];
     }

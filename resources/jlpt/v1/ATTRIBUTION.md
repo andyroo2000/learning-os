@@ -9,6 +9,15 @@ list, distributed by `stephenmk/yomitan-jlpt-vocab` under CC BY 4.0.
 - Pinned revision: `b062d4e38c4bdd0950ae1d4ec55f04b176182e03`
 - Source file: `original_data/n5.csv`
 
+## N4 vocabulary
+
+`n4-vocabulary.csv` is derived from the same Jonathan Waller community list,
+at the same pinned CC BY 4.0 revision.
+
+- Repository: https://github.com/stephenmk/yomitan-jlpt-vocab
+- Pinned revision: `b062d4e38c4bdd0950ae1d4ec55f04b176182e03`
+- Source file: `original_data/n4.csv`
+
 ## N5 grammar
 
 `n5-grammar.csv` is derived from the Japanese Language Data grammar dataset and
@@ -18,6 +27,16 @@ retains its CC BY-SA 4.0 terms.
 - Pinned revision: `04014e06019fc9d4af76e6dbb64ec709fe863c4d`
 - Source file: `data/grammar/grammar.json`
 - Upstream review status: all imported N5 rows are currently marked `draft`
+
+## N4 grammar
+
+`n4-grammar.csv` is derived from the same Japanese Language Data dataset and
+retains its CC BY-SA 4.0 terms.
+
+- Repository: https://github.com/jkindrix/japanese-language-data
+- Pinned revision: `04014e06019fc9d4af76e6dbb64ec709fe863c4d`
+- Source file: `data/grammar/grammar.json`
+- Upstream review status: all imported N4 rows are currently marked `draft`
 
 The share-alike terms apply to the grammar data and direct derivatives, not to
 unrelated application source code that reads the data. Preserve this attribution

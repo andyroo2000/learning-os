@@ -17,7 +17,7 @@ final class SyncWaniKaniKanjiAction
 
     public function __construct(private readonly WaniKaniApiClient $client) {}
 
-    /** @return array{added: int, effectiveTotal: int, version: int} */
+    /** @return array{added: int, effectiveTotal: int, version: int, reviewCount: int} */
     public function handle(int $userId): array
     {
         $lock = Cache::lock("wanikani-sync:user:{$userId}", 300);
@@ -30,8 +30,9 @@ final class SyncWaniKaniKanjiAction
             $syncStartedAt = CarbonImmutable::now('UTC');
             $updatedAfter = $connection->assignments_synced_through_at?->subMinutes(self::OVERLAP_MINUTES);
             $passedKanji = $this->client->passedKanji((string) $connection->api_token, $updatedAfter);
+            $reviewCount = $this->client->immediateReviewCount((string) $connection->api_token);
 
-            return DB::transaction(function () use ($userId, $connection, $syncStartedAt, $passedKanji): array {
+            return DB::transaction(function () use ($userId, $connection, $syncStartedAt, $passedKanji, $reviewCount): array {
                 $profile = JapaneseKnowledgeProfile::lockForUser($userId);
                 $added = 0;
 
@@ -68,6 +69,8 @@ final class SyncWaniKaniKanjiAction
                     ->firstOrFail();
                 $lockedConnection->assignments_synced_through_at = $syncStartedAt;
                 $lockedConnection->last_synced_at = $syncStartedAt;
+                $lockedConnection->review_count = $reviewCount;
+                $lockedConnection->review_count_updated_at = $syncStartedAt;
                 $lockedConnection->save();
 
                 $effectiveTotal = UserKnownKanji::query()
@@ -81,6 +84,7 @@ final class SyncWaniKaniKanjiAction
                     'added' => $added,
                     'effectiveTotal' => $effectiveTotal,
                     'version' => (int) $profile->knowledge_version,
+                    'reviewCount' => $reviewCount,
                 ];
             });
         } finally {

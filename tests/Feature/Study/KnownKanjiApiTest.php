@@ -335,6 +335,88 @@ class KnownKanjiApiTest extends TestCase
             );
     }
 
+    public function test_sync_preserves_vocabulary_filters_from_wanikani_pagination_urls(): void
+    {
+        $this->signIn();
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_ends_with($url, '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (str_contains($url, '/assignments')) {
+                if (($query['immediately_available_for_review'] ?? null) === 'true') {
+                    return Http::response($this->assignmentCollection([], totalCount: 0));
+                }
+                if (($query['subject_types'] ?? null) === 'kanji') {
+                    return Http::response($this->assignmentCollection([]));
+                }
+                if (($query['subject_types'] ?? null) !== 'vocabulary,kana_vocabulary') {
+                    return Http::response($this->assignmentCollection([
+                        $this->assignment(1, 'radical', 8, '2026-07-15T12:00:00.000000Z'),
+                    ]));
+                }
+                if (($query['page_after_id'] ?? null) === '500') {
+                    return Http::response($this->assignmentCollection([
+                        $this->assignment(501, 'vocabulary', 5, '2026-07-16T12:00:00.000000Z'),
+                    ]));
+                }
+
+                return Http::response([
+                    'object' => 'collection',
+                    'pages' => [
+                        'next_url' => 'https://api.wanikani.com/v2/assignments'
+                            .'?subject_types=vocabulary%2Ckana_vocabulary&page_after_id=500',
+                    ],
+                    'total_count' => 2,
+                    'data' => [
+                        $this->assignment(500, 'vocabulary', 5, '2026-07-15T12:00:00.000000Z'),
+                    ],
+                ]);
+            }
+
+            return Http::response($this->subjectCollection([
+                $this->vocabularySubject(500, 'vocabulary', '赤', ['あか'], ['Red']),
+                $this->vocabularySubject(501, 'vocabulary', '青', ['あお'], ['Blue']),
+            ]));
+        });
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+
+        $this->postJson('/api/study/wanikani/sync')
+            ->assertOk()
+            ->assertExactJson([
+                'added' => 0,
+                'effectiveTotal' => 0,
+                'version' => 0,
+                'reviewCount' => 0,
+                'vocabularyAdded' => 2,
+                'vocabularyKnownTotal' => 2,
+                'vocabularyMatchedTotal' => 2,
+            ]);
+        $this->assertDatabaseHas('user_wanikani_assignments', ['subject_id' => 500]);
+        $this->assertDatabaseHas('user_wanikani_assignments', ['subject_id' => 501]);
+        $this->assertDatabaseMissing('user_wanikani_assignments', ['subject_id' => 1]);
+
+        $vocabularyRequests = collect(Http::recorded())
+            ->map(fn (array $pair) => $pair[0])
+            ->filter(fn ($request): bool => str_contains($request->url(), '/assignments'))
+            ->filter(function ($request): bool {
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+                return ($query['subject_types'] ?? null) === 'vocabulary,kana_vocabulary';
+            })
+            ->values();
+        $this->assertCount(2, $vocabularyRequests);
+        parse_str(
+            (string) parse_url($vocabularyRequests[1]->url(), PHP_URL_QUERY),
+            $secondPageQuery,
+        );
+        $this->assertSame('vocabulary,kana_vocabulary', $secondPageQuery['subject_types'] ?? null);
+        $this->assertSame('500', $secondPageQuery['page_after_id'] ?? null);
+    }
+
     public function test_review_count_failure_preserves_successful_kanji_and_vocabulary_sync(): void
     {
         Log::spy();

@@ -26,7 +26,13 @@ final class ListStudyLearningItemsAction
      *         cardCount: int,
      *         retiredStageCount: int,
      *         transferDemonstrated: bool,
-     *         stages: list<array{number: ?int, status: ?string, cardCount: int, representativeCard: Card}>
+     *         stages: list<array{
+     *             number: ?int,
+     *             status: ?string,
+     *             cardCount: int,
+     *             representativeCard: Card,
+     *             cards: Collection<int, Card>
+     *         }>
      *     }>,
      *     nextCursor: ?Cursor
      * }
@@ -182,7 +188,13 @@ final class ListStudyLearningItemsAction
      *     cardCount: int,
      *     retiredStageCount: int,
      *     transferDemonstrated: bool,
-     *     stages: list<array{number: ?int, status: ?string, cardCount: int, representativeCard: Card}>
+     *     stages: list<array{
+     *         number: ?int,
+     *         status: ?string,
+     *         cardCount: int,
+     *         representativeCard: Card,
+     *         cards: Collection<int, Card>
+     *     }>
      * }
      */
     private function learningItem(Card $representative, ?string $groupId, Collection $cards): array
@@ -214,6 +226,7 @@ final class ListStudyLearningItemsAction
                     'status' => $this->stageStatus($stageCards),
                     'cardCount' => $stageCards->count(),
                     'representativeCard' => $stageCards->firstOrFail(),
+                    'cards' => $stageCards,
                 ];
             })
             ->values();

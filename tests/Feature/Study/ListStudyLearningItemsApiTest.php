@@ -82,6 +82,9 @@ class ListStudyLearningItemsApiTest extends TestCase
             ->assertJsonPath('items.1.stages.0.number', 1)
             ->assertJsonPath('items.1.stages.0.status', VocabVariantStatus::Available->value)
             ->assertJsonPath('items.1.stages.0.cardCount', 2)
+            ->assertJsonCount(2, 'items.1.stages.0.cards')
+            ->assertJsonPath('items.1.stages.0.cards.0.id', $sentence->clientId())
+            ->assertJsonPath('items.1.stages.0.cards.0.syncId', $sentence->id)
             ->assertJsonPath('items.1.stages.1.status', VocabVariantStatus::Locked->value)
             ->assertJsonPath('limit', 10)
             ->assertJsonPath('nextCursor', null);

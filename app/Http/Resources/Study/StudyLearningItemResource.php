@@ -5,6 +5,7 @@ namespace App\Http\Resources\Study;
 use App\Domain\Flashcards\Models\Card;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 /**
  * @property-read array{
@@ -16,7 +17,13 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *     cardCount: int,
  *     retiredStageCount: int,
  *     transferDemonstrated: bool,
- *     stages: list<array{number: ?int, status: ?string, cardCount: int, representativeCard: Card}>
+ *     stages: list<array{
+ *         number: ?int,
+ *         status: ?string,
+ *         cardCount: int,
+ *         representativeCard: Card,
+ *         cards: Collection<int, Card>
+ *     }>
  * } $resource
  */
 class StudyLearningItemResource extends JsonResource
@@ -27,7 +34,7 @@ class StudyLearningItemResource extends JsonResource
         return [
             'id' => $this->resource['id'],
             'groupId' => $this->resource['groupId'],
-            'representativeCard' => StudyCardSummaryResource::make(
+            'representativeCard' => StudyLearningItemCardResource::make(
                 $this->resource['representativeCard'],
             )->resolve($request),
             'currentStageNumber' => $this->resource['currentStageNumber'],
@@ -40,9 +47,11 @@ class StudyLearningItemResource extends JsonResource
                     'number' => $stage['number'],
                     'status' => $stage['status'],
                     'cardCount' => $stage['cardCount'],
-                    'representativeCard' => StudyCardSummaryResource::make(
+                    'representativeCard' => StudyLearningItemCardResource::make(
                         $stage['representativeCard'],
                     )->resolve($request),
+                    'cards' => StudyLearningItemCardResource::collection($stage['cards'])
+                        ->resolve($request),
                 ])
                 ->all(),
         ];

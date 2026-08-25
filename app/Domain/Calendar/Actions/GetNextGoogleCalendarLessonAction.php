@@ -21,6 +21,9 @@ final class GetNextGoogleCalendarLessonAction
         }
 
         $now ??= CarbonImmutable::instance(now())->utc();
+        // Bound this status-read query so a noisy shared calendar cannot make the
+        // connection endpoint unbounded. A match beyond the earliest 500 future
+        // events is intentionally omitted until older mirrors fall out of range.
         $candidates = $connection->eventMirrors()
             ->whereIn('calendar_id', $settings->calendarIds)
             ->where('status', 'confirmed')

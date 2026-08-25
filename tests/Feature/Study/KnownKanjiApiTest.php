@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -240,6 +241,51 @@ class KnownKanjiApiTest extends TestCase
                 'wanikani.reviewCountUpdatedAt',
                 $connection->review_count_updated_at->toJSON(),
             );
+    }
+
+    public function test_review_count_failure_preserves_a_successful_kanji_sync_and_cached_count(): void
+    {
+        Log::spy();
+        $user = $this->signIn();
+        Http::fake([
+            'api.wanikani.com/v2/user' => Http::response(['object' => 'user']),
+            'api.wanikani.com/v2/assignments*' => Http::sequence()
+                ->push($this->assignmentCollection([
+                    $this->assignment(440, '2026-07-15T12:00:00.000000Z'),
+                ]))
+                ->push(['data' => []]),
+            'api.wanikani.com/v2/subjects*' => Http::response($this->subjectCollection([
+                $this->kanjiSubject(440, '一'),
+            ])),
+        ]);
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+        $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
+        $previousCountUpdatedAt = now()->subHour();
+        $connection->review_count = 41;
+        $connection->review_count_updated_at = $previousCountUpdatedAt;
+        $connection->save();
+        $previousCountUpdatedAt = $connection->fresh()->review_count_updated_at;
+
+        $this->postJson('/api/study/wanikani/sync')
+            ->assertOk()
+            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 41]);
+
+        $this->assertDatabaseHas('user_known_kanji', [
+            'user_id' => $user->id,
+            'character' => '一',
+            'wanikani_subject_id' => 440,
+        ]);
+        $connection->refresh();
+        $this->assertNotNull($connection->last_synced_at);
+        $this->assertSame(41, $connection->review_count);
+        $this->assertTrue($connection->review_count_updated_at->equalTo($previousCountUpdatedAt));
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('WaniKani review count refresh failed; preserving the cached count.', [
+                'user_id' => $user->id,
+                'status' => 502,
+            ]);
     }
 
     #[DataProvider('wanikaniProcessOwnedSummaryFieldProvider')]

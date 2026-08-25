@@ -178,7 +178,7 @@ class UpdateCardActionTest extends TestCase
             'card_id' => $card->id,
             'concept_id' => 'n5-vocab-1206900-452102ad',
             'match_source' => 'creation',
-            'classifier_version' => 'n5-rules-v4',
+            'classifier_version' => 'jlpt-n5-n4-rules-v5',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $card->id,

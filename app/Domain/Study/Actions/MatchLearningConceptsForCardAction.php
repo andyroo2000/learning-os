@@ -9,18 +9,20 @@ use App\Domain\Study\Enums\LearningConceptMatchMethod;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Results\LearningConceptMatchResult;
 use App\Domain\Study\Support\LearningConceptText;
+use App\Domain\Study\Support\N4GrammarRuleMatcher;
 use App\Domain\Study\Support\N5GrammarRuleMatcher;
 use Illuminate\Support\Facades\DB;
 
 final class MatchLearningConceptsForCardAction
 {
-    public const CLASSIFIER_VERSION = 'n5-rules-v4';
+    public const CLASSIFIER_VERSION = 'jlpt-n5-n4-rules-v5';
 
     private const FURIGANA_FIELD_PATTERN = '/^([^\s\[\]]+)\[([^\[\]]+)]$/u';
 
     public function __construct(
         private readonly JapaneseTokenizer $tokenizer,
         private readonly N5GrammarRuleMatcher $grammarMatcher,
+        private readonly N4GrammarRuleMatcher $n4GrammarMatcher,
     ) {}
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
@@ -43,7 +45,7 @@ final class MatchLearningConceptsForCardAction
             $vocabularyAliases = DB::table('learning_concept_aliases as aliases')
                 ->join('learning_concepts as concepts', 'concepts.id', '=', 'aliases.concept_id')
                 ->where('concepts.language', 'ja')
-                ->where('concepts.jlpt_level', 5)
+                ->whereIn('concepts.jlpt_level', [4, 5])
                 ->where('concepts.kind', 'vocabulary')
                 ->whereIn('aliases.alias_kind', ['expression', 'reading'])
                 ->whereIn('aliases.normalized_key', $normalizedCandidates)
@@ -88,6 +90,14 @@ final class MatchLearningConceptsForCardAction
             }
 
             foreach ($this->grammarMatcher->match($tokenizedCandidates) as $conceptId => $evidence) {
+                $matches[$conceptId] = [
+                    'method' => LearningConceptMatchMethod::Classifier,
+                    'confidence' => 0.85,
+                    'evidence' => $evidence,
+                ];
+            }
+
+            foreach ($this->n4GrammarMatcher->match($tokenizedCandidates) as $conceptId => $evidence) {
                 $matches[$conceptId] = [
                     'method' => LearningConceptMatchMethod::Classifier,
                     'confidence' => 0.85,

@@ -278,9 +278,13 @@ final class N5GrammarRuleMatcher
                 continue;
             }
 
-            $partOfSpeech = ($token['partOfSpeech'] ?? '').' '.($token['partOfSpeechSubtype'] ?? '');
+            $partOfSpeech = $token['partOfSpeech'] ?? '';
+            $partOfSpeechSubtype = $token['partOfSpeechSubtype'] ?? '';
+            $features = $partOfSpeech.' '.$partOfSpeechSubtype;
 
-            if ($partOfSpeech === ' ' || str_contains($partOfSpeech, '格助詞')) {
+            if (str_contains($features, '格助詞')
+                || ($partOfSpeech === '助詞' && in_array($partOfSpeechSubtype, ['', '*'], true))
+            ) {
                 return true;
             }
         }
@@ -424,10 +428,6 @@ final class N5GrammarRuleMatcher
                     if (mb_strlen($phrase, 'UTF-8') > mb_strlen($token['normalizedSurface'].$suffix, 'UTF-8')) {
                         break;
                     }
-                }
-
-                if (str_ends_with($token['normalizedSurface'] ?? '', $suffix)) {
-                    return true;
                 }
             }
         }

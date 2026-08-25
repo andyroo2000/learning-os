@@ -204,6 +204,11 @@ OUTPUT, 1)[0];
                 ['n5-grammar-kara-cause'],
                 ['n5-grammar-particle-kara-from'],
             ],
+            'case particle fallback without subtype' => [
+                '学校に行きます。',
+                [['学校', '学校', '名詞'], ['に', 'に', '助詞', '*'], ['行き', '行く', '動詞'], ['ます', 'ます', '助動詞']],
+                ['n5-grammar-particle-ni-target'],
+            ],
             'polite past negative' => [
                 '読みませんでした。',
                 [['読み', '読む', '動詞-一般'], ['ませ', 'ます', '助動詞'], ['ん', 'ぬ', '助動詞'], ['でし', 'です', '助動詞'], ['た', 'た', '助動詞']],

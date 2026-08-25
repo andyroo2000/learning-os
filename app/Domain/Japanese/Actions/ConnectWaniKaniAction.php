@@ -31,6 +31,7 @@ final class ConnectWaniKaniAction
                 $connection->api_token = $apiToken;
                 if ($tokenChanged) {
                     $connection->assignments_synced_through_at = null;
+                    $connection->vocabulary_assignments_synced_through_at = null;
                     $connection->last_synced_at = null;
                     $connection->review_count = null;
                     $connection->review_count_updated_at = null;

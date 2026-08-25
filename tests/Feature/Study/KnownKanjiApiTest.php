@@ -7,6 +7,7 @@ use App\Domain\Japanese\Models\WaniKaniConnection;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -166,6 +167,7 @@ class KnownKanjiApiTest extends TestCase
         $this->putJson('/api/study/wanikani', ['apiToken' => 'first-token'])->assertOk();
         $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
         $connection->assignments_synced_through_at = now()->subHour();
+        $connection->vocabulary_assignments_synced_through_at = now()->subHour();
         $connection->last_synced_at = now()->subHour();
         $connection->review_count = 12;
         $connection->review_count_updated_at = now()->subHour();
@@ -177,38 +179,95 @@ class KnownKanjiApiTest extends TestCase
         $this->putJson('/api/study/wanikani', ['apiToken' => 'second-token'])->assertOk();
         $connection->refresh();
         $this->assertNull($connection->assignments_synced_through_at);
+        $this->assertNull($connection->vocabulary_assignments_synced_through_at);
         $this->assertNull($connection->last_synced_at);
         $this->assertNull($connection->review_count);
         $this->assertNull($connection->review_count_updated_at);
     }
 
-    public function test_sync_adds_only_ever_passed_kanji_and_uses_incremental_updates_afterward(): void
+    public function test_sync_persists_ever_passed_kanji_and_vocabulary_with_separate_incremental_cursors(): void
     {
         $user = $this->signIn();
-        Http::fake([
-            'api.wanikani.com/v2/user' => Http::response(['object' => 'user']),
-            'api.wanikani.com/v2/assignments*' => Http::sequence()
-                ->push($this->assignmentCollection([
-                    $this->assignment(440, '2026-07-15T12:00:00.000000Z'),
-                    $this->assignment(441, null),
-                ]))
-                ->push($this->assignmentCollection([], totalCount: 32))
-                ->push($this->assignmentCollection([]))
-                ->push($this->assignmentCollection([], totalCount: 9)),
-            'api.wanikani.com/v2/subjects*' => Http::response($this->subjectCollection([
-                $this->kanjiSubject(440, '一'),
-            ])),
-        ]);
+        $kanjiAssignmentCalls = 0;
+        $vocabularyAssignmentCalls = 0;
+        $reviewCountCalls = 0;
+        Http::fake(function ($request) use (&$kanjiAssignmentCalls, &$vocabularyAssignmentCalls, &$reviewCountCalls) {
+            $url = $request->url();
+            if (str_ends_with($url, '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (str_contains($url, '/assignments')) {
+                if (($query['immediately_available_for_review'] ?? null) === 'true') {
+                    $reviewCountCalls++;
+
+                    return Http::response($this->assignmentCollection(
+                        [],
+                        totalCount: $reviewCountCalls === 1 ? 32 : 9,
+                    ));
+                }
+
+                if (($query['subject_types'] ?? null) === 'kanji') {
+                    $kanjiAssignmentCalls++;
+
+                    return Http::response($this->assignmentCollection($kanjiAssignmentCalls === 1 ? [
+                        $this->assignment(440, 'kanji', 5, '2026-07-15T12:00:00.000000Z'),
+                        $this->assignment(441, 'kanji', 1, null),
+                    ] : []));
+                }
+
+                $vocabularyAssignmentCalls++;
+
+                return Http::response($this->assignmentCollection($vocabularyAssignmentCalls === 1 ? [
+                    $this->assignment(500, 'vocabulary', 5, '2026-07-16T12:00:00.000000Z'),
+                    $this->assignment(501, 'vocabulary', 1, null),
+                    $this->assignment(502, 'kana_vocabulary', 7, '2026-07-17T12:00:00.000000Z'),
+                    $this->assignment(503, 'vocabulary', 6, '2026-07-18T12:00:00.000000Z'),
+                ] : [
+                    // Coverage is intentionally cumulative: falling below Guru later
+                    // does not erase evidence that the subject was previously passed.
+                    $this->assignment(500, 'vocabulary', 2, null),
+                ]));
+            }
+
+            if (($query['ids'] ?? null) === '440') {
+                return Http::response($this->subjectCollection([$this->kanjiSubject(440, '一')]));
+            }
+
+            return Http::response($this->subjectCollection([
+                $this->vocabularySubject(500, 'vocabulary', '赤', ['あか'], ['Red']),
+                $this->vocabularySubject(501, 'vocabulary', '上げる', ['あげる'], ['To Raise']),
+                $this->vocabularySubject(502, 'kana_vocabulary', 'おやつ', [], ['Snack']),
+                $this->vocabularySubject(503, 'vocabulary', '私', ['わたし'], ['I']),
+            ]));
+        });
 
         $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
 
         $this->postJson('/api/study/wanikani/sync')
             ->assertOk()
-            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 32]);
+            ->assertExactJson([
+                'added' => 1,
+                'effectiveTotal' => 1,
+                'version' => 1,
+                'reviewCount' => 32,
+                'vocabularyAdded' => 3,
+                'vocabularyKnownTotal' => 3,
+                'vocabularyMatchedTotal' => 2,
+            ]);
 
         $this->postJson('/api/study/wanikani/sync')
             ->assertOk()
-            ->assertExactJson(['added' => 0, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 9]);
+            ->assertExactJson([
+                'added' => 0,
+                'effectiveTotal' => 1,
+                'version' => 1,
+                'reviewCount' => 9,
+                'vocabularyAdded' => 0,
+                'vocabularyKnownTotal' => 3,
+                'vocabularyMatchedTotal' => 2,
+            ]);
 
         $this->assertDatabaseHas('user_known_kanji', [
             'user_id' => $user->id,
@@ -219,21 +278,54 @@ class KnownKanjiApiTest extends TestCase
             'user_id' => $user->id,
             'wanikani_subject_id' => 441,
         ]);
+        $this->assertDatabaseHas('user_wanikani_assignments', [
+            'user_id' => $user->id,
+            'subject_id' => 500,
+            'srs_stage' => 2,
+        ]);
+        $this->assertNotNull(DB::table('user_wanikani_assignments')
+            ->where('user_id', $user->id)
+            ->where('subject_id', 500)
+            ->value('passed_at'));
+        $this->assertDatabaseHas('user_wanikani_assignments', [
+            'user_id' => $user->id,
+            'subject_id' => 501,
+            'passed_at' => null,
+        ]);
+        $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
+            'subject_id' => 500,
+            'concept_id' => 'n5-vocab-2013900-2dacb910',
+            'matcher_version' => 'wanikani-exact-v1',
+        ]);
+        $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
+            'subject_id' => 503,
+            'concept_id' => 'n5-vocab-1311110-8b82a027',
+            'match_method' => 'expression_reading',
+        ]);
+        $this->assertDatabaseMissing('wanikani_subject_learning_concepts', [
+            'subject_id' => 502,
+        ]);
 
         $assignmentRequests = collect(Http::recorded())
             ->map(fn (array $pair) => $pair[0])
             ->filter(fn ($request): bool => str_contains($request->url(), '/assignments'))
             ->values();
-        $kanjiAssignmentRequests = $assignmentRequests->reject(
-            fn ($request): bool => str_contains($request->url(), 'immediately_available_for_review=true'),
+        $kanjiAssignmentRequests = $assignmentRequests->filter(
+            fn ($request): bool => str_contains($request->url(), 'subject_types=kanji'),
+        )->values();
+        $vocabularyAssignmentRequests = $assignmentRequests->filter(
+            fn ($request): bool => str_contains($request->url(), 'subject_types=vocabulary%2Ckana_vocabulary'),
         )->values();
         $reviewCountRequests = $assignmentRequests->filter(
             fn ($request): bool => str_contains($request->url(), 'immediately_available_for_review=true'),
         )->values();
         $this->assertCount(2, $kanjiAssignmentRequests);
+        $this->assertCount(2, $vocabularyAssignmentRequests);
         $this->assertCount(2, $reviewCountRequests);
         $this->assertStringNotContainsString('updated_after=', $kanjiAssignmentRequests[0]->url());
         $this->assertStringContainsString('updated_after=', $kanjiAssignmentRequests[1]->url());
+        $this->assertStringNotContainsString('updated_after=', $vocabularyAssignmentRequests[0]->url());
+        $this->assertStringContainsString('updated_after=', $vocabularyAssignmentRequests[1]->url());
         $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
         $this->getJson('/api/study/known-kanji')
             ->assertJsonPath('wanikani.reviewCount', 9)
@@ -243,21 +335,33 @@ class KnownKanjiApiTest extends TestCase
             );
     }
 
-    public function test_review_count_failure_preserves_a_successful_kanji_sync_and_cached_count(): void
+    public function test_review_count_failure_preserves_successful_kanji_and_vocabulary_sync(): void
     {
         Log::spy();
         $user = $this->signIn();
-        Http::fake([
-            'api.wanikani.com/v2/user' => Http::response(['object' => 'user']),
-            'api.wanikani.com/v2/assignments*' => Http::sequence()
-                ->push($this->assignmentCollection([
-                    $this->assignment(440, '2026-07-15T12:00:00.000000Z'),
-                ]))
-                ->push(['data' => []]),
-            'api.wanikani.com/v2/subjects*' => Http::response($this->subjectCollection([
-                $this->kanjiSubject(440, '一'),
-            ])),
-        ]);
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_ends_with($url, '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (str_contains($url, '/assignments')) {
+                if (($query['immediately_available_for_review'] ?? null) === 'true') {
+                    return Http::response(['data' => []]);
+                }
+
+                if (($query['subject_types'] ?? null) === 'kanji') {
+                    return Http::response($this->assignmentCollection([
+                        $this->assignment(440, 'kanji', 5, '2026-07-15T12:00:00.000000Z'),
+                    ]));
+                }
+
+                return Http::response($this->assignmentCollection([]));
+            }
+
+            return Http::response($this->subjectCollection([$this->kanjiSubject(440, '一')]));
+        });
 
         $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
         $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
@@ -269,7 +373,15 @@ class KnownKanjiApiTest extends TestCase
 
         $this->postJson('/api/study/wanikani/sync')
             ->assertOk()
-            ->assertExactJson(['added' => 1, 'effectiveTotal' => 1, 'version' => 1, 'reviewCount' => 41]);
+            ->assertExactJson([
+                'added' => 1,
+                'effectiveTotal' => 1,
+                'version' => 1,
+                'reviewCount' => 41,
+                'vocabularyAdded' => 0,
+                'vocabularyKnownTotal' => 0,
+                'vocabularyMatchedTotal' => 0,
+            ]);
 
         $this->assertDatabaseHas('user_known_kanji', [
             'user_id' => $user->id,
@@ -278,6 +390,7 @@ class KnownKanjiApiTest extends TestCase
         ]);
         $connection->refresh();
         $this->assertNotNull($connection->last_synced_at);
+        $this->assertNotNull($connection->vocabulary_assignments_synced_through_at);
         $this->assertSame(41, $connection->review_count);
         $this->assertTrue($connection->review_count_updated_at->equalTo($previousCountUpdatedAt));
         Log::shouldHaveReceived('warning')
@@ -305,6 +418,43 @@ class KnownKanjiApiTest extends TestCase
             'review count' => ['review_count', 12],
             'review count timestamp' => ['review_count_updated_at', '2026-08-24T18:00:00Z'],
         ];
+    }
+
+    public function test_sync_rejects_malformed_wanikani_vocabulary_without_advancing_cursors(): void
+    {
+        $user = $this->signIn();
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_ends_with($url, '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (str_contains($url, '/assignments')) {
+                return Http::response($this->assignmentCollection(
+                    ($query['subject_types'] ?? null) === 'kanji'
+                        ? []
+                        : [$this->assignment(500, 'vocabulary', 5, '2026-07-16T12:00:00.000000Z')],
+                ));
+            }
+
+            return Http::response($this->subjectCollection([
+                $this->vocabularySubject(500, 'vocabulary', '赤', [], ['Red']),
+            ]));
+        });
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+
+        $this->postJson('/api/study/wanikani/sync')
+            ->assertStatus(502)
+            ->assertExactJson(['message' => 'WaniKani returned an unexpected response.']);
+
+        $connection = WaniKaniConnection::query()->where('user_id', $user->id)->firstOrFail();
+        $this->assertNull($connection->assignments_synced_through_at);
+        $this->assertNull($connection->vocabulary_assignments_synced_through_at);
+        $this->assertNull($connection->last_synced_at);
+        $this->assertDatabaseCount('wanikani_subjects', 0);
+        $this->assertDatabaseCount('user_wanikani_assignments', 0);
     }
 
     public function test_removing_a_manual_marker_keeps_wanikani_evidence_known(): void
@@ -340,14 +490,22 @@ class KnownKanjiApiTest extends TestCase
         }
     }
 
-    private function assignment(int $subjectId, ?string $passedAt): array
-    {
+    private function assignment(
+        int $subjectId,
+        string $subjectType,
+        int $srsStage,
+        ?string $passedAt,
+    ): array {
         return [
             'object' => 'assignment',
+            'data_updated_at' => '2026-07-18T12:00:00.000000Z',
             'data' => [
                 'subject_id' => $subjectId,
-                'subject_type' => 'kanji',
+                'subject_type' => $subjectType,
+                'srs_stage' => $srsStage,
                 'passed_at' => $passedAt,
+                'burned_at' => null,
+                'hidden' => false,
             ],
         ];
     }
@@ -365,6 +523,35 @@ class KnownKanjiApiTest extends TestCase
     private function kanjiSubject(int $id, string $character): array
     {
         return ['id' => $id, 'object' => 'kanji', 'data' => ['characters' => $character]];
+    }
+
+    /** @param list<string> $readings
+     * @param  list<string>  $meanings
+     */
+    private function vocabularySubject(
+        int $id,
+        string $type,
+        string $characters,
+        array $readings,
+        array $meanings,
+    ): array {
+        return [
+            'id' => $id,
+            'object' => $type,
+            'data_updated_at' => '2026-07-18T12:00:00.000000Z',
+            'data' => [
+                'characters' => $characters,
+                'readings' => array_map(
+                    fn (string $reading): array => ['reading' => $reading, 'accepted_answer' => true],
+                    $readings,
+                ),
+                'meanings' => array_map(
+                    fn (string $meaning): array => ['meaning' => $meaning, 'accepted_answer' => true],
+                    $meanings,
+                ),
+                'hidden_at' => null,
+            ],
+        ];
     }
 
     private function subjectCollection(array $subjects): array

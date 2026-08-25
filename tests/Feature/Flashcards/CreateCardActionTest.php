@@ -215,6 +215,9 @@ class CreateCardActionTest extends TestCase
             'match_source' => 'creation',
             'classifier_version' => 'jlpt-n5-n4-rules-v5',
         ]);
+        $this->assertSame(3, DB::table('card_learning_concepts')
+            ->where('card_id', $result->card->id)
+            ->count());
     }
 
     public function test_it_does_not_tokenize_bracket_furigana_as_sentence_vocabulary(): void

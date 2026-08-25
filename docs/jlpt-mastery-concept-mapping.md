@@ -31,7 +31,9 @@ N4. Vocabulary and grammar remain separate metrics; there is no combined score.
   Surface fragments shared by more than one catalog concept (such as `です`) are
   considered ambiguous and do not produce automatic matches.
 - N4 grammar matching currently recognizes a curated set of high-signal surface
-  constructions. Form-only rules such as potential, passive, causative, and some
+  constructions. A surface must align to complete adjacent tokenizer tokens; an
+  incidental substring inside an ordinary word does not count. Form-only rules
+  such as potential, passive, causative, and some
   conditionals remain in the denominator but are intentionally not auto-matched
   until their morphology can be distinguished reliably. More-specific constructions
   suppress their nested general rule (for example, `なくてもいい` does not also

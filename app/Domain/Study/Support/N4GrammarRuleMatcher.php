@@ -73,6 +73,7 @@ final class N4GrammarRuleMatcher
         'n4-grammar-tsumori-datta-had-intended' => ['n4-grammar-tsumori-intention'],
         'n4-grammar-hazu-datta-was-supposed' => ['n4-grammar-hazu-expected'],
         'n4-grammar-nakute-mo-ii' => ['n4-grammar-te-mo-ii-permission'],
+        'n4-grammar-koto-ga-dekiru' => ['n4-grammar-ga-dekiru'],
         'n4-grammar-koto-ni-suru-decide' => ['n4-grammar-ni-suru-decide'],
         'n4-grammar-koto-ni-naru-be-decided' => ['n4-grammar-ni-naru-become'],
         'n4-grammar-you-ni-suru' => ['n4-grammar-ni-suru-decide'],
@@ -92,21 +93,21 @@ final class N4GrammarRuleMatcher
         $matches = [];
 
         foreach ($candidates as $candidate) {
-            foreach ($this->segments($candidate['tokens']) as $segment) {
+            foreach ($this->significantTokenSegments($candidate['tokens']) as $tokens) {
                 foreach (self::RULES as $conceptId => $surfaces) {
                     if (isset($matches[$conceptId])) {
                         continue;
                     }
 
                     foreach ($surfaces as $surface) {
-                        if (! str_contains($segment, LearningConceptText::normalize($surface))) {
+                        if (! $this->hasTokenPhrase($tokens, LearningConceptText::normalize($surface))) {
                             continue;
                         }
 
                         // たり〜たり / だり〜だり is defined by repetition rather
                         // than one incidental connecting-particle occurrence.
                         if ($conceptId === 'n4-grammar-tari-tari-suru'
-                            && substr_count($segment, 'たり') + substr_count($segment, 'だり') < 2
+                            && $this->tokenPhraseCount($tokens, 'たり') + $this->tokenPhraseCount($tokens, 'だり') < 2
                         ) {
                             continue;
                         }
@@ -137,32 +138,74 @@ final class N4GrammarRuleMatcher
         return $matches;
     }
 
-    /** @param list<array<string, string>> $tokens */
-    private function segments(array $tokens): array
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @return list<list<array<string, string>>>
+     */
+    private function significantTokenSegments(array $tokens): array
     {
         $segments = [];
-        $segment = '';
+        $segment = [];
 
         foreach ($tokens as $token) {
             $surface = LearningConceptText::normalize($token['surface'] ?? '');
             $partOfSpeech = $token['partOfSpeech'] ?? '';
 
             if ($surface === '' || str_starts_with($partOfSpeech, '記号') || str_starts_with($partOfSpeech, '補助記号')) {
-                if ($segment !== '') {
+                if ($segment !== []) {
                     $segments[] = $segment;
-                    $segment = '';
+                    $segment = [];
                 }
 
                 continue;
             }
 
-            $segment .= $surface;
+            $token['normalizedSurface'] = $surface;
+            $segment[] = $token;
         }
 
-        if ($segment !== '') {
+        if ($segment !== []) {
             $segments[] = $segment;
         }
 
         return $segments;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasTokenPhrase(array $tokens, string $phrase): bool
+    {
+        return $this->tokenPhraseCount($tokens, $phrase) > 0;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function tokenPhraseCount(array $tokens, string $phrase): int
+    {
+        $count = 0;
+
+        for ($index = 0; $index < count($tokens); $index++) {
+            if ($this->tokensMatchAt($tokens, $index, $phrase)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function tokensMatchAt(array $tokens, int $start, string $phrase): bool
+    {
+        $candidate = '';
+        $phraseLength = mb_strlen($phrase, 'UTF-8');
+
+        for ($index = $start; $index < count($tokens); $index++) {
+            $candidate .= $tokens[$index]['normalizedSurface'];
+            $candidateLength = mb_strlen($candidate, 'UTF-8');
+
+            if ($candidateLength >= $phraseLength) {
+                return $candidate === $phrase;
+            }
+        }
+
+        return false;
     }
 }

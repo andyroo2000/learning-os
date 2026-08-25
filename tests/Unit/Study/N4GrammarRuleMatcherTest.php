@@ -78,6 +78,12 @@ class N4GrammarRuleMatcherTest extends TestCase
                 ['n4-grammar-tsumori-datta-had-intended'],
                 ['n4-grammar-tsumori-intention'],
             ],
+            'specific ability construction suppresses general ability' => [
+                '日本語を話すことができる。',
+                ['日本語', 'を', '話す', 'こと', 'が', 'できる', '。'],
+                ['n4-grammar-koto-ga-dekiru'],
+                ['n4-grammar-ga-dekiru'],
+            ],
             'tari requires repetition in one sentence segment' => [
                 '読んだり書いたりする。',
                 ['読ん', 'だり', '書い', 'たり', 'する', '。'],
@@ -100,6 +106,18 @@ class N4GrammarRuleMatcherTest extends TestCase
                 ['持っ', 'て', 'いか', 'なけれ', 'ば', 'なら', 'ない', '。'],
                 ['n4-grammar-nakereba-naranai'],
                 ['n4-grammar-nara-conditional', 'n4-grammar-tte-quotation'],
+            ],
+            'explanatory n desu does not match inside an ordinary noun' => [
+                'パンです。',
+                ['パン', 'です', '。'],
+                [],
+                ['n4-grammar-n-desu-explanation'],
+            ],
+            'listing toka does not match across adjective inflection tokens' => [
+                'ふとかった。',
+                ['ふと', 'かった', '。'],
+                [],
+                ['n4-grammar-toka-listing'],
             ],
         ];
     }

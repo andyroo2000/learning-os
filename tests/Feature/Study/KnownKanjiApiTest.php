@@ -4,12 +4,15 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Japanese\Models\UserKnownKanji;
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
+use App\Jobs\ProcessStudyVocabBundleDrafts;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -341,6 +344,49 @@ class KnownKanjiApiTest extends TestCase
                 'wanikani.reviewCountUpdatedAt',
                 $connection->review_count_updated_at->toJSON(),
             );
+    }
+
+    public function test_sync_queues_a_recent_vocabulary_import_when_the_bridge_is_enabled(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $passedAt = now()->subHour()->toJSON();
+        Http::fake(function ($request) use ($passedAt) {
+            $url = $request->url();
+            if (str_ends_with($url, '/user')) {
+                return Http::response(['object' => 'user']);
+            }
+
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (str_contains($url, '/assignments')) {
+                if (($query['immediately_available_for_review'] ?? null) === 'true'
+                    || ($query['subject_types'] ?? null) === 'kanji') {
+                    return Http::response($this->assignmentCollection([]));
+                }
+
+                return Http::response($this->assignmentCollection([
+                    $this->assignment(550, 'vocabulary', 5, $passedAt),
+                ]));
+            }
+
+            return Http::response($this->subjectCollection([
+                $this->vocabularySubject(550, 'vocabulary', '会社', ['かいしゃ'], ['Company']),
+            ]));
+        });
+
+        $this->putJson('/api/study/wanikani', ['apiToken' => 'test-token'])->assertOk();
+        $this->patchJson('/api/study/wanikani/transfer-bridge', ['enabled' => true])->assertOk();
+        $this->postJson('/api/study/wanikani/sync')->assertOk();
+
+        $this->assertDatabaseHas('study_vocab_variant_groups', [
+            'user_id' => $user->id,
+            'wanikani_subject_id' => 550,
+            'automatic_import_status' => AutomaticStudyVocabImportStatus::Generating->value,
+        ]);
+        Queue::assertPushed(
+            ProcessStudyVocabBundleDrafts::class,
+            fn (ProcessStudyVocabBundleDrafts $job): bool => $job->groupId !== '',
+        );
     }
 
     public function test_sync_preserves_vocabulary_filters_from_wanikani_pagination_urls(): void

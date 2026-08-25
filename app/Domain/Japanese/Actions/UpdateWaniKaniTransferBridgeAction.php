@@ -6,9 +6,14 @@ use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
 use App\Domain\Japanese\Models\WaniKaniConnection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class UpdateWaniKaniTransferBridgeAction
 {
+    public function __construct(
+        private readonly DispatchWaniKaniTransferImportsAction $dispatchTransferImports,
+    ) {}
+
     public function handle(int $userId, bool $enabled): WaniKaniConnection
     {
         $lock = Cache::lock("wanikani-sync:user:{$userId}", 300);
@@ -33,6 +38,16 @@ final class UpdateWaniKaniTransferBridgeAction
 
                 return $connection;
             });
+
+            if ($enabled) {
+                try {
+                    // Import already-synced vocabulary immediately; future syncs and the daily
+                    // scheduler use the same idempotent dispatcher.
+                    $this->dispatchTransferImports->handle($userId);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
 
             return $connection;
         } finally {

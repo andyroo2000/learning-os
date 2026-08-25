@@ -27,7 +27,7 @@ class StudyTodaySummaryMigrationTest extends TestCase
 
         $up = new Blueprint($connection, 'wanikani_connections', function (Blueprint $table): void {
             $table->unsignedInteger('review_count')->nullable()->after('last_synced_at');
-            $table->timestampTz('review_count_updated_at', 6)->nullable()->after('review_count');
+            $table->timestamp('review_count_updated_at', 6)->nullable()->after('review_count');
         });
         $down = new Blueprint($connection, 'wanikani_connections', function (Blueprint $table): void {
             $table->dropColumn(['review_count', 'review_count_updated_at']);

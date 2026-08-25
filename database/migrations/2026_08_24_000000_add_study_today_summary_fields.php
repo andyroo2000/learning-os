@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('wanikani_connections', function (Blueprint $table): void {
             $table->unsignedInteger('review_count')->nullable()->after('last_synced_at');
-            $table->timestampTz('review_count_updated_at', 6)->nullable()->after('review_count');
+            $table->timestamp('review_count_updated_at', 6)->nullable()->after('review_count');
         });
         Schema::table('google_calendar_event_mirrors', function (Blueprint $table): void {
             $table->index(

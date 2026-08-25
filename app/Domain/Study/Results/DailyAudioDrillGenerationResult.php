@@ -17,7 +17,11 @@ final readonly class DailyAudioDrillGenerationResult
      *     unitCount: int,
      *     l2UnitCount: int,
      *     l2UnitsWithReadingCount: int,
-     *     l2UnitsMissingReadingCount: int
+     *     l2UnitsMissingReadingCount: int,
+     *     targetDurationMinutes: int,
+     *     availablePromptCount: int,
+     *     estimatedDurationSeconds: int,
+     *     durationContentExhausted: bool
      * }  $metadata
      */
     public function __construct(

@@ -8,6 +8,7 @@ use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -109,6 +110,10 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
             'l2UnitCount' => 20,
             'l2UnitsWithReadingCount' => 20,
             'l2UnitsMissingReadingCount' => 0,
+            'targetDurationMinutes' => 30,
+            'availablePromptCount' => 5,
+            'estimatedDurationSeconds' => 191,
+            'durationContentExhausted' => true,
         ], $result->metadata);
     }
 
@@ -303,6 +308,53 @@ class DailyAudioDrillScriptGeneratorTest extends TestCase
         $this->assertSame(50, $result->metadata['totalPromptCount']);
         $this->assertTrue($l2Text->contains('ことば50'));
         $this->assertFalse($l2Text->contains('ことば51'));
+    }
+
+    #[DataProvider('editionDurationProvider')]
+    public function test_it_budgets_prompts_to_the_requested_edition_duration(
+        int $targetDurationMinutes,
+    ): void {
+        $openAi = $this->mock(OpenAiStudyCardGenerator::class);
+        $openAi->shouldReceive('generateJson')
+            ->times(6)
+            ->andReturn(json_encode(['items' => []], JSON_THROW_ON_ERROR));
+        $atoms = collect(range(1, 30))->map(fn (int $index): DailyAudioLearningAtom => $this->atom(
+            cardId: "card-{$index}",
+            targetText: "長い日本語の練習文を声に出して繰り返します{$index}",
+            english: "This is a deliberately longer English practice cue number {$index} for accurate audio timing",
+            reading: null,
+            exampleJp: "別の長い日本語の例文を使って時間を正確に見積もります{$index}",
+            exampleEn: "This second deliberately longer example sentence improves the duration estimate number {$index}",
+        ));
+
+        $result = (new DailyAudioDrillScriptGenerator($openAi))->generate(
+            $atoms,
+            'fishaudio:english',
+            'ja-JP-Wavenet-C',
+            $targetDurationMinutes,
+        );
+
+        $this->assertSame($targetDurationMinutes, $result->metadata['targetDurationMinutes']);
+        $this->assertEqualsWithDelta(
+            $targetDurationMinutes * 60,
+            $result->metadata['estimatedDurationSeconds'],
+            45,
+        );
+        $this->assertFalse($result->metadata['durationContentExhausted']);
+        $this->assertLessThan(
+            $result->metadata['availablePromptCount'],
+            $result->metadata['totalPromptCount'],
+        );
+    }
+
+    public static function editionDurationProvider(): array
+    {
+        return [
+            '15-minute edition' => [15],
+            '30-minute edition' => [30],
+            '45-minute edition' => [45],
+            '60-minute edition' => [60],
+        ];
     }
 
     public function test_it_reports_missing_cues_without_sending_mixed_language_to_the_narrator(): void

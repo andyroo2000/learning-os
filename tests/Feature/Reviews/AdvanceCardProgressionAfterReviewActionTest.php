@@ -144,6 +144,100 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
             ->count());
     }
 
+    public function test_an_offline_batch_can_review_a_stage_unlocked_by_earlier_events_in_the_same_batch(): void
+    {
+        [$user, $deck] = $this->learnerDeck();
+        $contextCard = $this->familyCard($deck, 'path-offline', 1, VocabVariantStatus::Available);
+        $textCard = $this->familyCard($deck, 'path-offline', 2, VocabVariantStatus::Locked);
+        $wordCard = $this->familyCard($deck, 'path-offline', 3, VocabVariantStatus::Locked);
+        $textReviewId = strtolower((string) Str::ulid());
+
+        $result = app(ReviewCardBatchAction::class)->handle([
+            ReviewCardData::fromInput(
+                cardId: $contextCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-08-25T09:00:00Z',
+                clientEventId: 'offline-context-1',
+                deviceId: 'offline-progression-test',
+                clientCreatedAt: '2026-08-25T09:00:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $contextCard->id,
+                rating: CardReviewRating::Easy->value,
+                reviewedAt: '2026-08-25T09:05:00Z',
+                clientEventId: 'offline-context-2',
+                deviceId: 'offline-progression-test',
+                clientCreatedAt: '2026-08-25T09:05:00Z',
+            ),
+            ReviewCardData::fromInput(
+                cardId: $textCard->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: '2026-08-25T09:10:00Z',
+                id: $textReviewId,
+                clientEventId: 'offline-text-1',
+                deviceId: 'offline-progression-test',
+                clientCreatedAt: '2026-08-25T09:10:00Z',
+            ),
+        ]);
+
+        $this->assertTrue($result->hasCreatedEvents);
+        $this->assertCount(3, $result->reviewEvents);
+        $this->assertSame(VocabVariantStatus::Available->value, $textCard->refresh()->variant_status);
+        $this->assertSame(CardStudyStatus::Learning, $textCard->study_status);
+        $this->assertNull($textCard->new_queue_position);
+        $this->assertSame(VocabVariantStatus::Locked->value, $wordCard->refresh()->variant_status);
+
+        $textReview = CardReviewEvent::query()->findOrFail($textReviewId);
+        $this->assertSame(CardStudyStatus::New->value, $textReview->card_state_before['study_status']);
+        $this->assertSame(1, $textReview->card_state_before['new_queue_position']);
+        $this->assertSame($user->id, $textCard->ownerUserId());
+    }
+
+    public function test_an_offline_batch_cannot_use_a_future_event_to_unlock_an_earlier_locked_review(): void
+    {
+        [$user, $deck] = $this->learnerDeck();
+        $contextCard = $this->familyCard($deck, 'path-offline-order', 1, VocabVariantStatus::Available);
+        $textCard = $this->familyCard($deck, 'path-offline-order', 2, VocabVariantStatus::Locked);
+
+        try {
+            app(ReviewCardBatchAction::class)->handle([
+                ReviewCardData::fromInput(
+                    cardId: $contextCard->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-08-25T09:00:00Z',
+                    clientEventId: 'offline-order-context-1',
+                    deviceId: 'offline-order-test',
+                    clientCreatedAt: '2026-08-25T09:00:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $textCard->id,
+                    rating: CardReviewRating::Good->value,
+                    reviewedAt: '2026-08-25T09:05:00Z',
+                    clientEventId: 'offline-order-text-1',
+                    deviceId: 'offline-order-test',
+                    clientCreatedAt: '2026-08-25T09:05:00Z',
+                ),
+                ReviewCardData::fromInput(
+                    cardId: $contextCard->id,
+                    rating: CardReviewRating::Easy->value,
+                    reviewedAt: '2026-08-25T09:10:00Z',
+                    clientEventId: 'offline-order-context-2',
+                    deviceId: 'offline-order-test',
+                    clientCreatedAt: '2026-08-25T09:10:00Z',
+                ),
+            ]);
+            $this->fail('Expected the chronologically premature locked-stage review to be rejected.');
+        } catch (CardReviewEventConflictException $exception) {
+            $this->assertSame('card_progression_locked', $exception->reason());
+        }
+
+        $this->assertSame(CardStudyStatus::New, $contextCard->refresh()->study_status);
+        $this->assertSame(VocabVariantStatus::Locked->value, $textCard->refresh()->variant_status);
+        $this->assertDatabaseCount('card_review_events', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+        $this->assertSame($user->id, $textCard->ownerUserId());
+    }
+
     public function test_reviews_of_an_earlier_stage_cannot_skip_over_the_highest_available_stage(): void
     {
         [$user, $deck] = $this->learnerDeck();
@@ -235,7 +329,11 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                app(AdvanceCardProgressionAfterReviewAction::class)->handle($lockedFinalCard);
+                app(AdvanceCardProgressionAfterReviewAction::class)->handle(
+                    $lockedFinalCard,
+                    now(),
+                    strtolower((string) Str::ulid()),
+                );
             });
             $queries = collect(DB::getQueryLog());
         } finally {

@@ -191,7 +191,11 @@ class ReviewCardAction
                 $this->applyLockedCardStudyReview($lockedCard, $rating, $reviewEvent->reviewed_at);
 
                 if ($progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
-                    $this->advanceCardProgression()->handle($lockedCard);
+                    $this->advanceCardProgression()->handle(
+                        $lockedCard,
+                        $reviewEvent->reviewed_at,
+                        $reviewEvent->id,
+                    );
                 }
 
                 return ReviewCardResult::created($reviewEvent);

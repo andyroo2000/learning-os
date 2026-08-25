@@ -13,6 +13,8 @@ use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use LogicException;
 
@@ -41,7 +43,7 @@ final class AdvanceCardProgressionAfterReviewAction
             && $card->variant_stage > 0;
     }
 
-    public function handle(Card $reviewedCard): void
+    public function handle(Card $reviewedCard, Carbon $reviewedAt, string $reviewEventId): void
     {
         if (! self::supports($reviewedCard) || ! $reviewedCard->isProgressionAvailable()) {
             return;
@@ -84,7 +86,7 @@ final class AdvanceCardProgressionAfterReviewAction
         // allowing its available subset to advance past locked sibling cards.
         if ($stageCards->isEmpty()
             || $stageCards->contains(fn (Card $card): bool => ! $card->isProgressionAvailable())
-            || ! $this->stageHasDemonstratedRetrieval($stageCards)
+            || ! $this->stageHasDemonstratedRetrieval($stageCards, $reviewedAt, $reviewEventId)
         ) {
             return;
         }
@@ -114,12 +116,17 @@ final class AdvanceCardProgressionAfterReviewAction
     }
 
     /** @param Collection<int, Card> $stageCards */
-    private function stageHasDemonstratedRetrieval(Collection $stageCards): bool
-    {
-        return $stageCards->every(fn (Card $card): bool => $this->cardHasDemonstratedRetrieval($card));
+    private function stageHasDemonstratedRetrieval(
+        Collection $stageCards,
+        Carbon $reviewedAt,
+        string $reviewEventId,
+    ): bool {
+        return $stageCards->every(
+            fn (Card $card): bool => $this->cardHasDemonstratedRetrieval($card, $reviewedAt, $reviewEventId),
+        );
     }
 
-    private function cardHasDemonstratedRetrieval(Card $card): bool
+    private function cardHasDemonstratedRetrieval(Card $card, Carbon $reviewedAt, string $reviewEventId): bool
     {
         $latestAgainQuery = CardReviewEvent::query()
             ->where('card_id', $card->id)
@@ -127,6 +134,9 @@ final class AdvanceCardProgressionAfterReviewAction
         $successfulReviewQuery = CardReviewEvent::query()
             ->where('card_id', $card->id)
             ->whereIn('rating', [CardReviewRating::Good->value, CardReviewRating::Easy->value]);
+
+        $this->applyReviewChronologyCutoff($latestAgainQuery, $reviewedAt, $reviewEventId);
+        $this->applyReviewChronologyCutoff($successfulReviewQuery, $reviewedAt, $reviewEventId);
 
         if ($card->variant_unlocked_at !== null) {
             $latestAgainQuery->where('reviewed_at', '>=', $card->variant_unlocked_at);
@@ -158,6 +168,23 @@ final class AdvanceCardProgressionAfterReviewAction
             ->limit(self::REQUIRED_SUCCESSFUL_RETRIEVALS)
             ->get(['id'])
             ->count() === self::REQUIRED_SUCCESSFUL_RETRIEVALS;
+    }
+
+    /** @param Builder<CardReviewEvent> $query */
+    private function applyReviewChronologyCutoff(Builder $query, Carbon $reviewedAt, string $reviewEventId): void
+    {
+        // Batch rows are bulk-inserted before their card states are applied. Eligibility
+        // must only see events at or before the event currently being applied, otherwise
+        // a future row in the same offline batch could unlock a stage too early.
+        $query->where(function (Builder $query) use ($reviewedAt, $reviewEventId): void {
+            $query
+                ->where('reviewed_at', '<', $reviewedAt)
+                ->orWhere(function (Builder $query) use ($reviewedAt, $reviewEventId): void {
+                    $query
+                        ->where('reviewed_at', $reviewedAt)
+                        ->where('id', '<=', $reviewEventId);
+                });
+        });
     }
 
     /** @param Collection<int, Card> $cards */

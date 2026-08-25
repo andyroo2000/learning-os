@@ -81,7 +81,6 @@ class ReviewCardBatchAction
 
             $createdItems = $this->canonicalItemsForInsert($preparedItems, $existingReviewEventsBySyncKey);
 
-            $this->assertCreatedCardsAreProgressionAvailable($createdItems, $cardsById);
             $this->assertCreatedItemsAppendToChronology($createdItems, $cardsById);
 
             $rows = $createdItems
@@ -240,24 +239,6 @@ class ReviewCardBatchAction
             // Equivalent duplicates may differ only by whether one supplied the canonical event ID.
             ->map(fn (Collection $items): array => $items->firstWhere('client_supplied_id', true) ?? $items->first())
             ->values();
-    }
-
-    /**
-     * Exact retries remain valid even if a card is locked later; only new review events are gated.
-     *
-     * @param  Collection<int, array{card_id: string}>  $createdItems
-     * @param  Collection<string, Card>  $cardsById
-     */
-    private function assertCreatedCardsAreProgressionAvailable(Collection $createdItems, Collection $cardsById): void
-    {
-        foreach ($createdItems->pluck('card_id')->unique() as $cardId) {
-            $card = $cardsById->get($cardId)
-                ?? throw new RuntimeException('Card missing while validating progression availability.');
-
-            if (! $card->isProgressionAvailable()) {
-                throw CardReviewEventConflictException::progressionLocked($card->ownerUserId());
-            }
-        }
     }
 
     /**
@@ -601,6 +582,19 @@ class ReviewCardBatchAction
                 $card = $cardsById->get($reviewEvent->card_id)
                     ?? throw new RuntimeException('Card missing while recording review sync feed entry.');
 
+                if (AdvanceCardProgressionAfterReviewAction::supports($card)) {
+                    // Earlier chronological events in this batch may have unlocked or
+                    // retired this card through a separate family-card model instance.
+                    // The row remains locked by cardsById(); refresh only grouped cards
+                    // so ordinary large batches keep their bounded query contract.
+                    $card->refresh()->load('deck');
+                }
+
+                // Exact retries never enter this loop, so only newly inserted events are gated.
+                if (! $card->isProgressionAvailable()) {
+                    throw CardReviewEventConflictException::progressionLocked($card->ownerUserId());
+                }
+
                 $this->assignReviewSnapshots($reviewEvent, $card);
                 $reviewEvent->saveOrFail();
                 $reviewEvent->setRelation('card', $card);
@@ -621,7 +615,11 @@ class ReviewCardBatchAction
                 if ($progressionOwnerIds->contains($card->ownerUserId())
                     && AdvanceCardProgressionAfterReviewAction::supports($card)
                 ) {
-                    $this->advanceCardProgression()->handle($card);
+                    $this->advanceCardProgression()->handle(
+                        $card,
+                        $reviewEvent->reviewed_at,
+                        $reviewEvent->id,
+                    );
                 }
             });
     }

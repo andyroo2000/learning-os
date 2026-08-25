@@ -21,6 +21,7 @@ class KnownKanjiApiTest extends TestCase
     {
         $this->getJson('/api/study/known-kanji')->assertUnauthorized();
         $this->patchJson('/api/study/known-kanji/manual', ['kanji' => '私', 'known' => true])->assertUnauthorized();
+        $this->patchJson('/api/study/wanikani/transfer-bridge', ['enabled' => true])->assertUnauthorized();
     }
 
     public function test_empty_known_kanji_response_does_not_materialize_state(): void
@@ -38,6 +39,13 @@ class KnownKanjiApiTest extends TestCase
                     'lastSyncedAt' => null,
                     'reviewCount' => null,
                     'reviewCountUpdatedAt' => null,
+                    'transferBridge' => [
+                        'enabled' => false,
+                        'importedVocabularyCount' => 0,
+                        'pendingVocabularyCount' => 0,
+                        'failedVocabularyCount' => 0,
+                        'lastImportedAt' => null,
+                    ],
                 ],
             ]);
 
@@ -499,6 +507,9 @@ class KnownKanjiApiTest extends TestCase
         return [
             'review count' => ['review_count', 12],
             'review count timestamp' => ['review_count_updated_at', '2026-08-24T18:00:00Z'],
+            'transfer bridge enabled' => ['transfer_bridge_enabled', true],
+            'transfer bridge enabled timestamp' => ['transfer_bridge_enabled_at', '2026-08-24T18:00:00Z'],
+            'transfer bridge imported timestamp' => ['transfer_bridge_last_imported_at', '2026-08-24T18:00:00Z'],
         ];
     }
 

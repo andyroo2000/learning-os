@@ -17,6 +17,7 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
             'api/study/known-kanji/manual',
             'api/study/wanikani',
             'api/study/wanikani/sync',
+            'api/study/wanikani/transfer-bridge',
         ];
 
         $actualRoutes = collect(Route::getRoutes()->getRoutes())
@@ -75,6 +76,12 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
                 'SyncWaniKaniKanjiController',
                 'throttle:wanikani-sync',
             ),
+            $this->expectedRoute(
+                'PATCH',
+                'api/study/wanikani/transfer-bridge',
+                'UpdateWaniKaniTransferBridgeController',
+                'throttle:wanikani-connection-write',
+            ),
         ], $actualRoutes);
     }
 
@@ -91,7 +98,7 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
         );
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'POST api/study/wanikani/sync',
+            'PATCH api/study/wanikani/transfer-bridge',
             'GET|HEAD api/study/google-calendar',
         );
     }

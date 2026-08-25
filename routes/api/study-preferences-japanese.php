@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\SyncWaniKaniKanjiController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
+use App\Http\Controllers\Api\Study\UpdateWaniKaniTransferBridgeController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
@@ -28,4 +29,6 @@ return static function (): void {
         ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
     Route::post('/study/wanikani/sync', SyncWaniKaniKanjiController::class)
         ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::SYNC_NAME);
+    Route::patch('/study/wanikani/transfer-bridge', UpdateWaniKaniTransferBridgeController::class)
+        ->middleware('throttle:'.JapaneseKnowledgeRateLimiter::CONNECTION_NAME);
 };

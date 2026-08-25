@@ -19,6 +19,7 @@ final readonly class CreateStudyVocabBundleData
         public ?string $sourceSentence,
         public ?string $context,
         public bool $includeLearnerContext,
+        public ?int $waniKaniSubjectId,
     ) {}
 
     public static function fromInput(
@@ -27,9 +28,13 @@ final readonly class CreateStudyVocabBundleData
         ?string $sourceSentence,
         ?string $context,
         bool $includeLearnerContext,
+        ?int $waniKaniSubjectId = null,
     ): self {
         if ($userId < 1) {
             throw new LogicException('Study vocab bundle user ID must be a positive integer.');
+        }
+        if ($waniKaniSubjectId !== null && $waniKaniSubjectId < 1) {
+            throw new LogicException('WaniKani subject ID must be a positive integer.');
         }
 
         $normalizedTargetWord = trim($targetWord);
@@ -56,6 +61,7 @@ final readonly class CreateStudyVocabBundleData
             sourceSentence: $normalizedSourceSentence,
             context: $normalizedContext,
             includeLearnerContext: $includeLearnerContext,
+            waniKaniSubjectId: $waniKaniSubjectId,
         );
     }
 

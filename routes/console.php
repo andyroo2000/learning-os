@@ -2,6 +2,7 @@
 
 use App\Domain\Calendar\Actions\DispatchGoogleCalendarSyncsAction;
 use App\Domain\Calendar\Actions\PruneExpiredGoogleCalendarConnectIntentsAction;
+use App\Domain\Japanese\Actions\RunDailyWaniKaniTransferBridgeAction;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -26,6 +27,12 @@ Schedule::call(fn () => app(DispatchGoogleCalendarSyncsAction::class)->handle())
     ->everyFifteenMinutes()
     ->onOneServer()
     ->withoutOverlapping(15);
+
+Schedule::call(fn () => app(RunDailyWaniKaniTransferBridgeAction::class)->handle())
+    ->name('wanikani:daily-transfer-bridge')
+    ->dailyAt('08:15')
+    ->onOneServer()
+    ->withoutOverlapping(60);
 
 Schedule::command('content:recover-generation-requests')
     ->everyMinute()

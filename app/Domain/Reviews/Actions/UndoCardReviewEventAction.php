@@ -62,7 +62,8 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::missingSnapshot();
             }
 
-            $preserveProgressionRetirement = $card->variant_status === VocabVariantStatus::Locked->value
+            $preserveProgressionRetirement = AdvanceCardProgressionAfterReviewAction::supports($card)
+                && $card->variant_status === VocabVariantStatus::Locked->value
                 && $card->study_status === CardStudyStatus::Suspended;
 
             // Keep this restore list in sync with CardReviewStateSnapshot::beforeReview().

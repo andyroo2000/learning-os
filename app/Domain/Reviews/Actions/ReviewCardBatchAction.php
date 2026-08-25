@@ -656,6 +656,10 @@ class ReviewCardBatchAction
             ->sort()
             ->values();
 
+        // One owner lock serializes every staged family for that learner through commit,
+        // before any card lock is taken. Concurrent same-owner batches therefore cannot
+        // deadlock by visiting multiple families in different chronology orders; batches
+        // for different owners cannot share family card rows.
         $ownerIds->each(fn (int $userId): mixed => $this->newCardQueuePosition()->lockOwner($userId));
 
         return $ownerIds;

@@ -86,6 +86,38 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->assertStudyNewCardQueuePageHasShape($response->json());
     }
 
+    public function test_display_text_keeps_the_existing_structured_field_priority(): void
+    {
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        $cueCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'front_text' => 'Fallback cue front',
+            'prompt_json' => [
+                'cueText' => 'Cue text wins',
+                'clozeDisplayText' => 'Cloze display loses',
+                'clozeText' => 'Cloze text loses',
+            ],
+            'answer_json' => [
+                'expression' => 'Expression loses',
+                'meaning' => 'Meaning loses',
+            ],
+            'new_queue_position' => 1,
+        ]);
+        $clozeCard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'front_text' => 'Fallback cloze front',
+            'prompt_json' => ['clozeText' => 'Cloze text wins'],
+            'answer_json' => ['expression' => 'Expression loses'],
+            'new_queue_position' => 2,
+        ]);
+
+        $this->getJson('/api/study/new-queue')
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $cueCard->id)
+            ->assertJsonPath('items.0.displayText', 'Cue text wins')
+            ->assertJsonPath('items.1.id', $clozeCard->id)
+            ->assertJsonPath('items.1.displayText', 'Cloze text wins');
+    }
+
     public function test_it_supports_offset_cursor_pagination(): void
     {
         $user = $this->signIn();

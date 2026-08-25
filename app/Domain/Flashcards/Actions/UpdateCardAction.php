@@ -179,6 +179,7 @@ class UpdateCardAction
                 'variant_stage',
                 'variant_status',
                 'variant_unlocked_at',
+                'variant_retired_at',
                 'new_queue_position',
                 ...($contentWasUpdated ? ['search_text'] : []),
             ]);

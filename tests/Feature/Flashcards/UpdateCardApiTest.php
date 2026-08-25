@@ -355,6 +355,40 @@ class UpdateCardApiTest extends TestCase
         $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
     }
 
+    public function test_resubmitting_unchanged_variant_metadata_persists_retirement_reset(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_stage' => 3,
+            'variant_status' => VocabVariantStatus::Available,
+            'variant_unlocked_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'variant_retired_at' => Carbon::parse('2026-06-05T15:15:00Z'),
+        ]);
+
+        $response = $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'variant_group_id' => 'vocab-group-1',
+            'variant_stage' => 3,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => '2026-06-05T14:15:00Z',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.variant_retired_at', null);
+
+        $card->refresh();
+        $this->assertNull($card->variant_retired_at);
+
+        $entry = SyncFeedEntry::query()->sole();
+        $this->assertNull($entry->payload['variant_retired_at']);
+        $this->assertEquals(CardSyncPayload::fromCard($card), $entry->payload);
+    }
+
     public function test_it_preserves_structured_content_when_omitted(): void
     {
         $user = $this->signIn();

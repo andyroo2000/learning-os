@@ -11,16 +11,15 @@ final class StudyCardListText
     public static function displayText(Card $card): string
     {
         return self::payloadField($card->prompt_json, [
-            'clozeDisplayText',
             'cueText',
+            'clozeDisplayText',
+            'clozeText',
         ])
             ?? self::payloadField($card->answer_json, [
-                'expressionReading',
                 'expression',
                 'restoredText',
                 'meaning',
             ])
-            ?? self::payloadField($card->prompt_json, ['clozeText'])
             ?? self::stringField($card->front_text)
             ?? 'Untitled card';
     }

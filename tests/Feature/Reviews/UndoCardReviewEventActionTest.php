@@ -108,6 +108,25 @@ class UndoCardReviewEventActionTest extends TestCase
         )->payload['new_queue_position']);
     }
 
+    public function test_locked_and_suspended_ungrouped_card_is_not_mistaken_for_progression_retirement(): void
+    {
+        $card = Card::factory()->create();
+        $reviewEvent = $this->reviewCard($card, reviewedAt: '2026-05-27T09:15:00Z')->reviewEvent;
+
+        $card->refresh();
+        $card->variant_status = VocabVariantStatus::Locked->value;
+        $card->study_status = CardStudyStatus::Suspended;
+        $card->saveOrFail();
+
+        $restoredCard = app(UndoCardReviewEventAction::class)->handle($reviewEvent);
+
+        $this->assertNull($restoredCard->variant_group_id);
+        $this->assertNull($restoredCard->variant_stage);
+        $this->assertSame(VocabVariantStatus::Locked->value, $restoredCard->variant_status);
+        $this->assertSame(CardStudyStatus::New, $restoredCard->study_status);
+        $this->assertNull($restoredCard->new_queue_position);
+    }
+
     public function test_it_rejects_undoing_a_review_that_is_not_the_latest_for_the_card(): void
     {
         $card = Card::factory()->create();

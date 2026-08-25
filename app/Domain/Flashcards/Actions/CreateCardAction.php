@@ -133,9 +133,14 @@ class CreateCardAction
         DB::beginTransaction();
 
         try {
-            $card->new_queue_position = $data->variantStatus === VocabVariantStatus::Locked
-                ? null
-                : $this->newCardQueuePosition()->nextForUser($data->userId);
+            if ($data->variantStatus === VocabVariantStatus::Locked) {
+                if (is_string($data->variantGroupId) && trim($data->variantGroupId) !== '') {
+                    $this->newCardQueuePosition()->lockOwner($data->userId);
+                }
+                $card->new_queue_position = null;
+            } else {
+                $card->new_queue_position = $this->newCardQueuePosition()->nextForUser($data->userId);
+            }
 
             // Preserve the existing queue-owner -> Deck lock order. Revalidate after the
             // preflight read so creation cannot escape a concurrent deck/course cascade.

@@ -3,6 +3,7 @@
 namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
@@ -33,6 +34,8 @@ class ReviewCardAction
 
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?AdvanceCardProgressionAfterReviewAction $advanceCardProgression = null,
+        private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
     ) {}
 
     public function handle(ReviewCardData $data): ReviewCardResult
@@ -96,6 +99,12 @@ class ReviewCardAction
 
         try {
             return DB::transaction(function () use ($card, $data, $identity, $rating, $syncMetadata): ReviewCardResult {
+                $progressionOwnerLocked = AdvanceCardProgressionAfterReviewAction::supports($card);
+
+                if ($progressionOwnerLocked) {
+                    $this->newCardQueuePosition()->lockOwner($card->ownerUserId());
+                }
+
                 $lockedCard = $this->findCardForUpdate((string) $card->getKey());
 
                 if ($lockedCard === null) {
@@ -125,6 +134,12 @@ class ReviewCardAction
                             card: $lockedCard,
                         ));
                     }
+                }
+
+                // Progression metadata may have been added while this request waited.
+                // Retry from a fresh preflight so the owner lock is acquired before this card row.
+                if (! $progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
+                    throw CardReviewEventConflictException::retryableConflict();
                 }
 
                 if (! $lockedCard->isProgressionAvailable()) {
@@ -175,6 +190,14 @@ class ReviewCardAction
 
                 $this->applyLockedCardStudyReview($lockedCard, $rating, $reviewEvent->reviewed_at);
 
+                if ($progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
+                    $this->advanceCardProgression()->handle(
+                        $lockedCard,
+                        $reviewEvent->reviewed_at,
+                        $reviewEvent->id,
+                    );
+                }
+
                 return ReviewCardResult::created($reviewEvent);
             });
         } catch (QueryException $exception) {
@@ -213,6 +236,17 @@ class ReviewCardAction
                 card: $card,
             ));
         }
+    }
+
+    private function advanceCardProgression(): AdvanceCardProgressionAfterReviewAction
+    {
+        return $this->advanceCardProgression
+            ?? new AdvanceCardProgressionAfterReviewAction($this->recordSyncFeedEntry);
+    }
+
+    private function newCardQueuePosition(): NewCardQueuePosition
+    {
+        return $this->newCardQueuePosition ?? app(NewCardQueuePosition::class);
     }
 
     private function findCard(string $cardId): ?Card

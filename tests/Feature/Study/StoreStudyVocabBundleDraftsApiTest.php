@@ -57,7 +57,11 @@ class StoreStudyVocabBundleDraftsApiTest extends TestCase
             ->assertJsonPath('drafts.0.variantStatus', 'available')
             ->assertJsonPath('drafts.10.variantKind', 'sentence_cloze')
             ->assertJsonPath('drafts.10.variantStage', 5)
-            ->assertJsonPath('drafts.10.variantStatus', 'locked');
+            ->assertJsonPath('drafts.10.variantStatus', 'locked')
+            ->assertJsonPath('drafts.11.variantKind', 'sentence_production')
+            ->assertJsonPath('drafts.11.creationKind', 'production-text')
+            ->assertJsonPath('drafts.11.variantStage', 6)
+            ->assertJsonPath('drafts.11.variantStatus', 'locked');
 
         $group = StudyVocabVariantGroup::query()->sole();
         $this->assertSame($user->id, $group->user_id);
@@ -82,7 +86,7 @@ class StoreStudyVocabBundleDraftsApiTest extends TestCase
                 && $draft->status === StudyManualCardDraftStatus::Generating,
         ));
         $entries = SyncFeedEntry::query()->get();
-        $this->assertCount(11, $entries);
+        $this->assertCount(StudyVocabBundleGenerator::DRAFT_COUNT, $entries);
         $this->assertTrue($entries->every(
             fn (SyncFeedEntry $entry): bool => $entry->user_id === $user->id
                 && $entry->domain === 'study'

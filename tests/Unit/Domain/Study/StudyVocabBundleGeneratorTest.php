@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 class StudyVocabBundleGeneratorTest extends TestCase
 {
-    public function test_it_parses_code_fenced_provider_json_into_eleven_variants(): void
+    public function test_it_parses_code_fenced_provider_json_into_fourteen_variants(): void
     {
         $generator = $this->generatorReturning(
             "```json\n".json_encode(self::validBundle(), JSON_THROW_ON_ERROR)."\n```",
@@ -26,6 +26,10 @@ class StudyVocabBundleGeneratorTest extends TestCase
         $this->assertSame('この会社で働いています。', $bundle['sentences'][0]['sentenceJp']);
         $this->assertSame('sentence_audio_recognition', $bundle['variants'][0]['variantKind']->value);
         $this->assertSame('sentence_cloze', $bundle['variants'][10]['variantKind']->value);
+        $this->assertSame('sentence_production', $bundle['variants'][11]['variantKind']->value);
+        $this->assertSame('production-text', $bundle['variants'][11]['creationKind']->value);
+        $this->assertSame('I work at this company.', $bundle['variants'][11]['prompt']['cueText']);
+        $this->assertSame('この会社で働いています。', $bundle['variants'][11]['answer']['expression']);
     }
 
     public function test_it_preserves_a_supplied_source_sentence_at_ordinal_zero(): void

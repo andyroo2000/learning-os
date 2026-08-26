@@ -5,11 +5,16 @@ namespace App\Domain\Japanese\Actions;
 use App\Domain\Japanese\Models\JapaneseKnowledgeProfile;
 use App\Domain\Japanese\Models\UserKnownKanji;
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use App\Domain\Japanese\Queries\WaniKaniTransferEligibleAssignmentsQuery;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 
 final class ShowKnownKanjiAction
 {
+    public function __construct(
+        private readonly WaniKaniTransferEligibleAssignmentsQuery $eligibleAssignments,
+    ) {}
+
     /** @return array{version: int, kanji: list<string>, manualKanji: list<string>, wanikani: array{connected: bool, lastSyncedAt: ?string, reviewCount: ?int, reviewCountUpdatedAt: ?string, transferBridge: array{enabled: bool, importedVocabularyCount: int, pendingVocabularyCount: int, failedVocabularyCount: int, lastImportedAt: ?string}}} */
     public function handle(int $userId): array
     {
@@ -28,6 +33,11 @@ final class ShowKnownKanjiAction
             ->selectRaw('automatic_import_status, COUNT(*) AS aggregate')
             ->groupBy('automatic_import_status')
             ->pluck('aggregate', 'automatic_import_status');
+        $queuedWithoutGroupCount = $connection === null
+            ? 0
+            : $this->eligibleAssignments->forUser($userId)
+                ->whereNotNull('assignments.transfer_bridge_queued_at')
+                ->count();
 
         return [
             'version' => (int) ($profile?->knowledge_version ?? 0),
@@ -41,7 +51,8 @@ final class ShowKnownKanjiAction
                 'transferBridge' => [
                     'enabled' => $connection?->transfer_bridge_enabled ?? false,
                     'importedVocabularyCount' => (int) $automaticGroupCounts->get(AutomaticStudyVocabImportStatus::Imported->value, 0),
-                    'pendingVocabularyCount' => (int) $automaticGroupCounts->get(AutomaticStudyVocabImportStatus::Generating->value, 0),
+                    'pendingVocabularyCount' => $queuedWithoutGroupCount
+                        + (int) $automaticGroupCounts->get(AutomaticStudyVocabImportStatus::Generating->value, 0),
                     'failedVocabularyCount' => (int) $automaticGroupCounts->get(AutomaticStudyVocabImportStatus::Error->value, 0),
                     'lastImportedAt' => $connection?->transfer_bridge_last_imported_at?->toJSON(),
                 ],

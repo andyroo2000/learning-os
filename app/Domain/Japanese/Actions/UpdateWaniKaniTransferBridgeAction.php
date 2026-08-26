@@ -29,8 +29,6 @@ final class UpdateWaniKaniTransferBridgeAction
                     ->firstOrFail();
 
                 if ($enabled && ! $connection->transfer_bridge_enabled) {
-                    // A one-day lookback catches an item passed shortly before opt-in without
-                    // turning a mature WaniKani account into a large historical import.
                     $connection->transfer_bridge_enabled_at = now();
                 }
                 $connection->transfer_bridge_enabled = $enabled;

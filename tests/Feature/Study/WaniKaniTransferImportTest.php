@@ -5,6 +5,7 @@ namespace Tests\Feature\Study;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Actions\DispatchWaniKaniTransferImportsAction;
+use App\Domain\Japanese\Actions\ShowKnownKanjiAction;
 use App\Domain\Japanese\Models\WaniKaniConnection;
 use App\Domain\Study\Actions\CommitAutomaticStudyVocabBundleAction;
 use App\Domain\Study\Actions\PrepareStudyCardAnswerAudioAction;
@@ -40,7 +41,7 @@ class WaniKaniTransferImportTest extends TestCase
         CarbonImmutable::setTestNow('2026-08-25T12:00:00Z');
     }
 
-    public function test_it_selects_the_oldest_visible_recent_vocabulary_with_a_daily_cap(): void
+    public function test_it_seeds_the_ten_most_recent_unimported_items_then_processes_that_bound_oldest_first(): void
     {
         $this->assertTrue(
             collect(Schema::getIndexes('study_card_drafts'))
@@ -48,34 +49,78 @@ class WaniKaniTransferImportTest extends TestCase
         );
         Queue::fake();
         $user = User::factory()->create();
-        $this->connection($user, enabled: true);
-        $this->vocabulary($user, 101, '会社', now()->subHour(), ['かいしゃ'], ['Company']);
-        $this->vocabulary($user, 102, '橋', now()->subMinutes(30), ['はし'], ['Bridge']);
-        $this->vocabulary($user, 103, '予約', now()->subMinutes(15), ['よやく'], ['Reservation']);
-        $this->vocabulary($user, 104, '古い', now()->subHours(25));
-        $this->vocabulary($user, 105, '秘密', now()->subMinutes(45), hidden: true);
-        $this->vocabulary($user, 106, '隠語', now()->subMinutes(40), subjectHidden: true);
+        $this->vocabulary($user, 101, '除外一', now()->subDays(30));
+        $this->vocabulary($user, 102, '除外二', now()->subDays(29));
+        $this->vocabulary($user, 103, '会社', now()->subDays(10), ['かいしゃ'], ['Company']);
+        foreach (range(104, 112) as $subjectId) {
+            $this->vocabulary($user, $subjectId, "語{$subjectId}", now()->subDays(112 - $subjectId));
+        }
+        $this->vocabulary($user, 113, '秘密', now()->subMinutes(45), hidden: true);
+        $this->vocabulary($user, 114, '隠語', now()->subMinutes(40), subjectHidden: true);
+        CarbonImmutable::setTestNow(now()->addSecond());
+        $connection = $this->connection($user, enabled: true);
+        $connection->transfer_bridge_enabled_at = now()->subYear();
+        $connection->save();
 
         $action = app(DispatchWaniKaniTransferImportsAction::class);
 
         $this->assertSame(['created' => 2, 'retried' => 0], $action->handle($user->id));
         $this->assertSame(
-            [101, 102],
+            [103, 104],
             StudyVocabVariantGroup::query()->orderBy('wanikani_subject_id')->pluck('wanikani_subject_id')->all(),
         );
+        $this->assertNull(DB::table('user_wanikani_assignments')->where('user_id', $user->id)->where('subject_id', 101)->value('transfer_bridge_queued_at'));
+        $this->assertNull(DB::table('user_wanikani_assignments')->where('user_id', $user->id)->where('subject_id', 102)->value('transfer_bridge_queued_at'));
+        $this->assertSame(
+            range(103, 112),
+            DB::table('user_wanikani_assignments')
+                ->where('user_id', $user->id)
+                ->whereNotNull('transfer_bridge_queued_at')
+                ->orderBy('subject_id')
+                ->pluck('subject_id')
+                ->all(),
+        );
+        $this->assertSame(10, app(ShowKnownKanjiAction::class)->handle($user->id)['wanikani']['transferBridge']['pendingVocabularyCount']);
+        DB::table('user_wanikani_assignments')
+            ->where('user_id', $user->id)
+            ->where('subject_id', 113)
+            ->update(['transfer_bridge_queued_at' => now()]);
+        $this->assertSame(10, app(ShowKnownKanjiAction::class)->handle($user->id)['wanikani']['transferBridge']['pendingVocabularyCount']);
         $this->assertDatabaseCount('study_card_drafts', 2 * StudyVocabBundleGenerator::DRAFT_COUNT);
-        $company = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 101)->sole();
+        $company = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 103)->sole();
         $this->assertStringContainsString('WaniKani reading: かいしゃ', $company->source_context);
         $this->assertStringContainsString('Meaning: Company', $company->source_context);
         $this->assertSame(['created' => 0, 'retried' => 0], $action->handle($user->id));
 
         CarbonImmutable::setTestNow('2026-08-26T12:00:00Z');
-        $this->assertSame(['created' => 1, 'retried' => 0], $action->handle($user->id));
+        $this->assertSame(['created' => 2, 'retried' => 0], $action->handle($user->id));
         $this->assertSame(
-            [101, 102, 103],
+            [103, 104, 105, 106],
             StudyVocabVariantGroup::query()->orderBy('wanikani_subject_id')->pluck('wanikani_subject_id')->all(),
         );
-        Queue::assertPushed(ProcessStudyVocabBundleDrafts::class, 3);
+        Queue::assertPushed(ProcessStudyVocabBundleDrafts::class, 4);
+    }
+
+    public function test_rows_first_observed_after_the_seed_are_appended_even_with_old_pass_timestamps(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $connection = $this->connection($user, enabled: true);
+        $this->vocabulary($user, 151, '最初', now()->subYear());
+
+        $action = app(DispatchWaniKaniTransferImportsAction::class);
+        $this->assertSame(['created' => 1, 'retried' => 0], $action->handle($user->id));
+        $this->assertNotNull($connection->fresh()->transfer_bridge_seeded_at);
+
+        $this->vocabulary($user, 152, '古過ぎる', now()->subMonth());
+        $this->vocabulary($user, 153, '新しい', now()->addMinute());
+        CarbonImmutable::setTestNow(now()->addDay());
+
+        $this->assertSame(['created' => 2, 'retried' => 0], $action->handle($user->id));
+        $this->assertSame(
+            [151, 152, 153],
+            StudyVocabVariantGroup::query()->orderBy('wanikani_subject_id')->pluck('wanikani_subject_id')->all(),
+        );
     }
 
     public function test_enabling_the_bridge_immediately_queues_already_synced_recent_vocabulary(): void

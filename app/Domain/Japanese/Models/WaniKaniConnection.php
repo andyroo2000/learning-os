@@ -31,6 +31,7 @@ class WaniKaniConnection extends Model
             'review_count_updated_at' => 'immutable_datetime',
             'transfer_bridge_enabled' => 'boolean',
             'transfer_bridge_enabled_at' => 'immutable_datetime',
+            'transfer_bridge_seeded_at' => 'immutable_datetime',
             'transfer_bridge_last_imported_at' => 'immutable_datetime',
         ];
     }

@@ -3,6 +3,7 @@
 namespace App\Domain\Japanese\Actions;
 
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use App\Domain\Japanese\Queries\WaniKaniTransferEligibleAssignmentsQuery;
 use App\Domain\Study\Actions\CreateStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\FailStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\MarkAutomaticStudyVocabImportFailedAction;
@@ -13,7 +14,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Jobs\ProcessStudyVocabBundleDrafts;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,8 @@ final class DispatchWaniKaniTransferImportsAction
 
     public const FAILED_RETRY_LIMIT_PER_DISPATCH = 2;
 
+    public const INITIAL_SEED_LIMIT = 10;
+
     private const LOCK_SECONDS = 120;
 
     public function __construct(
@@ -34,6 +37,7 @@ final class DispatchWaniKaniTransferImportsAction
         private readonly RetryStudyVocabBundleDraftsAction $retryBundleDrafts,
         private readonly FailStudyVocabBundleDraftsAction $failBundleDrafts,
         private readonly MarkAutomaticStudyVocabImportFailedAction $markImportFailed,
+        private readonly WaniKaniTransferEligibleAssignmentsQuery $eligibleAssignments,
     ) {}
 
     /** @return array{created: int, retried: int} */
@@ -49,10 +53,7 @@ final class DispatchWaniKaniTransferImportsAction
         }
 
         try {
-            $connection = WaniKaniConnection::query()
-                ->where('user_id', $userId)
-                ->where('transfer_bridge_enabled', true)
-                ->first();
+            $connection = $this->prepareQueue($userId);
             if ($connection === null || $connection->transfer_bridge_enabled_at === null) {
                 return ['created' => 0, 'retried' => 0];
             }
@@ -68,11 +69,7 @@ final class DispatchWaniKaniTransferImportsAction
                 return ['created' => 0, 'retried' => $retried];
             }
 
-            $candidates = $this->candidates(
-                $userId,
-                $connection->transfer_bridge_enabled_at->subDay(),
-                $remaining,
-            );
+            $candidates = $this->candidates($userId, $remaining);
             $created = 0;
 
             foreach ($candidates as $candidate) {
@@ -155,22 +152,72 @@ final class DispatchWaniKaniTransferImportsAction
         return $retried;
     }
 
-    /** @return Collection<int, object> */
-    private function candidates(int $userId, CarbonInterface $passedAfter, int $limit): Collection
+    private function prepareQueue(int $userId): ?WaniKaniConnection
     {
-        return DB::table('user_wanikani_assignments as assignments')
-            ->join('wanikani_subjects as subjects', 'subjects.subject_id', '=', 'assignments.subject_id')
-            ->leftJoin('study_vocab_variant_groups as groups', function ($join) use ($userId): void {
-                $join->on('groups.wanikani_subject_id', '=', 'assignments.subject_id')
-                    ->where('groups.user_id', '=', $userId);
-            })
-            ->where('assignments.user_id', $userId)
-            ->whereNotNull('assignments.passed_at')
-            ->where('assignments.passed_at', '>=', $passedAfter)
-            ->where('assignments.hidden', false)
-            ->whereNull('subjects.hidden_at')
-            ->whereIn('subjects.subject_type', ['vocabulary', 'kana_vocabulary'])
-            ->whereNull('groups.id')
+        return DB::transaction(function () use ($userId): ?WaniKaniConnection {
+            $connection = WaniKaniConnection::query()
+                ->where('user_id', $userId)
+                ->where('transfer_bridge_enabled', true)
+                ->lockForUpdate()
+                ->first();
+            if ($connection === null || $connection->transfer_bridge_enabled_at === null) {
+                return null;
+            }
+
+            if ($connection->transfer_bridge_seeded_at === null) {
+                $seedIds = $this->eligibleAssignmentIds($userId)
+                    ->orderByDesc('assignments.passed_at')
+                    ->orderByDesc('assignments.subject_id')
+                    ->limit(self::INITIAL_SEED_LIMIT)
+                    ->pluck('assignments.subject_id');
+
+                if ($seedIds->isNotEmpty()) {
+                    DB::table('user_wanikani_assignments')
+                        ->where('user_id', $userId)
+                        ->whereIn('subject_id', $seedIds)
+                        ->whereNull('transfer_bridge_queued_at')
+                        ->update(['transfer_bridge_queued_at' => now()]);
+
+                    $connection->transfer_bridge_seeded_at = now();
+                    $connection->save();
+                }
+            }
+
+            if ($connection->transfer_bridge_seeded_at !== null) {
+                // assignments.created_at uses whole-second precision, while the seed marker
+                // preserves microseconds. Floor only the first-observed comparison so a row
+                // synced later in the same second cannot fall through the durable boundary.
+                $observedCutoff = $connection->transfer_bridge_seeded_at->startOfSecond();
+                $futureIds = $this->eligibleAssignmentIds($userId)
+                    ->where(function ($query) use ($connection, $observedCutoff): void {
+                        $query->where('assignments.passed_at', '>=', $connection->transfer_bridge_seeded_at)
+                            ->orWhere('assignments.created_at', '>=', $observedCutoff);
+                    })
+                    ->pluck('assignments.subject_id');
+                if ($futureIds->isNotEmpty()) {
+                    DB::table('user_wanikani_assignments')
+                        ->where('user_id', $userId)
+                        ->whereIn('subject_id', $futureIds)
+                        ->whereNull('transfer_bridge_queued_at')
+                        ->update(['transfer_bridge_queued_at' => now()]);
+                }
+            }
+
+            return $connection;
+        });
+    }
+
+    private function eligibleAssignmentIds(int $userId): Builder
+    {
+        return $this->eligibleAssignments->forUser($userId)
+            ->whereNull('assignments.transfer_bridge_queued_at');
+    }
+
+    /** @return Collection<int, object> */
+    private function candidates(int $userId, int $limit): Collection
+    {
+        return $this->eligibleAssignments->forUser($userId)
+            ->whereNotNull('assignments.transfer_bridge_queued_at')
             ->orderBy('assignments.passed_at')
             ->orderBy('assignments.subject_id')
             ->limit($limit)

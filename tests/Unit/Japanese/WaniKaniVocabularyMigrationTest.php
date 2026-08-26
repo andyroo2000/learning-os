@@ -40,6 +40,7 @@ class WaniKaniVocabularyMigrationTest extends TestCase
             'wk_assignments_user_passed_subject_idx',
             'wk_subject_concepts_pk',
             'wk_subject_concepts_concept_idx',
+            'wk_assignments_transfer_queue_idx',
         ] as $name) {
             $this->assertLessThanOrEqual(63, strlen($name), $name);
         }
@@ -114,6 +115,16 @@ class WaniKaniVocabularyMigrationTest extends TestCase
                 $table->primary(['subject_id', 'concept_id'], 'wk_subject_concepts_pk');
                 $table->index(['concept_id', 'subject_id'], 'wk_subject_concepts_concept_idx');
             }),
+            new Blueprint($connection, 'wanikani_connections', function (Blueprint $table): void {
+                $table->timestamp('transfer_bridge_seeded_at', 6)->nullable();
+            }),
+            new Blueprint($connection, 'user_wanikani_assignments', function (Blueprint $table): void {
+                $table->timestamp('transfer_bridge_queued_at', 6)->nullable();
+                $table->index(
+                    ['user_id', 'transfer_bridge_queued_at', 'passed_at', 'subject_id'],
+                    'wk_assignments_transfer_queue_idx',
+                );
+            }),
         ];
     }
 
@@ -126,6 +137,13 @@ class WaniKaniVocabularyMigrationTest extends TestCase
             new Blueprint($connection, 'wanikani_subjects', fn (Blueprint $table) => $table->drop()),
             new Blueprint($connection, 'wanikani_connections', function (Blueprint $table): void {
                 $table->dropColumn('vocabulary_assignments_synced_through_at');
+            }),
+            new Blueprint($connection, 'user_wanikani_assignments', function (Blueprint $table): void {
+                $table->dropIndex('wk_assignments_transfer_queue_idx');
+                $table->dropColumn('transfer_bridge_queued_at');
+            }),
+            new Blueprint($connection, 'wanikani_connections', function (Blueprint $table): void {
+                $table->dropColumn('transfer_bridge_seeded_at');
             }),
         ];
     }

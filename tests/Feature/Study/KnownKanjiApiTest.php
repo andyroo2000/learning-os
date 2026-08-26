@@ -555,6 +555,7 @@ class KnownKanjiApiTest extends TestCase
             'review count timestamp' => ['review_count_updated_at', '2026-08-24T18:00:00Z'],
             'transfer bridge enabled' => ['transfer_bridge_enabled', true],
             'transfer bridge enabled timestamp' => ['transfer_bridge_enabled_at', '2026-08-24T18:00:00Z'],
+            'transfer bridge seeded timestamp' => ['transfer_bridge_seeded_at', '2026-08-24T18:00:00Z'],
             'transfer bridge imported timestamp' => ['transfer_bridge_last_imported_at', '2026-08-24T18:00:00Z'],
         ];
     }

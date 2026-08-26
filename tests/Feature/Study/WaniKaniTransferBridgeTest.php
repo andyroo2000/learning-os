@@ -44,8 +44,14 @@ class WaniKaniTransferBridgeTest extends TestCase
         $this->assertTrue(Schema::hasColumns('wanikani_connections', [
             'transfer_bridge_enabled',
             'transfer_bridge_enabled_at',
+            'transfer_bridge_seeded_at',
             'transfer_bridge_last_imported_at',
         ]));
+        $this->assertTrue(Schema::hasColumn('user_wanikani_assignments', 'transfer_bridge_queued_at'));
+        $this->assertTrue(
+            collect(Schema::getIndexes('user_wanikani_assignments'))
+                ->contains('name', 'wk_assignments_transfer_queue_idx'),
+        );
         $this->assertTrue(Schema::hasColumns('study_vocab_variant_groups', [
             'wanikani_subject_id',
             'automatic_import_status',

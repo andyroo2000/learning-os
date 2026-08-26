@@ -86,7 +86,8 @@ class AchievementCatalogApiTest extends TestCase
 
     public function test_catalog_route_is_public_and_uses_the_expected_controller(): void
     {
-        $route = collect(Route::getRoutes()->getRoutes())
+        $routes = collect(Route::getRoutes()->getRoutes());
+        $route = $routes
             ->first(static fn (LaravelRoute $route): bool => $route->uri() === 'api/achievements/catalog');
 
         $this->assertInstanceOf(LaravelRoute::class, $route);
@@ -96,5 +97,15 @@ class AchievementCatalogApiTest extends TestCase
             $route->getActionName(),
         );
         $this->assertSame(['api'], $route->gatherMiddleware());
+
+        $routeOrder = $routes
+            ->map(static fn (LaravelRoute $route): string => implode('|', $route->methods()).' '.$route->uri())
+            ->values();
+        $sanctumIndex = $routeOrder->search('GET|HEAD sanctum/csrf-cookie', strict: true);
+        $catalogIndex = $routeOrder->search('GET|HEAD api/achievements/catalog', strict: true);
+
+        $this->assertIsInt($sanctumIndex);
+        $this->assertIsInt($catalogIndex);
+        $this->assertSame($sanctumIndex + 1, $catalogIndex);
     }
 }

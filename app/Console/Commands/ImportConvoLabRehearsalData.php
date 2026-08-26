@@ -41,6 +41,7 @@ class ImportConvoLabRehearsalData extends Command
         'study_vocab_variant_groups',
         'media_assets',
         'cards',
+        'card_introduction_cohorts',
         'decks',
         'courses',
         'study_import_jobs',

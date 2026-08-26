@@ -444,6 +444,14 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->seedConvoLabSourceData();
         $existingUser = User::factory()->create();
         $conceptCard = Card::factory()->create();
+        DB::table('card_introduction_cohorts')->insert([
+            'id' => strtolower((string) Str::ulid()),
+            'user_id' => $existingUser->id,
+            'source_kind' => 'lesson_followup',
+            'label' => 'Reset boundary cohort',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('card_learning_concepts')->insert([
             'card_id' => $conceptCard->id,
             'concept_id' => 'n5-vocab-1198550-2120ff50',
@@ -637,6 +645,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('study_milestones', 0);
         $this->assertDatabaseCount('study_milestone_profiles', 0);
         $this->assertDatabaseCount('card_learning_concepts', 0);
+        $this->assertDatabaseCount('card_introduction_cohorts', 0);
         $this->assertDatabaseCount('learning_concepts', 1490);
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);

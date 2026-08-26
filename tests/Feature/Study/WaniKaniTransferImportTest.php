@@ -79,6 +79,11 @@ class WaniKaniTransferImportTest extends TestCase
                 ->all(),
         );
         $this->assertSame(10, app(ShowKnownKanjiAction::class)->handle($user->id)['wanikani']['transferBridge']['pendingVocabularyCount']);
+        DB::table('user_wanikani_assignments')
+            ->where('user_id', $user->id)
+            ->where('subject_id', 113)
+            ->update(['transfer_bridge_queued_at' => now()]);
+        $this->assertSame(10, app(ShowKnownKanjiAction::class)->handle($user->id)['wanikani']['transferBridge']['pendingVocabularyCount']);
         $this->assertDatabaseCount('study_card_drafts', 2 * StudyVocabBundleGenerator::DRAFT_COUNT);
         $company = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 103)->sole();
         $this->assertStringContainsString('WaniKani reading: かいしゃ', $company->source_context);

@@ -30,12 +30,17 @@ final class ShowKnownKanjiAction
             ->groupBy('automatic_import_status')
             ->pluck('aggregate', 'automatic_import_status');
         $queuedWithoutGroupCount = DB::table('user_wanikani_assignments as assignments')
+            ->join('wanikani_subjects as subjects', 'subjects.subject_id', '=', 'assignments.subject_id')
             ->leftJoin('study_vocab_variant_groups as groups', function ($join) use ($userId): void {
                 $join->on('groups.wanikani_subject_id', '=', 'assignments.subject_id')
                     ->where('groups.user_id', '=', $userId);
             })
             ->where('assignments.user_id', $userId)
+            ->whereNotNull('assignments.passed_at')
             ->whereNotNull('assignments.transfer_bridge_queued_at')
+            ->where('assignments.hidden', false)
+            ->whereNull('subjects.hidden_at')
+            ->whereIn('subjects.subject_type', ['vocabulary', 'kana_vocabulary'])
             ->whereNull('groups.id')
             ->count();
 

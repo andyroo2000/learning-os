@@ -205,6 +205,7 @@ final class DispatchWaniKaniTransferImportsAction
                     ->where('groups.user_id', '=', $userId);
             })
             ->where('assignments.user_id', $userId)
+            ->whereNull('assignments.transfer_bridge_queued_at')
             ->whereNotNull('assignments.passed_at')
             ->where('assignments.hidden', false)
             ->whereNull('subjects.hidden_at')

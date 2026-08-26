@@ -35,6 +35,14 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // This suite models a fixed review chronology on August 25, 2026.
+        Carbon::setTestNow('2026-08-25T12:00:00Z');
+    }
+
     public function test_guru_and_master_requirements_use_the_reviewed_cards_current_fsrs_mastery(): void
     {
         [$user, $deck] = $this->learnerDeck();

@@ -1,0 +1,170 @@
+{
+    "revision": "pilot-v1",
+    "status": "pilot",
+    "presentation": {
+        "targetVisibleBadgeCount": 3,
+        "fillWithLockedCandidates": true,
+        "candidateRanking": {
+            "primary": "progressRatioDescending",
+            "secondary": "remainingCountAscending",
+            "tertiary": "catalogOrderAscending"
+        },
+        "noDataFallbackTierIds": [
+            "card-muncher.first-nibble",
+            "roarer.first-roar",
+            "yearfire.first-ember"
+        ]
+    },
+    "families": [
+        {
+            "key": "yearfire",
+            "title": "Matsuri Light",
+            "metricKey": "cards.stability_365d.count",
+            "unit": "cards",
+            "tiers": [
+                {
+                    "key": "first-ember",
+                    "title": "First Ember",
+                    "threshold": 25,
+                    "description": "25 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "paper-glow",
+                    "title": "Paper Glow",
+                    "threshold": 100,
+                    "description": "100 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "lantern-heart",
+                    "title": "Lantern Heart",
+                    "threshold": 250,
+                    "description": "250 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "festival-gate",
+                    "title": "Festival Gate",
+                    "threshold": 500,
+                    "description": "500 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "night-parade",
+                    "title": "Night Parade",
+                    "threshold": 1000,
+                    "description": "1,000 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "sky-of-lanterns",
+                    "title": "Sky of Lanterns",
+                    "threshold": 2500,
+                    "description": "2,500 cards have reached one year of memory stability."
+                },
+                {
+                    "key": "eternal-sunrise",
+                    "title": "Eternal Sunrise",
+                    "threshold": 5000,
+                    "description": "5,000 cards have reached one year of memory stability."
+                }
+            ]
+        },
+        {
+            "key": "card-muncher",
+            "title": "Card Muncher",
+            "metricKey": "reviews.count",
+            "unit": "reviews",
+            "tiers": [
+                {
+                    "key": "first-nibble",
+                    "title": "First Nibble",
+                    "threshold": 25,
+                    "description": "Complete 25 reviews."
+                },
+                {
+                    "key": "quick-bite",
+                    "title": "Quick Bite",
+                    "threshold": 100,
+                    "description": "Complete 100 reviews."
+                },
+                {
+                    "key": "bento-break",
+                    "title": "Bento Break",
+                    "threshold": 500,
+                    "description": "Complete 500 reviews."
+                },
+                {
+                    "key": "full-feast",
+                    "title": "Full Feast",
+                    "threshold": 1000,
+                    "description": "Complete 1,000 reviews."
+                },
+                {
+                    "key": "banquet-beast",
+                    "title": "Banquet Beast",
+                    "threshold": 5000,
+                    "description": "Complete 5,000 reviews."
+                },
+                {
+                    "key": "bottomless",
+                    "title": "Bottomless",
+                    "threshold": 10000,
+                    "description": "Complete 10,000 reviews."
+                },
+                {
+                    "key": "moon-muncher",
+                    "title": "Moon Muncher",
+                    "threshold": 25000,
+                    "description": "Complete 25,000 reviews."
+                }
+            ]
+        },
+        {
+            "key": "roarer",
+            "title": "Roarer",
+            "metricKey": "conversation.turns.completed.count",
+            "unit": "turns",
+            "tiers": [
+                {
+                    "key": "first-roar",
+                    "title": "First Roar",
+                    "threshold": 25,
+                    "description": "Complete 25 target-language conversation turns."
+                },
+                {
+                    "key": "echo-call",
+                    "title": "Echo Call",
+                    "threshold": 100,
+                    "description": "Complete 100 target-language conversation turns."
+                },
+                {
+                    "key": "city-voice",
+                    "title": "City Voice",
+                    "threshold": 250,
+                    "description": "Complete 250 target-language conversation turns."
+                },
+                {
+                    "key": "mountain-caller",
+                    "title": "Mountain Caller",
+                    "threshold": 500,
+                    "description": "Complete 500 target-language conversation turns."
+                },
+                {
+                    "key": "thunder-voice",
+                    "title": "Thunder Voice",
+                    "threshold": 1000,
+                    "description": "Complete 1,000 target-language conversation turns."
+                },
+                {
+                    "key": "island-shaker",
+                    "title": "Island Shaker",
+                    "threshold": 2500,
+                    "description": "Complete 2,500 target-language conversation turns."
+                },
+                {
+                    "key": "sky-splitter",
+                    "title": "Sky Splitter",
+                    "threshold": 5000,
+                    "description": "Complete 5,000 target-language conversation turns."
+                }
+            ]
+        }
+    ]
+}

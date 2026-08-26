@@ -3,6 +3,10 @@
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use Illuminate\Support\Facades\Route;
 
+/** @var callable(): void $achievementRoutes */
+$achievementRoutes = require __DIR__.'/api/achievements.php';
+$achievementRoutes();
+
 /** @var callable(): void $publicMediaAnalyticsRoutes */
 $publicMediaAnalyticsRoutes = require __DIR__.'/api/public-media-analytics.php';
 $publicMediaAnalyticsRoutes();
@@ -67,5 +71,4 @@ Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteReg
 
     $deckRoutes();
 });
-
-unset($authenticatedRouteRegistrars, $authRoutes, $deckRoutes, $publicMediaAnalyticsRoutes, $studyRouteRegistrars);
+unset($achievementRoutes, $authenticatedRouteRegistrars, $authRoutes, $deckRoutes, $publicMediaAnalyticsRoutes, $studyRouteRegistrars);

@@ -60,7 +60,7 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
 
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'GET|HEAD sanctum/csrf-cookie',
+            'GET|HEAD api/achievements/catalog',
             'GET|HEAD api/avatars/{avatarPath}',
         );
         $this->assertImmediatelyBefore(

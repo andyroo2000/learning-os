@@ -1,0 +1,1454 @@
+{
+  "revision": "achievement-collection-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/achievement-collection-v1/build.mjs",
+  "design": {
+    "canvas": 256,
+    "standardAssetSize": 256,
+    "retinaAssetSize": 512,
+    "pixelDensityVariants": {
+      "1x": 256,
+      "2x": 512
+    },
+    "exportSizes": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "containerStrategy": "shared-handmade-frame-with-transparent-exterior",
+    "captionStrategy": "client-rendered-css-or-native-ui-below-image",
+    "embeddedText": false
+  },
+  "presentation": {
+    "targetVisibleBadgeCount": 3,
+    "fillWithLockedCandidates": true,
+    "candidateRanking": {
+      "primary": "progressRatioDescending",
+      "secondary": "remainingCountAscending",
+      "tertiary": "catalogOrderAscending"
+    },
+    "noDataFallbackTierIds": [
+      "card-muncher.first-nibble",
+      "roarer.first-roar",
+      "yearfire.first-ember"
+    ]
+  },
+  "families": [
+    {
+      "key": "yearfire",
+      "title": "Matsuri Light",
+      "metricKey": "cards.stability_365d.count",
+      "unit": "cards",
+      "tiers": [
+        {
+          "key": "first-ember",
+          "title": "First Ember",
+          "threshold": 25,
+          "description": "25 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "979f1debd32298f878da119f7c1b87d3791b5ff0c4bc49d196d83bd22ed56ae5"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "33a8c640c2e534933178ad65b318d5370ff4c8e7c6dd97f9353838f1ee5774bc"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e2ce30ef044575eb344667bff9a1a88240b9540d4f84529f2581e0556cca0324"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "8622b7614b2cc12e82c4b04ad49368f4b0633fcb4440e803e5e937cd2f296138"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2f67367a587c19055f0caee8be5618a37934ef8070b80b789181989b8103618d"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9c553089d96f6ad24d1584451781d19e566d4712b33ca26b24ffe630bfc535ac"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "2faf262a1fb7f3ea861f5a1505fe6091fcc9d68f3bc098579c84a73ed36d312a"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "201b09b4555322bf2da16bbd45d8557d3c9b313093b8dc17132120a6d0fe6457"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "paper-glow",
+          "title": "Paper Glow",
+          "threshold": 100,
+          "description": "100 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f13b23e4c3c483ac7b07752f4ce2bcde48cd11d7da5b84416c5c593144621a57"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "33237a46c94defac9373f2a03c25644bca56f6abd6bf14ed7212bf9918ee6a46"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "37807e93d984a7daaf4ae3aef0a58585a0e7613bf374f23ce543f49e41a950e5"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "083d16525ebdf5ba001d3bcb911d19d488c9f6deb8fd5efe1c18daedd4ee0860"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "1339cbc953c2db74b876bfbfdaf4c0a517d5dc1bedadd24a1c8f8ee50425c871"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "0dd216cddad7d5603150a03ec0aecf21d3d0e7bf1056dc128992322e75b63c06"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "da98fa36923aa46a9d73b8b62ac6c5b3af9dca52351087ca50ecef02f28f2b7b"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a034295c52256b68d36b84f1f04b2b59a51853a81005240042d47652a8c3bdb3"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "lantern-heart",
+          "title": "Lantern Heart",
+          "threshold": 250,
+          "description": "250 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "115c5f616318c92bc9006b9e8807f9ff5ca681ea43c1709c4ed781820bf6f6f5"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "52cfc609f552b14687388982a4d31ce345243c6c2f062d586e5819999af1eb91"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "343e3c992041ad86e86fe3ba0951697eeb9e5c0bffb28964e7fd8d9ca90c0633"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "41dd4d6c8842de6b0f32373f8f110d519d87fb6d999da65b6830d1ba9de9e686"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2f558af6ba35a917192ea1b2d3a843db555a4682730238bb1a7a63eca769097d"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "f9071315ae1420f48520cb7eef33c190cc59871b28d02b871391c5358065cfa5"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "63684727b4ed5d1f6aeb57e3828fff9c998032a72cde8a6d713c8eb06f5836cc"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "0121c87da3fc28f16574884d18c875a0e8768efd5928d90154d17f4800ea45b3"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "festival-gate",
+          "title": "Festival Gate",
+          "threshold": 500,
+          "description": "500 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "a9e6a471af80d76a8f1d25ceba5f2be7049a7c4ec43eb96ce803c75495171e0c"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b4931d3c8c11de9a8c3f37c7ba795c3b1392c096dfbe7a4240245ddbd4574f3c"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "0653c9e5159be95827c3a69dc0de400befcdff999fe0c1f55ab52897e434406e"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d3b88b3d8422e3aea01724651cf4b090f582c9a51a133c3c27f2f3beda717bf4"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3e84c7462458c6f539f14e9fae762e863f42d321e7d8eeda4ff82f1f164258e3"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "cce36da7305c2fb6b0e7f1c1439f7d9df73e31aecb2d5c5ba8b8f60f51e7d432"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "2c571a11cfe26dd3ca6783879f0eaaec6a4e6385ee8d3ead845cbd50f3d1bac9"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "230c77aac71d901a7e8e5064f6b9a054764cbf13835a5487e1c7c3715197a90d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "night-parade",
+          "title": "Night Parade",
+          "threshold": 1000,
+          "description": "1,000 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f72822ea633c3e81d8761814e07c511e01f0f410f0726e3eb702a9c4f8b82a76"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9cf5e1b3ee660a6de6f543d8b5596285f4be8ace8a87ced7ca89671c16e207af"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "ae5f8b964bc6f2b4d31b8dd1f30cbf601b77c32cddc07fc736a40613cec6e145"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "5dec5416ac1c380d4b889c397065a3b6d20975c408eb7b849864b4b7dc72666f"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e0e7f19bd8a8b2952e76cae4cd808847ab5cc78c9438fbf0f269aa3c9eea7b08"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "ef4eca9c52461466c68a499ef79f475d2cb2ed0d979214fb021d76d64e434c3c"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8cacf3c36d9bd3e80631064d6f6220c61101692f421ef5911e2ca19d9be61db5"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2e66bdf54d425ddd2c0041ede4f1f8eb53c30d205479fff47a5841b97e584541"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "sky-of-lanterns",
+          "title": "Sky of Lanterns",
+          "threshold": 2500,
+          "description": "2,500 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "65e8a7ea64d9b5077279e6754d67aa002698f7c6ff495533f94d2f4d04881271"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a4968dfbb1c233446b020ab9b5f53090de0fe9963e104f5d6adf150987d07dfd"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "611f7788f77edc9d285f26e92b4c01cbce2c8a9fc37b461c2694f62093a4efeb"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "8a654083fd272cd76146e7d34b259a7e45251069f9f3e4323a770fed91519cf8"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "774056240a27ea4af02b4146f1b85c8db3e6b27c7e430aa8904e32a6d437a605"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8ee0594208da5ec484a438f4585ca345e14c8f520f2634b321be2e33ffaa2587"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "fe0fddc64b9238b63ea7df57418769eb10fa1ed9f92c87fcdcaf3d05e35732df"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "253a899ced9b6c07cf4996181f4405390e9d726a49a494b0acb0337bd129a8e1"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "eternal-sunrise",
+          "title": "Eternal Sunrise",
+          "threshold": 5000,
+          "description": "5,000 cards have reached one year of memory stability.",
+          "assetRevision": "matsuri-light-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "fd25e8795198cf843695bc291626751d5bf250cf7a2e138d8ba22a8162ddaec6"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "d290064a80466be3f529776584e862219a9484c046e60d85b01287bba0d6ad4d"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3a0d4b95b18f8ac7686ac3cec4c30d5d0f941fdb0dcb4cbc7b4cf40761194da7"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "5b4fe0ccaf29a29676b317fd6ce6a19847983201eee5f3ad9aa7e5b13234a556"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "cc20ea22e04afc95db71f34bd07c517693beff3678531a04b5f64646d04aa2e2"
+                },
+                "128": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "7cfa3e1079fbee9acea2ee4af4366d56471a99aa64ff37d0ee0880358e8e8080"
+                },
+                "256": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "576deb3ffcaa89499d02e2268b0500947dea1463caa235e415a6aace16aa6f99"
+                },
+                "512": {
+                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "aa711233dc9676283b6cb71663fcd226afb3a13d42e7cc6178108687f889ea52"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "matsuri-light-series-v1"
+    },
+    {
+      "key": "card-muncher",
+      "title": "Card Muncher",
+      "metricKey": "reviews.count",
+      "unit": "reviews",
+      "tiers": [
+        {
+          "key": "first-nibble",
+          "title": "First Nibble",
+          "threshold": 25,
+          "description": "Complete 25 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "768bd22d3f9342ac6c91ec431f36efb8f021d6783a6beb2d0edf55837949c178"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9001924ae76b958740ed21dc54b77bdf35f6f1afb056e090a9843071725bcedd"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "be00bf9d37d35d4e916de5093e047d5bd4ffac8fdd35752c73e50d9aa811e181"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "7c42ec116f12fc64d92ae1f0f8cc900c4e9470d43404c3d54effc9ac0f06fef3"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "813b6b267233e6fd1574008159d72dd0c5b92a24f51d21d0b2c156b6be7c2ee2"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "5780e3ecb3e2fe86bb5fa859c2e4047aff475d02ddcd689a78eb9fd59e907038"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "cbc8e77f22c8aa8c49eda28c82ce868adc0cedb72c810fac8adce581d9b26b9d"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "437dbc5b764ef30f0a8a520cae8fa37a709c19283638eb41d8e88bd6d48558b3"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "quick-bite",
+          "title": "Quick Bite",
+          "threshold": 100,
+          "description": "Complete 100 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "a82ac5b4d1e0bf4f0e15da123bac4df761a5e7af9e09f8120e44aaa583355a3b"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8b3b7361b4856bf3d546478c9194d7394398cb572fb93fc3d98128cb922f6249"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3dcb1e67153c90e57e2963cbd31662146300d96452c40ef00ad3990f39b37597"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "e374937aff1ea2299db5d5eb2a2fbc75a72a298cb89f3f5360ae3768438b09ce"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ea177942a924cc3f5311e3232f802661c6d217e4195bc63bc1c4d14da684cdda"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "5fbdb599184971c5a5d94e8b94d686da3c984ed3db5857dfbfd329142887b10d"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9f3f380a28ac4b5ecf3a6fdb290b14fbaa81722e1ff01b4eef7ab5971c93b5d6"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "84b14728781575f35b694ffd25af197940468652d0d59c21fd7fff5216350fc3"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "bento-break",
+          "title": "Bento Break",
+          "threshold": 500,
+          "description": "Complete 500 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3ac63e2b08e3828813b2d0063582943d8070bda9a053003dd92146474f7072ae"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "36bad60366af3413a69c0a6b775262ecb6be22df27033da8702160417429c4e1"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3787c44e730f34a469e78ce587c458ca5421ecf278596a4e560d44da0cb6cc1b"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a161a8627c13516c344b00e54738814baa215eaf38e0a657c28c24bb9ca7ad2f"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e22b726d1d857535c40efcdd5e63cdd74c5ce765d9f62530eaa98534fbb9e8c9"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "bf5d89f5e2ae8ba4db12e3fa9275bb09fad8ee2ec7025fd8bac2515d4291b8f1"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "4060d475ae47f386ec2a93903260567764f1dbb3be3453126c2329770225e23f"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "610190a797446a07073299a4c99c4a570c5a55f3dfc00cecfe5444c9bcfd9374"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "full-feast",
+          "title": "Full Feast",
+          "threshold": 1000,
+          "description": "Complete 1,000 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "33b798e5705d0aa8d5ebf280b8b137ca9e24f6eee36ce66888b692ac1f1f1dd2"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "38d442027e9d6428d3efd0ce4f55271f9258e99c0ef95e7304fc305f5f87c261"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b91f8f32b11386da75511ff3e10214e60640c735936f5ebd40bb04e1d818e17b"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "dee034efc472e704ce823a2cd009ec19cf1d9dea6c41e425f3e548d33c644b02"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "16cde8344940801673ebad140920119558b080773b8acb214a91d38f1b01298a"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a2fd6fa835432b2fa5517872129ce7ca21625793e31326352a08cca197dde14f"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "31d7b3015f8657e95ea2b2ce1dd27ed8bfceed83784910786eac01e1b1f3e728"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "cc486d19021362b79b25c30c2dd32821d4682413a0ccedc144d7148b8a0e054c"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "banquet-beast",
+          "title": "Banquet Beast",
+          "threshold": 5000,
+          "description": "Complete 5,000 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2fbfa9eee5d9e9740ad837db02c5a32a94d5f6fd4777c35ef8f3834df7eb8d92"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "2f2fe0a72f7d37397526c792421fce18207afc5dfac79c943909280812bc5c52"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c5cb6963e95696ecef67df80ebd8234fea6674be68f65348870343971e6d2b15"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "faa93ec4e1b913544fe34f3a57df7659faac94c7cf4df123539f7367251d9818"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "97059736914dd60bfbac0f99702893f4d2379a89312118e7bb98f2e09deb6dbf"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a062635d7366dc08f2ca794262c533a3421d670993be4d0f04534a23b6b1f18b"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "764102eba8a27b6eb23ec17433580d4b66c9ef949bf0b2e948094cfaff5efb9a"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "655ebf933376f1d3f753c498bf7f5228b61abcea31a1d081abf068a5e2c8eb79"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "bottomless",
+          "title": "Bottomless",
+          "threshold": 10000,
+          "description": "Complete 10,000 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e5705f08fbedb6330731e1f7f94397fa927a210c452812dc88bc18c344d5563f"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "6f84358c2e1bb6f482c896ddacef2749588657eef3a7178ac2835f239545ccff"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9f6b3bb3cb68ad2c727234df25a4f888bed5da3403ac26bdbdfbd8882dcc4866"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "623048198d71515393d85c0c0c9d126dae3dcc9758a20009b1ebdaa3935fe6d2"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "4da2164ea05d02aab0260979682ce8eb093802446ba685f6b2df19ec30199981"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e4613b3161b5fcff45a701aa4520fc97f1946ea23ec44a981103a4a729249e8c"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b42727feff6788e25aed9b1824395aa02d74b185a00e00c481064fcaa8102034"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "07f1d233779a4979d04dd10d5fead07b14db0a29009abfa03a8c480c1cd6065e"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "moon-muncher",
+          "title": "Moon Muncher",
+          "threshold": 25000,
+          "description": "Complete 25,000 reviews.",
+          "assetRevision": "card-muncher-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e004e1b6bfc68f4c4e7c8ff1dd252eb231e18ba2d875b0788ba645336d5b2a9d"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "2f0ef2c285178993d9806edd181d3cd9315cbd7a70345ca51fcb72eed0fdfde5"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c278b7c75cbd5c1ff2b37401151f3fd1ea027a5f6173425e955871176bec325d"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "336ec55dd82560bcaf7390f42e908da0182f76ecf1d549666fd683f6e572ece0"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "95a20c142fd94e529c7fc0df19f9fae32c1001a27d394e55b58bd5f700e78228"
+                },
+                "128": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "ba84c1b0331f7e0a416393a90a8e81f3f7f57c3c4509d8272ba6d9abab94bb37"
+                },
+                "256": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "0d1390a61753257f53aff4eaa8cb7a3442a1f2f77592e9a33226dff49efe665a"
+                },
+                "512": {
+                  "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "1b2b5a27210ae6ff4860f1b5d79a237a7f25b25109fcbaff89d87f8607edf3a6"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "card-muncher-series-v1"
+    },
+    {
+      "key": "roarer",
+      "title": "Roarer",
+      "metricKey": "conversation.turns.completed.count",
+      "unit": "turns",
+      "tiers": [
+        {
+          "key": "first-roar",
+          "title": "First Roar",
+          "threshold": 25,
+          "description": "Complete 25 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "035ec79908012f0cb942d8e76e1789e21b6c2ee211eb7b2658290d0528929899"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c114f30e56b435845ce3632ed4f3a6a9fc8d45b27de999190278140fc473e138"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9b89c0a3ad1ed7d1a6c41f7c0cee7fbc6289674cb1448d287642d7c62d2fdcd3"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "8a66afffe349400a1a1c9d773b066b0be5a5c95378400126a825e7dc903e85cf"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "773b95b7eca04523a7f4ad4ddb0a787dd1784651aea480db8bbde4b9276bf7bd"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "5f97f47538b6d6bc539f1cf52960c2d0898fe546f587fc7273d6cf67fdd7bc7e"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b5285a39103a3df578e6578c6f5ebd7f74172fa7aaadec8be52755e2e32ac760"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/first-roar/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "68bbb3cd84b2e6bc76a913d6b35b0ca68dc94155241ae3fc65571563a699dcd5"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "echo-call",
+          "title": "Echo Call",
+          "threshold": 100,
+          "description": "Complete 100 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "b5a92f18ea46502216d499d34c9a2fecef3c356ff953addab3c92f0b5e2dcbeb"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "103573970de8a01f3fb12b0b283e01d1c27fbe95dddd72cf595f2c66f10d7075"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "4249c96e3bd710c8f337df1c83a614f94e30eb31f750a198a8efc17f9f119d77"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "318ce8dcebc33d68a28d72983d43b1a60ddb0583075d76f51fdd786ce4dd920b"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "1fc3071fb5c19a8fe6dd185993d6233bdc2b12c91746e8b5c97d9ccdb7025943"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "33b190080324dd7e1dfa96ae1c61493ff23f7df7dd87e7e8940631160dc2a0cc"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "4a6d2f85036e940451abc9aa2ee75e0e3dd2a0663c08365c6151e9fa77c85c62"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/echo-call/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2373aac3d3d8985ede90eb668adef3e249faf195287088629166969e90a68201"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "city-voice",
+          "title": "City Voice",
+          "threshold": 250,
+          "description": "Complete 250 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "806ed4d6f21a4916ea1ff86364876ba5cecdd7b3686737797e5ec9a9ebba675b"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "477c9180ee635fc70adfe7984c144d4abc32d1c10644f46b1b729ef376039f96"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "5f1eea6a24443dd69308fed9704937a9d3f65a7cf826cfcc7ea382e5f51d701b"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "e2a29614a6fadf6c82ccbe1d8b717f201ef7ac43d0bf875ce5cf777d756e88c5"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "5e37ce3430ba2136433449faa8ef597c496d499bbe147d4c74804e92b67ffdab"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "4a1dafda361ca9dbc09ac0f58e7725471bd71de38fd71b1d39de3f2ae48f4082"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "7149748c7b3abb54b644598fbe7679c20f0ee367ed0273b11f33c89ad5b61185"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/city-voice/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "e3f34c089d7c9a5dce9136564d3e8b23cab1c7f23de5c7deda2b1e15b424134d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "mountain-caller",
+          "title": "Mountain Caller",
+          "threshold": 500,
+          "description": "Complete 500 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "c8ceabbc295cdb5736bc3b6f38ad320040ecd8ff3761d777b9a8ece1bfc9e392"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "333a421c2ef6cba6573125521666cdaac92be8921f463e09ae7539e5d638aaea"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "104157eca069569827d8a6c1f613d79d58a39731ce8b60aea3063602f44f08b2"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "1c00ff393fb90239265b89516a9bd3cdce23fd8bd7f3083aaf8f5fff72e78c69"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "998223e723f2b37d1da6c4d1f44e6ae5450f1cfc307b3999480b24b5fcce34c1"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a0bde882bf75be411eb3f14a4ce20ac800726a4fc9d5d2fe5edfcf6b4d096c20"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d26db800bad6d357183829ab5903356302cd30b883b0ddd6ebba2288ca53ac88"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "6faa372b270b4bd65613e8035526c85b4543d81cb59027f0b14def8fd0df6a22"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "thunder-voice",
+          "title": "Thunder Voice",
+          "threshold": 1000,
+          "description": "Complete 1,000 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "586ece2e23fd83c1ff41886fa121a0107955cbc2f7d4a7b42f94796cb2cefa96"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9334a2da055f89040473e330c745b929ed5e0ee67865a3dbb793f23f22c572a5"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3639caad64ef06190364e6914fe0ff3e3dee3332659475b279f6272e0a89587a"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "9c003bc5d0756e09d11709c82a386015b07e4c992ce868cf021cd9df936d1cee"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "13a86c1ddea796cdba03675325ad6a6ae8f91afa360a4c1177d58cb1b813c7c7"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8d8e8241eb8d42e5c1d6b51c45cc52cf3f2a337cff6c503d53656bf0af445bf6"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "0c5ffee8dfabbdc8d7ec957c8c196d7a3d1285fd631d789a302158b19c8764f5"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d7caa5d08ebf467498faf016dbd61d86f364ae7b219bcee6cb6dd62bbf0c9baa"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "island-shaker",
+          "title": "Island Shaker",
+          "threshold": 2500,
+          "description": "Complete 2,500 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "173b16f3dc14d55f465b0e584693c8f331b43b3138c108fb4f30134d0b706863"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "3e36e5fba81fbe6783054d48f4ab948e27c1ceb23bd351f87a46b4b1c8761f5a"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d455d79af8d207d6b80f479557494914711729446c4807641b85db1f2dbca335"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "9e1794aa90620fb2c6662be1aff287a0c3cfafe671cd3652cde2854d7735520e"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e957dcebf24c8ee173a3ae29c9d947dbe3b9d6561a93bc25a61b30d57ed65980"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "0fa8d0475e540978ffdca6a2ea8890a15d3b28242bd5c781814b291e7dd43c57"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "95c3e3bd7ef967c917df635e4d01b09b8a6799b38e515382291cf1e43533d692"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "51d4321cb8eb82e7b77bbb6b9c0f222e02997fb799dbaa67cb37eb7d8ce9e2d8"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "sky-splitter",
+          "title": "Sky Splitter",
+          "threshold": 5000,
+          "description": "Complete 5,000 target-language conversation turns.",
+          "assetRevision": "roarer-series-v7",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "cbac5c6d5ec4342bdd919efc92d48f5bb3069d3a107f39b8ebce6f99bfb41e9d"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a88e488ce59b58ec7a5b63dd1bd9f70010be81281c8dde32927bf2dafa29fc97"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a8cad811d500c3694bf6c6035975a7cd05e268298ac39756dcd7a5abf71b94da"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "575286642fe96bd038c2e6d5009f88c13be914ea7a65f2daf387a653d0bcecb5"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f03e655272dad7f28f44dc68d6827f9df5982e8200f5a678073c98f137fd948d"
+                },
+                "128": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b1c28875e1fcabaf06985c2d722218dd1c47569d2b3ced0be07bb6fd2d1d9e01"
+                },
+                "256": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "95877401522093d3067f3012439415a4e15b623f22881068dc565049ba6e77ba"
+                },
+                "512": {
+                  "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "83603269729fdd9718748853cd9566598e1e253672d135e7320ad360b36f2453"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "roarer-series-v7"
+    }
+  ],
+  "sources": {
+    "criteria": {
+      "path": "resources/achievements/achievement-collection-v1/catalog.source.json",
+      "checksumSha256": "2a761e18cdfabc1c613e85c0a6b51e08195eb85609b1b2a70c348b3bdb7a56bf"
+    },
+    "visuals": {
+      "roarer": {
+        "revision": "roarer-series-v7",
+        "path": "public/achievement-assets/roarer-series-v7/catalog.json",
+        "checksumSha256": "adafc7466e0fa5da0e7f2726b879f6cafe5692eb75614e44efc7a612f6b863c5"
+      },
+      "card-muncher": {
+        "revision": "card-muncher-series-v1",
+        "path": "public/achievement-assets/card-muncher-series-v1/catalog.json",
+        "checksumSha256": "006c5df8faff9aecf55fce3580cd966a127ab77e33d4d54ccfeaf4dd33057f6d"
+      },
+      "yearfire": {
+        "revision": "matsuri-light-series-v1",
+        "path": "public/achievement-assets/matsuri-light-series-v1/catalog.json",
+        "checksumSha256": "aec1b2189064077f577bbbb7c0b600dd00de314db7f8f99a953a5a4bd51f317e"
+      }
+    }
+  }
+}

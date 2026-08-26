@@ -1,0 +1,532 @@
+{
+  "revision": "roarer-series-v7",
+  "status": "production",
+  "generatedBy": "resources/achievements/roarer-series-v7/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/roarer-series-v7/source/first-roar-complete-scene-source-v1.png",
+      "checksumSha256": "76349490916ba43418290567b87c42fb9bc795d2e1dc9294a0249caf9b97290e"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-roar",
+        "path": "resources/achievements/roarer-series-v7/source/first-roar-complete-scene-source-v1.png",
+        "checksumSha256": "76349490916ba43418290567b87c42fb9bc795d2e1dc9294a0249caf9b97290e"
+      },
+      {
+        "tierKey": "echo-call",
+        "path": "resources/achievements/roarer-series-v7/source/echo-call-complete-scene-source-v2.png",
+        "checksumSha256": "a7d9bbcc4f973ed90fde8539798ac4857784ad58843cab6517d8da55051e3828"
+      },
+      {
+        "tierKey": "city-voice",
+        "path": "resources/achievements/roarer-series-v7/source/city-voice-complete-scene-source-v1.png",
+        "checksumSha256": "95a9e66676afb5dca78e36a2043067401e1c5018b1751d36326c972cdededebf"
+      },
+      {
+        "tierKey": "mountain-caller",
+        "path": "resources/achievements/roarer-series-v7/source/mountain-caller-complete-scene-source-v1.png",
+        "checksumSha256": "9fe168de6f6d9aaf698d17ba91ce12a222dd5828390772ae1b5035d56b41a034"
+      },
+      {
+        "tierKey": "thunder-voice",
+        "path": "resources/achievements/roarer-series-v7/source/thunder-voice-complete-scene-source-v1.png",
+        "checksumSha256": "8169016e5ac2a1cab80e3f51089dfd6eb4b5ba3e1da311e4880d44e338271ca5"
+      },
+      {
+        "tierKey": "island-shaker",
+        "path": "resources/achievements/roarer-series-v7/source/island-shaker-complete-scene-source-v1.png",
+        "checksumSha256": "539d741d41a6b0bc750b35a9ff755916bdec0c16caf68fee145d37d1b0776844"
+      },
+      {
+        "tierKey": "sky-splitter",
+        "path": "resources/achievements/roarer-series-v7/source/sky-splitter-complete-scene-source-v1.png",
+        "checksumSha256": "32fed6606284cb5d37c78bdd7eeb09cac821d2c1ba3e1c2a1885f6729dbb52ba"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "roarer",
+      "tierKey": "first-roar",
+      "title": "First Roar",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "035ec79908012f0cb942d8e76e1789e21b6c2ee211eb7b2658290d0528929899"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c114f30e56b435845ce3632ed4f3a6a9fc8d45b27de999190278140fc473e138"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9b89c0a3ad1ed7d1a6c41f7c0cee7fbc6289674cb1448d287642d7c62d2fdcd3"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "8a66afffe349400a1a1c9d773b066b0be5a5c95378400126a825e7dc903e85cf"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "773b95b7eca04523a7f4ad4ddb0a787dd1784651aea480db8bbde4b9276bf7bd"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "5f97f47538b6d6bc539f1cf52960c2d0898fe546f587fc7273d6cf67fdd7bc7e"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b5285a39103a3df578e6578c6f5ebd7f74172fa7aaadec8be52755e2e32ac760"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/first-roar/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "68bbb3cd84b2e6bc76a913d6b35b0ca68dc94155241ae3fc65571563a699dcd5"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "echo-call",
+      "title": "Echo Call",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "b5a92f18ea46502216d499d34c9a2fecef3c356ff953addab3c92f0b5e2dcbeb"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "103573970de8a01f3fb12b0b283e01d1c27fbe95dddd72cf595f2c66f10d7075"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "4249c96e3bd710c8f337df1c83a614f94e30eb31f750a198a8efc17f9f119d77"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "318ce8dcebc33d68a28d72983d43b1a60ddb0583075d76f51fdd786ce4dd920b"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "1fc3071fb5c19a8fe6dd185993d6233bdc2b12c91746e8b5c97d9ccdb7025943"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "33b190080324dd7e1dfa96ae1c61493ff23f7df7dd87e7e8940631160dc2a0cc"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "4a6d2f85036e940451abc9aa2ee75e0e3dd2a0663c08365c6151e9fa77c85c62"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/echo-call/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2373aac3d3d8985ede90eb668adef3e249faf195287088629166969e90a68201"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "city-voice",
+      "title": "City Voice",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "806ed4d6f21a4916ea1ff86364876ba5cecdd7b3686737797e5ec9a9ebba675b"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "477c9180ee635fc70adfe7984c144d4abc32d1c10644f46b1b729ef376039f96"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "5f1eea6a24443dd69308fed9704937a9d3f65a7cf826cfcc7ea382e5f51d701b"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "e2a29614a6fadf6c82ccbe1d8b717f201ef7ac43d0bf875ce5cf777d756e88c5"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "5e37ce3430ba2136433449faa8ef597c496d499bbe147d4c74804e92b67ffdab"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "4a1dafda361ca9dbc09ac0f58e7725471bd71de38fd71b1d39de3f2ae48f4082"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "7149748c7b3abb54b644598fbe7679c20f0ee367ed0273b11f33c89ad5b61185"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/city-voice/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "e3f34c089d7c9a5dce9136564d3e8b23cab1c7f23de5c7deda2b1e15b424134d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "mountain-caller",
+      "title": "Mountain Caller",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "c8ceabbc295cdb5736bc3b6f38ad320040ecd8ff3761d777b9a8ece1bfc9e392"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "333a421c2ef6cba6573125521666cdaac92be8921f463e09ae7539e5d638aaea"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "104157eca069569827d8a6c1f613d79d58a39731ce8b60aea3063602f44f08b2"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "1c00ff393fb90239265b89516a9bd3cdce23fd8bd7f3083aaf8f5fff72e78c69"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "998223e723f2b37d1da6c4d1f44e6ae5450f1cfc307b3999480b24b5fcce34c1"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a0bde882bf75be411eb3f14a4ce20ac800726a4fc9d5d2fe5edfcf6b4d096c20"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d26db800bad6d357183829ab5903356302cd30b883b0ddd6ebba2288ca53ac88"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/mountain-caller/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "6faa372b270b4bd65613e8035526c85b4543d81cb59027f0b14def8fd0df6a22"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "thunder-voice",
+      "title": "Thunder Voice",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "586ece2e23fd83c1ff41886fa121a0107955cbc2f7d4a7b42f94796cb2cefa96"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9334a2da055f89040473e330c745b929ed5e0ee67865a3dbb793f23f22c572a5"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3639caad64ef06190364e6914fe0ff3e3dee3332659475b279f6272e0a89587a"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "9c003bc5d0756e09d11709c82a386015b07e4c992ce868cf021cd9df936d1cee"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "13a86c1ddea796cdba03675325ad6a6ae8f91afa360a4c1177d58cb1b813c7c7"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8d8e8241eb8d42e5c1d6b51c45cc52cf3f2a337cff6c503d53656bf0af445bf6"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "0c5ffee8dfabbdc8d7ec957c8c196d7a3d1285fd631d789a302158b19c8764f5"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/thunder-voice/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d7caa5d08ebf467498faf016dbd61d86f364ae7b219bcee6cb6dd62bbf0c9baa"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "island-shaker",
+      "title": "Island Shaker",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "173b16f3dc14d55f465b0e584693c8f331b43b3138c108fb4f30134d0b706863"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "3e36e5fba81fbe6783054d48f4ab948e27c1ceb23bd351f87a46b4b1c8761f5a"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d455d79af8d207d6b80f479557494914711729446c4807641b85db1f2dbca335"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "9e1794aa90620fb2c6662be1aff287a0c3cfafe671cd3652cde2854d7735520e"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e957dcebf24c8ee173a3ae29c9d947dbe3b9d6561a93bc25a61b30d57ed65980"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "0fa8d0475e540978ffdca6a2ea8890a15d3b28242bd5c781814b291e7dd43c57"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "95c3e3bd7ef967c917df635e4d01b09b8a6799b38e515382291cf1e43533d692"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/island-shaker/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "51d4321cb8eb82e7b77bbb6b9c0f222e02997fb799dbaa67cb37eb7d8ce9e2d8"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "roarer",
+      "tierKey": "sky-splitter",
+      "title": "Sky Splitter",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "cbac5c6d5ec4342bdd919efc92d48f5bb3069d3a107f39b8ebce6f99bfb41e9d"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a88e488ce59b58ec7a5b63dd1bd9f70010be81281c8dde32927bf2dafa29fc97"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a8cad811d500c3694bf6c6035975a7cd05e268298ac39756dcd7a5abf71b94da"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "575286642fe96bd038c2e6d5009f88c13be914ea7a65f2daf387a653d0bcecb5"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f03e655272dad7f28f44dc68d6827f9df5982e8200f5a678073c98f137fd948d"
+          },
+          "128": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b1c28875e1fcabaf06985c2d722218dd1c47569d2b3ced0be07bb6fd2d1d9e01"
+          },
+          "256": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "95877401522093d3067f3012439415a4e15b623f22881068dc565049ba6e77ba"
+          },
+          "512": {
+            "path": "/achievement-assets/roarer-series-v7/sky-splitter/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "83603269729fdd9718748853cd9566598e1e253672d135e7320ad360b36f2453"
+          }
+        }
+      }
+    }
+  ]
+}

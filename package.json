@@ -4,13 +4,25 @@
     "type": "module",
     "scripts": {
         "audit:dependencies": "npm audit --package-lock-only --audit-level=high",
+        "build:achievements": "npm run build:achievements:roarer-v7 && npm run build:achievements:card-muncher && npm run build:achievements:matsuri-light && npm run build:achievements:collection",
+        "build:achievements:roarer-v7": "node resources/achievements/roarer-series-v7/build.mjs",
+        "build:achievements:card-muncher": "node resources/achievements/card-muncher-series-v1/build.mjs",
+        "build:achievements:matsuri-light": "node resources/achievements/matsuri-light-series-v1/build.mjs",
+        "build:achievements:collection": "node resources/achievements/achievement-collection-v1/build.mjs",
+        "check:achievements": "npm run check:achievements:roarer-v7 && npm run check:achievements:card-muncher && npm run check:achievements:matsuri-light && npm run check:achievements:collection",
+        "check:achievements:roarer-v7": "node resources/achievements/roarer-series-v7/build.mjs --check",
+        "check:achievements:card-muncher": "node resources/achievements/card-muncher-series-v1/build.mjs --check",
+        "check:achievements:matsuri-light": "node resources/achievements/matsuri-light-series-v1/build.mjs --check",
+        "check:achievements:collection": "node resources/achievements/achievement-collection-v1/build.mjs --check",
         "build": "vite build",
         "dev": "vite"
     },
     "devDependencies": {
+        "@resvg/resvg-js": "^2.6.2",
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^9.2.4",
         "laravel-vite-plugin": "^3.1",
+        "sharp": "^0.35.4",
         "tailwindcss": "^4.0.0",
         "vite": "^8.0.16"
     }

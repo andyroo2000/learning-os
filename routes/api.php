@@ -17,10 +17,6 @@ $publicMediaAnalyticsRoutes();
 $authRoutes = require __DIR__.'/api/auth.php';
 $authRoutes['publicAndBrowser']();
 
-/** @var callable(): void $achievementRoutes */
-$achievementRoutes = require __DIR__.'/api/achievements.php';
-$achievementRoutes();
-
 /** @var callable(): void $deckRoutes */
 $deckRoutes = require __DIR__.'/api/decks.php';
 
@@ -71,5 +67,9 @@ Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteReg
 
     $deckRoutes();
 });
+
+/** @var callable(): void $achievementRoutes */
+$achievementRoutes = require __DIR__.'/api/achievements.php';
+$achievementRoutes();
 
 unset($achievementRoutes, $authenticatedRouteRegistrars, $authRoutes, $deckRoutes, $publicMediaAnalyticsRoutes, $studyRouteRegistrars);

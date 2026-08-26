@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Actions\CreateCardAction;
 use App\Domain\Flashcards\Data\CreateCardData;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Results\CreateCardResult;
 use App\Domain\Study\Enums\StudyCardCreationKind;
@@ -16,6 +17,7 @@ use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -29,8 +31,14 @@ class CreateStudyCardFromDraftAction
         private readonly StudyCardDraftOwnerLock $draftOwnerLock,
     ) {}
 
-    public function handle(int $userId, string $draftId, string $cardId): CreateCardResult
-    {
+    public function handle(
+        int $userId,
+        string $draftId,
+        string $cardId,
+        ?string $introductionCohortId = null,
+        CardSelectionPolicy $selectionPolicy = CardSelectionPolicy::Standard,
+        ?DateTimeInterface $priorityUntil = null,
+    ): CreateCardResult {
         if ($userId <= 0) {
             throw new LogicException('Study card draft user ID must be a positive integer.');
         }
@@ -48,7 +56,14 @@ class CreateStudyCardFromDraftAction
 
         // Keep the draft row locked while the final card content snapshot is derived. The draft
         // remains after commit so clients can retry with the same card ID before deleting it.
-        return DB::transaction(function () use ($userId, $canonicalDraftId, $canonicalCardId): CreateCardResult {
+        return DB::transaction(function () use (
+            $userId,
+            $canonicalDraftId,
+            $canonicalCardId,
+            $introductionCohortId,
+            $selectionPolicy,
+            $priorityUntil,
+        ): CreateCardResult {
             // Preserve one lock order across draft deletion, commit, and first creation.
             $this->draftOwnerLock->acquire($userId);
 
@@ -104,6 +119,9 @@ class CreateStudyCardFromDraftAction
                 variantStatus: $draft->variant_status,
                 variantUnlockedAt: $draft->variant_unlocked_at,
                 id: $canonicalCardId,
+                introductionCohortId: $introductionCohortId,
+                selectionPolicy: $selectionPolicy,
+                priorityUntil: $priorityUntil,
             ));
 
             if ($draft->committed_card_id === null) {

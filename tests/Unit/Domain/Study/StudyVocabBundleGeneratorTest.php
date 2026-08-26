@@ -47,6 +47,62 @@ class StudyVocabBundleGeneratorTest extends TestCase
         );
     }
 
+    public function test_it_builds_a_four_context_transfer_bundle_without_production(): void
+    {
+        $bundle = $this->generatorReturning(
+            json_encode(self::validTransferBundle(), JSON_THROW_ON_ERROR),
+        )->generate($this->transferGroup());
+
+        $this->assertCount(StudyVocabBundleGenerator::TRANSFER_SENTENCE_COUNT, $bundle['sentences']);
+        $this->assertCount(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, $bundle['variants']);
+        $this->assertSame([1, 2, 3, 4], array_column($bundle['variants'], 'variantStage'));
+        $this->assertSame(
+            [
+                'sentence_audio_recognition',
+                'sentence_text_recognition',
+                'sentence_cloze',
+                'sentence_audio_recognition',
+            ],
+            array_map(static fn (array $variant): string => $variant['variantKind']->value, $bundle['variants']),
+        );
+    }
+
+    public function test_it_uses_recognition_when_the_transfer_cloze_is_ambiguous(): void
+    {
+        $response = self::validTransferBundle();
+        $response['sentences'][2]['clozeSuitable'] = false;
+
+        $bundle = $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
+            ->generate($this->transferGroup());
+
+        $this->assertSame('text-recognition', $bundle['variants'][2]['creationKind']->value);
+        $this->assertSame('sentence_text_recognition', $bundle['variants'][2]['variantKind']->value);
+    }
+
+    public function test_transfer_bundles_require_an_explicit_cloze_suitability_decision(): void
+    {
+        $response = self::validTransferBundle();
+        unset($response['sentences'][2]['clozeSuitable']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('field clozeSuitable must be a boolean');
+
+        $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
+            ->generate($this->transferGroup());
+    }
+
+    public function test_transfer_bundles_reject_duplicate_sentence_contexts(): void
+    {
+        $response = self::validTransferBundle();
+        $response['sentences'][3]['sentenceJp'] = $response['sentences'][0]['sentenceJp'];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('must use four distinct sentence contexts');
+
+        $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
+            ->generate($this->transferGroup());
+    }
+
     public function test_it_rejects_provider_drift_from_a_supplied_source_sentence(): void
     {
         $this->expectException(RuntimeException::class);
@@ -137,6 +193,14 @@ class StudyVocabBundleGeneratorTest extends TestCase
         return $group;
     }
 
+    private function transferGroup(): StudyVocabVariantGroup
+    {
+        $group = $this->group();
+        $group->wanikani_subject_id = 123;
+
+        return $group;
+    }
+
     /** @return array<string, mixed> */
     private static function validBundle(): array
     {
@@ -171,5 +235,26 @@ class StudyVocabBundleGeneratorTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function validTransferBundle(): array
+    {
+        $bundle = self::validBundle();
+        foreach ($bundle['sentences'] as &$sentence) {
+            $sentence['clozeSuitable'] = true;
+        }
+        unset($sentence);
+        $bundle['sentences'][] = [
+            'sentenceJp' => '父の会社は車を作っています。',
+            'sentenceReading' => '父[ちち]の会社[かいしゃ]は車[くるま]を作[つく]っています。',
+            'sentenceEn' => "My father's company makes cars.",
+            'clozeText' => '父の{{c1::会社}}は車を作っています。',
+            'clozeHint' => 'company',
+            'clozeSuitable' => true,
+            'notes' => 'A family context.',
+        ];
+
+        return $bundle;
     }
 }

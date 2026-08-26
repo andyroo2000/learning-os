@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
+use App\Domain\Flashcards\Enums\CardSourceKind;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Actions\DispatchWaniKaniTransferImportsAction;
@@ -12,11 +14,13 @@ use App\Domain\Study\Actions\PrepareStudyCardAnswerAudioAction;
 use App\Domain\Study\Actions\ProcessStudyVocabBundleDraftsAction;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Services\StudyVocabBundleGenerator;
 use App\Domain\Study\Support\StudyCardAudioRecognition;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Jobs\ProcessStudyVocabBundleDrafts;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -86,7 +90,7 @@ class WaniKaniTransferImportTest extends TestCase
             ->where('subject_id', 113)
             ->update(['transfer_bridge_queued_at' => now()]);
         $this->assertSame(10, app(ShowKnownKanjiAction::class)->handle($user->id)['wanikani']['transferBridge']['pendingVocabularyCount']);
-        $this->assertDatabaseCount('study_card_drafts', 2 * StudyVocabBundleGenerator::DRAFT_COUNT);
+        $this->assertDatabaseCount('study_card_drafts', 2 * StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT);
         $company = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 103)->sole();
         $this->assertStringContainsString('WaniKani reading: かいしゃ', $company->source_context);
         $this->assertStringContainsString('Meaning: Company', $company->source_context);
@@ -143,7 +147,7 @@ class WaniKaniTransferImportTest extends TestCase
         Queue::assertPushed(ProcessStudyVocabBundleDrafts::class, 1);
     }
 
-    public function test_the_generation_job_commits_fourteen_cards_and_prepares_listening_audio_idempotently(): void
+    public function test_the_generation_job_commits_four_cards_without_production_and_prepares_two_listening_cards(): void
     {
         Queue::fake();
         config()->set('services.openai.api_key', 'test-key');
@@ -165,7 +169,7 @@ class WaniKaniTransferImportTest extends TestCase
             ->all();
         $this->mock(PrepareStudyCardAnswerAudioAction::class)
             ->shouldReceive('handle')
-            ->times(4)
+            ->times(2)
             ->andReturnUsing(static fn (Card $card): Card => $card);
         $job = new ProcessStudyVocabBundleDrafts($group->id);
 
@@ -179,8 +183,38 @@ class WaniKaniTransferImportTest extends TestCase
             Card::query()->where('variant_group_id', $group->id)->pluck('id')->sort()->values()->all(),
         );
         $this->assertDatabaseCount('study_card_drafts', 0);
-        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
-        $this->assertSame(3, Card::query()->where('variant_group_id', $group->id)->where('variant_kind', VocabVariantKind::SentenceProduction->value)->count());
+        $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
+        $this->assertSame(0, Card::query()->where('variant_group_id', $group->id)->where('variant_kind', VocabVariantKind::SentenceProduction->value)->count());
+        $this->assertSame(
+            [
+                VocabVariantKind::SentenceAudioRecognition->value,
+                VocabVariantKind::SentenceTextRecognition->value,
+                VocabVariantKind::SentenceCloze->value,
+                VocabVariantKind::SentenceAudioRecognition->value,
+            ],
+            Card::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->pluck('variant_kind')->all(),
+        );
+        $cohort = CardIntroductionCohort::query()->sole();
+        $this->assertSame($user->id, $cohort->user_id);
+        $this->assertSame(CardSourceKind::WaniKani, $cohort->source_kind);
+        $this->assertSame('301', $cohort->source_reference);
+        $this->assertSame('会社', $cohort->label);
+        $cards = Card::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->get();
+        $this->assertSame(
+            [
+                VocabVariantStatus::Available->value,
+                VocabVariantStatus::Locked->value,
+                VocabVariantStatus::Locked->value,
+                VocabVariantStatus::Locked->value,
+            ],
+            $cards->pluck('variant_status')->all(),
+        );
+        $this->assertNotNull($cards[0]->new_queue_position);
+        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->new_queue_position === null));
+        $this->assertTrue($cards->every(fn (Card $card): bool => $card->introduction_cohort_id === $cohort->id));
+        $this->assertTrue($cards->every(fn (Card $card): bool => $card->selection_policy === CardSelectionPolicy::Sprinkled));
+        $this->assertTrue($cards[0]->priority_until->equalTo(now()->addWeek()));
+        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->priority_until === null));
         $this->assertSame(AutomaticStudyVocabImportStatus::Imported, $group->fresh()->automatic_import_status);
         $this->assertTrue($group->fresh()->automatic_imported_at->equalTo(now()));
         $this->assertTrue($connection->fresh()->transfer_bridge_last_imported_at->equalTo(now()));
@@ -189,7 +223,7 @@ class WaniKaniTransferImportTest extends TestCase
             app(ProcessStudyVocabBundleDraftsAction::class),
             app(CommitAutomaticStudyVocabBundleAction::class),
         );
-        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
+        $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
         Http::assertSentCount(1);
     }
 
@@ -208,7 +242,7 @@ class WaniKaniTransferImportTest extends TestCase
 
         $this->assertSame(AutomaticStudyVocabImportStatus::Error, $group->fresh()->automatic_import_status);
         $this->assertSame(
-            StudyVocabBundleGenerator::DRAFT_COUNT,
+            StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Error)
@@ -222,7 +256,7 @@ class WaniKaniTransferImportTest extends TestCase
         $this->assertSame(AutomaticStudyVocabImportStatus::Generating, $group->fresh()->automatic_import_status);
         $this->assertNull($group->fresh()->automatic_import_error);
         $this->assertSame(
-            StudyVocabBundleGenerator::DRAFT_COUNT,
+            StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Generating)
@@ -251,7 +285,7 @@ class WaniKaniTransferImportTest extends TestCase
         $this->assertSame(AutomaticStudyVocabImportStatus::Error, $group->automatic_import_status);
         $this->assertSame('Could not queue this automatic vocabulary import.', $group->automatic_import_error);
         $this->assertSame(
-            StudyVocabBundleGenerator::DRAFT_COUNT,
+            StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT,
             StudyCardDraft::query()
                 ->where('variant_group_id', $group->id)
                 ->where('status', StudyManualCardDraftStatus::Error)
@@ -280,7 +314,7 @@ class WaniKaniTransferImportTest extends TestCase
         $audioCalls = 0;
         $this->mock(PrepareStudyCardAnswerAudioAction::class)
             ->shouldReceive('handle')
-            ->times(5)
+            ->times(3)
             ->andReturnUsing(static function (Card $card) use (&$audioCalls): Card {
                 $audioCalls++;
                 if ($audioCalls === 1) {
@@ -299,11 +333,11 @@ class WaniKaniTransferImportTest extends TestCase
         }
 
         $this->assertSame(1, Card::query()->where('variant_group_id', $group->id)->count());
-        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, StudyCardDraft::query()->where('variant_group_id', $group->id)->count());
+        $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, StudyCardDraft::query()->where('variant_group_id', $group->id)->count());
         $this->assertNotNull(StudyCardDraft::query()->where('variant_group_id', $group->id)->firstOrFail()->committed_card_id);
 
-        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, $commit->handle($group->id));
-        $this->assertSame(StudyVocabBundleGenerator::DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
+        $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, $commit->handle($group->id));
+        $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
         $this->assertDatabaseCount('study_card_drafts', 0);
         $this->assertSame(AutomaticStudyVocabImportStatus::Imported, $group->fresh()->automatic_import_status);
     }
@@ -387,6 +421,7 @@ class WaniKaniTransferImportTest extends TestCase
                     'sentenceEn' => 'I work at this company.',
                     'clozeText' => 'この{{c1::会社}}で働いています。',
                     'clozeHint' => 'company',
+                    'clozeSuitable' => true,
                     'notes' => 'A common workplace phrase.',
                 ],
                 [
@@ -395,6 +430,7 @@ class WaniKaniTransferImportTest extends TestCase
                     'sentenceEn' => 'The company is near the station.',
                     'clozeText' => '{{c1::会社}}は駅の近くです。',
                     'clozeHint' => 'company',
+                    'clozeSuitable' => true,
                     'notes' => null,
                 ],
                 [
@@ -403,7 +439,17 @@ class WaniKaniTransferImportTest extends TestCase
                     'sentenceEn' => 'I am looking for a new company.',
                     'clozeText' => '新しい{{c1::会社}}を探しています。',
                     'clozeHint' => 'company',
+                    'clozeSuitable' => true,
                     'notes' => 'Used while job hunting.',
+                ],
+                [
+                    'sentenceJp' => '父の会社は車を作っています。',
+                    'sentenceReading' => '父[ちち]の会社[かいしゃ]は車[くるま]を作[つく]っています。',
+                    'sentenceEn' => "My father's company makes cars.",
+                    'clozeText' => '父の{{c1::会社}}は車を作っています。',
+                    'clozeHint' => 'company',
+                    'clozeSuitable' => true,
+                    'notes' => 'A family context.',
                 ],
             ],
         ];

@@ -3,6 +3,7 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\CreateCardData;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
@@ -15,6 +16,7 @@ use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
+use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -62,6 +64,15 @@ class CreateCardAction
 
         if ($data->id !== null && ! Str::isUlid($data->id)) {
             throw CardValidationException::invalidCardId();
+        }
+
+        if ($data->introductionCohortId !== null
+            && (! Str::isUlid($data->introductionCohortId)
+                || ! CardIntroductionCohort::query()
+                    ->whereKey($data->introductionCohortId)
+                    ->where('user_id', $data->userId)
+                    ->exists())) {
+            throw new LogicException('Card introduction cohort must belong to the card owner.');
         }
 
         if ($data->id !== null) {
@@ -119,6 +130,9 @@ class CreateCardAction
         $card->variant_stage = $data->variantStage;
         $card->variant_status = $data->variantStatus?->value;
         $card->variant_unlocked_at = $data->variantUnlockedAt;
+        $card->introduction_cohort_id = $data->introductionCohortId;
+        $card->selection_policy = $data->selectionPolicy;
+        $card->priority_until = $data->priorityUntil;
         $card->search_text = CardSearchText::fromContent(
             frontText: $data->frontText,
             backText: $data->backText,
@@ -276,6 +290,9 @@ class CreateCardAction
             || $card->variant_stage !== $data->variantStage
             || $card->variant_status !== $data->variantStatus?->value
             || $card->variant_unlocked_at?->toJSON() !== $this->timestampJson($data->variantUnlockedAt)
+            || $card->introduction_cohort_id !== $data->introductionCohortId
+            || ($card->selection_policy ?? CardSelectionPolicy::Standard) !== $data->selectionPolicy
+            || $card->priority_until?->toJSON() !== $this->timestampJson($data->priorityUntil)
         ) {
             throw CardConflictException::conflict($conflictingUserId);
         }

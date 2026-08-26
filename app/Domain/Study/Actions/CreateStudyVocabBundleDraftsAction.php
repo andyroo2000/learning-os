@@ -42,7 +42,8 @@ class CreateStudyVocabBundleDraftsAction
                 : AutomaticStudyVocabImportStatus::Generating;
             $group->save();
 
-            $sentences = collect([0, 1, 2])->map(function (int $ordinal) use ($data, $group): StudyVocabVariantSentence {
+            $sentenceOrdinals = $data->waniKaniSubjectId === null ? [0, 1, 2] : [0, 1, 2, 3];
+            $sentences = collect($sentenceOrdinals)->map(function (int $ordinal) use ($data, $group): StudyVocabVariantSentence {
                 $placeholder = $ordinal === 0 && $data->sourceSentence !== null
                     ? $data->sourceSentence
                     : $this->placeholderLabel($ordinal, $data->targetWord);
@@ -58,7 +59,10 @@ class CreateStudyVocabBundleDraftsAction
                 return $sentence;
             });
 
-            $drafts = collect($this->placeholderVariants($data->targetWord))
+            $drafts = collect($this->placeholderVariants(
+                $data->targetWord,
+                $data->waniKaniSubjectId !== null,
+            ))
                 ->map(function (array $variant) use ($data, $group, $sentences) {
                     $sentence = $variant['sentenceOrdinal'] === null
                         ? null
@@ -91,8 +95,12 @@ class CreateStudyVocabBundleDraftsAction
     }
 
     /** @return list<array<string, mixed>> */
-    private function placeholderVariants(string $targetWord): array
+    private function placeholderVariants(string $targetWord, bool $isTransfer): array
     {
+        if ($isTransfer) {
+            return $this->transferPlaceholderVariants($targetWord);
+        }
+
         $variants = [];
 
         foreach ([0, 1, 2] as $ordinal) {
@@ -168,6 +176,45 @@ class CreateStudyVocabBundleDraftsAction
                 'variantKind' => VocabVariantKind::SentenceProduction,
                 'variantStage' => 6,
                 'variantStatus' => VocabVariantStatus::Locked,
+                'sentenceOrdinal' => $ordinal,
+            ];
+        }
+
+        return $variants;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function transferPlaceholderVariants(string $targetWord): array
+    {
+        $variants = [];
+
+        foreach ([
+            [0, StudyCardCreationKind::AudioRecognition, VocabVariantKind::SentenceAudioRecognition],
+            [1, StudyCardCreationKind::TextRecognition, VocabVariantKind::SentenceTextRecognition],
+            [2, StudyCardCreationKind::Cloze, VocabVariantKind::SentenceCloze],
+            [3, StudyCardCreationKind::AudioRecognition, VocabVariantKind::SentenceAudioRecognition],
+        ] as $index => [$ordinal, $creationKind, $variantKind]) {
+            $label = $this->placeholderLabel($ordinal, $targetWord);
+            $variants[] = [
+                'creationKind' => $creationKind,
+                'cardType' => $creationKind->cardType(),
+                'prompt' => match ($creationKind) {
+                    StudyCardCreationKind::AudioRecognition => [],
+                    StudyCardCreationKind::Cloze => ['clozeText' => $label, 'clozeHint' => ''],
+                    default => ['cueText' => $label],
+                },
+                'answer' => $creationKind === StudyCardCreationKind::Cloze
+                    ? [
+                        'restoredText' => $label,
+                        'meaning' => '',
+                        'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                    ]
+                    : $this->placeholderAnswer($label),
+                'variantKind' => $variantKind,
+                'variantStage' => $index + 1,
+                'variantStatus' => $index === 0
+                    ? VocabVariantStatus::Available
+                    : VocabVariantStatus::Locked,
                 'sentenceOrdinal' => $ordinal,
             ];
         }

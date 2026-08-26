@@ -68,7 +68,8 @@ class ProcessStudyVocabBundleDraftsAction
             if ($generatingDrafts->isEmpty()) {
                 return 0;
             }
-            if ($drafts->count() !== StudyVocabBundleGenerator::DRAFT_COUNT || $sentences->count() !== 3) {
+            if ($drafts->count() !== StudyVocabBundleGenerator::draftCountFor($group)
+                || $sentences->count() !== StudyVocabBundleGenerator::sentenceCountFor($group)) {
                 throw new RuntimeException('Queued study vocab bundle placeholders no longer match the generated bundle.');
             }
             if ($generatingDrafts->count() !== $drafts->count()) {

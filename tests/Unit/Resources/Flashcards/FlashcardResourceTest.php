@@ -9,6 +9,7 @@ use App\Http\Resources\Flashcards\CardResource;
 use App\Http\Resources\Flashcards\DeckResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class FlashcardResourceTest extends TestCase
@@ -101,5 +102,25 @@ class FlashcardResourceTest extends TestCase
         $this->assertSame(1700000000000, $resource['source_deck_id']);
         $this->assertSame('Basic', $resource['source_notetype_name']);
         $this->assertSame(0, $resource['source_template_ord']);
+    }
+
+    public function test_card_resource_serializes_api_owned_introduction_metadata(): void
+    {
+        $card = new Card;
+        $card->setRawAttributes([
+            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'introduction_cohort_id' => '01m0y50fcsy781v5dptsyw8gyz',
+            'selection_policy' => 'sprinkled',
+            'priority_until' => Carbon::parse('2026-09-02T12:00:00Z'),
+        ], sync: true);
+
+        $resource = CardResource::make($card)->resolve();
+
+        $this->assertSame('01m0y50fcsy781v5dptsyw8gyz', $resource['introduction_cohort_id']);
+        $this->assertSame('sprinkled', $resource['selection_policy']);
+        $this->assertSame('2026-09-02T12:00:00.000000Z', $resource['priority_until']);
     }
 }

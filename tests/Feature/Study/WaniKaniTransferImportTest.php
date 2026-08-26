@@ -58,7 +58,9 @@ class WaniKaniTransferImportTest extends TestCase
         $this->vocabulary($user, 113, '秘密', now()->subMinutes(45), hidden: true);
         $this->vocabulary($user, 114, '隠語', now()->subMinutes(40), subjectHidden: true);
         CarbonImmutable::setTestNow(now()->addSecond());
-        $this->connection($user, enabled: true);
+        $connection = $this->connection($user, enabled: true);
+        $connection->transfer_bridge_enabled_at = now()->subYear();
+        $connection->save();
 
         $action = app(DispatchWaniKaniTransferImportsAction::class);
 
@@ -99,7 +101,7 @@ class WaniKaniTransferImportTest extends TestCase
         Queue::assertPushed(ProcessStudyVocabBundleDrafts::class, 4);
     }
 
-    public function test_passes_after_enable_are_appended_without_reseeding_old_history(): void
+    public function test_rows_first_observed_after_the_seed_are_appended_even_with_old_pass_timestamps(): void
     {
         Queue::fake();
         $user = User::factory()->create();
@@ -114,12 +116,11 @@ class WaniKaniTransferImportTest extends TestCase
         $this->vocabulary($user, 153, '新しい', now()->addMinute());
         CarbonImmutable::setTestNow(now()->addDay());
 
-        $this->assertSame(['created' => 1, 'retried' => 0], $action->handle($user->id));
+        $this->assertSame(['created' => 2, 'retried' => 0], $action->handle($user->id));
         $this->assertSame(
-            [151, 153],
+            [151, 152, 153],
             StudyVocabVariantGroup::query()->orderBy('wanikani_subject_id')->pluck('wanikani_subject_id')->all(),
         );
-        $this->assertNull(DB::table('user_wanikani_assignments')->where('user_id', $user->id)->where('subject_id', 152)->value('transfer_bridge_queued_at'));
     }
 
     public function test_enabling_the_bridge_immediately_queues_already_synced_recent_vocabulary(): void

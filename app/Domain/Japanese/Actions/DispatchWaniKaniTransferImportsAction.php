@@ -3,6 +3,7 @@
 namespace App\Domain\Japanese\Actions;
 
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use App\Domain\Japanese\Queries\WaniKaniTransferEligibleAssignmentsQuery;
 use App\Domain\Study\Actions\CreateStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\FailStudyVocabBundleDraftsAction;
 use App\Domain\Study\Actions\MarkAutomaticStudyVocabImportFailedAction;
@@ -36,6 +37,7 @@ final class DispatchWaniKaniTransferImportsAction
         private readonly RetryStudyVocabBundleDraftsAction $retryBundleDrafts,
         private readonly FailStudyVocabBundleDraftsAction $failBundleDrafts,
         private readonly MarkAutomaticStudyVocabImportFailedAction $markImportFailed,
+        private readonly WaniKaniTransferEligibleAssignmentsQuery $eligibleAssignments,
     ) {}
 
     /** @return array{created: int, retried: int} */
@@ -181,15 +183,24 @@ final class DispatchWaniKaniTransferImportsAction
                 }
             }
 
-            $futureIds = $this->eligibleAssignmentIds($userId)
-                ->where('assignments.passed_at', '>=', $connection->transfer_bridge_enabled_at)
-                ->pluck('assignments.subject_id');
-            if ($futureIds->isNotEmpty()) {
-                DB::table('user_wanikani_assignments')
-                    ->where('user_id', $userId)
-                    ->whereIn('subject_id', $futureIds)
-                    ->whereNull('transfer_bridge_queued_at')
-                    ->update(['transfer_bridge_queued_at' => now()]);
+            if ($connection->transfer_bridge_seeded_at !== null) {
+                // assignments.created_at uses whole-second precision, while the seed marker
+                // preserves microseconds. Floor only the first-observed comparison so a row
+                // synced later in the same second cannot fall through the durable boundary.
+                $observedCutoff = $connection->transfer_bridge_seeded_at->startOfSecond();
+                $futureIds = $this->eligibleAssignmentIds($userId)
+                    ->where(function ($query) use ($connection, $observedCutoff): void {
+                        $query->where('assignments.passed_at', '>=', $connection->transfer_bridge_seeded_at)
+                            ->orWhere('assignments.created_at', '>=', $observedCutoff);
+                    })
+                    ->pluck('assignments.subject_id');
+                if ($futureIds->isNotEmpty()) {
+                    DB::table('user_wanikani_assignments')
+                        ->where('user_id', $userId)
+                        ->whereIn('subject_id', $futureIds)
+                        ->whereNull('transfer_bridge_queued_at')
+                        ->update(['transfer_bridge_queued_at' => now()]);
+                }
             }
 
             return $connection;
@@ -198,37 +209,15 @@ final class DispatchWaniKaniTransferImportsAction
 
     private function eligibleAssignmentIds(int $userId): Builder
     {
-        return DB::table('user_wanikani_assignments as assignments')
-            ->join('wanikani_subjects as subjects', 'subjects.subject_id', '=', 'assignments.subject_id')
-            ->leftJoin('study_vocab_variant_groups as groups', function ($join) use ($userId): void {
-                $join->on('groups.wanikani_subject_id', '=', 'assignments.subject_id')
-                    ->where('groups.user_id', '=', $userId);
-            })
-            ->where('assignments.user_id', $userId)
-            ->whereNull('assignments.transfer_bridge_queued_at')
-            ->whereNotNull('assignments.passed_at')
-            ->where('assignments.hidden', false)
-            ->whereNull('subjects.hidden_at')
-            ->whereIn('subjects.subject_type', ['vocabulary', 'kana_vocabulary'])
-            ->whereNull('groups.id');
+        return $this->eligibleAssignments->forUser($userId)
+            ->whereNull('assignments.transfer_bridge_queued_at');
     }
 
     /** @return Collection<int, object> */
     private function candidates(int $userId, int $limit): Collection
     {
-        return DB::table('user_wanikani_assignments as assignments')
-            ->join('wanikani_subjects as subjects', 'subjects.subject_id', '=', 'assignments.subject_id')
-            ->leftJoin('study_vocab_variant_groups as groups', function ($join) use ($userId): void {
-                $join->on('groups.wanikani_subject_id', '=', 'assignments.subject_id')
-                    ->where('groups.user_id', '=', $userId);
-            })
-            ->where('assignments.user_id', $userId)
-            ->whereNotNull('assignments.passed_at')
+        return $this->eligibleAssignments->forUser($userId)
             ->whereNotNull('assignments.transfer_bridge_queued_at')
-            ->where('assignments.hidden', false)
-            ->whereNull('subjects.hidden_at')
-            ->whereIn('subjects.subject_type', ['vocabulary', 'kana_vocabulary'])
-            ->whereNull('groups.id')
             ->orderBy('assignments.passed_at')
             ->orderBy('assignments.subject_id')
             ->limit($limit)

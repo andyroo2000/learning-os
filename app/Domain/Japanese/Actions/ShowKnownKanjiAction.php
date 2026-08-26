@@ -5,12 +5,16 @@ namespace App\Domain\Japanese\Actions;
 use App\Domain\Japanese\Models\JapaneseKnowledgeProfile;
 use App\Domain\Japanese\Models\UserKnownKanji;
 use App\Domain\Japanese\Models\WaniKaniConnection;
+use App\Domain\Japanese\Queries\WaniKaniTransferEligibleAssignmentsQuery;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
-use Illuminate\Support\Facades\DB;
 
 final class ShowKnownKanjiAction
 {
+    public function __construct(
+        private readonly WaniKaniTransferEligibleAssignmentsQuery $eligibleAssignments,
+    ) {}
+
     /** @return array{version: int, kanji: list<string>, manualKanji: list<string>, wanikani: array{connected: bool, lastSyncedAt: ?string, reviewCount: ?int, reviewCountUpdatedAt: ?string, transferBridge: array{enabled: bool, importedVocabularyCount: int, pendingVocabularyCount: int, failedVocabularyCount: int, lastImportedAt: ?string}}} */
     public function handle(int $userId): array
     {
@@ -29,20 +33,11 @@ final class ShowKnownKanjiAction
             ->selectRaw('automatic_import_status, COUNT(*) AS aggregate')
             ->groupBy('automatic_import_status')
             ->pluck('aggregate', 'automatic_import_status');
-        $queuedWithoutGroupCount = DB::table('user_wanikani_assignments as assignments')
-            ->join('wanikani_subjects as subjects', 'subjects.subject_id', '=', 'assignments.subject_id')
-            ->leftJoin('study_vocab_variant_groups as groups', function ($join) use ($userId): void {
-                $join->on('groups.wanikani_subject_id', '=', 'assignments.subject_id')
-                    ->where('groups.user_id', '=', $userId);
-            })
-            ->where('assignments.user_id', $userId)
-            ->whereNotNull('assignments.passed_at')
-            ->whereNotNull('assignments.transfer_bridge_queued_at')
-            ->where('assignments.hidden', false)
-            ->whereNull('subjects.hidden_at')
-            ->whereIn('subjects.subject_type', ['vocabulary', 'kana_vocabulary'])
-            ->whereNull('groups.id')
-            ->count();
+        $queuedWithoutGroupCount = $connection === null
+            ? 0
+            : $this->eligibleAssignments->forUser($userId)
+                ->whereNotNull('assignments.transfer_bridge_queued_at')
+                ->count();
 
         return [
             'version' => (int) ($profile?->knowledge_version ?? 0),

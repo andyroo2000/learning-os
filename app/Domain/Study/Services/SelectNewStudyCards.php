@@ -35,7 +35,11 @@ final class SelectNewStudyCards
         $weights = $this->weights($userId);
         $introducedCounts = $this->introducedCounts($userId, $now, $timeZone);
         $queues = collect(NewCardLane::cases())
-            ->mapWithKeys(function (NewCardLane $lane) use ($availabilityThrough, $baseQuery, $limit, $now): array {
+            ->mapWithKeys(function (NewCardLane $lane) use ($availabilityThrough, $baseQuery, $limit, $now, $weights): array {
+                if ($weights[$lane->value] === 0) {
+                    return [$lane->value => collect()];
+                }
+
                 $query = clone $baseQuery;
                 $this->applyLane($query, $lane, $now, $availabilityThrough ?? $now);
 
@@ -127,12 +131,10 @@ final class SelectNewStudyCards
             $query->where(function (Builder $query) use ($now): void {
                 $query->whereNull('cards.selection_policy')
                     ->orWhere('cards.selection_policy', CardSelectionPolicy::Standard->value)
-                    ->orWhere(function (Builder $query) use ($now): void {
-                        $query->whereIn('cards.selection_policy', [
-                            CardSelectionPolicy::ReviewSoon->value,
-                            CardSelectionPolicy::Sprinkled->value,
-                        ])->where('cards.priority_until', '<=', $now);
-                    });
+                    // Priority-lane rows created or unlocked before deadline support
+                    // shipped have no deadline. Fail them safely into Standard.
+                    ->orWhereNull('cards.priority_until')
+                    ->orWhere('cards.priority_until', '<=', $now);
             });
 
             return;

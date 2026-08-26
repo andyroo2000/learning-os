@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Services\SelectNewStudyCards;
+use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,7 +84,10 @@ class SelectNewStudyCardsTest extends TestCase
         $future = $this->card($deck, 2, CardSelectionPolicy::Sprinkled, now()->addWeek());
         $future->introduction_available_at = now()->addDay();
         $future->save();
-        $lockedSibling = $this->card($deck, 3, CardSelectionPolicy::Sprinkled);
+        $legacyWithoutDeadline = $this->card($deck, 3, CardSelectionPolicy::Sprinkled);
+        $lockedSibling = $this->card($deck, 4, CardSelectionPolicy::Sprinkled);
+        $lockedSibling->variant_status = VocabVariantStatus::Locked;
+        $lockedSibling->save();
 
         $selected = app(SelectNewStudyCards::class)->handle(
             $this->baseQuery($user->id),
@@ -92,7 +96,7 @@ class SelectNewStudyCardsTest extends TestCase
             now(),
         );
 
-        $this->assertSame([$expired->id], $selected->pluck('id')->all());
+        $this->assertSame([$expired->id, $legacyWithoutDeadline->id], $selected->pluck('id')->all());
         $this->assertNotContains($lockedSibling->id, $selected->pluck('id')->all());
     }
 

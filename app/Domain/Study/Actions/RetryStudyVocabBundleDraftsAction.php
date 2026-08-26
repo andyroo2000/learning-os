@@ -67,7 +67,7 @@ class RetryStudyVocabBundleDraftsAction
             if ($selectedDraft === null) {
                 return null;
             }
-            if ($drafts->count() !== StudyVocabBundleGenerator::DRAFT_COUNT
+            if ($drafts->count() !== StudyVocabBundleGenerator::draftCountFor($group)
                 || $drafts->contains(fn (StudyCardDraft $draft): bool => $draft->committed_card_id !== null)) {
                 throw StudyCardDraftConflictException::committedCannotRetry();
             }

@@ -22,7 +22,7 @@ class ProcessStudyVocabBundleDrafts implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 4;
 
-    // One automatic bundle performs one OpenAI request plus four serial speech requests.
+    // One automatic transfer bundle performs one OpenAI request plus two serial speech requests.
     public int $timeout = 600;
 
     // Bound the uniqueness lock while still covering every attempt and configured backoff.

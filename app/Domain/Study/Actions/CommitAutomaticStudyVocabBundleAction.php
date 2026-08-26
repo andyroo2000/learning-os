@@ -2,10 +2,13 @@
 
 namespace App\Domain\Study\Actions;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
+use App\Domain\Flashcards\Enums\CardSourceKind;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Japanese\Models\WaniKaniConnection;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
+use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
 use App\Domain\Study\Services\StudyVocabBundleGenerator;
@@ -46,6 +49,20 @@ final class CommitAutomaticStudyVocabBundleAction
                 throw new RuntimeException('Automatic study vocab bundle generation is incomplete.');
             }
 
+            $cohort = CardIntroductionCohort::query()
+                ->where('user_id', $group->user_id)
+                ->where('source_kind', CardSourceKind::WaniKani->value)
+                ->where('source_reference', (string) $group->wanikani_subject_id)
+                ->first();
+            if ($cohort === null) {
+                $cohort = new CardIntroductionCohort;
+                $cohort->user_id = $group->user_id;
+                $cohort->source_kind = CardSourceKind::WaniKani;
+                $cohort->source_reference = (string) $group->wanikani_subject_id;
+                $cohort->label = mb_substr($group->target_word, 0, CardIntroductionCohort::MAX_LABEL_LENGTH);
+                $cohort->save();
+            }
+
             $group->automatic_import_status = AutomaticStudyVocabImportStatus::Generating;
             $group->automatic_import_error = null;
             $group->save();
@@ -64,6 +81,11 @@ final class CommitAutomaticStudyVocabBundleAction
             ->orderBy('variant_stage')
             ->orderBy('variant_sentence_id')
             ->get();
+        $cohort = CardIntroductionCohort::query()
+            ->where('user_id', $group->user_id)
+            ->where('source_kind', CardSourceKind::WaniKani->value)
+            ->where('source_reference', (string) $group->wanikani_subject_id)
+            ->sole();
         $processed = 0;
 
         foreach ($drafts as $draft) {
@@ -75,6 +97,9 @@ final class CommitAutomaticStudyVocabBundleAction
                 $group->user_id,
                 $draft->id,
                 $draft->id,
+                $cohort->id,
+                CardSelectionPolicy::Sprinkled,
+                $draft->variant_stage === 1 ? $cohort->created_at->copy()->addWeek() : null,
             )->card;
 
             if ($this->needsListeningAudio($draft)) {
@@ -98,7 +123,7 @@ final class CommitAutomaticStudyVocabBundleAction
                 ->ownedByActiveDeck($group->user_id)
                 ->where('cards.variant_group_id', $group->id)
                 ->count();
-            if ($cardCount !== StudyVocabBundleGenerator::DRAFT_COUNT) {
+            if ($cardCount !== StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT) {
                 throw new RuntimeException('Automatic study vocab bundle did not commit every expected card.');
             }
 

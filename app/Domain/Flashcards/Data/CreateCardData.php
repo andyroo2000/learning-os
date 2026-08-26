@@ -2,6 +2,7 @@
 
 namespace App\Domain\Flashcards\Data;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -27,6 +28,9 @@ final readonly class CreateCardData
         public ?VocabVariantStatus $variantStatus,
         public ?DateTimeInterface $variantUnlockedAt,
         public ?string $id = null,
+        public ?string $introductionCohortId = null,
+        public CardSelectionPolicy $selectionPolicy = CardSelectionPolicy::Standard,
+        public ?DateTimeInterface $priorityUntil = null,
     ) {}
 
     public static function fromInput(
@@ -44,6 +48,9 @@ final readonly class CreateCardData
         VocabVariantStatus|string|null $variantStatus = null,
         ?DateTimeInterface $variantUnlockedAt = null,
         ?string $id = null,
+        ?string $introductionCohortId = null,
+        CardSelectionPolicy|string $selectionPolicy = CardSelectionPolicy::Standard,
+        ?DateTimeInterface $priorityUntil = null,
     ): self {
         if ($userId < 1) {
             throw new LogicException('Card user ID must be a positive integer.');
@@ -77,6 +84,13 @@ final readonly class CreateCardData
             variantStatus: VocabVariantMetadataInput::statusFromInput($variantStatus),
             variantUnlockedAt: VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt),
             id: $id === null ? null : CanonicalUlid::normalize($id),
+            introductionCohortId: $introductionCohortId === null
+                ? null
+                : CanonicalUlid::normalize($introductionCohortId),
+            selectionPolicy: is_string($selectionPolicy)
+                ? CardSelectionPolicy::from($selectionPolicy)
+                : $selectionPolicy,
+            priorityUntil: VocabVariantMetadataInput::normalizedTimestamp($priorityUntil),
         );
     }
 }

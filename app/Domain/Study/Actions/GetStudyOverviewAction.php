@@ -223,7 +223,7 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
-                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
@@ -251,6 +251,7 @@ class GetStudyOverviewAction
                 ...$activeDueStatuses,
                 // new_count
                 $availableVariantStatus,
+                $nowFormatted,
                 CardStudyStatus::New->value,
                 // learning_count
                 $availableVariantStatus,

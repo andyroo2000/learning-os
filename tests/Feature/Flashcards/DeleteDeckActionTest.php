@@ -92,6 +92,7 @@ class DeleteDeckActionTest extends TestCase
                 'introduction_cohort_id' => null,
                 'selection_policy' => 'standard',
                 'priority_until' => null,
+                'introduction_available_at' => null,
                 'due_at' => null,
                 'introduced_at' => null,
                 'failed_at' => null,

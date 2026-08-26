@@ -3,6 +3,7 @@
 namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
@@ -13,6 +14,7 @@ use App\Domain\Reviews\Support\CardReviewCardLock;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -104,6 +106,7 @@ final class AdvanceCardProgressionAfterReviewAction
         if ($nextStage !== null) {
             $this->unlockStage(
                 $nextStageCards,
+                $cards,
                 $reviewedCard->ownerUserId(),
                 $reviewedAt,
             );
@@ -269,9 +272,13 @@ final class AdvanceCardProgressionAfterReviewAction
                 && $card->variant_retired_at !== null);
     }
 
-    /** @param Collection<int, Card> $stageCards */
-    private function unlockStage(Collection $stageCards, int $userId, Carbon $unlockedAt): void
-    {
+    /** @param Collection<int, Card> $stageCards @param Collection<int, Card> $familyCards */
+    private function unlockStage(
+        Collection $stageCards,
+        Collection $familyCards,
+        int $userId,
+        Carbon $unlockedAt,
+    ): void {
         $lockedCards = $stageCards
             ->filter(fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value)
             ->values();
@@ -282,9 +289,16 @@ final class AdvanceCardProgressionAfterReviewAction
 
         $nextQueuePosition = null;
         foreach ($lockedCards as $card) {
+            $availableAt = $this->introductionAvailableAt($card, $familyCards, $unlockedAt);
             $card->variant_status = VocabVariantStatus::Available->value;
             $card->variant_unlocked_at = $unlockedAt;
             $card->variant_retired_at = null;
+            $card->introduction_available_at = $availableAt->isAfter($unlockedAt)
+                ? $availableAt
+                : null;
+            if ($card->selection_policy !== CardSelectionPolicy::Standard) {
+                $card->priority_until = $availableAt->copy()->addWeek();
+            }
 
             if (($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New) {
                 // The review writer holds the owner lock for this transaction, so reserving
@@ -297,6 +311,25 @@ final class AdvanceCardProgressionAfterReviewAction
 
             $this->saveAndSync($card, $userId);
         }
+    }
+
+    /** @param Collection<int, Card> $familyCards */
+    private function introductionAvailableAt(Card $card, Collection $familyCards, Carbon $unlockedAt): Carbon
+    {
+        if ($card->selection_policy !== CardSelectionPolicy::Sprinkled
+            || $card->variant_stage !== 4
+            || $card->variant_kind !== VocabVariantKind::SentenceAudioRecognition->value) {
+            return $unlockedAt->copy();
+        }
+
+        $firstListeningCard = $familyCards->first(
+            fn (Card $candidate): bool => $candidate->variant_stage === 1
+                && $candidate->variant_kind === VocabVariantKind::SentenceAudioRecognition->value,
+        );
+        $spacedAt = $firstListeningCard?->introduced_at?->copy()->addDay()
+            ?? $unlockedAt->copy()->addDay();
+
+        return $spacedAt->isAfter($unlockedAt) ? $spacedAt : $unlockedAt->copy();
     }
 
     /** @param Collection<int, Card> $cards */

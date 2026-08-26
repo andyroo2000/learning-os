@@ -47,6 +47,7 @@ class CardResource extends JsonResource
             'introduction_cohort_id' => $this->introduction_cohort_id,
             'selection_policy' => $this->scalarValue($this->selection_policy),
             'priority_until' => $this->priority_until?->toJSON(),
+            'introduction_available_at' => $this->introduction_available_at?->toJSON(),
             'due_at' => $this->due_at?->toJSON(),
             'introduced_at' => $this->introduced_at?->toJSON(),
             'failed_at' => $this->failed_at?->toJSON(),

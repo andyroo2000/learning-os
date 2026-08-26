@@ -56,6 +56,7 @@
         "introductionCohortId": null,
         "selectionPolicy": "standard",
         "priorityUntil": null,
+        "introductionAvailableAt": null,
         "answerAudioSource": "missing",
         "createdAt": "2026-08-20T10:11:12.000Z",
         "updatedAt": "2026-08-20T10:11:13.000Z"
@@ -111,6 +112,7 @@
         "introductionCohortId": null,
         "selectionPolicy": "standard",
         "priorityUntil": null,
+        "introductionAvailableAt": "2026-08-27T10:00:00.000Z",
         "answerAudioSource": "imported",
         "createdAt": "2026-06-01T01:02:03.000Z",
         "updatedAt": "2026-08-21T04:05:06.000Z"

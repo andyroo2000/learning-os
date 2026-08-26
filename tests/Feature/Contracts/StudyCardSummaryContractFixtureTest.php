@@ -97,6 +97,7 @@ class StudyCardSummaryContractFixtureTest extends TestCase
             'variant_status' => VocabVariantStatus::Available->value,
             'variant_unlocked_at' => Carbon::parse('2026-07-03T10:00:00Z'),
             'variant_retired_at' => Carbon::parse('2026-08-03T10:00:00Z'),
+            'introduction_available_at' => Carbon::parse('2026-08-27T10:00:00Z'),
             'answer_audio_source' => 'imported',
             'created_at' => Carbon::parse('2026-06-01T01:02:03Z'),
             'updated_at' => Carbon::parse('2026-08-21T04:05:06Z'),

@@ -77,6 +77,7 @@ class StudyCardSummaryResource extends JsonResource
             'introductionCohortId' => $this->introduction_cohort_id,
             'selectionPolicy' => $this->stringAttributeValue('selection_policy'),
             'priorityUntil' => ConvoLabTimestamp::serialize($this->priority_until),
+            'introductionAvailableAt' => ConvoLabTimestamp::serialize($this->introduction_available_at),
             // Compatibility name: clients now treat prompt/answer media as one card audio asset.
             'answerAudioSource' => StudyCardAudio::source($this->resource),
             'createdAt' => ConvoLabTimestamp::serialize($this->created_at),

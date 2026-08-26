@@ -76,6 +76,25 @@ class BuildStudyOfflineReserveActionTest extends TestCase
         $this->assertSame([$ownedCard->id], $reserve['cards']->pluck('id')->all());
     }
 
+    public function test_it_includes_spaced_new_cards_within_but_not_beyond_the_offline_horizon(): void
+    {
+        $now = Carbon::parse('2026-07-25T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $withinHorizon = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'introduction_available_at' => $now->copy()->addDays(5),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+            'introduction_available_at' => $now->copy()->addDays(5)->addSecond(),
+        ]);
+
+        $reserve = app(BuildStudyOfflineReserveAction::class)->handle($user->id, $now);
+
+        $this->assertSame([$withinHorizon->id], $reserve['cards']->pluck('id')->all());
+    }
+
     public function test_it_bounds_the_scheduled_card_payload_for_lapsed_users(): void
     {
         $now = Carbon::parse('2026-07-25T12:00:00Z');

@@ -32,8 +32,10 @@ class CardIntroductionMetadataTest extends TestCase
             'introduction_cohort_id',
             'selection_policy',
             'priority_until',
+            'introduction_available_at',
         ]));
         $this->assertTrue(Schema::hasIndex('cards', 'cards_new_lane_queue_idx'));
+        $this->assertTrue(Schema::hasIndex('cards', 'cards_new_availability_queue_idx'));
     }
 
     public function test_cohort_source_and_card_policy_use_backed_enums(): void

@@ -18,6 +18,9 @@ class StudySettingsSyncPayloadTest extends TestCase
             'new_cards_per_day' => 12,
             'lesson_batch_size' => 7,
             'review_time_budget_minutes' => 90,
+            'standard_lane_weight' => 4,
+            'lesson_followup_lane_weight' => 2,
+            'wanikani_lane_weight' => 1,
             'created_at' => Carbon::parse('2026-06-05T09:14:00Z'),
             'updated_at' => Carbon::parse('2026-06-05T09:15:00Z'),
         ], sync: true);
@@ -32,6 +35,11 @@ class StudySettingsSyncPayloadTest extends TestCase
             'new_cards_per_day' => 12,
             'lesson_batch_size' => 7,
             'review_time_budget_minutes' => 90,
+            'new_card_lane_weights' => [
+                'standard' => 4,
+                'lesson_followup' => 2,
+                'wanikani' => 1,
+            ],
             'created_at' => '2026-06-05T09:14:00.000000Z',
             'updated_at' => '2026-06-05T09:15:00.000000Z',
         ], $payload);

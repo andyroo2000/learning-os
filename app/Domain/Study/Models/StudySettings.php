@@ -10,7 +10,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
-#[Fillable(['new_cards_per_day', 'lesson_batch_size', 'review_time_budget_minutes'])]
+#[Fillable([
+    'new_cards_per_day',
+    'lesson_batch_size',
+    'review_time_budget_minutes',
+    'standard_lane_weight',
+    'lesson_followup_lane_weight',
+    'wanikani_lane_weight',
+])]
 class StudySettings extends Model
 {
     /** @use HasFactory<StudySettingsFactory> */
@@ -31,6 +38,18 @@ class StudySettings extends Model
     public const MIN_REVIEW_TIME_BUDGET_MINUTES = 15;
 
     public const MAX_REVIEW_TIME_BUDGET_MINUTES = 240;
+
+    public const DEFAULT_STANDARD_LANE_WEIGHT = 3;
+
+    public const DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT = 1;
+
+    public const DEFAULT_WANIKANI_LANE_WEIGHT = 1;
+
+    public const MIN_STANDARD_LANE_WEIGHT = 1;
+
+    public const MIN_PRIORITY_LANE_WEIGHT = 0;
+
+    public const MAX_LANE_WEIGHT = 20;
 
     protected static function booted(): void
     {
@@ -55,6 +74,9 @@ class StudySettings extends Model
             'new_cards_per_day' => 'integer',
             'lesson_batch_size' => 'integer',
             'review_time_budget_minutes' => 'integer',
+            'standard_lane_weight' => 'integer',
+            'lesson_followup_lane_weight' => 'integer',
+            'wanikani_lane_weight' => 'integer',
         ];
     }
 

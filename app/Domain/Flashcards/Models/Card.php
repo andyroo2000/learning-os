@@ -3,10 +3,12 @@
 namespace App\Domain\Flashcards\Models;
 
 use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Study\Models\CardLearningConcept;
 use App\Domain\Study\Models\LearningConcept;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -139,6 +141,8 @@ class Card extends Model
             'prompt_json' => 'array',
             'answer_json' => 'array',
             'study_status' => CardStudyStatus::class,
+            'selection_policy' => CardSelectionPolicy::class,
+            'priority_until' => 'datetime',
             'source_card_id' => 'integer',
             'source_note_id' => 'integer',
             'source_deck_id' => 'integer',
@@ -217,6 +221,14 @@ class Card extends Model
     public function deck(): BelongsTo
     {
         return $this->belongsTo(Deck::class);
+    }
+
+    /**
+     * @return BelongsTo<CardIntroductionCohort, $this>
+     */
+    public function introductionCohort(): BelongsTo
+    {
+        return $this->belongsTo(CardIntroductionCohort::class, 'introduction_cohort_id');
     }
 
     public function deckCourseId(): ?string

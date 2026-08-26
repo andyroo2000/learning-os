@@ -147,6 +147,82 @@ class StudySettingsMigrationTest extends TestCase
         ];
     }
 
+    #[DataProvider('laneWeightSqlProvider')]
+    public function test_lane_weight_migration_compiles_to_portable_sql(
+        string $connectionClass,
+        string $grammarClass,
+        array $expectedAddSql,
+        array $expectedDropSql,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $grammar = new $grammarClass($connection);
+        $connection->setSchemaGrammar($grammar);
+
+        // This compile-only blueprint mirrors the migration, which remains the source of truth.
+        $add = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->unsignedTinyInteger('standard_lane_weight')->default(3)->after('review_time_budget_minutes');
+            $table->unsignedTinyInteger('lesson_followup_lane_weight')->default(1)->after('standard_lane_weight');
+            $table->unsignedTinyInteger('wanikani_lane_weight')->default(1)->after('lesson_followup_lane_weight');
+        });
+        $drop = new Blueprint($connection, 'study_settings', function (Blueprint $table): void {
+            $table->dropColumn([
+                'standard_lane_weight',
+                'lesson_followup_lane_weight',
+                'wanikani_lane_weight',
+            ]);
+        });
+
+        $this->assertSame($expectedAddSql, $add->toSql());
+        $this->assertSame($expectedDropSql, $drop->toSql());
+    }
+
+    /**
+     * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
+     */
+    public static function laneWeightSqlProvider(): array
+    {
+        return [
+            'sqlite' => [
+                SQLiteConnection::class,
+                SQLiteGrammar::class,
+                [
+                    'alter table "study_settings" add column "standard_lane_weight" integer not null default \'3\'',
+                    'alter table "study_settings" add column "lesson_followup_lane_weight" integer not null default \'1\'',
+                    'alter table "study_settings" add column "wanikani_lane_weight" integer not null default \'1\'',
+                ],
+                [
+                    'alter table "study_settings" drop column "standard_lane_weight"',
+                    'alter table "study_settings" drop column "lesson_followup_lane_weight"',
+                    'alter table "study_settings" drop column "wanikani_lane_weight"',
+                ],
+            ],
+            'postgres' => [
+                PostgresConnection::class,
+                PostgresGrammar::class,
+                [
+                    'alter table "study_settings" add column "standard_lane_weight" smallint not null default \'3\'',
+                    'alter table "study_settings" add column "lesson_followup_lane_weight" smallint not null default \'1\'',
+                    'alter table "study_settings" add column "wanikani_lane_weight" smallint not null default \'1\'',
+                ],
+                [
+                    'alter table "study_settings" drop column "standard_lane_weight", drop column "lesson_followup_lane_weight", drop column "wanikani_lane_weight"',
+                ],
+            ],
+            'mysql' => [
+                MySqlConnection::class,
+                MySqlGrammar::class,
+                [
+                    'alter table `study_settings` add `standard_lane_weight` tinyint unsigned not null default \'3\' after `review_time_budget_minutes`',
+                    'alter table `study_settings` add `lesson_followup_lane_weight` tinyint unsigned not null default \'1\' after `standard_lane_weight`',
+                    'alter table `study_settings` add `wanikani_lane_weight` tinyint unsigned not null default \'1\' after `lesson_followup_lane_weight`',
+                ],
+                [
+                    'alter table `study_settings` drop `standard_lane_weight`, drop `lesson_followup_lane_weight`, drop `wanikani_lane_weight`',
+                ],
+            ],
+        ];
+    }
+
     /**
      * @return array<string, array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>}>
      */

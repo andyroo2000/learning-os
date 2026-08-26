@@ -24,6 +24,11 @@ final class StudySettingsSyncPayload
             'new_cards_per_day' => $settings->new_cards_per_day,
             'lesson_batch_size' => $settings->lesson_batch_size,
             'review_time_budget_minutes' => $settings->review_time_budget_minutes,
+            'new_card_lane_weights' => [
+                'standard' => $settings->standard_lane_weight,
+                'lesson_followup' => $settings->lesson_followup_lane_weight,
+                'wanikani' => $settings->wanikani_lane_weight,
+            ],
             'created_at' => $settings->created_at?->toJSON(),
             'updated_at' => $settings->updated_at?->toJSON(),
         ];

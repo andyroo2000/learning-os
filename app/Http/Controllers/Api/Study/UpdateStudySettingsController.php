@@ -21,6 +21,9 @@ class UpdateStudySettingsController extends Controller
                 newCardsPerDay: $request->newCardsPerDay(),
                 lessonBatchSize: $request->lessonBatchSize(),
                 reviewTimeBudgetMinutes: $request->reviewTimeBudgetMinutes(),
+                standardLaneWeight: $request->standardLaneWeight(),
+                lessonFollowupLaneWeight: $request->lessonFollowupLaneWeight(),
+                wanikaniLaneWeight: $request->wanikaniLaneWeight(),
             ),
         )->response()->setStatusCode(200);
     }

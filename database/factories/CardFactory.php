@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -43,6 +44,8 @@ class CardFactory extends Factory
             'front_text' => fake()->sentence(),
             'back_text' => fake()->sentence(),
             'card_type' => CardType::Recognition,
+            'selection_policy' => CardSelectionPolicy::Standard,
+            'priority_until' => null,
             'variant_group_id' => null,
             'variant_sentence_id' => null,
             'variant_kind' => null,

@@ -31,6 +31,9 @@ class StudySettingsActionTest extends TestCase
         $this->assertSame($user->id, $settings->user_id);
         $this->assertSame(StudySettings::DEFAULT_NEW_CARDS_PER_DAY, $settings->new_cards_per_day);
         $this->assertSame(StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES, $settings->review_time_budget_minutes);
+        $this->assertSame(StudySettings::DEFAULT_STANDARD_LANE_WEIGHT, $settings->standard_lane_weight);
+        $this->assertSame(StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT, $settings->lesson_followup_lane_weight);
+        $this->assertSame(StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT, $settings->wanikani_lane_weight);
         $this->assertNull($settings->created_at);
         $this->assertNull($settings->updated_at);
         $this->assertDatabaseCount('study_settings', 0);
@@ -210,6 +213,62 @@ class StudySettingsActionTest extends TestCase
         $this->assertSame(StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES, $lowerUpdated->review_time_budget_minutes);
         $this->assertSame(StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES, $upperUpdated->review_time_budget_minutes);
         $this->assertDatabaseCount('sync_feed_entries', 2);
+    }
+
+    public function test_update_changes_lane_weights_and_persists_the_complete_mix(): void
+    {
+        $settings = StudySettings::factory()->create();
+
+        $updated = app(UpdateStudySettingsAction::class)->handle(
+            $settings->user_id,
+            null,
+            standardLaneWeight: 5,
+            lessonFollowupLaneWeight: 0,
+            wanikaniLaneWeight: 2,
+        );
+
+        $this->assertSame(5, $updated->standard_lane_weight);
+        $this->assertSame(0, $updated->lesson_followup_lane_weight);
+        $this->assertSame(2, $updated->wanikani_lane_weight);
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $settings->user_id,
+            'standard_lane_weight' => 5,
+            'lesson_followup_lane_weight' => 0,
+            'wanikani_lane_weight' => 2,
+        ]);
+        $this->assertSame(StudySettingsSyncPayload::fromSettings($updated), SyncFeedEntry::query()->sole()->payload);
+    }
+
+    public function test_update_rejects_lane_weights_outside_the_supported_ranges(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([0, StudySettings::MAX_LANE_WEIGHT + 1] as $weight) {
+            try {
+                app(UpdateStudySettingsAction::class)->handle($user->id, null, standardLaneWeight: $weight);
+                $this->fail("Expected standard lane weight [{$weight}] to be rejected.");
+            } catch (InvalidArgumentException $e) {
+                $this->assertSame(
+                    'standard_lane_weight must be an integer between 1 and '.StudySettings::MAX_LANE_WEIGHT.'.',
+                    $e->getMessage(),
+                );
+            }
+        }
+
+        foreach ([-1, StudySettings::MAX_LANE_WEIGHT + 1] as $weight) {
+            try {
+                app(UpdateStudySettingsAction::class)->handle($user->id, null, wanikaniLaneWeight: $weight);
+                $this->fail("Expected WaniKani lane weight [{$weight}] to be rejected.");
+            } catch (InvalidArgumentException $e) {
+                $this->assertSame(
+                    'wanikani_lane_weight must be an integer between 0 and '.StudySettings::MAX_LANE_WEIGHT.'.',
+                    $e->getMessage(),
+                );
+            }
+        }
+
+        $this->assertDatabaseCount('study_settings', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
     }
 
     public function test_update_does_not_record_sync_feed_entry_when_settings_are_unchanged(): void

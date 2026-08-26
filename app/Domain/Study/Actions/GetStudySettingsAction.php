@@ -21,6 +21,9 @@ class GetStudySettingsAction
             'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
             'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
             'review_time_budget_minutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+            'standard_lane_weight' => StudySettings::DEFAULT_STANDARD_LANE_WEIGHT,
+            'lesson_followup_lane_weight' => StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT,
+            'wanikani_lane_weight' => StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT,
         ]);
         $settings->user_id = $userId;
 

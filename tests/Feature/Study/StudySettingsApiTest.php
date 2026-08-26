@@ -45,6 +45,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 32,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -64,6 +65,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -79,6 +81,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -125,6 +128,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -153,6 +157,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -174,6 +179,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -198,6 +204,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => 8,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
             ]);
@@ -224,6 +231,7 @@ class StudySettingsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'lessonBatchSize' => 5,
+                'newCardLaneWeights' => $this->defaultLaneWeights(),
                 'newCardsPerDay' => 12,
                 'reviewTimeBudgetMinutes' => 90,
             ]);
@@ -461,5 +469,114 @@ class StudySettingsApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['reviewTimeBudgetMinutes']);
+    }
+
+    public function test_update_accepts_browser_lane_weights_and_returns_the_api_owned_mix(): void
+    {
+        $user = $this->signIn();
+
+        $this->patchJson('/api/study/settings', [
+            'newCardLaneWeights' => [
+                'standard' => 5,
+                'lessonFollowup' => 0,
+                'wanikani' => 2,
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('newCardLaneWeights.standard', 5)
+            ->assertJsonPath('newCardLaneWeights.lessonFollowup', 0)
+            ->assertJsonPath('newCardLaneWeights.wanikani', 2);
+
+        $this->assertDatabaseHas('study_settings', [
+            'user_id' => $user->id,
+            'standard_lane_weight' => 5,
+            'lesson_followup_lane_weight' => 0,
+            'wanikani_lane_weight' => 2,
+        ]);
+        $this->assertDatabaseHas('sync_feed_entries', [
+            'user_id' => $user->id,
+            'payload->new_card_lane_weights->standard' => 5,
+            'payload->new_card_lane_weights->lesson_followup' => 0,
+            'payload->new_card_lane_weights->wanikani' => 2,
+        ]);
+    }
+
+    public function test_update_accepts_matching_canonical_lane_weight_alias(): void
+    {
+        $this->signIn();
+
+        $this->patchJson('/api/study/settings', [
+            'newCardLaneWeights' => [
+                'standard' => '4',
+                'lessonFollowup' => '2',
+                'wanikani' => '1',
+            ],
+            'new_card_lane_weights' => [
+                'standard' => 4,
+                'lesson_followup' => 2,
+                'wanikani' => 1,
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('newCardLaneWeights.standard', 4)
+            ->assertJsonPath('newCardLaneWeights.lessonFollowup', 2)
+            ->assertJsonPath('newCardLaneWeights.wanikani', 1);
+    }
+
+    public function test_update_rejects_malformed_incomplete_and_conflicting_lane_weights(): void
+    {
+        $this->signIn();
+
+        $this->patchJson('/api/study/settings', ['newCardLaneWeights' => '3:1:1'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardLaneWeights']);
+
+        $this->patchJson('/api/study/settings', [
+            'newCardLaneWeights' => ['standard' => 3, 'lessonFollowup' => 1],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardLaneWeights.wanikani']);
+
+        $this->patchJson('/api/study/settings', [
+            'newCardLaneWeights' => [
+                'standard' => 0,
+                'lessonFollowup' => 21,
+                'wanikani' => ['1'],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'newCardLaneWeights.standard',
+                'newCardLaneWeights.lessonFollowup',
+                'newCardLaneWeights.wanikani',
+            ]);
+
+        $this->patchJson('/api/study/settings', [
+            'newCardLaneWeights' => [
+                'standard' => 3,
+                'lessonFollowup' => 1,
+                'wanikani' => 1,
+            ],
+            'new_card_lane_weights' => [
+                'standard' => 4,
+                'lesson_followup' => 1,
+                'wanikani' => 1,
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['newCardLaneWeights']);
+
+        $this->assertDatabaseCount('study_settings', 0);
+        $this->assertDatabaseCount('sync_feed_entries', 0);
+    }
+
+    /** @return array{standard: int, lessonFollowup: int, wanikani: int} */
+    private function defaultLaneWeights(): array
+    {
+        return [
+            'standard' => StudySettings::DEFAULT_STANDARD_LANE_WEIGHT,
+            'lessonFollowup' => StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT,
+            'wanikani' => StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT,
+        ];
     }
 }

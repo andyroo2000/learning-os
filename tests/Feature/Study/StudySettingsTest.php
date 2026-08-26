@@ -21,6 +21,9 @@ class StudySettingsTest extends TestCase
             'new_cards_per_day',
             'lesson_batch_size',
             'review_time_budget_minutes',
+            'standard_lane_weight',
+            'lesson_followup_lane_weight',
+            'wanikani_lane_weight',
             'created_at',
             'updated_at',
         ]));
@@ -42,6 +45,19 @@ class StudySettingsTest extends TestCase
         ]);
 
         $this->assertSame(90, $settings->refresh()->review_time_budget_minutes);
+    }
+
+    public function test_lane_weights_cast_to_integers(): void
+    {
+        $settings = StudySettings::factory()->create([
+            'standard_lane_weight' => '4',
+            'lesson_followup_lane_weight' => '2',
+            'wanikani_lane_weight' => '1',
+        ])->refresh();
+
+        $this->assertSame(4, $settings->standard_lane_weight);
+        $this->assertSame(2, $settings->lesson_followup_lane_weight);
+        $this->assertSame(1, $settings->wanikani_lane_weight);
     }
 
     public function test_user_id_is_not_mass_assignable(): void

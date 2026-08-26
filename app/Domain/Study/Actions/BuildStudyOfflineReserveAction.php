@@ -4,8 +4,8 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Services\SelectNewStudyCards;
 use App\Domain\Study\Support\StudyListScopeFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -16,6 +16,10 @@ class BuildStudyOfflineReserveAction
     public const RESERVE_DAYS = 5;
 
     public const MAX_SCHEDULED_CARDS = 1000;
+
+    public function __construct(
+        private readonly SelectNewStudyCards $selectNewStudyCards,
+    ) {}
 
     /**
      * @return array{cards: Collection<int, Card>, generated_at: Carbon, horizon_ends_at: Carbon}
@@ -48,9 +52,13 @@ class BuildStudyOfflineReserveAction
 
         $newCardsQuery = $this->ownedCardsQuery($userId, $courseId, $deckId)
             ->where('cards.study_status', CardStudyStatus::New->value);
-        $newCards = NewCardQueueOrdering::positionedCards($newCardsQuery)
-            ->limit($newCardsPerDay * self::RESERVE_DAYS)
-            ->get();
+        $newCards = $this->selectNewStudyCards->handle(
+            $newCardsQuery,
+            $userId,
+            $newCardsPerDay * self::RESERVE_DAYS,
+            $now,
+            availabilityThrough: $horizonEndsAt,
+        );
 
         return [
             'cards' => $scheduledCards->concat($newCards),

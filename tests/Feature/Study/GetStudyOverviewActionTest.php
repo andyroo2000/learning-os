@@ -798,6 +798,27 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(1, $overview['new_cards_available_today']);
     }
 
+    public function test_future_introduction_availability_is_not_counted_as_a_new_card_yet(): void
+    {
+        $now = Carbon::parse('2026-06-04T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create(['new_cards_per_day' => 20]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'introduction_available_at' => $now->copy()->addDay(),
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+            'introduction_available_at' => $now,
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(userId: $user->id, now: $now);
+
+        $this->assertSame(1, $overview['new_count']);
+        $this->assertSame(1, $overview['new_cards_available_today']);
+    }
+
     public function test_ready_failed_cards_outside_the_deck_filter_do_not_block_new_cards(): void
     {
         $now = Carbon::parse('2026-06-04T12:00:00Z');

@@ -23,6 +23,8 @@ class CardIntroductionMetadataMigrationTest extends TestCase
 
     private const QUEUE_INDEX = 'cards_new_lane_queue_idx';
 
+    private const AVAILABILITY_INDEX = 'cards_new_availability_queue_idx';
+
     #[DataProvider('grammarProvider')]
     public function test_migration_blueprints_compile_for_supported_databases(
         string $connectionClass,
@@ -35,8 +37,10 @@ class CardIntroductionMetadataMigrationTest extends TestCase
         // These compile-only blueprints mirror the migration, which remains the source of truth.
         $createSql = implode("\n", $this->createCohortBlueprint($connection)->toSql());
         $alterSql = implode("\n", $this->alterCardsBlueprint($connection)->toSql());
+        $availabilitySql = implode("\n", $this->availabilityBlueprint($connection)->toSql());
         $rollbackSql = implode("\n", [
             ...$this->rollbackCardsBlueprint($connection)->toSql(),
+            ...$this->rollbackAvailabilityBlueprint($connection)->toSql(),
             ...$this->dropCohortBlueprint($connection)->toSql(),
         ]);
 
@@ -47,13 +51,15 @@ class CardIntroductionMetadataMigrationTest extends TestCase
         $this->assertStringContainsString($identifierQuote.'selection_policy'.$identifierQuote, $alterSql);
         $this->assertStringContainsString($identifierQuote.'priority_until'.$identifierQuote, $alterSql);
         $this->assertStringContainsString($identifierQuote.self::QUEUE_INDEX.$identifierQuote, $alterSql);
+        $this->assertStringContainsString($identifierQuote.'introduction_available_at'.$identifierQuote, $availabilitySql);
+        $this->assertStringContainsString($identifierQuote.self::AVAILABILITY_INDEX.$identifierQuote, $availabilitySql);
         $this->assertStringContainsString($identifierQuote.self::QUEUE_INDEX.$identifierQuote, $rollbackSql);
         $this->assertStringContainsString($identifierQuote.'card_introduction_cohorts'.$identifierQuote, $rollbackSql);
     }
 
     public function test_index_names_fit_the_postgres_identifier_limit(): void
     {
-        foreach ([self::COHORT_CREATED_INDEX, self::COHORT_SOURCE_UNIQUE, self::QUEUE_INDEX] as $index) {
+        foreach ([self::COHORT_CREATED_INDEX, self::COHORT_SOURCE_UNIQUE, self::QUEUE_INDEX, self::AVAILABILITY_INDEX] as $index) {
             $this->assertLessThanOrEqual(63, strlen($index), "Index name [{$index}] exceeds PostgreSQL's limit.");
         }
     }
@@ -121,6 +127,29 @@ class CardIntroductionMetadataMigrationTest extends TestCase
             $table->dropIndex(self::QUEUE_INDEX);
             $table->dropConstrainedForeignId('introduction_cohort_id');
             $table->dropColumn(['selection_policy', 'priority_until']);
+        });
+    }
+
+    private function availabilityBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'cards', function (Blueprint $table): void {
+            $table->timestamp('introduction_available_at', 6)->nullable();
+            $table->index([
+                'deck_id',
+                'deleted_at',
+                'study_status',
+                'introduction_available_at',
+                'new_queue_position',
+                'id',
+            ], self::AVAILABILITY_INDEX);
+        });
+    }
+
+    private function rollbackAvailabilityBlueprint(Connection $connection): Blueprint
+    {
+        return new Blueprint($connection, 'cards', function (Blueprint $table): void {
+            $table->dropIndex(self::AVAILABILITY_INDEX);
+            $table->dropColumn('introduction_available_at');
         });
     }
 

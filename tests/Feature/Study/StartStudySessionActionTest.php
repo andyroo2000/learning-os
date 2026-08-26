@@ -590,9 +590,9 @@ class StartStudySessionActionTest extends TestCase
             && preg_match('/^select\s+["`]?cards["`]?\.\*/i', $query['query']) === 1);
 
         $this->assertCount(
-            1,
+            $status === CardStudyStatus::New ? 3 : 1,
             $sessionCardSelects,
-            "Expected exactly one card query for the selected study flow.\n"
+            "Expected the bounded lane queries for the selected study flow.\n"
                 .$queries->pluck('query')->implode("\n"),
         );
 

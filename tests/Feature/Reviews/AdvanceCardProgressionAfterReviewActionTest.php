@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reviews;
 
 use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
@@ -19,6 +20,7 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Models\SyncFeedEntry;
+use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -139,6 +141,45 @@ class AdvanceCardProgressionAfterReviewActionTest extends TestCase
 
         $this->assertSame(VocabVariantStatus::Available->value, $nextCard->refresh()->variant_status);
         $this->assertSame($user->id, $nextCard->ownerUserId());
+    }
+
+    public function test_transfer_siblings_receive_fresh_priority_windows_and_second_listening_waits_a_day(): void
+    {
+        Carbon::setTestNow('2026-08-25T12:00:00Z');
+        [, $deck] = $this->learnerDeck();
+        $common = ['selection_policy' => CardSelectionPolicy::Sprinkled];
+        $firstListening = $this->familyCard($deck, 'transfer-spacing', 1, VocabVariantStatus::Available, [
+            ...$common,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+            'introduced_at' => '2026-08-25T08:00:00Z',
+        ]);
+        $recognition = $this->familyCard($deck, 'transfer-spacing', 2, VocabVariantStatus::Locked, [
+            ...$common,
+            'variant_kind' => VocabVariantKind::SentenceTextRecognition,
+        ]);
+        $cloze = $this->familyCard($deck, 'transfer-spacing', 3, VocabVariantStatus::Locked, [
+            ...$common,
+            'variant_kind' => VocabVariantKind::SentenceCloze,
+        ]);
+        $secondListening = $this->familyCard($deck, 'transfer-spacing', 4, VocabVariantStatus::Locked, [
+            ...$common,
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition,
+        ]);
+
+        $this->review($firstListening, CardReviewRating::Good, '2026-08-25T09:00:00Z');
+        $this->review($firstListening, CardReviewRating::Easy, '2026-08-25T09:05:00Z');
+        $this->assertSame('2026-09-01T09:05:00.000000Z', $recognition->refresh()->priority_until?->toJSON());
+
+        $this->review($recognition, CardReviewRating::Good, '2026-08-25T09:10:00Z');
+        $this->review($recognition, CardReviewRating::Easy, '2026-08-25T09:15:00Z');
+        $this->review($cloze, CardReviewRating::Good, '2026-08-25T09:20:00Z');
+        $this->review($cloze, CardReviewRating::Easy, '2026-08-25T09:25:00Z');
+
+        $secondListening->refresh();
+        $this->assertSame(VocabVariantStatus::Available->value, $secondListening->variant_status);
+        $this->assertSame('2026-08-26T08:00:00.000000Z', $secondListening->introduction_available_at?->toJSON());
+        $this->assertSame('2026-09-02T08:00:00.000000Z', $secondListening->priority_until?->toJSON());
+        $this->assertNotNull($secondListening->new_queue_position);
     }
 
     public function test_a_batch_can_satisfy_the_threshold_and_an_exact_retry_does_not_repeat_unlock_side_effects(): void

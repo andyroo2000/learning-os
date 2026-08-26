@@ -68,6 +68,7 @@ class ShowCardApiTest extends TestCase
                     'introduction_cohort_id' => null,
                     'selection_policy' => 'standard',
                     'priority_until' => null,
+                    'introduction_available_at' => null,
                     'due_at' => '2026-06-05T14:15:00.000000Z',
                     'introduced_at' => '2026-06-01T14:15:00.000000Z',
                     'failed_at' => '2026-06-02T14:15:00.000000Z',

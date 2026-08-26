@@ -4,8 +4,8 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Results\StartStudySessionResult;
+use App\Domain\Study\Services\SelectNewStudyCards;
 use App\Domain\Study\Support\StudyListScopeFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -14,6 +14,7 @@ class StartStudyLessonAction
 {
     public function __construct(
         private readonly GetStudyOverviewAction $getStudyOverview,
+        private readonly SelectNewStudyCards $selectNewStudyCards,
     ) {}
 
     public function handle(
@@ -45,9 +46,13 @@ class StartStudyLessonAction
         $query = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
             ->select('cards.*')
             ->where('cards.study_status', CardStudyStatus::New->value);
-        $cards = NewCardQueueOrdering::positionedCards($query)
-            ->limit($limit)
-            ->get();
+        $cards = $this->selectNewStudyCards->handle(
+            $query,
+            $userId,
+            $limit,
+            $now,
+            $timeZone,
+        );
 
         return new StartStudySessionResult($overview, $cards);
     }

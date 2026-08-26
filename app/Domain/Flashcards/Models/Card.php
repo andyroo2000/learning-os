@@ -143,6 +143,7 @@ class Card extends Model
             'study_status' => CardStudyStatus::class,
             'selection_policy' => CardSelectionPolicy::class,
             'priority_until' => 'datetime',
+            'introduction_available_at' => 'datetime',
             'source_card_id' => 'integer',
             'source_note_id' => 'integer',
             'source_deck_id' => 'integer',

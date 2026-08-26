@@ -51,6 +51,7 @@ final class CardSyncPayload
             'introduction_cohort_id' => $card->introduction_cohort_id,
             'selection_policy' => self::scalarValue($card->selection_policy),
             'priority_until' => $card->priority_until?->toJSON(),
+            'introduction_available_at' => $card->introduction_available_at?->toJSON(),
             'due_at' => $card->due_at?->toJSON(),
             'introduced_at' => $card->introduced_at?->toJSON(),
             'failed_at' => $card->failed_at?->toJSON(),

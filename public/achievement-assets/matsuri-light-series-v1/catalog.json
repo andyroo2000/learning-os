@@ -1,0 +1,532 @@
+{
+  "revision": "matsuri-light-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/matsuri-light-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/matsuri-light-series-v1/source/first-ember-complete-scene-source-v1.png",
+      "checksumSha256": "3a60eda0b1ab32e1081ad5f35aa886bb009962391cbbfff57ac8383fe5fad015"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-ember",
+        "path": "resources/achievements/matsuri-light-series-v1/source/first-ember-complete-scene-source-v1.png",
+        "checksumSha256": "3a60eda0b1ab32e1081ad5f35aa886bb009962391cbbfff57ac8383fe5fad015"
+      },
+      {
+        "tierKey": "paper-glow",
+        "path": "resources/achievements/matsuri-light-series-v1/source/paper-glow-complete-scene-source-v1.png",
+        "checksumSha256": "2512cc5676471604e5967caa5d19179a643d70349c53257cdbec2398c227a538"
+      },
+      {
+        "tierKey": "lantern-heart",
+        "path": "resources/achievements/matsuri-light-series-v1/source/lantern-heart-complete-scene-source-v1.png",
+        "checksumSha256": "d3ae214436610e4c978146f6764145e852ab4f6918616b20a5c121c16e530c54"
+      },
+      {
+        "tierKey": "festival-gate",
+        "path": "resources/achievements/matsuri-light-series-v1/source/festival-gate-complete-scene-source-v1.png",
+        "checksumSha256": "09181808aa6a1a090d1566b022624214818d0377fa70ffa57aeb8981c9ded5d0"
+      },
+      {
+        "tierKey": "night-parade",
+        "path": "resources/achievements/matsuri-light-series-v1/source/night-parade-complete-scene-source-v1.png",
+        "checksumSha256": "f3469b2244c7af2387afc56b78e1f6a3f060c31c4b4aebef7b79b6087bc80d82"
+      },
+      {
+        "tierKey": "sky-of-lanterns",
+        "path": "resources/achievements/matsuri-light-series-v1/source/sky-of-lanterns-complete-scene-source-v1.png",
+        "checksumSha256": "a1a33fddf42942cb9692822b57a8daec036f83ff88a810bf79589048737109f8"
+      },
+      {
+        "tierKey": "eternal-sunrise",
+        "path": "resources/achievements/matsuri-light-series-v1/source/eternal-sunrise-complete-scene-source-v1.png",
+        "checksumSha256": "b7888bc84815e1b060b7dc5e77ab4b07e39769501f2cacbc1792fbe0a0b09af6"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "yearfire",
+      "tierKey": "first-ember",
+      "title": "First Ember",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "979f1debd32298f878da119f7c1b87d3791b5ff0c4bc49d196d83bd22ed56ae5"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "33a8c640c2e534933178ad65b318d5370ff4c8e7c6dd97f9353838f1ee5774bc"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e2ce30ef044575eb344667bff9a1a88240b9540d4f84529f2581e0556cca0324"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "8622b7614b2cc12e82c4b04ad49368f4b0633fcb4440e803e5e937cd2f296138"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2f67367a587c19055f0caee8be5618a37934ef8070b80b789181989b8103618d"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9c553089d96f6ad24d1584451781d19e566d4712b33ca26b24ffe630bfc535ac"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "2faf262a1fb7f3ea861f5a1505fe6091fcc9d68f3bc098579c84a73ed36d312a"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "201b09b4555322bf2da16bbd45d8557d3c9b313093b8dc17132120a6d0fe6457"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "paper-glow",
+      "title": "Paper Glow",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f13b23e4c3c483ac7b07752f4ce2bcde48cd11d7da5b84416c5c593144621a57"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "33237a46c94defac9373f2a03c25644bca56f6abd6bf14ed7212bf9918ee6a46"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "37807e93d984a7daaf4ae3aef0a58585a0e7613bf374f23ce543f49e41a950e5"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "083d16525ebdf5ba001d3bcb911d19d488c9f6deb8fd5efe1c18daedd4ee0860"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "1339cbc953c2db74b876bfbfdaf4c0a517d5dc1bedadd24a1c8f8ee50425c871"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "0dd216cddad7d5603150a03ec0aecf21d3d0e7bf1056dc128992322e75b63c06"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "da98fa36923aa46a9d73b8b62ac6c5b3af9dca52351087ca50ecef02f28f2b7b"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a034295c52256b68d36b84f1f04b2b59a51853a81005240042d47652a8c3bdb3"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "lantern-heart",
+      "title": "Lantern Heart",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "115c5f616318c92bc9006b9e8807f9ff5ca681ea43c1709c4ed781820bf6f6f5"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "52cfc609f552b14687388982a4d31ce345243c6c2f062d586e5819999af1eb91"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "343e3c992041ad86e86fe3ba0951697eeb9e5c0bffb28964e7fd8d9ca90c0633"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "41dd4d6c8842de6b0f32373f8f110d519d87fb6d999da65b6830d1ba9de9e686"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2f558af6ba35a917192ea1b2d3a843db555a4682730238bb1a7a63eca769097d"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "f9071315ae1420f48520cb7eef33c190cc59871b28d02b871391c5358065cfa5"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "63684727b4ed5d1f6aeb57e3828fff9c998032a72cde8a6d713c8eb06f5836cc"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "0121c87da3fc28f16574884d18c875a0e8768efd5928d90154d17f4800ea45b3"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "festival-gate",
+      "title": "Festival Gate",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "a9e6a471af80d76a8f1d25ceba5f2be7049a7c4ec43eb96ce803c75495171e0c"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b4931d3c8c11de9a8c3f37c7ba795c3b1392c096dfbe7a4240245ddbd4574f3c"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "0653c9e5159be95827c3a69dc0de400befcdff999fe0c1f55ab52897e434406e"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d3b88b3d8422e3aea01724651cf4b090f582c9a51a133c3c27f2f3beda717bf4"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3e84c7462458c6f539f14e9fae762e863f42d321e7d8eeda4ff82f1f164258e3"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "cce36da7305c2fb6b0e7f1c1439f7d9df73e31aecb2d5c5ba8b8f60f51e7d432"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "2c571a11cfe26dd3ca6783879f0eaaec6a4e6385ee8d3ead845cbd50f3d1bac9"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "230c77aac71d901a7e8e5064f6b9a054764cbf13835a5487e1c7c3715197a90d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "night-parade",
+      "title": "Night Parade",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f72822ea633c3e81d8761814e07c511e01f0f410f0726e3eb702a9c4f8b82a76"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9cf5e1b3ee660a6de6f543d8b5596285f4be8ace8a87ced7ca89671c16e207af"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "ae5f8b964bc6f2b4d31b8dd1f30cbf601b77c32cddc07fc736a40613cec6e145"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "5dec5416ac1c380d4b889c397065a3b6d20975c408eb7b849864b4b7dc72666f"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e0e7f19bd8a8b2952e76cae4cd808847ab5cc78c9438fbf0f269aa3c9eea7b08"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "ef4eca9c52461466c68a499ef79f475d2cb2ed0d979214fb021d76d64e434c3c"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8cacf3c36d9bd3e80631064d6f6220c61101692f421ef5911e2ca19d9be61db5"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2e66bdf54d425ddd2c0041ede4f1f8eb53c30d205479fff47a5841b97e584541"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "sky-of-lanterns",
+      "title": "Sky of Lanterns",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "65e8a7ea64d9b5077279e6754d67aa002698f7c6ff495533f94d2f4d04881271"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a4968dfbb1c233446b020ab9b5f53090de0fe9963e104f5d6adf150987d07dfd"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "611f7788f77edc9d285f26e92b4c01cbce2c8a9fc37b461c2694f62093a4efeb"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "8a654083fd272cd76146e7d34b259a7e45251069f9f3e4323a770fed91519cf8"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "774056240a27ea4af02b4146f1b85c8db3e6b27c7e430aa8904e32a6d437a605"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8ee0594208da5ec484a438f4585ca345e14c8f520f2634b321be2e33ffaa2587"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "fe0fddc64b9238b63ea7df57418769eb10fa1ed9f92c87fcdcaf3d05e35732df"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "253a899ced9b6c07cf4996181f4405390e9d726a49a494b0acb0337bd129a8e1"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "yearfire",
+      "tierKey": "eternal-sunrise",
+      "title": "Eternal Sunrise",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "fd25e8795198cf843695bc291626751d5bf250cf7a2e138d8ba22a8162ddaec6"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "d290064a80466be3f529776584e862219a9484c046e60d85b01287bba0d6ad4d"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3a0d4b95b18f8ac7686ac3cec4c30d5d0f941fdb0dcb4cbc7b4cf40761194da7"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "5b4fe0ccaf29a29676b317fd6ce6a19847983201eee5f3ad9aa7e5b13234a556"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "cc20ea22e04afc95db71f34bd07c517693beff3678531a04b5f64646d04aa2e2"
+          },
+          "128": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "7cfa3e1079fbee9acea2ee4af4366d56471a99aa64ff37d0ee0880358e8e8080"
+          },
+          "256": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "576deb3ffcaa89499d02e2268b0500947dea1463caa235e415a6aace16aa6f99"
+          },
+          "512": {
+            "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "aa711233dc9676283b6cb71663fcd226afb3a13d42e7cc6178108687f889ea52"
+          }
+        }
+      }
+    }
+  ]
+}

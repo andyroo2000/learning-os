@@ -1,0 +1,532 @@
+{
+  "revision": "card-muncher-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/card-muncher-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/card-muncher-series-v1/source/first-nibble-complete-scene-source-v1.png",
+      "checksumSha256": "b31e0af3debe8698a13536543bad701ff0c1bb1e251e936845dea78a46ca1089"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-nibble",
+        "path": "resources/achievements/card-muncher-series-v1/source/first-nibble-complete-scene-source-v1.png",
+        "checksumSha256": "b31e0af3debe8698a13536543bad701ff0c1bb1e251e936845dea78a46ca1089"
+      },
+      {
+        "tierKey": "quick-bite",
+        "path": "resources/achievements/card-muncher-series-v1/source/quick-bite-complete-scene-source-v1.png",
+        "checksumSha256": "8194399bb74949cad4e89bfabc99f2182c0cf8ebcb3e6fa793dfc618f7e5012e"
+      },
+      {
+        "tierKey": "bento-break",
+        "path": "resources/achievements/card-muncher-series-v1/source/bento-break-complete-scene-source-v1.png",
+        "checksumSha256": "5a337807a42afc29f822b10fb211c440af4c9244db042b466f0dadcc99dda74d"
+      },
+      {
+        "tierKey": "full-feast",
+        "path": "resources/achievements/card-muncher-series-v1/source/full-feast-complete-scene-source-v1.png",
+        "checksumSha256": "d3ececfb5939986c1149fa5cf170ea59561988ee248b21fa3e8f19f9e9249dc4"
+      },
+      {
+        "tierKey": "banquet-beast",
+        "path": "resources/achievements/card-muncher-series-v1/source/banquet-beast-complete-scene-source-v1.png",
+        "checksumSha256": "d5b0a726ee022f3e008d3877cc73edd9a862245ea86c2a2e9b45e7c534f590bc"
+      },
+      {
+        "tierKey": "bottomless",
+        "path": "resources/achievements/card-muncher-series-v1/source/bottomless-complete-scene-source-v1.png",
+        "checksumSha256": "1e389fb191681fcdcc5011e3e81e95b8f61ef94ae14ea012f5e5f22cb15461a4"
+      },
+      {
+        "tierKey": "moon-muncher",
+        "path": "resources/achievements/card-muncher-series-v1/source/moon-muncher-complete-scene-source-v1.png",
+        "checksumSha256": "2e7b9c60537881468a9fc51f2de194aad0815b6127fc36c7ca03b35913c86600"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "first-nibble",
+      "title": "First Nibble",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "768bd22d3f9342ac6c91ec431f36efb8f021d6783a6beb2d0edf55837949c178"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9001924ae76b958740ed21dc54b77bdf35f6f1afb056e090a9843071725bcedd"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "be00bf9d37d35d4e916de5093e047d5bd4ffac8fdd35752c73e50d9aa811e181"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "7c42ec116f12fc64d92ae1f0f8cc900c4e9470d43404c3d54effc9ac0f06fef3"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "813b6b267233e6fd1574008159d72dd0c5b92a24f51d21d0b2c156b6be7c2ee2"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "5780e3ecb3e2fe86bb5fa859c2e4047aff475d02ddcd689a78eb9fd59e907038"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "cbc8e77f22c8aa8c49eda28c82ce868adc0cedb72c810fac8adce581d9b26b9d"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/first-nibble/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "437dbc5b764ef30f0a8a520cae8fa37a709c19283638eb41d8e88bd6d48558b3"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "quick-bite",
+      "title": "Quick Bite",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "a82ac5b4d1e0bf4f0e15da123bac4df761a5e7af9e09f8120e44aaa583355a3b"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8b3b7361b4856bf3d546478c9194d7394398cb572fb93fc3d98128cb922f6249"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3dcb1e67153c90e57e2963cbd31662146300d96452c40ef00ad3990f39b37597"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "e374937aff1ea2299db5d5eb2a2fbc75a72a298cb89f3f5360ae3768438b09ce"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "ea177942a924cc3f5311e3232f802661c6d217e4195bc63bc1c4d14da684cdda"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "5fbdb599184971c5a5d94e8b94d686da3c984ed3db5857dfbfd329142887b10d"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9f3f380a28ac4b5ecf3a6fdb290b14fbaa81722e1ff01b4eef7ab5971c93b5d6"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/quick-bite/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "84b14728781575f35b694ffd25af197940468652d0d59c21fd7fff5216350fc3"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "bento-break",
+      "title": "Bento Break",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3ac63e2b08e3828813b2d0063582943d8070bda9a053003dd92146474f7072ae"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "36bad60366af3413a69c0a6b775262ecb6be22df27033da8702160417429c4e1"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3787c44e730f34a469e78ce587c458ca5421ecf278596a4e560d44da0cb6cc1b"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a161a8627c13516c344b00e54738814baa215eaf38e0a657c28c24bb9ca7ad2f"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e22b726d1d857535c40efcdd5e63cdd74c5ce765d9f62530eaa98534fbb9e8c9"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "bf5d89f5e2ae8ba4db12e3fa9275bb09fad8ee2ec7025fd8bac2515d4291b8f1"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "4060d475ae47f386ec2a93903260567764f1dbb3be3453126c2329770225e23f"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/bento-break/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "610190a797446a07073299a4c99c4a570c5a55f3dfc00cecfe5444c9bcfd9374"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "full-feast",
+      "title": "Full Feast",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "33b798e5705d0aa8d5ebf280b8b137ca9e24f6eee36ce66888b692ac1f1f1dd2"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "38d442027e9d6428d3efd0ce4f55271f9258e99c0ef95e7304fc305f5f87c261"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b91f8f32b11386da75511ff3e10214e60640c735936f5ebd40bb04e1d818e17b"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "dee034efc472e704ce823a2cd009ec19cf1d9dea6c41e425f3e548d33c644b02"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "16cde8344940801673ebad140920119558b080773b8acb214a91d38f1b01298a"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a2fd6fa835432b2fa5517872129ce7ca21625793e31326352a08cca197dde14f"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "31d7b3015f8657e95ea2b2ce1dd27ed8bfceed83784910786eac01e1b1f3e728"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/full-feast/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "cc486d19021362b79b25c30c2dd32821d4682413a0ccedc144d7148b8a0e054c"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "banquet-beast",
+      "title": "Banquet Beast",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2fbfa9eee5d9e9740ad837db02c5a32a94d5f6fd4777c35ef8f3834df7eb8d92"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "2f2fe0a72f7d37397526c792421fce18207afc5dfac79c943909280812bc5c52"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c5cb6963e95696ecef67df80ebd8234fea6674be68f65348870343971e6d2b15"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "faa93ec4e1b913544fe34f3a57df7659faac94c7cf4df123539f7367251d9818"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "97059736914dd60bfbac0f99702893f4d2379a89312118e7bb98f2e09deb6dbf"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a062635d7366dc08f2ca794262c533a3421d670993be4d0f04534a23b6b1f18b"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "764102eba8a27b6eb23ec17433580d4b66c9ef949bf0b2e948094cfaff5efb9a"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/banquet-beast/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "655ebf933376f1d3f753c498bf7f5228b61abcea31a1d081abf068a5e2c8eb79"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "bottomless",
+      "title": "Bottomless",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e5705f08fbedb6330731e1f7f94397fa927a210c452812dc88bc18c344d5563f"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "6f84358c2e1bb6f482c896ddacef2749588657eef3a7178ac2835f239545ccff"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9f6b3bb3cb68ad2c727234df25a4f888bed5da3403ac26bdbdfbd8882dcc4866"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "623048198d71515393d85c0c0c9d126dae3dcc9758a20009b1ebdaa3935fe6d2"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "4da2164ea05d02aab0260979682ce8eb093802446ba685f6b2df19ec30199981"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e4613b3161b5fcff45a701aa4520fc97f1946ea23ec44a981103a4a729249e8c"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b42727feff6788e25aed9b1824395aa02d74b185a00e00c481064fcaa8102034"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/bottomless/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "07f1d233779a4979d04dd10d5fead07b14db0a29009abfa03a8c480c1cd6065e"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "card-muncher",
+      "tierKey": "moon-muncher",
+      "title": "Moon Muncher",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e004e1b6bfc68f4c4e7c8ff1dd252eb231e18ba2d875b0788ba645336d5b2a9d"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "2f0ef2c285178993d9806edd181d3cd9315cbd7a70345ca51fcb72eed0fdfde5"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c278b7c75cbd5c1ff2b37401151f3fd1ea027a5f6173425e955871176bec325d"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "336ec55dd82560bcaf7390f42e908da0182f76ecf1d549666fd683f6e572ece0"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "95a20c142fd94e529c7fc0df19f9fae32c1001a27d394e55b58bd5f700e78228"
+          },
+          "128": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "ba84c1b0331f7e0a416393a90a8e81f3f7f57c3c4509d8272ba6d9abab94bb37"
+          },
+          "256": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "0d1390a61753257f53aff4eaa8cb7a3442a1f2f77592e9a33226dff49efe665a"
+          },
+          "512": {
+            "path": "/achievement-assets/card-muncher-series-v1/moon-muncher/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "1b2b5a27210ae6ff4860f1b5d79a237a7f25b25109fcbaff89d87f8607edf3a6"
+          }
+        }
+      }
+    }
+  ]
+}

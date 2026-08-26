@@ -27,11 +27,19 @@ class ShowStudyExportSettingsApiTest extends TestCase
 
         $settings = StudySettings::factory()->for($user)->create([
             'new_cards_per_day' => 14,
+            'lesson_batch_size' => 7,
+            'standard_lane_weight' => 4,
+            'lesson_followup_lane_weight' => 2,
+            'wanikani_lane_weight' => 1,
         ]);
 
         $this->getJson('/api/study/export/settings')
             ->assertOk()
             ->assertJsonPath('data.new_cards_per_day', 14)
+            ->assertJsonPath('data.lesson_batch_size', 7)
+            ->assertJsonPath('data.new_card_lane_weights.standard', 4)
+            ->assertJsonPath('data.new_card_lane_weights.lesson_followup', 2)
+            ->assertJsonPath('data.new_card_lane_weights.wanikani', 1)
             ->assertJsonPath('data.created_at', $settings->created_at?->toJSON())
             ->assertJsonPath('data.updated_at', $settings->updated_at?->toJSON());
     }
@@ -45,11 +53,22 @@ class ShowStudyExportSettingsApiTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'new_cards_per_day',
+                    'lesson_batch_size',
+                    'review_time_budget_minutes',
+                    'new_card_lane_weights' => [
+                        'standard',
+                        'lesson_followup',
+                        'wanikani',
+                    ],
                     'created_at',
                     'updated_at',
                 ],
             ])
             ->assertJsonPath('data.new_cards_per_day', StudySettings::DEFAULT_NEW_CARDS_PER_DAY)
+            ->assertJsonPath('data.lesson_batch_size', StudySettings::DEFAULT_LESSON_BATCH_SIZE)
+            ->assertJsonPath('data.new_card_lane_weights.standard', StudySettings::DEFAULT_STANDARD_LANE_WEIGHT)
+            ->assertJsonPath('data.new_card_lane_weights.lesson_followup', StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT)
+            ->assertJsonPath('data.new_card_lane_weights.wanikani', StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT)
             ->assertJsonPath('data.created_at', null)
             ->assertJsonPath('data.updated_at', null);
 

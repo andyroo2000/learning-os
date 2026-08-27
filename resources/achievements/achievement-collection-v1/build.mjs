@@ -4,19 +4,28 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import sharp from 'sharp';
+import catalogSource from './catalog.source.mjs';
 
 const sourceDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(sourceDirectory, '../../..');
-const revision = 'achievement-collection-v2';
+const revision = 'achievement-collection-v3';
 const outputDirectory = join(repositoryRoot, 'public', 'achievement-assets', 'achievement-collection-v1');
 const checkOnly = process.argv.includes('--check');
-const catalogSourcePath = join(sourceDirectory, 'catalog.source.json');
+const catalogSourcePath = join(sourceDirectory, 'catalog.source.mjs');
 const familyRevisions = {
     roarer: 'roarer-series-v7',
     'card-muncher': 'card-muncher-series-v1',
-    yearfire: 'matsuri-light-series-v1',
+    'sound-sponge': 'sound-sponge-series-v1',
+    'old-friend': 'old-friend-series-v1',
+    'double-feature': 'double-feature-series-v1',
+    'on-repeat': 'on-repeat-series-v1',
+    'on-a-roll': 'on-a-roll-series-v1',
+    'mountain-path': 'mountain-path-series-v1',
+    workshop: 'workshop-series-v1',
+    'open-sky': 'open-sky-series-v1',
+    archive: 'archive-series-v1',
 };
-const reviewOrder = ['roarer', 'card-muncher', 'yearfire'];
+const reviewOrder = ['card-muncher', 'roarer', 'sound-sponge', 'on-a-roll', 'mountain-path', 'workshop', 'open-sky', 'archive'];
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const escapeXml = (value) => String(value)
     .replaceAll('&', '&amp;')
@@ -27,7 +36,6 @@ const escapeXml = (value) => String(value)
 const dataUrl = (data) => `data:image/png;base64,${data.toString('base64')}`;
 
 const catalogSourceBuffer = await readFile(catalogSourcePath);
-const catalogSource = JSON.parse(catalogSourceBuffer.toString('utf8'));
 const visualCatalogs = new Map();
 
 for (const [familyKey, familyRevision] of Object.entries(familyRevisions)) {
@@ -43,7 +51,8 @@ for (const [familyKey, familyRevision] of Object.entries(familyRevisions)) {
 const families = catalogSource.families.map((family) => {
     const visual = visualCatalogs.get(family.key);
     if (! visual) throw new Error(`No visual catalog is configured for achievement family ${family.key}.`);
-    const achievements = new Map(visual.catalog.achievements.map((achievement) => [achievement.tierKey, achievement]));
+    const visualAchievements = visual.catalog.achievements ?? [visual.catalog.achievement];
+    const achievements = new Map(visualAchievements.map((achievement) => [achievement.tierKey, achievement]));
     const tiers = family.tiers.map((tier) => {
         const achievement = achievements.get(tier.key);
         if (! achievement) {
@@ -131,7 +140,7 @@ outputs.set('contact-sheet.png', await sharp({
     },
 }).composite(contactSheetLayers).png().toBuffer());
 
-const smallSheetWidth = 960;
+const smallSheetWidth = 1180;
 const smallFamilyHeight = 205;
 const smallSheetHeight = 78 + families.length * smallFamilyHeight;
 const smallFamilyRows = [];
@@ -157,7 +166,7 @@ for (const [familyIndex, family] of families.entries()) {
 const smallSheetSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${smallSheetWidth}" height="${smallSheetHeight}" viewBox="0 0 ${smallSheetWidth} ${smallSheetHeight}">
     <rect width="${smallSheetWidth}" height="${smallSheetHeight}" fill="#FBF1D3"/>
     <g font-family="Arial, sans-serif">
-        <text x="30" y="38" font-size="24" font-weight="800" fill="#083F6B">21-BADGE SMALL-SIZE AUDIT</text>
+        <text x="30" y="38" font-size="24" font-weight="800" fill="#083F6B">65-BADGE SMALL-SIZE AUDIT</text>
         <text x="30" y="60" font-size="12" fill="#485F7A">Every image below is rendered at its production 64 × 64 pixel size.</text>
         ${smallFamilyRows.join('')}
     </g>

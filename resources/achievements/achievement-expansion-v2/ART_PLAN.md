@@ -1,6 +1,6 @@
 # Achievement expansion v2 art plan
 
-Status: approved names, thresholds, and copy; art in production review.
+Status: approved for production.
 
 All scenes use the shared ConvoLab frame, contain no embedded text, and follow the established navy, coral, turquoise, mustard, and warm-cream screen-print system.
 

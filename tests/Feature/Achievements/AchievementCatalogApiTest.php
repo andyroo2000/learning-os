@@ -14,7 +14,7 @@ class AchievementCatalogApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('revision', 'achievement-collection-v2')
+            ->assertJsonPath('revision', 'achievement-collection-v3')
             ->assertJsonPath('status', 'production')
             ->assertJsonPath('assetBaseUrl', 'http://localhost')
             ->assertJsonPath('design.canvas', 256)
@@ -29,23 +29,27 @@ class AchievementCatalogApiTest extends TestCase
             ->assertJsonPath('presentation.targetVisibleBadgeCount', 3)
             ->assertJsonPath('presentation.fillWithLockedCandidates', true)
             ->assertJsonPath('presentation.noDataFallbackTierIds.0', 'card-muncher.first-nibble')
-            ->assertJsonCount(3, 'families')
+            ->assertJsonCount(11, 'families')
             ->assertJsonCount(7, 'families.0.tiers')
-            ->assertJsonPath('families.0.key', 'yearfire')
-            ->assertJsonPath('families.0.metricKey', 'cards.stability_365d.count')
-            ->assertJsonPath('families.0.tiers.0.earnedDescription', 'Kept 25 cards stable for a year')
-            ->assertJsonPath('families.1.tiers.0.threshold', 100)
-            ->assertJsonPath('families.1.tiers.4.earnedDescription', 'Completed 25,000 reviews')
-            ->assertJsonPath('families.1.tiers.6.threshold', 100000)
-            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Spoke for 50 hours')
-            ->assertJsonPath('families.2.metricKey', 'study.conversation.hours')
-            ->assertJsonPath('families.2.unit', 'hours')
+            ->assertJsonPath('families.0.key', 'card-muncher')
+            ->assertJsonPath('families.0.metricKey', 'reviews.count')
+            ->assertJsonPath('families.0.tiers.0.earnedDescription', 'Completed 100 reviews')
+            ->assertJsonPath('families.0.tiers.4.earnedDescription', 'Completed 25,000 reviews')
+            ->assertJsonPath('families.0.tiers.6.threshold', 100000)
+            ->assertJsonPath('families.1.tiers.4.earnedDescription', 'Spoke for 50 hours')
+            ->assertJsonPath('families.1.metricKey', 'study.conversation.hours')
+            ->assertJsonPath('families.1.unit', 'hours')
+            ->assertJsonPath('families.2.key', 'sound-sponge')
+            ->assertJsonPath('families.3.hiddenUntilEarned', true)
+            ->assertJsonPath('families.5.tiers.0.threshold', 3)
+            ->assertJsonPath('families.10.key', 'archive')
+            ->assertJsonPath('families.10.tiers.8.threshold', 10000)
             ->assertJsonPath('families.0.tiers.0.assets.earned.png.128.width', 128);
 
         $asset = $response->json('families.0.tiers.0.assets.earned.png.128');
 
         $this->assertSame(
-            '/achievement-assets/matsuri-light-series-v1/first-ember/earned-128.png',
+            '/achievement-assets/card-muncher-series-v1/first-nibble/earned-128.png',
             $asset['path'],
         );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $asset['checksumSha256']);
@@ -60,7 +64,7 @@ class AchievementCatalogApiTest extends TestCase
         $publishedTierIds = [];
 
         foreach ($catalog['families'] as $family) {
-            $this->assertCount(7, $family['tiers']);
+            $this->assertNotEmpty($family['tiers']);
             $thresholds = array_column($family['tiers'], 'threshold');
             $sortedThresholds = $thresholds;
             sort($sortedThresholds, SORT_NUMERIC);

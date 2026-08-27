@@ -7,15 +7,15 @@ use RuntimeException;
 
 final class GetAchievementCatalogAction
 {
-    public const REVISION = 'achievement-collection-v2';
+    public const REVISION = 'achievement-collection-v3';
 
     private const CATALOG_PATH = 'achievement-assets/achievement-collection-v1/catalog.json';
 
     /** @return array<string, mixed> */
     public function handle(): array
     {
-        // The visual collection path remains stable because v2 changes criteria and
-        // history semantics only; every family asset keeps its immutable revision.
+        // The collection path remains stable while each family asset keeps its own
+        // immutable visual revision.
         $path = public_path(self::CATALOG_PATH);
 
         if (! is_file($path)) {

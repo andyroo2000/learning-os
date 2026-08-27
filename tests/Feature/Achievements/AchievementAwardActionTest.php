@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Achievements;
 
+use App\Domain\Achievements\Actions\CalculateAchievementMetricsAction;
 use App\Domain\Achievements\Actions\ReconcileAchievementAwardsAction;
 use App\Domain\Achievements\Actions\ResolveAchievementEarnedAtAction;
 use App\Domain\Achievements\Models\AchievementAward;
@@ -19,7 +20,13 @@ class AchievementAwardActionTest extends TestCase
     {
         $reconcile = app(ReconcileAchievementAwardsAction::class);
         $resolver = app(ResolveAchievementEarnedAtAction::class);
+        $metrics = app(CalculateAchievementMetricsAction::class);
 
+        $this->assertThrows(
+            fn () => $metrics->handle(0),
+            InvalidArgumentException::class,
+            'Achievement metric user ID must be positive.',
+        );
         $this->assertThrows(
             fn () => $reconcile->handle(0, []),
             InvalidArgumentException::class,

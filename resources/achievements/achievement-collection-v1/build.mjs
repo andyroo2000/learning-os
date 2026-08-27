@@ -7,8 +7,8 @@ import sharp from 'sharp';
 
 const sourceDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(sourceDirectory, '../../..');
-const revision = 'achievement-collection-v1';
-const outputDirectory = join(repositoryRoot, 'public', 'achievement-assets', revision);
+const revision = 'achievement-collection-v2';
+const outputDirectory = join(repositoryRoot, 'public', 'achievement-assets', 'achievement-collection-v1');
 const checkOnly = process.argv.includes('--check');
 const catalogSourcePath = join(sourceDirectory, 'catalog.source.json');
 const familyRevisions = {

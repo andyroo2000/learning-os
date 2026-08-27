@@ -45,6 +45,7 @@ class ImportConvoLabRehearsalData extends Command
         'decks',
         'courses',
         'study_import_jobs',
+        'achievement_awards',
         'study_milestones',
         'study_milestone_profiles',
         'study_settings',

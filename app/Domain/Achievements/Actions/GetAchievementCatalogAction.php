@@ -7,12 +7,16 @@ use RuntimeException;
 
 final class GetAchievementCatalogAction
 {
-    public const REVISION = 'achievement-collection-v1';
+    public const REVISION = 'achievement-collection-v2';
+
+    private const CATALOG_PATH = 'achievement-assets/achievement-collection-v1/catalog.json';
 
     /** @return array<string, mixed> */
     public function handle(): array
     {
-        $path = public_path('achievement-assets/'.self::REVISION.'/catalog.json');
+        // The visual collection path remains stable because v2 changes criteria and
+        // history semantics only; every family asset keeps its immutable revision.
+        $path = public_path(self::CATALOG_PATH);
 
         if (! is_file($path)) {
             throw new RuntimeException("Achievement catalog is missing at {$path}.");

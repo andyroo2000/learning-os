@@ -507,6 +507,13 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        DB::table('achievement_awards')->insert([
+            'user_id' => $existingUser->id,
+            'achievement_id' => 'card-muncher.first-nibble',
+            'earned_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
         $convoLabUserId = (string) Str::uuid();
         DB::table('admin_user_projections')->insert([
             'convolab_id' => $convoLabUserId,
@@ -643,6 +650,7 @@ class ConvoLabRehearsalImportCommandTest extends TestCase
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
         $this->assertDatabaseCount('study_milestones', 0);
+        $this->assertDatabaseCount('achievement_awards', 0);
         $this->assertDatabaseCount('study_milestone_profiles', 0);
         $this->assertDatabaseCount('card_learning_concepts', 0);
         $this->assertDatabaseCount('card_introduction_cohorts', 0);

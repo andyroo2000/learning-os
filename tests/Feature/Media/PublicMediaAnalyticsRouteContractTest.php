@@ -66,6 +66,11 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/achievements/progress',
+            'POST api/achievements/evaluate',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'POST api/achievements/evaluate',
             'GET|HEAD api/avatars/{avatarPath}',
         );
         $this->assertImmediatelyBefore(

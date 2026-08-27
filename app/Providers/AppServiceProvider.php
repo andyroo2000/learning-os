@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Achievements\Support\AchievementEvaluationRateLimiter;
 use App\Domain\Admin\Contracts\AdminAvatarImageProcessor;
 use App\Domain\Admin\Services\InterventionAdminAvatarImageProcessor;
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
@@ -365,6 +366,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for(
             ToolAudioSignedUrlRateLimiter::NAME,
             fn (Request $request): Limit => resolve(ToolAudioSignedUrlRateLimiter::class)->limit($request),
+        );
+
+        RateLimiter::for(
+            AchievementEvaluationRateLimiter::NAME,
+            fn (Request $request): Limit => resolve(AchievementEvaluationRateLimiter::class)->limit($request),
         );
 
         RateLimiter::for(

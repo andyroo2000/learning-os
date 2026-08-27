@@ -15,7 +15,7 @@ class CreateDailyAudioPracticeAction
     /**
      * Direct callers that omit the callback must arrange for generation to resume.
      *
-     * @param  null|callable(string): void  $afterCommit
+     * @param  null|callable(string, string|null): void  $afterCommit
      */
     public function handle(
         int $userId,
@@ -69,10 +69,19 @@ class CreateDailyAudioPracticeAction
                     ->sole();
             }
 
+            $staleGeneration = $practice->status === 'generating'
+                && $practice->updated_at !== null
+                && $practice->updated_at->lte(
+                    $now->copy()->subSeconds(DailyAudioPracticeGeneration::STALE_AFTER_SECONDS),
+                );
             $this->ensureTracks($practice);
 
-            if ($practice->status !== 'generating') {
+            if ($practice->status !== 'generating' || $staleGeneration) {
                 $this->resetTracks($practice);
+                // Each real generation attempt gets an independent queue identity.
+                // A stale retry can then queue behind older work without allowing
+                // that older run to commit or fail the replacement.
+                $practice->generation_run_id = (string) Str::uuid();
             }
 
             $practice->status = 'generating';
@@ -83,7 +92,8 @@ class CreateDailyAudioPracticeAction
             $practice->save();
 
             if ($afterCommit !== null) {
-                DB::afterCommit(static fn () => $afterCommit($practice->id));
+                $generationRunId = $practice->generation_run_id;
+                DB::afterCommit(static fn () => $afterCommit($practice->id, $generationRunId));
             }
 
             return $practice->load([

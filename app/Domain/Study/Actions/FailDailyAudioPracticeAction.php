@@ -9,16 +9,31 @@ use Illuminate\Support\Facades\DB;
 
 class FailDailyAudioPracticeAction
 {
-    public function handle(string $practiceId, string $message): bool
-    {
+    public function handle(
+        string $practiceId,
+        string $message,
+        ?string $generationRunId = null,
+        bool $requireMatchingRun = false,
+    ): bool {
         $practiceId = strtolower(trim($practiceId));
-        if (! DailyAudioPracticeId::isValid($practiceId)) {
+        $generationRunId = $generationRunId === null ? null : strtolower(trim($generationRunId));
+        if (! DailyAudioPracticeId::isValid($practiceId)
+            || ($generationRunId !== null && ! DailyAudioPracticeId::isValid($generationRunId))) {
             return false;
         }
 
-        return DB::transaction(function () use ($message, $practiceId): bool {
+        return DB::transaction(function () use (
+            $generationRunId,
+            $message,
+            $practiceId,
+            $requireMatchingRun,
+        ): bool {
             $practice = DailyAudioPractice::query()
                 ->whereKey($practiceId)
+                ->when(
+                    $requireMatchingRun,
+                    fn ($query) => $query->where('generation_run_id', $generationRunId),
+                )
                 ->lockForUpdate()
                 ->first();
 

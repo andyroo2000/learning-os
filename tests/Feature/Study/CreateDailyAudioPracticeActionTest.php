@@ -3,9 +3,11 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Study\Actions\CreateDailyAudioPracticeAction;
+use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -14,21 +16,33 @@ class CreateDailyAudioPracticeActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_generation_run_is_server_owned(): void
+    {
+        $this->assertFalse((new DailyAudioPractice)->isFillable('generation_run_id'));
+    }
+
     public function test_it_creates_a_practice_and_runs_the_lifecycle_callback_after_commit(): void
     {
         $user = User::factory()->create();
         $dispatchedId = null;
+        $dispatchedRunId = null;
 
         $practice = app(CreateDailyAudioPracticeAction::class)->handle(
             $user->id,
             '2026-07-19',
             DailyAudioPracticeGeneration::DEFAULT_TARGET_DURATION_MINUTES,
-            afterCommit: static function (string $practiceId) use (&$dispatchedId): void {
+            afterCommit: static function (string $practiceId, ?string $generationRunId) use (
+                &$dispatchedId,
+                &$dispatchedRunId,
+            ): void {
                 $dispatchedId = $practiceId;
+                $dispatchedRunId = $generationRunId;
             },
         );
 
         $this->assertSame($practice->id, $dispatchedId);
+        $this->assertTrue(Str::isUuid($dispatchedRunId));
+        $this->assertSame($practice->generation_run_id, $dispatchedRunId);
         $this->assertSame('generating', $practice->status);
         $this->assertCount(3, $practice->tracks);
     }

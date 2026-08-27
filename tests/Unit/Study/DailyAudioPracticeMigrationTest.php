@@ -69,6 +69,27 @@ class DailyAudioPracticeMigrationTest extends TestCase
         }
     }
 
+    #[DataProvider('grammarProvider')]
+    public function test_generation_run_migration_and_rollback_compile_for_supported_databases(
+        string $connectionClass,
+        string $grammarClass,
+    ): void {
+        $connection = $this->connection($connectionClass);
+        $connection->setSchemaGrammar(new $grammarClass($connection));
+        $add = new Blueprint($connection, 'daily_audio_practices', function (Blueprint $table): void {
+            $table->uuid('generation_run_id')->nullable()->after('status');
+        });
+        $drop = new Blueprint($connection, 'daily_audio_practices', function (Blueprint $table): void {
+            $table->dropColumn('generation_run_id');
+        });
+
+        $this->assertStringContainsString('generation_run_id', implode(' ', $add->toSql()));
+        $this->assertStringContainsString('generation_run_id', implode(' ', $drop->toSql()));
+        $this->assertFileExists(
+            LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_08_27_000000_add_generation_run_to_daily_audio_practices.php',
+        );
+    }
+
     /** @return array<string, array{class-string<Connection>, class-string<Grammar>}> */
     public static function grammarProvider(): array
     {

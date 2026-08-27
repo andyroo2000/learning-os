@@ -22,14 +22,19 @@ class ProcessDailyAudioPracticeAction
         private readonly DailyAudioTrackAssembler $trackAssembler,
     ) {}
 
-    public function handle(string $practiceId): void
-    {
+    public function handle(
+        string $practiceId,
+        ?string $generationRunId = null,
+        bool $requireMatchingRun = false,
+    ): void {
         $practiceId = strtolower(trim($practiceId));
-        if (! DailyAudioPracticeId::isValid($practiceId)) {
+        $generationRunId = $generationRunId === null ? null : strtolower(trim($generationRunId));
+        if (! DailyAudioPracticeId::isValid($practiceId)
+            || ($generationRunId !== null && ! DailyAudioPracticeId::isValid($generationRunId))) {
             return;
         }
 
-        $claimed = $this->claimGeneration($practiceId);
+        $claimed = $this->claimGeneration($practiceId, $generationRunId, $requireMatchingRun);
         if ($claimed === null) {
             return;
         }
@@ -44,7 +49,13 @@ class ProcessDailyAudioPracticeAction
             );
         }
 
-        $this->storeSelection($practice, $selected->clientCardIds(), $selected->summary);
+        $this->storeSelection(
+            $practice,
+            $selected->clientCardIds(),
+            $selected->summary,
+            $generationRunId,
+            $requireMatchingRun,
+        );
 
         $l1VoiceId = (string) config('daily_audio.l1_voice_id');
         $l2VoiceId = (string) config('daily_audio.l2_voice_id');
@@ -83,9 +94,21 @@ class ProcessDailyAudioPracticeAction
             );
         }
 
-        DB::transaction(function () use ($assembled, $atoms, $generated, $practice, $tracks): void {
+        DB::transaction(function () use (
+            $assembled,
+            $atoms,
+            $generated,
+            $generationRunId,
+            $practice,
+            $requireMatchingRun,
+            $tracks,
+        ): void {
             $lockedPractice = DailyAudioPractice::query()
                 ->whereKey($practice->id)
+                ->when(
+                    $requireMatchingRun,
+                    fn ($query) => $query->where('generation_run_id', $generationRunId),
+                )
                 ->lockForUpdate()
                 ->first();
             if ($lockedPractice === null || $lockedPractice->status !== 'generating') {
@@ -126,11 +149,22 @@ class ProcessDailyAudioPracticeAction
      *     tracks: array<string, DailyAudioPracticeTrack>
      * }
      */
-    private function claimGeneration(string $practiceId): ?array
-    {
-        return DB::transaction(function () use ($practiceId): ?array {
+    private function claimGeneration(
+        string $practiceId,
+        ?string $generationRunId,
+        bool $requireMatchingRun,
+    ): ?array {
+        return DB::transaction(function () use (
+            $generationRunId,
+            $practiceId,
+            $requireMatchingRun,
+        ): ?array {
             $lockedPractice = DailyAudioPractice::query()
                 ->whereKey($practiceId)
+                ->when(
+                    $requireMatchingRun,
+                    fn ($query) => $query->where('generation_run_id', $generationRunId),
+                )
                 ->lockForUpdate()
                 ->first();
 
@@ -172,10 +206,16 @@ class ProcessDailyAudioPracticeAction
         DailyAudioPractice $practice,
         array $cardIds,
         array $summary,
+        ?string $generationRunId,
+        bool $requireMatchingRun,
     ): void {
         DailyAudioPractice::query()
             ->whereKey($practice->id)
             ->where('status', 'generating')
+            ->when(
+                $requireMatchingRun,
+                fn ($query) => $query->where('generation_run_id', $generationRunId),
+            )
             ->update([
                 'source_card_ids_json' => $cardIds,
                 'selection_summary_json' => $summary,

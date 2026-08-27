@@ -21,6 +21,8 @@ use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Jobs\ProcessDailyAudioPractice;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Mockery\MockInterface;
 use RuntimeException;
@@ -33,16 +35,29 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
     public function test_it_has_a_bounded_retry_timeout_and_uniqueness_envelope(): void
     {
         $practiceId = '33CB3D35-8566-4DD5-AEBE-AF1725C3D18A';
-        $job = new ProcessDailyAudioPractice("  {$practiceId}  ");
+        $runId = '4762C0E6-FB17-42A6-8284-8A9DE93620F0';
+        $job = new ProcessDailyAudioPractice("  {$practiceId}  ", "  {$runId}  ");
 
         $this->assertInstanceOf(ShouldBeUnique::class, $job);
         $this->assertSame(strtolower($practiceId), $job->practiceId);
-        $this->assertSame(2, $job->tries);
+        $this->assertSame(strtolower($runId), $job->generationRunId);
+        $this->assertSame(60, $job->tries);
+        $this->assertSame(2, $job->maxExceptions);
         $this->assertSame(3500, $job->timeout);
         $this->assertTrue($job->failOnTimeout);
         $this->assertSame([30], $job->backoff());
-        $this->assertSame(strtolower($practiceId), $job->uniqueId());
+        $this->assertSame(strtolower($practiceId).':'.strtolower($runId), $job->uniqueId());
         $this->assertSame('default', $job->queue);
+        $middleware = $job->middleware();
+        $this->assertCount(1, $middleware);
+        $this->assertInstanceOf(WithoutOverlapping::class, $middleware[0]);
+        $this->assertSame('daily-audio-practice:'.strtolower($practiceId), $middleware[0]->key);
+        $this->assertSame(60, $middleware[0]->releaseAfter);
+        $this->assertSame(3560, $middleware[0]->expiresAfter);
+        $this->assertSame(
+            strtolower($practiceId),
+            (new ProcessDailyAudioPractice($practiceId))->uniqueId(),
+        );
     }
 
     public function test_it_rejects_malformed_job_identifiers(): void
@@ -50,6 +65,38 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new ProcessDailyAudioPractice('not-a-uuid');
+    }
+
+    public function test_it_rejects_a_malformed_generation_run_identifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new ProcessDailyAudioPractice(
+            '33cb3d35-8566-4dd5-aebe-af1725c3d18a',
+            'not-a-uuid',
+        );
+    }
+
+    public function test_obsolete_generation_run_cannot_claim_or_mutate_replacement_state(): void
+    {
+        $replacementRunId = (string) Str::uuid();
+        $practice = DailyAudioPractice::factory()->create([
+            'status' => 'generating',
+            'generation_run_id' => $replacementRunId,
+        ]);
+        $track = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+            'status' => 'draft',
+        ]);
+
+        app(ProcessDailyAudioPracticeAction::class)->handle(
+            $practice->id,
+            (string) Str::uuid(),
+            requireMatchingRun: true,
+        );
+
+        $this->assertSame('generating', $practice->refresh()->status);
+        $this->assertSame('draft', $track->refresh()->status);
+        $this->assertSame($replacementRunId, $practice->generation_run_id);
     }
 
     public function test_it_generates_and_persists_all_three_tracks(): void
@@ -63,8 +110,10 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             'daily_audio.dialogue_speaker_b_voice_id',
             'fishaudio:sato',
         );
+        $runId = (string) Str::uuid();
         $practice = DailyAudioPractice::factory()->create([
             'status' => 'generating',
+            'generation_run_id' => $runId,
         ]);
         $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
             'status' => 'draft',
@@ -178,7 +227,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                 ->andReturn($assembled);
         });
 
-        (new ProcessDailyAudioPractice($practice->id))
+        (new ProcessDailyAudioPractice($practice->id, $runId))
             ->handle(app(ProcessDailyAudioPracticeAction::class));
 
         $practice->refresh();
@@ -248,7 +297,13 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
 
     public function test_processor_rejects_malformed_direct_action_ids_before_querying(): void
     {
-        app(ProcessDailyAudioPracticeAction::class)->handle('not-a-uuid');
+        $process = app(ProcessDailyAudioPracticeAction::class);
+        $process->handle('not-a-uuid');
+        $process->handle(
+            '33cb3d35-8566-4dd5-aebe-af1725c3d18a',
+            'not-a-uuid',
+            requireMatchingRun: true,
+        );
 
         $this->assertDatabaseCount('daily_audio_practices', 0);
     }
@@ -376,14 +431,38 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $this->assertDatabaseCount('daily_audio_practices', 1);
     }
 
+    public function test_failed_callback_from_an_obsolete_run_does_not_fail_the_replacement(): void
+    {
+        $replacementRunId = (string) Str::uuid();
+        $practice = DailyAudioPractice::factory()->create([
+            'status' => 'generating',
+            'generation_run_id' => $replacementRunId,
+        ]);
+
+        (new ProcessDailyAudioPractice($practice->id, (string) Str::uuid()))
+            ->failed(new RuntimeException('Obsolete run failed.'));
+
+        $practice->refresh();
+        $this->assertSame('generating', $practice->status);
+        $this->assertNull($practice->error_message);
+        $this->assertSame($replacementRunId, $practice->generation_run_id);
+    }
+
     public function test_failure_action_rejects_malformed_direct_ids_before_querying(): void
     {
         $changed = app(FailDailyAudioPracticeAction::class)->handle(
             'not-a-uuid',
             DailyAudioPracticeGeneration::FAILED_MESSAGE,
         );
+        $invalidRunChanged = app(FailDailyAudioPracticeAction::class)->handle(
+            '33cb3d35-8566-4dd5-aebe-af1725c3d18a',
+            DailyAudioPracticeGeneration::FAILED_MESSAGE,
+            generationRunId: 'not-a-uuid',
+            requireMatchingRun: true,
+        );
 
         $this->assertFalse($changed);
+        $this->assertFalse($invalidRunChanged);
         $this->assertDatabaseCount('daily_audio_practices', 0);
     }
 }

@@ -30,6 +30,9 @@ class AchievementCatalogApiTest extends TestCase
             ->assertJsonCount(7, 'families.0.tiers')
             ->assertJsonPath('families.0.key', 'yearfire')
             ->assertJsonPath('families.0.metricKey', 'cards.stability_365d.count')
+            ->assertJsonPath('families.0.tiers.0.earnedDescription', 'Kept 25 cards stable for a year')
+            ->assertJsonPath('families.1.tiers.6.earnedDescription', 'Completed 25,000 reviews')
+            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Logged 1,000 conversation minutes')
             ->assertJsonPath('families.2.metricKey', 'study.conversation.minutes')
             ->assertJsonPath('families.2.unit', 'minutes')
             ->assertJsonPath('families.0.tiers.0.assets.earned.png.128.width', 128);
@@ -60,6 +63,7 @@ class AchievementCatalogApiTest extends TestCase
 
             foreach ($family['tiers'] as $tier) {
                 $publishedTierIds[] = "{$family['key']}.{$tier['key']}";
+                $this->assertNotSame('', $tier['earnedDescription']);
 
                 foreach (['earned', 'locked'] as $state) {
                     foreach ([64, 128, 256, 512] as $size) {

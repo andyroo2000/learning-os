@@ -65,6 +65,8 @@ class StudyOverviewCompatibilityResource extends JsonResource
             'reviewTimeBudgetMinutes' => $readiness['review_time_budget_minutes'],
             'reviewTimeHeadroomMinutes' => $readiness['review_time_headroom_minutes'],
             'suggestedBatchSize' => $readiness['suggested_batch_size'],
+            'displayStatus' => $readiness['display_status'],
+            'displaySummary' => $readiness['display_summary'],
         ];
     }
 

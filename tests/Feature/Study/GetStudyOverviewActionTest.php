@@ -453,6 +453,11 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(30, $overview['learning_readiness']['sample_size']);
         $this->assertSame(0.667, $overview['learning_readiness']['recent_recall']);
         $this->assertSame(3, $overview['learning_readiness']['suggested_batch_size']);
+        $this->assertSame('Reviews first recommended', $overview['learning_readiness']['display_status']);
+        $this->assertSame(
+            'Recent recall is 67% against a 90% target. 1 Apprentice card needs reinforcement, with 2 reviews projected over seven days.',
+            $overview['learning_readiness']['display_summary'],
+        );
     }
 
     public function test_it_reports_separate_n5_vocabulary_and_grammar_mastery_using_the_strongest_linked_card(): void
@@ -651,6 +656,11 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame(20, $withinBudget['learning_readiness']['review_time_headroom_minutes']);
         $this->assertSame('ready', $withinBudget['learning_readiness']['readiness_level']);
         $this->assertSame('ready', $withinBudget['learning_readiness']['recommendation']);
+        $this->assertSame('Ready to learn', $withinBudget['learning_readiness']['display_status']);
+        $this->assertSame(
+            'Recent recall is 95% against a 90% target. 70 Apprentice cards need reinforcement, with 70 reviews projected over seven days.',
+            $withinBudget['learning_readiness']['display_summary'],
+        );
 
         $settings->review_time_budget_minutes = 110;
         $settings->saveOrFail();
@@ -668,6 +678,7 @@ class GetStudyOverviewActionTest extends TestCase
         $this->assertSame('ease_up', $overBudget['learning_readiness']['readiness_level']);
         $this->assertSame('caution', $overBudget['learning_readiness']['recommendation']);
         $this->assertSame(-10, $overBudget['learning_readiness']['review_time_headroom_minutes']);
+        $this->assertSame('Add carefully', $overBudget['learning_readiness']['display_status']);
 
         CardReviewEvent::query()->where('card_id', $reviewedCard->id)->update([
             'rating' => CardReviewRating::Good->value,

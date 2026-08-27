@@ -62,6 +62,11 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonPath('latestImport', null)
                 ->assertJsonFragment(['latestImport' => null])
                 ->assertJsonPath('learningReadiness.readinessLevel', 'baseline')
+                ->assertJsonPath('learningReadiness.displayStatus', 'Ready to learn')
+                ->assertJsonPath(
+                    'learningReadiness.displaySummary',
+                    'Building a recommendation from your first 30 answers (0 so far). Current seven-day workload: 1 review.',
+                )
                 ->assertJsonPath(
                     'learningReadiness.reviewTimeBudgetMinutes',
                     StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,

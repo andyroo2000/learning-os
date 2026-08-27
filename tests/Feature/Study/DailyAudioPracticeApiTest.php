@@ -8,6 +8,7 @@ use App\Domain\Study\Actions\ShowDailyAudioPracticeStatusAction;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -91,15 +92,20 @@ class DailyAudioPracticeApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 5)
             ->assertJsonPath('limit', 2)
-            ->assertJsonPath('nextCursor', '2')
             ->assertJsonCount(2, 'items');
-        $second = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=2&limit=2')
+        $firstCursor = $first->json('nextCursor');
+        $this->assertIsString($firstCursor);
+        $this->assertNotSame('2', $firstCursor);
+
+        $second = $this->getJson('/api/daily-audio-practice?paginated=1&cursor='.rawurlencode($firstCursor).'&limit=2')
             ->assertOk()
             ->assertJsonPath('total', 5)
             ->assertJsonPath('limit', 2)
-            ->assertJsonPath('nextCursor', '4')
             ->assertJsonCount(2, 'items');
-        $last = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=4&limit=2')
+        $secondCursor = $second->json('nextCursor');
+        $this->assertIsString($secondCursor);
+
+        $last = $this->getJson('/api/daily-audio-practice?paginated=1&cursor='.rawurlencode($secondCursor).'&limit=2')
             ->assertOk()
             ->assertJsonPath('total', 5)
             ->assertJsonPath('limit', 2)
@@ -120,7 +126,86 @@ class DailyAudioPracticeApiTest extends TestCase
             ->assertJsonMissingPath('items');
     }
 
-    public function test_paginated_index_validates_bounded_integer_inputs(): void
+    public function test_paginated_index_accepts_a_deployed_numeric_offset_then_upgrades_to_a_stable_cursor(): void
+    {
+        $user = $this->signIn();
+        foreach (range(0, 4) as $daysAgo) {
+            DailyAudioPractice::factory()->for($user)->create([
+                'practice_date' => today()->subDays($daysAgo),
+            ]);
+        }
+        $expectedIds = DailyAudioPractice::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('practice_date')
+            ->orderByDesc('id')
+            ->pluck('id')
+            ->slice(2, 2)
+            ->values()
+            ->all();
+
+        $response = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=%2B02&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->assertJsonCount(2, 'items');
+
+        $this->assertSame($expectedIds, collect($response->json('items'))->pluck('id')->all());
+        $this->assertIsString($response->json('nextCursor'));
+        $this->assertNotSame('4', $response->json('nextCursor'));
+    }
+
+    public function test_paginated_index_normalizes_legacy_query_values_without_trim_middleware(): void
+    {
+        $user = $this->signIn();
+        foreach (range(0, 2) as $daysAgo) {
+            DailyAudioPractice::factory()->for($user)->create([
+                'practice_date' => today()->subDays($daysAgo),
+            ]);
+        }
+
+        $this->withoutMiddleware(TrimStrings::class)
+            ->getJson('/api/daily-audio-practice?paginated=1&cursor=%200%20&limit=%202%20')
+            ->assertOk()
+            ->assertJsonPath('total', 3)
+            ->assertJsonPath('limit', 2)
+            ->assertJsonCount(2, 'items');
+    }
+
+    public function test_keyset_cursor_does_not_duplicate_or_skip_older_practices_after_an_insert(): void
+    {
+        $user = $this->signIn();
+        foreach (range(1, 4) as $daysAgo) {
+            DailyAudioPractice::factory()->for($user)->create([
+                'practice_date' => today()->subDays($daysAgo),
+            ]);
+        }
+        $expectedOlderIds = DailyAudioPractice::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('practice_date')
+            ->orderByDesc('id')
+            ->pluck('id')
+            ->slice(2)
+            ->values()
+            ->all();
+
+        $first = $this->getJson('/api/daily-audio-practice?paginated=1&cursor=0&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 4)
+            ->assertJsonCount(2, 'items');
+        DailyAudioPractice::factory()->for($user)->create([
+            'practice_date' => today(),
+        ]);
+
+        $second = $this->getJson('/api/daily-audio-practice?paginated=1&cursor='.
+            rawurlencode($first->json('nextCursor')).'&limit=2')
+            ->assertOk()
+            ->assertJsonPath('total', 5)
+            ->assertJsonPath('nextCursor', null)
+            ->assertJsonCount(2, 'items');
+
+        $this->assertSame($expectedOlderIds, collect($second->json('items'))->pluck('id')->all());
+    }
+
+    public function test_paginated_index_validates_bounded_and_malformed_inputs(): void
     {
         $this->signIn();
 
@@ -130,6 +215,12 @@ class DailyAudioPracticeApiTest extends TestCase
         $this->getJson('/api/daily-audio-practice?paginated=1&cursor[]=0&limit[]=14')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['cursor', 'limit']);
+        $this->getJson('/api/daily-audio-practice?paginated=1&cursor=not-a-cursor')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor']);
+        $this->getJson('/api/daily-audio-practice?paginated=1&cursor=999999999999999999999999')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor']);
     }
 
     public function test_paginated_action_rejects_out_of_range_direct_callers(): void
@@ -148,6 +239,18 @@ class DailyAudioPracticeApiTest extends TestCase
             } catch (\InvalidArgumentException $exception) {
                 $this->assertSame(
                     'Daily audio pagination is out of range.',
+                    $exception->getMessage(),
+                );
+            }
+        }
+
+        foreach (['', 'not-a-cursor', '999999999999999999999999'] as $cursor) {
+            try {
+                $action->handlePage($user->id, $cursor, 1);
+                $this->fail("Expected cursor {$cursor} to be rejected.");
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame(
+                    'Invalid daily audio practice cursor.',
                     $exception->getMessage(),
                 );
             }

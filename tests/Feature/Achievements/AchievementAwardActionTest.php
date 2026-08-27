@@ -90,6 +90,8 @@ class AchievementAwardActionTest extends TestCase
             $resolver->handle($user->id, 'reviews.old-friend.count', 1);
             $resolver->handle($user->id, 'reviews.correct-run.longest', 10);
             $resolver->handle($user->id, 'reviews.correct-run.longest', 25);
+            $resolver->handle($user->id, 'cards.mastery.guru.ever.count', 1);
+            $resolver->handle($user->id, 'cards.mastery.burned.ever.count', 1);
             $queries = DB::getQueryLog();
         } finally {
             DB::disableQueryLog();
@@ -103,7 +105,7 @@ class AchievementAwardActionTest extends TestCase
         $this->assertCount(
             1,
             $timelineQueries,
-            'Old Friend and every correct-run tier must reuse one chronological review query.',
+            'Review, correct-run, and mastery award dates must reuse one chronological review query.',
         );
     }
 

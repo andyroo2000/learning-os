@@ -22,7 +22,13 @@ final class ResolveAchievementEarnedAtAction
     /** @var array<int, array<string, list<CarbonImmutable>>> */
     private array $masteryDates = [];
 
-    /** @var array<int, array{oldFriend: ?CarbonImmutable, correctRun: array<int, CarbonImmutable>}> */
+    /**
+     * @var array<int, array{
+     *     oldFriend: ?CarbonImmutable,
+     *     correctRun: array<int, CarbonImmutable>,
+     *     mastery: array<string, array<string, CarbonImmutable>>
+     * }>
+     */
     private array $reviewAchievementDates = [];
 
     /**
@@ -119,7 +125,13 @@ final class ResolveAchievementEarnedAtAction
         return $this->reviewAchievementDates($userId)['correctRun'][$threshold] ?? null;
     }
 
-    /** @return array{oldFriend: ?CarbonImmutable, correctRun: array<int, CarbonImmutable>} */
+    /**
+     * @return array{
+     *     oldFriend: ?CarbonImmutable,
+     *     correctRun: array<int, CarbonImmutable>,
+     *     mastery: array<string, array<string, CarbonImmutable>>
+     * }
+     */
     private function reviewAchievementDates(int $userId): array
     {
         if (array_key_exists($userId, $this->reviewAchievementDates)) {
@@ -130,6 +142,7 @@ final class ResolveAchievementEarnedAtAction
         $oldFriend = null;
         $run = 0;
         $correctRun = [];
+        $mastery = array_fill_keys(array_keys($this->masteryMinimums()), []);
 
         foreach ($this->reviewTimeline($userId) as $event) {
             $cardId = (string) $event->card_id;
@@ -145,11 +158,20 @@ final class ResolveAchievementEarnedAtAction
             if ($run > 0 && ! isset($correctRun[$run])) {
                 $correctRun[$run] = CarbonImmutable::instance($event->reviewed_at);
             }
+
+            $stability = $event->scheduler_state_after['stability'] ?? 0;
+            $stability = is_int($stability) || is_float($stability) ? (float) $stability : 0.0;
+            foreach ($this->masteryMinimums() as $metric => $minimum) {
+                if ($stability >= $minimum && ! isset($mastery[$metric][$cardId])) {
+                    $mastery[$metric][$cardId] = CarbonImmutable::instance($event->reviewed_at);
+                }
+            }
         }
 
         return $this->reviewAchievementDates[$userId] = [
             'oldFriend' => $oldFriend,
             'correctRun' => $correctRun,
+            'mastery' => $mastery,
         ];
     }
 
@@ -177,23 +199,8 @@ final class ResolveAchievementEarnedAtAction
             return $this->masteryDates[$userId];
         }
 
-        $minimums = [
-            GetAchievementProgressAction::GURU_CARD_METRIC => StudyMasteryLevel::GURU_STABILITY_DAYS,
-            GetAchievementProgressAction::MASTER_CARD_METRIC => StudyMasteryLevel::MASTER_STABILITY_DAYS,
-            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => StudyMasteryLevel::ENLIGHTENED_STABILITY_DAYS,
-            GetAchievementProgressAction::BURNED_CARD_METRIC => StudyMasteryLevel::BURNED_STABILITY_DAYS,
-        ];
-        $firstDates = array_fill_keys(array_keys($minimums), []);
-
-        foreach ($this->reviewTimeline($userId) as $event) {
-            $stability = $event->scheduler_state_after['stability'] ?? 0;
-            $stability = is_int($stability) || is_float($stability) ? (float) $stability : 0.0;
-            foreach ($minimums as $metric => $minimum) {
-                if ($stability >= $minimum && ! isset($firstDates[$metric][$event->card_id])) {
-                    $firstDates[$metric][$event->card_id] = CarbonImmutable::instance($event->reviewed_at);
-                }
-            }
-        }
+        $minimums = $this->masteryMinimums();
+        $firstDates = $this->reviewAchievementDates($userId)['mastery'];
 
         $cards = Card::query()
             ->withTrashed()
@@ -219,6 +226,17 @@ final class ResolveAchievementEarnedAtAction
         }
 
         return $this->masteryDates[$userId] = $firstDates;
+    }
+
+    /** @return array<string, int> */
+    private function masteryMinimums(): array
+    {
+        return [
+            GetAchievementProgressAction::GURU_CARD_METRIC => StudyMasteryLevel::GURU_STABILITY_DAYS,
+            GetAchievementProgressAction::MASTER_CARD_METRIC => StudyMasteryLevel::MASTER_STABILITY_DAYS,
+            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => StudyMasteryLevel::ENLIGHTENED_STABILITY_DAYS,
+            GetAchievementProgressAction::BURNED_CARD_METRIC => StudyMasteryLevel::BURNED_STABILITY_DAYS,
+        ];
     }
 
     private function reviewTimeline(int $userId): LazyCollection

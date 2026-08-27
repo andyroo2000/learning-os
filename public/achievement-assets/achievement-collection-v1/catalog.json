@@ -4,8 +4,13 @@
   "generatedBy": "resources/achievements/achievement-collection-v1/build.mjs",
   "design": {
     "canvas": 256,
+    "displaySize": 128,
     "standardAssetSize": 256,
     "retinaAssetSize": 512,
+    "sourcePixelsPerDisplayPixel": {
+      "standard": 2,
+      "retina": 4
+    },
     "pixelDensityVariants": {
       "1x": 256,
       "2x": 512
@@ -987,7 +992,7 @@
           "key": "first-roar",
           "title": "First Roar",
           "threshold": 25,
-          "earnedDescription": "Logged 25 conversation minutes",
+          "earnedDescription": "Spoke for 25 minutes",
           "description": "Log 25 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1053,7 +1058,7 @@
           "key": "echo-call",
           "title": "Echo Call",
           "threshold": 100,
-          "earnedDescription": "Logged 100 conversation minutes",
+          "earnedDescription": "Spoke for 100 minutes",
           "description": "Log 100 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1119,7 +1124,7 @@
           "key": "city-voice",
           "title": "City Voice",
           "threshold": 250,
-          "earnedDescription": "Logged 250 conversation minutes",
+          "earnedDescription": "Spoke for 250 minutes",
           "description": "Log 250 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1185,7 +1190,7 @@
           "key": "mountain-caller",
           "title": "Mountain Caller",
           "threshold": 500,
-          "earnedDescription": "Logged 500 conversation minutes",
+          "earnedDescription": "Spoke for 500 minutes",
           "description": "Log 500 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1251,7 +1256,7 @@
           "key": "thunder-voice",
           "title": "Thunder Voice",
           "threshold": 1000,
-          "earnedDescription": "Logged 1,000 conversation minutes",
+          "earnedDescription": "Spoke for 1,000 minutes",
           "description": "Log 1,000 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1317,7 +1322,7 @@
           "key": "island-shaker",
           "title": "Island Shaker",
           "threshold": 2500,
-          "earnedDescription": "Logged 2,500 conversation minutes",
+          "earnedDescription": "Spoke for 2,500 minutes",
           "description": "Log 2,500 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1383,7 +1388,7 @@
           "key": "sky-splitter",
           "title": "Sky Splitter",
           "threshold": 5000,
-          "earnedDescription": "Logged 5,000 conversation minutes",
+          "earnedDescription": "Spoke for 5,000 minutes",
           "description": "Log 5,000 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
@@ -1452,7 +1457,7 @@
   "sources": {
     "criteria": {
       "path": "resources/achievements/achievement-collection-v1/catalog.source.json",
-      "checksumSha256": "2cb5ec1b4afa42b6c21214cae11ae1f46d083c6a1ceb03af62135604bd38a082"
+      "checksumSha256": "21b085f7cfb3d15e771fad86f369a70a55c71d9432cfeab5510254e98c964894"
     },
     "visuals": {
       "roarer": {

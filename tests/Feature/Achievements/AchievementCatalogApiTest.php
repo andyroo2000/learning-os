@@ -30,6 +30,8 @@ class AchievementCatalogApiTest extends TestCase
             ->assertJsonCount(7, 'families.0.tiers')
             ->assertJsonPath('families.0.key', 'yearfire')
             ->assertJsonPath('families.0.metricKey', 'cards.stability_365d.count')
+            ->assertJsonPath('families.2.metricKey', 'study.conversation.minutes')
+            ->assertJsonPath('families.2.unit', 'minutes')
             ->assertJsonPath('families.0.tiers.0.assets.earned.png.128.width', 128);
 
         $asset = $response->json('families.0.tiers.0.assets.earned.png.128');

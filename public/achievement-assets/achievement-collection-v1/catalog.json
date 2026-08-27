@@ -1,5 +1,5 @@
 {
-  "revision": "achievement-collection-v2",
+  "revision": "achievement-collection-v3",
   "status": "production",
   "generatedBy": "resources/achievements/achievement-collection-v1/build.mjs",
   "design": {
@@ -36,481 +36,10 @@
     "noDataFallbackTierIds": [
       "card-muncher.first-nibble",
       "roarer.first-roar",
-      "yearfire.first-ember"
+      "sound-sponge.first-echo"
     ]
   },
   "families": [
-    {
-      "key": "yearfire",
-      "title": "Matsuri Light",
-      "metricKey": "cards.stability_365d.count",
-      "unit": "cards",
-      "tiers": [
-        {
-          "key": "first-ember",
-          "title": "First Ember",
-          "threshold": 25,
-          "earnedDescription": "Kept 25 cards stable for a year",
-          "description": "25 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "979f1debd32298f878da119f7c1b87d3791b5ff0c4bc49d196d83bd22ed56ae5"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "33a8c640c2e534933178ad65b318d5370ff4c8e7c6dd97f9353838f1ee5774bc"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "e2ce30ef044575eb344667bff9a1a88240b9540d4f84529f2581e0556cca0324"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "8622b7614b2cc12e82c4b04ad49368f4b0633fcb4440e803e5e937cd2f296138"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "2f67367a587c19055f0caee8be5618a37934ef8070b80b789181989b8103618d"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "9c553089d96f6ad24d1584451781d19e566d4712b33ca26b24ffe630bfc535ac"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "2faf262a1fb7f3ea861f5a1505fe6091fcc9d68f3bc098579c84a73ed36d312a"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/first-ember/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "201b09b4555322bf2da16bbd45d8557d3c9b313093b8dc17132120a6d0fe6457"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "paper-glow",
-          "title": "Paper Glow",
-          "threshold": 100,
-          "earnedDescription": "Kept 100 cards stable for a year",
-          "description": "100 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "f13b23e4c3c483ac7b07752f4ce2bcde48cd11d7da5b84416c5c593144621a57"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "33237a46c94defac9373f2a03c25644bca56f6abd6bf14ed7212bf9918ee6a46"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "37807e93d984a7daaf4ae3aef0a58585a0e7613bf374f23ce543f49e41a950e5"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "083d16525ebdf5ba001d3bcb911d19d488c9f6deb8fd5efe1c18daedd4ee0860"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "1339cbc953c2db74b876bfbfdaf4c0a517d5dc1bedadd24a1c8f8ee50425c871"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "0dd216cddad7d5603150a03ec0aecf21d3d0e7bf1056dc128992322e75b63c06"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "da98fa36923aa46a9d73b8b62ac6c5b3af9dca52351087ca50ecef02f28f2b7b"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/paper-glow/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "a034295c52256b68d36b84f1f04b2b59a51853a81005240042d47652a8c3bdb3"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "lantern-heart",
-          "title": "Lantern Heart",
-          "threshold": 250,
-          "earnedDescription": "Kept 250 cards stable for a year",
-          "description": "250 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "115c5f616318c92bc9006b9e8807f9ff5ca681ea43c1709c4ed781820bf6f6f5"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "52cfc609f552b14687388982a4d31ce345243c6c2f062d586e5819999af1eb91"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "343e3c992041ad86e86fe3ba0951697eeb9e5c0bffb28964e7fd8d9ca90c0633"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "41dd4d6c8842de6b0f32373f8f110d519d87fb6d999da65b6830d1ba9de9e686"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "2f558af6ba35a917192ea1b2d3a843db555a4682730238bb1a7a63eca769097d"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "f9071315ae1420f48520cb7eef33c190cc59871b28d02b871391c5358065cfa5"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "63684727b4ed5d1f6aeb57e3828fff9c998032a72cde8a6d713c8eb06f5836cc"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/lantern-heart/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "0121c87da3fc28f16574884d18c875a0e8768efd5928d90154d17f4800ea45b3"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "festival-gate",
-          "title": "Festival Gate",
-          "threshold": 500,
-          "earnedDescription": "Kept 500 cards stable for a year",
-          "description": "500 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "a9e6a471af80d76a8f1d25ceba5f2be7049a7c4ec43eb96ce803c75495171e0c"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "b4931d3c8c11de9a8c3f37c7ba795c3b1392c096dfbe7a4240245ddbd4574f3c"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "0653c9e5159be95827c3a69dc0de400befcdff999fe0c1f55ab52897e434406e"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "d3b88b3d8422e3aea01724651cf4b090f582c9a51a133c3c27f2f3beda717bf4"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "3e84c7462458c6f539f14e9fae762e863f42d321e7d8eeda4ff82f1f164258e3"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "cce36da7305c2fb6b0e7f1c1439f7d9df73e31aecb2d5c5ba8b8f60f51e7d432"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "2c571a11cfe26dd3ca6783879f0eaaec6a4e6385ee8d3ead845cbd50f3d1bac9"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/festival-gate/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "230c77aac71d901a7e8e5064f6b9a054764cbf13835a5487e1c7c3715197a90d"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "night-parade",
-          "title": "Night Parade",
-          "threshold": 1000,
-          "earnedDescription": "Kept 1,000 cards stable for a year",
-          "description": "1,000 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "f72822ea633c3e81d8761814e07c511e01f0f410f0726e3eb702a9c4f8b82a76"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "9cf5e1b3ee660a6de6f543d8b5596285f4be8ace8a87ced7ca89671c16e207af"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "ae5f8b964bc6f2b4d31b8dd1f30cbf601b77c32cddc07fc736a40613cec6e145"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "5dec5416ac1c380d4b889c397065a3b6d20975c408eb7b849864b4b7dc72666f"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "e0e7f19bd8a8b2952e76cae4cd808847ab5cc78c9438fbf0f269aa3c9eea7b08"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "ef4eca9c52461466c68a499ef79f475d2cb2ed0d979214fb021d76d64e434c3c"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "8cacf3c36d9bd3e80631064d6f6220c61101692f421ef5911e2ca19d9be61db5"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/night-parade/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "2e66bdf54d425ddd2c0041ede4f1f8eb53c30d205479fff47a5841b97e584541"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "sky-of-lanterns",
-          "title": "Sky of Lanterns",
-          "threshold": 2500,
-          "earnedDescription": "Kept 2,500 cards stable for a year",
-          "description": "2,500 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "65e8a7ea64d9b5077279e6754d67aa002698f7c6ff495533f94d2f4d04881271"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "a4968dfbb1c233446b020ab9b5f53090de0fe9963e104f5d6adf150987d07dfd"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "611f7788f77edc9d285f26e92b4c01cbce2c8a9fc37b461c2694f62093a4efeb"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "8a654083fd272cd76146e7d34b259a7e45251069f9f3e4323a770fed91519cf8"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "774056240a27ea4af02b4146f1b85c8db3e6b27c7e430aa8904e32a6d437a605"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "8ee0594208da5ec484a438f4585ca345e14c8f520f2634b321be2e33ffaa2587"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "fe0fddc64b9238b63ea7df57418769eb10fa1ed9f92c87fcdcaf3d05e35732df"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/sky-of-lanterns/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "253a899ced9b6c07cf4996181f4405390e9d726a49a494b0acb0337bd129a8e1"
-                }
-              }
-            }
-          }
-        },
-        {
-          "key": "eternal-sunrise",
-          "title": "Eternal Sunrise",
-          "threshold": 5000,
-          "earnedDescription": "Kept 5,000 cards stable for a year",
-          "description": "5,000 cards have reached one year of memory stability.",
-          "assetRevision": "matsuri-light-series-v1",
-          "assets": {
-            "earned": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "fd25e8795198cf843695bc291626751d5bf250cf7a2e138d8ba22a8162ddaec6"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "d290064a80466be3f529776584e862219a9484c046e60d85b01287bba0d6ad4d"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "3a0d4b95b18f8ac7686ac3cec4c30d5d0f941fdb0dcb4cbc7b4cf40761194da7"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/earned-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "5b4fe0ccaf29a29676b317fd6ce6a19847983201eee5f3ad9aa7e5b13234a556"
-                }
-              }
-            },
-            "locked": {
-              "png": {
-                "64": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-64.png",
-                  "width": 64,
-                  "height": 64,
-                  "checksumSha256": "cc20ea22e04afc95db71f34bd07c517693beff3678531a04b5f64646d04aa2e2"
-                },
-                "128": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-128.png",
-                  "width": 128,
-                  "height": 128,
-                  "checksumSha256": "7cfa3e1079fbee9acea2ee4af4366d56471a99aa64ff37d0ee0880358e8e8080"
-                },
-                "256": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-256.png",
-                  "width": 256,
-                  "height": 256,
-                  "checksumSha256": "576deb3ffcaa89499d02e2268b0500947dea1463caa235e415a6aace16aa6f99"
-                },
-                "512": {
-                  "path": "/achievement-assets/matsuri-light-series-v1/eternal-sunrise/locked-512.png",
-                  "width": 512,
-                  "height": 512,
-                  "checksumSha256": "aa711233dc9676283b6cb71663fcd226afb3a13d42e7cc6178108687f889ea52"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "visualRevision": "matsuri-light-series-v1"
-    },
     {
       "key": "card-muncher",
       "title": "Card Muncher",
@@ -1452,12 +981,3462 @@
         }
       ],
       "visualRevision": "roarer-series-v7"
+    },
+    {
+      "key": "sound-sponge",
+      "title": "Sound Sponge",
+      "metricKey": "study.listening.hours",
+      "unit": "hours",
+      "tiers": [
+        {
+          "key": "first-echo",
+          "title": "First Echo",
+          "threshold": 1,
+          "earnedDescription": "Listened for 1 hour",
+          "description": "Listen for 1 hour in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "581387600526e2db550542b840cce893e22ca128a6d9c7e08c7a04bd91807850"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "722a762002a6ef204e73e7f8fad66949cf3f59a90c65fc52de5b14ff57b046d9"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "890fcf532f692bb65fa71d97b6706c677d6a68116e77aed0753cbf28142cad53"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a591975b9bb7b2c1df86f1629f571bd96920541aae1fd54ef874b82e6ee47f37"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2a03a1f7e4979848c3c611986c6f21f3175d69b4dab10a63dca4dd307deb4444"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "38d22d2baf1aabaa781fa54afa33b86474e1fe34364eadb47fd7d718cac0af67"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a8c41e6a87efdcef3ae7db61648afb16084d9e4600b8e684e2b0163b1df0344e"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "3dc253fb643beb0f161557275c970c5c6dec8ad9322b1e2534c18ce7ab0ff346"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "sound-snack",
+          "title": "Sound Snack",
+          "threshold": 5,
+          "earnedDescription": "Listened for 5 hours",
+          "description": "Listen for 5 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "d7d31b985b4eca91bc6e6ae25a46fd8ac01685bb0bbee9a03399ee4778f3d379"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8f436eb4e9ab02c45b3b9975fbd0f1801216ae844d67e6af3c0b30e89b79c0e5"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "54f2d5c1a6f615339a1c6b7d5c5db7038aab161beb2c1899df07510ec4b5cd28"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "54520a6ae44f0da92fc58995c7cf81b22cfbbd4f8f7cbaf90515c4f36011774c"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "701c6702928acb6d896ed0319a47a751025253a6e65327efa890c1c576b93967"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e38bd022b324dc3586c3ddb8d6b6094da60988a06e53ce8b82c4d6b05a9af9fb"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c2c3a09dc33da5c30b9f890d2c6e7737efc5faee84f3287db6dda67ac9c91630"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2d64619e6b1a722f956ad55e021811102a3614d82b617628a498711820cef32b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "all-ears",
+          "title": "All Ears",
+          "threshold": 10,
+          "earnedDescription": "Listened for 10 hours",
+          "description": "Listen for 10 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "da4a665071a0442db3f04138f0ad5501fc90ef228d7f561fa754df59dd327332"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c9b0085c576ce010cb54fdd4545e42acb3ad972e0c094acfab5c2f83e74a9c0b"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c17842c04dfc7e7726be88b7c4cb2eaf54d53020fab318cf3f602e2e412a83ef"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2cf07ef35dd3ed08ee8e9aae9c71585e9f153193b360fe50a61070b6db5c659c"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "dcb4d647b5b01693f3a9198137b44b570ac1a3e9705d197d54d473f2273bc3b0"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "f3eb49ab3d3355c34b2e5167e5a4fad2af483da6dfe6f30c94f34216860c3ce1"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "7537e9f77287722544c878443385d284407afc832cda66fa40636d0df6ebe719"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "daae55459748e4628dec3e9d2d69f7af217990147718b4573fa7d74a061216c6"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "deep-listener",
+          "title": "Deep Listener",
+          "threshold": 25,
+          "earnedDescription": "Listened for 25 hours",
+          "description": "Listen for 25 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "21a9eff3b544357d705c899dd673b30e91fbf58dbdcceda25d5a32771edc4942"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "cd4bab04061e350c1a091b2ce7b15cebefe1b2c5ed1e5e2ff38437b9134f8488"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "6b46b4a78ffc6a6b02b0526654b56c78e813f0e9ea809bb40ac61d5d5326e00e"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "835f87ebb926b2e545f5008971a5fde87617ee5aac4785998511535bd4f8bfcd"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7d15285b96065f35e11334ac7b1250ec9271b5b14173097ea8153e49b9f1243e"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "d264f2f295b9edbd97b9b2393995222009d83e1ac8995f001c4b581f8fc87239"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8be830fa4af86a724734b33a3bb13496709d016ded037c3d23cdfa196cd33be0"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "0d6c42552a2961c8e0f7b7dc6039156f3eeda8fbe0f6f8bdbc943a22a42e0f65"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "golden-ears",
+          "title": "Golden Ears",
+          "threshold": 50,
+          "earnedDescription": "Listened for 50 hours",
+          "description": "Listen for 50 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "200ce1f541f39e82ea937f44f8c5cfbe97d5ca0911669155bf0bf750dcefa71e"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1f4ade8c483b0fe59370835f796042f310b2ac801e5a5148701d5ec4a33ce62b"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "7d147ed3a46ef468a31ba9bab6af85eaf4be01c99b115cb91f066aaad115ef5f"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "ced56e8fbd55e10a844cf5429c359ba6c63bc0942bd51d8ad3e73655746b3c1b"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "473630f6aa3d306349c474ce80542c5921288921c83ffd55b87b529d63fa6c6c"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e492d1aa3d45f94d8f8c26a8c79baacefbe60d94b259c1a5d14fc34f9eac614a"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "694c4e35f4890e7b5f2333e79b7f68397cee403abf5f665efaa8d93a59cf5b9a"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "4157ec659f2fadc64066e35fe0e6c69f5ec6472af7c393cdcd643021c440a61b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "sound-sponge",
+          "title": "Sound Sponge",
+          "threshold": 100,
+          "earnedDescription": "Listened for 100 hours",
+          "description": "Listen for 100 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "75443f1cc73f56d837dc5019958d0557f669bd08512797e76bcdb4067900814b"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "749772d94c6cfa6569fa881fa361fec9cf2c287085ee0e1e6e6a9ea3fe3771bf"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8d5d91f1694b862e9e822a936238c79b118548518b55af7ca5d5ff2ad2d9964c"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "45fa8ae19bebcff7b58f102f52fc2748391cf90a99e91d715b6765e79200d563"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "24f1304d89d5bb1e589efa8b75c9f58b0a547a549acb2c45b86d92e5b9d87f4f"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "357751059c658867176b88177a32e3aab005d4026a5a1bb3775b0ca754c6ffe4"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "252f8d5d4b0fefeb4616289777e2a022208b65d650a694541b4884e3e790957c"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "6790cd1a04199859aa5e20d757063313e8e0083cc15fdd73517e276cf099e614"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "ocean-of-sound",
+          "title": "Ocean of Sound",
+          "threshold": 250,
+          "earnedDescription": "Listened for 250 hours",
+          "description": "Listen for 250 hours in Daily Audio.",
+          "assetRevision": "sound-sponge-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "bd2ecc7dcb231ab60278cca7cafd29fc1b8ee9112b145c1cd3b3b5f2b19bb14a"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8d09451261df7d7358b66e264e52cb7c353444c8c2537bc710a3f2f694639a19"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c6983eb148deee6f13cd2abe6bc4f5bacdce5602e41a7175cfa3714f064e1af6"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "66ae602928856542968d956cda73b9ebbcf6008389c16a097318d8287b24580e"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ddf2dd1399b9d2b0bb96c436007609a23cc86da84a85aaaed4d7287e2965261d"
+                },
+                "128": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "13f6561000ee16f2c7ca35ba601c787410181414f7971cb0a2d1ad1a20120db6"
+                },
+                "256": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "f837aa0d7f7b7fe4f4ac283bfd1377ab9b39236cb253eaa1baba2276d23bf7bc"
+                },
+                "512": {
+                  "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "cee16c55474e06e3c84de4b0ffae80124ab70855694fd0e1ba6f56b945214db8"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "sound-sponge-series-v1"
+    },
+    {
+      "key": "old-friend",
+      "title": "Old Friend",
+      "metricKey": "reviews.old-friend.count",
+      "unit": "cards",
+      "hiddenUntilEarned": true,
+      "tiers": [
+        {
+          "key": "old-friend",
+          "title": "Old Friend",
+          "threshold": 1,
+          "earnedDescription": "Recalled a card after six months apart",
+          "description": "Recall a card after at least six months apart.",
+          "assetRevision": "old-friend-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "5085f3890cdf4e729e13216a76d7630524b3867c5849de7a97cb4f5631141b9b"
+                },
+                "128": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c9920e56dc23187a0b92c3a0d257bd12aa97f4af02c8423c70b15229844e7885"
+                },
+                "256": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8c985d98a040ec83dbbf03fe0c53dbe18aee6af837ea0f57a9270f437307e55d"
+                },
+                "512": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "86efc75a9520007e3fe4c24518f42ded40da17a03cc0c1b55a5201a1c6c9c1ac"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2dd34183039f4708c451bf2944605214d9a8e396cdccc882f940849dee2d99ad"
+                },
+                "128": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "76fa757ba12920c3b17e42a680d4229932447be1af9b2ff4f9b474f7a5649114"
+                },
+                "256": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "7f449f7506998ed1bbf923333a46b446c5ac81f515dcdf56e7a29a4425db91aa"
+                },
+                "512": {
+                  "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "e97713694f9670d69900e76177a6c9691456f884d15c4cba8c6c8e891a8a00db"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "old-friend-series-v1"
+    },
+    {
+      "key": "double-feature",
+      "title": "Double Feature",
+      "metricKey": "study.double-feature.days",
+      "unit": "days",
+      "hiddenUntilEarned": true,
+      "tiers": [
+        {
+          "key": "double-feature",
+          "title": "Double Feature",
+          "threshold": 1,
+          "earnedDescription": "Listened and practiced conversation on the same day",
+          "description": "Log listening and conversation study on the same day.",
+          "assetRevision": "double-feature-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ad5234d34d501bad25703a49e09b22c7bb01210bc2ce56082d12eccdb61a6aa2"
+                },
+                "128": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "2ca4d270946c9d6b1d1b699b2c8b6c3d6bfa94a0966981932db6c2fe82c1e908"
+                },
+                "256": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3cefe63a8c1635a0d921aaeb251901afa5db9ab6716c1067d5a9f82428734ec1"
+                },
+                "512": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d023f7ecd729b2a302e07e22d0a3f381b6cb6ada48fda1d6a81a1e6b0a6b05c4"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "80d36c99b4e3b3475071467744aeacdd5aece7b6efa257e3af4bf6ad23a0204e"
+                },
+                "128": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c2a9ca1d8eb85ded337eb195666f81a2ed7c07013d41e5a074540606f6e59bc5"
+                },
+                "256": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "5b08fd11109ad432b68ea8dad270809a1cc0499fc3afeefb764b43f801343776"
+                },
+                "512": {
+                  "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "162a466fcbc48bca959fa1d5fd2636d8ab0080a73a7eb47f69f1ed6087eb70a7"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "double-feature-series-v1"
+    },
+    {
+      "key": "on-repeat",
+      "title": "On Repeat",
+      "metricKey": "study.daily-audio.repeat-days",
+      "unit": "days",
+      "hiddenUntilEarned": true,
+      "tiers": [
+        {
+          "key": "on-repeat",
+          "title": "On Repeat",
+          "threshold": 3,
+          "earnedDescription": "Finished the same Daily Audio episode on 3 days",
+          "description": "Finish the same Daily Audio episode on 3 different days.",
+          "assetRevision": "on-repeat-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "9580af2b5c3a4d4b3d88354b6e9384c024df451d093b5f9991a2ef142bbd8034"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b987d985fbe7b3d3f0ee26c88bdb963069ced0a31f38a1e1e015defa0ff4dd99"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9941b94447a1b0fedb8ade8f6ea1a9e32bc210bcf88c337b1ac92c9664f73a79"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "5bffb60a98e75d2b21beea860f4c797103fefe94653c7b0edbe51594a5045496"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2bfd582ec1381e330090bfd23f3aa3b45cd8a153a0b5546d56aae7aa935379ba"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "07d7ce831c0f07552ae83d71901e4b63be955e381fd6df38b1b01809107b4754"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "ca70729a0d1eb810a44dbbe1d21f4e887355cd6f88456382599d303975129f9c"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2b46763a26aa79b1d7004ea224e78365330895428645ba3a11b0b6dca253035a"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "on-repeat-series-v1"
+    },
+    {
+      "key": "on-a-roll",
+      "title": "On a Roll",
+      "metricKey": "reviews.correct-run.longest",
+      "unit": "answers",
+      "tiers": [
+        {
+          "key": "nice-run",
+          "title": "Nice Run",
+          "threshold": 10,
+          "earnedDescription": "Answered 10 reviews correctly in a row",
+          "description": "Answer 10 reviews correctly in a row.",
+          "assetRevision": "on-a-roll-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ec848bbd7ff5c14cfec7556257edac5e0edfd9272ddf263f8d1bf03466e468a7"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c2aa4786a2c346d393bc2061bebad8e4d0e90c5425484f6f53609f24b0b283b3"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "106cb9f6cef8101d43a532a64250caba80726b7284e5f4010758cc0b2c25c052"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2fda4608ebf85e4302b9be1866d24a02f4d5af7f2e2a4ee5287e2461c7a12e93"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7d1c62ca373e89ee3d2cf718bc84fdbc4b080b54ff4044ca1766a348c7426623"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c5b11fdc69627aa984868fac8fed469323e68e55b88904cd509354eff29df8ad"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "bfd15eda23cb73d5f2dc07dec56d623b448df4dad7051e462b227659b6874f59"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "4c2347e55d969f264e598bea7634e11b1b05aba3f349cc51ec853de47be8691c"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "locked-in",
+          "title": "Locked In",
+          "threshold": 25,
+          "earnedDescription": "Answered 25 reviews correctly in a row",
+          "description": "Answer 25 reviews correctly in a row.",
+          "assetRevision": "on-a-roll-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "b522e9d8177cc7e37b34fcc7b0597221ccad9327a871dd1abc50615019a10744"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "3335020d22c044ec992b01258ca8291453e55c07283a574c740457632d7f29d6"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "35cb8a4672d02a9dcc7a7268c1d36f1f6b94888b95a22d9fbb912584746ec17e"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "f992c965d42d6cd185c78a22fed2cf95bc735dee0b302751d319b1664f468005"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "927a7cf150291afc4542f5695bfa340e7e13edcbd42e2ef8552247637f3d06b1"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "6e5f6d8d7c84c74aa0b278ea209eee7e544d9ba93c9b1d8b259422f697831d0a"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "98cad8071a31c11f25981b91b0e70696d72f37de61b59476316773f045ac0beb"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "566909c70911d446dddc4fcc9fc5d61c55808b67b96ca607dc9ef9e24166806a"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "hot-hand",
+          "title": "Hot Hand",
+          "threshold": 50,
+          "earnedDescription": "Answered 50 reviews correctly in a row",
+          "description": "Answer 50 reviews correctly in a row.",
+          "assetRevision": "on-a-roll-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3ec230d6894c19a087efe69843973d602bbde86b7f6f7072e1a9f7531e3d678d"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c77c0cee9f78b4a7802a111508e7f79bac4d462ac6f202221ec87e5d04f98238"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8758360abde36396c8bde1a94ecdbbe3beb886976ab2ab3f69f3b03fbc67a050"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "8d95a2fc5a1e8e7d2d4d101b7eadba883a65a886325d5ba7a4e24f0051ef263e"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "08523f9c5154e634faef272de71f8215fdd3b9df0ec878a7f2bcfecb3f73cac5"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b4ef5cda705cd97bee0b597a9d335c7a7f6b714266b216ca17fdfb8a1fc4b576"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "29927d373506f6b4239a1d953329e21ec0c6faa746fba9debd707e839ed33317"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "41ceff08c4c4496bca00f6a64314b3eb99aa8c238f7b4e990d6a6a4b3b871af4"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "laser-focus",
+          "title": "Laser Focus",
+          "threshold": 75,
+          "earnedDescription": "Answered 75 reviews correctly in a row",
+          "description": "Answer 75 reviews correctly in a row.",
+          "assetRevision": "on-a-roll-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7982d340e672ebe6de3b595abd7a84a29af6e5938b1cf7fdae5c4819e8ade91a"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "14141738d14617b839fedd2afde468847e5b7ff0d213a2e305f5ba82b16715cd"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e5d8d931a1443b45c7d5bfd414cabaa48641b3d99ba84a01d2c51829e076db3b"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "ee2e49ff485c76d52f58cb2171af241e3b74d0f4da6d54db809fc61f0be42555"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "5c7f3fab60a9598d9c49e200d648755073ec1da422aea55e484ee9c536a4f65c"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "4920186dd45fb7de9b89bfd66c4d7d632f37ecb100aec9108991ff332bf35af8"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "1d844f6d9c1136712c8217696121062e99d31690d1273949e48fa445696e5e01"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2610678c1eedd86badd9645f4a29a89505792e2fa3763660a3772473b9d21f2d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "century-run",
+          "title": "Century Run",
+          "threshold": 100,
+          "earnedDescription": "Answered 100 reviews correctly in a row",
+          "description": "Answer 100 reviews correctly in a row.",
+          "assetRevision": "on-a-roll-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f2e89c7dd0a86ebe7faf88f46fbe2d029473171f1d26f9db046649ce83055c8b"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "bda64cced297d4daaee3f4e7c19184db155990ea1798e2c48e101d70e4a41dda"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3c71ab571c99c5634833f1402d1b34e203c195b07722f1b53537dee1c1d8a9a2"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "0a50704795ea08e091bb1b5b4de4ba7fd35036b86e66766460a15c0b36dcbfe1"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "b37b2e68c4f6445cd5fa0c55c06ff535450818b1356e7c1b7479a1b66688e077"
+                },
+                "128": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b53320e28a7d7387392a4dcc12ae846875664e2448693b86b0707424af06a846"
+                },
+                "256": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "19c15427e79152173a276ebfce1b9d20a78ae6d57c05ca1bf6237cb3e807837f"
+                },
+                "512": {
+                  "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a00ec645fb7e3d2c79e1d257380ba1aa06610032378e5a9e80d882c83a09a433"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "on-a-roll-series-v1"
+    },
+    {
+      "key": "mountain-path",
+      "title": "Mountain Path",
+      "metricKey": "cards.mastery.guru.ever.count",
+      "unit": "cards",
+      "tiers": [
+        {
+          "key": "trailhead",
+          "title": "Trailhead",
+          "threshold": 50,
+          "earnedDescription": "Brought 50 cards to Guru",
+          "description": "Bring 50 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7d45afdc0987411216001494c035f36813eb05a8a82a0e8c18b2680ecb6a8d2f"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "3fa7e2ca4521d5bb7e8c5f76ce2bf0e52f0bccb34895bc9c9a7abe86759d4320"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e8c754b5d5bc8fa0b8abae860fa78e20d12cdb16a5c419a98b191a6ff697f797"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "c2e49b13c29e4f53b5fce292c17476d892c1417a2d9085a4a735a79e38edb258"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f9d08ce670b14973675e68cc6941b0fa7c2c7ed088e3085d717e7db100b61a28"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "7d4904a8268c8129572d23e151e969e656dd049bb4eb50fee1816680b75029bb"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8ca1c1a32a86efc3604449926042584aaddc67e90b6965dd93d0f0af0667c1d3"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "c4853d43d5833a3f24b24e4fd97abd2650be5733908c5b8727b83fd5cea0e628"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "first-cairn",
+          "title": "First Cairn",
+          "threshold": 100,
+          "earnedDescription": "Brought 100 cards to Guru",
+          "description": "Bring 100 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7663671f595647a7646c2ac4e261db6a71975fac8556a1fa648e1f85a6e0588b"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "5c793e032b34fad3253c870da9cf4d4ec2c2585cc2de192beb1fb30a9fb9bbbf"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "cfc44778ee934d39534d24aebeaf7cbaa2e4bf9635ad3bbec5609c7455d6b62b"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "f77788b3c3ae84c174969a0c757c5452f5d73bbfe20680c2404d31819e90f079"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0f97cce75257d7c207a7e3611dd0d1eed0beecd51b397cf85bf937476de17c9e"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "0431266c1ababc3ee737f2e9237cabd95c9e39fc46ea16567398e6204f90f589"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3452d886166113cf3c84a3e4d65af29aebbf4f84ac73e4a0728574f2a6f9e7fd"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "16c482cc9871d3e771dabe4818f51c6dbee0a94fc6210581bc26d7c11f68aa6d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "hill-path",
+          "title": "Hill Path",
+          "threshold": 500,
+          "earnedDescription": "Brought 500 cards to Guru",
+          "description": "Bring 500 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "46245d9d1e86a2b347810bc0f9467318711ed835957ad78fa9f730078c7aa7ed"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "cc108e4193448ea1a5297a595613d0bf38638524adb549f9f9ef35a7a5c6851f"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "cdbda95862db71760b4c570b15462ffdf76b9812508aabe8ae7a3bc368373432"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "6a98f4da23277d411404ad776f47c88870176de21bfd2d0de4db411548236790"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "23ce94512bdf67c132a3dcd01dd3ff4a86e7fd47ef8aeeaf2c49cd2506950d2f"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "25c0828219a3af1042f3fd285decb4db91828569b8e640fb5c69a33dc310a7d5"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "1d287e868859bc4de254426a5044e925d1630420ea98940a1f3fa3db2ad0a55b"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "5e5def257ba83cdb89ef66fee98098710c78dcf06e85b94385357fcbe119faa2"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "base-camp",
+          "title": "Base Camp",
+          "threshold": 1000,
+          "earnedDescription": "Brought 1,000 cards to Guru",
+          "description": "Bring 1,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "1aff18dab56cf06ce04e2393da08b66a22bec39672fc500de21347fd7b85f891"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "5eb4a0593e8eeb9b91f943aed8dfeca9dd24f3cf3d6ac38127f6d7a871fb2164"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "073dfc9f87b4685a44b71700c3f356814f8bd2e207716bd02b2b928cf7eae699"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "bdb10d41ccd25e7f08d941b9d6dcd2968d4f3948e7939d9988b3ba5a4e18da48"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2ac01c6d2f724c65b7ce146a6de029fc4607ec3096fa0b1d29b406c2acc32e1f"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1ec92ddeeb9b5091d100aa986cb852405547b87af6cf9208d8e84f98acc725db"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e0e972697c2ae739f91f35384a84e861cd2d409e5d66ff67c3fb4e6a79581e2f"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "57c9859486ca57634f232ef3c1c4b199d234047d94f68e11ddf2f14cae7c9c1d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "high-trail",
+          "title": "High Trail",
+          "threshold": 2000,
+          "earnedDescription": "Brought 2,000 cards to Guru",
+          "description": "Bring 2,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "92611fb26ca44eee1cf1f1c4467e2c7747d889bca9d1c93b51c3a635fec5ddf5"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "0b3d3db1dc4f655fcf379f996570d70c59d95295256566121d0c77c05c01b5ee"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d850d12dee4871cb290538b52a5272617eeb6a27369df7e2c4b7b076957df02b"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "86401e4c8550c2546c1f4c9bcc8a5d20a8c597a4332885700993a0f9e45d956f"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "34947244ef1e890fb06b7898d28ad4ce6b53b34d479ae2c3f9dbfb0589a4dd84"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8093ac32ba0c4c699f814f9ff5abf27f7cda599c8bc81e739718426497a8d656"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "05e611881e978910b5941ca5b5557bdb667c6d4eca774edad0c1bc600d6d6b07"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "242dee38785112fd8a324bf2c89e29b7d25095b63208c7db163637f8d339d544"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "cloud-camp",
+          "title": "Cloud Camp",
+          "threshold": 3000,
+          "earnedDescription": "Brought 3,000 cards to Guru",
+          "description": "Bring 3,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "a62fa36da57429d025597162cbcb576e034d49533a6561426350d02c7f89911b"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "efdfae251bdd2b6e5880535577497626a8addb2b15bd08cb45891be4eea8b780"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3245d440935cde1049a6a6583e3907049b554ac45f3097cfe8782e0be5f4317f"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "24bad38982814eb9e9033dcd4714ba37ae6a9efd22edba04e09db6c753ee9041"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0658a1ab1e78a7c065bbb147e4c8de6d586007a46c999fb5332c7ef925a3bed9"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a74fb7de92920be1f983f28f0f45e84248e188f4271e612c1a89a66d324ea5a1"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "2e044bb7975422b3cc180ba86419ceabe755be2273b696e5eb94a6fb1efb7658"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "3607bf1defc09c9dedf5c64a4d5d334b215c93ebd737a671b003bac800a03019"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "summit-ridge",
+          "title": "Summit Ridge",
+          "threshold": 4000,
+          "earnedDescription": "Brought 4,000 cards to Guru",
+          "description": "Bring 4,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "559a9a643cdcea27a8fabec5a4bc55df45bef40307da27cfbe32fa4d98b3982d"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "6d1ffa44489e4954cb9e332027ec7f20d47fe63697fdaf64a373477a591f20c9"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "fe398b52846657d25885a2adac6a722a6640b2cb3fc0d20d10cbd486a7fa2b37"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "73a564614a9df7293b569edd0b088c4448aa1506f5822c442ff1880afd6986cc"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0a10cec636f61d1241f47d6b2a2b83322132e20e634c4e324404e92dcbf17a9e"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "4994574f220d2702bfa8f15e3d03e0ef8292c88fc4399b03dd372a46dd5eb10e"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d95eee67e9de0a322b087d9e9cda72ca32cbd4d104db721fb5db0553d259eb39"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "71249c5a4131930c52a3df0b9b6794f2e80b9bea8a89f43c6cadee26ed96523e"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "peak-parade",
+          "title": "Peak Parade",
+          "threshold": 5000,
+          "earnedDescription": "Brought 5,000 cards to Guru",
+          "description": "Bring 5,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "046f44e541e376dbf1ca7bd2bc8cb684939c829f17c659de1243e79d8457c355"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e04575dda034f998bd9d2c4af2afea91ab1924b0e967c8f4f33ec7108ed8a822"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "0fb2721a61c620c0fda1f98ffc497d371ed555234d5b377d1460ce6c909f2797"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "377b5199b7b7f8ebf863eb689e96c6c4067439465cb8f61fe94f60e8efbd5a7b"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e31897aa710c4ac82c92941db9b8cf6365e22908fbe811fe620dc84b8abf0a79"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "020b9fdad11d24ef57062bfaca0255eaff618380441c7d703343b7e675c3a55d"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "7054c428201df5671d1f64b229f5b97e52f6669caab2ed02147f734e65c77af5"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "01954d57c923e1f2b63424d7c3f0f10ccd07ca111b451ac136b3faab7c13147c"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "mountain-range",
+          "title": "Mountain Range",
+          "threshold": 10000,
+          "earnedDescription": "Brought 10,000 cards to Guru",
+          "description": "Bring 10,000 cards to Guru.",
+          "assetRevision": "mountain-path-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "47aaf653193fe062559e9f6bac81b5950cff5d80f7384261ff62892dc58b93cc"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "4c0058235519650b72611dc83a4d4826940a59eee66dc44e7cabb9bcf848075a"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "436cd240ab22e5c1d583ddd41bd2fe749712f1e11f07c37d8f789ccea728f25b"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d42fe030072f129831b1eb5375e1c52a67bc17aa6fc9e9672014d943e17cd8c1"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2a0909f1a3a08ecda67a227a23c7e82ad67cb7ee1b443df0578fe1a643e2d989"
+                },
+                "128": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "f08b34686b94fd4c1d881f06c8484bf0123a7a878ad1ee7db3efadec931102bf"
+                },
+                "256": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "f600a80be0b393e88ca148d7727cad814629f667e335ee7ed69e9dd231d8004f"
+                },
+                "512": {
+                  "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "8a6e3c7710e270adc71093e946e9e5793e37224f82f308c97f0c860b38017e05"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "mountain-path-series-v1"
+    },
+    {
+      "key": "workshop",
+      "title": "The Workshop",
+      "metricKey": "cards.mastery.master.ever.count",
+      "unit": "cards",
+      "tiers": [
+        {
+          "key": "first-finish",
+          "title": "First Finish",
+          "threshold": 50,
+          "earnedDescription": "Brought 50 cards to Master",
+          "description": "Bring 50 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3f8fbd6cf46a3c1caa8751c5fc9bc234f10eb556d55b6f7d2153abdf63ca9d59"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9084685d5975245207ddd69b57fb6f80e8ac7fe1d51efe1c4eb5f114c8dcc53b"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "4216bdb713463eb8163055d3981efc70b34863444f9ca693cbbb21e470f6297f"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d88806d616e3b4e2e5d3615b496a1eb8caeb21ad95d688c1541245c14f9c7548"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f22a73e47eada384940be1981191f3c35dffeada93daaba42685377f8100da93"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "c3874f538dfe25ea02c7941ed4c9c60b681c5fda9ec775cd3afcb3f291d3a8c6"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b79e35ec9f40e2a0c1f08cd40b09e85cb58bee745795cb42ca0ad48d42f0a8c6"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/first-finish/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "3dcf9ab2b031be4b1369174ba9fa2592cae8854f6c22fde1e358e07cf6a38daa"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "steady-hand",
+          "title": "Steady Hand",
+          "threshold": 100,
+          "earnedDescription": "Brought 100 cards to Master",
+          "description": "Bring 100 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "240820d84b6cc2c644d945e1a69ef5a8ce40dff3c323f9a40795ef44d6b775f8"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "550bbe86d4ee84de51f2f5f4ef714500166e1e343bfb43b8ac5ec16873499de5"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "ece0083ef0bfe5af6fe58c4d6592e5e7feae0bd65ae905a2ca446679e5813395"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "100719b2a74a45bfcd304acc1b6a362d1b3905730a24fa4bf7470cb01ab20eef"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2215d06d81307050dbd94beba8c8707a17d1f045c3ff8c8711cbfcadb7b12982"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "fac60020880cc4683bebecc6b6ad96e84db3939d1762052025e3fcb0099f5354"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "3d56e967a4acad1e250eaaa9e4264058e5d83749625b17edba251904c31367c9"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2065f4d7ac0938620e98eb111e685e9bc46f90fa11425b3d1da742a914230aa0"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "workbench",
+          "title": "Workbench",
+          "threshold": 500,
+          "earnedDescription": "Brought 500 cards to Master",
+          "description": "Bring 500 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "550cf04184b3e8f2b29122cbf1dfe0b79520650d334db00991145df54ed96cc0"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "21eba8005ab565c27b935a318920821846822059a701d92dd091743377ea1a77"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "379839652b638c36e3656aaa96723264a7c82ffbe7c8a9870da4ab18e2bcfe36"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "c1f1ec3fa796acd5c0183425c0860046f2cd0845bb44c042e7442d3b97d0786f"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "8ea75033e8dde2990e054da10c75f7cac90b54c28fb27e2ad62c1e9ba68d9943"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "cbf126d0e87e2fd128480c005c3bb7b74f2c2f129dc476a9cc9ae2b295b548a8"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8c03dac7bc7bbe72dcc595353c8b8c0c5eb5e61858d49f702bfb27e48dbd096f"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/workbench/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "57770e2ee6127173f43f3fa74cf1862de7b5764b0ffe130b4bc88aef68339509"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "crafted-set",
+          "title": "Crafted Set",
+          "threshold": 1000,
+          "earnedDescription": "Brought 1,000 cards to Master",
+          "description": "Bring 1,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "dddb00ea8e47e3ab1fe8eb3373be41cbeadbab76e539925e90cfc2bb1e0e9972"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "725301a624426927108afd36a7b8c6c784bb270c531c1728757db92a1ef1cad7"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "be54a8e14384783ebd9afdffdc235c3dfad223aa7188e5c689dc8d2b766a4394"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "c2716632fdd58401dcb7d8e0db23db98623ff606927748e78c9eebca9cc88b1b"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "c76bb6356d04debaeb8f7f915ed693ee6cc83fe46108cf433f3d48b0793f0856"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "0b0103705e4e8c388ff75d71d4784a96350430829571e8b308490a619ee1130f"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "cc1fc152eae22e1563c5c500e645b741279bb0526ec81d93254e55dfb767f223"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "fee246791a225a2494d9f94c791a56fc292f592eb799e2ff22dfc24f351ff12c"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "full-workshop",
+          "title": "Full Workshop",
+          "threshold": 2000,
+          "earnedDescription": "Brought 2,000 cards to Master",
+          "description": "Bring 2,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "47f5af21d170c0a8bbb3458aa8e68f2a2e7b00d723de75388775f3f632a540e9"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "ac3bb8119655986c6c8919bbcd2510d2b36b0b7e49054eb72a6150c1b784faa0"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "1914993b11f18ae71c130695ae8787af4c40ab5efd271fd5891f57d021ee602e"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "60cb20e353d1c6e5e6aad8056700ec18e92653908a25454e9d040c109da6b2a4"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ab2186b51380604ad1a327dca04b2f1a586fc908239fa795f3d99202178c5609"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1d8a61040d4856ddf0966f58ff9749454ffc39962241a4f3f0e1a61a4050a648"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a82b4afe95d0de51ccc6aac3d4bfe60a024c09aad4dcbf39b3c2a11893adce50"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "af55e0272c4ddfe7a68ec206b9cc839b2a136b0f6695da64ae0b0e2083a2191d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "guild-hall",
+          "title": "Guild Hall",
+          "threshold": 3000,
+          "earnedDescription": "Brought 3,000 cards to Master",
+          "description": "Bring 3,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7936384ec2c438d565d43a0797f42c17f4ad2e494795a62481403d675379a80c"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "4cf39f7e3322dbc68242f70b9973ae09930d37dd2d7e87c7f26962e3175bfccf"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e6f7f837cbee675a4d78af6fec1bcb725c52ec8f51a5258be90b8aa17c158355"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "6af9a8cc660df997853e51319d14141c32f258978f73a075392d55d9d2659e50"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "b90e030d3bf3c5bf2e8292995f19ea2da7e67d306cd9713784e085d533908998"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "2f10275847780af1b7522b5faba01eaed5aba4dc15bd4d215cd19ce7d3e65691"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "6d6469e18e96711de58ec03d70c8c3b2d282b0f537fc1fb99f9cc6a066f691c8"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "c6fdd9dbcf389f6303a303e3d33227a35b09c40c6876b295f7d80070b749ea91"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "masters-bench",
+          "title": "Master's Bench",
+          "threshold": 4000,
+          "earnedDescription": "Brought 4,000 cards to Master",
+          "description": "Bring 4,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "8d56a426cfc527e834a016d915f4666234da0732f0883b6decb016f029c3ae5b"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "7df60b03db2e4feaa86931ff2f24c807dbc4e5562a004d7c9998e182aee9060c"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "325c47cf71bf59fca02a0ad43af828efc404b9ec2b9493d0b02e445b48a1aed5"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "abbb97fba3af7cbf3fd4264d40b9ec4f1d3dd230612b578829881dab545232e4"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "c0785f2af61de1e38b1379ee003ef85241b9497f7f9f3c1468fc6c87a754bdd8"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "02bcdaaf904a6d3d281bdd8079a9ef296aba0e3277d8a061be64a6cdd7aada8c"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "05177f53dd2248fca9a556d9f25ee8ec512bb75d017e05c6f36ac600cfcccc87"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "cc96d1bdb2dc9a9715fcc74c2a9d74e5f36ce75517d7a71c8dbfa2018f34c71b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "grand-atelier",
+          "title": "Grand Atelier",
+          "threshold": 5000,
+          "earnedDescription": "Brought 5,000 cards to Master",
+          "description": "Bring 5,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "9ff4ef2459b557f8bdad7d6d8ec88d4a51815cbf460760a7a49c82ca4ff39bb0"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b91bc011382be10f0be41f207851a7052e772eeef7859a7829d4c76c6b787c83"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a80c9c76ab9430549b54ebe7565dfdf0bf7ef0984984c488248250d13d4519cf"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d5227e015f10be9c9a6cffb0c81e43c3fd16c824fabf9180e386a9f60a63489b"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3f4b7c8c176f21e4e26605c81398062605515d5a45aefd289a4ec8b5938f42c0"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a11702df8c481c360e62c48ca5f7cb13974b544fab10e82cb2df9e58e052c73f"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "2a25bf41430b2b75b717b69ba7600062400c5674fda574fbcb31e08edc3c0996"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "43e8773b73b4cea96efdd02e10c81428467461b016ae38f1e4caaa7f2d8e75bb"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "city-of-makers",
+          "title": "City of Makers",
+          "threshold": 10000,
+          "earnedDescription": "Brought 10,000 cards to Master",
+          "description": "Bring 10,000 cards to Master.",
+          "assetRevision": "workshop-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2ddb8764703aa05ab99f790b4c6ba16b40f552008df13e02e540627e36bfa6ec"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "48c2c31c791841f50dcab67c805c700e040060913b152de4f9ed56b1ff421f7c"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8ac1f02b7567ccee6164dd95778ce86af6758943201ab0d0484208d70d545638"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "361bfddf07f06663de0c04d4b8bf15c93de439b7d4f41c07f29bff857a5f2515"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "ebf2d32f1e6a76a5f99817959efe65ce1be3b6a62445239f69a0850a4cbdbb71"
+                },
+                "128": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "35afee397be1d1278d7c3e3d4c53fa9481598506e1a44986d22ec93338fe97db"
+                },
+                "256": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "978e63e997a4e2ef0f33a1264285080c5a1cd6da1a43a046b42083242153f894"
+                },
+                "512": {
+                  "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "f7ff5d568f64be76df1743f0b47dcea19d14e366d51265e73804203f27563808"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "workshop-series-v1"
+    },
+    {
+      "key": "open-sky",
+      "title": "Open Sky",
+      "metricKey": "cards.mastery.enlightened.ever.count",
+      "unit": "cards",
+      "tiers": [
+        {
+          "key": "first-feather",
+          "title": "First Feather",
+          "threshold": 50,
+          "earnedDescription": "Brought 50 cards to Enlightened",
+          "description": "Bring 50 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "4ba3665a8485e03bf988b1d8d97ad3790711ac89d0d7379f36d650e60602cb5c"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1a116e4cc9d5eaeb702a27e2098e59fbfd968c3a556928616ff25e6b53593dce"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "bfdf81a5edbc3da055b40ced280fbcb7fbe5f359cc6ae0e93163f2df85c175b8"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "81e0f333677767e7ebc17c4051b6907632d2ca57e7cf8ac04e162e23d8dadcd9"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "e8b3bbb30c72f09bf03e5c2b65613e993996c72585b4dd4ee957e8a36b6b8dc8"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "2f9a366b667bba719fc5a229bcc6fabaec72e050217a59f46d3f674a33ba8cc7"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "feb838eb19c5d599925130fc5c98ab5b3ff1b2057e74345016213b886bb2904b"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "7bd53a927f3560b92505c68ba8fd5669423bd8ce9bce0a24fb2f2d0f3ead8966"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "first-flight",
+          "title": "First Flight",
+          "threshold": 100,
+          "earnedDescription": "Brought 100 cards to Enlightened",
+          "description": "Bring 100 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0073bd63601605d6243ec630767e03e88573dcd2ca233a9b8ec8bbad9ca993ef"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e502448d00f5dfdd665fc2b71c862b2c9dd225afe8ef3f1c1c196b2c22d5a552"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "83e89069703ecfff1e759c73141965c93f679a71cb1bc9c8046ea55376cd7afa"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "31e90193b025d213fe46b7097e8a5e0ad95d718e17f2004b36f87e71f922936a"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "dd909725a3d77d07f4dac7ecfc9e9925618506d1e40a9948c2d266fffe24ae82"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b191f6d1a717b74d68264e3d6c6b3d2298efa20e1dc9c743e95aac5c8e0a2987"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "38748f97f170d1b0f3b74f4673bdc53743951725e031cf8d549a380e1d727772"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "174073bbd8dbfe9ed80f29d7bac22cc2d37ed4fad4cfb8b6c1ad0ec659e5495b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "above-the-trees",
+          "title": "Above the Trees",
+          "threshold": 500,
+          "earnedDescription": "Brought 500 cards to Enlightened",
+          "description": "Bring 500 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "43cb4dcc332d102e45414981862eca15bc014f46c13a10e15c148581f020c703"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "49f51c96cd535941bb8394bded0109f7cdf93baa3c978303c51efd0a115193b8"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "db74ccc2058015666f44ccf9d986550465fec5279c5b827e1fe9713a91de2f5d"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "e870a57a6d9dce89d1075a603999c338041515e7583db6ef7809d2dc5b7d4ea4"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "927808249ea62c270bc85b89628fa2b372fdfa92bda13165aab01c37046bbf0b"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "025f0b02da767fcbbd21d14d2e69bebb104eb01117d92d1b4281eb16fd1ac3de"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9844195f59af3e098af28cb30dea44c6efb392d2534e0cae7f90c53cf5907f36"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "dec703fa758cb8481cc0b9c1c63118e8ce447969e0240021754325dd0ce4669a"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "cloudline",
+          "title": "Cloudline",
+          "threshold": 1000,
+          "earnedDescription": "Brought 1,000 cards to Enlightened",
+          "description": "Bring 1,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "44ced94db2e79eacb31056a82dfd8037cca23d21ec6fb9db041f6113851f25a3"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "03259e93269dd4690b7de6b4471469d31ac886d58402444959a0bc6581dcc4ba"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "daa2c61404fb19e37ebd64141659d2fcbbcc672192e788db694f68b1323c2334"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "5f6bdf7085132cd3145d12a987b0f39ab6d739bfb25b0dad385279d99d963722"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "7caeb9e59f0dcf1c0ee3dec2fdd3f013f47c83342854283008323b12b813efb3"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "202be04944dc0dce00014551f408015d2782451c2bab3cfd5de9c56c8a951a45"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "5efc890dae7636dbfed3c34f5fcb82840d620a0271def68998b9585bebe62f7d"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "356418a101ddffe913b2c601e362dce575a642c5a74096aaa42226a4ece4cdfc"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "wide-horizon",
+          "title": "Wide Horizon",
+          "threshold": 2000,
+          "earnedDescription": "Brought 2,000 cards to Enlightened",
+          "description": "Bring 2,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "b0e2665764e9859d08cde1b090a583161b8e951766339ce86d7bbb0462112298"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "8e6b9a0e6e1092ff2eeb8bd7598e071f4a67c963d08e435eada83c6606c58d15"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "66e1ed6670969718bde80c7d3fa9821917a8b34a223dd4d84e31a4fea332d37f"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "fa560ccd4f7ae5294515f89ea123d7a848a66493f0f8dc54a8c933c2194e47e0"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "d211a4d8a73dbdbd9094015a3282e4b2bbb71d52b7418e42312f460b85f58ff5"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "027ea60d831e68d19e6f324f61bcdd103a6c6dff30f88a4bdfd1ab9a12934f11"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "be642f5df83d9966c0f3aa15155f801bd4b2678244871ff2e6b0e9fc6ad00e0a"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "7a842e8a6a08cbc3989e73033cbab1fe1cc58bff21bc83843dbf62f1920ebe44"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "high-current",
+          "title": "High Current",
+          "threshold": 3000,
+          "earnedDescription": "Brought 3,000 cards to Enlightened",
+          "description": "Bring 3,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "1db4ecc9502101ef891b81df0ed53d02877f2b4691390e5b64024741e2498b30"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a5fdf44c6f83ddcaf68f1ed8987ae9c4185f60aef1851188e9b4fb23a434fa6b"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "4d093ef0de38d2310d88fb1d0e1d681bb375e799037f1341fea950dd7b3f5882"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "dbc7bea362291b26abbe8b715c907ba41a6f044da978faf518374b9994fa69c1"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "515c77ceef54b932c59892367605d74966e72893e4d5e31656d3cd18beba31b1"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "661c91ca6d0dd90e61f9f5475d5b8f52561f4d7081aaa4a7d03fb22509b36b60"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b328f199a7b9ea24a8186d658cd39ce9e1b4e881cf4667bf3f954690bfef8f84"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/high-current/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a0406056c499f59374829dc483cac3bbeeac82e5acb1c6c603179c6fa681210d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "blue-expanse",
+          "title": "Blue Expanse",
+          "threshold": 4000,
+          "earnedDescription": "Brought 4,000 cards to Enlightened",
+          "description": "Bring 4,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "d1745461c40ec1638e22dfdf9bab2e7bf2d0dbeb789ce35f319953a8b01d3e0c"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "ada902349269b3610970f1cca25f6216992b3595c27d998755d1fa436d0f05f0"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a9c6e4ce17116e2bf04140ac80b8a2470a8f70cb4795e11e19516555d39a9660"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2ce117477f48ecc067863bd1823ab65d25c94884e1f7df2cc3f8ed4643d6b53c"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "569404a7135836408a613588fc10b607279dc984f56272f4fd1e44d7a18f5c61"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "676cb94c4fbab5a3a65b8c9f57a9acf4cdc6c00a81b7990630da668838256831"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "a7d1580fccba6efa71babc03dcf7fcc490a30c2d0e18c6d2a2eb48c372742ff5"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "1a457301ced0fed14f1bda11fe32eb8c5b56985507d35aa8053e13ca9352b3cf"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "skybound",
+          "title": "Skybound",
+          "threshold": 5000,
+          "earnedDescription": "Brought 5,000 cards to Enlightened",
+          "description": "Bring 5,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "2c967a799f28d45f9f71d47855612614fef66009e5a2f86efb50ef4bf73e8731"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "37d60bdf76929b392d3a1667d1f229b3818443437e8191319d359f0ef6a2ae97"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9307b65ab2dabb59848d8151ee13638eed0bd18bf258cb07703e43645c10a6ad"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a27cca3bcce0849b67efe8278bdd939cac870a768d2d545b0d2a423a84a580f8"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "21d9f5a734aec81ad40a9da3d4833cadc42d960cf1901f5f94339085bf075f2b"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "bcab88d0ee7f29055f5fc5af87d5a565d22fb67331dd6928e934b4343cad9201"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "55887aaadb96e09e1a78fad25727044d6bbc7722cea5b4f0f6668340e12b167b"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/skybound/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d9cdebfe17185b25aee8cc9da5b7df18659c1aa4b58c5a1a824e5f3d5ecc2fad"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "beyond-the-sky",
+          "title": "Beyond the Sky",
+          "threshold": 10000,
+          "earnedDescription": "Brought 10,000 cards to Enlightened",
+          "description": "Bring 10,000 cards to Enlightened.",
+          "assetRevision": "open-sky-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "6c934d9fcea4b2a94a16407e96f060d719e035bcfe58f46332132f745d076fbd"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "e0a469d66e2276f547c9133468cdad66816b58d4b127529f9ee0a878dd4e374e"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "e9fbb4fd6618de42ca7eb5951d2ecb17b30c31acd90551ec5d19b711e6334f89"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "33daa4613e750925a4dabd3da98c3b8724e3000775c4b309b4c5f38b75356ee8"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "36ad0b6a8d6875bb9505427282195b1ab6e2bb57348deb693c2049b3c780af03"
+                },
+                "128": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b391e0027020af4795113086ae9dc80d12003792e7977db8521105e95e648a39"
+                },
+                "256": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d7d3082ce22a2230eeb9cd6b215eb20f8cc36a21ca9d759accb38f745058f2b1"
+                },
+                "512": {
+                  "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "40b9471e96f7b18318e1aefc325e3940329bd2c24b3fff60b60ac971a646da38"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "open-sky-series-v1"
+    },
+    {
+      "key": "archive",
+      "title": "The Archive",
+      "metricKey": "cards.mastery.burned.ever.count",
+      "unit": "cards",
+      "tiers": [
+        {
+          "key": "first-shelf",
+          "title": "First Shelf",
+          "threshold": 50,
+          "earnedDescription": "Brought 50 cards to Burned",
+          "description": "Bring 50 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "c78fd499d786d8b00c329f11a5c7fa1be1836bfb5a619b63e90b97a81450d392"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "6cb0d87baac8a367a756c2d121c2ea6bebb1957b987320e3a42f7e07f0db66f9"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "11700b4ebb2ef01d7133fb880df73efc3cb95835549da2d5c3c7940d78c38836"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "18eb6f4312e45eb342ccd6a19bd63ce7e11454458510e48c331cc354ba9df2fb"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "f8908d8abc8be83c5c7856714ff09a12289f7654af6a379b0f15cf7fcb74d721"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "05a3102cce1e0d5cc896a9ca02a0f29f655f9aab70d9dcf682f5b1ef151d6f34"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "5ff6a844293f17a9dc05c4e708516958539b35dd1b7c4eae87d8ceabf9cbc02f"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/first-shelf/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "3ea8e6a3d11a10b14c18498e4f4209cb5826a9d733897f7e3a87371bd7323e9d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "bookcase",
+          "title": "Bookcase",
+          "threshold": 100,
+          "earnedDescription": "Brought 100 cards to Burned",
+          "description": "Bring 100 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "360b3dffe4b0c6b512dd474b6aa2f8687e3faa2de2c65ce430e1b8d3b014efb6"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "f6c49eb69070fa125c6cb8e76be39a57ddd379600e27935a27180d582a3efcf3"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "47bca86335994eaab4400849e31b3ae492245260a270c65b0acb4cc6c066165f"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a6311da084b7b2a918787e781d24c32f1b96c7f53e0e564a2104c06c499619cd"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3f8798da68f463c4a0921970fddb6e7cc79f325b011edbae05b1aefaa9dd52d1"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9a93cb29c7d064fb18e31972d26bcb3d2106544673789080a4f0f0dafc535406"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "10135c6836fd56be3f420e76d6cb9cb089c8fc62d5a2e45cf05baf16bdad0fc0"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/bookcase/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "d77cf024eaa1c3b1dd07b2249e4de8b11d9aafb4d89d13daa43fda7b6fdf61a7"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "reading-room",
+          "title": "Reading Room",
+          "threshold": 500,
+          "earnedDescription": "Brought 500 cards to Burned",
+          "description": "Bring 500 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "79cb5c64b2a12ec3f3e218c92ebbdfb3afcb68e998626ea4a50577d6425092ec"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "3d4122d8f435e02a87fd5e697e85d869ee970182cbe1acaf978b7656749a661e"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9efdde91bf8b1a7e27b9e03a72017754e3fb548b0bb8fb41fe12d65f30293d56"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "fdf0bfa24652c7a054a6b76f94887f4e19042da4a8ad4a25d50820af7d9e4c5c"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "528e2202c694540e0142de843f4e4225c7e138ca27f5f740f09a60daa31f7828"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "a0f5519ac10920be27af2cef3dfc3a3177eeb4b21b2f111ef0ccb8367940c8a6"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "03cca866fd8acd34b384fb3760204ce5b5570bfae49309823d67343b25044e65"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/reading-room/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "383222e4a2716720d4529aad1abe06789682456c39228f8525b71db1f1f301fe"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "library-wing",
+          "title": "Library Wing",
+          "threshold": 1000,
+          "earnedDescription": "Brought 1,000 cards to Burned",
+          "description": "Bring 1,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0b3ad28025ff8fa2f1349a685dfd3e4701476fd95bf47d1ac9107e7fa2614332"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "30b0bcd602924cf0990e794b75a119865e0d1638d9c4cd7b3468c83b203fb897"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "71f16927e45bd6b0f65fbbbb19482d4efddc273658bc5f4492613ed05119176a"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "371050ddbef576668f20a74f90642e3f96f1432e5683ad3a43ed6175ff764f90"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "a45e8caec0bff14d2da9087c5c8b21db7223c39a57441c2abaee846701f4eb92"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1ac306f879c2f25b78590d60812b38ddb95b0a3842ad268b23dee1011a5a3890"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b17f6033b5e88734505a3036b26eb79461908aa5482e3770acedd2733ddd1586"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/library-wing/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a710c0e20c4b8620d4249acd39a016e694d2e3828b6802773e3792f37daf371b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "great-hall",
+          "title": "Great Hall",
+          "threshold": 2000,
+          "earnedDescription": "Brought 2,000 cards to Burned",
+          "description": "Bring 2,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "d1cb2b5b13faefef139f6253f9a7540ea98ac84d9a7832960b9a4086d59012e2"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "7983d3f5b15020d8dc682ab95c9d19580631f06843bff6767a0959f35050e493"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "f16fbb5b8766ac38c1e92fa419533d250f7221197bdbedcd789c7350c2c0a1e7"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "31d7b73c4ec4f31f84e2f5440e10077ef63a8b01f25aecdd92cbb7fe964ea1c0"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "0a210ebcc566c1159693b59e38c64c39a58d016f9762c98138bc13fc0834be4d"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "ce89dd476f14808ef59d80d20375e80d4f4b8ab432c0271b403c7e1c7d58124c"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d1d018acbae1907f125123e63c7401b9dec537d6686e3bf86ff4298041442894"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/great-hall/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "ae9c7d9b740bb3d18ff8f6904431c1d53f55e1fbabb89f1febabec136ce7adb7"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "deep-stacks",
+          "title": "Deep Stacks",
+          "threshold": 3000,
+          "earnedDescription": "Brought 3,000 cards to Burned",
+          "description": "Bring 3,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3330b1c36cd844c06c2aa89374ef097c399808a72e66cd72244b41e94708f716"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "fa3e20f6c7043e49ac49d5ae6d69df7a7c2690ba3c64abf40cd03ca63534535c"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "9ce8f6d7d52d075a902feeffc4b51e403beac3567d8792e6b50abb3a7443bcb9"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "a4bb7d8d946b497f2c15271271f2c7e1710a74e556d88d0718833c47bcfad621"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "675cb729453684a41693317ab691509cc9e5b6c6d0bf2df924cbffc0310eb8de"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "9a084df386a353b7e6907c7d225791b37fa9fa4f917179fdb421996f5671f823"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "d4bbb79892a081ab3c95675a1756ae8a873c193e76cab163349115520dd63983"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "30709a78f720c0e1a5f2b6dc171865b6ec5c099e6c2572fb7b24d81cea3b471d"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "grand-archive",
+          "title": "Grand Archive",
+          "threshold": 4000,
+          "earnedDescription": "Brought 4,000 cards to Burned",
+          "description": "Bring 4,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "62330baf1c150c32274708dff58367393230df1b716b31d5424cf666977f74b4"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "1d0bebdd1a7f291715a71ca62b32dc6d0efbd0fdb1722772c1dac1e7250d6ee7"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "b8e98a8916d8b23312fada4c152a61dfff1965860def20b6839818f2b1d2a2b7"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "bcdce01d42698e32eb1c8027e8aeaa736c21d0080cee763d763e512fa747a4fb"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "5a1149bde0e222c5bb6c52aca8c24c5470935fd00764a66fbe14c41fb9eb845b"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "23449f30415d240909b37c68c3bc32262f39153a50c05eae7c96f8706cbfe991"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "c6ae6e4dc7cdea1ce23b53de1e0aab5fb9246fca5dea7ce4394b2f13fb21ccb9"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/grand-archive/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "ccbe056672775021b760f68857ec642ffc479f2cf1b3ae913c040f587b8b95db"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "city-of-books",
+          "title": "City of Books",
+          "threshold": 5000,
+          "earnedDescription": "Brought 5,000 cards to Burned",
+          "description": "Bring 5,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "3e9149a837fb95ab44471013d73ebeeecc40bcc18659768dfbf097fbfaf06f85"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "320df48c94114d2e09684e838219bbcccc64d7c7aaa2ce01c554602304052aeb"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "8008fa7410fc054fc7c73537b3dfb26f660f631ee1c4e3b41e044376636a4d77"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "87c298bafe66f9e5c5d0e4542fabf4b87fea131436818e1ad1160f45add8d140"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "06476c33a54dc479eec3428a5647bcd9d9d1001bd01063dfb23179f8103cada7"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "7ef591101dfbab82e1f2647049becf8a4684b49bf1b155ad0698b1617ca54cf9"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "fa1a6048071718765ec016d0bb707e46eb4c0400a5cfdc9933af87088b1dcab0"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/city-of-books/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "2c4baea3df0abf05cd75b86e9a72822d3ecb5d59c8e2e47fa84f079a8352caa0"
+                }
+              }
+            }
+          }
+        },
+        {
+          "key": "endless-library",
+          "title": "Endless Library",
+          "threshold": 10000,
+          "earnedDescription": "Brought 10,000 cards to Burned",
+          "description": "Bring 10,000 cards to Burned.",
+          "assetRevision": "archive-series-v1",
+          "assets": {
+            "earned": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/earned-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "6beb138e0c6871a5d9f7c46082054536810f41659f46425b2c2f0e5efc05f7f1"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/earned-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "75ba7c8f75247f566871e6b6350ad9a6a9eb779f3c319abfc132f6f29b63c695"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/earned-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "0585f09c239abbf56d368d141fed560937829a67cdb04ed5b3c82909edd7d97a"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/earned-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "47499bd2b4c60252d4f3a8ee3f00c6d373a010a3a973d2846f531454e9e7e6d8"
+                }
+              }
+            },
+            "locked": {
+              "png": {
+                "64": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/locked-64.png",
+                  "width": 64,
+                  "height": 64,
+                  "checksumSha256": "197ad07ce03361447e6242e171ec4167f8c99e956233975c40e87aad27919997"
+                },
+                "128": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/locked-128.png",
+                  "width": 128,
+                  "height": 128,
+                  "checksumSha256": "b097e640f3bfed859766b05d5948c280267b39a67e2f474dbe98e5e084df3863"
+                },
+                "256": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/locked-256.png",
+                  "width": 256,
+                  "height": 256,
+                  "checksumSha256": "2a1970a1e815f6317625f9f3c2e2b53e46b0ffd6f19a9b487547e46eae3420ea"
+                },
+                "512": {
+                  "path": "/achievement-assets/archive-series-v1/endless-library/locked-512.png",
+                  "width": 512,
+                  "height": 512,
+                  "checksumSha256": "186aa9f5df02520aea053accd5eaa5073876606e2a08edd59826ab5f2c12b45b"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualRevision": "archive-series-v1"
     }
   ],
   "sources": {
     "criteria": {
-      "path": "resources/achievements/achievement-collection-v1/catalog.source.json",
-      "checksumSha256": "cf994b90c5b5bb14d01316717cc0424317a56ba191cebc2d4b759d1f462b520e"
+      "path": "resources/achievements/achievement-collection-v1/catalog.source.mjs",
+      "checksumSha256": "77cc2901f5e33bb3e7664186b6a74d6b29b5096b9d3215c0a8647f181ff44d93"
     },
     "visuals": {
       "roarer": {
@@ -1470,10 +4449,50 @@
         "path": "public/achievement-assets/card-muncher-series-v1/catalog.json",
         "checksumSha256": "006c5df8faff9aecf55fce3580cd966a127ab77e33d4d54ccfeaf4dd33057f6d"
       },
-      "yearfire": {
-        "revision": "matsuri-light-series-v1",
-        "path": "public/achievement-assets/matsuri-light-series-v1/catalog.json",
-        "checksumSha256": "aec1b2189064077f577bbbb7c0b600dd00de314db7f8f99a953a5a4bd51f317e"
+      "sound-sponge": {
+        "revision": "sound-sponge-series-v1",
+        "path": "public/achievement-assets/sound-sponge-series-v1/catalog.json",
+        "checksumSha256": "09a898a6e3723c7c75209e101375a50e2b8a55dce9299a80a65711e5b04e4006"
+      },
+      "old-friend": {
+        "revision": "old-friend-series-v1",
+        "path": "public/achievement-assets/old-friend-series-v1/catalog.json",
+        "checksumSha256": "0d4be170469830d63ea8ffee0acc2dc76181f22cf63816831f8a3d9ff39401a4"
+      },
+      "double-feature": {
+        "revision": "double-feature-series-v1",
+        "path": "public/achievement-assets/double-feature-series-v1/catalog.json",
+        "checksumSha256": "4210ae0630798e095d3ca90c125725e8b34ae10a7acd837dba25365e3e6165bc"
+      },
+      "on-repeat": {
+        "revision": "on-repeat-series-v1",
+        "path": "public/achievement-assets/on-repeat-series-v1/catalog.json",
+        "checksumSha256": "0ab14860646dc8770c762208c4c3b4b6c92e726ce43d699d7afa209cdd53d47d"
+      },
+      "on-a-roll": {
+        "revision": "on-a-roll-series-v1",
+        "path": "public/achievement-assets/on-a-roll-series-v1/catalog.json",
+        "checksumSha256": "840a614cd0938f8ee784e3a7798382a7cef10dd591ad371d416f9b7448ebfc88"
+      },
+      "mountain-path": {
+        "revision": "mountain-path-series-v1",
+        "path": "public/achievement-assets/mountain-path-series-v1/catalog.json",
+        "checksumSha256": "5edfa6f04d53f088b873ef4980fa0f47a93dbed76d1833380b4c0356f9c883a0"
+      },
+      "workshop": {
+        "revision": "workshop-series-v1",
+        "path": "public/achievement-assets/workshop-series-v1/catalog.json",
+        "checksumSha256": "e6f9346638b4ccad7eed9ac67d59a0534660f823fc74171ebe3dbdba5d45d702"
+      },
+      "open-sky": {
+        "revision": "open-sky-series-v1",
+        "path": "public/achievement-assets/open-sky-series-v1/catalog.json",
+        "checksumSha256": "44afbcfb9b441ed03c968718317095f02dadd9b2d014669412350814a14d6788"
+      },
+      "archive": {
+        "revision": "archive-series-v1",
+        "path": "public/achievement-assets/archive-series-v1/catalog.json",
+        "checksumSha256": "4f2eab15efcf4b8be32d35d4ecc0a499866e9129d77524e1bce49550c5b24dcb"
       }
     }
   }

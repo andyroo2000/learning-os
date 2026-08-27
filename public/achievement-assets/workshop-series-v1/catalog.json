@@ -1,0 +1,672 @@
+{
+  "revision": "workshop-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/workshop-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/workshop-series-v1/source/first-finish-complete-scene-source-v1.png",
+      "checksumSha256": "45442f96bed64511338bc5ec70f6a80c0a165e68fa70d995083965172ba52e1a"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-finish",
+        "path": "resources/achievements/workshop-series-v1/source/first-finish-complete-scene-source-v1.png",
+        "checksumSha256": "45442f96bed64511338bc5ec70f6a80c0a165e68fa70d995083965172ba52e1a"
+      },
+      {
+        "tierKey": "steady-hand",
+        "path": "resources/achievements/workshop-series-v1/source/steady-hand-complete-scene-source-v1.png",
+        "checksumSha256": "f7c4c281a73ab2782bf7d808f6cab2cacf804bb5044300d81e0b340e78f211b4"
+      },
+      {
+        "tierKey": "workbench",
+        "path": "resources/achievements/workshop-series-v1/source/workbench-complete-scene-source-v1.png",
+        "checksumSha256": "666eaa2248e83fad3a9824a74c30bb280bdf9b53fe1bd9f46404e94b8f13c301"
+      },
+      {
+        "tierKey": "crafted-set",
+        "path": "resources/achievements/workshop-series-v1/source/crafted-set-complete-scene-source-v1.png",
+        "checksumSha256": "e96f14618a6011ecd51c1cbb52c4bca9bf6367e844bd43dc156007f4374273ed"
+      },
+      {
+        "tierKey": "full-workshop",
+        "path": "resources/achievements/workshop-series-v1/source/full-workshop-complete-scene-source-v1.png",
+        "checksumSha256": "b3bc73d047f932feec6b745e71198fd82f44c62baae3c466d988ed6617ab7325"
+      },
+      {
+        "tierKey": "guild-hall",
+        "path": "resources/achievements/workshop-series-v1/source/guild-hall-complete-scene-source-v1.png",
+        "checksumSha256": "b409cff59f452cb5ab6f2835e6504073e5e47a4c44b6dccd73add2909fde5993"
+      },
+      {
+        "tierKey": "masters-bench",
+        "path": "resources/achievements/workshop-series-v1/source/masters-bench-complete-scene-source-v1.png",
+        "checksumSha256": "a252ab91213e701d848ca97e6c84482960b423fc932e4ee4bf4e4f6740c24e6a"
+      },
+      {
+        "tierKey": "grand-atelier",
+        "path": "resources/achievements/workshop-series-v1/source/grand-atelier-complete-scene-source-v1.png",
+        "checksumSha256": "33dc0bfb0c815312b097ff5e4f9476e73d8b56131cecc5cac26b43aeec96f5dd"
+      },
+      {
+        "tierKey": "city-of-makers",
+        "path": "resources/achievements/workshop-series-v1/source/city-of-makers-complete-scene-source-v1.png",
+        "checksumSha256": "05d18b0866bd8c2779b4e9a94f793a330aec7db8afcf7e06f8158f2574f09605"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "workshop",
+      "tierKey": "first-finish",
+      "title": "First Finish",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3f8fbd6cf46a3c1caa8751c5fc9bc234f10eb556d55b6f7d2153abdf63ca9d59"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9084685d5975245207ddd69b57fb6f80e8ac7fe1d51efe1c4eb5f114c8dcc53b"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "4216bdb713463eb8163055d3981efc70b34863444f9ca693cbbb21e470f6297f"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d88806d616e3b4e2e5d3615b496a1eb8caeb21ad95d688c1541245c14f9c7548"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f22a73e47eada384940be1981191f3c35dffeada93daaba42685377f8100da93"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c3874f538dfe25ea02c7941ed4c9c60b681c5fda9ec775cd3afcb3f291d3a8c6"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b79e35ec9f40e2a0c1f08cd40b09e85cb58bee745795cb42ca0ad48d42f0a8c6"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/first-finish/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "3dcf9ab2b031be4b1369174ba9fa2592cae8854f6c22fde1e358e07cf6a38daa"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "steady-hand",
+      "title": "Steady Hand",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "240820d84b6cc2c644d945e1a69ef5a8ce40dff3c323f9a40795ef44d6b775f8"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "550bbe86d4ee84de51f2f5f4ef714500166e1e343bfb43b8ac5ec16873499de5"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "ece0083ef0bfe5af6fe58c4d6592e5e7feae0bd65ae905a2ca446679e5813395"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "100719b2a74a45bfcd304acc1b6a362d1b3905730a24fa4bf7470cb01ab20eef"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2215d06d81307050dbd94beba8c8707a17d1f045c3ff8c8711cbfcadb7b12982"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "fac60020880cc4683bebecc6b6ad96e84db3939d1762052025e3fcb0099f5354"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3d56e967a4acad1e250eaaa9e4264058e5d83749625b17edba251904c31367c9"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/steady-hand/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2065f4d7ac0938620e98eb111e685e9bc46f90fa11425b3d1da742a914230aa0"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "workbench",
+      "title": "Workbench",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "550cf04184b3e8f2b29122cbf1dfe0b79520650d334db00991145df54ed96cc0"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "21eba8005ab565c27b935a318920821846822059a701d92dd091743377ea1a77"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "379839652b638c36e3656aaa96723264a7c82ffbe7c8a9870da4ab18e2bcfe36"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "c1f1ec3fa796acd5c0183425c0860046f2cd0845bb44c042e7442d3b97d0786f"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "8ea75033e8dde2990e054da10c75f7cac90b54c28fb27e2ad62c1e9ba68d9943"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "cbf126d0e87e2fd128480c005c3bb7b74f2c2f129dc476a9cc9ae2b295b548a8"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8c03dac7bc7bbe72dcc595353c8b8c0c5eb5e61858d49f702bfb27e48dbd096f"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/workbench/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "57770e2ee6127173f43f3fa74cf1862de7b5764b0ffe130b4bc88aef68339509"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "crafted-set",
+      "title": "Crafted Set",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "dddb00ea8e47e3ab1fe8eb3373be41cbeadbab76e539925e90cfc2bb1e0e9972"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "725301a624426927108afd36a7b8c6c784bb270c531c1728757db92a1ef1cad7"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "be54a8e14384783ebd9afdffdc235c3dfad223aa7188e5c689dc8d2b766a4394"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "c2716632fdd58401dcb7d8e0db23db98623ff606927748e78c9eebca9cc88b1b"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "c76bb6356d04debaeb8f7f915ed693ee6cc83fe46108cf433f3d48b0793f0856"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "0b0103705e4e8c388ff75d71d4784a96350430829571e8b308490a619ee1130f"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "cc1fc152eae22e1563c5c500e645b741279bb0526ec81d93254e55dfb767f223"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/crafted-set/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "fee246791a225a2494d9f94c791a56fc292f592eb799e2ff22dfc24f351ff12c"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "full-workshop",
+      "title": "Full Workshop",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "47f5af21d170c0a8bbb3458aa8e68f2a2e7b00d723de75388775f3f632a540e9"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "ac3bb8119655986c6c8919bbcd2510d2b36b0b7e49054eb72a6150c1b784faa0"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "1914993b11f18ae71c130695ae8787af4c40ab5efd271fd5891f57d021ee602e"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "60cb20e353d1c6e5e6aad8056700ec18e92653908a25454e9d040c109da6b2a4"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "ab2186b51380604ad1a327dca04b2f1a586fc908239fa795f3d99202178c5609"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1d8a61040d4856ddf0966f58ff9749454ffc39962241a4f3f0e1a61a4050a648"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a82b4afe95d0de51ccc6aac3d4bfe60a024c09aad4dcbf39b3c2a11893adce50"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/full-workshop/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "af55e0272c4ddfe7a68ec206b9cc839b2a136b0f6695da64ae0b0e2083a2191d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "guild-hall",
+      "title": "Guild Hall",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7936384ec2c438d565d43a0797f42c17f4ad2e494795a62481403d675379a80c"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "4cf39f7e3322dbc68242f70b9973ae09930d37dd2d7e87c7f26962e3175bfccf"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e6f7f837cbee675a4d78af6fec1bcb725c52ec8f51a5258be90b8aa17c158355"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "6af9a8cc660df997853e51319d14141c32f258978f73a075392d55d9d2659e50"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "b90e030d3bf3c5bf2e8292995f19ea2da7e67d306cd9713784e085d533908998"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "2f10275847780af1b7522b5faba01eaed5aba4dc15bd4d215cd19ce7d3e65691"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "6d6469e18e96711de58ec03d70c8c3b2d282b0f537fc1fb99f9cc6a066f691c8"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/guild-hall/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "c6fdd9dbcf389f6303a303e3d33227a35b09c40c6876b295f7d80070b749ea91"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "masters-bench",
+      "title": "Master's Bench",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "8d56a426cfc527e834a016d915f4666234da0732f0883b6decb016f029c3ae5b"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "7df60b03db2e4feaa86931ff2f24c807dbc4e5562a004d7c9998e182aee9060c"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "325c47cf71bf59fca02a0ad43af828efc404b9ec2b9493d0b02e445b48a1aed5"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "abbb97fba3af7cbf3fd4264d40b9ec4f1d3dd230612b578829881dab545232e4"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "c0785f2af61de1e38b1379ee003ef85241b9497f7f9f3c1468fc6c87a754bdd8"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "02bcdaaf904a6d3d281bdd8079a9ef296aba0e3277d8a061be64a6cdd7aada8c"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "05177f53dd2248fca9a556d9f25ee8ec512bb75d017e05c6f36ac600cfcccc87"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/masters-bench/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "cc96d1bdb2dc9a9715fcc74c2a9d74e5f36ce75517d7a71c8dbfa2018f34c71b"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "grand-atelier",
+      "title": "Grand Atelier",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "9ff4ef2459b557f8bdad7d6d8ec88d4a51815cbf460760a7a49c82ca4ff39bb0"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b91bc011382be10f0be41f207851a7052e772eeef7859a7829d4c76c6b787c83"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a80c9c76ab9430549b54ebe7565dfdf0bf7ef0984984c488248250d13d4519cf"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d5227e015f10be9c9a6cffb0c81e43c3fd16c824fabf9180e386a9f60a63489b"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3f4b7c8c176f21e4e26605c81398062605515d5a45aefd289a4ec8b5938f42c0"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a11702df8c481c360e62c48ca5f7cb13974b544fab10e82cb2df9e58e052c73f"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "2a25bf41430b2b75b717b69ba7600062400c5674fda574fbcb31e08edc3c0996"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/grand-atelier/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "43e8773b73b4cea96efdd02e10c81428467461b016ae38f1e4caaa7f2d8e75bb"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "workshop",
+      "tierKey": "city-of-makers",
+      "title": "City of Makers",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2ddb8764703aa05ab99f790b4c6ba16b40f552008df13e02e540627e36bfa6ec"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "48c2c31c791841f50dcab67c805c700e040060913b152de4f9ed56b1ff421f7c"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8ac1f02b7567ccee6164dd95778ce86af6758943201ab0d0484208d70d545638"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "361bfddf07f06663de0c04d4b8bf15c93de439b7d4f41c07f29bff857a5f2515"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "ebf2d32f1e6a76a5f99817959efe65ce1be3b6a62445239f69a0850a4cbdbb71"
+          },
+          "128": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "35afee397be1d1278d7c3e3d4c53fa9481598506e1a44986d22ec93338fe97db"
+          },
+          "256": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "978e63e997a4e2ef0f33a1264285080c5a1cd6da1a43a046b42083242153f894"
+          },
+          "512": {
+            "path": "/achievement-assets/workshop-series-v1/city-of-makers/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "f7ff5d568f64be76df1743f0b47dcea19d14e366d51265e73804203f27563808"
+          }
+        }
+      }
+    }
+  ]
+}

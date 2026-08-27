@@ -1,0 +1,96 @@
+{
+  "revision": "on-repeat-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/on-repeat-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/on-repeat-series-v1/source/on-repeat-complete-scene-source-v1.png",
+      "checksumSha256": "7d52fc3477fba318a84d0674b14bdc11befc454626a929d5336e85f75b971405"
+    }
+  },
+  "achievement": {
+    "familyKey": "on-repeat",
+    "tierKey": "on-repeat",
+    "assets": {
+      "earned": {
+        "64": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "9580af2b5c3a4d4b3d88354b6e9384c024df451d093b5f9991a2ef142bbd8034"
+        },
+        "128": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "b987d985fbe7b3d3f0ee26c88bdb963069ced0a31f38a1e1e015defa0ff4dd99"
+        },
+        "256": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "9941b94447a1b0fedb8ade8f6ea1a9e32bc210bcf88c337b1ac92c9664f73a79"
+        },
+        "512": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/earned-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "5bffb60a98e75d2b21beea860f4c797103fefe94653c7b0edbe51594a5045496"
+        }
+      },
+      "locked": {
+        "64": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "2bfd582ec1381e330090bfd23f3aa3b45cd8a153a0b5546d56aae7aa935379ba"
+        },
+        "128": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "07d7ce831c0f07552ae83d71901e4b63be955e381fd6df38b1b01809107b4754"
+        },
+        "256": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "ca70729a0d1eb810a44dbbe1d21f4e887355cd6f88456382599d303975129f9c"
+        },
+        "512": {
+          "path": "/achievement-assets/on-repeat-series-v1/on-repeat/locked-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "2b46763a26aa79b1d7004ea224e78365330895428645ba3a11b0b6dca253035a"
+        }
+      }
+    }
+  }
+}

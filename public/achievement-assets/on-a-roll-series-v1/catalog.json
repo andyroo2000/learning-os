@@ -1,0 +1,392 @@
+{
+  "revision": "on-a-roll-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/on-a-roll-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/on-a-roll-series-v1/source/nice-run-complete-scene-source-v1.png",
+      "checksumSha256": "472e00eff6910b7916590a7fdd2ebb204ac35eb24acd03ac1f96fc372778d109"
+    },
+    "interiors": [
+      {
+        "tierKey": "nice-run",
+        "path": "resources/achievements/on-a-roll-series-v1/source/nice-run-complete-scene-source-v1.png",
+        "checksumSha256": "472e00eff6910b7916590a7fdd2ebb204ac35eb24acd03ac1f96fc372778d109"
+      },
+      {
+        "tierKey": "locked-in",
+        "path": "resources/achievements/on-a-roll-series-v1/source/locked-in-complete-scene-source-v1.png",
+        "checksumSha256": "5a7fcf3a0bb9e3f44a0ac55e5cd6a73f2754a192d372a14e434b3c2ee6ffdefd"
+      },
+      {
+        "tierKey": "hot-hand",
+        "path": "resources/achievements/on-a-roll-series-v1/source/hot-hand-complete-scene-source-v1.png",
+        "checksumSha256": "ebea87cfb75e2db9df835215d7daf750f61eaa1bc5d6b5c2ec12fd715bcbc468"
+      },
+      {
+        "tierKey": "laser-focus",
+        "path": "resources/achievements/on-a-roll-series-v1/source/laser-focus-complete-scene-source-v1.png",
+        "checksumSha256": "7d58db30bda4cb17fab471eb720b6dd3a2a3a34269b227cb7d959ec6de37e51b"
+      },
+      {
+        "tierKey": "century-run",
+        "path": "resources/achievements/on-a-roll-series-v1/source/century-run-complete-scene-source-v1.png",
+        "checksumSha256": "7124f45d6a101a8c17842134a574e0a761c5fc294686bd72956aee1dd82df3e0"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "on-a-roll",
+      "tierKey": "nice-run",
+      "title": "Nice Run",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "ec848bbd7ff5c14cfec7556257edac5e0edfd9272ddf263f8d1bf03466e468a7"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c2aa4786a2c346d393bc2061bebad8e4d0e90c5425484f6f53609f24b0b283b3"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "106cb9f6cef8101d43a532a64250caba80726b7284e5f4010758cc0b2c25c052"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2fda4608ebf85e4302b9be1866d24a02f4d5af7f2e2a4ee5287e2461c7a12e93"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7d1c62ca373e89ee3d2cf718bc84fdbc4b080b54ff4044ca1766a348c7426623"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c5b11fdc69627aa984868fac8fed469323e68e55b88904cd509354eff29df8ad"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "bfd15eda23cb73d5f2dc07dec56d623b448df4dad7051e462b227659b6874f59"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/nice-run/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "4c2347e55d969f264e598bea7634e11b1b05aba3f349cc51ec853de47be8691c"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "on-a-roll",
+      "tierKey": "locked-in",
+      "title": "Locked In",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "b522e9d8177cc7e37b34fcc7b0597221ccad9327a871dd1abc50615019a10744"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "3335020d22c044ec992b01258ca8291453e55c07283a574c740457632d7f29d6"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "35cb8a4672d02a9dcc7a7268c1d36f1f6b94888b95a22d9fbb912584746ec17e"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "f992c965d42d6cd185c78a22fed2cf95bc735dee0b302751d319b1664f468005"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "927a7cf150291afc4542f5695bfa340e7e13edcbd42e2ef8552247637f3d06b1"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "6e5f6d8d7c84c74aa0b278ea209eee7e544d9ba93c9b1d8b259422f697831d0a"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "98cad8071a31c11f25981b91b0e70696d72f37de61b59476316773f045ac0beb"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/locked-in/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "566909c70911d446dddc4fcc9fc5d61c55808b67b96ca607dc9ef9e24166806a"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "on-a-roll",
+      "tierKey": "hot-hand",
+      "title": "Hot Hand",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3ec230d6894c19a087efe69843973d602bbde86b7f6f7072e1a9f7531e3d678d"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c77c0cee9f78b4a7802a111508e7f79bac4d462ac6f202221ec87e5d04f98238"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8758360abde36396c8bde1a94ecdbbe3beb886976ab2ab3f69f3b03fbc67a050"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "8d95a2fc5a1e8e7d2d4d101b7eadba883a65a886325d5ba7a4e24f0051ef263e"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "08523f9c5154e634faef272de71f8215fdd3b9df0ec878a7f2bcfecb3f73cac5"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b4ef5cda705cd97bee0b597a9d335c7a7f6b714266b216ca17fdfb8a1fc4b576"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "29927d373506f6b4239a1d953329e21ec0c6faa746fba9debd707e839ed33317"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/hot-hand/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "41ceff08c4c4496bca00f6a64314b3eb99aa8c238f7b4e990d6a6a4b3b871af4"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "on-a-roll",
+      "tierKey": "laser-focus",
+      "title": "Laser Focus",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7982d340e672ebe6de3b595abd7a84a29af6e5938b1cf7fdae5c4819e8ade91a"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "14141738d14617b839fedd2afde468847e5b7ff0d213a2e305f5ba82b16715cd"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e5d8d931a1443b45c7d5bfd414cabaa48641b3d99ba84a01d2c51829e076db3b"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "ee2e49ff485c76d52f58cb2171af241e3b74d0f4da6d54db809fc61f0be42555"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "5c7f3fab60a9598d9c49e200d648755073ec1da422aea55e484ee9c536a4f65c"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "4920186dd45fb7de9b89bfd66c4d7d632f37ecb100aec9108991ff332bf35af8"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "1d844f6d9c1136712c8217696121062e99d31690d1273949e48fa445696e5e01"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/laser-focus/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2610678c1eedd86badd9645f4a29a89505792e2fa3763660a3772473b9d21f2d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "on-a-roll",
+      "tierKey": "century-run",
+      "title": "Century Run",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f2e89c7dd0a86ebe7faf88f46fbe2d029473171f1d26f9db046649ce83055c8b"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "bda64cced297d4daaee3f4e7c19184db155990ea1798e2c48e101d70e4a41dda"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3c71ab571c99c5634833f1402d1b34e203c195b07722f1b53537dee1c1d8a9a2"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "0a50704795ea08e091bb1b5b4de4ba7fd35036b86e66766460a15c0b36dcbfe1"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "b37b2e68c4f6445cd5fa0c55c06ff535450818b1356e7c1b7479a1b66688e077"
+          },
+          "128": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b53320e28a7d7387392a4dcc12ae846875664e2448693b86b0707424af06a846"
+          },
+          "256": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "19c15427e79152173a276ebfce1b9d20a78ae6d57c05ca1bf6237cb3e807837f"
+          },
+          "512": {
+            "path": "/achievement-assets/on-a-roll-series-v1/century-run/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a00ec645fb7e3d2c79e1d257380ba1aa06610032378e5a9e80d882c83a09a433"
+          }
+        }
+      }
+    }
+  ]
+}

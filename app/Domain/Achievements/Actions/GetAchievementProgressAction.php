@@ -3,10 +3,7 @@
 namespace App\Domain\Achievements\Actions;
 
 use App\Domain\Achievements\Models\AchievementAward;
-use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetBurnedCardCountAction;
-use App\Domain\Study\Enums\StudyActivityCategory;
-use App\Domain\Study\Models\StudyActivitySession;
 use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
@@ -21,7 +18,28 @@ final class GetAchievementProgressAction
 
     public const LEGACY_CONVERSATION_MINUTE_METRIC = 'study.conversation.minutes';
 
-    public function __construct(private readonly GetBurnedCardCountAction $getBurnedCardCount) {}
+    public const LISTENING_HOUR_METRIC = 'study.listening.hours';
+
+    public const OLD_FRIEND_METRIC = 'reviews.old-friend.count';
+
+    public const DOUBLE_FEATURE_METRIC = 'study.double-feature.days';
+
+    public const ON_REPEAT_METRIC = 'study.daily-audio.repeat-days';
+
+    public const CORRECT_RUN_METRIC = 'reviews.correct-run.longest';
+
+    public const GURU_CARD_METRIC = 'cards.mastery.guru.ever.count';
+
+    public const MASTER_CARD_METRIC = 'cards.mastery.master.ever.count';
+
+    public const ENLIGHTENED_CARD_METRIC = 'cards.mastery.enlightened.ever.count';
+
+    public const BURNED_CARD_METRIC = 'cards.mastery.burned.ever.count';
+
+    public function __construct(
+        private readonly CalculateAchievementMetricsAction $calculateMetrics,
+        private readonly GetBurnedCardCountAction $getBurnedCardCount,
+    ) {}
 
     /** @return array{revision: string, metricValues: array<string, int>, awards: list<array{id: string, earnedAt: string}>} */
     public function handle(int $userId): array
@@ -48,19 +66,13 @@ final class GetAchievementProgressAction
             throw new InvalidArgumentException('Achievement progress user ID must be positive.');
         }
 
-        $conversationMilliseconds = (int) StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('category', StudyActivityCategory::Conversation->value)
-            ->sum('duration_ms');
+        $metrics = $this->calculateMetrics->handle($userId);
 
         return [
+            ...$metrics,
+            // Keep the v1 key and its live-snapshot semantics while old clients
+            // finish their rollout. Archive uses the separate lifetime metric.
             self::STABLE_CARD_METRIC => $this->getBurnedCardCount->handle($userId),
-            self::REVIEW_METRIC => CardReviewEvent::query()
-                ->ownedByActiveCardDeck($userId)
-                ->count(),
-            self::CONVERSATION_HOUR_METRIC => intdiv($conversationMilliseconds, 3_600_000),
-            // Keep the previous key during the v2 client rollout. The catalog uses hours.
-            self::LEGACY_CONVERSATION_MINUTE_METRIC => intdiv($conversationMilliseconds, 60_000),
         ];
     }
 

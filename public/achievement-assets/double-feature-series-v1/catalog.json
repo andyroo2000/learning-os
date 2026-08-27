@@ -1,0 +1,96 @@
+{
+  "revision": "double-feature-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/double-feature-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/double-feature-series-v1/source/double-feature-complete-scene-source-v1.png",
+      "checksumSha256": "871d6be3805ca9efe6fffeb8eebfa9039f06427ddba3f6fa149b6fe25e98e326"
+    }
+  },
+  "achievement": {
+    "familyKey": "double-feature",
+    "tierKey": "double-feature",
+    "assets": {
+      "earned": {
+        "64": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "ad5234d34d501bad25703a49e09b22c7bb01210bc2ce56082d12eccdb61a6aa2"
+        },
+        "128": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "2ca4d270946c9d6b1d1b699b2c8b6c3d6bfa94a0966981932db6c2fe82c1e908"
+        },
+        "256": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "3cefe63a8c1635a0d921aaeb251901afa5db9ab6716c1067d5a9f82428734ec1"
+        },
+        "512": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/earned-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "d023f7ecd729b2a302e07e22d0a3f381b6cb6ada48fda1d6a81a1e6b0a6b05c4"
+        }
+      },
+      "locked": {
+        "64": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "80d36c99b4e3b3475071467744aeacdd5aece7b6efa257e3af4bf6ad23a0204e"
+        },
+        "128": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "c2a9ca1d8eb85ded337eb195666f81a2ed7c07013d41e5a074540606f6e59bc5"
+        },
+        "256": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "5b08fd11109ad432b68ea8dad270809a1cc0499fc3afeefb764b43f801343776"
+        },
+        "512": {
+          "path": "/achievement-assets/double-feature-series-v1/double-feature/locked-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "162a466fcbc48bca959fa1d5fd2636d8ab0080a73a7eb47f69f1ed6087eb70a7"
+        }
+      }
+    }
+  }
+}

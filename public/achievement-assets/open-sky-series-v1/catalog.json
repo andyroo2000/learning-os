@@ -1,0 +1,672 @@
+{
+  "revision": "open-sky-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/open-sky-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/open-sky-series-v1/source/first-feather-complete-scene-source-v1.png",
+      "checksumSha256": "ff97f93d6faf90d8cbcf15db8de106563afe451d51a43c454068eea169856a77"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-feather",
+        "path": "resources/achievements/open-sky-series-v1/source/first-feather-complete-scene-source-v1.png",
+        "checksumSha256": "ff97f93d6faf90d8cbcf15db8de106563afe451d51a43c454068eea169856a77"
+      },
+      {
+        "tierKey": "first-flight",
+        "path": "resources/achievements/open-sky-series-v1/source/first-flight-complete-scene-source-v1.png",
+        "checksumSha256": "5205c9b5fad14860487ab6d7e76e9479bf58815f03351bf562e6ba1a72a9c43e"
+      },
+      {
+        "tierKey": "above-the-trees",
+        "path": "resources/achievements/open-sky-series-v1/source/above-the-trees-complete-scene-source-v1.png",
+        "checksumSha256": "28eb0d4481ff4070d44b8cbaf64e29d37e6e76814e788b209d8d8f7234c46d2a"
+      },
+      {
+        "tierKey": "cloudline",
+        "path": "resources/achievements/open-sky-series-v1/source/cloudline-complete-scene-source-v1.png",
+        "checksumSha256": "aaae23ebcd4a7c88a6a04a33d139708a87f3a82ae9bc2773434f5592c591a872"
+      },
+      {
+        "tierKey": "wide-horizon",
+        "path": "resources/achievements/open-sky-series-v1/source/wide-horizon-complete-scene-source-v1.png",
+        "checksumSha256": "0874b4c412962cee51d1b3a27c93041cd952ab27419d0ebf10455b9a0f59ba45"
+      },
+      {
+        "tierKey": "high-current",
+        "path": "resources/achievements/open-sky-series-v1/source/high-current-complete-scene-source-v1.png",
+        "checksumSha256": "ee313bb60fbcfe8c07104381f8ca78cd04be3f62169879af01f1c7cdaf85a97b"
+      },
+      {
+        "tierKey": "blue-expanse",
+        "path": "resources/achievements/open-sky-series-v1/source/blue-expanse-complete-scene-source-v1.png",
+        "checksumSha256": "c7c5e012736cf2185edb700d417a21234e03c55989f5e029c499a94d0beaa74b"
+      },
+      {
+        "tierKey": "skybound",
+        "path": "resources/achievements/open-sky-series-v1/source/skybound-complete-scene-source-v1.png",
+        "checksumSha256": "1035c983387734051f5ce7cabccf0a04c75e29300364fcfe57addb1f76d474fc"
+      },
+      {
+        "tierKey": "beyond-the-sky",
+        "path": "resources/achievements/open-sky-series-v1/source/beyond-the-sky-complete-scene-source-v1.png",
+        "checksumSha256": "f22084caff6cd18feede35810159100f6b73c1c13bae2e04da6260789bb87a07"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "open-sky",
+      "tierKey": "first-feather",
+      "title": "First Feather",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "4ba3665a8485e03bf988b1d8d97ad3790711ac89d0d7379f36d650e60602cb5c"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1a116e4cc9d5eaeb702a27e2098e59fbfd968c3a556928616ff25e6b53593dce"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "bfdf81a5edbc3da055b40ced280fbcb7fbe5f359cc6ae0e93163f2df85c175b8"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "81e0f333677767e7ebc17c4051b6907632d2ca57e7cf8ac04e162e23d8dadcd9"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e8b3bbb30c72f09bf03e5c2b65613e993996c72585b4dd4ee957e8a36b6b8dc8"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "2f9a366b667bba719fc5a229bcc6fabaec72e050217a59f46d3f674a33ba8cc7"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "feb838eb19c5d599925130fc5c98ab5b3ff1b2057e74345016213b886bb2904b"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/first-feather/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "7bd53a927f3560b92505c68ba8fd5669423bd8ce9bce0a24fb2f2d0f3ead8966"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "first-flight",
+      "title": "First Flight",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0073bd63601605d6243ec630767e03e88573dcd2ca233a9b8ec8bbad9ca993ef"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e502448d00f5dfdd665fc2b71c862b2c9dd225afe8ef3f1c1c196b2c22d5a552"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "83e89069703ecfff1e759c73141965c93f679a71cb1bc9c8046ea55376cd7afa"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "31e90193b025d213fe46b7097e8a5e0ad95d718e17f2004b36f87e71f922936a"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "dd909725a3d77d07f4dac7ecfc9e9925618506d1e40a9948c2d266fffe24ae82"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b191f6d1a717b74d68264e3d6c6b3d2298efa20e1dc9c743e95aac5c8e0a2987"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "38748f97f170d1b0f3b74f4673bdc53743951725e031cf8d549a380e1d727772"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/first-flight/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "174073bbd8dbfe9ed80f29d7bac22cc2d37ed4fad4cfb8b6c1ad0ec659e5495b"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "above-the-trees",
+      "title": "Above the Trees",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "43cb4dcc332d102e45414981862eca15bc014f46c13a10e15c148581f020c703"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "49f51c96cd535941bb8394bded0109f7cdf93baa3c978303c51efd0a115193b8"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "db74ccc2058015666f44ccf9d986550465fec5279c5b827e1fe9713a91de2f5d"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "e870a57a6d9dce89d1075a603999c338041515e7583db6ef7809d2dc5b7d4ea4"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "927808249ea62c270bc85b89628fa2b372fdfa92bda13165aab01c37046bbf0b"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "025f0b02da767fcbbd21d14d2e69bebb104eb01117d92d1b4281eb16fd1ac3de"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9844195f59af3e098af28cb30dea44c6efb392d2534e0cae7f90c53cf5907f36"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/above-the-trees/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "dec703fa758cb8481cc0b9c1c63118e8ce447969e0240021754325dd0ce4669a"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "cloudline",
+      "title": "Cloudline",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "44ced94db2e79eacb31056a82dfd8037cca23d21ec6fb9db041f6113851f25a3"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "03259e93269dd4690b7de6b4471469d31ac886d58402444959a0bc6581dcc4ba"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "daa2c61404fb19e37ebd64141659d2fcbbcc672192e788db694f68b1323c2334"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "5f6bdf7085132cd3145d12a987b0f39ab6d739bfb25b0dad385279d99d963722"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7caeb9e59f0dcf1c0ee3dec2fdd3f013f47c83342854283008323b12b813efb3"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "202be04944dc0dce00014551f408015d2782451c2bab3cfd5de9c56c8a951a45"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "5efc890dae7636dbfed3c34f5fcb82840d620a0271def68998b9585bebe62f7d"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/cloudline/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "356418a101ddffe913b2c601e362dce575a642c5a74096aaa42226a4ece4cdfc"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "wide-horizon",
+      "title": "Wide Horizon",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "b0e2665764e9859d08cde1b090a583161b8e951766339ce86d7bbb0462112298"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8e6b9a0e6e1092ff2eeb8bd7598e071f4a67c963d08e435eada83c6606c58d15"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "66e1ed6670969718bde80c7d3fa9821917a8b34a223dd4d84e31a4fea332d37f"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "fa560ccd4f7ae5294515f89ea123d7a848a66493f0f8dc54a8c933c2194e47e0"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "d211a4d8a73dbdbd9094015a3282e4b2bbb71d52b7418e42312f460b85f58ff5"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "027ea60d831e68d19e6f324f61bcdd103a6c6dff30f88a4bdfd1ab9a12934f11"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "be642f5df83d9966c0f3aa15155f801bd4b2678244871ff2e6b0e9fc6ad00e0a"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/wide-horizon/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "7a842e8a6a08cbc3989e73033cbab1fe1cc58bff21bc83843dbf62f1920ebe44"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "high-current",
+      "title": "High Current",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "1db4ecc9502101ef891b81df0ed53d02877f2b4691390e5b64024741e2498b30"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a5fdf44c6f83ddcaf68f1ed8987ae9c4185f60aef1851188e9b4fb23a434fa6b"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "4d093ef0de38d2310d88fb1d0e1d681bb375e799037f1341fea950dd7b3f5882"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "dbc7bea362291b26abbe8b715c907ba41a6f044da978faf518374b9994fa69c1"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "515c77ceef54b932c59892367605d74966e72893e4d5e31656d3cd18beba31b1"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "661c91ca6d0dd90e61f9f5475d5b8f52561f4d7081aaa4a7d03fb22509b36b60"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b328f199a7b9ea24a8186d658cd39ce9e1b4e881cf4667bf3f954690bfef8f84"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/high-current/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a0406056c499f59374829dc483cac3bbeeac82e5acb1c6c603179c6fa681210d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "blue-expanse",
+      "title": "Blue Expanse",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "d1745461c40ec1638e22dfdf9bab2e7bf2d0dbeb789ce35f319953a8b01d3e0c"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "ada902349269b3610970f1cca25f6216992b3595c27d998755d1fa436d0f05f0"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a9c6e4ce17116e2bf04140ac80b8a2470a8f70cb4795e11e19516555d39a9660"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2ce117477f48ecc067863bd1823ab65d25c94884e1f7df2cc3f8ed4643d6b53c"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "569404a7135836408a613588fc10b607279dc984f56272f4fd1e44d7a18f5c61"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "676cb94c4fbab5a3a65b8c9f57a9acf4cdc6c00a81b7990630da668838256831"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a7d1580fccba6efa71babc03dcf7fcc490a30c2d0e18c6d2a2eb48c372742ff5"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/blue-expanse/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "1a457301ced0fed14f1bda11fe32eb8c5b56985507d35aa8053e13ca9352b3cf"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "skybound",
+      "title": "Skybound",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2c967a799f28d45f9f71d47855612614fef66009e5a2f86efb50ef4bf73e8731"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "37d60bdf76929b392d3a1667d1f229b3818443437e8191319d359f0ef6a2ae97"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9307b65ab2dabb59848d8151ee13638eed0bd18bf258cb07703e43645c10a6ad"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a27cca3bcce0849b67efe8278bdd939cac870a768d2d545b0d2a423a84a580f8"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "21d9f5a734aec81ad40a9da3d4833cadc42d960cf1901f5f94339085bf075f2b"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "bcab88d0ee7f29055f5fc5af87d5a565d22fb67331dd6928e934b4343cad9201"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "55887aaadb96e09e1a78fad25727044d6bbc7722cea5b4f0f6668340e12b167b"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/skybound/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d9cdebfe17185b25aee8cc9da5b7df18659c1aa4b58c5a1a824e5f3d5ecc2fad"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "open-sky",
+      "tierKey": "beyond-the-sky",
+      "title": "Beyond the Sky",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "6c934d9fcea4b2a94a16407e96f060d719e035bcfe58f46332132f745d076fbd"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e0a469d66e2276f547c9133468cdad66816b58d4b127529f9ee0a878dd4e374e"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e9fbb4fd6618de42ca7eb5951d2ecb17b30c31acd90551ec5d19b711e6334f89"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "33daa4613e750925a4dabd3da98c3b8724e3000775c4b309b4c5f38b75356ee8"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "36ad0b6a8d6875bb9505427282195b1ab6e2bb57348deb693c2049b3c780af03"
+          },
+          "128": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b391e0027020af4795113086ae9dc80d12003792e7977db8521105e95e648a39"
+          },
+          "256": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d7d3082ce22a2230eeb9cd6b215eb20f8cc36a21ca9d759accb38f745058f2b1"
+          },
+          "512": {
+            "path": "/achievement-assets/open-sky-series-v1/beyond-the-sky/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "40b9471e96f7b18318e1aefc325e3940329bd2c24b3fff60b60ac971a646da38"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -202,6 +202,26 @@ class AchievementProgressApiTest extends TestCase
         $this->assertContains('on-a-roll.nice-run', $awardIds);
     }
 
+    public function test_review_metrics_do_not_shrink_when_study_material_is_archived(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        CardReviewEvent::factory()->for($card, 'card')->count(2)->create([
+            'rating' => CardReviewRating::Good,
+        ]);
+
+        $card->delete();
+        $deck->delete();
+
+        $metrics = $this->actingAs($user)
+            ->getJson('/api/achievements/progress')
+            ->assertOk()
+            ->json('metricValues');
+        $this->assertSame(2, $metrics[GetAchievementProgressAction::REVIEW_METRIC]);
+        $this->assertSame(2, $metrics[GetAchievementProgressAction::CORRECT_RUN_METRIC]);
+    }
+
     public function test_evaluation_backfills_and_keeps_all_awards_in_reverse_chronological_order(): void
     {
         $user = User::factory()->create();

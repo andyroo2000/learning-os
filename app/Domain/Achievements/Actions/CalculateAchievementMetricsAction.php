@@ -46,6 +46,9 @@ final class CalculateAchievementMetricsAction
             GetAchievementProgressAction::BURNED_CARD_METRIC => [],
         ];
 
+        // Review achievements are lifetime records: archiving a card or deck must
+        // not erase reviews the user already completed. Raw ownership joins here
+        // intentionally include soft-deleted cards and decks.
         $events = CardReviewEvent::query()
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')

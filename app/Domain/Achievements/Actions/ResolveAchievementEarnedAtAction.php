@@ -22,6 +22,9 @@ final class ResolveAchievementEarnedAtAction
     /** @var array<int, array<string, list<CarbonImmutable>>> */
     private array $masteryDates = [];
 
+    /** @var array<int, array{oldFriend: ?CarbonImmutable, correctRun: array<int, CarbonImmutable>}> */
+    private array $reviewAchievementDates = [];
+
     public function handle(int $userId, string $metricKey, int $threshold): ?CarbonImmutable
     {
         if ($userId <= 0) {
@@ -114,34 +117,46 @@ final class ResolveAchievementEarnedAtAction
 
     private function oldFriendDate(int $userId): ?CarbonImmutable
     {
-        $lastReviewByCard = [];
-        $events = $this->reviewTimeline($userId);
-
-        foreach ($events as $event) {
-            $cardId = (string) $event->card_id;
-            $previous = $lastReviewByCard[$cardId] ?? null;
-            if ($event->rating !== CardReviewRating::Again
-                && $previous instanceof CarbonInterface
-                && $previous->lte($event->reviewed_at->copy()->subMonthsNoOverflow(6))) {
-                return CarbonImmutable::instance($event->reviewed_at);
-            }
-            $lastReviewByCard[$cardId] = $event->reviewed_at;
-        }
-
-        return null;
+        return $this->reviewAchievementDates($userId)['oldFriend'];
     }
 
     private function correctRunDate(int $userId, int $threshold): ?CarbonImmutable
     {
+        return $this->reviewAchievementDates($userId)['correctRun'][$threshold] ?? null;
+    }
+
+    /** @return array{oldFriend: ?CarbonImmutable, correctRun: array<int, CarbonImmutable>} */
+    private function reviewAchievementDates(int $userId): array
+    {
+        if (array_key_exists($userId, $this->reviewAchievementDates)) {
+            return $this->reviewAchievementDates[$userId];
+        }
+
+        $lastReviewByCard = [];
+        $oldFriend = null;
         $run = 0;
+        $correctRun = [];
+
         foreach ($this->reviewTimeline($userId) as $event) {
+            $cardId = (string) $event->card_id;
+            $previous = $lastReviewByCard[$cardId] ?? null;
+            if ($event->rating !== CardReviewRating::Again
+                && $oldFriend === null
+                && $previous instanceof CarbonInterface
+                && $previous->lte($event->reviewed_at->copy()->subMonthsNoOverflow(6))) {
+                $oldFriend = CarbonImmutable::instance($event->reviewed_at);
+            }
+            $lastReviewByCard[$cardId] = $event->reviewed_at;
             $run = $event->rating === CardReviewRating::Again ? 0 : $run + 1;
-            if ($run >= $threshold) {
-                return CarbonImmutable::instance($event->reviewed_at);
+            if ($run > 0 && ! isset($correctRun[$run])) {
+                $correctRun[$run] = CarbonImmutable::instance($event->reviewed_at);
             }
         }
 
-        return null;
+        return $this->reviewAchievementDates[$userId] = [
+            'oldFriend' => $oldFriend,
+            'correctRun' => $correctRun,
+        ];
     }
 
     private function doubleFeatureDate(int $userId): ?CarbonImmutable
@@ -257,6 +272,8 @@ final class ResolveAchievementEarnedAtAction
 
     private function reviewTimeline(int $userId): LazyCollection
     {
+        // Lifetime review achievements keep their original award dates after a
+        // card or deck is archived, so these joins deliberately include trash.
         return CardReviewEvent::query()
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')

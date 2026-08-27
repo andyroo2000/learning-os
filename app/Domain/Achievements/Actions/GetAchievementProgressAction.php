@@ -24,24 +24,9 @@ final class GetAchievementProgressAction
     /** @return array{revision: string, metricValues: array<string, int>, awards: list<array{id: string, earnedAt: string}>} */
     public function handle(int $userId): array
     {
-        if ($userId <= 0) {
-            throw new InvalidArgumentException('Achievement progress user ID must be positive.');
-        }
-
-        $conversationMilliseconds = (int) StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('category', StudyActivityCategory::Conversation->value)
-            ->sum('duration_ms');
-
         $progress = [
             'revision' => GetAchievementCatalogAction::REVISION,
-            'metricValues' => [
-                self::STABLE_CARD_METRIC => $this->getBurnedCardCount->handle($userId),
-                self::REVIEW_METRIC => CardReviewEvent::query()
-                    ->ownedByActiveCardDeck($userId)
-                    ->count(),
-                self::CONVERSATION_HOUR_METRIC => intdiv($conversationMilliseconds, 3_600_000),
-            ],
+            'metricValues' => $this->metricValues($userId),
         ];
 
         return $this->withAwards(
@@ -52,6 +37,27 @@ final class GetAchievementProgressAction
                 ->orderByDesc('id')
                 ->get(),
         );
+    }
+
+    /** @return array<string, int> */
+    public function metricValues(int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new InvalidArgumentException('Achievement progress user ID must be positive.');
+        }
+
+        $conversationMilliseconds = (int) StudyActivitySession::query()
+            ->where('user_id', $userId)
+            ->where('category', StudyActivityCategory::Conversation->value)
+            ->sum('duration_ms');
+
+        return [
+            self::STABLE_CARD_METRIC => $this->getBurnedCardCount->handle($userId),
+            self::REVIEW_METRIC => CardReviewEvent::query()
+                ->ownedByActiveCardDeck($userId)
+                ->count(),
+            self::CONVERSATION_HOUR_METRIC => intdiv($conversationMilliseconds, 3_600_000),
+        ];
     }
 
     /**

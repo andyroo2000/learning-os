@@ -12,9 +12,12 @@ final class EvaluateAchievementProgressAction
     /** @return array{revision: string, metricValues: array<string, int>, awards: list<array{id: string, earnedAt: string}>} */
     public function handle(int $userId): array
     {
-        $progress = $this->getProgress->handle($userId);
-        $awards = $this->reconcileAwards->handle($userId, $progress['metricValues']);
+        $metricValues = $this->getProgress->metricValues($userId);
+        $awards = $this->reconcileAwards->handle($userId, $metricValues);
 
-        return $this->getProgress->withAwards($progress, $awards);
+        return $this->getProgress->withAwards([
+            'revision' => GetAchievementCatalogAction::REVISION,
+            'metricValues' => $metricValues,
+        ], $awards);
     }
 }

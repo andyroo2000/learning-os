@@ -52,6 +52,7 @@ class AchievementProgressApiTest extends TestCase
                     GetAchievementProgressAction::STABLE_CARD_METRIC => 1,
                     GetAchievementProgressAction::REVIEW_METRIC => 3,
                     GetAchievementProgressAction::CONVERSATION_HOUR_METRIC => 1,
+                    GetAchievementProgressAction::LEGACY_CONVERSATION_MINUTE_METRIC => 60,
                 ],
                 'awards' => [],
             ]);
@@ -70,6 +71,7 @@ class AchievementProgressApiTest extends TestCase
         $this->conversationSession($otherUser, 90 * 60_000);
 
         $this->getJson('/api/achievements/progress')->assertUnauthorized();
+        $this->postJson('/api/achievements/evaluate')->assertUnauthorized();
 
         $response = $this->actingAs($user)
             ->getJson('/api/achievements/progress')
@@ -79,6 +81,7 @@ class AchievementProgressApiTest extends TestCase
             GetAchievementProgressAction::STABLE_CARD_METRIC => 0,
             GetAchievementProgressAction::REVIEW_METRIC => 0,
             GetAchievementProgressAction::CONVERSATION_HOUR_METRIC => 0,
+            GetAchievementProgressAction::LEGACY_CONVERSATION_MINUTE_METRIC => 0,
         ], $response->json('metricValues'));
         $this->assertSame([], $response->json('awards'));
     }

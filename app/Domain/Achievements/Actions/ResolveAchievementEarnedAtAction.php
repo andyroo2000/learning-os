@@ -41,12 +41,13 @@ final class ResolveAchievementEarnedAtAction
             ->whereProgressionAvailable()
             ->where('cards.study_status', CardStudyStatus::Review->value)
             ->whereRaw("{$stability} >= ?", [StudyMasteryLevel::BURNED_STABILITY_DAYS])
+            ->select(['cards.last_reviewed_at', 'cards.created_at'])
             // Historical stability crossings predate the award ledger. The card's
             // latest review is the closest durable timestamp available for backfill.
             ->orderByRaw('COALESCE(cards.last_reviewed_at, cards.created_at)')
             ->orderBy('cards.id')
             ->skip($threshold - 1)
-            ->first(['cards.last_reviewed_at', 'cards.created_at']);
+            ->first();
 
         $earnedAt = $card?->last_reviewed_at ?? $card?->created_at;
 

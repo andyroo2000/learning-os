@@ -19,6 +19,8 @@ final class GetAchievementProgressAction
 
     public const CONVERSATION_HOUR_METRIC = 'study.conversation.hours';
 
+    public const LEGACY_CONVERSATION_MINUTE_METRIC = 'study.conversation.minutes';
+
     public function __construct(private readonly GetBurnedCardCountAction $getBurnedCardCount) {}
 
     /** @return array{revision: string, metricValues: array<string, int>, awards: list<array{id: string, earnedAt: string}>} */
@@ -57,6 +59,8 @@ final class GetAchievementProgressAction
                 ->ownedByActiveCardDeck($userId)
                 ->count(),
             self::CONVERSATION_HOUR_METRIC => intdiv($conversationMilliseconds, 3_600_000),
+            // Keep the previous key during the v2 client rollout. The catalog uses hours.
+            self::LEGACY_CONVERSATION_MINUTE_METRIC => intdiv($conversationMilliseconds, 60_000),
         ];
     }
 

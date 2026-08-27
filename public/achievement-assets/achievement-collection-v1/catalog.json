@@ -4,8 +4,13 @@
   "generatedBy": "resources/achievements/achievement-collection-v1/build.mjs",
   "design": {
     "canvas": 256,
+    "displaySize": 128,
     "standardAssetSize": 256,
     "retinaAssetSize": 512,
+    "sourcePixelsPerDisplayPixel": {
+      "standard": 2,
+      "retina": 4
+    },
     "pixelDensityVariants": {
       "1x": 256,
       "2x": 512

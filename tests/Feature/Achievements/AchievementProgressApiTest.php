@@ -190,6 +190,7 @@ class AchievementProgressApiTest extends TestCase
         $this->assertSame(1, $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC]);
         $this->assertSame(3, $metrics[GetAchievementProgressAction::ON_REPEAT_METRIC]);
         $this->assertSame(1, $metrics[GetAchievementProgressAction::BURNED_CARD_METRIC]);
+        $this->assertSame(0, $metrics[GetAchievementProgressAction::STABLE_CARD_METRIC]);
 
         $awardIds = array_column(
             $this->actingAs($user)->postJson('/api/achievements/evaluate')->assertOk()->json('awards'),

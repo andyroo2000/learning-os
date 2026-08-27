@@ -25,6 +25,16 @@ final class ResolveAchievementEarnedAtAction
     /** @var array<int, array{oldFriend: ?CarbonImmutable, correctRun: array<int, CarbonImmutable>}> */
     private array $reviewAchievementDates = [];
 
+    /**
+     * @var array<int, array{
+     *     conversation: array<int, CarbonImmutable>,
+     *     listening: array<int, CarbonImmutable>,
+     *     doubleFeature: ?CarbonImmutable,
+     *     repeat: array<int, CarbonImmutable>
+     * }>
+     */
+    private array $studyAchievementDates = [];
+
     public function handle(int $userId, string $metricKey, int $threshold): ?CarbonImmutable
     {
         if ($userId <= 0) {
@@ -96,23 +106,7 @@ final class ResolveAchievementEarnedAtAction
 
     private function listeningDate(int $userId, int $thresholdHours): ?CarbonImmutable
     {
-        $thresholdMilliseconds = $thresholdHours * 3_600_000;
-        $accumulatedMilliseconds = 0;
-
-        $sessions = StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('category', StudyActivityCategory::Listen->value)
-            ->orderBy('ended_at')
-            ->orderBy('id')
-            ->get(['id', 'ended_at', 'audio_playback_ms']);
-        foreach ($sessions as $session) {
-            $accumulatedMilliseconds += $session->audio_playback_ms ?? 0;
-            if ($accumulatedMilliseconds >= $thresholdMilliseconds) {
-                return CarbonImmutable::instance($session->ended_at);
-            }
-        }
-
-        return null;
+        return $this->studyAchievementDates($userId)['listening'][$thresholdHours] ?? null;
     }
 
     private function oldFriendDate(int $userId): ?CarbonImmutable
@@ -161,55 +155,12 @@ final class ResolveAchievementEarnedAtAction
 
     private function doubleFeatureDate(int $userId): ?CarbonImmutable
     {
-        $categoriesByDay = [];
-        $sessions = StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->whereIn('category', [
-                StudyActivityCategory::Listen->value,
-                StudyActivityCategory::Conversation->value,
-            ])
-            ->orderBy('ended_at')
-            ->orderBy('id')
-            ->get(['id', 'category', 'ended_at']);
-
-        foreach ($sessions as $session) {
-            $day = $session->ended_at->utc()->toDateString();
-            $categoriesByDay[$day][$session->category->value] = true;
-            if (count($categoriesByDay[$day]) === 2) {
-                return CarbonImmutable::instance($session->ended_at);
-            }
-        }
-
-        return null;
+        return $this->studyAchievementDates($userId)['doubleFeature'];
     }
 
     private function repeatDate(int $userId, int $threshold): ?CarbonImmutable
     {
-        $daysByEpisode = [];
-        $sessions = StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('activity', StudyActivityKind::DailyAudio->value)
-            ->whereNotNull('name')
-            ->where('name', 'like', CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX.'%')
-            ->orderBy('ended_at')
-            ->orderBy('id')
-            ->get(['id', 'name', 'ended_at']);
-
-        foreach ($sessions as $session) {
-            $episode = trim(substr(
-                $session->name,
-                strlen(CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX),
-            ));
-            if ($episode === '') {
-                continue;
-            }
-            $daysByEpisode[$episode][$session->ended_at->utc()->toDateString()] = true;
-            if (count($daysByEpisode[$episode]) >= $threshold) {
-                return CarbonImmutable::instance($session->ended_at);
-            }
-        }
-
-        return null;
+        return $this->studyAchievementDates($userId)['repeat'][$threshold] ?? null;
     }
 
     private function masteryDate(int $userId, string $metricKey, int $threshold): ?CarbonImmutable
@@ -228,8 +179,8 @@ final class ResolveAchievementEarnedAtAction
 
         $minimums = [
             GetAchievementProgressAction::GURU_CARD_METRIC => StudyMasteryLevel::GURU_STABILITY_DAYS,
-            GetAchievementProgressAction::MASTER_CARD_METRIC => 30,
-            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => 90,
+            GetAchievementProgressAction::MASTER_CARD_METRIC => StudyMasteryLevel::MASTER_STABILITY_DAYS,
+            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => StudyMasteryLevel::ENLIGHTENED_STABILITY_DAYS,
             GetAchievementProgressAction::BURNED_CARD_METRIC => StudyMasteryLevel::BURNED_STABILITY_DAYS,
         ];
         $firstDates = array_fill_keys(array_keys($minimums), []);
@@ -286,24 +237,100 @@ final class ResolveAchievementEarnedAtAction
 
     private function conversationDate(int $userId, int $thresholdHours): ?CarbonImmutable
     {
-        $thresholdMilliseconds = $thresholdHours * 3_600_000;
-        $accumulatedMilliseconds = 0;
+        return $this->studyAchievementDates($userId)['conversation'][$thresholdHours] ?? null;
+    }
+
+    /**
+     * @return array{
+     *     conversation: array<int, CarbonImmutable>,
+     *     listening: array<int, CarbonImmutable>,
+     *     doubleFeature: ?CarbonImmutable,
+     *     repeat: array<int, CarbonImmutable>
+     * }
+     */
+    private function studyAchievementDates(int $userId): array
+    {
+        if (array_key_exists($userId, $this->studyAchievementDates)) {
+            return $this->studyAchievementDates[$userId];
+        }
+
+        $conversationMilliseconds = 0;
+        $listeningMilliseconds = 0;
+        $conversation = [];
+        $listening = [];
+        $doubleFeature = null;
+        $repeat = [];
+        $categoriesByDay = [];
+        $daysByEpisode = [];
 
         $sessions = StudyActivitySession::query()
             ->where('user_id', $userId)
-            ->where('category', StudyActivityCategory::Conversation->value)
             ->orderBy('ended_at')
             ->orderBy('id')
-            ->get(['id', 'ended_at', 'duration_ms']);
+            ->get([
+                'id',
+                'category',
+                'activity',
+                'name',
+                'ended_at',
+                'duration_ms',
+                'audio_playback_ms',
+            ]);
 
         foreach ($sessions as $session) {
-            $accumulatedMilliseconds += $session->duration_ms;
-            if ($accumulatedMilliseconds >= $thresholdMilliseconds) {
-                return CarbonImmutable::instance($session->ended_at);
+            $endedAt = CarbonImmutable::instance($session->ended_at);
+            $day = $endedAt->utc()->toDateString();
+            $categoriesByDay[$day][$session->category->value] = true;
+            if ($doubleFeature === null && isset(
+                $categoriesByDay[$day][StudyActivityCategory::Listen->value],
+                $categoriesByDay[$day][StudyActivityCategory::Conversation->value],
+            )) {
+                $doubleFeature = $endedAt;
             }
+
+            if ($session->category === StudyActivityCategory::Conversation) {
+                $previousHours = intdiv($conversationMilliseconds, 3_600_000);
+                $conversationMilliseconds += $session->duration_ms;
+                $currentHours = intdiv($conversationMilliseconds, 3_600_000);
+                for ($hour = $previousHours + 1; $hour <= $currentHours; $hour++) {
+                    $conversation[$hour] = $endedAt;
+                }
+            }
+
+            if ($session->category === StudyActivityCategory::Listen) {
+                $previousHours = intdiv($listeningMilliseconds, 3_600_000);
+                $listeningMilliseconds += $session->audio_playback_ms ?? 0;
+                $currentHours = intdiv($listeningMilliseconds, 3_600_000);
+                for ($hour = $previousHours + 1; $hour <= $currentHours; $hour++) {
+                    $listening[$hour] = $endedAt;
+                }
+            }
+
+            if ($session->activity !== StudyActivityKind::DailyAudio
+                || $session->name === null
+                || ! str_starts_with($session->name, CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX)) {
+                continue;
+            }
+
+            $episode = trim(substr(
+                $session->name,
+                strlen(CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX),
+            ));
+            if ($episode === '' || isset($daysByEpisode[$episode][$day])) {
+                continue;
+            }
+
+            $daysByEpisode[$episode][$day] = true;
+            $dayCount = count($daysByEpisode[$episode]);
+            $repeat[$dayCount] ??= $endedAt;
         }
 
-        return null;
+        return $this->studyAchievementDates[$userId] = [
+            'conversation' => $conversation,
+            'listening' => $listening,
+            'doubleFeature' => $doubleFeature,
+            'repeat' => $repeat,
+        ];
     }
 
     private function schedulerStabilityExpression(): string

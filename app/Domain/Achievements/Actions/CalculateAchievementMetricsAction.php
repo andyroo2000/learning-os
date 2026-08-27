@@ -117,8 +117,8 @@ final class CalculateAchievementMetricsAction
     {
         foreach ([
             GetAchievementProgressAction::GURU_CARD_METRIC => StudyMasteryLevel::GURU_STABILITY_DAYS,
-            GetAchievementProgressAction::MASTER_CARD_METRIC => 30,
-            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => 90,
+            GetAchievementProgressAction::MASTER_CARD_METRIC => StudyMasteryLevel::MASTER_STABILITY_DAYS,
+            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => StudyMasteryLevel::ENLIGHTENED_STABILITY_DAYS,
             GetAchievementProgressAction::BURNED_CARD_METRIC => StudyMasteryLevel::BURNED_STABILITY_DAYS,
         ] as $metricKey => $minimumStability) {
             if ($stability >= $minimumStability) {

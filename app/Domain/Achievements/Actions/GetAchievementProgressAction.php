@@ -3,6 +3,7 @@
 namespace App\Domain\Achievements\Actions;
 
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Study\Actions\GetBurnedCardCountAction;
 use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
@@ -35,7 +36,10 @@ final class GetAchievementProgressAction
 
     public const BURNED_CARD_METRIC = 'cards.mastery.burned.ever.count';
 
-    public function __construct(private readonly CalculateAchievementMetricsAction $calculateMetrics) {}
+    public function __construct(
+        private readonly CalculateAchievementMetricsAction $calculateMetrics,
+        private readonly GetBurnedCardCountAction $getBurnedCardCount,
+    ) {}
 
     /** @return array{revision: string, metricValues: array<string, int>, awards: list<array{id: string, earnedAt: string}>} */
     public function handle(int $userId): array
@@ -66,9 +70,9 @@ final class GetAchievementProgressAction
 
         return [
             ...$metrics,
-            // Keep the v1 key while old clients finish their rollout. Archive is
-            // now the canonical burned-card family and uses the lifetime metric.
-            self::STABLE_CARD_METRIC => $metrics[self::BURNED_CARD_METRIC],
+            // Keep the v1 key and its live-snapshot semantics while old clients
+            // finish their rollout. Archive uses the separate lifetime metric.
+            self::STABLE_CARD_METRIC => $this->getBurnedCardCount->handle($userId),
         ];
     }
 

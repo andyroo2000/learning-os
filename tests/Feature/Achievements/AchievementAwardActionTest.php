@@ -10,10 +10,16 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Enums\StudyActivityCategory;
+use App\Domain\Study\Enums\StudyActivityKind;
+use App\Domain\Study\Enums\StudyActivityOrigin;
+use App\Domain\Study\Enums\StudyActivitySource;
+use App\Domain\Study\Models\StudyActivitySession;
 use App\Models\User;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -98,6 +104,57 @@ class AchievementAwardActionTest extends TestCase
             1,
             $timelineQueries,
             'Old Friend and every correct-run tier must reuse one chronological review query.',
+        );
+    }
+
+    public function test_study_achievement_dates_share_one_session_scan_across_families_and_tiers(): void
+    {
+        $user = User::factory()->create();
+        foreach ([StudyActivityCategory::Listen, StudyActivityCategory::Conversation] as $index => $category) {
+            $endedAt = now()->addMinutes($index);
+            StudyActivitySession::query()->forceCreate([
+                'user_id' => $user->id,
+                'client_session_id' => (string) Str::ulid(),
+                'category' => $category,
+                'activity' => $category === StudyActivityCategory::Listen
+                    ? StudyActivityKind::DailyAudio
+                    : StudyActivityKind::Conversation,
+                'source' => StudyActivitySource::Automatic,
+                'origin' => StudyActivityOrigin::Web,
+                'name' => $category === StudyActivityCategory::Listen
+                    ? CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX.'Episode A'
+                    : 'Conversation',
+                'started_at' => $endedAt->copy()->subHour(),
+                'ended_at' => $endedAt,
+                'duration_ms' => 3_600_000,
+                'audio_playback_ms' => $category === StudyActivityCategory::Listen ? 3_600_000 : null,
+            ]);
+        }
+        $resolver = app(ResolveAchievementEarnedAtAction::class);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $resolver->handle($user->id, 'study.conversation.hours', 1);
+            $resolver->handle($user->id, 'study.conversation.hours', 2);
+            $resolver->handle($user->id, 'study.listening.hours', 1);
+            $resolver->handle($user->id, 'study.listening.hours', 2);
+            $resolver->handle($user->id, 'study.double-feature.days', 1);
+            $resolver->handle($user->id, 'study.daily-audio.repeat-days', 1);
+            $resolver->handle($user->id, 'study.daily-audio.repeat-days', 3);
+            $queries = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $sessionQueries = collect($queries)->filter(
+            static fn (array $query): bool => str_contains($query['query'], 'study_activity_sessions'),
+        );
+        $this->assertCount(
+            1,
+            $sessionQueries,
+            'Every study-time achievement family and tier must reuse one chronological session query.',
         );
     }
 }

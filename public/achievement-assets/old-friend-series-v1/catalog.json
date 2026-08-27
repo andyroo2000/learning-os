@@ -1,0 +1,96 @@
+{
+  "revision": "old-friend-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/old-friend-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/old-friend-series-v1/source/old-friend-complete-scene-source-v1.png",
+      "checksumSha256": "13e8feb5609248bffe94eff17bc4d063d49e1b97306c4066e8ad4e9acec29233"
+    }
+  },
+  "achievement": {
+    "familyKey": "old-friend",
+    "tierKey": "old-friend",
+    "assets": {
+      "earned": {
+        "64": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "5085f3890cdf4e729e13216a76d7630524b3867c5849de7a97cb4f5631141b9b"
+        },
+        "128": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "c9920e56dc23187a0b92c3a0d257bd12aa97f4af02c8423c70b15229844e7885"
+        },
+        "256": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "8c985d98a040ec83dbbf03fe0c53dbe18aee6af837ea0f57a9270f437307e55d"
+        },
+        "512": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/earned-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "86efc75a9520007e3fe4c24518f42ded40da17a03cc0c1b55a5201a1c6c9c1ac"
+        }
+      },
+      "locked": {
+        "64": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-64.png",
+          "width": 64,
+          "height": 64,
+          "checksumSha256": "2dd34183039f4708c451bf2944605214d9a8e396cdccc882f940849dee2d99ad"
+        },
+        "128": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-128.png",
+          "width": 128,
+          "height": 128,
+          "checksumSha256": "76fa757ba12920c3b17e42a680d4229932447be1af9b2ff4f9b474f7a5649114"
+        },
+        "256": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-256.png",
+          "width": 256,
+          "height": 256,
+          "checksumSha256": "7f449f7506998ed1bbf923333a46b446c5ac81f515dcdf56e7a29a4425db91aa"
+        },
+        "512": {
+          "path": "/achievement-assets/old-friend-series-v1/old-friend/locked-512.png",
+          "width": 512,
+          "height": 512,
+          "checksumSha256": "e97713694f9670d69900e76177a6c9691456f884d15c4cba8c6c8e891a8a00db"
+        }
+      }
+    }
+  }
+}

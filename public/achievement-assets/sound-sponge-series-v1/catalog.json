@@ -1,0 +1,532 @@
+{
+  "revision": "sound-sponge-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/sound-sponge-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/sound-sponge-series-v1/source/first-echo-complete-scene-source-v1.png",
+      "checksumSha256": "ac8bf357b7c59e6ea3aaa78466401048bb1ef01d3e440fc62ab61649ea884743"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-echo",
+        "path": "resources/achievements/sound-sponge-series-v1/source/first-echo-complete-scene-source-v1.png",
+        "checksumSha256": "ac8bf357b7c59e6ea3aaa78466401048bb1ef01d3e440fc62ab61649ea884743"
+      },
+      {
+        "tierKey": "sound-snack",
+        "path": "resources/achievements/sound-sponge-series-v1/source/sound-snack-complete-scene-source-v1.png",
+        "checksumSha256": "4121d4dffed8795412253feea2af34783604c3ef8e1a6ae8aeec5f665b34520c"
+      },
+      {
+        "tierKey": "all-ears",
+        "path": "resources/achievements/sound-sponge-series-v1/source/all-ears-complete-scene-source-v1.png",
+        "checksumSha256": "a57a3b67296f2a3a1e31de40d28d87c01342e74313911add7c90d5bd0fd0fdc5"
+      },
+      {
+        "tierKey": "deep-listener",
+        "path": "resources/achievements/sound-sponge-series-v1/source/deep-listener-complete-scene-source-v1.png",
+        "checksumSha256": "cc2829472cda5b2f99bdf6d8847655d36f1dd24d74bc40f9d27878fe4000d47b"
+      },
+      {
+        "tierKey": "golden-ears",
+        "path": "resources/achievements/sound-sponge-series-v1/source/golden-ears-complete-scene-source-v1.png",
+        "checksumSha256": "f94b139c1ea5c644dae2b5a1cd9508cc1c9537fef67d7844895363d737f59058"
+      },
+      {
+        "tierKey": "sound-sponge",
+        "path": "resources/achievements/sound-sponge-series-v1/source/sound-sponge-complete-scene-source-v1.png",
+        "checksumSha256": "fc5f6d4fe29762a4cb85933b9df8c57dfd2277a10406dbc4614981454fa2c0c5"
+      },
+      {
+        "tierKey": "ocean-of-sound",
+        "path": "resources/achievements/sound-sponge-series-v1/source/ocean-of-sound-complete-scene-source-v1.png",
+        "checksumSha256": "d98bebe74ae3cd9019e47c2166e23092f494472d0cf86939e4d3e49a49b1de9f"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "first-echo",
+      "title": "First Echo",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "581387600526e2db550542b840cce893e22ca128a6d9c7e08c7a04bd91807850"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "722a762002a6ef204e73e7f8fad66949cf3f59a90c65fc52de5b14ff57b046d9"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "890fcf532f692bb65fa71d97b6706c677d6a68116e77aed0753cbf28142cad53"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a591975b9bb7b2c1df86f1629f571bd96920541aae1fd54ef874b82e6ee47f37"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2a03a1f7e4979848c3c611986c6f21f3175d69b4dab10a63dca4dd307deb4444"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "38d22d2baf1aabaa781fa54afa33b86474e1fe34364eadb47fd7d718cac0af67"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "a8c41e6a87efdcef3ae7db61648afb16084d9e4600b8e684e2b0163b1df0344e"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/first-echo/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "3dc253fb643beb0f161557275c970c5c6dec8ad9322b1e2534c18ce7ab0ff346"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "sound-snack",
+      "title": "Sound Snack",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "d7d31b985b4eca91bc6e6ae25a46fd8ac01685bb0bbee9a03399ee4778f3d379"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8f436eb4e9ab02c45b3b9975fbd0f1801216ae844d67e6af3c0b30e89b79c0e5"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "54f2d5c1a6f615339a1c6b7d5c5db7038aab161beb2c1899df07510ec4b5cd28"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "54520a6ae44f0da92fc58995c7cf81b22cfbbd4f8f7cbaf90515c4f36011774c"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "701c6702928acb6d896ed0319a47a751025253a6e65327efa890c1c576b93967"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e38bd022b324dc3586c3ddb8d6b6094da60988a06e53ce8b82c4d6b05a9af9fb"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c2c3a09dc33da5c30b9f890d2c6e7737efc5faee84f3287db6dda67ac9c91630"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-snack/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2d64619e6b1a722f956ad55e021811102a3614d82b617628a498711820cef32b"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "all-ears",
+      "title": "All Ears",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "da4a665071a0442db3f04138f0ad5501fc90ef228d7f561fa754df59dd327332"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "c9b0085c576ce010cb54fdd4545e42acb3ad972e0c094acfab5c2f83e74a9c0b"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c17842c04dfc7e7726be88b7c4cb2eaf54d53020fab318cf3f602e2e412a83ef"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2cf07ef35dd3ed08ee8e9aae9c71585e9f153193b360fe50a61070b6db5c659c"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "dcb4d647b5b01693f3a9198137b44b570ac1a3e9705d197d54d473f2273bc3b0"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "f3eb49ab3d3355c34b2e5167e5a4fad2af483da6dfe6f30c94f34216860c3ce1"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "7537e9f77287722544c878443385d284407afc832cda66fa40636d0df6ebe719"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/all-ears/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "daae55459748e4628dec3e9d2d69f7af217990147718b4573fa7d74a061216c6"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "deep-listener",
+      "title": "Deep Listener",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "21a9eff3b544357d705c899dd673b30e91fbf58dbdcceda25d5a32771edc4942"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "cd4bab04061e350c1a091b2ce7b15cebefe1b2c5ed1e5e2ff38437b9134f8488"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "6b46b4a78ffc6a6b02b0526654b56c78e813f0e9ea809bb40ac61d5d5326e00e"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "835f87ebb926b2e545f5008971a5fde87617ee5aac4785998511535bd4f8bfcd"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7d15285b96065f35e11334ac7b1250ec9271b5b14173097ea8153e49b9f1243e"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "d264f2f295b9edbd97b9b2393995222009d83e1ac8995f001c4b581f8fc87239"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8be830fa4af86a724734b33a3bb13496709d016ded037c3d23cdfa196cd33be0"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/deep-listener/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "0d6c42552a2961c8e0f7b7dc6039156f3eeda8fbe0f6f8bdbc943a22a42e0f65"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "golden-ears",
+      "title": "Golden Ears",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "200ce1f541f39e82ea937f44f8c5cfbe97d5ca0911669155bf0bf750dcefa71e"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1f4ade8c483b0fe59370835f796042f310b2ac801e5a5148701d5ec4a33ce62b"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "7d147ed3a46ef468a31ba9bab6af85eaf4be01c99b115cb91f066aaad115ef5f"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "ced56e8fbd55e10a844cf5429c359ba6c63bc0942bd51d8ad3e73655746b3c1b"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "473630f6aa3d306349c474ce80542c5921288921c83ffd55b87b529d63fa6c6c"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e492d1aa3d45f94d8f8c26a8c79baacefbe60d94b259c1a5d14fc34f9eac614a"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "694c4e35f4890e7b5f2333e79b7f68397cee403abf5f665efaa8d93a59cf5b9a"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/golden-ears/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "4157ec659f2fadc64066e35fe0e6c69f5ec6472af7c393cdcd643021c440a61b"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "sound-sponge",
+      "title": "Sound Sponge",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "75443f1cc73f56d837dc5019958d0557f669bd08512797e76bcdb4067900814b"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "749772d94c6cfa6569fa881fa361fec9cf2c287085ee0e1e6e6a9ea3fe3771bf"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8d5d91f1694b862e9e822a936238c79b118548518b55af7ca5d5ff2ad2d9964c"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "45fa8ae19bebcff7b58f102f52fc2748391cf90a99e91d715b6765e79200d563"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "24f1304d89d5bb1e589efa8b75c9f58b0a547a549acb2c45b86d92e5b9d87f4f"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "357751059c658867176b88177a32e3aab005d4026a5a1bb3775b0ca754c6ffe4"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "252f8d5d4b0fefeb4616289777e2a022208b65d650a694541b4884e3e790957c"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/sound-sponge/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "6790cd1a04199859aa5e20d757063313e8e0083cc15fdd73517e276cf099e614"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "sound-sponge",
+      "tierKey": "ocean-of-sound",
+      "title": "Ocean of Sound",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "bd2ecc7dcb231ab60278cca7cafd29fc1b8ee9112b145c1cd3b3b5f2b19bb14a"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8d09451261df7d7358b66e264e52cb7c353444c8c2537bc710a3f2f694639a19"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c6983eb148deee6f13cd2abe6bc4f5bacdce5602e41a7175cfa3714f064e1af6"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "66ae602928856542968d956cda73b9ebbcf6008389c16a097318d8287b24580e"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "ddf2dd1399b9d2b0bb96c436007609a23cc86da84a85aaaed4d7287e2965261d"
+          },
+          "128": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "13f6561000ee16f2c7ca35ba601c787410181414f7971cb0a2d1ad1a20120db6"
+          },
+          "256": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "f837aa0d7f7b7fe4f4ac283bfd1377ab9b39236cb253eaa1baba2276d23bf7bc"
+          },
+          "512": {
+            "path": "/achievement-assets/sound-sponge-series-v1/ocean-of-sound/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "cee16c55474e06e3c84de4b0ffae80124ab70855694fd0e1ba6f56b945214db8"
+          }
+        }
+      }
+    }
+  ]
+}

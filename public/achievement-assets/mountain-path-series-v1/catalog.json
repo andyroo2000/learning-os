@@ -1,0 +1,672 @@
+{
+  "revision": "mountain-path-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/mountain-path-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/mountain-path-series-v1/source/trailhead-complete-scene-source-v1.png",
+      "checksumSha256": "778a2c0cc8f35746b1dd9fbbe635bd4b624cb8629348caa89a500039c01d446c"
+    },
+    "interiors": [
+      {
+        "tierKey": "trailhead",
+        "path": "resources/achievements/mountain-path-series-v1/source/trailhead-complete-scene-source-v1.png",
+        "checksumSha256": "778a2c0cc8f35746b1dd9fbbe635bd4b624cb8629348caa89a500039c01d446c"
+      },
+      {
+        "tierKey": "first-cairn",
+        "path": "resources/achievements/mountain-path-series-v1/source/first-cairn-complete-scene-source-v1.png",
+        "checksumSha256": "4d942b88bddb8bbfb83787a1f35b16069dcc8ab662aa4321b43c4d26ba4176a9"
+      },
+      {
+        "tierKey": "hill-path",
+        "path": "resources/achievements/mountain-path-series-v1/source/hill-path-complete-scene-source-v1.png",
+        "checksumSha256": "456e9f1339dcd3ecc831bcf733032676a88d3bc41ff33060338d8b8c6636a404"
+      },
+      {
+        "tierKey": "base-camp",
+        "path": "resources/achievements/mountain-path-series-v1/source/base-camp-complete-scene-source-v1.png",
+        "checksumSha256": "868e8212772433a29632f28f6558ca7c61302a2e29ccda24fd9455d04f93b445"
+      },
+      {
+        "tierKey": "high-trail",
+        "path": "resources/achievements/mountain-path-series-v1/source/high-trail-complete-scene-source-v1.png",
+        "checksumSha256": "d8ad07966f7b83841ef1cd8e6cdde935a6988ce7c7bcdb92fb54b7554ec85a29"
+      },
+      {
+        "tierKey": "cloud-camp",
+        "path": "resources/achievements/mountain-path-series-v1/source/cloud-camp-complete-scene-source-v1.png",
+        "checksumSha256": "d25f3ffacfc1129036287b44329da03b41bb842ec52cbe9ecb1729d0edb52f56"
+      },
+      {
+        "tierKey": "summit-ridge",
+        "path": "resources/achievements/mountain-path-series-v1/source/summit-ridge-complete-scene-source-v1.png",
+        "checksumSha256": "4c170e4b592c76f4790ab1698a5b782f81712b8f9427e432c366361b7b6394ea"
+      },
+      {
+        "tierKey": "peak-parade",
+        "path": "resources/achievements/mountain-path-series-v1/source/peak-parade-complete-scene-source-v1.png",
+        "checksumSha256": "7907edfb0fb9db9f27799e167d12b940bf857bfac8716e5c3fc622af0f227ca2"
+      },
+      {
+        "tierKey": "mountain-range",
+        "path": "resources/achievements/mountain-path-series-v1/source/mountain-range-complete-scene-source-v1.png",
+        "checksumSha256": "6c10ba1a4a64125dd1bf168db33640fa5a60bcb2ecf9eec41bdfdc880d3aaac9"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "trailhead",
+      "title": "Trailhead",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7d45afdc0987411216001494c035f36813eb05a8a82a0e8c18b2680ecb6a8d2f"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "3fa7e2ca4521d5bb7e8c5f76ce2bf0e52f0bccb34895bc9c9a7abe86759d4320"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e8c754b5d5bc8fa0b8abae860fa78e20d12cdb16a5c419a98b191a6ff697f797"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "c2e49b13c29e4f53b5fce292c17476d892c1417a2d9085a4a735a79e38edb258"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f9d08ce670b14973675e68cc6941b0fa7c2c7ed088e3085d717e7db100b61a28"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "7d4904a8268c8129572d23e151e969e656dd049bb4eb50fee1816680b75029bb"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8ca1c1a32a86efc3604449926042584aaddc67e90b6965dd93d0f0af0667c1d3"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/trailhead/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "c4853d43d5833a3f24b24e4fd97abd2650be5733908c5b8727b83fd5cea0e628"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "first-cairn",
+      "title": "First Cairn",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "7663671f595647a7646c2ac4e261db6a71975fac8556a1fa648e1f85a6e0588b"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "5c793e032b34fad3253c870da9cf4d4ec2c2585cc2de192beb1fb30a9fb9bbbf"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "cfc44778ee934d39534d24aebeaf7cbaa2e4bf9635ad3bbec5609c7455d6b62b"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "f77788b3c3ae84c174969a0c757c5452f5d73bbfe20680c2404d31819e90f079"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0f97cce75257d7c207a7e3611dd0d1eed0beecd51b397cf85bf937476de17c9e"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "0431266c1ababc3ee737f2e9237cabd95c9e39fc46ea16567398e6204f90f589"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3452d886166113cf3c84a3e4d65af29aebbf4f84ac73e4a0728574f2a6f9e7fd"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/first-cairn/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "16c482cc9871d3e771dabe4818f51c6dbee0a94fc6210581bc26d7c11f68aa6d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "hill-path",
+      "title": "Hill Path",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "46245d9d1e86a2b347810bc0f9467318711ed835957ad78fa9f730078c7aa7ed"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "cc108e4193448ea1a5297a595613d0bf38638524adb549f9f9ef35a7a5c6851f"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "cdbda95862db71760b4c570b15462ffdf76b9812508aabe8ae7a3bc368373432"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "6a98f4da23277d411404ad776f47c88870176de21bfd2d0de4db411548236790"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "23ce94512bdf67c132a3dcd01dd3ff4a86e7fd47ef8aeeaf2c49cd2506950d2f"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "25c0828219a3af1042f3fd285decb4db91828569b8e640fb5c69a33dc310a7d5"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "1d287e868859bc4de254426a5044e925d1630420ea98940a1f3fa3db2ad0a55b"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/hill-path/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "5e5def257ba83cdb89ef66fee98098710c78dcf06e85b94385357fcbe119faa2"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "base-camp",
+      "title": "Base Camp",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "1aff18dab56cf06ce04e2393da08b66a22bec39672fc500de21347fd7b85f891"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "5eb4a0593e8eeb9b91f943aed8dfeca9dd24f3cf3d6ac38127f6d7a871fb2164"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "073dfc9f87b4685a44b71700c3f356814f8bd2e207716bd02b2b928cf7eae699"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "bdb10d41ccd25e7f08d941b9d6dcd2968d4f3948e7939d9988b3ba5a4e18da48"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2ac01c6d2f724c65b7ce146a6de029fc4607ec3096fa0b1d29b406c2acc32e1f"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1ec92ddeeb9b5091d100aa986cb852405547b87af6cf9208d8e84f98acc725db"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "e0e972697c2ae739f91f35384a84e861cd2d409e5d66ff67c3fb4e6a79581e2f"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/base-camp/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "57c9859486ca57634f232ef3c1c4b199d234047d94f68e11ddf2f14cae7c9c1d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "high-trail",
+      "title": "High Trail",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "92611fb26ca44eee1cf1f1c4467e2c7747d889bca9d1c93b51c3a635fec5ddf5"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "0b3d3db1dc4f655fcf379f996570d70c59d95295256566121d0c77c05c01b5ee"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d850d12dee4871cb290538b52a5272617eeb6a27369df7e2c4b7b076957df02b"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "86401e4c8550c2546c1f4c9bcc8a5d20a8c597a4332885700993a0f9e45d956f"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "34947244ef1e890fb06b7898d28ad4ce6b53b34d479ae2c3f9dbfb0589a4dd84"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "8093ac32ba0c4c699f814f9ff5abf27f7cda599c8bc81e739718426497a8d656"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "05e611881e978910b5941ca5b5557bdb667c6d4eca774edad0c1bc600d6d6b07"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/high-trail/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "242dee38785112fd8a324bf2c89e29b7d25095b63208c7db163637f8d339d544"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "cloud-camp",
+      "title": "Cloud Camp",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "a62fa36da57429d025597162cbcb576e034d49533a6561426350d02c7f89911b"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "efdfae251bdd2b6e5880535577497626a8addb2b15bd08cb45891be4eea8b780"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "3245d440935cde1049a6a6583e3907049b554ac45f3097cfe8782e0be5f4317f"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "24bad38982814eb9e9033dcd4714ba37ae6a9efd22edba04e09db6c753ee9041"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0658a1ab1e78a7c065bbb147e4c8de6d586007a46c999fb5332c7ef925a3bed9"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a74fb7de92920be1f983f28f0f45e84248e188f4271e612c1a89a66d324ea5a1"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "2e044bb7975422b3cc180ba86419ceabe755be2273b696e5eb94a6fb1efb7658"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/cloud-camp/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "3607bf1defc09c9dedf5c64a4d5d334b215c93ebd737a671b003bac800a03019"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "summit-ridge",
+      "title": "Summit Ridge",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "559a9a643cdcea27a8fabec5a4bc55df45bef40307da27cfbe32fa4d98b3982d"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "6d1ffa44489e4954cb9e332027ec7f20d47fe63697fdaf64a373477a591f20c9"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "fe398b52846657d25885a2adac6a722a6640b2cb3fc0d20d10cbd486a7fa2b37"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "73a564614a9df7293b569edd0b088c4448aa1506f5822c442ff1880afd6986cc"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0a10cec636f61d1241f47d6b2a2b83322132e20e634c4e324404e92dcbf17a9e"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "4994574f220d2702bfa8f15e3d03e0ef8292c88fc4399b03dd372a46dd5eb10e"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d95eee67e9de0a322b087d9e9cda72ca32cbd4d104db721fb5db0553d259eb39"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/summit-ridge/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "71249c5a4131930c52a3df0b9b6794f2e80b9bea8a89f43c6cadee26ed96523e"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "peak-parade",
+      "title": "Peak Parade",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "046f44e541e376dbf1ca7bd2bc8cb684939c829f17c659de1243e79d8457c355"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "e04575dda034f998bd9d2c4af2afea91ab1924b0e967c8f4f33ec7108ed8a822"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "0fb2721a61c620c0fda1f98ffc497d371ed555234d5b377d1460ce6c909f2797"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "377b5199b7b7f8ebf863eb689e96c6c4067439465cb8f61fe94f60e8efbd5a7b"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "e31897aa710c4ac82c92941db9b8cf6365e22908fbe811fe620dc84b8abf0a79"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "020b9fdad11d24ef57062bfaca0255eaff618380441c7d703343b7e675c3a55d"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "7054c428201df5671d1f64b229f5b97e52f6669caab2ed02147f734e65c77af5"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/peak-parade/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "01954d57c923e1f2b63424d7c3f0f10ccd07ca111b451ac136b3faab7c13147c"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "mountain-path",
+      "tierKey": "mountain-range",
+      "title": "Mountain Range",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "47aaf653193fe062559e9f6bac81b5950cff5d80f7384261ff62892dc58b93cc"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "4c0058235519650b72611dc83a4d4826940a59eee66dc44e7cabb9bcf848075a"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "436cd240ab22e5c1d583ddd41bd2fe749712f1e11f07c37d8f789ccea728f25b"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d42fe030072f129831b1eb5375e1c52a67bc17aa6fc9e9672014d943e17cd8c1"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "2a0909f1a3a08ecda67a227a23c7e82ad67cb7ee1b443df0578fe1a643e2d989"
+          },
+          "128": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "f08b34686b94fd4c1d881f06c8484bf0123a7a878ad1ee7db3efadec931102bf"
+          },
+          "256": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "f600a80be0b393e88ca148d7727cad814629f667e335ee7ed69e9dd231d8004f"
+          },
+          "512": {
+            "path": "/achievement-assets/mountain-path-series-v1/mountain-range/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "8a6e3c7710e270adc71093e946e9e5793e37224f82f308c97f0c860b38017e05"
+          }
+        }
+      }
+    }
+  ]
+}

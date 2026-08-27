@@ -1,0 +1,672 @@
+{
+  "revision": "archive-series-v1",
+  "status": "production",
+  "generatedBy": "resources/achievements/archive-series-v1/build.mjs",
+  "layout": {
+    "canvas": 128,
+    "outerRadiusRatio": 0.0625,
+    "apertureInsetRatio": 0.047,
+    "apertureRadiusRatio": 0.025,
+    "interiorWidthRatio": 0.68,
+    "interiorBottomRatio": 0.69
+  },
+  "frameTrim": {
+    "strategy": "exterior-flood-fill-to-detected-navy-frame",
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "bounds": {
+      "left": 30,
+      "top": 32,
+      "width": 1192,
+      "height": 1192
+    }
+  },
+  "sources": {
+    "reference": {
+      "path": "resources/achievements/shared-frame-v1/source/original-style-reference.png",
+      "checksumSha256": "fe77baf6c56d901cce059a3f4c4911e38233a6c08698f94e31b78c1f9aa71032"
+    },
+    "container": {
+      "path": "resources/achievements/shared-frame-v1/source/container-source.png",
+      "checksumSha256": "748fa98158465924792c3743833906dbdcd6b9ad87068a2007b5e302dbc2f0d5"
+    },
+    "interior": {
+      "path": "resources/achievements/archive-series-v1/source/first-shelf-complete-scene-source-v1.png",
+      "checksumSha256": "e33aa93feccbcece5a20712e51e1f5b4b44856e2f6c109a11638fd95f1d40551"
+    },
+    "interiors": [
+      {
+        "tierKey": "first-shelf",
+        "path": "resources/achievements/archive-series-v1/source/first-shelf-complete-scene-source-v1.png",
+        "checksumSha256": "e33aa93feccbcece5a20712e51e1f5b4b44856e2f6c109a11638fd95f1d40551"
+      },
+      {
+        "tierKey": "bookcase",
+        "path": "resources/achievements/archive-series-v1/source/bookcase-complete-scene-source-v1.png",
+        "checksumSha256": "81f3db767493e264d33edb433da6540d8007baee7827d95737923e6e8dd401bc"
+      },
+      {
+        "tierKey": "reading-room",
+        "path": "resources/achievements/archive-series-v1/source/reading-room-complete-scene-source-v1.png",
+        "checksumSha256": "6d98b0a92feddaf70104866a64e8062dcecd4a45218eca44c120d4b328220e69"
+      },
+      {
+        "tierKey": "library-wing",
+        "path": "resources/achievements/archive-series-v1/source/library-wing-complete-scene-source-v1.png",
+        "checksumSha256": "4e192e7d436bd7a555ebb61c8ad929518f16285e9a6658c14cb81bcf6d78ff7c"
+      },
+      {
+        "tierKey": "great-hall",
+        "path": "resources/achievements/archive-series-v1/source/great-hall-complete-scene-source-v1.png",
+        "checksumSha256": "1845ed7cf0b99e933a6bbfed761167bfcd668fbf59a95ac5cb83fbfb929430a9"
+      },
+      {
+        "tierKey": "deep-stacks",
+        "path": "resources/achievements/archive-series-v1/source/deep-stacks-complete-scene-source-v1.png",
+        "checksumSha256": "d48a5299562166426ce8eed077dc8b916781bc2471332235ae75a414aa437745"
+      },
+      {
+        "tierKey": "grand-archive",
+        "path": "resources/achievements/archive-series-v1/source/grand-archive-complete-scene-source-v1.png",
+        "checksumSha256": "16a1ee3d4cd06a6b291727af85c27b6162728d6926bd4d6863def37eb7d7d926"
+      },
+      {
+        "tierKey": "city-of-books",
+        "path": "resources/achievements/archive-series-v1/source/city-of-books-complete-scene-source-v1.png",
+        "checksumSha256": "1d8bd21adcccc3b911be31b42eeab158d17fc10504d1fbbab0b057fd993f6db7"
+      },
+      {
+        "tierKey": "endless-library",
+        "path": "resources/achievements/archive-series-v1/source/endless-library-complete-scene-source-v1.png",
+        "checksumSha256": "152abff67b2aeb6ae31a4baac2dd2f8f2d04cda00a28c74f5c36ba2ba9e06fb7"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "familyKey": "archive",
+      "tierKey": "first-shelf",
+      "title": "First Shelf",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "c78fd499d786d8b00c329f11a5c7fa1be1836bfb5a619b63e90b97a81450d392"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "6cb0d87baac8a367a756c2d121c2ea6bebb1957b987320e3a42f7e07f0db66f9"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "11700b4ebb2ef01d7133fb880df73efc3cb95835549da2d5c3c7940d78c38836"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "18eb6f4312e45eb342ccd6a19bd63ce7e11454458510e48c331cc354ba9df2fb"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "f8908d8abc8be83c5c7856714ff09a12289f7654af6a379b0f15cf7fcb74d721"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "05a3102cce1e0d5cc896a9ca02a0f29f655f9aab70d9dcf682f5b1ef151d6f34"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "5ff6a844293f17a9dc05c4e708516958539b35dd1b7c4eae87d8ceabf9cbc02f"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/first-shelf/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "3ea8e6a3d11a10b14c18498e4f4209cb5826a9d733897f7e3a87371bd7323e9d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "bookcase",
+      "title": "Bookcase",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "360b3dffe4b0c6b512dd474b6aa2f8687e3faa2de2c65ce430e1b8d3b014efb6"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "f6c49eb69070fa125c6cb8e76be39a57ddd379600e27935a27180d582a3efcf3"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "47bca86335994eaab4400849e31b3ae492245260a270c65b0acb4cc6c066165f"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a6311da084b7b2a918787e781d24c32f1b96c7f53e0e564a2104c06c499619cd"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3f8798da68f463c4a0921970fddb6e7cc79f325b011edbae05b1aefaa9dd52d1"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9a93cb29c7d064fb18e31972d26bcb3d2106544673789080a4f0f0dafc535406"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "10135c6836fd56be3f420e76d6cb9cb089c8fc62d5a2e45cf05baf16bdad0fc0"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/bookcase/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "d77cf024eaa1c3b1dd07b2249e4de8b11d9aafb4d89d13daa43fda7b6fdf61a7"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "reading-room",
+      "title": "Reading Room",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "79cb5c64b2a12ec3f3e218c92ebbdfb3afcb68e998626ea4a50577d6425092ec"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "3d4122d8f435e02a87fd5e697e85d869ee970182cbe1acaf978b7656749a661e"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9efdde91bf8b1a7e27b9e03a72017754e3fb548b0bb8fb41fe12d65f30293d56"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "fdf0bfa24652c7a054a6b76f94887f4e19042da4a8ad4a25d50820af7d9e4c5c"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "528e2202c694540e0142de843f4e4225c7e138ca27f5f740f09a60daa31f7828"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "a0f5519ac10920be27af2cef3dfc3a3177eeb4b21b2f111ef0ccb8367940c8a6"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "03cca866fd8acd34b384fb3760204ce5b5570bfae49309823d67343b25044e65"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/reading-room/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "383222e4a2716720d4529aad1abe06789682456c39228f8525b71db1f1f301fe"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "library-wing",
+      "title": "Library Wing",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0b3ad28025ff8fa2f1349a685dfd3e4701476fd95bf47d1ac9107e7fa2614332"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "30b0bcd602924cf0990e794b75a119865e0d1638d9c4cd7b3468c83b203fb897"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "71f16927e45bd6b0f65fbbbb19482d4efddc273658bc5f4492613ed05119176a"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "371050ddbef576668f20a74f90642e3f96f1432e5683ad3a43ed6175ff764f90"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "a45e8caec0bff14d2da9087c5c8b21db7223c39a57441c2abaee846701f4eb92"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1ac306f879c2f25b78590d60812b38ddb95b0a3842ad268b23dee1011a5a3890"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b17f6033b5e88734505a3036b26eb79461908aa5482e3770acedd2733ddd1586"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/library-wing/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a710c0e20c4b8620d4249acd39a016e694d2e3828b6802773e3792f37daf371b"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "great-hall",
+      "title": "Great Hall",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "d1cb2b5b13faefef139f6253f9a7540ea98ac84d9a7832960b9a4086d59012e2"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "7983d3f5b15020d8dc682ab95c9d19580631f06843bff6767a0959f35050e493"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "f16fbb5b8766ac38c1e92fa419533d250f7221197bdbedcd789c7350c2c0a1e7"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "31d7b73c4ec4f31f84e2f5440e10077ef63a8b01f25aecdd92cbb7fe964ea1c0"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "0a210ebcc566c1159693b59e38c64c39a58d016f9762c98138bc13fc0834be4d"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "ce89dd476f14808ef59d80d20375e80d4f4b8ab432c0271b403c7e1c7d58124c"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d1d018acbae1907f125123e63c7401b9dec537d6686e3bf86ff4298041442894"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/great-hall/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "ae9c7d9b740bb3d18ff8f6904431c1d53f55e1fbabb89f1febabec136ce7adb7"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "deep-stacks",
+      "title": "Deep Stacks",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3330b1c36cd844c06c2aa89374ef097c399808a72e66cd72244b41e94708f716"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "fa3e20f6c7043e49ac49d5ae6d69df7a7c2690ba3c64abf40cd03ca63534535c"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "9ce8f6d7d52d075a902feeffc4b51e403beac3567d8792e6b50abb3a7443bcb9"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "a4bb7d8d946b497f2c15271271f2c7e1710a74e556d88d0718833c47bcfad621"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "675cb729453684a41693317ab691509cc9e5b6c6d0bf2df924cbffc0310eb8de"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "9a084df386a353b7e6907c7d225791b37fa9fa4f917179fdb421996f5671f823"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "d4bbb79892a081ab3c95675a1756ae8a873c193e76cab163349115520dd63983"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/deep-stacks/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "30709a78f720c0e1a5f2b6dc171865b6ec5c099e6c2572fb7b24d81cea3b471d"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "grand-archive",
+      "title": "Grand Archive",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "62330baf1c150c32274708dff58367393230df1b716b31d5424cf666977f74b4"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "1d0bebdd1a7f291715a71ca62b32dc6d0efbd0fdb1722772c1dac1e7250d6ee7"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "b8e98a8916d8b23312fada4c152a61dfff1965860def20b6839818f2b1d2a2b7"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "bcdce01d42698e32eb1c8027e8aeaa736c21d0080cee763d763e512fa747a4fb"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "5a1149bde0e222c5bb6c52aca8c24c5470935fd00764a66fbe14c41fb9eb845b"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "23449f30415d240909b37c68c3bc32262f39153a50c05eae7c96f8706cbfe991"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "c6ae6e4dc7cdea1ce23b53de1e0aab5fb9246fca5dea7ce4394b2f13fb21ccb9"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/grand-archive/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "ccbe056672775021b760f68857ec642ffc479f2cf1b3ae913c040f587b8b95db"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "city-of-books",
+      "title": "City of Books",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "3e9149a837fb95ab44471013d73ebeeecc40bcc18659768dfbf097fbfaf06f85"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "320df48c94114d2e09684e838219bbcccc64d7c7aaa2ce01c554602304052aeb"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "8008fa7410fc054fc7c73537b3dfb26f660f631ee1c4e3b41e044376636a4d77"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "87c298bafe66f9e5c5d0e4542fabf4b87fea131436818e1ad1160f45add8d140"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "06476c33a54dc479eec3428a5647bcd9d9d1001bd01063dfb23179f8103cada7"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "7ef591101dfbab82e1f2647049becf8a4684b49bf1b155ad0698b1617ca54cf9"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "fa1a6048071718765ec016d0bb707e46eb4c0400a5cfdc9933af87088b1dcab0"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/city-of-books/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "2c4baea3df0abf05cd75b86e9a72822d3ecb5d59c8e2e47fa84f079a8352caa0"
+          }
+        }
+      }
+    },
+    {
+      "familyKey": "archive",
+      "tierKey": "endless-library",
+      "title": "Endless Library",
+      "layout": {
+        "interiorWidthRatio": 1,
+        "interiorBottomRatio": 1,
+        "interiorOffsetXRatio": 0,
+        "interiorOffsetYRatio": 0
+      },
+      "assets": {
+        "earned": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/earned-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "6beb138e0c6871a5d9f7c46082054536810f41659f46425b2c2f0e5efc05f7f1"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/earned-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "75ba7c8f75247f566871e6b6350ad9a6a9eb779f3c319abfc132f6f29b63c695"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/earned-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "0585f09c239abbf56d368d141fed560937829a67cdb04ed5b3c82909edd7d97a"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/earned-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "47499bd2b4c60252d4f3a8ee3f00c6d373a010a3a973d2846f531454e9e7e6d8"
+          }
+        },
+        "locked": {
+          "64": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/locked-64.png",
+            "width": 64,
+            "height": 64,
+            "checksumSha256": "197ad07ce03361447e6242e171ec4167f8c99e956233975c40e87aad27919997"
+          },
+          "128": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/locked-128.png",
+            "width": 128,
+            "height": 128,
+            "checksumSha256": "b097e640f3bfed859766b05d5948c280267b39a67e2f474dbe98e5e084df3863"
+          },
+          "256": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/locked-256.png",
+            "width": 256,
+            "height": 256,
+            "checksumSha256": "2a1970a1e815f6317625f9f3c2e2b53e46b0ffd6f19a9b487547e46eae3420ea"
+          },
+          "512": {
+            "path": "/achievement-assets/archive-series-v1/endless-library/locked-512.png",
+            "width": 512,
+            "height": 512,
+            "checksumSha256": "186aa9f5df02520aea053accd5eaa5073876606e2a08edd59826ab5f2c12b45b"
+          }
+        }
+      }
+    }
+  ]
+}

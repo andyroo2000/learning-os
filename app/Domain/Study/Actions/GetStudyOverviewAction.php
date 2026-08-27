@@ -34,6 +34,8 @@ class GetStudyOverviewAction
 
     private const MINIMUM_TIMED_REVIEW_SAMPLE_SIZE = 10;
 
+    private const MINIMUM_READINESS_SAMPLE_SIZE = 30;
+
     private const READY_HEADROOM_MINUTES = 15;
 
     private const STRONG_HEADROOM_MINUTES = 30;
@@ -453,7 +455,7 @@ class GetStudyOverviewAction
         $reviewTimeHeadroomMinutes = $projectedDailyReviewMinutes === null
             ? null
             : $reviewTimeBudgetMinutes - $projectedDailyReviewMinutes;
-        $sufficientData = $sampleSize >= 30;
+        $sufficientData = $sampleSize >= self::MINIMUM_READINESS_SAMPLE_SIZE;
         // Raw due and Apprentice counts remain visible context, but only measured recall and
         // projected time pressure qualify readiness for an aggressive learner's chosen budget.
         $readinessLevel = match (true) {
@@ -491,7 +493,8 @@ class GetStudyOverviewAction
                 $projectedSevenDayReviews === 1 ? 'review' : 'reviews',
             )
             : sprintf(
-                'Building a recommendation from your first 30 answers (%s so far). Current seven-day workload: %s %s.',
+                'Building a recommendation from your first %d answers (%s so far). Current seven-day workload: %s %s.',
+                self::MINIMUM_READINESS_SAMPLE_SIZE,
                 number_format($sampleSize),
                 number_format($projectedSevenDayReviews),
                 $projectedSevenDayReviews === 1 ? 'review' : 'reviews',

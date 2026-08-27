@@ -46,7 +46,11 @@ final class ReconcileAchievementAwardsAction
             foreach ($family['tiers'] as $tier) {
                 $threshold = (int) $tier['threshold'];
                 $achievementId = $family['key'].'.'.$tier['key'];
-                if ($metricValue < $threshold || in_array($achievementId, $existingIds, true)) {
+                if ($metricValue < $threshold) {
+                    break;
+                }
+
+                if (in_array($achievementId, $existingIds, true)) {
                     continue;
                 }
 

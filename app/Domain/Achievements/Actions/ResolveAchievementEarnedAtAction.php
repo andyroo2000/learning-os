@@ -57,11 +57,19 @@ final class ResolveAchievementEarnedAtAction
     private function reviewDate(int $userId, int $threshold): ?CarbonImmutable
     {
         $review = CardReviewEvent::query()
-            ->ownedByActiveCardDeck($userId)
-            ->orderBy('reviewed_at')
-            ->orderBy('id')
+            // Join from the user's indexed deck/card ownership path so high-tier
+            // backfills sort only this user's review history. The relationship
+            // scope's correlated EXISTS can otherwise scan the global timeline
+            // while seeking a large OFFSET.
+            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->where('decks.user_id', $userId)
+            ->whereNull('decks.deleted_at')
+            ->whereNull('cards.deleted_at')
+            ->orderBy('card_review_events.reviewed_at')
+            ->orderBy('card_review_events.id')
             ->skip($threshold - 1)
-            ->first(['reviewed_at']);
+            ->first(['card_review_events.reviewed_at']);
 
         return $review?->reviewed_at === null
             ? null

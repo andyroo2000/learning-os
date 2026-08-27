@@ -25,7 +25,15 @@ class BuildStudyOfflineReserveRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->studyScopeRules();
+        return [
+            ...$this->studyScopeRules(),
+            'time_zone' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'timezone',
+            ],
+        ];
     }
 
     /**

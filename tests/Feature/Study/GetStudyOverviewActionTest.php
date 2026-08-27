@@ -3,6 +3,7 @@
 namespace Tests\Feature\Study;
 
 use App\Domain\Courses\Models\Course;
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -24,6 +25,29 @@ class GetStudyOverviewActionTest extends TestCase
 {
     use RefreshDatabase;
     use SetsCardStudyStatus;
+
+    public function test_new_count_excludes_cards_that_only_belong_to_a_disabled_lane(): void
+    {
+        $now = Carbon::parse('2026-08-26T12:00:00Z');
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create([
+            'lesson_followup_lane_weight' => 0,
+        ]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'selection_policy' => CardSelectionPolicy::ReviewSoon,
+            'priority_until' => $now->copy()->addWeek(),
+        ]);
+
+        $overview = app(GetStudyOverviewAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+        );
+
+        $this->assertSame(0, $overview['new_count']);
+        $this->assertSame(0, $overview['new_cards_available_today']);
+    }
 
     public function test_locked_progression_cards_are_excluded_from_scheduler_metrics(): void
     {

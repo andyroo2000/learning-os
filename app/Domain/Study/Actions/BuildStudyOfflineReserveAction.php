@@ -29,6 +29,7 @@ class BuildStudyOfflineReserveAction
         ?Carbon $now = null,
         ?string $deckId = null,
         ?string $courseId = null,
+        ?string $timeZone = null,
     ): array {
         $now ??= now();
         $horizonEndsAt = $now->copy()->addDays(self::RESERVE_DAYS);
@@ -57,6 +58,7 @@ class BuildStudyOfflineReserveAction
             $userId,
             $newCardsPerDay * self::RESERVE_DAYS,
             $now,
+            timeZone: $timeZone,
             availabilityThrough: $horizonEndsAt,
         );
 

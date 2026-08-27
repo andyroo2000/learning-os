@@ -94,8 +94,11 @@ final class SelectNewStudyCards
         } catch (\Exception) {
             throw new InvalidArgumentException('Study time_zone must be a valid IANA timezone.');
         }
-        $dayStart = $now->copy()->setTimezone($resolvedTimeZone)->startOfDay()->setTimezone('UTC');
-        $dayEnd = $dayStart->copy()->addDay();
+        $localDayStart = $now->copy()->setTimezone($resolvedTimeZone)->startOfDay();
+        $dayStart = $localDayStart->copy()->setTimezone('UTC');
+        // Add a calendar day before converting to UTC. DST transition days are
+        // 23 or 25 hours long, so adding 24 hours to the UTC boundary is wrong.
+        $dayEnd = $localDayStart->copy()->addDay()->setTimezone('UTC');
         $counts = DB::table('cards')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)

@@ -121,6 +121,32 @@ class SelectNewStudyCardsTest extends TestCase
         $this->assertSame([$waniKani->id, $standard->id], $selected->pluck('id')->all());
     }
 
+    public function test_fall_back_study_day_includes_the_repeated_final_utc_hour(): void
+    {
+        $now = Carbon::parse('2026-11-02T04:30:00Z'); // 23:30 on the fall-back day in New York.
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        Card::factory()->for($deck)->create([
+            'study_status' => CardStudyStatus::Learning,
+            'new_queue_position' => null,
+            'selection_policy' => CardSelectionPolicy::Standard,
+            'introduced_at' => Carbon::parse('2026-11-02T04:15:00Z'),
+        ]);
+        $standard = $this->card($deck, 10, CardSelectionPolicy::Standard);
+        $lesson = $this->card($deck, 20, CardSelectionPolicy::ReviewSoon, $now->copy()->addWeek());
+
+        $selected = app(SelectNewStudyCards::class)->handle(
+            $this->baseQuery($user->id),
+            $user->id,
+            1,
+            $now,
+            'America/New_York',
+        );
+
+        $this->assertSame([$lesson->id], $selected->pluck('id')->all());
+        $this->assertNotContains($standard->id, $selected->pluck('id')->all());
+    }
+
     private function card(
         Deck $deck,
         int $position,

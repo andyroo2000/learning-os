@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Study\Actions\BuildStudyOfflineReserveAction;
@@ -114,5 +115,34 @@ class BuildStudyOfflineReserveActionTest extends TestCase
             BuildStudyOfflineReserveAction::MAX_SCHEDULED_CARDS,
             $reserve['cards'],
         );
+    }
+
+    public function test_it_uses_the_callers_study_day_when_balancing_new_card_lanes(): void
+    {
+        $now = Carbon::parse('2026-06-04T03:00:00Z'); // June 3 at 23:00 in New York.
+        $user = User::factory()->create();
+        $deck = $this->deckFor($user);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
+            'new_queue_position' => null,
+            'selection_policy' => CardSelectionPolicy::Standard,
+            'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
+        ]);
+        $standard = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'selection_policy' => CardSelectionPolicy::Standard,
+        ]);
+        $lesson = $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 2,
+            'selection_policy' => CardSelectionPolicy::ReviewSoon,
+            'priority_until' => $now->copy()->addWeek(),
+        ]);
+
+        $reserve = app(BuildStudyOfflineReserveAction::class)->handle(
+            userId: $user->id,
+            now: $now,
+            timeZone: 'America/New_York',
+        );
+
+        $this->assertSame([$lesson->id, $standard->id], $reserve['cards']->pluck('id')->all());
     }
 }

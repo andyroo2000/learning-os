@@ -50,4 +50,22 @@ class BuildStudyOfflineReserveApiTest extends TestCase
                 ]],
             ]);
     }
+
+    public function test_it_accepts_a_time_zone_and_rejects_malformed_values_without_coercion(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/study/offline-reserve', [
+            'time_zone' => 'America/New_York',
+        ])->assertOk();
+
+        $this->postJson('/api/study/offline-reserve', [
+            'time_zone' => 'Not/A_Zone',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['time_zone']);
+
+        $this->postJson('/api/study/offline-reserve', [
+            'time_zone' => ['America/New_York'],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['time_zone']);
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Actions;
 
+use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -210,6 +211,21 @@ class GetStudyOverviewAction
                     FROM study_settings
                     WHERE study_settings.user_id = ?
                 ), ?) AS review_time_budget_minutes,
+                COALESCE((
+                    SELECT MAX(study_settings.standard_lane_weight)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS standard_lane_weight,
+                COALESCE((
+                    SELECT MAX(study_settings.lesson_followup_lane_weight)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS lesson_followup_lane_weight,
+                COALESCE((
+                    SELECT MAX(study_settings.wanikani_lane_weight)
+                    FROM study_settings
+                    WHERE study_settings.user_id = ?
+                ), ?) AS wanikani_lane_weight,
                 (
                     SELECT COUNT(introduced_cards.id)
                     FROM cards AS introduced_cards
@@ -223,7 +239,9 @@ class GetStudyOverviewAction
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
-                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL THEN 1 ELSE 0 END), 0) AS new_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND (cards.selection_policy IS NULL OR cards.selection_policy = ? OR cards.priority_until IS NULL OR cards.priority_until <= ?) THEN 1 ELSE 0 END), 0) AS standard_new_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.selection_policy = ? AND cards.priority_until > ? THEN 1 ELSE 0 END), 0) AS lesson_followup_new_count,
+                COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.selection_policy = ? AND cards.priority_until > ? THEN 1 ELSE 0 END), 0) AS wanikani_new_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
                 COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,
@@ -235,6 +253,12 @@ class GetStudyOverviewAction
                 StudySettings::DEFAULT_LESSON_BATCH_SIZE,
                 $userId,
                 StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+                $userId,
+                StudySettings::DEFAULT_STANDARD_LANE_WEIGHT,
+                $userId,
+                StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT,
+                $userId,
+                StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT,
                 $userId, // New-card daily allowance stays user-wide, even when overview counts are course/deck scoped.
                 $dayStartFormatted,
                 $dayEndFormatted,
@@ -249,10 +273,24 @@ class GetStudyOverviewAction
                 // failed_count
                 $availableVariantStatus,
                 ...$activeDueStatuses,
-                // new_count
+                // standard_new_count
                 $availableVariantStatus,
                 $nowFormatted,
                 CardStudyStatus::New->value,
+                CardSelectionPolicy::Standard->value,
+                $nowFormatted,
+                // lesson_followup_new_count
+                $availableVariantStatus,
+                $nowFormatted,
+                CardStudyStatus::New->value,
+                CardSelectionPolicy::ReviewSoon->value,
+                $nowFormatted,
+                // wanikani_new_count
+                $availableVariantStatus,
+                $nowFormatted,
+                CardStudyStatus::New->value,
+                CardSelectionPolicy::Sprinkled->value,
+                $nowFormatted,
                 // learning_count
                 $availableVariantStatus,
                 ...$learningStatuses,
@@ -270,11 +308,15 @@ class GetStudyOverviewAction
 
         $nextDueAt = $this->aggregateTimestamp($row?->next_due_at, 'next_due_at');
 
+        $newCount = ((int) $row?->standard_lane_weight > 0 ? (int) $row?->standard_new_count : 0)
+            + ((int) $row?->lesson_followup_lane_weight > 0 ? (int) $row?->lesson_followup_new_count : 0)
+            + ((int) $row?->wanikani_lane_weight > 0 ? (int) $row?->wanikani_new_count : 0);
+
         return [
             'due_count' => (int) $row?->due_count,
             'failed_count' => (int) $row?->failed_count,
             'failed_due_count' => (int) $row?->failed_due_count,
-            'new_count' => (int) $row?->new_count,
+            'new_count' => $newCount,
             'new_cards_per_day' => (int) $row?->new_cards_per_day,
             'lesson_batch_size' => (int) $row?->lesson_batch_size,
             'review_time_budget_minutes' => (int) $row?->review_time_budget_minutes,

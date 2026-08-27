@@ -16,10 +16,12 @@ class BuildStudyOfflineReserveController extends Controller
         BuildStudyOfflineReserveRequest $request,
         BuildStudyOfflineReserveAction $buildStudyOfflineReserve,
     ): JsonResponse {
+        $data = $request->validated();
         $reserve = $buildStudyOfflineReserve->handle(
             userId: AuthenticatedUser::id($request),
             deckId: $request->deckId(),
             courseId: $request->courseId(),
+            timeZone: $data['time_zone'] ?? null,
         );
 
         return response()->json([

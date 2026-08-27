@@ -25,18 +25,20 @@ class StoreDailyAudioPracticeController extends Controller
             AuthenticatedUser::id($request),
             $request->practiceDate(),
             $request->targetDurationMinutes(),
-            afterCommit: static function (string $practiceId) use (
+            afterCommit: static function (string $practiceId, ?string $generationRunId) use (
                 &$dispatchFailed,
                 $fail,
             ): void {
                 try {
-                    ProcessDailyAudioPractice::dispatch($practiceId);
+                    ProcessDailyAudioPractice::dispatch($practiceId, $generationRunId);
                 } catch (Throwable $exception) {
                     $dispatchFailed = true;
                     report($exception);
                     $fail->handle(
                         $practiceId,
                         DailyAudioPracticeGeneration::QUEUE_FAILED_MESSAGE,
+                        generationRunId: $generationRunId,
+                        requireMatchingRun: true,
                     );
                 }
             },

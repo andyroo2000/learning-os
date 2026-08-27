@@ -63,13 +63,15 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('tracks.1.mode', 'dialogue')
             ->assertJsonPath('tracks.1.status', 'draft')
             ->assertJsonPath('tracks.2.mode', 'story')
-            ->assertJsonPath('tracks.2.status', 'draft');
+            ->assertJsonPath('tracks.2.status', 'draft')
+            ->assertJsonMissingPath('generationRunId');
 
         $practice = DailyAudioPractice::query()->sole();
         $this->assertSame($user->id, $practice->user_id);
         Queue::assertPushed(
             ProcessDailyAudioPractice::class,
-            fn (ProcessDailyAudioPractice $job): bool => $job->practiceId === $practice->id,
+            fn (ProcessDailyAudioPractice $job): bool => $job->practiceId === $practice->id
+                && $job->generationRunId === $practice->generation_run_id,
         );
     }
 
@@ -215,8 +217,10 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
     {
         Queue::fake();
         $user = $this->signIn();
+        $runId = (string) Str::uuid();
         $practice = DailyAudioPractice::factory()->for($user)->create([
             'status' => 'generating',
+            'generation_run_id' => $runId,
         ]);
         $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
             'status' => 'generating',
@@ -240,7 +244,54 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('tracks.0.status', 'generating')
             ->assertJsonPath('tracks.0.scriptUnitsJson.0.text', '猫');
 
-        Queue::assertPushed(ProcessDailyAudioPractice::class, 1);
+        Queue::assertPushed(
+            ProcessDailyAudioPractice::class,
+            fn (ProcessDailyAudioPractice $job): bool => $job->generationRunId === $runId,
+        );
+        $this->assertSame($runId, $practice->refresh()->generation_run_id);
+    }
+
+    public function test_stale_generating_retry_starts_a_distinct_serialized_run(): void
+    {
+        Queue::fake();
+        $user = $this->signIn();
+        $oldRunId = (string) Str::uuid();
+        Carbon::setTestNow('2026-07-19T12:00:00Z');
+
+        try {
+            $practice = DailyAudioPractice::factory()->for($user)->create([
+                'status' => 'generating',
+                'generation_run_id' => $oldRunId,
+                'updated_at' => now()->subSeconds(DailyAudioPracticeGeneration::STALE_AFTER_SECONDS + 1),
+            ]);
+            foreach (DailyAudioPracticeGeneration::TRACKS as $trackConfig) {
+                DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+                    'mode' => $trackConfig['mode'],
+                    'title' => $trackConfig['title'],
+                    'sort_order' => $trackConfig['sortOrder'],
+                    'status' => 'generating',
+                    'script_units_json' => [['type' => 'L2', 'text' => 'old']],
+                ]);
+            }
+
+            $this->postJson('/api/daily-audio-practice')
+                ->assertStatus(202)
+                ->assertJsonPath('id', $practice->id)
+                ->assertJsonPath('status', 'generating')
+                ->assertJsonPath('tracks.0.status', 'draft')
+                ->assertJsonPath('tracks.0.scriptUnitsJson', null);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $newRunId = $practice->refresh()->generation_run_id;
+        $this->assertTrue(Str::isUuid($newRunId));
+        $this->assertNotSame($oldRunId, $newRunId);
+        Queue::assertPushed(
+            ProcessDailyAudioPractice::class,
+            fn (ProcessDailyAudioPractice $job): bool => $job->practiceId === $practice->id
+                && $job->generationRunId === $newRunId,
+        );
     }
 
     public function test_queue_dispatch_failure_is_persisted_as_an_actionable_error(): void

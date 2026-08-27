@@ -4,6 +4,8 @@ namespace App\Domain\Study\Support;
 
 final class DailyAudioPracticeGeneration
 {
+    public const STALE_AFTER_SECONDS = 90 * 60;
+
     public const DEFAULT_TARGET_DURATION_MINUTES = 30;
 
     public const MIN_TARGET_DURATION_MINUTES = 5;

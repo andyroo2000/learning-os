@@ -966,14 +966,14 @@
     {
       "key": "roarer",
       "title": "Roarer",
-      "metricKey": "conversation.turns.completed.count",
-      "unit": "turns",
+      "metricKey": "study.conversation.minutes",
+      "unit": "minutes",
       "tiers": [
         {
           "key": "first-roar",
           "title": "First Roar",
           "threshold": 25,
-          "description": "Complete 25 target-language conversation turns.",
+          "description": "Log 25 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1038,7 +1038,7 @@
           "key": "echo-call",
           "title": "Echo Call",
           "threshold": 100,
-          "description": "Complete 100 target-language conversation turns.",
+          "description": "Log 100 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1103,7 +1103,7 @@
           "key": "city-voice",
           "title": "City Voice",
           "threshold": 250,
-          "description": "Complete 250 target-language conversation turns.",
+          "description": "Log 250 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1168,7 +1168,7 @@
           "key": "mountain-caller",
           "title": "Mountain Caller",
           "threshold": 500,
-          "description": "Complete 500 target-language conversation turns.",
+          "description": "Log 500 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1233,7 +1233,7 @@
           "key": "thunder-voice",
           "title": "Thunder Voice",
           "threshold": 1000,
-          "description": "Complete 1,000 target-language conversation turns.",
+          "description": "Log 1,000 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1298,7 +1298,7 @@
           "key": "island-shaker",
           "title": "Island Shaker",
           "threshold": 2500,
-          "description": "Complete 2,500 target-language conversation turns.",
+          "description": "Log 2,500 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1363,7 +1363,7 @@
           "key": "sky-splitter",
           "title": "Sky Splitter",
           "threshold": 5000,
-          "description": "Complete 5,000 target-language conversation turns.",
+          "description": "Log 5,000 minutes of target-language conversation study.",
           "assetRevision": "roarer-series-v7",
           "assets": {
             "earned": {
@@ -1431,7 +1431,7 @@
   "sources": {
     "criteria": {
       "path": "resources/achievements/achievement-collection-v1/catalog.source.json",
-      "checksumSha256": "2a761e18cdfabc1c613e85c0a6b51e08195eb85609b1b2a70c348b3bdb7a56bf"
+      "checksumSha256": "cce333837412493fc0543deb9e27009d09e65ed579910f99b502dd15be87142b"
     },
     "visuals": {
       "roarer": {

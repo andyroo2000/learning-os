@@ -32,7 +32,7 @@ class AchievementCatalogApiTest extends TestCase
             ->assertJsonPath('families.0.metricKey', 'cards.stability_365d.count')
             ->assertJsonPath('families.0.tiers.0.earnedDescription', 'Kept 25 cards stable for a year')
             ->assertJsonPath('families.1.tiers.6.earnedDescription', 'Completed 25,000 reviews')
-            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Logged 1,000 conversation minutes')
+            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Spoke for 1,000 minutes')
             ->assertJsonPath('families.2.metricKey', 'study.conversation.minutes')
             ->assertJsonPath('families.2.unit', 'minutes')
             ->assertJsonPath('families.0.tiers.0.assets.earned.png.128.width', 128);

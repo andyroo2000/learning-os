@@ -6,7 +6,7 @@ This collection is the client-facing Learning OS manifest for the first 21 raste
 - `Card Muncher` uses Friendly Kaiju metaphors for completed reviews.
 - `Matsuri Light` uses non-character festival-light metaphors for cards with one year of memory stability.
 - Every family has seven earned images and seven deterministic grayscale locked images at 64, 128, 256, and 512 pixels.
-- Clients display the standard 256-pixel asset at 256 × 256. High-density displays use the 512-pixel asset at the same visual size.
+- Clients display the standard 256-pixel asset at 128 × 128. High-density displays use the 512-pixel asset at the same visual size.
 - The 64- and 128-pixel files remain available only as optional compact-layout fallbacks.
 - All production badge images share the same handmade frame and contain no text. Web and iOS clients render the flexible caption plate below the image.
 - `resources/achievements/achievement-collection-v1/catalog.source.json` owns names, thresholds, earned descriptions, criteria descriptions, fallback candidates, and ranking behavior.

@@ -14,7 +14,7 @@ class AchievementCatalogApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('revision', 'achievement-collection-v1')
+            ->assertJsonPath('revision', 'achievement-collection-v2')
             ->assertJsonPath('status', 'production')
             ->assertJsonPath('assetBaseUrl', 'http://localhost')
             ->assertJsonPath('design.canvas', 256)
@@ -34,10 +34,12 @@ class AchievementCatalogApiTest extends TestCase
             ->assertJsonPath('families.0.key', 'yearfire')
             ->assertJsonPath('families.0.metricKey', 'cards.stability_365d.count')
             ->assertJsonPath('families.0.tiers.0.earnedDescription', 'Kept 25 cards stable for a year')
-            ->assertJsonPath('families.1.tiers.6.earnedDescription', 'Completed 25,000 reviews')
-            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Spoke for 1,000 minutes')
-            ->assertJsonPath('families.2.metricKey', 'study.conversation.minutes')
-            ->assertJsonPath('families.2.unit', 'minutes')
+            ->assertJsonPath('families.1.tiers.0.threshold', 100)
+            ->assertJsonPath('families.1.tiers.4.earnedDescription', 'Completed 25,000 reviews')
+            ->assertJsonPath('families.1.tiers.6.threshold', 100000)
+            ->assertJsonPath('families.2.tiers.4.earnedDescription', 'Spoke for 50 hours')
+            ->assertJsonPath('families.2.metricKey', 'study.conversation.hours')
+            ->assertJsonPath('families.2.unit', 'hours')
             ->assertJsonPath('families.0.tiers.0.assets.earned.png.128.width', 128);
 
         $asset = $response->json('families.0.tiers.0.assets.earned.png.128');

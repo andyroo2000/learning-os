@@ -34,6 +34,8 @@ class GetStudyOverviewAction
 
     private const MINIMUM_TIMED_REVIEW_SAMPLE_SIZE = 10;
 
+    private const MINIMUM_READINESS_SAMPLE_SIZE = 30;
+
     private const READY_HEADROOM_MINUTES = 15;
 
     private const STRONG_HEADROOM_MINUTES = 30;
@@ -391,7 +393,9 @@ class GetStudyOverviewAction
      *     projected_daily_review_minutes: int|null,
      *     review_time_budget_minutes: int,
      *     review_time_headroom_minutes: int|null,
-     *     suggested_batch_size: int
+     *     suggested_batch_size: int,
+     *     display_status: string,
+     *     display_summary: string
      * }
      */
     private function learningReadiness(
@@ -451,7 +455,7 @@ class GetStudyOverviewAction
         $reviewTimeHeadroomMinutes = $projectedDailyReviewMinutes === null
             ? null
             : $reviewTimeBudgetMinutes - $projectedDailyReviewMinutes;
-        $sufficientData = $sampleSize >= 30;
+        $sufficientData = $sampleSize >= self::MINIMUM_READINESS_SAMPLE_SIZE;
         // Raw due and Apprentice counts remain visible context, but only measured recall and
         // projected time pressure qualify readiness for an aggressive learner's chosen budget.
         $readinessLevel = match (true) {
@@ -472,6 +476,29 @@ class GetStudyOverviewAction
             'ease_up' => 'caution',
             default => 'ready',
         };
+        $displayStatus = match ($recommendation) {
+            'pause' => 'Reviews first recommended',
+            'caution' => 'Add carefully',
+            default => 'Ready to learn',
+        };
+        $displaySummary = $sufficientData && $recentRecall !== null
+            ? sprintf(
+                'Recent recall is %d%% against a %d%% target. %s %s %s reinforcement, with %s %s projected over seven days.',
+                (int) round($recentRecall * 100),
+                (int) round($targetRecall * 100),
+                number_format($apprenticeCount),
+                $apprenticeCount === 1 ? 'Apprentice card' : 'Apprentice cards',
+                $apprenticeCount === 1 ? 'needs' : 'need',
+                number_format($projectedSevenDayReviews),
+                $projectedSevenDayReviews === 1 ? 'review' : 'reviews',
+            )
+            : sprintf(
+                'Building a recommendation from your first %d answers (%s so far). Current seven-day workload: %s %s.',
+                self::MINIMUM_READINESS_SAMPLE_SIZE,
+                number_format($sampleSize),
+                number_format($projectedSevenDayReviews),
+                $projectedSevenDayReviews === 1 ? 'review' : 'reviews',
+            );
 
         $configuredBatchSize = min(
             StudySettings::MAX_LESSON_BATCH_SIZE,
@@ -504,6 +531,8 @@ class GetStudyOverviewAction
             'review_time_budget_minutes' => $reviewTimeBudgetMinutes,
             'review_time_headroom_minutes' => $reviewTimeHeadroomMinutes,
             'suggested_batch_size' => $suggestedBatchSize,
+            'display_status' => $displayStatus,
+            'display_summary' => $displaySummary,
         ];
     }
 

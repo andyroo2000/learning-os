@@ -9,7 +9,7 @@ This collection is the client-facing Learning OS manifest for the first 21 raste
 - Clients display the standard 256-pixel asset at 256 × 256. High-density displays use the 512-pixel asset at the same visual size.
 - The 64- and 128-pixel files remain available only as optional compact-layout fallbacks.
 - All production badge images share the same handmade frame and contain no text. Web and iOS clients render the flexible caption plate below the image.
-- `resources/achievements/achievement-collection-v1/catalog.source.json` owns names, thresholds, descriptions, fallback candidates, and ranking behavior.
+- `resources/achievements/achievement-collection-v1/catalog.source.json` owns names, thresholds, earned descriptions, criteria descriptions, fallback candidates, and ranking behavior.
 - The three family source directories own complete generated interior scenes, exact prompt logs, and deterministic shared-frame build configuration.
 
 Build everything with `npm run build:achievements`. Verify committed outputs with `npm run check:achievements`.

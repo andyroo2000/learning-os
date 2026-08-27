@@ -26,42 +26,49 @@
                     "key": "first-ember",
                     "title": "First Ember",
                     "threshold": 25,
+                    "earnedDescription": "Kept 25 cards stable for a year",
                     "description": "25 cards have reached one year of memory stability."
                 },
                 {
                     "key": "paper-glow",
                     "title": "Paper Glow",
                     "threshold": 100,
+                    "earnedDescription": "Kept 100 cards stable for a year",
                     "description": "100 cards have reached one year of memory stability."
                 },
                 {
                     "key": "lantern-heart",
                     "title": "Lantern Heart",
                     "threshold": 250,
+                    "earnedDescription": "Kept 250 cards stable for a year",
                     "description": "250 cards have reached one year of memory stability."
                 },
                 {
                     "key": "festival-gate",
                     "title": "Festival Gate",
                     "threshold": 500,
+                    "earnedDescription": "Kept 500 cards stable for a year",
                     "description": "500 cards have reached one year of memory stability."
                 },
                 {
                     "key": "night-parade",
                     "title": "Night Parade",
                     "threshold": 1000,
+                    "earnedDescription": "Kept 1,000 cards stable for a year",
                     "description": "1,000 cards have reached one year of memory stability."
                 },
                 {
                     "key": "sky-of-lanterns",
                     "title": "Sky of Lanterns",
                     "threshold": 2500,
+                    "earnedDescription": "Kept 2,500 cards stable for a year",
                     "description": "2,500 cards have reached one year of memory stability."
                 },
                 {
                     "key": "eternal-sunrise",
                     "title": "Eternal Sunrise",
                     "threshold": 5000,
+                    "earnedDescription": "Kept 5,000 cards stable for a year",
                     "description": "5,000 cards have reached one year of memory stability."
                 }
             ]
@@ -76,42 +83,49 @@
                     "key": "first-nibble",
                     "title": "First Nibble",
                     "threshold": 25,
+                    "earnedDescription": "Completed 25 reviews",
                     "description": "Complete 25 reviews."
                 },
                 {
                     "key": "quick-bite",
                     "title": "Quick Bite",
                     "threshold": 100,
+                    "earnedDescription": "Completed 100 reviews",
                     "description": "Complete 100 reviews."
                 },
                 {
                     "key": "bento-break",
                     "title": "Bento Break",
                     "threshold": 500,
+                    "earnedDescription": "Completed 500 reviews",
                     "description": "Complete 500 reviews."
                 },
                 {
                     "key": "full-feast",
                     "title": "Full Feast",
                     "threshold": 1000,
+                    "earnedDescription": "Completed 1,000 reviews",
                     "description": "Complete 1,000 reviews."
                 },
                 {
                     "key": "banquet-beast",
                     "title": "Banquet Beast",
                     "threshold": 5000,
+                    "earnedDescription": "Completed 5,000 reviews",
                     "description": "Complete 5,000 reviews."
                 },
                 {
                     "key": "bottomless",
                     "title": "Bottomless",
                     "threshold": 10000,
+                    "earnedDescription": "Completed 10,000 reviews",
                     "description": "Complete 10,000 reviews."
                 },
                 {
                     "key": "moon-muncher",
                     "title": "Moon Muncher",
                     "threshold": 25000,
+                    "earnedDescription": "Completed 25,000 reviews",
                     "description": "Complete 25,000 reviews."
                 }
             ]
@@ -126,42 +140,49 @@
                     "key": "first-roar",
                     "title": "First Roar",
                     "threshold": 25,
+                    "earnedDescription": "Logged 25 conversation minutes",
                     "description": "Log 25 minutes of target-language conversation study."
                 },
                 {
                     "key": "echo-call",
                     "title": "Echo Call",
                     "threshold": 100,
+                    "earnedDescription": "Logged 100 conversation minutes",
                     "description": "Log 100 minutes of target-language conversation study."
                 },
                 {
                     "key": "city-voice",
                     "title": "City Voice",
                     "threshold": 250,
+                    "earnedDescription": "Logged 250 conversation minutes",
                     "description": "Log 250 minutes of target-language conversation study."
                 },
                 {
                     "key": "mountain-caller",
                     "title": "Mountain Caller",
                     "threshold": 500,
+                    "earnedDescription": "Logged 500 conversation minutes",
                     "description": "Log 500 minutes of target-language conversation study."
                 },
                 {
                     "key": "thunder-voice",
                     "title": "Thunder Voice",
                     "threshold": 1000,
+                    "earnedDescription": "Logged 1,000 conversation minutes",
                     "description": "Log 1,000 minutes of target-language conversation study."
                 },
                 {
                     "key": "island-shaker",
                     "title": "Island Shaker",
                     "threshold": 2500,
+                    "earnedDescription": "Logged 2,500 conversation minutes",
                     "description": "Log 2,500 minutes of target-language conversation study."
                 },
                 {
                     "key": "sky-splitter",
                     "title": "Sky Splitter",
                     "threshold": 5000,
+                    "earnedDescription": "Logged 5,000 conversation minutes",
                     "description": "Log 5,000 minutes of target-language conversation study."
                 }
             ]

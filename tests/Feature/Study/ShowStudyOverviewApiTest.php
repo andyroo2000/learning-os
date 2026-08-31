@@ -410,6 +410,16 @@ class ShowStudyOverviewApiTest extends TestCase
             ->assertJsonValidationErrors(['timeZone']);
     }
 
+    public function test_show_preserves_scope_validation_when_the_time_zone_is_valid(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/overview?deckId=not-a-ulid&timeZone=America%2FNew_York')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId'])
+            ->assertJsonMissingValidationErrors(['timeZone']);
+    }
+
     public function test_show_normalizes_both_time_zone_names_without_global_trim_middleware(): void
     {
         $this->withoutMiddleware(TrimStrings::class);

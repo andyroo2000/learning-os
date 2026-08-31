@@ -33,7 +33,8 @@ trait AcceptsStudyTimeZone
     {
         return [
             static function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['timeZone', 'time_zone'])) {
+                // Safe validated data is only available after every primary rule passes.
+                if ($validator->errors()->any()) {
                     return;
                 }
 

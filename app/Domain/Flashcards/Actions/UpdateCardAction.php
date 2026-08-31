@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Results\UpdateCardResult;
+use App\Domain\Flashcards\Support\CardContentRevision;
 use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
@@ -78,6 +79,8 @@ class UpdateCardAction
 
             $card->setRawAttributes($lockedCard->getAttributes(), true);
             $card->setRelations([]);
+
+            CardContentRevision::assertExpected($card, $data->expectedContentRevision);
 
             if ($data->hasFrontText) {
                 $card->front_text = $data->frontText;

@@ -62,6 +62,7 @@ class UpdateStudyCardRequest extends FormRequest
     {
         return [
             ...$this->studyCardPayloadRules(),
+            'expectedRevision' => ['sometimes', 'nullable', 'integer', 'min:0'],
             ...$this->variantMetadataRules(),
         ];
     }
@@ -99,6 +100,13 @@ class UpdateStudyCardRequest extends FormRequest
         }
 
         return $this->studyCard;
+    }
+
+    public function expectedRevision(): ?int
+    {
+        $value = $this->validated('expectedRevision');
+
+        return $value === null ? null : (int) $value;
     }
 
     public function frontTextForUpdate(): string

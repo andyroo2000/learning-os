@@ -7,6 +7,7 @@ use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
 use DateTimeInterface;
+use InvalidArgumentException;
 
 /**
  * Cards persist variant metadata as scalar storage for Vocabulary study variants.
@@ -38,6 +39,7 @@ final readonly class UpdateCardData
         public ?VocabVariantStatus $variantStatus,
         public bool $hasVariantUnlockedAt,
         public ?DateTimeInterface $variantUnlockedAt,
+        public ?int $expectedContentRevision,
     ) {}
 
     public static function fromInput(
@@ -64,7 +66,12 @@ final readonly class UpdateCardData
         VocabVariantStatus|string|null $variantStatus = null,
         bool $hasVariantUnlockedAt = false,
         ?DateTimeInterface $variantUnlockedAt = null,
+        ?int $expectedContentRevision = null,
     ): self {
+        if ($expectedContentRevision !== null && $expectedContentRevision < 0) {
+            throw new InvalidArgumentException('Expected card content revision must be zero or greater.');
+        }
+
         if ($hasVariantStage) {
             VocabVariantMetadataInput::assertValidStage(
                 $variantStage,
@@ -103,6 +110,7 @@ final readonly class UpdateCardData
             variantStatus: $hasVariantStatus ? VocabVariantMetadataInput::statusFromInput($variantStatus) : null,
             hasVariantUnlockedAt: $hasVariantUnlockedAt,
             variantUnlockedAt: $hasVariantUnlockedAt ? VocabVariantMetadataInput::normalizedTimestamp($variantUnlockedAt) : null,
+            expectedContentRevision: $expectedContentRevision,
         );
     }
 }

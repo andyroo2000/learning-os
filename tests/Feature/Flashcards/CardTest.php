@@ -61,6 +61,7 @@ class CardTest extends TestCase
             'card_type',
             'prompt_json',
             'answer_json',
+            'content_revision',
             'search_text',
             'study_status',
             'due_at',
@@ -105,6 +106,7 @@ class CardTest extends TestCase
             'prompt_json' => null,
             'answer_json' => null,
             'search_text' => 'ciao hello',
+            'content_revision' => 0,
         ]);
     }
 
@@ -120,6 +122,41 @@ class CardTest extends TestCase
         $this->assertNull($card->last_reviewed_at);
         $this->assertNull($card->new_queue_position);
         $this->assertNull($card->scheduler_state);
+        $this->assertSame(0, $card->content_revision);
+    }
+
+    public function test_content_revision_advances_for_content_changes_but_not_study_state_changes(): void
+    {
+        $card = Card::factory()->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+
+        $card->due_at = Carbon::parse('2026-09-01T12:00:00Z');
+        $card->study_status = CardStudyStatus::Review;
+        $card->saveOrFail();
+        $this->assertSame(0, $card->refresh()->content_revision);
+
+        $card->prompt_json = ['cueText' => '学校'];
+        $card->saveOrFail();
+        $this->assertSame(1, $card->refresh()->content_revision);
+
+        $card->answer_audio_source = 'generated';
+        $card->saveOrFail();
+        $this->assertSame(2, $card->refresh()->content_revision);
+    }
+
+    public function test_content_revision_cannot_be_assigned_directly_on_an_existing_card(): void
+    {
+        $card = Card::factory()->create();
+        $card->content_revision = 9;
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Card content revision is server-owned.');
+
+        $card->saveOrFail();
     }
 
     public function test_card_casts_card_type_structured_content_and_study_state_fields(): void
@@ -269,6 +306,7 @@ class CardTest extends TestCase
             'source_original_deck_id' => 1700000000005,
             'source_fsrs_json' => ['stability' => 4.2],
             'answer_audio_source' => 'generated',
+            'content_revision' => 99,
             'study_status' => CardStudyStatus::Review,
             'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
             'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
@@ -324,6 +362,7 @@ class CardTest extends TestCase
         $this->assertNull($card->source_original_deck_id);
         $this->assertNull($card->source_fsrs_json);
         $this->assertNull($card->answer_audio_source);
+        $this->assertSame(0, $card->content_revision);
         $this->assertNull($card->variant_group_id);
         $this->assertNull($card->variant_sentence_id);
         $this->assertNull($card->variant_kind);

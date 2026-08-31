@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardProgressionUnlockRequirement;
 use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Flashcards\Support\CardContentRevision;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Models\CardIntroductionCohort;
@@ -45,11 +46,21 @@ class Card extends Model
 
     private const CLIENT_TIMESTAMP_STORAGE_FORMAT = 'Y-m-d H:i:s.v';
 
+    private const CONTENT_REVISION_FIELDS = [
+        'front_text',
+        'back_text',
+        'card_type',
+        'prompt_json',
+        'answer_json',
+        'answer_audio_source',
+    ];
+
     /**
      * @var array<string, mixed>
      */
     protected $attributes = [
         'card_type' => CardType::Recognition->value,
+        'content_revision' => 0,
         'search_text' => '',
         'study_status' => CardStudyStatus::New->value,
     ];
@@ -62,6 +73,14 @@ class Card extends Model
     protected static function booted(): void
     {
         static::updating(function (Card $card): void {
+            if ($card->isDirty('content_revision')) {
+                throw new LogicException('Card content revision is server-owned.');
+            }
+
+            if ($card->isDirty(self::CONTENT_REVISION_FIELDS)) {
+                CardContentRevision::advance($card);
+            }
+
             if ($card->isDirty([
                 'convolab_id',
                 'convolab_note_id',
@@ -140,6 +159,7 @@ class Card extends Model
             'card_type' => CardType::class,
             'prompt_json' => 'array',
             'answer_json' => 'array',
+            'content_revision' => 'integer',
             'study_status' => CardStudyStatus::class,
             'selection_policy' => CardSelectionPolicy::class,
             'priority_until' => 'datetime',

@@ -352,9 +352,11 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $response = $this->patchJson("/api/study/cards/{$card->id}", [
             'prompt' => $prompt,
             'answer' => $answer,
+            'expectedRevision' => 0,
         ])
             ->assertOk()
             ->assertJsonPath('id', $card->id)
+            ->assertJsonPath('revision', 0)
             ->assertJsonPath('prompt.cueText', '会社')
             ->assertJsonPath('answer.meaning', 'company')
             ->assertJsonPath('variantGroupId', 'keep-group')
@@ -378,6 +380,68 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
         $this->assertSame(VocabVariantStatus::Locked->value, $card->variant_status);
         $this->assertSame('2026-06-05T14:15:00.000000Z', $card->variant_unlocked_at?->toJSON());
         $this->assertSame(0, SyncFeedEntry::query()->count());
+    }
+
+    public function test_expected_revision_rejects_a_stale_card_update_and_returns_the_current_card(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+
+        $this->assertSame(0, $card->content_revision);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueText' => '学校'],
+            'answer' => ['meaning' => 'school'],
+            'expectedRevision' => 0,
+        ])
+            ->assertOk()
+            ->assertJsonPath('revision', 1)
+            ->assertJsonPath('prompt.cueText', '学校');
+
+        $response = $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueText' => '犬'],
+            'answer' => ['meaning' => 'dog'],
+            'expectedRevision' => 0,
+        ])
+            ->assertConflict()
+            ->assertJsonPath('code', 'card_revision_conflict')
+            ->assertJsonPath('message', 'Study card content changed since it was loaded.')
+            ->assertJsonPath('card.revision', 1)
+            ->assertJsonPath('card.prompt.cueText', '学校')
+            ->assertJsonPath('card.answer.meaning', 'school');
+
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json('card'));
+
+        $card->refresh();
+        $this->assertSame(1, $card->content_revision);
+        $this->assertSame(['cueText' => '学校'], $card->prompt_json);
+        $this->assertSame(['meaning' => 'school'], $card->answer_json);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_expected_revision_is_optional_for_legacy_card_updates(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create([
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => 'company'],
+        ]);
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueText' => '学校'],
+            'answer' => ['meaning' => 'school'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('revision', 1);
+
+        $this->assertSame(1, $card->refresh()->content_revision);
     }
 
     public function test_it_returns_unchanged_when_variant_metadata_matches_existing_values(): void
@@ -621,6 +685,28 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['payloads'])
             ->assertJsonPath('errors.payloads.0', 'study card payloads contain invalid content.');
+    }
+
+    public function test_it_validates_expected_revision(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create();
+        $payload = [
+            'prompt' => ['cueText' => '会社'],
+            'answer' => ['meaning' => 'company'],
+        ];
+
+        foreach ([-1, 'not-an-integer', ['0']] as $invalidRevision) {
+            $this->patchJson("/api/study/cards/{$card->id}", [
+                ...$payload,
+                'expectedRevision' => $invalidRevision,
+            ])->assertJsonValidationErrors(['expectedRevision']);
+        }
+
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            ...$payload,
+            'expectedRevision' => '+0',
+        ])->assertOk();
     }
 
     public function test_it_validates_variant_metadata(): void

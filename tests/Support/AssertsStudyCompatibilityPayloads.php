@@ -44,6 +44,7 @@ trait AssertsStudyCompatibilityPayloads
             'id',
             'syncId',
             'noteId',
+            'revision',
             'cardType',
             'prompt',
             'answer',

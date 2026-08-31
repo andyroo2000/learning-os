@@ -79,6 +79,7 @@ class RepairLegacyStudyMediaReferencesActionTest extends TestCase
                 ],
             ],
             'search_text' => 'stale search text',
+            'content_revision' => 5,
             'updated_at' => '2026-07-19 10:00:00',
         ]);
         $media = MediaAsset::factory()->for($user)->create([
@@ -98,6 +99,7 @@ class RepairLegacyStudyMediaReferencesActionTest extends TestCase
         $this->assertSame(1, $result->cardsChanged);
         $card->refresh();
         $this->assertSame($media->id, $card->prompt_json['cueAudio']['id']);
+        $this->assertSame(6, $card->content_revision);
         $this->assertSame(
             CardSearchText::fromContent(
                 frontText: $card->front_text,
@@ -117,6 +119,7 @@ class RepairLegacyStudyMediaReferencesActionTest extends TestCase
             ->sole();
         $this->assertSame(SyncFeedOperation::Update, $entry->operation);
         $this->assertSame($card->prompt_json, $entry->payload['prompt_json']);
+        $this->assertSame(6, $entry->payload['content_revision']);
         $this->assertSame($card->search_text, $entry->payload['search_text']);
         $this->assertSame($card->updated_at->toJSON(), $entry->payload['updated_at']);
     }

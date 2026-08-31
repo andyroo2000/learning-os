@@ -36,6 +36,7 @@ final class CardSyncPayload
             'card_type' => $card->card_type?->value ?? CardType::Recognition->value,
             'prompt_json' => $card->prompt_json,
             'answer_json' => $card->answer_json,
+            'content_revision' => (int) ($card->content_revision ?? 0),
             'search_text' => $card->search_text ?? '',
             'study_status' => $card->study_status?->value ?? CardStudyStatus::New->value,
             'new_queue_position' => $card->new_queue_position,

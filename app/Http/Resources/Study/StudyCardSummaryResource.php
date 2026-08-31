@@ -28,6 +28,7 @@ class StudyCardSummaryResource extends JsonResource
             'syncId' => (string) $this->resource->getKey(),
             // The root uses ConvoLab's public note UUID; source.noteId retains the original Anki ID.
             'noteId' => $this->noteIdString(),
+            'revision' => (int) ($this->content_revision ?? 0),
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
             'answer' => $this->answer_json ?? ['type' => 'text', 'text' => $this->back_text],

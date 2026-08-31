@@ -3,9 +3,13 @@
 namespace Tests\Feature\Achievements;
 
 use App\Domain\Achievements\Actions\CalculateAchievementMetricsAction;
+use App\Domain\Achievements\Actions\GetAchievementProgressAction;
 use App\Domain\Achievements\Actions\ReconcileAchievementAwardsAction;
 use App\Domain\Achievements\Actions\ResolveAchievementEarnedAtAction;
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Achievements\Models\AchievementCardProjection;
+use App\Domain\Achievements\Models\AchievementProgressProjection;
+use App\Domain\Achievements\Models\AchievementStudySessionProjection;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -26,6 +30,26 @@ use Tests\TestCase;
 class AchievementAwardActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_achievement_projection_state_is_process_owned(): void
+    {
+        foreach ([
+            new AchievementProgressProjection,
+            new AchievementCardProjection,
+            new AchievementStudySessionProjection,
+        ] as $projection) {
+            $this->assertThrows(
+                fn () => $projection->fill([
+                    'user_id' => 42,
+                    'metric_values' => ['reviews.count' => 1],
+                    'maximum_stability' => 365,
+                    'conversation_ms' => 3_600_000,
+                    'needs_rebuild' => true,
+                ]),
+                MassAssignmentException::class,
+            );
+        }
+    }
 
     public function test_direct_actions_reject_invalid_user_metric_and_threshold_values(): void
     {
@@ -72,6 +96,34 @@ class AchievementAwardActionTest extends TestCase
             ]),
             MassAssignmentException::class,
         );
+    }
+
+    public function test_missing_projected_threshold_timestamp_self_heals_from_source_history(): void
+    {
+        $user = User::factory()->create();
+        $endedAt = now()->startOfSecond();
+        StudyActivitySession::query()->forceCreate([
+            'user_id' => $user->id,
+            'client_session_id' => (string) Str::ulid(),
+            'category' => StudyActivityCategory::Conversation,
+            'activity' => StudyActivityKind::Conversation,
+            'source' => StudyActivitySource::Manual,
+            'origin' => StudyActivityOrigin::Web,
+            'name' => 'Conversation',
+            'started_at' => $endedAt->copy()->subHour(),
+            'ended_at' => $endedAt,
+            'duration_ms' => 3_600_000,
+        ]);
+
+        $awards = app(ReconcileAchievementAwardsAction::class)->handle(
+            $user->id,
+            [GetAchievementProgressAction::CONVERSATION_HOUR_METRIC => 1],
+            [],
+        );
+
+        $award = $awards->firstWhere('achievement_id', 'roarer.first-roar');
+        $this->assertNotNull($award);
+        $this->assertTrue($award->earned_at->equalTo($endedAt));
     }
 
     public function test_review_achievement_dates_share_one_timeline_scan_across_tiers(): void

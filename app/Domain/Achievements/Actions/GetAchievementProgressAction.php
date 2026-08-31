@@ -3,6 +3,7 @@
 namespace App\Domain\Achievements\Actions;
 
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Achievements\Results\AchievementMetricProjectionResult;
 use App\Domain\Study\Actions\GetBurnedCardCountAction;
 use App\Support\DateTime\ConvoLabTimestamp;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,7 +38,7 @@ final class GetAchievementProgressAction
     public const BURNED_CARD_METRIC = 'cards.mastery.burned.ever.count';
 
     public function __construct(
-        private readonly CalculateAchievementMetricsAction $calculateMetrics,
+        private readonly ProjectAchievementMetricsAction $projectMetrics,
         private readonly GetBurnedCardCountAction $getBurnedCardCount,
     ) {}
 
@@ -66,14 +67,23 @@ final class GetAchievementProgressAction
             throw new InvalidArgumentException('Achievement progress user ID must be positive.');
         }
 
-        $metrics = $this->calculateMetrics->handle($userId);
+        return $this->projection($userId)->metricValues;
+    }
 
-        return [
-            ...$metrics,
+    public function projection(int $userId): AchievementMetricProjectionResult
+    {
+        if ($userId <= 0) {
+            throw new InvalidArgumentException('Achievement progress user ID must be positive.');
+        }
+
+        $projection = $this->projectMetrics->handle($userId);
+
+        return new AchievementMetricProjectionResult([
+            ...$projection->metricValues,
             // Keep the v1 key and its live-snapshot semantics while old clients
             // finish their rollout. Archive uses the separate lifetime metric.
             self::STABLE_CARD_METRIC => $this->getBurnedCardCount->handle($userId),
-        ];
+        ], $projection->thresholdReachedAt);
     }
 
     /**

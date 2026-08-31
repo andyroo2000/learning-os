@@ -2,6 +2,7 @@
 
 namespace App\Domain\Calendar\Actions;
 
+use App\Domain\Achievements\Actions\InvalidateAchievementProgressProjectionAction;
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
@@ -21,7 +22,10 @@ final class ReconcileGoogleCalendarStudyEventsAction
 {
     private const CHUNK_SIZE = 250;
 
-    public function __construct(private UpsertStudyActivitySessionsAction $upsert) {}
+    public function __construct(
+        private UpsertStudyActivitySessionsAction $upsert,
+        private ?InvalidateAchievementProgressProjectionAction $invalidateAchievementProgress = null,
+    ) {}
 
     /** @return array{upserted:int,deleted:int} */
     public function handle(int $userId, GoogleCalendarConnection $connection, ?string $syncRunId = null, bool $allowDisabled = false): array
@@ -116,16 +120,26 @@ final class ReconcileGoogleCalendarStudyEventsAction
                             ->count();
                     }
                     if ($deleteKeys !== []) {
-                        $result['deleted'] += StudyActivitySession::query()
+                        $deleted = StudyActivitySession::query()
                             ->where('user_id', $userId)
                             ->where('origin', StudyActivityOrigin::GoogleCalendar)
                             ->where('source', StudyActivitySource::Calendar)
                             ->whereIn('source_key', $deleteKeys)
                             ->delete();
+                        $result['deleted'] += $deleted;
+                        if ($deleted > 0) {
+                            $this->invalidateAchievementProgress()->handle($userId);
+                        }
                     }
                 });
 
             return $result;
         });
+    }
+
+    private function invalidateAchievementProgress(): InvalidateAchievementProgressProjectionAction
+    {
+        return $this->invalidateAchievementProgress
+            ?? app(InvalidateAchievementProgressProjectionAction::class);
     }
 }

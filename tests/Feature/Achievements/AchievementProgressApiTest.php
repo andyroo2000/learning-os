@@ -369,6 +369,76 @@ class AchievementProgressApiTest extends TestCase
         ), implode("\n", $queries));
     }
 
+    public function test_incremental_unreviewed_mastery_crossing_uses_created_at_in_global_order(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $firstCreatedAt = now()->subDays(60)->startOfSecond();
+        $cards = Card::factory()
+            ->for($deck)
+            ->count(50)
+            ->sequence(fn ($sequence): array => [
+                'created_at' => $firstCreatedAt->copy()->addMinutes($sequence->index),
+                'updated_at' => $firstCreatedAt->copy()->addMinutes($sequence->index),
+            ])
+            ->create([
+                'study_status' => CardStudyStatus::Review,
+                'scheduler_state' => ['stability' => 1],
+                'last_reviewed_at' => null,
+            ]);
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        Carbon::setTestNow(now()->addSecond());
+        try {
+            foreach ($cards as $card) {
+                $card->forceFill(['scheduler_state' => ['stability' => 7]])->saveOrFail();
+            }
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $projection = AchievementProgressProjection::query()->findOrFail($user->id);
+        $this->assertSame(
+            $firstCreatedAt->copy()->addMinutes(49)->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            $projection->threshold_reached_at[GetAchievementProgressAction::GURU_CARD_METRIC]['50'],
+        );
+    }
+
+    public function test_it_batches_new_study_session_projection_writes(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $firstEndedAt = now()->startOfSecond();
+        for ($index = 0; $index < 100; $index++) {
+            $this->conversationSession(
+                $user,
+                60_000,
+                $firstEndedAt->copy()->addMinutes($index),
+            );
+        }
+        $queries = [];
+        DB::listen(static function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/achievements/progress')
+            ->assertOk();
+
+        $this->assertSame(
+            1,
+            $response->json('metricValues')[GetAchievementProgressAction::CONVERSATION_HOUR_METRIC],
+        );
+        $this->assertCount(1, collect($queries)->filter(
+            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
+                && str_contains($sql, 'achievement_study_session_projections'),
+        ), implode("\n", $queries));
+    }
+
     public function test_deleting_a_study_session_invalidates_and_rebuilds_the_projection(): void
     {
         $user = User::factory()->create();

@@ -425,9 +425,15 @@ final class ProjectAchievementMetricsAction
                     ->orWhereNull('achievement_card_projections.source_updated_at')
                     ->orWhereColumn('cards.updated_at', '>', 'achievement_card_projections.source_updated_at');
             })
-            ->orderBy('cards.updated_at')
-            ->orderBy('cards.id')
-            ->get();
+            ->get()
+            ->sort(static function (Card $left, Card $right): int {
+                $leftAt = CarbonImmutable::instance($left->last_reviewed_at ?? $left->created_at);
+                $rightAt = CarbonImmutable::instance($right->last_reviewed_at ?? $right->created_at);
+
+                return [$leftAt->getTimestampMs(), (string) $left->id]
+                    <=> [$rightAt->getTimestampMs(), (string) $right->id];
+            })
+            ->values();
         if ($cards->isEmpty()) {
             return;
         }
@@ -442,7 +448,7 @@ final class ProjectAchievementMetricsAction
             $counts['cards']++;
             $before = $metrics;
             $cardId = (string) $card->id;
-            $crossedAt = CarbonImmutable::instance($card->last_reviewed_at ?? $card->updated_at ?? $card->created_at);
+            $crossedAt = CarbonImmutable::instance($card->last_reviewed_at ?? $card->created_at);
             $cardProjections->put($cardId, $this->updateCardProjection(
                 $userId,
                 $cardId,
@@ -492,10 +498,21 @@ final class ProjectAchievementMetricsAction
 
         $metrics = $this->integerMetrics($projection->metric_values);
         $thresholdDates = $this->thresholdDates($projection->threshold_reached_at);
+        $existingProjections = AchievementStudySessionProjection::query()
+            ->whereIn(
+                'study_activity_session_id',
+                $sessions->pluck('id')->map(static fn ($id): string => (string) $id),
+            )
+            ->get()
+            ->keyBy(static fn (AchievementStudySessionProjection $fact): string => (
+                (string) $fact->study_activity_session_id
+            ));
+        $projectionRows = [];
+        $now = now();
         foreach ($sessions as $session) {
             $counts['studySessions']++;
             $before = $metrics;
-            $existing = AchievementStudySessionProjection::query()->whereKey((string) $session->id)->first();
+            $existing = $existingProjections->get((string) $session->id);
             $fact = $this->studyFact($session);
             $projection->conversation_ms = max(
                 0,
@@ -505,16 +522,14 @@ final class ProjectAchievementMetricsAction
                 0,
                 $projection->listening_ms - ($existing?->listening_ms ?? 0) + $fact['listening_ms'],
             );
-            DB::table('achievement_study_session_projections')->updateOrInsert(
-                ['study_activity_session_id' => (string) $session->id],
-                [
-                    'user_id' => $userId,
-                    ...$fact,
-                    'source_updated_at' => $session->updated_at,
-                    'created_at' => $existing?->created_at ?? now(),
-                    'updated_at' => now(),
-                ],
-            );
+            $projectionRows[] = [
+                'study_activity_session_id' => (string) $session->id,
+                'user_id' => $userId,
+                ...$fact,
+                'source_updated_at' => $session->updated_at,
+                'created_at' => $existing?->created_at ?? $now,
+                'updated_at' => $now,
+            ];
 
             $metrics[GetAchievementProgressAction::CONVERSATION_HOUR_METRIC] = intdiv(
                 $projection->conversation_ms,
@@ -534,6 +549,23 @@ final class ProjectAchievementMetricsAction
                 $projection->latest_study_ended_at = $endedAt;
             }
         }
+        collect($projectionRows)->chunk(500)->each(
+            static fn ($rows) => DB::table('achievement_study_session_projections')->upsert(
+                $rows->all(),
+                ['study_activity_session_id'],
+                [
+                    'user_id',
+                    'study_day',
+                    'ended_at',
+                    'category',
+                    'conversation_ms',
+                    'listening_ms',
+                    'daily_audio_episode',
+                    'source_updated_at',
+                    'updated_at',
+                ],
+            ),
+        );
 
         $studyMilestones = $this->studyMilestones($userId);
         $before = $metrics;

@@ -25,6 +25,8 @@ class StudySettings extends Model
 
     public const DEFAULT_NEW_CARDS_PER_DAY = 20;
 
+    public const MIN_NEW_CARDS_PER_DAY = 0;
+
     public const MAX_NEW_CARDS_PER_DAY = 1000;
 
     public const DEFAULT_LESSON_BATCH_SIZE = 5;

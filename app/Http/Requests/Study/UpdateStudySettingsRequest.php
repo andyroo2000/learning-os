@@ -20,7 +20,7 @@ class UpdateStudySettingsRequest extends FormRequest
     {
         $newCardsRules = [
             'integer',
-            'min:0',
+            'min:'.StudySettings::MIN_NEW_CARDS_PER_DAY,
             'max:'.StudySettings::MAX_NEW_CARDS_PER_DAY,
         ];
         $lessonBatchRules = [

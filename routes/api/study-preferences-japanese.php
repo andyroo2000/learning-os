@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Study\ConnectWaniKaniController;
 use App\Http\Controllers\Api\Study\DisconnectWaniKaniController;
 use App\Http\Controllers\Api\Study\SetManualKnownKanjiController;
 use App\Http\Controllers\Api\Study\ShowKnownKanjiController;
+use App\Http\Controllers\Api\Study\ShowStudyClientCapabilitiesController;
 use App\Http\Controllers\Api\Study\ShowStudySettingsController;
 use App\Http\Controllers\Api\Study\SyncWaniKaniKanjiController;
 use App\Http\Controllers\Api\Study\UpdateStudySettingsController;
@@ -14,6 +15,8 @@ use App\Http\Controllers\Api\Study\UpdateWaniKaniTransferBridgeController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
+    Route::get('/study/capabilities', ShowStudyClientCapabilitiesController::class)
+        ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     Route::get('/study/settings', ShowStudySettingsController::class)
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
     // Settings sync can retry updates; keep that rate limit separate from card writes.

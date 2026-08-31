@@ -12,6 +12,7 @@ class StudyCardPayloadSchemaTest extends TestCase
         $schema = StudyCardPayloadSchema::jsonSchema();
 
         $this->assertSame(1, $schema['version']);
+        $this->assertSame('urn:convo-lab:schema:study-card-payload:v1', $schema['$id']);
         $this->assertSame(['prompt', 'answer'], $schema['required']);
         $this->assertSame(
             ['$ref' => '#/$defs/nullableString'],

@@ -57,7 +57,8 @@ final class StudyCardPayloadSchema
 
     /**
      * The public schema intentionally permits extension fields so an older API can round-trip
-     * cards written by a newer producer. Every field owned by this API is nevertheless typed.
+     * cards written by a newer producer. API-owned strings and media fields are typed; the
+     * pitch-accent object stays opaque so its resolver can evolve independently.
      *
      * @return array<string, mixed>
      */
@@ -65,7 +66,7 @@ final class StudyCardPayloadSchema
     {
         return [
             '$schema' => 'https://json-schema.org/draft/2020-12/schema',
-            '$id' => 'urn:convo-lab:schema:study-card-payload:v1',
+            '$id' => 'urn:convo-lab:schema:study-card-payload:v'.self::VERSION,
             'version' => self::VERSION,
             '$defs' => [
                 'nullableString' => ['type' => ['string', 'null']],

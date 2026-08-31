@@ -146,6 +146,11 @@ class CardTest extends TestCase
         $card->answer_audio_source = 'generated';
         $card->saveOrFail();
         $this->assertSame(2, $card->refresh()->content_revision);
+
+        $card->variant_group_id = 'group-one';
+        $card->variant_stage = 1;
+        $card->saveOrFail();
+        $this->assertSame(3, $card->refresh()->content_revision);
     }
 
     public function test_content_revision_cannot_be_assigned_directly_on_an_existing_card(): void

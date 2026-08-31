@@ -135,6 +135,56 @@ class LessonFollowupCohortApiTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_study_now_uses_the_canonical_time_zone_for_the_overview_study_day(): void
+    {
+        Carbon::setTestNow('2026-06-04T03:00:00Z');
+        $user = $this->signIn();
+        $deck = $this->deckFor($user);
+        StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1]);
+        $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
+            'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
+            'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
+        ]);
+        $cohort = new CardIntroductionCohort;
+        $cohort->user_id = $user->id;
+        $cohort->source_kind = CardSourceKind::LessonFollowup;
+        $cohort->saveOrFail();
+        $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+            'new_queue_position' => 1,
+            'introduction_cohort_id' => $cohort->id,
+        ]);
+
+        $this->postJson("/api/study/introduction-cohorts/{$cohort->id}/lessons/start", [
+            'timeZone' => 'America/New_York',
+        ])
+            ->assertOk()
+            ->assertJsonPath('overview.newCardsIntroducedToday', 1)
+            ->assertJsonPath('overview.newCardsAvailableToday', 0);
+    }
+
+    public function test_study_now_validates_both_time_zone_names_and_rejects_mismatches(): void
+    {
+        $this->signIn();
+        $cohortId = (string) Str::ulid();
+        $endpoint = "/api/study/introduction-cohorts/{$cohortId}/lessons/start";
+
+        $this->postJson($endpoint, ['timeZone' => ['UTC']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+        $this->postJson($endpoint, ['time_zone' => ['UTC']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['time_zone']);
+        $this->postJson($endpoint, ['timeZone' => 'Not/A_Zone'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+        $this->postJson($endpoint, [
+            'timeZone' => 'America/New_York',
+            'time_zone' => 'Asia/Tokyo',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+    }
+
     public function test_create_requires_authentication_and_validates_bounded_distinct_ids(): void
     {
         $this->postJson('/api/study/introduction-cohorts/lesson-followup')->assertUnauthorized();

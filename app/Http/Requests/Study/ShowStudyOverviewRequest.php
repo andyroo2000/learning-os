@@ -2,12 +2,14 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Http\Requests\Concerns\AcceptsStudyTimeZone;
 use App\Http\Requests\Concerns\FiltersByStudyScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class ShowStudyOverviewRequest extends FormRequest
 {
+    use AcceptsStudyTimeZone;
     use FiltersByStudyScope;
 
     public function authorize(): bool
@@ -18,6 +20,7 @@ class ShowStudyOverviewRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->prepareStudyScopeFiltersForValidation();
+        $this->prepareStudyTimeZoneForValidation();
     }
 
     /**
@@ -27,12 +30,7 @@ class ShowStudyOverviewRequest extends FormRequest
     {
         return [
             ...$this->studyScopeRules(),
-            'time_zone' => [
-                'sometimes',
-                'nullable',
-                'string',
-                'timezone',
-            ],
+            ...$this->studyTimeZoneRules(),
         ];
     }
 
@@ -41,6 +39,9 @@ class ShowStudyOverviewRequest extends FormRequest
      */
     public function after(): array
     {
-        return $this->studyScopeAfterValidationCallbacks();
+        return [
+            ...$this->studyScopeAfterValidationCallbacks(),
+            ...$this->studyTimeZoneAfterValidationCallbacks(),
+        ];
     }
 }

@@ -15,12 +15,10 @@ class StartStudyLessonController extends Controller
         StartStudySessionRequest $request,
         StartStudyLessonAction $startStudyLesson,
     ): JsonResponse {
-        $data = $request->validated();
-
         return StudySessionResource::make(
             $startStudyLesson->handle(
                 userId: AuthenticatedUser::id($request),
-                timeZone: $data['time_zone'] ?? null,
+                timeZone: $request->timeZone(),
                 deckId: $request->deckId(),
                 courseId: $request->courseId(),
             ),

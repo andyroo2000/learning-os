@@ -481,6 +481,114 @@ class StartStudySessionApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['time_zone']);
+
+        $this->postJson('/api/study/session/start', [
+            'timeZone' => 'Not/A_Zone',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+
+        $this->postJson('/api/study/session/start', [
+            'timeZone' => ['America/New_York'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+    }
+
+    public function test_session_start_uses_the_canonical_time_zone_for_the_study_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T03:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
+                'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
+                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => 1,
+            ]);
+
+            $this->postJson('/api/study/session/start', [
+                'timeZone' => 'America/New_York',
+            ])
+                ->assertOk()
+                ->assertJsonPath('overview.newCardsIntroducedToday', 1)
+                ->assertJsonPath('overview.newCardsAvailableToday', 0);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_lesson_start_uses_the_canonical_time_zone_for_the_study_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-04T03:00:00Z'));
+
+        try {
+            $user = $this->signIn();
+            $deck = $this->deckFor($user);
+            StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
+                'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
+                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
+            ]);
+            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
+                'new_queue_position' => 1,
+            ]);
+
+            $this->postJson('/api/study/lessons/start', [
+                'timeZone' => 'America/New_York',
+            ])
+                ->assertOk()
+                ->assertJsonPath('overview.newCardsIntroducedToday', 1)
+                ->assertJsonPath('overview.newCardsAvailableToday', 0);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_session_and_lesson_start_reject_conflicting_time_zone_names(): void
+    {
+        $this->signIn();
+
+        foreach (['/api/study/session/start', '/api/study/lessons/start'] as $endpoint) {
+            $this->postJson($endpoint, [
+                'timeZone' => 'America/New_York',
+                'time_zone' => 'Asia/Tokyo',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['timeZone']);
+        }
+    }
+
+    public function test_lesson_start_rejects_malformed_time_zone_shapes(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/lessons/start', ['timeZone' => ['UTC']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+
+        $this->postJson('/api/study/lessons/start', ['time_zone' => ['UTC']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['time_zone']);
+
+        $this->postJson('/api/study/lessons/start', ['timeZone' => 'Not/A_Zone'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+    }
+
+    public function test_start_normalizes_both_time_zone_names_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        $this->signIn();
+
+        $this->postJson('/api/study/session/start', [
+            'timeZone' => '  America/New_York  ',
+            'time_zone' => '  America/New_York  ',
+        ])->assertOk();
     }
 
     public function test_start_rejects_malformed_deck_id_filters(): void

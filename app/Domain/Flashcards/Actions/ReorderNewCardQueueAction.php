@@ -71,7 +71,7 @@ class ReorderNewCardQueueAction
                 );
             }
 
-            $availablePositions = $this->availablePositions($userId, $cards);
+            $availablePositions = $this->newCardQueuePosition()->availableForCards($userId, $cards);
             $positionsByCardId = array_combine($cardIds, $availablePositions);
 
             $cardsById = $cards->keyBy(
@@ -125,35 +125,6 @@ class ReorderNewCardQueueAction
 
             return $normalized;
         }, $cardIds);
-    }
-
-    /**
-     * @param  Collection<int, Card>  $cards
-     * @return list<int>
-     */
-    private function availablePositions(int $userId, Collection $cards): array
-    {
-        $nextSyntheticPosition = null;
-        $positions = [];
-
-        foreach ($cards as $card) {
-            if ($card->new_queue_position !== null) {
-                $positions[] = $card->new_queue_position;
-
-                continue;
-            }
-
-            if ($nextSyntheticPosition === null) {
-                $nextSyntheticPosition = $this->newCardQueuePosition()->nextForUser($userId);
-            }
-
-            $positions[] = $nextSyntheticPosition;
-            $nextSyntheticPosition++;
-        }
-
-        sort($positions);
-
-        return $positions;
     }
 
     private function newCardQueuePosition(): NewCardQueuePosition

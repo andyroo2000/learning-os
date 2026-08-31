@@ -46,6 +46,11 @@ class StudyCardDraftValidationException extends RuntimeException
         return new self('study card payloads contain invalid content.', 'payloads');
     }
 
+    public static function invalidPayloadField(string $field, string $message): self
+    {
+        return new self($message, $field);
+    }
+
     public static function invalidPreviewAudioRole(): self
     {
         return new self('previewAudioRole must be one of: '.implode(', ', StudyCardAudioRole::values()).'.', 'previewAudioRole');

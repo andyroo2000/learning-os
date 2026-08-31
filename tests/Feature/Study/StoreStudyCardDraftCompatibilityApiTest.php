@@ -452,7 +452,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['prompt'])
-            ->assertJsonPath('errors.prompt.0', 'prompt and answer payloads are required.');
+            ->assertJsonPath('errors.prompt.0', 'prompt must be an object.');
 
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',
@@ -462,7 +462,7 @@ class StoreStudyCardDraftCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['answer'])
-            ->assertJsonPath('errors.answer.0', 'prompt and answer payloads are required.');
+            ->assertJsonPath('errors.answer.0', 'answer must be an object.');
 
         $this->postJson('/api/study/card-drafts', [
             'creationKind' => 'text-recognition',

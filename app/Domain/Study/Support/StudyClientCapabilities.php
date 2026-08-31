@@ -62,6 +62,7 @@ final class StudyClientCapabilities
                 'previewAudioRoles' => StudyCardAudioRole::values(),
                 'defaultAnswerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
                 'defaultFemaleAnswerAudioVoiceId' => StudyCardGenerationDefaults::FEMALE_VOICE_ID,
+                'payloadSchema' => StudyCardPayloadSchema::jsonSchema(),
                 'limits' => [
                     'combinedPayloadBytes' => StudyCardDraft::MAX_PAYLOAD_BYTES,
                     'payloadDepth' => StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH,

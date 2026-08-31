@@ -1,0 +1,191 @@
+<?php
+
+namespace App\Domain\Study\Support;
+
+final class StudyCardPayloadSchema
+{
+    public const VERSION = 1;
+
+    private const PROMPT_STRING_FIELDS = [
+        'type',
+        'text',
+        'cueText',
+        'cueReading',
+        'cueMeaning',
+        'clozeText',
+        'clozeDisplayText',
+        'clozeAnswerText',
+        'clozeHint',
+        'clozeResolvedHint',
+    ];
+
+    private const PROMPT_MEDIA_FIELDS = [
+        'cueAudio',
+        'cueImage',
+    ];
+
+    private const ANSWER_STRING_FIELDS = [
+        'type',
+        'text',
+        'expression',
+        'expressionReading',
+        'meaning',
+        'notes',
+        'sentenceJp',
+        'sentenceJpKana',
+        'sentenceEn',
+        'restoredText',
+        'restoredTextReading',
+        'answerAudioVoiceId',
+        'answerAudioTextOverride',
+    ];
+
+    private const ANSWER_MEDIA_FIELDS = [
+        'answerAudio',
+        'answerImage',
+    ];
+
+    private function __construct() {}
+
+    /**
+     * The public schema intentionally permits extension fields so an older API can round-trip
+     * cards written by a newer producer. Every field owned by this API is nevertheless typed.
+     *
+     * @return array<string, mixed>
+     */
+    public static function jsonSchema(): array
+    {
+        return [
+            '$schema' => 'https://json-schema.org/draft/2020-12/schema',
+            '$id' => 'urn:convo-lab:schema:study-card-payload:v1',
+            'version' => self::VERSION,
+            '$defs' => [
+                'nullableString' => ['type' => ['string', 'null']],
+                'media' => [
+                    'type' => ['object', 'null'],
+                    'properties' => [
+                        'id' => ['$ref' => '#/$defs/nullableString'],
+                        'filename' => ['$ref' => '#/$defs/nullableString'],
+                        'url' => ['$ref' => '#/$defs/nullableString'],
+                        'mediaKind' => ['type' => ['string', 'null']],
+                        'source' => ['type' => ['string', 'null']],
+                    ],
+                    'additionalProperties' => true,
+                ],
+                'pitchAccent' => [
+                    'type' => ['object', 'null'],
+                    'additionalProperties' => true,
+                ],
+            ],
+            'type' => 'object',
+            'required' => ['prompt', 'answer'],
+            'properties' => [
+                'prompt' => self::objectSchema(self::PROMPT_STRING_FIELDS, self::PROMPT_MEDIA_FIELDS),
+                'answer' => self::objectSchema(
+                    self::ANSWER_STRING_FIELDS,
+                    self::ANSWER_MEDIA_FIELDS,
+                    ['pitchAccent' => ['$ref' => '#/$defs/pitchAccent']],
+                ),
+            ],
+            'additionalProperties' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $prompt
+     * @param  array<string, mixed>  $answer
+     * @return array<string, string>
+     */
+    public static function validationErrors(array $prompt, array $answer): array
+    {
+        return [
+            ...self::payloadValidationErrors('prompt', $prompt, self::PROMPT_STRING_FIELDS, self::PROMPT_MEDIA_FIELDS),
+            ...self::payloadValidationErrors('answer', $answer, self::ANSWER_STRING_FIELDS, self::ANSWER_MEDIA_FIELDS),
+            ...self::nullableObjectValidationError('answer.pitchAccent', $answer['pitchAccent'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $stringFields
+     * @param  list<string>  $mediaFields
+     * @param  array<string, mixed>  $extraProperties
+     * @return array<string, mixed>
+     */
+    private static function objectSchema(array $stringFields, array $mediaFields, array $extraProperties = []): array
+    {
+        $properties = [];
+
+        foreach ($stringFields as $field) {
+            $properties[$field] = ['$ref' => '#/$defs/nullableString'];
+        }
+
+        foreach ($mediaFields as $field) {
+            $properties[$field] = ['$ref' => '#/$defs/media'];
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => [...$properties, ...$extraProperties],
+            'additionalProperties' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $stringFields
+     * @param  list<string>  $mediaFields
+     * @return array<string, string>
+     */
+    private static function payloadValidationErrors(
+        string $payloadName,
+        array $payload,
+        array $stringFields,
+        array $mediaFields,
+    ): array {
+        if ($payload !== [] && array_is_list($payload)) {
+            return [$payloadName => "{$payloadName} must be an object."];
+        }
+
+        $errors = [];
+
+        foreach ($stringFields as $field) {
+            if (array_key_exists($field, $payload) && ! is_string($payload[$field]) && $payload[$field] !== null) {
+                $errors["{$payloadName}.{$field}"] = "{$payloadName}.{$field} must be a string or null.";
+            }
+        }
+
+        foreach ($mediaFields as $field) {
+            $path = "{$payloadName}.{$field}";
+            $value = $payload[$field] ?? null;
+            $errors = [...$errors, ...self::nullableObjectValidationError($path, $value)];
+
+            if (! is_array($value) || array_is_list($value)) {
+                continue;
+            }
+
+            foreach (['id', 'filename', 'url', 'mediaKind', 'source'] as $mediaField) {
+                if (array_key_exists($mediaField, $value)
+                    && ! is_string($value[$mediaField])
+                    && $value[$mediaField] !== null) {
+                    $errors["{$path}.{$mediaField}"] = "{$path}.{$mediaField} must be a string or null.";
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function nullableObjectValidationError(string $path, mixed $value): array
+    {
+        // PHP decodes an empty JSON object and an empty JSON array to the same value. Empty media
+        // objects are retained for compatibility and validated by the owning media operation.
+        if ($value === null || (is_array($value) && ($value === [] || ! array_is_list($value)))) {
+            return [];
+        }
+
+        return [$path => "{$path} must be an object or null."];
+    }
+}

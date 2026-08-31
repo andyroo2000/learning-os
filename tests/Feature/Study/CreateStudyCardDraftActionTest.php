@@ -406,6 +406,24 @@ class CreateStudyCardDraftActionTest extends TestCase
         ));
     }
 
+    public function test_it_rejects_wrong_types_for_owned_payload_fields_for_direct_callers(): void
+    {
+        try {
+            CreateStudyCardDraftData::fromInput(
+                userId: User::factory()->create()->id,
+                creationKind: StudyCardCreationKind::TextRecognition,
+                cardType: CardType::Recognition,
+                promptJson: ['cueText' => '犬', 'cueReading' => ['not text']],
+                answerJson: ['meaning' => 'dog'],
+            );
+
+            $this->fail('Expected a payload validation exception.');
+        } catch (StudyCardDraftValidationException $e) {
+            $this->assertSame('prompt.cueReading', $e->field());
+            $this->assertSame('prompt.cueReading must be a string or null.', $e->getMessage());
+        }
+    }
+
     public function test_it_rejects_invalid_creation_kinds_for_direct_callers_with_domain_validation(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);

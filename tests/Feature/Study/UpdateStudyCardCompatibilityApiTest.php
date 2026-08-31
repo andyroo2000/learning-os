@@ -639,6 +639,28 @@ class UpdateStudyCardCompatibilityApiTest extends TestCase
             ->assertJsonPath('errors.prompt.0', 'prompt must include a non-empty text field.')
             ->assertJsonPath('errors.answer.0', 'answer must include a non-empty text field.');
 
+        $this->patchJson("/api/study/cards/{$card->id}", [
+            'prompt' => ['cueText' => 'front', 'cueReading' => ['not text']],
+            'answer' => [
+                'meaning' => 'back',
+                'notes' => false,
+                'answerAudio' => ['filename' => 123],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'prompt.cueReading',
+                'answer.notes',
+                'answer.answerAudio.filename',
+            ])
+            ->assertJsonFragment([
+                'prompt.cueReading' => ['prompt.cueReading must be a string or null.'],
+                'answer.notes' => ['answer.notes must be a string or null.'],
+                'answer.answerAudio.filename' => [
+                    'answer.answerAudio.filename must be a string or null.',
+                ],
+            ]);
+
         $tooDeep = 'too deep';
         // Eight wraps below prompt/answer nested fields reaches depth 9 from the payload root.
         for ($depth = 0; $depth < 8; $depth++) {

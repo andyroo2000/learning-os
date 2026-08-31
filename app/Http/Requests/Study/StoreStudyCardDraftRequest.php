@@ -88,15 +88,6 @@ class StoreStudyCardDraftRequest extends FormRequest
             function (Validator $validator): void {
                 $data = $validator->getData();
 
-                foreach (['prompt', 'answer'] as $attribute) {
-                    $payload = $data[$attribute] ?? null;
-
-                    if (is_array($payload) && $payload !== [] && array_is_list($payload)) {
-                        // Match ConvoLab's shared missing/malformed payload error for compatibility.
-                        $validator->errors()->add($attribute, self::PAYLOAD_REQUIRED_MESSAGE);
-                    }
-                }
-
                 $creationKind = $data['creationKind'] ?? null;
                 $cardType = $data['cardType'] ?? null;
 

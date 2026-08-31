@@ -545,7 +545,8 @@ class UpdateStudyCardDraftCompatibilityApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['prompt', 'imagePlacement', 'imagePrompt'])
-            ->assertJsonPath('errors.prompt.0', 'prompt and answer payloads are required.')
+            ->assertJsonPath('errors.prompt.0', 'prompt must be an object.')
+            ->assertJsonCount(1, 'errors.prompt')
             ->assertJsonPath('errors.imagePlacement.0', 'imagePlacement must be none, prompt, answer, or both.')
             ->assertJsonPath('errors.imagePrompt.0', 'imagePrompt must be 1000 characters or fewer.');
 

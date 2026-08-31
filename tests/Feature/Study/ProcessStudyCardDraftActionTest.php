@@ -101,6 +101,37 @@ class ProcessStudyCardDraftActionTest extends TestCase
         $this->assertSame('prompt must be 8 levels deep or fewer.', $entry->payload['error_message']);
     }
 
+    public function test_it_marks_a_draft_failed_when_enrichment_returns_a_wrong_owned_field_type(): void
+    {
+        $draft = StudyCardDraft::factory()->create([
+            'prompt_json' => ['cueText' => '会社'],
+            'answer_json' => ['meaning' => null],
+        ]);
+        $this->mockEnrichment([
+            'prompt' => ['cueText' => '会社'],
+            'answer' => ['meaning' => ['not', 'text']],
+            'imagePrompt' => null,
+        ]);
+
+        $processed = app(ProcessStudyCardDraftAction::class)->handle($draft->id);
+
+        $this->assertSame(StudyManualCardDraftStatus::Error, $processed?->status);
+        $this->assertSame(1, $processed?->revision);
+        $this->assertSame(
+            'answer.meaning must be a string or null.',
+            $processed?->error_message,
+        );
+        $entry = $this->assertStudyCardDraftSyncPayloadRecorded(
+            $processed,
+            SyncFeedOperation::Update,
+        );
+        $this->assertSame('error', $entry->payload['status']);
+        $this->assertSame(
+            'answer.meaning must be a string or null.',
+            $entry->payload['error_message'],
+        );
+    }
+
     public function test_it_does_not_reprocess_terminal_or_missing_drafts(): void
     {
         $readyDraft = StudyCardDraft::factory()->ready()->create();

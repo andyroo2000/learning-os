@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Support\StudyCardPayloadSchema;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -41,6 +42,7 @@ class ShowStudyClientCapabilitiesApiTest extends TestCase
                     'previewAudioRoles' => ['prompt', 'answer'],
                     'defaultAnswerAudioVoiceId' => 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f',
                     'defaultFemaleAnswerAudioVoiceId' => 'fishaudio:9639f090aa6346329d7d3aca7e6b7226',
+                    'payloadSchema' => StudyCardPayloadSchema::jsonSchema(),
                     'limits' => [
                         'combinedPayloadBytes' => 24 * 1024,
                         'payloadDepth' => 8,

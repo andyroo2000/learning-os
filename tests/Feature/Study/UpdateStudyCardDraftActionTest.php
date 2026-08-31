@@ -718,6 +718,23 @@ class UpdateStudyCardDraftActionTest extends TestCase
         );
     }
 
+    public function test_it_rejects_wrong_types_for_owned_payload_fields_for_direct_callers(): void
+    {
+        try {
+            UpdateStudyCardDraftData::fromInput(
+                hasPrompt: true,
+                promptJson: ['cueText' => '会社'],
+                hasAnswer: true,
+                answerJson: ['meaning' => ['not text']],
+            );
+
+            $this->fail('Expected a payload validation exception.');
+        } catch (StudyCardDraftValidationException $e) {
+            $this->assertSame('answer.meaning', $e->field());
+            $this->assertSame('answer.meaning must be a string or null.', $e->getMessage());
+        }
+    }
+
     public function test_it_rejects_invalid_preview_media_kind_for_direct_callers(): void
     {
         $this->expectException(StudyCardDraftValidationException::class);

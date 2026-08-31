@@ -26,6 +26,10 @@ final class StudyCardPayloadShapeValidator
         if (self::exceedsMaxDepth($answerJson)) {
             throw StudyCardDraftValidationException::answerTooDeep(StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH);
         }
+
+        foreach (StudyCardPayloadSchema::validationErrors($promptJson, $answerJson) as $field => $message) {
+            throw StudyCardDraftValidationException::invalidPayloadField($field, $message);
+        }
     }
 
     public static function serializePayloads(array $promptJson, array $answerJson): ?string

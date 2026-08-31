@@ -4,6 +4,7 @@ namespace App\Http\Requests\Study\Concerns;
 
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardPayloadSchema;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Study\Support\StudyCardPayloadText;
 use Closure;
@@ -172,19 +173,32 @@ trait ValidatesStudyCardPayloads
             return;
         }
 
-        if (StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt)) {
+        $promptIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt);
+        $answerIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($answer);
+        $promptHasInvalidShape = $prompt !== [] && array_is_list($prompt);
+        $answerHasInvalidShape = $answer !== [] && array_is_list($answer);
+
+        if ($promptIsTooDeep) {
             $fail('prompt', 'prompt must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
+        }
+
+        if ($answerIsTooDeep) {
+            $fail('answer', 'answer must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        }
+
+        foreach (StudyCardPayloadSchema::validationErrors($prompt, $answer) as $attribute => $message) {
+            $fail($attribute, $message);
+        }
+
+        if (! $promptIsTooDeep && ! $promptHasInvalidShape && ($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
             $this->frontText = $frontText;
-        } elseif ($requirePromptText) {
+        } elseif (! $promptIsTooDeep && ! $promptHasInvalidShape && $requirePromptText) {
             $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
-        if (StudyCardPayloadShapeValidator::exceedsMaxDepth($answer)) {
-            $fail('answer', 'answer must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
-        } elseif (($backText = StudyCardPayloadText::backText($answer)) !== null) {
+        if (! $answerIsTooDeep && ! $answerHasInvalidShape && ($backText = StudyCardPayloadText::backText($answer)) !== null) {
             $this->backText = $backText;
-        } elseif ($requireAnswerText) {
+        } elseif (! $answerIsTooDeep && ! $answerHasInvalidShape && $requireAnswerText) {
             $fail('answer', 'answer must include a non-empty text field.');
         }
     }

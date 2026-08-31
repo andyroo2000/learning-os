@@ -19,7 +19,7 @@ class StartLessonFollowupCohortController extends Controller
         return StudySessionResource::make($startCohort->handle(
             userId: AuthenticatedUser::id($request),
             cohortId: $cohortId,
-            timeZone: $request->validated('time_zone'),
+            timeZone: $request->timeZone(),
         ))->response()->setStatusCode(200);
     }
 }

@@ -48,7 +48,7 @@ class ShowStudyOverviewApiTest extends TestCase
                 'new_queue_position' => 2,
             ]);
 
-            $this->getJson('/api/study/overview?time_zone=America/New_York')
+            $this->getJson('/api/study/overview?timeZone=America/New_York')
                 ->assertOk()
                 ->assertJsonMissingPath('data')
                 ->assertJsonPath('newCardsPerDay', 2)
@@ -109,6 +109,12 @@ class ShowStudyOverviewApiTest extends TestCase
                 ->assertJsonMissingPath('jlptMastery.N5.overall')
                 ->assertJsonMissingPath('jlptMastery.N4.overall')
                 ->assertJsonPath('totalCards', 3);
+
+            // Keep the legacy snake_case alias behaviorally equivalent during the client rollout.
+            $this->getJson('/api/study/overview?time_zone=America/New_York')
+                ->assertOk()
+                ->assertJsonPath('newCardsIntroducedToday', 1)
+                ->assertJsonPath('newCardsAvailableToday', 1);
         } finally {
             Carbon::setTestNow();
         }
@@ -385,6 +391,42 @@ class ShowStudyOverviewApiTest extends TestCase
         $this->getJson('/api/study/overview?time_zone[]=America%2FNew_York')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['time_zone']);
+
+        $this->getJson('/api/study/overview?timeZone=Not%2FA_Zone')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+
+        $this->getJson('/api/study/overview?timeZone[]=America%2FNew_York')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+    }
+
+    public function test_show_rejects_conflicting_canonical_and_legacy_time_zones(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/overview?timeZone=America%2FNew_York&time_zone=Asia%2FTokyo')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+    }
+
+    public function test_show_preserves_scope_validation_when_the_time_zone_is_valid(): void
+    {
+        $this->signIn();
+
+        $this->getJson('/api/study/overview?deckId=not-a-ulid&timeZone=America%2FNew_York')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deckId'])
+            ->assertJsonMissingValidationErrors(['timeZone']);
+    }
+
+    public function test_show_normalizes_both_time_zone_names_without_global_trim_middleware(): void
+    {
+        $this->withoutMiddleware(TrimStrings::class);
+        $this->signIn();
+
+        $this->getJson('/api/study/overview?timeZone=%20America%2FNew_York%20&time_zone=%20America%2FNew_York%20')
+            ->assertOk();
     }
 
     public function test_show_rejects_malformed_deck_id_filters(): void

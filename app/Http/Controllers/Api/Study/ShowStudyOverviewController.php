@@ -15,12 +15,10 @@ class ShowStudyOverviewController extends Controller
         ShowStudyOverviewRequest $request,
         GetStudyOverviewAction $getStudyOverview,
     ): JsonResponse {
-        $data = $request->validated();
-
         return StudyOverviewCompatibilityResource::make(
             $getStudyOverview->handle(
                 userId: AuthenticatedUser::id($request),
-                timeZone: $data['time_zone'] ?? null,
+                timeZone: $request->timeZone(),
                 deckId: $request->deckId(),
                 courseId: $request->courseId(),
             ),

@@ -48,7 +48,6 @@ class StudyActivitySessionApiTest extends TestCase
         $payload = [
             'sessions' => [[
                 'clientSessionId' => '018f22d2-6d38-7000-8000-000000000001',
-                'category' => 'create',
                 'activity' => 'card_creation',
                 'source' => 'manual',
                 'name' => 'Episode 4 cards',

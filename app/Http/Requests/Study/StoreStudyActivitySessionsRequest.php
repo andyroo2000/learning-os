@@ -73,7 +73,7 @@ class StoreStudyActivitySessionsRequest extends FormRequest
             'sessions' => ['required', 'array', 'min:1', 'max:100'],
             'sessions.*' => ['required', 'array'],
             'sessions.*.clientSessionId' => ['required', 'distinct', 'string', 'max:64', 'regex:/^(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|[0-9a-fA-F-]{36})$/'],
-            'sessions.*.category' => ['required', Rule::enum(StudyActivityCategory::class)],
+            'sessions.*.category' => ['sometimes', Rule::enum(StudyActivityCategory::class)],
             'sessions.*.activity' => ['required', Rule::enum(StudyActivityKind::class)],
             'sessions.*.source' => ['required', Rule::enum(StudyActivitySource::class)],
             // Provider and system origins are reserved for trusted server-side
@@ -99,7 +99,8 @@ class StoreStudyActivitySessionsRequest extends FormRequest
                 }
 
                 foreach ($this->validated('sessions') as $index => $session) {
-                    if (StudyActivityKind::from($session['activity'])->category()->value !== $session['category']) {
+                    if (isset($session['category'])
+                        && StudyActivityKind::from($session['activity'])->category()->value !== $session['category']) {
                         $validator->errors()->add(
                             "sessions.$index.category",
                             'The category does not match the selected activity.',

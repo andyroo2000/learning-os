@@ -7,7 +7,6 @@ use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
 use App\Domain\Study\Data\GoogleCalendarStudyEvent;
 use App\Domain\Study\Data\StudyActivitySessionData;
-use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
@@ -99,7 +98,6 @@ final class ReconcileGoogleCalendarStudyEventsAction
                         }
                         $sessions[] = new StudyActivitySessionData(
                             clientSessionId: 'google-calendar:'.substr($event->sourceKey->value, 0, 48),
-                            category: StudyActivityCategory::Conversation,
                             activity: StudyActivityKind::Conversation,
                             source: StudyActivitySource::Calendar,
                             name: $event->ledgerName(),

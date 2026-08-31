@@ -4,7 +4,6 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
 use App\Domain\Study\Data\StudyActivitySessionData;
-use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
@@ -115,7 +114,6 @@ class StudyActivityProviderUpsertTest extends TestCase
     ): StudyActivitySessionData {
         return new StudyActivitySessionData(
             clientSessionId: $clientSessionId,
-            category: StudyActivityCategory::Conversation,
             activity: StudyActivityKind::Conversation,
             source: StudyActivitySource::Calendar,
             name: $name,

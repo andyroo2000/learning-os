@@ -429,9 +429,11 @@ final class ProjectAchievementMetricsAction
             ->sort(static function (Card $left, Card $right): int {
                 $leftAt = CarbonImmutable::instance($left->last_reviewed_at ?? $left->created_at);
                 $rightAt = CarbonImmutable::instance($right->last_reviewed_at ?? $right->created_at);
+                $dateComparison = $leftAt <=> $rightAt;
 
-                return [$leftAt->getTimestampMs(), (string) $left->id]
-                    <=> [$rightAt->getTimestampMs(), (string) $right->id];
+                return $dateComparison !== 0
+                    ? $dateComparison
+                    : strcmp((string) $left->id, (string) $right->id);
             })
             ->values();
         if ($cards->isEmpty()) {

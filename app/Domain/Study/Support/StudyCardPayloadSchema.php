@@ -45,6 +45,14 @@ final class StudyCardPayloadSchema
         'answerImage',
     ];
 
+    private const MEDIA_STRING_FIELDS = [
+        'id',
+        'filename',
+        'url',
+        'mediaKind',
+        'source',
+    ];
+
     private function __construct() {}
 
     /**
@@ -63,13 +71,7 @@ final class StudyCardPayloadSchema
                 'nullableString' => ['type' => ['string', 'null']],
                 'media' => [
                     'type' => ['object', 'null'],
-                    'properties' => [
-                        'id' => ['$ref' => '#/$defs/nullableString'],
-                        'filename' => ['$ref' => '#/$defs/nullableString'],
-                        'url' => ['$ref' => '#/$defs/nullableString'],
-                        'mediaKind' => ['type' => ['string', 'null']],
-                        'source' => ['type' => ['string', 'null']],
-                    ],
+                    'properties' => self::nullableStringProperties(self::MEDIA_STRING_FIELDS),
                     'additionalProperties' => true,
                 ],
                 'pitchAccent' => [
@@ -163,7 +165,7 @@ final class StudyCardPayloadSchema
                 continue;
             }
 
-            foreach (['id', 'filename', 'url', 'mediaKind', 'source'] as $mediaField) {
+            foreach (self::MEDIA_STRING_FIELDS as $mediaField) {
                 if (array_key_exists($mediaField, $value)
                     && ! is_string($value[$mediaField])
                     && $value[$mediaField] !== null) {
@@ -173,6 +175,21 @@ final class StudyCardPayloadSchema
         }
 
         return $errors;
+    }
+
+    /**
+     * @param  list<string>  $fields
+     * @return array<string, array{'$ref': string}>
+     */
+    private static function nullableStringProperties(array $fields): array
+    {
+        $properties = [];
+
+        foreach ($fields as $field) {
+            $properties[$field] = ['$ref' => '#/$defs/nullableString'];
+        }
+
+        return $properties;
     }
 
     /**

@@ -117,14 +117,6 @@ class UpdateStudyCardDraftRequest extends FormRequest
                     $validator->errors()->add('answer', self::PAYLOAD_REQUIRED_MESSAGE);
                 }
 
-                foreach (['prompt', 'answer'] as $attribute) {
-                    $payload = $data[$attribute] ?? null;
-
-                    if (is_array($payload) && $payload !== [] && array_is_list($payload)) {
-                        $validator->errors()->add($attribute, self::PAYLOAD_REQUIRED_MESSAGE);
-                    }
-                }
-
                 $hasPreviewAudioRole = array_key_exists('previewAudioRole', $data)
                     && $data['previewAudioRole'] !== null
                     && ! $validator->errors()->has('previewAudioRole');

@@ -175,6 +175,8 @@ trait ValidatesStudyCardPayloads
 
         $promptIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt);
         $answerIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($answer);
+        $promptHasInvalidShape = $prompt !== [] && array_is_list($prompt);
+        $answerHasInvalidShape = $answer !== [] && array_is_list($answer);
 
         if ($promptIsTooDeep) {
             $fail('prompt', 'prompt must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
@@ -188,15 +190,15 @@ trait ValidatesStudyCardPayloads
             $fail($attribute, $message);
         }
 
-        if (! $promptIsTooDeep && ($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
+        if (! $promptIsTooDeep && ! $promptHasInvalidShape && ($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
             $this->frontText = $frontText;
-        } elseif (! $promptIsTooDeep && $requirePromptText) {
+        } elseif (! $promptIsTooDeep && ! $promptHasInvalidShape && $requirePromptText) {
             $fail('prompt', 'prompt must include a non-empty text field.');
         }
 
-        if (! $answerIsTooDeep && ($backText = StudyCardPayloadText::backText($answer)) !== null) {
+        if (! $answerIsTooDeep && ! $answerHasInvalidShape && ($backText = StudyCardPayloadText::backText($answer)) !== null) {
             $this->backText = $backText;
-        } elseif (! $answerIsTooDeep && $requireAnswerText) {
+        } elseif (! $answerIsTooDeep && ! $answerHasInvalidShape && $requireAnswerText) {
             $fail('answer', 'answer must include a non-empty text field.');
         }
     }

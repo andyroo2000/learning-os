@@ -272,6 +272,47 @@ class AchievementProgressApiTest extends TestCase
         ), implode("\n", $queries));
     }
 
+    public function test_late_cross_card_review_rebuilds_global_correct_run_chronology(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $earlierCard = Card::factory()->for($deck)->create();
+        $laterCard = Card::factory()->for($deck)->create();
+        $laterReviewAt = now()->startOfSecond();
+        $laterEvent = CardReviewEvent::factory()->for($laterCard, 'card')->create([
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => $laterReviewAt,
+            'created_at' => $laterReviewAt,
+            'updated_at' => $laterReviewAt,
+        ]);
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+        $this->assertSame(
+            1,
+            AchievementProgressProjection::query()->findOrFail($user->id)->current_correct_run,
+        );
+
+        CardReviewEvent::factory()->for($earlierCard, 'card')->create([
+            'rating' => CardReviewRating::Again,
+            'reviewed_at' => $laterReviewAt->copy()->subMinutes(30),
+            'created_at' => $laterEvent->created_at->copy()->addSecond(),
+            'updated_at' => $laterEvent->created_at->copy()->addSecond(),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/achievements/progress')
+            ->assertOk();
+
+        $this->assertSame(
+            1,
+            $response->json('metricValues')[GetAchievementProgressAction::CORRECT_RUN_METRIC],
+        );
+        $this->assertSame(
+            1,
+            AchievementProgressProjection::query()->findOrFail($user->id)->current_correct_run,
+        );
+    }
+
     public function test_it_projects_new_study_time_without_rescanning_review_history(): void
     {
         $user = User::factory()->create();

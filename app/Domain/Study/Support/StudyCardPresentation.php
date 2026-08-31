@@ -15,6 +15,7 @@ final class StudyCardPresentation
 {
     public const VERSION = 1;
 
+    // Production-image generation uses these Japanese part-of-speech cue labels.
     private const VISUAL_PRODUCTION_LABELS = ['名詞', '動詞', '形容詞', '副詞', '表現'];
 
     private function __construct() {}
@@ -55,7 +56,7 @@ final class StudyCardPresentation
         $promptAudio = self::mediaReference($prompt, 'cueAudio');
         $promptImage = self::mediaReference($prompt, 'cueImage');
         $answerImage = self::mediaReference($answer, 'answerImage') ?? $promptImage;
-        $answerAudio = $promptAudio ?? self::mediaReference($answer, 'answerAudio');
+        $answerAudio = StudyCardAudio::reference($card);
         $cloze = $cardType === CardType::Cloze->value
             ? self::deriveCloze(self::firstString($prompt, ['clozeText']))
             : null;

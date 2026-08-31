@@ -190,6 +190,32 @@ class StudyCardPresentationTest extends TestCase
         $this->assertSame('会社[かいしゃ]', $answer['ruby']);
     }
 
+    public function test_media_led_production_cards_only_show_recognized_visual_cue_labels(): void
+    {
+        $image = [
+            'filename' => 'company.png',
+            'url' => '/api/study/media/image-1',
+            'mediaKind' => 'image',
+            'source' => 'generated',
+        ];
+        $recognized = $this->card([
+            'card_type' => CardType::Production,
+            'prompt_json' => ['cueImage' => $image, 'cueMeaning' => '名詞'],
+        ]);
+        $unrecognized = $this->card([
+            'card_type' => CardType::Production,
+            'prompt_json' => ['cueImage' => $image, 'cueMeaning' => 'company'],
+        ]);
+
+        $recognizedFront = StudyCardPresentation::fromCard($recognized)['front'];
+        $unrecognizedFront = StudyCardPresentation::fromCard($unrecognized)['front'];
+
+        $this->assertSame('media', $recognizedFront['mode']);
+        $this->assertSame('名詞', $recognizedFront['hint']);
+        $this->assertSame('media', $unrecognizedFront['mode']);
+        $this->assertNull($unrecognizedFront['hint']);
+    }
+
     public function test_it_derives_safe_cloze_faces_and_masks_the_ruby_heading(): void
     {
         $image = [

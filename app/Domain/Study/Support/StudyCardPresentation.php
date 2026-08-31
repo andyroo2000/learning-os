@@ -55,9 +55,13 @@ final class StudyCardPresentation
         $promptAudio = self::mediaReference($prompt, 'cueAudio');
         $promptImage = self::mediaReference($prompt, 'cueImage');
         $answerImage = self::mediaReference($answer, 'answerImage') ?? $promptImage;
+        $answerAudio = $promptAudio ?? self::mediaReference($answer, 'answerAudio');
+        $cloze = $cardType === CardType::Cloze->value
+            ? self::deriveCloze(self::firstString($prompt, ['clozeText']))
+            : null;
 
         $front = $cardType === CardType::Cloze->value
-            ? self::clozeFront($card, $prompt, $answer, $promptImage)
+            ? self::clozeFront($prompt, $answer, $promptImage, $cloze)
             : self::standardFront($card, $cardType, $prompt, $answer, $promptAudio, $promptImage);
 
         return [
@@ -69,6 +73,8 @@ final class StudyCardPresentation
                 prompt: $prompt,
                 answer: $answer,
                 answerImage: $answerImage,
+                answerAudio: $answerAudio,
+                cloze: $cloze,
             ),
         ];
     }
@@ -77,6 +83,7 @@ final class StudyCardPresentation
      * @param  array<string, mixed>  $prompt
      * @param  array<string, mixed>  $answer
      * @param  array<string, mixed>|null  $promptImage
+     * @param  array{display: ?string, restored: ?string, hint: ?string, hasMarkup: bool}  $cloze
      * @return array{
      *   mode: 'cloze',
      *   text: ?string,
@@ -87,14 +94,12 @@ final class StudyCardPresentation
      * }
      */
     private static function clozeFront(
-        Card $card,
         array $prompt,
         array $answer,
         ?array $promptImage,
+        array $cloze,
     ): array {
-        $rawCloze = self::firstString($prompt, ['clozeText']);
         $explicitDisplay = self::displayText(self::firstString($prompt, ['clozeDisplayText']));
-        $cloze = self::deriveCloze($rawCloze);
 
         $display = $cloze['hasMarkup'] ? $cloze['display'] : $explicitDisplay;
         [$text, $inlineRuby] = self::textAndRuby($display, []);
@@ -181,6 +186,8 @@ final class StudyCardPresentation
      * @param  array<string, mixed>  $prompt
      * @param  array<string, mixed>  $answer
      * @param  array<string, mixed>|null  $answerImage
+     * @param  array<string, mixed>|null  $answerAudio
+     * @param  array{display: ?string, restored: ?string, hint: ?string, hasMarkup: bool}|null  $cloze
      * @return array{
      *   heading: ?string,
      *   ruby: ?string,
@@ -202,13 +209,15 @@ final class StudyCardPresentation
         array $prompt,
         array $answer,
         ?array $answerImage,
+        ?array $answerAudio,
+        ?array $cloze,
     ): array {
         $rawRestored = self::firstString($answer, ['restoredText']);
         $restored = self::displayText($rawRestored);
         $restoredRuby = self::displayText(self::firstString($answer, ['restoredTextReading']));
 
         if ($cardType === CardType::Cloze->value) {
-            $cloze = self::deriveCloze(self::firstString($prompt, ['clozeText']));
+            $cloze ??= self::emptyCloze();
             $restored ??= $cloze['restored'];
             [$heading, $ruby] = self::textAndRuby($restored, [$restoredRuby]);
             $restored = $heading;
@@ -222,10 +231,7 @@ final class StudyCardPresentation
                 self::firstString($answer, ['expressionReading']),
                 self::firstString($prompt, ['cueReading']),
             ];
-            if ($rawHeading === null) {
-                $rawHeading = self::firstString($answer, ['expressionReading'])
-                    ?? self::firstString($prompt, ['cueReading']);
-            }
+            $rawHeading ??= $headingCandidates[0] ?? $headingCandidates[1];
 
             [$heading, $ruby] = self::textAndRuby($rawHeading, $headingCandidates);
         }
@@ -254,7 +260,7 @@ final class StudyCardPresentation
             'media' => ['image' => $answerImage],
             // Listening-card audio historically lived on the prompt. Keep one logical
             // card-audio rule instead of asking clients to know that storage detail.
-            'audio' => self::logicalAudio($card),
+            'audio' => $answerAudio,
             'pitchAccent' => self::pitchAccent($answer['pitchAccent'] ?? null),
         ];
     }
@@ -371,16 +377,6 @@ final class StudyCardPresentation
         return is_string($url) && trim($url) !== '';
     }
 
-    /** @return array<string, mixed>|null */
-    private static function logicalAudio(Card $card): ?array
-    {
-        $reference = StudyCardAudio::reference($card);
-
-        return is_array($reference) && $reference !== [] && ! array_is_list($reference)
-            ? $reference
-            : null;
-    }
-
     /**
      * @return array{display: ?string, restored: ?string, hint: ?string, hasMarkup: bool}
      */
@@ -442,6 +438,19 @@ final class StudyCardPresentation
             'restored' => self::displayText($restored.$trailing),
             'hint' => $hint,
             'hasMarkup' => true,
+        ];
+    }
+
+    /**
+     * @return array{display: null, restored: null, hint: null, hasMarkup: false}
+     */
+    private static function emptyCloze(): array
+    {
+        return [
+            'display' => null,
+            'restored' => null,
+            'hint' => null,
+            'hasMarkup' => false,
         ];
     }
 

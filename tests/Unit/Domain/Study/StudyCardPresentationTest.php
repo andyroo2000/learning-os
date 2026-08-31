@@ -166,6 +166,28 @@ class StudyCardPresentationTest extends TestCase
         $this->assertSame($audio, $presentation['front']['media']['audio']);
         $this->assertTrue($presentation['front']['autoplayAudio']);
         $this->assertSame($audio, $presentation['answer']['audio']);
+
+        $malformedLegacyPrompt = $this->card([
+            'prompt_json' => ['cueAudio' => ['not-an-object']],
+            'answer_json' => ['answerAudio' => $answerAudio],
+        ]);
+        $this->assertSame(
+            $answerAudio,
+            StudyCardPresentation::fromCard($malformedLegacyPrompt)['answer']['audio'],
+        );
+    }
+
+    public function test_it_uses_reading_only_payloads_as_the_answer_heading(): void
+    {
+        $card = $this->card([
+            'prompt_json' => ['cueText' => 'company'],
+            'answer_json' => ['expressionReading' => '会社[かいしゃ]'],
+        ]);
+
+        $answer = StudyCardPresentation::fromCard($card)['answer'];
+
+        $this->assertSame('会社', $answer['heading']);
+        $this->assertSame('会社[かいしゃ]', $answer['ruby']);
     }
 
     public function test_it_derives_safe_cloze_faces_and_masks_the_ruby_heading(): void

@@ -53,6 +53,7 @@ class ShowCardApiTest extends TestCase
                     'card_type' => 'cloze',
                     'prompt_json' => ['type' => 'text', 'text' => 'ciao'],
                     'answer_json' => ['type' => 'text', 'text' => 'hello'],
+                    'content_revision' => 0,
                     'search_text' => 'ciao hello text ciao text hello',
                     'study_status' => 'review',
                     'new_queue_position' => null,

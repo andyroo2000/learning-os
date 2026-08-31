@@ -53,8 +53,16 @@ class UpdateCardRequest extends FormRequest
             'card_type' => ['sometimes', 'required', 'string', Rule::in(CardType::values())],
             'prompt_json' => ['sometimes', 'nullable', 'array'],
             'answer_json' => ['sometimes', 'nullable', 'array'],
+            'expected_content_revision' => ['sometimes', 'nullable', 'integer', 'min:0'],
             ...$this->cardVariantMetadataRules(),
         ];
+    }
+
+    public function expectedContentRevision(): ?int
+    {
+        $value = $this->validated('expected_content_revision');
+
+        return $value === null ? null : (int) $value;
     }
 
     /**

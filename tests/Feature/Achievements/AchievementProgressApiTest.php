@@ -243,6 +243,10 @@ class AchievementProgressApiTest extends TestCase
             ],
         )->create();
         $thresholdReviewAt = $firstReviewAt->copy()->addSeconds(99);
+        $queries = [];
+        DB::listen(static function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
 
         $response = $this->actingAs($user)
             ->postJson('/api/achievements/evaluate')
@@ -260,6 +264,10 @@ class AchievementProgressApiTest extends TestCase
             $thresholdReviewAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
             $projection->threshold_reached_at[GetAchievementProgressAction::REVIEW_METRIC]['100'],
         );
+        $this->assertCount(1, collect($queries)->filter(
+            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
+                && str_contains($sql, 'achievement_card_projections'),
+        ), implode("\n", $queries));
     }
 
     public function test_it_projects_new_study_time_without_rescanning_review_history(): void

@@ -50,12 +50,19 @@ final class ProjectAchievementMetricsAction
         $counts = ['reviews' => 0, 'cards' => 0, 'studySessions' => 0];
 
         $projection = DB::transaction(function () use ($userId, &$mode, &$counts): AchievementProgressProjection {
-            User::query()->select('id')->whereKey($userId)->lockForUpdate()->firstOrFail();
-
             $projection = AchievementProgressProjection::query()
                 ->whereKey($userId)
                 ->lockForUpdate()
                 ->first();
+            if ($projection === null) {
+                // The user row only serializes first-time projection creation. Existing
+                // progress reads contend on the purpose-built projection row instead.
+                User::query()->select('id')->whereKey($userId)->lockForUpdate()->firstOrFail();
+                $projection = AchievementProgressProjection::query()
+                    ->whereKey($userId)
+                    ->lockForUpdate()
+                    ->first();
+            }
 
             if ($projection === null
                 || $projection->projection_version !== self::PROJECTION_VERSION
@@ -350,6 +357,7 @@ final class ProjectAchievementMetricsAction
             $projection->last_review_id = (string) $lastCreated->id;
             $projection->metric_values = $metrics;
             $projection->threshold_reached_at = $thresholdDates;
+            $this->persistCardProjections($cardProjections);
         }
     }
 
@@ -400,6 +408,7 @@ final class ProjectAchievementMetricsAction
             ));
             $this->rememberCrossings($before, $metrics, $crossedAt, $thresholdDates);
         }
+        $this->persistCardProjections($cardProjections);
 
         $projection->metric_values = $metrics;
         $projection->threshold_reached_at = $thresholdDates;
@@ -525,32 +534,42 @@ final class ProjectAchievementMetricsAction
             }
         }
 
-        $lastReviewedAt = $reviewedAt ?? $fact?->last_reviewed_at;
-        $resolvedSourceUpdatedAt = $sourceUpdatedAt ?? $fact?->source_updated_at;
-        $createdAt = $fact?->created_at ?? now();
-        $updatedAt = now();
-        DB::table('achievement_card_projections')->updateOrInsert(
-            ['card_id' => $cardId],
-            [
-                'user_id' => $userId,
-                'maximum_stability' => $maximum,
-                'last_reviewed_at' => $lastReviewedAt,
-                'source_updated_at' => $resolvedSourceUpdatedAt,
-                'created_at' => $createdAt,
-                'updated_at' => $updatedAt,
-            ],
-        );
-
         $fact ??= new AchievementCardProjection;
         $fact->card_id = $cardId;
         $fact->user_id = $userId;
         $fact->maximum_stability = $maximum;
-        $fact->last_reviewed_at = $lastReviewedAt;
-        $fact->source_updated_at = $resolvedSourceUpdatedAt;
-        $fact->created_at = $createdAt;
-        $fact->updated_at = $updatedAt;
+        $fact->last_reviewed_at = $reviewedAt ?? $fact->last_reviewed_at;
+        $fact->source_updated_at = $sourceUpdatedAt ?? $fact->source_updated_at;
+        $fact->created_at = $fact->created_at ?? now();
+        $fact->updated_at = now();
 
         return $fact;
+    }
+
+    /** @param Collection<int|string, AchievementCardProjection> $facts */
+    private function persistCardProjections(Collection $facts): void
+    {
+        $facts->map(static fn (AchievementCardProjection $fact): array => [
+            'card_id' => (string) $fact->card_id,
+            'user_id' => $fact->user_id,
+            'maximum_stability' => $fact->maximum_stability,
+            'last_reviewed_at' => $fact->last_reviewed_at,
+            'source_updated_at' => $fact->source_updated_at,
+            'created_at' => $fact->created_at,
+            'updated_at' => $fact->updated_at,
+        ])->values()->chunk(500)->each(
+            static fn ($rows) => DB::table('achievement_card_projections')->upsert(
+                $rows->all(),
+                ['card_id'],
+                [
+                    'user_id',
+                    'maximum_stability',
+                    'last_reviewed_at',
+                    'source_updated_at',
+                    'updated_at',
+                ],
+            ),
+        );
     }
 
     /** @return Builder<Card> */

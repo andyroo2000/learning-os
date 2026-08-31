@@ -48,6 +48,7 @@ trait AssertsStudyCompatibilityPayloads
             'cardType',
             'prompt',
             'answer',
+            'presentation',
             'state',
             'variantGroupId',
             'variantSentenceId',
@@ -150,6 +151,26 @@ trait AssertsStudyCompatibilityPayloads
     protected function assertStudyCardSummaryCompatibilityPayloadHasShape(array $payload, string $label = 'card payload'): void
     {
         $this->assertArrayHasKeys($this->studyCardSummaryCompatibilityPayloadKeys(), $payload, $label);
+        $this->assertIsArray($payload['presentation'], "{$label}.presentation should be an object payload.");
+        $this->assertSame(1, $payload['presentation']['version'] ?? null);
+        $this->assertIsArray(
+            $payload['presentation']['front'] ?? null,
+            "{$label}.presentation.front should be an object payload.",
+        );
+        $this->assertArrayHasKeys(
+            ['mode', 'text', 'ruby', 'hint', 'media', 'autoplayAudio'],
+            $payload['presentation']['front'],
+            "{$label}.presentation.front",
+        );
+        $this->assertIsArray(
+            $payload['presentation']['answer'] ?? null,
+            "{$label}.presentation.answer should be an object payload.",
+        );
+        $this->assertArrayHasKeys(
+            ['heading', 'ruby', 'restored', 'meaning', 'sentences', 'notes', 'media', 'audio', 'pitchAccent'],
+            $payload['presentation']['answer'],
+            "{$label}.presentation.answer",
+        );
         $this->assertIsArray($payload['state'], "{$label}.state should be an object payload.");
         $this->assertArrayHasKeys($this->studyCardSummaryStateKeys(), $payload['state'], "{$label}.state");
         $this->assertIsArray($payload['state']['source'], "{$label}.state.source should be an object payload.");

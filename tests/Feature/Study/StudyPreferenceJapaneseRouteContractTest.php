@@ -12,6 +12,7 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
     public function test_study_preference_and_japanese_routes_preserve_registration_order_names_actions_and_middleware(): void
     {
         $uris = [
+            'api/study/capabilities',
             'api/study/settings',
             'api/study/known-kanji',
             'api/study/known-kanji/manual',
@@ -34,6 +35,12 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
             ->all();
 
         $this->assertSame([
+            $this->expectedRoute(
+                'GET|HEAD',
+                'api/study/capabilities',
+                'ShowStudyClientCapabilitiesController',
+                'throttle:study-compatibility-read',
+            ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/study/settings',
@@ -94,6 +101,11 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/study/media/{mediaAsset}',
+            'GET|HEAD api/study/capabilities',
+        );
+        $this->assertImmediatelyBefore(
+            $routeOrder,
+            'GET|HEAD api/study/capabilities',
             'GET|HEAD api/study/settings',
         );
         $this->assertImmediatelyBefore(

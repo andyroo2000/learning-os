@@ -52,7 +52,7 @@ class StudyMediaRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/study/media/{mediaAsset}',
-            'GET|HEAD api/study/settings',
+            'GET|HEAD api/study/capabilities',
         );
     }
 

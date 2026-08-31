@@ -60,6 +60,19 @@ class ShowStudyClientCapabilitiesApiTest extends TestCase
                 'imports' => [
                     'maxArchiveBytes' => 2_147_483_648,
                 ],
+                'studyActivity' => [
+                    'categoriesByActivity' => [
+                        'card_review' => 'review',
+                        'daily_audio' => 'listen',
+                        'card_creation' => 'create',
+                        'tv' => 'immerse',
+                        'podcast' => 'immerse',
+                        'reading' => 'immerse',
+                        'conversation' => 'conversation',
+                        'wanikani_review' => 'wanikani',
+                        'other' => 'immerse',
+                    ],
+                ],
             ]);
     }
 

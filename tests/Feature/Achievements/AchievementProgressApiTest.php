@@ -11,6 +11,8 @@ use App\Domain\Achievements\Support\AchievementEvaluationRateLimiter;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Reviews\Actions\ReviewCardAction;
+use App\Domain\Reviews\Data\ReviewCardData;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\DeleteStudyActivitySessionAction;
@@ -301,6 +303,45 @@ class AchievementProgressApiTest extends TestCase
             static fn (string $sql): bool => str_contains($sql, 'card_review_events')
                 && str_contains($sql, 'order by "card_review_events"."reviewed_at"')
                 && ! str_contains($sql, 'card_review_events"."created_at"'),
+        ), implode("\n", $queries));
+    }
+
+    public function test_a_real_review_updates_the_card_projection_without_a_second_card_pass(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $reviewedAt = now()->addSecond()->startOfSecond();
+        Carbon::setTestNow($reviewedAt);
+        try {
+            app(ReviewCardAction::class)->handle(ReviewCardData::fromInput(
+                cardId: $card->id,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: $reviewedAt,
+            ));
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $queries = [];
+        DB::listen(static function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $this->assertTrue(
+            AchievementCardProjection::query()
+                ->findOrFail($card->id)
+                ->source_updated_at
+                ->equalTo($card->refresh()->updated_at),
+        );
+        $this->assertCount(1, collect($queries)->filter(
+            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
+                && str_contains($sql, 'achievement_card_projections'),
         ), implode("\n", $queries));
     }
 

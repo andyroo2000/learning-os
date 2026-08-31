@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Achievements\Actions\ProjectAchievementMetricsAction;
+use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Calendar\Actions\ReconcileGoogleCalendarStudyEventsAction;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
@@ -83,6 +85,10 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $this->createSession($user, 'system', StudyActivitySource::Automatic, StudyActivityOrigin::System, null);
         $this->createSession($user, 'wanikani', StudyActivitySource::Automatic, StudyActivityOrigin::WaniKani, null);
         $this->createSession($other, 'other-owner', StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $protectedKey);
+        app(ProjectAchievementMetricsAction::class)->handle($user->id);
+        $this->assertFalse(
+            AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild,
+        );
 
         $result = $this->action()->handle($user->id, $connection);
 
@@ -92,6 +98,9 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         foreach (['manual', 'system', 'wanikani', 'other-owner'] as $clientId) {
             $this->assertDatabaseHas('study_activity_sessions', ['client_session_id' => $clientId]);
         }
+        $this->assertTrue(
+            AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild,
+        );
     }
 
     public function test_duplicate_events_across_selected_calendars_keep_one_canonical_session(): void

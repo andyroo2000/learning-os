@@ -75,7 +75,7 @@ final class ProjectAchievementMetricsAction
             $newReviewEvents = $this->newReviewEvents($userId, $projection)
                 ->orderBy('card_review_events.reviewed_at')
                 ->orderBy('card_review_events.id')
-                ->get(['card_review_events.*']);
+                ->get();
             if ($this->hasOutOfOrderReview($projection, $newReviewEvents)
                 || $this->hasOutOfOrderStudySession($userId, $projection)) {
                 $mode = 'rebuild';
@@ -92,12 +92,14 @@ final class ProjectAchievementMetricsAction
             return $projection;
         }, 3);
 
-        Log::info('Achievement metric projection updated.', [
-            'user_id' => $userId,
-            'mode' => $mode,
-            'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 2),
-            ...$counts,
-        ]);
+        if ($mode !== 'incremental' || array_sum($counts) > 0) {
+            Log::info('Achievement metric projection updated.', [
+                'user_id' => $userId,
+                'mode' => $mode,
+                'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 2),
+                ...$counts,
+            ]);
+        }
 
         return new AchievementMetricProjectionResult(
             metricValues: $this->integerMetrics($projection->metric_values),
@@ -341,6 +343,7 @@ final class ProjectAchievementMetricsAction
                 $this->stability($event->scheduler_state_after),
                 $reviewedAt,
                 $metrics,
+                CarbonImmutable::parse($event->getAttribute('card_source_updated_at')),
                 fact: $cardProjection,
             ));
             $this->rememberCrossings($before, $metrics, $reviewedAt, $thresholdDates);
@@ -589,7 +592,10 @@ final class ProjectAchievementMetricsAction
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
-            ->select('card_review_events.*');
+            ->select([
+                'card_review_events.*',
+                'cards.updated_at as card_source_updated_at',
+            ]);
 
         if ($projection->last_review_created_at === null) {
             return $query;

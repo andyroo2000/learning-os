@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Reviews;
 
+use App\Domain\Achievements\Actions\ProjectAchievementMetricsAction;
+use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Actions\ReviewCardAction;
@@ -44,6 +46,12 @@ class UndoCardReviewEventActionTest extends TestCase
             $card->refresh()->load('deck'),
             SyncFeedOperation::Update,
         );
+        app(ProjectAchievementMetricsAction::class)->handle($card->ownerUserId());
+        $this->assertFalse(
+            AchievementProgressProjection::query()
+                ->findOrFail($card->ownerUserId())
+                ->needs_rebuild,
+        );
         $deletedAt = Carbon::parse('2026-05-27T10:00:00Z');
 
         Carbon::setTestNow($deletedAt);
@@ -66,6 +74,11 @@ class UndoCardReviewEventActionTest extends TestCase
         $this->assertSame('2026-05-24T09:15:00.000000Z', $restoredCard->failed_at?->toJSON());
         $this->assertSame('2026-05-25T09:15:00.000000Z', $restoredCard->last_reviewed_at?->toJSON());
         $this->assertDatabaseMissing('card_review_events', ['id' => $reviewEvent->id]);
+        $this->assertTrue(
+            AchievementProgressProjection::query()
+                ->findOrFail($card->ownerUserId())
+                ->needs_rebuild,
+        );
 
         $restoredCard->refresh()->load('deck');
         $reviewEvent->setRelation('card', $restoredCard);

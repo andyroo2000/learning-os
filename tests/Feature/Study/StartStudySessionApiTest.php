@@ -563,6 +563,23 @@ class StartStudySessionApiTest extends TestCase
         }
     }
 
+    public function test_start_treats_explicit_null_and_a_populated_alias_as_a_conflict(): void
+    {
+        $this->signIn();
+
+        $this->postJson('/api/study/session/start', [
+            'timeZone' => null,
+            'time_zone' => 'America/New_York',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timeZone']);
+
+        $this->postJson('/api/study/session/start', [
+            'timeZone' => null,
+            'time_zone' => null,
+        ])->assertOk();
+    }
+
     public function test_lesson_start_rejects_malformed_time_zone_shapes(): void
     {
         $this->signIn();

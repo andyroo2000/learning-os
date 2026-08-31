@@ -4,6 +4,7 @@ namespace App\Domain\Achievements\Actions;
 
 use App\Domain\Achievements\Models\AchievementAward;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +21,11 @@ final class ReconcileAchievementAwardsAction
      * @param  array<string, int>  $metricValues
      * @return Collection<int, AchievementAward>
      */
-    public function handle(int $userId, array $metricValues): Collection
-    {
+    public function handle(
+        int $userId,
+        array $metricValues,
+        ?array $thresholdReachedAt = null,
+    ): Collection {
         if ($userId <= 0) {
             throw new InvalidArgumentException('Achievement award user ID must be positive.');
         }
@@ -54,7 +58,12 @@ final class ReconcileAchievementAwardsAction
                     continue;
                 }
 
-                $earnedAt = $this->resolveEarnedAt->handle($userId, $metricKey, $threshold);
+                $persistedReachedAt = $thresholdReachedAt[$metricKey][(string) $threshold] ?? null;
+                $earnedAt = is_string($persistedReachedAt)
+                    ? CarbonImmutable::parse($persistedReachedAt)
+                    : ($thresholdReachedAt === null
+                        ? $this->resolveEarnedAt->handle($userId, $metricKey, $threshold)
+                        : null);
                 if ($earnedAt !== null) {
                     $missingAwards[] = [
                         'achievement_id' => $achievementId,
@@ -64,28 +73,34 @@ final class ReconcileAchievementAwardsAction
             }
         }
 
-        DB::transaction(function () use ($userId, $missingAwards): void {
-            $user = User::query()->select('id')->whereKey($userId)->lockForUpdate()->first();
-            if ($user === null) {
-                throw (new ModelNotFoundException)->setModel(User::class, [$userId]);
-            }
+        if ($missingAwards === [] && ! User::query()->whereKey($userId)->exists()) {
+            throw (new ModelNotFoundException)->setModel(User::class, [$userId]);
+        }
 
-            foreach ($missingAwards as $awardData) {
-                $exists = AchievementAward::query()
-                    ->where('user_id', $userId)
-                    ->where('achievement_id', $awardData['achievement_id'])
-                    ->exists();
-                if ($exists) {
-                    continue;
+        if ($missingAwards !== []) {
+            DB::transaction(function () use ($userId, $missingAwards): void {
+                $user = User::query()->select('id')->whereKey($userId)->lockForUpdate()->first();
+                if ($user === null) {
+                    throw (new ModelNotFoundException)->setModel(User::class, [$userId]);
                 }
 
-                $award = new AchievementAward;
-                $award->user_id = $userId;
-                $award->achievement_id = $awardData['achievement_id'];
-                $award->earned_at = $awardData['earned_at'];
-                $award->save();
-            }
-        }, 3);
+                foreach ($missingAwards as $awardData) {
+                    $exists = AchievementAward::query()
+                        ->where('user_id', $userId)
+                        ->where('achievement_id', $awardData['achievement_id'])
+                        ->exists();
+                    if ($exists) {
+                        continue;
+                    }
+
+                    $award = new AchievementAward;
+                    $award->user_id = $userId;
+                    $award->achievement_id = $awardData['achievement_id'];
+                    $award->earned_at = $awardData['earned_at'];
+                    $award->save();
+                }
+            }, 3);
+        }
 
         return AchievementAward::query()
             ->where('user_id', $userId)

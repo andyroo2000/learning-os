@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reviews\Actions;
 
+use App\Domain\Achievements\Actions\InvalidateAchievementProgressProjectionAction;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
@@ -21,6 +22,7 @@ class UndoCardReviewEventAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
+        private readonly ?InvalidateAchievementProgressProjectionAction $invalidateAchievementProgress = null,
     ) {}
 
     public function handle(CardReviewEvent $reviewEvent): Card
@@ -98,6 +100,7 @@ class UndoCardReviewEventAction
             );
 
             $reviewEvent->delete();
+            $this->invalidateAchievementProgress()->handle($userId);
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
@@ -112,6 +115,12 @@ class UndoCardReviewEventAction
 
             return $card;
         });
+    }
+
+    private function invalidateAchievementProgress(): InvalidateAchievementProgressProjectionAction
+    {
+        return $this->invalidateAchievementProgress
+            ?? app(InvalidateAchievementProgressProjectionAction::class);
     }
 
     /**

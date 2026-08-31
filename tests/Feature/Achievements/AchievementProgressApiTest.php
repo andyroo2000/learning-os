@@ -5,12 +5,14 @@ namespace Tests\Feature\Achievements;
 use App\Domain\Achievements\Actions\GetAchievementCatalogAction;
 use App\Domain\Achievements\Actions\GetAchievementProgressAction;
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Support\AchievementEvaluationRateLimiter;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Study\Actions\DeleteStudyActivitySessionAction;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
@@ -20,6 +22,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -221,6 +224,99 @@ class AchievementProgressApiTest extends TestCase
             ->json('metricValues');
         $this->assertSame(2, $metrics[GetAchievementProgressAction::REVIEW_METRIC]);
         $this->assertSame(2, $metrics[GetAchievementProgressAction::CORRECT_RUN_METRIC]);
+    }
+
+    public function test_it_projects_new_reviews_and_persists_the_exact_threshold_timestamp(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $firstReviewAt = now()->startOfSecond();
+        CardReviewEvent::factory()->for($card, 'card')->count(100)->sequence(
+            fn ($sequence): array => [
+                'rating' => CardReviewRating::Good,
+                'reviewed_at' => $firstReviewAt->copy()->addSeconds($sequence->index),
+            ],
+        )->create();
+        $thresholdReviewAt = $firstReviewAt->copy()->addSeconds(99);
+
+        $response = $this->actingAs($user)
+            ->postJson('/api/achievements/evaluate')
+            ->assertOk();
+
+        $this->assertSame(100, $response->json('metricValues')[GetAchievementProgressAction::REVIEW_METRIC]);
+        $this->assertSame(
+            $thresholdReviewAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            collect($response->json('awards'))->firstWhere('id', 'card-muncher.first-nibble')['earnedAt'],
+        );
+
+        $projection = AchievementProgressProjection::query()->findOrFail($user->id);
+        $this->assertSame(100, $projection->metric_values[GetAchievementProgressAction::REVIEW_METRIC]);
+        $this->assertSame(
+            $thresholdReviewAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            $projection->threshold_reached_at[GetAchievementProgressAction::REVIEW_METRIC]['100'],
+        );
+    }
+
+    public function test_it_projects_new_study_time_without_rescanning_review_history(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        CardReviewEvent::factory()->for($card, 'card')->create([
+            'reviewed_at' => now()->subDay(),
+        ]);
+        $endedAt = now()->startOfSecond();
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+        $this->conversationSession($user, 3_600_000, $endedAt);
+
+        $queries = [];
+        DB::listen(static function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $response = $this->actingAs($user)
+            ->postJson('/api/achievements/evaluate')
+            ->assertOk();
+
+        $this->assertSame(1, $response->json('metricValues')[GetAchievementProgressAction::CONVERSATION_HOUR_METRIC]);
+        $this->assertSame(
+            $endedAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            collect($response->json('awards'))->firstWhere('id', 'roarer.first-roar')['earnedAt'],
+        );
+        $this->assertFalse(collect($queries)->contains(
+            static fn (string $sql): bool => str_contains($sql, 'card_review_events')
+                && str_contains($sql, 'order by "card_review_events"."reviewed_at"')
+                && ! str_contains($sql, 'card_review_events"."created_at"'),
+        ), implode("\n", $queries));
+    }
+
+    public function test_deleting_a_study_session_invalidates_and_rebuilds_the_projection(): void
+    {
+        $user = User::factory()->create();
+        $session = $this->conversationSession($user, 3_600_000);
+
+        $this->actingAs($user)
+            ->postJson('/api/achievements/evaluate')
+            ->assertOk();
+        $this->assertFalse(AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild);
+
+        $this->assertTrue(app(DeleteStudyActivitySessionAction::class)->handle(
+            $user->id,
+            $session->client_session_id,
+        ));
+        $this->assertTrue(AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild);
+
+        $metrics = $this->actingAs($user)
+            ->getJson('/api/achievements/progress')
+            ->assertOk()
+            ->json('metricValues');
+        $this->assertSame(0, $metrics[GetAchievementProgressAction::CONVERSATION_HOUR_METRIC]);
+        $this->assertFalse(AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild);
     }
 
     public function test_evaluation_backfills_and_keeps_all_awards_in_reverse_chronological_order(): void

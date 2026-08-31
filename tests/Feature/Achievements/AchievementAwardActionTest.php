@@ -6,6 +6,9 @@ use App\Domain\Achievements\Actions\CalculateAchievementMetricsAction;
 use App\Domain\Achievements\Actions\ReconcileAchievementAwardsAction;
 use App\Domain\Achievements\Actions\ResolveAchievementEarnedAtAction;
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Achievements\Models\AchievementCardProjection;
+use App\Domain\Achievements\Models\AchievementProgressProjection;
+use App\Domain\Achievements\Models\AchievementStudySessionProjection;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -26,6 +29,26 @@ use Tests\TestCase;
 class AchievementAwardActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_achievement_projection_state_is_process_owned(): void
+    {
+        foreach ([
+            new AchievementProgressProjection,
+            new AchievementCardProjection,
+            new AchievementStudySessionProjection,
+        ] as $projection) {
+            $this->assertThrows(
+                fn () => $projection->fill([
+                    'user_id' => 42,
+                    'metric_values' => ['reviews.count' => 1],
+                    'maximum_stability' => 365,
+                    'conversation_ms' => 3_600_000,
+                    'needs_rebuild' => true,
+                ]),
+                MassAssignmentException::class,
+            );
+        }
+    }
 
     public function test_direct_actions_reject_invalid_user_metric_and_threshold_values(): void
     {

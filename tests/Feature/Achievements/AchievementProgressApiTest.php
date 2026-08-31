@@ -5,6 +5,7 @@ namespace Tests\Feature\Achievements;
 use App\Domain\Achievements\Actions\GetAchievementCatalogAction;
 use App\Domain\Achievements\Actions\GetAchievementProgressAction;
 use App\Domain\Achievements\Models\AchievementAward;
+use App\Domain\Achievements\Models\AchievementCardProjection;
 use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Support\AchievementEvaluationRateLimiter;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
@@ -292,6 +293,30 @@ class AchievementProgressApiTest extends TestCase
             static fn (string $sql): bool => str_contains($sql, 'card_review_events')
                 && str_contains($sql, 'order by "card_review_events"."reviewed_at"')
                 && ! str_contains($sql, 'card_review_events"."created_at"'),
+        ), implode("\n", $queries));
+    }
+
+    public function test_unchanged_cards_are_not_rewritten_after_projection_bootstrap(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $cardProjection = AchievementCardProjection::query()->findOrFail($card->id);
+        $this->assertTrue($cardProjection->source_updated_at->equalTo($card->updated_at));
+
+        $queries = [];
+        DB::listen(static function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $this->assertFalse(collect($queries)->contains(
+            static fn (string $sql): bool => str_contains($sql, 'achievement_card_projections')
+                && (str_starts_with($sql, 'update ') || str_starts_with($sql, 'insert ')),
         ), implode("\n", $queries));
     }
 

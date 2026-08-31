@@ -26,6 +26,8 @@ use InvalidArgumentException;
 
 final class ProjectAchievementMetricsAction
 {
+    // Bump this whenever catalog metric keys or thresholds change so existing
+    // users rebuild the persisted crossing dates required for reconciliation.
     private const PROJECTION_VERSION = 1;
 
     /** @var array<string, list<int>>|null */
@@ -178,8 +180,8 @@ final class ProjectAchievementMetricsAction
             $cardId = (string) $card->id;
             $fact = $cardFacts[$cardId] ?? ['maximumStability' => 0.0, 'lastReviewedAt' => null];
             $fact['maximumStability'] = max($fact['maximumStability'], $this->stability($card->scheduler_state));
-            $cardFacts[$cardId] = $fact;
             $fact['sourceUpdatedAt'] = CarbonImmutable::instance($card->updated_at);
+            $cardFacts[$cardId] = $fact;
         }
 
         $now = now();
@@ -297,11 +299,16 @@ final class ProjectAchievementMetricsAction
     ): void {
         $metrics = $this->integerMetrics($projection->metric_values);
         $thresholdDates = $this->thresholdDates($projection->threshold_reached_at);
+        $cardProjections = AchievementCardProjection::query()
+            ->whereIn('card_id', $events->pluck('card_id')->map(static fn ($id): string => (string) $id)->unique())
+            ->get()
+            ->keyBy(static fn (AchievementCardProjection $fact): string => (string) $fact->card_id);
 
         foreach ($events as $event) {
             $counts['reviews']++;
             $before = $metrics;
             $reviewedAt = CarbonImmutable::instance($event->reviewed_at);
+            $cardId = (string) $event->card_id;
             $metrics[GetAchievementProgressAction::REVIEW_METRIC]++;
             if ($event->rating === CardReviewRating::Again) {
                 $projection->current_correct_run = 0;
@@ -313,7 +320,7 @@ final class ProjectAchievementMetricsAction
                 );
             }
 
-            $cardProjection = AchievementCardProjection::query()->whereKey((string) $event->card_id)->first();
+            $cardProjection = $cardProjections->get($cardId);
             $previousReviewAt = $cardProjection?->last_reviewed_at;
             if ($event->rating !== CardReviewRating::Again
                 && $previousReviewAt instanceof CarbonInterface
@@ -321,13 +328,14 @@ final class ProjectAchievementMetricsAction
                 $metrics[GetAchievementProgressAction::OLD_FRIEND_METRIC] = 1;
             }
 
-            $this->updateCardProjection(
+            $cardProjections->put($cardId, $this->updateCardProjection(
                 $userId,
-                (string) $event->card_id,
+                $cardId,
                 $this->stability($event->scheduler_state_after),
                 $reviewedAt,
                 $metrics,
-            );
+                fact: $cardProjection,
+            ));
             $this->rememberCrossings($before, $metrics, $reviewedAt, $thresholdDates);
             $projection->latest_reviewed_at = $reviewedAt;
             $projection->latest_reviewed_id = (string) $event->id;
@@ -372,18 +380,24 @@ final class ProjectAchievementMetricsAction
 
         $metrics = $this->integerMetrics($projection->metric_values);
         $thresholdDates = $this->thresholdDates($projection->threshold_reached_at);
+        $cardProjections = AchievementCardProjection::query()
+            ->whereIn('card_id', $cards->pluck('id')->map(static fn ($id): string => (string) $id))
+            ->get()
+            ->keyBy(static fn (AchievementCardProjection $fact): string => (string) $fact->card_id);
         foreach ($cards as $card) {
             $counts['cards']++;
             $before = $metrics;
+            $cardId = (string) $card->id;
             $crossedAt = CarbonImmutable::instance($card->last_reviewed_at ?? $card->updated_at ?? $card->created_at);
-            $this->updateCardProjection(
+            $cardProjections->put($cardId, $this->updateCardProjection(
                 $userId,
-                (string) $card->id,
+                $cardId,
                 $this->stability($card->scheduler_state),
                 null,
                 $metrics,
                 CarbonImmutable::instance($card->updated_at),
-            );
+                $cardProjections->get($cardId),
+            ));
             $this->rememberCrossings($before, $metrics, $crossedAt, $thresholdDates);
         }
 
@@ -499,8 +513,8 @@ final class ProjectAchievementMetricsAction
         ?CarbonImmutable $reviewedAt,
         array &$metrics,
         ?CarbonImmutable $sourceUpdatedAt = null,
-    ): void {
-        $fact = AchievementCardProjection::query()->whereKey($cardId)->first();
+        ?AchievementCardProjection $fact = null,
+    ): AchievementCardProjection {
         $previousMaximum = $fact?->maximum_stability ?? 0.0;
         $maximum = max($previousMaximum, $stability);
         if ($maximum > $previousMaximum) {
@@ -511,17 +525,32 @@ final class ProjectAchievementMetricsAction
             }
         }
 
+        $lastReviewedAt = $reviewedAt ?? $fact?->last_reviewed_at;
+        $resolvedSourceUpdatedAt = $sourceUpdatedAt ?? $fact?->source_updated_at;
+        $createdAt = $fact?->created_at ?? now();
+        $updatedAt = now();
         DB::table('achievement_card_projections')->updateOrInsert(
             ['card_id' => $cardId],
             [
                 'user_id' => $userId,
                 'maximum_stability' => $maximum,
-                'last_reviewed_at' => $reviewedAt ?? $fact?->last_reviewed_at,
-                'source_updated_at' => $sourceUpdatedAt ?? $fact?->source_updated_at,
-                'created_at' => $fact?->created_at ?? now(),
-                'updated_at' => now(),
+                'last_reviewed_at' => $lastReviewedAt,
+                'source_updated_at' => $resolvedSourceUpdatedAt,
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
             ],
         );
+
+        $fact ??= new AchievementCardProjection;
+        $fact->card_id = $cardId;
+        $fact->user_id = $userId;
+        $fact->maximum_stability = $maximum;
+        $fact->last_reviewed_at = $lastReviewedAt;
+        $fact->source_updated_at = $resolvedSourceUpdatedAt;
+        $fact->created_at = $createdAt;
+        $fact->updated_at = $updatedAt;
+
+        return $fact;
     }
 
     /** @return Builder<Card> */

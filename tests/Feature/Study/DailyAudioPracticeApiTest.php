@@ -322,6 +322,36 @@ class DailyAudioPracticeApiTest extends TestCase
             ->assertJsonPath('tracks.0.generationMetadataJson.provider', 'test');
     }
 
+    public function test_show_normalizes_legacy_script_and_timing_wire_data(): void
+    {
+        $practice = DailyAudioPractice::factory()->for($this->signIn())->create();
+        DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+            'script_units_json' => [
+                ['type' => 'marker', 'label' => 'Review'],
+                ['kind' => 'native_language', 'text' => 'company'],
+                ['kind' => 'target_language', 'text' => '会社'],
+            ],
+            'timing_data' => [
+                ['startMs' => 0, 'endMs' => 600],
+                ['startMs' => 600, 'endMs' => 1200],
+            ],
+        ]);
+
+        $this->getJson("/api/daily-audio-practice/{$practice->id}")
+            ->assertOk()
+            ->assertJsonPath('tracks.0.scriptUnitsJson', [
+                ['type' => 'marker', 'label' => 'Review'],
+                ['type' => 'narration_L1', 'text' => 'company', 'voiceId' => ''],
+                ['type' => 'L2', 'text' => '会社', 'voiceId' => ''],
+            ])
+            ->assertJsonPath('tracks.0.timingData', [
+                ['unitIndex' => 1, 'startTime' => 0, 'endTime' => 600],
+                ['unitIndex' => 2, 'startTime' => 600, 'endTime' => 1200],
+            ])
+            ->assertJsonMissingPath('tracks.0.scriptUnitsJson.1.kind')
+            ->assertJsonMissingPath('tracks.0.timingData.0.startMs');
+    }
+
     public function test_list_and_show_use_convolab_millisecond_timestamps(): void
     {
         $practice = DailyAudioPractice::factory()->for($this->signIn())->create();

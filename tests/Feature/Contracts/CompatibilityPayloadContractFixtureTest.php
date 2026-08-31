@@ -134,9 +134,16 @@ class CompatibilityPayloadContractFixtureTest extends TestCase
             'status' => 'ready',
             'title' => 'Recall drill',
             'sort_order' => 0,
-            'script_units_json' => [['kind' => 'target_language', 'text' => '会社']],
+            'script_units_json' => [
+                ['type' => 'marker', 'label' => 'Recall'],
+                ['kind' => 'native_language', 'text' => 'company'],
+                ['kind' => 'target_language', 'text' => '会社'],
+            ],
             'audio_url' => '/audio/drill.mp3',
-            'timing_data' => [['startMs' => 0, 'endMs' => 1200]],
+            'timing_data' => [
+                ['startMs' => 0, 'endMs' => 600],
+                ['startMs' => 600, 'endMs' => 1200],
+            ],
             'approx_duration_seconds' => 120,
             'generation_metadata_json' => ['voice' => 'fishaudio:nanami'],
             'error_message' => null,

@@ -7,7 +7,6 @@ use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
 use App\Domain\Study\Actions\UpsertStudyActivitySessionsAction;
 use App\Domain\Study\Data\StudyActivitySessionData;
-use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
@@ -92,7 +91,7 @@ class GoogleCalendarStudyEventReconciliationLockPostgresTest extends TestCase
             DB::connection()->statement("SET statement_timeout = '10s'");
             DB::transaction(function () use ($socket, $userId, $sourceKey): void {
                 app(UpsertStudyActivitySessionsAction::class)->handle($userId, [new StudyActivitySessionData(
-                    clientSessionId: 'concurrent-client-id', category: StudyActivityCategory::Conversation,
+                    clientSessionId: 'concurrent-client-id',
                     activity: StudyActivityKind::Conversation, source: StudyActivitySource::Calendar,
                     name: 'Concurrent client upload', startedAt: CarbonImmutable::parse('2026-08-15T08:00:00Z'),
                     endedAt: CarbonImmutable::parse('2026-08-15T09:00:00Z'), durationMs: 3_600_000,

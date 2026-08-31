@@ -14,9 +14,10 @@ final readonly class StudyActivitySessionData
 {
     public const MAX_DURATION_MS = 86_400_000;
 
+    public StudyActivityCategory $category;
+
     public function __construct(
         public string $clientSessionId,
-        public StudyActivityCategory $category,
         public StudyActivityKind $activity,
         public StudyActivitySource $source,
         public ?string $name,
@@ -27,15 +28,18 @@ final readonly class StudyActivitySessionData
         public ?int $cardsCreated,
         public StudyActivityOrigin $origin = StudyActivityOrigin::Legacy,
         public ?StudyActivitySourceKey $sourceKey = null,
-    ) {}
+    ) {
+        $this->category = $activity->category();
+    }
 
     /** @param array<string, mixed> $session */
     public static function fromValidated(array $session): self
     {
+        $activity = StudyActivityKind::from($session['activity']);
+
         return new self(
             clientSessionId: StudyActivitySessionId::normalize($session['clientSessionId']),
-            category: StudyActivityCategory::from($session['category']),
-            activity: StudyActivityKind::from($session['activity']),
+            activity: $activity,
             source: StudyActivitySource::from($session['source']),
             name: $session['name'] ?? null,
             startedAt: CarbonImmutable::parse($session['startedAt']),

@@ -4,6 +4,7 @@ namespace App\Domain\Study\Support;
 
 use App\Domain\Study\Actions\BuildStudyOfflineReserveAction;
 use App\Domain\Study\Actions\PersistUploadedStudyImageAction;
+use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
@@ -83,6 +84,9 @@ final class StudyClientCapabilities
             ],
             'imports' => [
                 'maxArchiveBytes' => StudyImportJob::MAX_ASYNC_IMPORT_BYTES,
+            ],
+            'studyActivity' => [
+                'categoriesByActivity' => StudyActivityKind::categoryMap(),
             ],
         ];
     }

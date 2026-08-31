@@ -14,6 +14,20 @@ enum StudyActivityKind: string
     case WaniKaniReview = 'wanikani_review';
     case Other = 'other';
 
+    /**
+     * @return array<string, string>
+     */
+    public static function categoryMap(): array
+    {
+        $categories = [];
+
+        foreach (self::cases() as $activity) {
+            $categories[$activity->value] = $activity->category()->value;
+        }
+
+        return $categories;
+    }
+
     public function category(): StudyActivityCategory
     {
         return match ($this) {

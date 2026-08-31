@@ -393,6 +393,41 @@ class AchievementProgressApiTest extends TestCase
         $this->assertFalse(AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild);
     }
 
+    public function test_editing_a_projected_study_fact_rebuilds_the_chronological_cursor(): void
+    {
+        $user = User::factory()->create();
+        $originalEnd = now()->subDay()->startOfSecond();
+        $session = $this->conversationSession($user, 3_600_000, $originalEnd);
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+        $this->assertTrue(
+            AchievementProgressProjection::query()
+                ->findOrFail($user->id)
+                ->latest_study_ended_at
+                ->equalTo($originalEnd),
+        );
+
+        $correctedEnd = $originalEnd->copy()->subDay();
+        Carbon::setTestNow(now()->addSecond());
+        try {
+            $session->forceFill([
+                'started_at' => $correctedEnd->copy()->subHour(),
+                'ended_at' => $correctedEnd,
+            ])->saveOrFail();
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $projection = AchievementProgressProjection::query()->findOrFail($user->id);
+        $this->assertTrue($projection->latest_study_ended_at->equalTo($correctedEnd));
+        $this->assertSame(
+            1,
+            $projection->metric_values[GetAchievementProgressAction::CONVERSATION_HOUR_METRIC],
+        );
+    }
+
     public function test_evaluation_backfills_and_keeps_all_awards_in_reverse_chronological_order(): void
     {
         $user = User::factory()->create();

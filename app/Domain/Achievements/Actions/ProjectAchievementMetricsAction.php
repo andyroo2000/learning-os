@@ -286,7 +286,7 @@ final class ProjectAchievementMetricsAction
             return false;
         }
 
-        return StudyActivitySession::query()
+        $hasHistoricalInsertion = StudyActivitySession::query()
             ->leftJoin(
                 'achievement_study_session_projections',
                 'achievement_study_session_projections.study_activity_session_id',
@@ -297,6 +297,49 @@ final class ProjectAchievementMetricsAction
             ->whereNull('achievement_study_session_projections.study_activity_session_id')
             ->where('study_activity_sessions.ended_at', '<', $projection->latest_study_ended_at)
             ->exists();
+        if ($hasHistoricalInsertion) {
+            return true;
+        }
+
+        $changedSessions = StudyActivitySession::query()
+            ->join(
+                'achievement_study_session_projections',
+                'achievement_study_session_projections.study_activity_session_id',
+                '=',
+                'study_activity_sessions.id',
+            )
+            ->where('study_activity_sessions.user_id', $userId)
+            ->where(function (Builder $query): void {
+                $query->whereNull('achievement_study_session_projections.source_updated_at')
+                    ->orWhereColumn(
+                        'study_activity_sessions.updated_at',
+                        '>',
+                        'achievement_study_session_projections.source_updated_at',
+                    );
+            })
+            ->select([
+                'study_activity_sessions.*',
+                'achievement_study_session_projections.study_day as projected_study_day',
+                'achievement_study_session_projections.ended_at as projected_ended_at',
+                'achievement_study_session_projections.category as projected_category',
+                'achievement_study_session_projections.conversation_ms as projected_conversation_ms',
+                'achievement_study_session_projections.listening_ms as projected_listening_ms',
+                'achievement_study_session_projections.daily_audio_episode as projected_daily_audio_episode',
+            ])
+            ->get();
+
+        return $changedSessions->contains(function (StudyActivitySession $session): bool {
+            $fact = $this->studyFact($session);
+
+            return $fact['study_day'] !== (string) $session->getAttribute('projected_study_day')
+                || ! $fact['ended_at']->equalTo(
+                    CarbonImmutable::parse($session->getAttribute('projected_ended_at')),
+                )
+                || $fact['category'] !== (string) $session->getAttribute('projected_category')
+                || $fact['conversation_ms'] !== (int) $session->getAttribute('projected_conversation_ms')
+                || $fact['listening_ms'] !== (int) $session->getAttribute('projected_listening_ms')
+                || $fact['daily_audio_episode'] !== $session->getAttribute('projected_daily_audio_episode');
+        });
     }
 
     /** @param array{reviews:int,cards:int,studySessions:int} $counts */

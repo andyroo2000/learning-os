@@ -61,9 +61,7 @@ final class ReconcileAchievementAwardsAction
                 $persistedReachedAt = $thresholdReachedAt[$metricKey][(string) $threshold] ?? null;
                 $earnedAt = is_string($persistedReachedAt)
                     ? CarbonImmutable::parse($persistedReachedAt)
-                    : ($thresholdReachedAt === null
-                        ? $this->resolveEarnedAt->handle($userId, $metricKey, $threshold)
-                        : null);
+                    : $this->resolveEarnedAt->handle($userId, $metricKey, $threshold);
                 if ($earnedAt !== null) {
                     $missingAwards[] = [
                         'achievement_id' => $achievementId,

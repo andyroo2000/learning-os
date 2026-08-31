@@ -31,7 +31,7 @@
       "id": "daily-audio-practice.v1",
       "path": "tests/Fixtures/Compatibility/daily-audio-practice-v1.json",
       "checksumPath": "tests/Fixtures/Compatibility/daily-audio-practice-v1.sha256",
-      "sha256": "ad4e45a304e743f04b8f2e8d492917ea844ed3df599e0e7dfae1552e2fb6dcf1",
+      "sha256": "b0583b74f2afe089cdcd9ee0f172b0a2c735e483c6cc80fa96da112cd63be2c1",
       "producer": "App\\Http\\Resources\\Study\\DailyAudioPracticeResource"
     },
     {

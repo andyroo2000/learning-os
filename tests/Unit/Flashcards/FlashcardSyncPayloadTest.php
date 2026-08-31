@@ -101,6 +101,7 @@ class FlashcardSyncPayloadTest extends TestCase
                 'type' => 'text',
                 'text' => 'Cellular energy currency.',
             ]),
+            'content_revision' => 7,
             'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => CardStudyStatus::Review,
             'new_queue_position' => null,
@@ -149,6 +150,7 @@ class FlashcardSyncPayloadTest extends TestCase
                 'type' => 'text',
                 'text' => 'Cellular energy currency.',
             ],
+            'content_revision' => 7,
             'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => 'review',
             'new_queue_position' => null,
@@ -203,6 +205,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'card_type' => CardType::Production->value,
             'prompt_json' => null,
             'answer_json' => null,
+            'content_revision' => 0,
             'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => CardStudyStatus::New,
             'new_queue_position' => 7,
@@ -246,6 +249,7 @@ class FlashcardSyncPayloadTest extends TestCase
             'card_type' => 'production',
             'prompt_json' => null,
             'answer_json' => null,
+            'content_revision' => 0,
             'search_text' => 'What is ATP? Cellular energy currency.',
             'study_status' => 'new',
             'new_queue_position' => 7,
@@ -305,6 +309,7 @@ class FlashcardSyncPayloadTest extends TestCase
 
         $this->assertSame('new', $payload['study_status']);
         $this->assertSame('recognition', $payload['card_type']);
+        $this->assertSame(0, $payload['content_revision']);
         $this->assertSame('', $payload['search_text']);
         $this->assertNull($payload['new_queue_position']);
         $this->assertNull($payload['scheduler_state']);

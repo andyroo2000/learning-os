@@ -77,6 +77,7 @@ class DeleteDeckActionTest extends TestCase
                 'card_type' => 'recognition',
                 'prompt_json' => null,
                 'answer_json' => null,
+                'content_revision' => 0,
                 'search_text' => $card->search_text,
                 'study_status' => 'new',
                 'new_queue_position' => $card->new_queue_position,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
+use App\Domain\Flashcards\Exceptions\CardContentRevisionConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\UpdateStudyCardRequest;
 use App\Http\Resources\Study\StudyCardSummaryResource;
@@ -13,29 +14,38 @@ class UpdateStudyCardController extends Controller
 {
     public function __invoke(UpdateStudyCardRequest $request, UpdateCardAction $updateCard): JsonResponse
     {
-        $result = $updateCard->handle(
-            $request->studyCard(),
-            UpdateCardData::fromInput(
-                frontText: $request->frontTextForUpdate(),
-                backText: $request->backText(),
-                hasPromptJson: true,
-                promptJson: $request->promptPayload(),
-                hasAnswerJson: true,
-                answerJson: $request->answerPayload(),
-                hasVariantGroupId: $request->hasVariantGroupId(),
-                variantGroupId: $request->variantGroupId(),
-                hasVariantSentenceId: $request->hasVariantSentenceId(),
-                variantSentenceId: $request->variantSentenceId(),
-                hasVariantKind: $request->hasVariantKind(),
-                variantKind: $request->variantKind(),
-                hasVariantStage: $request->hasVariantStage(),
-                variantStage: $request->variantStage(),
-                hasVariantStatus: $request->hasVariantStatus(),
-                variantStatus: $request->variantStatus(),
-                hasVariantUnlockedAt: $request->hasVariantUnlockedAt(),
-                variantUnlockedAt: $request->variantUnlockedAt(),
-            ),
-        );
+        try {
+            $result = $updateCard->handle(
+                $request->studyCard(),
+                UpdateCardData::fromInput(
+                    frontText: $request->frontTextForUpdate(),
+                    backText: $request->backText(),
+                    hasPromptJson: true,
+                    promptJson: $request->promptPayload(),
+                    hasAnswerJson: true,
+                    answerJson: $request->answerPayload(),
+                    hasVariantGroupId: $request->hasVariantGroupId(),
+                    variantGroupId: $request->variantGroupId(),
+                    hasVariantSentenceId: $request->hasVariantSentenceId(),
+                    variantSentenceId: $request->variantSentenceId(),
+                    hasVariantKind: $request->hasVariantKind(),
+                    variantKind: $request->variantKind(),
+                    hasVariantStage: $request->hasVariantStage(),
+                    variantStage: $request->variantStage(),
+                    hasVariantStatus: $request->hasVariantStatus(),
+                    variantStatus: $request->variantStatus(),
+                    hasVariantUnlockedAt: $request->hasVariantUnlockedAt(),
+                    variantUnlockedAt: $request->variantUnlockedAt(),
+                    expectedContentRevision: $request->expectedRevision(),
+                ),
+            );
+        } catch (CardContentRevisionConflictException $exception) {
+            return response()->json([
+                'code' => CardContentRevisionConflictException::CODE,
+                'message' => $exception->getMessage(),
+                'card' => StudyCardSummaryResource::make($exception->card)->resolve($request),
+            ], 409);
+        }
 
         // UpdateCardResult always carries the card, including unchanged no-op updates.
         // Resolve manually to preserve ConvoLab's unwrapped compatibility response shape.

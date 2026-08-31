@@ -41,6 +41,7 @@ class UpdateCardApiTest extends TestCase
             ->assertJsonPath('data.card_type', 'recognition')
             ->assertJsonPath('data.prompt_json', null)
             ->assertJsonPath('data.answer_json', null)
+            ->assertJsonPath('data.content_revision', 1)
             ->assertJsonPath('data.search_text', 'arrivederci goodbye')
             ->assertJsonMissingPath('data.media_assets')
             ->assertJsonStructure([
@@ -53,6 +54,7 @@ class UpdateCardApiTest extends TestCase
                     'card_type',
                     'prompt_json',
                     'answer_json',
+                    'content_revision',
                     'search_text',
                     'study_status',
                     'new_queue_position',
@@ -77,6 +79,48 @@ class UpdateCardApiTest extends TestCase
             'answer_json' => null,
             'search_text' => 'arrivederci goodbye',
         ]);
+    }
+
+    public function test_it_rejects_a_stale_content_revision_and_returns_the_current_card(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user, [
+            'front_text' => 'company',
+            'back_text' => '会社',
+        ]);
+
+        $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'school',
+            'back_text' => '学校',
+            'expected_content_revision' => 0,
+        ])->assertOk()->assertJsonPath('data.content_revision', 1);
+
+        $this->putJson("/api/cards/{$card->id}", [
+            'front_text' => 'dog',
+            'back_text' => '犬',
+            'expected_content_revision' => 0,
+        ])
+            ->assertConflict()
+            ->assertJsonPath('code', 'card_revision_conflict')
+            ->assertJsonPath('data.content_revision', 1)
+            ->assertJsonPath('data.front_text', 'school')
+            ->assertJsonPath('data.back_text', '学校');
+
+        $this->assertSame('school', $card->refresh()->front_text);
+        $this->assertDatabaseCount('sync_feed_entries', 1);
+    }
+
+    public function test_it_validates_the_expected_content_revision(): void
+    {
+        $user = $this->signIn();
+        $card = $this->cardFor($user);
+
+        foreach ([-1, 'not-an-integer', ['0']] as $invalidRevision) {
+            $this->putJson("/api/cards/{$card->id}", [
+                ...$this->cardUpdatePayload('updated front'),
+                'expected_content_revision' => $invalidRevision,
+            ])->assertJsonValidationErrors(['expected_content_revision']);
+        }
     }
 
     public function test_it_normalizes_text_inputs(): void

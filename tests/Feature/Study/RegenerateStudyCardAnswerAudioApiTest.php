@@ -65,11 +65,13 @@ class RegenerateStudyCardAnswerAudioApiTest extends TestCase
             ->assertJsonPath('answer.answerAudioTextOverride', 'かいしゃ')
             ->assertJsonPath('answer.answerAudio.mediaKind', 'audio')
             ->assertJsonPath('answer.answerAudio.source', 'generated')
-            ->assertJsonPath('answerAudioSource', 'generated');
+            ->assertJsonPath('answerAudioSource', 'generated')
+            ->assertJsonPath('revision', 1);
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $media = MediaAsset::query()->sole();
         $this->assertSame($media->id, $card->refresh()->answer_json['answerAudio']['id']);
+        $this->assertSame(1, $card->content_revision);
         $this->assertSame([$media->id], $card->mediaAssets()->pluck('media_assets.id')->all());
         Storage::disk('media')->assertExists($media->path);
 

@@ -37,11 +37,13 @@ class UploadStudyCardImageApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('id', $card->id)
             ->assertJsonPath('prompt.cueImage.source', 'imported_image')
-            ->assertJsonPath('answer.answerImage.source', 'imported_image');
+            ->assertJsonPath('answer.answerImage.source', 'imported_image')
+            ->assertJsonPath('revision', 1);
         $this->assertStudyCardSummaryCompatibilityPayloadHasShape($response->json());
 
         $media = MediaAsset::query()->sole();
         $card->refresh();
+        $this->assertSame(1, $card->content_revision);
         $this->assertSame($media->id, $card->prompt_json['cueImage']['id']);
         $this->assertSame($media->id, $card->answer_json['answerImage']['id']);
         $this->assertSame('image/jpeg', $media->mime_type);

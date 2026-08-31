@@ -17,7 +17,7 @@ final class StudyCardAudio
         $answer = is_array($card->answer_json) ? $card->answer_json : [];
 
         foreach ([$prompt['cueAudio'] ?? null, $answer['answerAudio'] ?? null] as $reference) {
-            if (is_array($reference)) {
+            if (is_array($reference) && $reference !== [] && ! array_is_list($reference)) {
                 return $reference;
             }
         }

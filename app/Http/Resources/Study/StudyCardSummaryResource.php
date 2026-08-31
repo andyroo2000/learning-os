@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Study\Support\StudyCardAudio;
+use App\Domain\Study\Support\StudyCardPresentation;
 use App\Support\DateTime\ConvoLabTimestamp;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class StudyCardSummaryResource extends JsonResource
             'cardType' => $this->card_type?->value ?? CardType::Recognition->value,
             'prompt' => $this->prompt_json ?? ['type' => 'text', 'text' => $this->front_text],
             'answer' => $this->answer_json ?? ['type' => 'text', 'text' => $this->back_text],
+            'presentation' => StudyCardPresentation::fromCard($this->resource),
             'state' => [
                 'dueAt' => ConvoLabTimestamp::serialize($this->due_at),
                 'introducedAt' => ConvoLabTimestamp::serialize($this->introduced_at),

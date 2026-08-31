@@ -20,6 +20,7 @@ class StudyCardLibraryRouteContractTest extends TestCase
             'ListStudyCardBatchController',
             'ShowStudyCardController',
             'ReorderStudyNewCardQueueController',
+            'PromoteStudyNewCardQueueController',
         ];
 
         $actualRoutes = collect(Route::getRoutes()->getRoutes())
@@ -60,6 +61,13 @@ class StudyCardLibraryRouteContractTest extends TestCase
                 'ReorderStudyNewCardQueueController',
                 rateLimitMiddleware: 'throttle:new-card-queue-reorder',
             ),
+            $this->expectedRoute(
+                'POST',
+                'api/study/new-queue/{cardId}/promote',
+                'PromoteStudyNewCardQueueController',
+                ['cardId' => self::CARD_ID_PATTERN],
+                rateLimitMiddleware: 'throttle:new-card-queue-reorder',
+            ),
         ], $actualRoutes);
     }
 
@@ -76,7 +84,7 @@ class StudyCardLibraryRouteContractTest extends TestCase
         );
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'POST api/study/new-queue/reorder',
+            'POST api/study/new-queue/{cardId}/promote',
             'GET|HEAD api/study/overview',
         );
     }

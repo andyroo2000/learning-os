@@ -68,7 +68,7 @@ class StudyActivityRouteContractTest extends TestCase
 
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'POST api/study/new-queue/reorder',
+            'POST api/study/new-queue/{cardId}/promote',
             'GET|HEAD api/study/overview',
         );
         $this->assertImmediatelyBefore(

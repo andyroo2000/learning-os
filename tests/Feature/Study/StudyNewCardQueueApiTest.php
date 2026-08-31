@@ -369,7 +369,7 @@ class StudyNewCardQueueApiTest extends TestCase
         $this->assertSame(2, $firstCard->refresh()->new_queue_position);
     }
 
-    public function test_study_and_canonical_reorders_share_the_same_rate_limit_bucket(): void
+    public function test_study_and_canonical_queue_writes_share_the_same_rate_limit_bucket(): void
     {
         $limiter = new NewCardQueueReorderRateLimiter;
         $testBucket = 'test-'.Str::ulid();
@@ -409,6 +409,10 @@ class StudyNewCardQueueApiTest extends TestCase
                 ->postJson('/api/study/new-queue/reorder', [
                     'cardIds' => [$firstCard->id, $secondCard->id],
                 ])
+                ->assertTooManyRequests();
+
+            $this
+                ->postJson("/api/study/new-queue/{$firstCard->id}/promote")
                 ->assertTooManyRequests();
 
             $response = $this

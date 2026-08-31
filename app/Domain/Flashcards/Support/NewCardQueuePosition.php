@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -33,6 +34,37 @@ class NewCardQueuePosition
         if ($lockedUserId === null) {
             throw new LogicException('New-card queue owner could not be locked.');
         }
+    }
+
+    /**
+     * Reuse existing positions and append deterministic synthetic positions for legacy cards.
+     *
+     * @param  Collection<int, Card>  $cards
+     * @return list<int>
+     */
+    public function availableForCards(int $userId, Collection $cards): array
+    {
+        $nextSyntheticPosition = null;
+        $positions = [];
+
+        foreach ($cards as $card) {
+            if ($card->new_queue_position !== null) {
+                $positions[] = $card->new_queue_position;
+
+                continue;
+            }
+
+            if ($nextSyntheticPosition === null) {
+                $nextSyntheticPosition = $this->nextForUser($userId);
+            }
+
+            $positions[] = $nextSyntheticPosition;
+            $nextSyntheticPosition++;
+        }
+
+        sort($positions);
+
+        return $positions;
     }
 
     /** @internal Exposed to compile the supported database lock grammars in tests. */

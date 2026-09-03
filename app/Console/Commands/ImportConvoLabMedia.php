@@ -671,48 +671,86 @@ class ImportConvoLabMedia extends Command
                     ->orWhereNotNull('imageMediaId');
             })
             ->get(['id', 'userId', 'promptAudioMediaId', 'answerAudioMediaId', 'imageMediaId', 'createdAt', 'updatedAt']) as $card) {
-            $targetCard = $this->cardsBySourceId[(string) $card->id];
-
-            foreach ([$card->promptAudioMediaId, $card->answerAudioMediaId, $card->imageMediaId] as $sourceMediaId) {
-                if ($sourceMediaId === null || $sourceMediaId === '') {
-                    continue;
-                }
-
-                $sourceMediaId = (string) $sourceMediaId;
-                if (isset($this->unavailableSourceMediaIds[$sourceMediaId])) {
-                    $this->skippedUnavailableCardMediaPairs[
-                        (string) $card->id."\n".$sourceMediaId
-                    ] = true;
-
-                    continue;
-                }
-
-                $path = $this->pathBySourceMediaId[$sourceMediaId] ?? null;
-
-                if ($path === null) {
-                    throw new RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
-                }
-
-                if (($this->userIdBySourceMediaId[$sourceMediaId] ?? null) !== $targetCard['user_id']) {
-                    throw new RuntimeException(
-                        "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
-                    );
-                }
-
-                $key = $targetCard['card_id']."\n".$path;
-                $pairs[$key] = [
-                    'card_id' => $targetCard['card_id'],
-                    'user_id' => $targetCard['user_id'],
-                    'deck_id' => $targetCard['deck_id'],
-                    'course_id' => $targetCard['course_id'],
-                    'path' => $path,
-                    'created_at' => $card->createdAt,
-                    'updated_at' => $card->updatedAt,
-                ];
-            }
+            $this->addCardMediaPairsForSourceCard($pairs, $card);
         }
 
         return array_values($pairs);
+    }
+
+    /**
+     * @param  array<string, array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null,
+     *     path: string,
+     *     created_at: mixed,
+     *     updated_at: mixed
+     * }>  $pairs
+     */
+    private function addCardMediaPairsForSourceCard(array &$pairs, object $card): void
+    {
+        $targetCard = $this->cardsBySourceId[(string) $card->id];
+
+        foreach ([$card->promptAudioMediaId, $card->answerAudioMediaId, $card->imageMediaId] as $sourceMediaId) {
+            $this->addCardMediaPair($pairs, $card, $targetCard, $sourceMediaId);
+        }
+    }
+
+    /**
+     * @param  array<string, array{
+     *     card_id: string,
+     *     user_id: int,
+     *     deck_id: string,
+     *     course_id: string|null,
+     *     path: string,
+     *     created_at: mixed,
+     *     updated_at: mixed
+     * }>  $pairs
+     * @param  array{card_id: string, user_id: int, deck_id: string, course_id: string|null}  $targetCard
+     */
+    private function addCardMediaPair(
+        array &$pairs,
+        object $card,
+        array $targetCard,
+        mixed $sourceMediaId,
+    ): void {
+        if ($sourceMediaId === null || $sourceMediaId === '') {
+            return;
+        }
+
+        $sourceMediaId = (string) $sourceMediaId;
+
+        if (isset($this->unavailableSourceMediaIds[$sourceMediaId])) {
+            $this->skippedUnavailableCardMediaPairs[
+                (string) $card->id."\n".$sourceMediaId
+            ] = true;
+
+            return;
+        }
+
+        $path = $this->pathBySourceMediaId[$sourceMediaId] ?? null;
+
+        if ($path === null) {
+            throw new RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
+        }
+
+        if (($this->userIdBySourceMediaId[$sourceMediaId] ?? null) !== $targetCard['user_id']) {
+            throw new RuntimeException(
+                "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
+            );
+        }
+
+        $key = $targetCard['card_id']."\n".$path;
+        $pairs[$key] = [
+            'card_id' => $targetCard['card_id'],
+            'user_id' => $targetCard['user_id'],
+            'deck_id' => $targetCard['deck_id'],
+            'course_id' => $targetCard['course_id'],
+            'path' => $path,
+            'created_at' => $card->createdAt,
+            'updated_at' => $card->updatedAt,
+        ];
     }
 
     /**

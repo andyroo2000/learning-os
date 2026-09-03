@@ -118,12 +118,7 @@ class ImportConvoLabDailyAudio extends Command
                 count($this->tracks),
             ));
         } catch (Throwable $e) {
-            if (! $databaseCommitted) {
-                $disk = Storage::disk((string) config('daily_audio.disk'));
-                foreach ($createdPaths as $path) {
-                    $disk->delete($path);
-                }
-            }
+            $this->removeUncommittedFiles($databaseCommitted, $createdPaths);
 
             $this->error($e->getMessage());
 
@@ -135,6 +130,20 @@ class ImportConvoLabDailyAudio extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /** @param  list<string>  $createdPaths */
+    private function removeUncommittedFiles(bool $databaseCommitted, array $createdPaths): void
+    {
+        if ($databaseCommitted) {
+            return;
+        }
+
+        $disk = Storage::disk((string) config('daily_audio.disk'));
+
+        foreach ($createdPaths as $path) {
+            $disk->delete($path);
+        }
     }
 
     private function importLock(ConnectionInterface $target): Lock

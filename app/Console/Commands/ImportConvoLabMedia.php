@@ -104,7 +104,7 @@ class ImportConvoLabMedia extends Command
         RecordCardMediaSyncFeedEntryAction $recordCardMediaSyncFeedEntry,
         RepairLegacyStudyMediaReferencesAction $repairLegacyStudyMediaReferences,
     ): int {
-        if (app()->isProduction() && ! $this->option('allow-production')) {
+        if ($this->productionOverrideMissing()) {
             $this->error('This command must not run in production without --allow-production.');
 
             return self::FAILURE;
@@ -119,42 +119,16 @@ class ImportConvoLabMedia extends Command
             $target = DB::connection();
             $this->assertProductionConfirmed($target);
             $lock = $this->importLock($target);
-            $lockAcquired = $lock->get();
-
-            if (! $lockAcquired) {
-                throw new RuntimeException(
-                    'Another Convo Lab media import is already running for this target database.',
-                );
-            }
+            $this->acquireImportLock($lock);
+            $lockAcquired = true;
 
             $source = $this->convoLabSourceConnection();
             $this->assertConvoLabSourceDiffersFromTarget($source, $target);
             $this->assertSourceSchema($source);
             $sourceMediaRoot = $this->convoLabSourceMediaRoot();
-
-            $this->info('Preflighting Convo Lab study media');
-
-            $userIds = $this->mapSourceUsers($source, $target);
-            $importJobIds = $this->mapSourceImportJobs($source, $target);
-            $this->cardsBySourceId = $this->mapSourceCards($source, $target, $userIds);
-            $this->buildMediaManifest($source, $sourceMediaRoot, $userIds, $importJobIds);
-            $cardMediaPairs = $this->buildCardMediaPairs($source);
-            $existingMedia = $this->preflightExistingMedia($target);
-            $this->preflightDestinationFiles();
-
-            if ($this->unavailableSourceMediaIds !== []) {
-                $this->warn(sprintf(
-                    'Skipped %d unavailable Convo Lab media rows and %d card media links without storage paths.',
-                    count($this->unavailableSourceMediaIds),
-                    count($this->skippedUnavailableCardMediaPairs),
-                ));
-            }
-
-            $this->line(sprintf(
-                'Verified %d unique media files and %d card media links.',
-                count($this->mediaByPath),
-                count($cardMediaPairs),
-            ));
+            $preflight = $this->preflightMedia($source, $target, $sourceMediaRoot);
+            $cardMediaPairs = $preflight['card_media_pairs'];
+            $existingMedia = $preflight['existing_media'];
 
             $createdPaths = $this->copyMissingFiles();
 
@@ -192,33 +166,123 @@ class ImportConvoLabMedia extends Command
             });
             $databaseCommitted = true;
 
-            $this->info(sprintf(
-                'Convo Lab media import completed: %d media assets, %d new card links.',
-                $result['media'],
-                $result['links'],
-            ));
-            $this->line(sprintf(
-                'Repaired %d legacy media references across %d cards.',
-                $result['repaired_references'],
-                $result['repaired_cards'],
-            ));
+            $this->reportCompletedImport($result);
         } catch (Throwable $e) {
-            if (! $databaseCommitted) {
-                foreach ($createdPaths as $path) {
-                    Storage::disk(MediaAsset::DISK_MEDIA)->delete($path);
-                }
-            }
+            $this->cleanupFailedImport($createdPaths, $databaseCommitted);
 
             $this->error($e->getMessage());
 
             return self::FAILURE;
         } finally {
-            if ($lockAcquired) {
-                $lock?->release();
-            }
+            $this->releaseImportLock($lock, $lockAcquired);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array{
+     *     card_media_pairs: list<array{
+     *         card_id: string,
+     *         user_id: int,
+     *         deck_id: string,
+     *         course_id: string|null,
+     *         path: string,
+     *         created_at: mixed,
+     *         updated_at: mixed
+     *     }>,
+     *     existing_media: array<string, object>
+     * }
+     */
+    private function preflightMedia(
+        ConnectionInterface $source,
+        ConnectionInterface $target,
+        string $sourceMediaRoot,
+    ): array {
+        $this->info('Preflighting Convo Lab study media');
+
+        $userIds = $this->mapSourceUsers($source, $target);
+        $importJobIds = $this->mapSourceImportJobs($source, $target);
+        $this->cardsBySourceId = $this->mapSourceCards($source, $target, $userIds);
+        $this->buildMediaManifest($source, $sourceMediaRoot, $userIds, $importJobIds);
+        $cardMediaPairs = $this->buildCardMediaPairs($source);
+        $existingMedia = $this->preflightExistingMedia($target);
+        $this->preflightDestinationFiles();
+
+        $this->reportUnavailableMedia();
+        $this->line(sprintf(
+            'Verified %d unique media files and %d card media links.',
+            count($this->mediaByPath),
+            count($cardMediaPairs),
+        ));
+
+        return [
+            'card_media_pairs' => $cardMediaPairs,
+            'existing_media' => $existingMedia,
+        ];
+    }
+
+    private function productionOverrideMissing(): bool
+    {
+        return app()->isProduction() && ! $this->option('allow-production');
+    }
+
+    private function acquireImportLock(Lock $lock): void
+    {
+        if (! $lock->get()) {
+            throw new RuntimeException(
+                'Another Convo Lab media import is already running for this target database.',
+            );
+        }
+    }
+
+    private function reportUnavailableMedia(): void
+    {
+        if ($this->unavailableSourceMediaIds === []) {
+            return;
+        }
+
+        $this->warn(sprintf(
+            'Skipped %d unavailable Convo Lab media rows and %d card media links without storage paths.',
+            count($this->unavailableSourceMediaIds),
+            count($this->skippedUnavailableCardMediaPairs),
+        ));
+    }
+
+    /**
+     * @param  array{media: int, links: int, repaired_references: int, repaired_cards: int}  $result
+     */
+    private function reportCompletedImport(array $result): void
+    {
+        $this->info(sprintf(
+            'Convo Lab media import completed: %d media assets, %d new card links.',
+            $result['media'],
+            $result['links'],
+        ));
+        $this->line(sprintf(
+            'Repaired %d legacy media references across %d cards.',
+            $result['repaired_references'],
+            $result['repaired_cards'],
+        ));
+    }
+
+    /** @param  list<string>  $createdPaths */
+    private function cleanupFailedImport(array $createdPaths, bool $databaseCommitted): void
+    {
+        if ($databaseCommitted) {
+            return;
+        }
+
+        foreach ($createdPaths as $path) {
+            Storage::disk(MediaAsset::DISK_MEDIA)->delete($path);
+        }
+    }
+
+    private function releaseImportLock(?Lock $lock, bool $lockAcquired): void
+    {
+        if ($lockAcquired) {
+            $lock?->release();
+        }
     }
 
     private function importLock(ConnectionInterface $target): Lock

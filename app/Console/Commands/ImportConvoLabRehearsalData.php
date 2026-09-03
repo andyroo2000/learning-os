@@ -5,12 +5,12 @@ namespace App\Console\Commands;
 use App\Console\Concerns\ConnectsToConvoLabSource;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Support\Content\ConvoLabContentTables;
 use App\Support\Identifiers\CanonicalUlid;
 use App\Support\Rehearsal\ConvoLabCardMediaImporter;
 use App\Support\Rehearsal\ConvoLabDailyAudioImporter;
+use App\Support\Rehearsal\ConvoLabMediaImporter;
 use App\Support\Rehearsal\ConvoLabReviewImporter;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
@@ -119,16 +119,6 @@ class ImportConvoLabRehearsalData extends Command
      */
     private array $mediaUserIds = [];
 
-    /**
-     * @var array<string, string>
-     */
-    private array $mediaPathIds = [];
-
-    /**
-     * @var array<string, int>
-     */
-    private array $mediaPathUserIds = [];
-
     public function handle(): int
     {
         if (app()->isProduction() && ! $this->option('allow-production')) {
@@ -214,13 +204,19 @@ class ImportConvoLabRehearsalData extends Command
         $this->cardIds = [];
         $this->mediaIds = [];
         $this->mediaUserIds = [];
-        $this->mediaPathIds = [];
-        $this->mediaPathUserIds = [];
     }
 
     private function assertProductionMediaStrategy(ConnectionInterface $source): void
     {
-        if (! app()->isProduction() || $this->option('skip-media') || ! $source->table('study_media')->exists()) {
+        if (! app()->isProduction()) {
+            return;
+        }
+
+        if ($this->option('skip-media')) {
+            return;
+        }
+
+        if (! $source->table('study_media')->exists()) {
             return;
         }
 
@@ -438,65 +434,18 @@ class ImportConvoLabRehearsalData extends Command
 
     private function importMedia(ConnectionInterface $source, ConnectionInterface $target): void
     {
-        $count = 0;
-        $deduped = 0;
+        $counts = (new ConvoLabMediaImporter(
+            fn (string $sourceUserId): int => $this->mappedUserId($sourceUserId),
+            fn (?string $sourceImportJobId): ?string => $this->mappedImportJobId($sourceImportJobId),
+            fn (): string => $this->newCanonicalUlid(),
+            fn (mixed $value, string $default): string => $this->stringOrDefault($value, $default),
+        ))->import($source, $target);
 
-        $source->table('study_media')
-            ->orderBy('createdAt')
-            ->orderBy('id')
-            ->chunk(500, function ($mediaRows) use ($target, &$count, &$deduped): void {
-                $insertRows = [];
-
-                foreach ($mediaRows as $media) {
-                    $path = $this->stringOrDefault($media->storagePath, 'convolab-missing/'.$media->id);
-                    $pathKey = MediaAsset::DISK_MEDIA."\n".$path;
-                    $userId = $this->mappedUserId($media->userId);
-                    $this->mediaUserIds[$media->id] = $userId;
-
-                    if (isset($this->mediaPathIds[$pathKey])) {
-                        if ($this->mediaPathUserIds[$pathKey] !== $userId) {
-                            throw new \RuntimeException("Media path [{$path}] is shared by multiple Convo Lab users.");
-                        }
-
-                        $this->mediaIds[$media->id] = $this->mediaPathIds[$pathKey];
-                        $deduped++;
-
-                        continue;
-                    }
-
-                    $id = $this->newCanonicalUlid();
-                    $this->mediaIds[$media->id] = $id;
-                    $this->mediaPathIds[$pathKey] = $id;
-                    $this->mediaPathUserIds[$pathKey] = $userId;
-
-                    $insertRows[] = [
-                        'id' => $id,
-                        'user_id' => $userId,
-                        'import_job_id' => $this->mappedImportJobId($media->importJobId),
-                        'disk' => MediaAsset::DISK_MEDIA,
-                        'path' => $path,
-                        'public_url' => $media->publicUrl,
-                        'mime_type' => $this->stringOrDefault($media->contentType, 'application/octet-stream'),
-                        // The rehearsal imports metadata only; media bytes are copied in a later rollout step.
-                        'size_bytes' => 0,
-                        'checksum_sha256' => null,
-                        'original_filename' => $media->sourceFilename,
-                        'source_kind' => $media->sourceKind,
-                        'source_media_ref' => $media->sourceMediaKey,
-                        'source_filename' => $media->sourceFilename,
-                        'created_at' => $media->createdAt,
-                        'updated_at' => $media->updatedAt,
-                    ];
-                }
-
-                if ($insertRows !== []) {
-                    $target->table('media_assets')->insert($insertRows);
-                }
-
-                $count += count($insertRows);
-            });
-
-        $this->line("Imported {$count} media assets ({$deduped} duplicate source paths reused).");
+        $this->mediaIds = $counts['media_ids'];
+        $this->mediaUserIds = $counts['media_user_ids'];
+        $this->line(
+            "Imported {$counts['imported']} media assets ({$counts['deduplicated']} duplicate source paths reused).",
+        );
     }
 
     private function importCards(ConnectionInterface $source, ConnectionInterface $target): void

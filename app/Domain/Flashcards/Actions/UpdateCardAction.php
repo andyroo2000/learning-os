@@ -35,6 +35,15 @@ class UpdateCardAction
 
     public function handle(Card $card, UpdateCardData $data): UpdateCardResult
     {
+        $this->validateContent($data);
+
+        return DB::transaction(function () use ($card, $data): UpdateCardResult {
+            return $this->updateLockedCard($card, $data);
+        });
+    }
+
+    private function validateContent(UpdateCardData $data): void
+    {
         if ($data->hasFrontText && $data->frontText === '') {
             throw new InvalidArgumentException('Card front text is required.');
         }
@@ -42,177 +51,226 @@ class UpdateCardAction
         if ($data->hasBackText && $data->backText === '') {
             throw new InvalidArgumentException('Card back text is required.');
         }
+    }
 
-        $result = DB::transaction(function () use ($card, $data): UpdateCardResult {
-            // Queue writers serialize on the owner before card rows. Reserve a possible
-            // position in that order, then re-check the live card after locking it.
-            $needsAvailableQueuePosition = $data->hasVariantStatus
-                && $data->variantStatus !== VocabVariantStatus::Locked;
-            $ownerId = $card->ownerUserId();
-            $hasCurrentOrRequestedProgressionGroup = (
-                is_string($card->variant_group_id)
-                && trim($card->variant_group_id) !== ''
-            )
-                || ($data->hasVariantGroupId && is_string($data->variantGroupId) && trim($data->variantGroupId) !== '');
+    private function updateLockedCard(Card $card, UpdateCardData $data): UpdateCardResult
+    {
+        $availableQueuePosition = $this->reserveQueuePosition($card, $data);
+        $this->refreshCardUnderLock($card);
+        CardContentRevision::assertExpected($card, $data->expectedContentRevision);
 
-            if ($needsAvailableQueuePosition) {
-                $availableQueuePosition = $this->newCardQueuePosition()->nextForUser($ownerId);
-            } else {
-                $availableQueuePosition = null;
+        $this->applyContentUpdates($card, $data);
+        $this->applyVariantIdentityUpdates($card, $data);
+        $this->applyVariantStatusUpdate($card, $data, $availableQueuePosition);
+        $this->applyVariantUnlockedAtUpdate($card, $data);
+        $this->clearRetiredAtAfterProgressionUpdate($card);
 
-                if ($hasCurrentOrRequestedProgressionGroup) {
-                    $this->newCardQueuePosition()->lockOwner($ownerId);
-                }
-            }
+        $contentWasUpdated = $this->refreshSearchTextAfterContentUpdate($card);
 
-            // Route authorization happens before this transaction. Re-resolve the live card
-            // under the same row lock used by deletion so a stale model cannot append an
-            // Update feed entry after its Delete tombstone.
-            $lockedCard = Card::query()
-                ->whereKey($card->getKey())
-                ->lockForUpdate()
-                ->first();
+        if (! $this->wasUpdated($card, $contentWasUpdated)) {
+            return UpdateCardResult::unchanged($card);
+        }
 
-            if ($lockedCard === null) {
-                throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
-            }
+        return $this->persistUpdate($card, $contentWasUpdated);
+    }
 
-            $card->setRawAttributes($lockedCard->getAttributes(), true);
-            $card->setRelations([]);
+    private function reserveQueuePosition(Card $card, UpdateCardData $data): ?int
+    {
+        // Queue writers serialize on the owner before card rows. Reserve a possible
+        // position in that order, then re-check the live card after locking it.
+        $needsAvailableQueuePosition = $data->hasVariantStatus
+            && $data->variantStatus !== VocabVariantStatus::Locked;
+        $ownerId = $card->ownerUserId();
+        $hasCurrentOrRequestedProgressionGroup = (
+            is_string($card->variant_group_id)
+            && trim($card->variant_group_id) !== ''
+        )
+            || ($data->hasVariantGroupId && is_string($data->variantGroupId) && trim($data->variantGroupId) !== '');
 
-            CardContentRevision::assertExpected($card, $data->expectedContentRevision);
+        if ($needsAvailableQueuePosition) {
+            return $this->newCardQueuePosition()->nextForUser($ownerId);
+        }
 
-            if ($data->hasFrontText) {
-                $card->front_text = $data->frontText;
-            }
+        if ($hasCurrentOrRequestedProgressionGroup) {
+            $this->newCardQueuePosition()->lockOwner($ownerId);
+        }
 
-            if ($data->hasBackText) {
-                $card->back_text = $data->backText;
-            }
+        return null;
+    }
 
-            if ($data->cardType !== null) {
-                $card->card_type = $data->cardType;
-            }
+    private function refreshCardUnderLock(Card $card): void
+    {
+        // Route authorization happens before this transaction. Re-resolve the live card
+        // under the same row lock used by deletion so a stale model cannot append an
+        // Update feed entry after its Delete tombstone.
+        $lockedCard = Card::query()
+            ->whereKey($card->getKey())
+            ->lockForUpdate()
+            ->first();
 
-            if ($data->hasPromptJson) {
-                $card->prompt_json = $data->promptJson;
-            }
+        if ($lockedCard === null) {
+            throw (new ModelNotFoundException)->setModel(Card::class, [$card->getKey()]);
+        }
 
-            if ($data->hasAnswerJson) {
-                $card->answer_json = $data->answerJson;
-            }
+        $card->setRawAttributes($lockedCard->getAttributes(), true);
+        $card->setRelations([]);
+    }
 
-            if ($data->hasAnswerAudioSource) {
-                $card->answer_audio_source = $data->answerAudioSource;
-            }
+    private function applyContentUpdates(Card $card, UpdateCardData $data): void
+    {
+        if ($data->hasFrontText) {
+            $card->front_text = $data->frontText;
+        }
 
-            if ($data->hasVariantGroupId) {
-                $card->variant_group_id = $data->variantGroupId;
-            }
+        if ($data->hasBackText) {
+            $card->back_text = $data->backText;
+        }
 
-            if ($data->hasVariantSentenceId) {
-                $card->variant_sentence_id = $data->variantSentenceId;
-            }
+        if ($data->cardType !== null) {
+            $card->card_type = $data->cardType;
+        }
 
-            // Card stores variant enums as scalar metadata, so compare scalar values before assignment
-            // to avoid sync entries from enum-object/string dirty tracking differences.
-            if ($data->hasVariantKind) {
-                if ($this->variantEnumValue($card->variant_kind) !== $data->variantKind?->value) {
-                    $card->variant_kind = $data->variantKind?->value;
-                }
-            }
+        if ($data->hasPromptJson) {
+            $card->prompt_json = $data->promptJson;
+        }
 
-            if ($data->hasVariantStage) {
-                if ($this->variantStageValue($card->variant_stage) !== $data->variantStage) {
-                    $card->variant_stage = $data->variantStage;
-                }
-            }
+        if ($data->hasAnswerJson) {
+            $card->answer_json = $data->answerJson;
+        }
 
-            if ($data->hasVariantStatus) {
-                if ($this->variantEnumValue($card->variant_status) !== $data->variantStatus?->value) {
-                    $card->variant_status = $data->variantStatus?->value;
-                }
+        if ($data->hasAnswerAudioSource) {
+            $card->answer_audio_source = $data->answerAudioSource;
+        }
+    }
 
-                if (($card->study_status ?? CardStudyStatus::New) === CardStudyStatus::New) {
-                    if ($data->variantStatus === VocabVariantStatus::Locked) {
-                        $card->new_queue_position = null;
-                    } elseif ($card->new_queue_position === null) {
-                        $card->new_queue_position = $availableQueuePosition;
-                    }
-                }
-            }
+    private function applyVariantIdentityUpdates(Card $card, UpdateCardData $data): void
+    {
+        if ($data->hasVariantGroupId) {
+            $card->variant_group_id = $data->variantGroupId;
+        }
 
-            if ($data->hasVariantUnlockedAt) {
-                if ($this->timestampJson($card->variant_unlocked_at) !== $this->timestampJson($data->variantUnlockedAt)) {
-                    $card->variant_unlocked_at = $data->variantUnlockedAt;
-                }
-            }
+        if ($data->hasVariantSentenceId) {
+            $card->variant_sentence_id = $data->variantSentenceId;
+        }
 
-            if ($card->isDirty([
-                'variant_group_id',
-                'variant_stage',
-                'variant_status',
-                'variant_unlocked_at',
-            ])) {
-                // Retirement is a server-owned progression result. Explicit authoring
-                // changes invalidate that historic membership state.
-                $card->variant_retired_at = null;
-            }
+        // Card stores variant enums as scalar metadata, so compare scalar values before assignment
+        // to avoid sync entries from enum-object/string dirty tracking differences.
+        if ($data->hasVariantKind
+            && $this->variantEnumValue($card->variant_kind) !== $data->variantKind?->value) {
+            $card->variant_kind = $data->variantKind?->value;
+        }
 
-            $contentWasUpdated = $card->isDirty(['front_text', 'back_text', 'prompt_json', 'answer_json']);
+        if ($data->hasVariantStage
+            && $this->variantStageValue($card->variant_stage) !== $data->variantStage) {
+            $card->variant_stage = $data->variantStage;
+        }
+    }
 
-            if ($contentWasUpdated) {
-                $card->search_text = CardSearchText::fromContent(
-                    frontText: $card->front_text,
-                    backText: $card->back_text,
-                    promptJson: $card->prompt_json,
-                    answerJson: $card->answer_json,
-                );
-            }
+    private function applyVariantStatusUpdate(
+        Card $card,
+        UpdateCardData $data,
+        ?int $availableQueuePosition,
+    ): void {
+        if (! $data->hasVariantStatus) {
+            return;
+        }
 
-            $wasUpdated = $card->isDirty([
-                'front_text',
-                'back_text',
-                'card_type',
-                'prompt_json',
-                'answer_json',
-                'answer_audio_source',
-                'variant_group_id',
-                'variant_sentence_id',
-                'variant_kind',
-                'variant_stage',
-                'variant_status',
-                'variant_unlocked_at',
-                'variant_retired_at',
-                'new_queue_position',
-                ...($contentWasUpdated ? ['search_text'] : []),
-            ]);
+        if ($this->variantEnumValue($card->variant_status) !== $data->variantStatus?->value) {
+            $card->variant_status = $data->variantStatus?->value;
+        }
 
-            if (! $wasUpdated) {
-                return UpdateCardResult::unchanged($card);
-            }
+        if (($card->study_status ?? CardStudyStatus::New) !== CardStudyStatus::New) {
+            return;
+        }
 
-            $card->saveOrFail();
+        if ($data->variantStatus === VocabVariantStatus::Locked) {
+            $card->new_queue_position = null;
+        } elseif ($card->new_queue_position === null) {
+            $card->new_queue_position = $availableQueuePosition;
+        }
+    }
 
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $card->ownerUserId(),
-                    domain: CardSyncPayload::DOMAIN,
-                    resourceType: CardSyncPayload::RESOURCE_TYPE,
-                    resourceId: $card->id,
-                    operation: SyncFeedOperation::Update->value,
-                    payload: CardSyncPayload::fromCard($card),
-                ),
+    private function applyVariantUnlockedAtUpdate(Card $card, UpdateCardData $data): void
+    {
+        if ($data->hasVariantUnlockedAt
+            && $this->timestampJson($card->variant_unlocked_at) !== $this->timestampJson($data->variantUnlockedAt)) {
+            $card->variant_unlocked_at = $data->variantUnlockedAt;
+        }
+    }
+
+    private function clearRetiredAtAfterProgressionUpdate(Card $card): void
+    {
+        if (! $card->isDirty([
+            'variant_group_id',
+            'variant_stage',
+            'variant_status',
+            'variant_unlocked_at',
+        ])) {
+            return;
+        }
+
+        // Retirement is a server-owned progression result. Explicit authoring
+        // changes invalidate that historic membership state.
+        $card->variant_retired_at = null;
+    }
+
+    private function refreshSearchTextAfterContentUpdate(Card $card): bool
+    {
+        $contentWasUpdated = $card->isDirty(['front_text', 'back_text', 'prompt_json', 'answer_json']);
+
+        if ($contentWasUpdated) {
+            $card->search_text = CardSearchText::fromContent(
+                frontText: $card->front_text,
+                backText: $card->back_text,
+                promptJson: $card->prompt_json,
+                answerJson: $card->answer_json,
             );
+        }
 
-            if ($contentWasUpdated) {
-                DB::afterCommit(fn () => $this->matchLearningConceptsBestEffort($card));
-            }
+        return $contentWasUpdated;
+    }
 
-            return UpdateCardResult::updated($card);
-        });
+    private function wasUpdated(Card $card, bool $contentWasUpdated): bool
+    {
+        return $card->isDirty([
+            'front_text',
+            'back_text',
+            'card_type',
+            'prompt_json',
+            'answer_json',
+            'answer_audio_source',
+            'variant_group_id',
+            'variant_sentence_id',
+            'variant_kind',
+            'variant_stage',
+            'variant_status',
+            'variant_unlocked_at',
+            'variant_retired_at',
+            'new_queue_position',
+            ...($contentWasUpdated ? ['search_text'] : []),
+        ]);
+    }
 
-        return $result;
+    private function persistUpdate(Card $card, bool $contentWasUpdated): UpdateCardResult
+    {
+        $card->saveOrFail();
+
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $card->ownerUserId(),
+                domain: CardSyncPayload::DOMAIN,
+                resourceType: CardSyncPayload::RESOURCE_TYPE,
+                resourceId: $card->id,
+                operation: SyncFeedOperation::Update->value,
+                payload: CardSyncPayload::fromCard($card),
+            ),
+        );
+
+        if ($contentWasUpdated) {
+            DB::afterCommit(fn () => $this->matchLearningConceptsBestEffort($card));
+        }
+
+        return UpdateCardResult::updated($card);
     }
 
     private function matchLearningConceptsBestEffort(Card $card): void

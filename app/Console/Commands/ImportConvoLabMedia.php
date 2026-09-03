@@ -417,103 +417,211 @@ class ImportConvoLabMedia extends Command
             ->orderBy('id')
             ->chunk(500, function (Collection $rows) use ($sourceMediaRoot, $userIds, $importJobIds): void {
                 foreach ($rows as $media) {
-                    $sourceId = (string) $media->id;
-
-                    if (! is_string($media->storagePath) || trim($media->storagePath) === '') {
-                        $this->unavailableSourceMediaIds[$sourceId] = true;
-
-                        continue;
-                    }
-
-                    $userId = $userIds[(string) $media->userId] ?? null;
-
-                    if ($userId === null) {
-                        throw new RuntimeException("Missing Learning OS user mapping for media [{$sourceId}].");
-                    }
-
-                    $path = $this->validatedStoragePath($media->storagePath, $sourceId);
-                    $sourcePath = $this->resolveConvoLabSourceFile(
-                        $sourceMediaRoot,
-                        $path,
-                        "Convo Lab media bytes are missing for [{$sourceId}] at [{$path}].",
-                    );
-                    $size = filesize($sourcePath);
-                    $checksum = hash_file('sha256', $sourcePath);
-
-                    if (! is_int($size) || $size < 1 || $size > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES) {
-                        throw new RuntimeException("Convo Lab media [{$sourceId}] has an invalid byte size.");
-                    }
-
-                    if (! is_string($checksum)) {
-                        throw new RuntimeException("Unable to checksum Convo Lab media [{$sourceId}].");
-                    }
-
-                    $existing = $this->mediaByPath[$path] ?? null;
-
-                    if ($existing !== null) {
-                        if ($existing['user_id'] !== $userId) {
-                            throw new RuntimeException("Media path [{$path}] is shared by multiple Convo Lab users.");
-                        }
-
-                        if ($existing['size_bytes'] !== $size || $existing['checksum_sha256'] !== $checksum) {
-                            throw new RuntimeException("Media path [{$path}] resolves to inconsistent source bytes.");
-                        }
-
-                        $this->mediaByPath[$path]['source_ids'][] = $sourceId;
-                    } else {
-                        $sourceImportJobId = is_string($media->importJobId) ? $media->importJobId : null;
-                        $this->mediaByPath[$path] = [
-                            'source_ids' => [$sourceId],
-                            'user_id' => $userId,
-                            'import_job_id' => $sourceImportJobId === null
-                                ? null
-                                : ($importJobIds[$sourceImportJobId] ?? null),
-                            'path' => $path,
-                            'source_path' => $sourcePath,
-                            'mime_type' => $this->boundedStringOrDefault(
-                                $media->contentType,
-                                'application/octet-stream',
-                                MediaAsset::MAX_MIME_TYPE_LENGTH,
-                                'content type',
-                                $sourceId,
-                            ),
-                            'size_bytes' => $size,
-                            'checksum_sha256' => $checksum,
-                            'original_filename' => $this->boundedNullableString(
-                                OriginalFilename::normalize(
-                                    is_string($media->sourceFilename) ? $media->sourceFilename : null,
-                                ),
-                                MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH,
-                                'original filename',
-                                $sourceId,
-                            ),
-                            'source_kind' => $this->boundedNullableString(
-                                $media->sourceKind,
-                                self::MAX_SOURCE_KIND_LENGTH,
-                                'source kind',
-                                $sourceId,
-                            ),
-                            'source_media_ref' => $this->boundedNullableString(
-                                $media->sourceMediaKey,
-                                self::MAX_SOURCE_METADATA_LENGTH,
-                                'source media reference',
-                                $sourceId,
-                            ),
-                            'source_filename' => $this->boundedNullableString(
-                                $media->sourceFilename,
-                                self::MAX_SOURCE_METADATA_LENGTH,
-                                'source filename',
-                                $sourceId,
-                            ),
-                            'created_at' => $media->createdAt,
-                            'updated_at' => $media->updatedAt,
-                        ];
-                    }
-
-                    $this->pathBySourceMediaId[$sourceId] = $path;
-                    $this->userIdBySourceMediaId[$sourceId] = $userId;
+                    $this->addMediaToManifest($media, $sourceMediaRoot, $userIds, $importJobIds);
                 }
             });
+    }
+
+    /**
+     * @param  array<string, int>  $userIds
+     * @param  array<string, string>  $importJobIds
+     */
+    private function addMediaToManifest(
+        object $media,
+        string $sourceMediaRoot,
+        array $userIds,
+        array $importJobIds,
+    ): void {
+        $sourceId = (string) $media->id;
+
+        if ($this->hasNoStoragePath($media)) {
+            $this->unavailableSourceMediaIds[$sourceId] = true;
+
+            return;
+        }
+
+        $userId = $this->mappedMediaUserId($media, $sourceId, $userIds);
+        $verifiedFile = $this->verifiedSourceFile($media, $sourceId, $sourceMediaRoot, $userId);
+
+        if (isset($this->mediaByPath[$verifiedFile['path']])) {
+            $this->addSourceToExistingManifestPath($verifiedFile);
+        } else {
+            $this->mediaByPath[$verifiedFile['path']] = $this->newMediaManifestEntry(
+                $media,
+                $verifiedFile,
+                $importJobIds,
+            );
+        }
+
+        $this->pathBySourceMediaId[$sourceId] = $verifiedFile['path'];
+        $this->userIdBySourceMediaId[$sourceId] = $userId;
+    }
+
+    private function hasNoStoragePath(object $media): bool
+    {
+        return ! is_string($media->storagePath) || trim($media->storagePath) === '';
+    }
+
+    /** @param  array<string, int>  $userIds */
+    private function mappedMediaUserId(object $media, string $sourceId, array $userIds): int
+    {
+        $userId = $userIds[(string) $media->userId] ?? null;
+
+        if ($userId === null) {
+            throw new RuntimeException("Missing Learning OS user mapping for media [{$sourceId}].");
+        }
+
+        return $userId;
+    }
+
+    /**
+     * @return array{
+     *     source_id: string,
+     *     user_id: int,
+     *     path: string,
+     *     source_path: string,
+     *     size_bytes: int,
+     *     checksum_sha256: string
+     * }
+     */
+    private function verifiedSourceFile(
+        object $media,
+        string $sourceId,
+        string $sourceMediaRoot,
+        int $userId,
+    ): array {
+        $path = $this->validatedStoragePath($media->storagePath, $sourceId);
+        $sourcePath = $this->resolveConvoLabSourceFile(
+            $sourceMediaRoot,
+            $path,
+            "Convo Lab media bytes are missing for [{$sourceId}] at [{$path}].",
+        );
+        $size = filesize($sourcePath);
+        $checksum = hash_file('sha256', $sourcePath);
+
+        if (! $this->isValidSourceSize($size)) {
+            throw new RuntimeException("Convo Lab media [{$sourceId}] has an invalid byte size.");
+        }
+
+        if (! is_string($checksum)) {
+            throw new RuntimeException("Unable to checksum Convo Lab media [{$sourceId}].");
+        }
+
+        return [
+            'source_id' => $sourceId,
+            'user_id' => $userId,
+            'path' => $path,
+            'source_path' => $sourcePath,
+            'size_bytes' => $size,
+            'checksum_sha256' => $checksum,
+        ];
+    }
+
+    private function isValidSourceSize(mixed $size): bool
+    {
+        return is_int($size) && $size >= 1 && $size <= MediaAsset::MAX_JSON_SAFE_SIZE_BYTES;
+    }
+
+    /**
+     * @param  array{source_id: string, user_id: int, path: string, size_bytes: int, checksum_sha256: string}  $verifiedFile
+     */
+    private function addSourceToExistingManifestPath(array $verifiedFile): void
+    {
+        $path = $verifiedFile['path'];
+        $existing = $this->mediaByPath[$path];
+
+        if ($existing['user_id'] !== $verifiedFile['user_id']) {
+            throw new RuntimeException("Media path [{$path}] is shared by multiple Convo Lab users.");
+        }
+
+        if ($existing['size_bytes'] !== $verifiedFile['size_bytes']
+            || $existing['checksum_sha256'] !== $verifiedFile['checksum_sha256']) {
+            throw new RuntimeException("Media path [{$path}] resolves to inconsistent source bytes.");
+        }
+
+        $this->mediaByPath[$path]['source_ids'][] = $verifiedFile['source_id'];
+    }
+
+    /**
+     * @param  array{
+     *     source_id: string,
+     *     user_id: int,
+     *     path: string,
+     *     source_path: string,
+     *     size_bytes: int,
+     *     checksum_sha256: string
+     * }  $verifiedFile
+     * @param  array<string, string>  $importJobIds
+     * @return array{
+     *     source_ids: list<string>,
+     *     user_id: int,
+     *     import_job_id: string|null,
+     *     path: string,
+     *     source_path: string,
+     *     mime_type: string,
+     *     size_bytes: int,
+     *     checksum_sha256: string,
+     *     original_filename: string|null,
+     *     source_kind: string|null,
+     *     source_media_ref: string|null,
+     *     source_filename: string|null,
+     *     created_at: mixed,
+     *     updated_at: mixed
+     * }
+     */
+    private function newMediaManifestEntry(object $media, array $verifiedFile, array $importJobIds): array
+    {
+        $sourceId = $verifiedFile['source_id'];
+        $sourceImportJobId = is_string($media->importJobId) ? $media->importJobId : null;
+
+        return [
+            'source_ids' => [$sourceId],
+            'user_id' => $verifiedFile['user_id'],
+            'import_job_id' => $sourceImportJobId === null
+                ? null
+                : ($importJobIds[$sourceImportJobId] ?? null),
+            'path' => $verifiedFile['path'],
+            'source_path' => $verifiedFile['source_path'],
+            'mime_type' => $this->mimeType($media->contentType, $sourceId),
+            'size_bytes' => $verifiedFile['size_bytes'],
+            'checksum_sha256' => $verifiedFile['checksum_sha256'],
+            'original_filename' => $this->boundedNullableString(
+                OriginalFilename::normalize(is_string($media->sourceFilename) ? $media->sourceFilename : null),
+                MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH,
+                'original filename',
+                $sourceId,
+            ),
+            'source_kind' => $this->boundedNullableString(
+                $media->sourceKind,
+                self::MAX_SOURCE_KIND_LENGTH,
+                'source kind',
+                $sourceId,
+            ),
+            'source_media_ref' => $this->boundedNullableString(
+                $media->sourceMediaKey,
+                self::MAX_SOURCE_METADATA_LENGTH,
+                'source media reference',
+                $sourceId,
+            ),
+            'source_filename' => $this->boundedNullableString(
+                $media->sourceFilename,
+                self::MAX_SOURCE_METADATA_LENGTH,
+                'source filename',
+                $sourceId,
+            ),
+            'created_at' => $media->createdAt,
+            'updated_at' => $media->updatedAt,
+        ];
+    }
+
+    private function mimeType(mixed $value, string $sourceId): string
+    {
+        return $this->boundedNullableString(
+            $value,
+            MediaAsset::MAX_MIME_TYPE_LENGTH,
+            'content type',
+            $sourceId,
+        ) ?? 'application/octet-stream';
     }
 
     private function validatedStoragePath(mixed $value, string $sourceId): string
@@ -521,17 +629,22 @@ class ImportConvoLabMedia extends Command
         $path = is_string($value) ? trim(str_replace('\\', '/', $value)) : '';
         $normalized = ltrim($path, '/');
 
-        if ($path === ''
+        if ($this->isUnsafeStoragePath($path, $normalized)) {
+            throw new RuntimeException("Convo Lab media [{$sourceId}] has an unsafe storage path.");
+        }
+
+        return $normalized;
+    }
+
+    private function isUnsafeStoragePath(string $path, string $normalized): bool
+    {
+        return $path === ''
             || $normalized !== $path
             || str_contains($normalized, "\0")
             || preg_match(MediaAsset::PATH_ABSOLUTE_PATTERN, $normalized) === 1
             || preg_match(MediaAsset::PATH_TRAVERSAL_PATTERN, $normalized) === 1
             || ! str_starts_with($normalized, 'study-media/')
-            || strlen($normalized) > MediaAsset::MAX_PATH_LENGTH) {
-            throw new RuntimeException("Convo Lab media [{$sourceId}] has an unsafe storage path.");
-        }
-
-        return $normalized;
+            || strlen($normalized) > MediaAsset::MAX_PATH_LENGTH;
     }
 
     /**
@@ -916,15 +1029,5 @@ class ImportConvoLabMedia extends Command
         }
 
         return $normalized;
-    }
-
-    private function boundedStringOrDefault(
-        mixed $value,
-        string $default,
-        int $maxLength,
-        string $label,
-        string $sourceId,
-    ): string {
-        return $this->boundedNullableString($value, $maxLength, $label, $sourceId) ?? $default;
     }
 }

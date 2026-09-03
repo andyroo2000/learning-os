@@ -3,15 +3,13 @@
 namespace App\Domain\Flashcards\Actions;
 
 use App\Domain\Flashcards\Data\CreateCardData;
-use App\Domain\Flashcards\Enums\CardSelectionPolicy;
-use App\Domain\Flashcards\Enums\CardType;
-use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Exceptions\CardValidationException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Flashcards\Results\CreateCardResult;
 use App\Domain\Flashcards\Support\CardSchedulerState;
 use App\Domain\Flashcards\Support\CardSearchText;
+use App\Domain\Flashcards\Support\CreateCardConflictResolver;
 use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
@@ -23,9 +21,7 @@ use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\Database\IntegrityConstraintViolation;
 use App\Support\Identifiers\CanonicalUlid;
-use Carbon\CarbonImmutable;
 use Closure;
-use DateTimeInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -257,103 +253,11 @@ class CreateCardAction
 
     private function resolveExistingCard(Card $card, CreateCardData $data): Card
     {
-        // Resolve owner before any conflict response so cross-user tombstones can still be
-        // hidden as 404. If this fails, the cards.deck_id FK invariant has already broken.
-        $conflictingUserId = $this->ownerIdFor($card);
-
-        if ($card->trashed()) {
-            // Tombstones must win before metadata checks. Deleted IDs remain reserved,
-            // so owners get a deletion signal and other users still get a hidden 404.
-            // Cross-user tombstones still carry the deleted flag; HTTP checks ownership first.
-            throw CardConflictException::cardDeleted($conflictingUserId);
-        }
-
-        if ($this->deckIsTrashed($card)) {
-            throw CardConflictException::deckDeleted($conflictingUserId);
-        }
-
-        // This action stores trimmed text; trim stored values too so legacy/direct rows
-        // compare by the same canonical content.
-        if (
-            $conflictingUserId !== $data->userId
-            // Stored deck IDs should already be canonical, but normalize defensively for
-            // legacy/direct rows so idempotency compares canonical IDs on both sides.
-            || CanonicalUlid::normalize((string) $card->deck_id) !== $data->deckId
-            || trim($card->front_text ?? '') !== $data->frontText
-            || trim($card->back_text ?? '') !== $data->backText
-            || ($card->card_type ?? CardType::Recognition) !== $data->cardType
-            || $this->canonicalJsonValue($card->prompt_json) !== $this->canonicalJsonValue($data->promptJson)
-            || $this->canonicalJsonValue($card->answer_json) !== $this->canonicalJsonValue($data->answerJson)
-            || $card->variant_group_id !== $data->variantGroupId
-            || $card->variant_sentence_id !== $data->variantSentenceId
-            || $card->variant_kind !== $data->variantKind?->value
-            || $card->variant_stage !== $data->variantStage
-            || $card->variant_status !== $data->variantStatus?->value
-            || $card->variant_unlocked_at?->toJSON() !== $this->timestampJson($data->variantUnlockedAt)
-            || $card->introduction_cohort_id !== $data->introductionCohortId
-            || ($card->selection_policy ?? CardSelectionPolicy::Standard) !== $data->selectionPolicy
-            || $card->priority_until?->toJSON() !== $this->timestampJson($data->priorityUntil)
-        ) {
-            throw CardConflictException::conflict($conflictingUserId);
-        }
-
-        return $card;
-    }
-
-    private function canonicalJsonValue(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (! array_is_list($value)) {
-            ksort($value);
-        }
-
-        return array_map(
-            fn ($item) => is_array($item) ? $this->canonicalJsonValue($item) : $item,
-            $value,
-        );
-    }
-
-    private function timestampJson(?DateTimeInterface $value): ?string
-    {
-        return $value === null ? null : CarbonImmutable::instance($value)->toJSON();
+        return (new CreateCardConflictResolver)->resolve($card, $data);
     }
 
     private function ownerIdFor(Card $card): int
     {
-        // findExistingCard must eager-load deck before conflict resolution.
-        // @see \Tests\Feature\Flashcards\CreateCardActionTest::test_it_fails_when_existing_card_owner_cannot_be_resolved()
-        $deck = $this->deckForConflictResolution($card);
-
-        $ownerId = $deck?->user_id;
-
-        if ($ownerId === null) {
-            // The deck relation is null despite the cards.deck_id cascade-on-delete FK.
-            // Treat that as a data-integrity invariant failure and let it surface as a 500.
-            Log::warning('Card conflict owner could not be resolved.', [
-                'card_id' => $card->id,
-                'deck_id' => $card->deck_id,
-            ]);
-
-            throw new LogicException('Card deck owner could not be resolved.');
-        }
-
-        return (int) $ownerId;
-    }
-
-    private function deckIsTrashed(Card $card): bool
-    {
-        return $this->deckForConflictResolution($card)?->trashed() === true;
-    }
-
-    private function deckForConflictResolution(Card $card): ?Deck
-    {
-        if (! $card->relationLoaded('deck')) {
-            throw new LogicException('Card deck relation must be eager-loaded for conflict resolution.');
-        }
-
-        return $card->deck;
+        return (new CreateCardConflictResolver)->ownerIdFor($card);
     }
 }

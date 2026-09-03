@@ -5,13 +5,16 @@ namespace App\Domain\Admin\Actions;
 use App\Domain\Admin\Results\AdminProjectionSyncResult;
 use App\Domain\Auth\Support\ConvoLabAccountSource;
 use Illuminate\Database\ConnectionInterface;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use RuntimeException;
 use stdClass;
 
 class SyncConvoLabAdminProjectionAction
 {
+    public function __construct(
+        private readonly SyncConvoLabAdminUsersAction $syncUsers,
+    ) {}
+
     public function handle(
         ConnectionInterface $source,
         ConnectionInterface $target,
@@ -45,7 +48,7 @@ class SyncConvoLabAdminProjectionAction
             $allowEmptySource,
         );
 
-        [$users, $sourceUserIds] = $this->syncUsers($source, $target);
+        [$users, $sourceUserIds] = $this->syncUsers->handle($source, $target);
         $inviteCodes = $this->syncInviteCodes($source, $target);
         $speakerAvatars = $this->syncSpeakerAvatars($source, $target);
         $target->table('admin_user_projections')
@@ -75,170 +78,6 @@ class SyncConvoLabAdminProjectionAction
                 .'Re-run with --allow-empty-source to confirm removal.',
             );
         }
-    }
-
-    /** @return array{int, list<string>} */
-    private function syncUsers(ConnectionInterface $source, ConnectionInterface $target): array
-    {
-        $count = 0;
-        $sourceUserIds = [];
-        $seenEmails = [];
-        $seenIds = [];
-
-        $source->table('User')
-            ->chunkById(200, function ($users) use (
-                $target,
-                &$count,
-                &$sourceUserIds,
-                &$seenEmails,
-                &$seenIds,
-            ): void {
-                $normalizedUsers = [];
-                foreach ($users as $sourceUser) {
-                    $convoLabId = strtolower(trim((string) $sourceUser->id));
-                    $email = strtolower(trim((string) $sourceUser->email));
-
-                    if (! Str::isUuid($convoLabId)) {
-                        throw new RuntimeException("Convo Lab user [{$sourceUser->id}] has an invalid UUID.");
-                    }
-                    if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
-                        throw new RuntimeException("Convo Lab user [{$sourceUser->id}] has an invalid email.");
-                    }
-                    if (isset($seenIds[$convoLabId]) || isset($seenEmails[$email])) {
-                        throw new RuntimeException('Convo Lab users must have unique IDs and email addresses.');
-                    }
-
-                    $seenIds[$convoLabId] = true;
-                    $seenEmails[$email] = true;
-                    $normalizedUsers[] = [$sourceUser, $convoLabId, $email];
-                }
-
-                $learningOsOwnedIds = $target->table('admin_user_projections')
-                    ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
-                    ->whereIn('convolab_id', array_column($normalizedUsers, 1))
-                    ->pluck('convolab_id')
-                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
-                $learningOsOwnedAvatars = $target->table('admin_user_projections')
-                    ->where('avatar_source_system', ConvoLabAccountSource::LEARNING_OS)
-                    ->whereIn('convolab_id', array_column($normalizedUsers, 1))
-                    ->pluck('avatar_url', 'convolab_id')
-                    ->mapWithKeys(static fn (?string $url, string $id): array => [strtolower($id) => $url]);
-
-                foreach ($normalizedUsers as [$sourceUser, $convoLabId, $email]) {
-                    if ($learningOsOwnedIds->has($convoLabId)) {
-                        $sourceUserIds[] = $convoLabId;
-                        $count++;
-
-                        continue;
-                    }
-                    $targetById = $target->table('users')->where('convolab_id', $convoLabId)->first();
-                    $targetEmailMatches = $target->table('users')
-                        ->whereRaw('LOWER(email) = ?', [$email])
-                        ->limit(2)
-                        ->get();
-                    if ($targetEmailMatches->count() > 1) {
-                        throw new RuntimeException(
-                            "Convo Lab user [{$convoLabId}] matches multiple canonical email accounts.",
-                        );
-                    }
-                    $targetByEmail = $targetEmailMatches->first();
-                    if ($targetById !== null && $targetByEmail !== null && $targetById->id !== $targetByEmail->id) {
-                        throw new RuntimeException(
-                            "Convo Lab user [{$convoLabId}] conflicts with an existing canonical email account.",
-                        );
-                    }
-
-                    $targetUser = $targetById ?? $targetByEmail;
-                    if (
-                        $targetUser !== null
-                        && $targetUser->convolab_id !== null
-                        && strtolower((string) $targetUser->convolab_id) !== $convoLabId
-                    ) {
-                        throw new RuntimeException(
-                            "Canonical user [{$targetUser->id}] already belongs to another Convo Lab account.",
-                        );
-                    }
-
-                    $projectionAttributes = [
-                        'user_id' => $targetUser?->id,
-                        'email' => trim((string) $sourceUser->email),
-                        'name' => $this->requiredString($sourceUser, 'name', 255, $sourceUser->email),
-                        'display_name' => $this->nullableString($sourceUser, 'displayName', 255),
-                        'avatar_color' => $this->nullableString($sourceUser, 'avatarColor', 32),
-                        'avatar_url' => $this->nullableString($sourceUser, 'avatarUrl'),
-                        'avatar_source_system' => ConvoLabAccountSource::CONVOLAB,
-                        'role' => $this->requiredString($sourceUser, 'role', 32, 'user'),
-                        'preferred_study_language' => $this->requiredString(
-                            $sourceUser,
-                            'preferredStudyLanguage',
-                            16,
-                            'ja',
-                        ),
-                        'preferred_native_language' => $this->requiredString(
-                            $sourceUser,
-                            'preferredNativeLanguage',
-                            16,
-                            'en',
-                        ),
-                        'proficiency_level' => $this->requiredString(
-                            $sourceUser,
-                            'proficiencyLevel',
-                            32,
-                            'beginner',
-                        ),
-                        'onboarding_completed' => (bool) $sourceUser->onboardingCompleted,
-                        'seen_sample_content_guide' => (bool) $sourceUser->seenSampleContentGuide,
-                        'seen_custom_content_guide' => (bool) $sourceUser->seenCustomContentGuide,
-                        'email_verified' => (bool) $sourceUser->emailVerified,
-                        'email_verified_at' => $sourceUser->emailVerifiedAt,
-                        'created_at' => $sourceUser->createdAt,
-                        'updated_at' => $sourceUser->updatedAt,
-                        'source_system' => ConvoLabAccountSource::CONVOLAB,
-                    ];
-                    if ($learningOsOwnedAvatars->has($convoLabId)) {
-                        $projectionAttributes['avatar_url'] = $learningOsOwnedAvatars->get($convoLabId);
-                        $projectionAttributes['avatar_source_system'] = ConvoLabAccountSource::LEARNING_OS;
-                    }
-
-                    $passwordHash = $this->nullableString($sourceUser, 'password', 255);
-                    if ($passwordHash !== null && ! $this->isSupportedPasswordHash($passwordHash)) {
-                        throw new RuntimeException("Convo Lab user [{$convoLabId}] has an unsupported password hash.");
-                    }
-
-                    if ($targetUser === null) {
-                        $targetUserId = $target->table('users')->insertGetId([
-                            'convolab_id' => $convoLabId,
-                            'name' => $projectionAttributes['name'],
-                            'email' => $projectionAttributes['email'],
-                            'email_verified_at' => $sourceUser->emailVerifiedAt,
-                            'password' => Hash::make(Str::random(64)),
-                            'convolab_email_normalized' => $email,
-                            'convolab_password_hash' => $passwordHash,
-                            'remember_token' => null,
-                            'created_at' => $sourceUser->createdAt,
-                            'updated_at' => $sourceUser->updatedAt,
-                        ]);
-                    } else {
-                        $targetUserId = $targetUser->id;
-                        $target->table('users')->where('id', $targetUserId)->update([
-                            'convolab_id' => $convoLabId,
-                            'convolab_email_normalized' => $email,
-                            'convolab_password_hash' => $passwordHash,
-                        ]);
-                    }
-
-                    $projectionAttributes['user_id'] = $targetUserId;
-                    $target->table('admin_user_projections')->updateOrInsert(
-                        ['convolab_id' => $convoLabId],
-                        $projectionAttributes,
-                    );
-
-                    $sourceUserIds[] = $convoLabId;
-                    $count++;
-                }
-            }, 'id');
-
-        return [$count, $sourceUserIds];
     }
 
     private function syncInviteCodes(ConnectionInterface $source, ConnectionInterface $target): int
@@ -442,18 +281,6 @@ class SyncConvoLabAdminProjectionAction
         return $count;
     }
 
-    private function requiredString(stdClass $row, string $property, int $maxLength, string $fallback): string
-    {
-        $value = trim((string) ($row->{$property} ?? ''));
-        $value = $value === '' ? $fallback : $value;
-
-        if (mb_strlen($value) > $maxLength) {
-            throw new RuntimeException("Convo Lab source field [{$property}] exceeds {$maxLength} characters.");
-        }
-
-        return $value;
-    }
-
     private function sourceRequiredString(stdClass $row, string $property, int $maxLength): string
     {
         $value = $this->nullableString($row, $property, $maxLength);
@@ -479,16 +306,5 @@ class SyncConvoLabAdminProjectionAction
         }
 
         return $value;
-    }
-
-    private function isSupportedPasswordHash(string $passwordHash): bool
-    {
-        if (! preg_match('/^\$2[aby]\$(\d{2})\$[.\/A-Za-z0-9]{53}$/', $passwordHash, $matches)) {
-            return false;
-        }
-
-        $cost = (int) $matches[1];
-
-        return $cost >= 4 && $cost <= 31;
     }
 }

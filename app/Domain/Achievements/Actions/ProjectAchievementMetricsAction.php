@@ -50,23 +50,9 @@ final class ProjectAchievementMetricsAction
         $counts = ['reviews' => 0, 'cards' => 0, 'studySessions' => 0];
 
         $projection = DB::transaction(function () use ($userId, &$mode, &$counts): AchievementProgressProjection {
-            $projection = AchievementProgressProjection::query()
-                ->whereKey($userId)
-                ->lockForUpdate()
-                ->first();
-            if ($projection === null) {
-                // The user row only serializes first-time projection creation. Existing
-                // progress reads contend on the purpose-built projection row instead.
-                User::query()->select('id')->whereKey($userId)->lockForUpdate()->firstOrFail();
-                $projection = AchievementProgressProjection::query()
-                    ->whereKey($userId)
-                    ->lockForUpdate()
-                    ->first();
-            }
+            $projection = $this->lockProjection($userId);
 
-            if ($projection === null
-                || $projection->projection_version !== self::PROJECTION_VERSION
-                || $projection->needs_rebuild) {
+            if ($this->requiresRebuild($projection)) {
                 $mode = $projection === null ? 'bootstrap' : 'rebuild';
 
                 return $this->rebuild($userId, $projection, $counts);
@@ -76,8 +62,13 @@ final class ProjectAchievementMetricsAction
                 ->orderBy('card_review_events.reviewed_at')
                 ->orderBy('card_review_events.id')
                 ->get();
-            if ($this->hasOutOfOrderReview($projection, $newReviewEvents)
-                || $this->hasOutOfOrderStudySession($userId, $projection)) {
+            if ($this->hasOutOfOrderReview($projection, $newReviewEvents)) {
+                $mode = 'rebuild';
+
+                return $this->rebuild($userId, $projection, $counts);
+            }
+
+            if ($this->hasOutOfOrderStudySession($userId, $projection)) {
                 $mode = 'rebuild';
 
                 return $this->rebuild($userId, $projection, $counts);
@@ -105,6 +96,40 @@ final class ProjectAchievementMetricsAction
             metricValues: $this->integerMetrics($projection->metric_values),
             thresholdReachedAt: $this->thresholdDates($projection->threshold_reached_at),
         );
+    }
+
+    private function lockProjection(int $userId): ?AchievementProgressProjection
+    {
+        $projection = AchievementProgressProjection::query()
+            ->whereKey($userId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($projection !== null) {
+            return $projection;
+        }
+
+        // The user row only serializes first-time projection creation. Existing
+        // progress reads contend on the purpose-built projection row instead.
+        User::query()->select('id')->whereKey($userId)->lockForUpdate()->firstOrFail();
+
+        return AchievementProgressProjection::query()
+            ->whereKey($userId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function requiresRebuild(?AchievementProgressProjection $projection): bool
+    {
+        if ($projection === null) {
+            return true;
+        }
+
+        if ($projection->projection_version !== self::PROJECTION_VERSION) {
+            return true;
+        }
+
+        return $projection->needs_rebuild;
     }
 
     /** @param array{reviews:int,cards:int,studySessions:int} $counts */

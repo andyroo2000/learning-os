@@ -6,21 +6,12 @@ use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use Illuminate\Filesystem\FilesystemAdapter;
 use RuntimeException;
 use Throwable;
-use ZipArchive;
 
 final class StudyImportArchiveReader
 {
-    private const COLLECTION_DATABASE_ENTRIES = [
-        'collection.anki21b',
-        'collection.anki21',
-        'collection.anki2',
-    ];
-
-    private const ZSTD_MAGIC = "\x28\xb5\x2f\xfd";
-
     public function __construct(
         private readonly StudyImportCollectionDatabaseReader $collectionReader,
-        private readonly StudyImportArchiveExpansionPolicy $expansionPolicy,
+        private readonly StudyImportCollectionExtractor $collectionExtractor,
         private readonly StudyImportArchiveMediaReader $mediaReader,
         private readonly StudyImportArchiveAccess $archiveAccess,
     ) {}
@@ -50,7 +41,7 @@ final class StudyImportArchiveReader
 
         try {
             $zip = $this->archiveAccess->open($snapshot->path());
-            $collectionPath = $this->extractCollectionDatabase($zip);
+            $collectionPath = $this->collectionExtractor->extract($zip);
             $collection = $this->collectionReader->read($collectionPath);
 
             return new StudyImportArchiveRead(
@@ -128,110 +119,6 @@ final class StudyImportArchiveReader
 
             if (! $copyCompleted && $tempPath !== null) {
                 @unlink($tempPath);
-            }
-        }
-    }
-
-    private function extractCollectionDatabase(ZipArchive $zip): string
-    {
-        foreach (self::COLLECTION_DATABASE_ENTRIES as $entryName) {
-            $index = $zip->locateName($entryName);
-
-            if ($index === false) {
-                continue;
-            }
-
-            $declaredSize = $this->archiveAccess->declaredEntrySize($zip, $index);
-
-            if ($declaredSize === null) {
-                throw StudyImportPreviewException::invalidCollectionDatabase();
-            }
-
-            $maxBytes = $this->expansionPolicy->maxCollectionDatabaseBytes();
-
-            if ($declaredSize > $maxBytes) {
-                throw StudyImportPreviewException::collectionDatabaseTooLarge($maxBytes);
-            }
-
-            $stream = $zip->getStream($entryName);
-
-            if ($stream === false) {
-                throw StudyImportPreviewException::invalidCollectionDatabase();
-            }
-
-            try {
-                return $this->copyCollectionStreamToTempFile($stream, $declaredSize);
-            } finally {
-                fclose($stream);
-            }
-        }
-
-        throw StudyImportPreviewException::missingCollectionDatabase();
-    }
-
-    /**
-     * @param  resource  $stream
-     */
-    private function copyCollectionStreamToTempFile($stream, int $declaredSize): string
-    {
-        $collectionPath = null;
-        $output = null;
-        $copyCompleted = false;
-
-        try {
-            $collectionPath = $this->tempPath('study-import-collection-');
-            $output = fopen($collectionPath, 'wb');
-
-            if ($output === false) {
-                throw new RuntimeException('Unable to create a temporary collection database file.');
-            }
-
-            $header = fread($stream, 4);
-
-            if ($header === false) {
-                throw StudyImportPreviewException::invalidCollectionDatabase();
-            }
-
-            if ($header === self::ZSTD_MAGIC) {
-                throw StudyImportPreviewException::unsupportedCompressedCollectionDatabase();
-            }
-
-            $headerBytes = strlen($header);
-
-            if ($header !== '' && @fwrite($output, $header) !== $headerBytes) {
-                throw new RuntimeException('Unable to copy the collection database to temporary storage.');
-            }
-
-            $remainingByteLimit = max(1, $declaredSize - $headerBytes + 1);
-            $copiedBytes = @stream_copy_to_stream($stream, $output, $remainingByteLimit);
-
-            if ($copiedBytes === false || ! fflush($output)) {
-                throw new RuntimeException('Unable to copy the collection database to temporary storage.');
-            }
-
-            if ($headerBytes + $copiedBytes !== $declaredSize) {
-                throw StudyImportPreviewException::invalidCollectionDatabase();
-            }
-
-            $copyCompleted = true;
-
-            return $collectionPath;
-        } catch (Throwable $exception) {
-            if ($exception instanceof StudyImportPreviewException || $exception instanceof RuntimeException) {
-                throw $exception;
-            }
-
-            throw new RuntimeException(
-                'Unable to copy the collection database to temporary storage.',
-                previous: $exception,
-            );
-        } finally {
-            if (is_resource($output)) {
-                @fclose($output);
-            }
-
-            if (! $copyCompleted && $collectionPath !== null) {
-                @unlink($collectionPath);
             }
         }
     }

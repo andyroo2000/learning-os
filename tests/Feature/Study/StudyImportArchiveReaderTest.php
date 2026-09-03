@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Support\StudyImportArchiveReader;
+use App\Domain\Study\Support\StudyImportCollectionExtractor;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
@@ -143,11 +144,11 @@ class StudyImportArchiveReaderTest extends TestCase
     {
         $input = fopen(sys_get_temp_dir(), 'rb');
         $tempPathsBefore = $this->studyImportTempPaths('study-import-collection-');
-        $method = new ReflectionMethod(StudyImportArchiveReader::class, 'copyCollectionStreamToTempFile');
+        $method = new ReflectionMethod(StudyImportCollectionExtractor::class, 'copyCollectionStreamToTempFile');
         $caught = null;
 
         try {
-            $method->invoke(app(StudyImportArchiveReader::class), $input, 1);
+            $method->invoke(app(StudyImportCollectionExtractor::class), $input, 1);
 
             $this->fail('Expected copying the unreadable collection stream to fail.');
         } catch (Throwable $exception) {

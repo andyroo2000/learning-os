@@ -7,11 +7,10 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\StudyCardDraftCreationIdentity;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
-use Carbon\CarbonImmutable;
 use Closure;
-use DateTimeInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -166,45 +165,10 @@ class CreateStudyCardDraftAction
         StudyCardDraft $draft,
         CreateStudyCardDraftData $data,
     ): StudyCardDraft {
-        if (
-            $draft->user_id !== $data->userId
-            || $draft->creation_kind !== $data->creationKind
-            || $draft->card_type !== $data->cardType
-            || $this->canonicalJsonValue($draft->prompt_json) !== $this->canonicalJsonValue($data->promptJson)
-            || $this->canonicalJsonValue($draft->answer_json) !== $this->canonicalJsonValue($data->answerJson)
-            || $draft->image_placement !== $data->imagePlacement
-            || $draft->image_prompt !== $data->imagePrompt
-            || $draft->variant_group_id !== $data->variantGroupId
-            || $draft->variant_sentence_id !== $data->variantSentenceId
-            || $draft->variant_kind !== $data->variantKind?->value
-            || $draft->variant_stage !== $data->variantStage
-            || $draft->variant_status !== $data->variantStatus?->value
-            || $draft->variant_unlocked_at?->toJSON() !== $this->timestampJson($data->variantUnlockedAt)
-        ) {
+        if (! StudyCardDraftCreationIdentity::matches($draft, $data)) {
             throw StudyCardDraftConflictException::idMismatch($draft);
         }
 
         return $draft;
-    }
-
-    private function canonicalJsonValue(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (! array_is_list($value)) {
-            ksort($value);
-        }
-
-        return array_map(
-            fn ($item) => is_array($item) ? $this->canonicalJsonValue($item) : $item,
-            $value,
-        );
-    }
-
-    private function timestampJson(?DateTimeInterface $value): ?string
-    {
-        return $value === null ? null : CarbonImmutable::instance($value)->toJSON();
     }
 }

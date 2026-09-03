@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Support\Content\ConvoLabContentTables;
 use App\Support\Identifiers\CanonicalUlid;
+use App\Support\Rehearsal\ConvoLabCardMediaImporter;
 use App\Support\Rehearsal\ConvoLabReviewImporter;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
@@ -174,7 +175,13 @@ class ImportConvoLabRehearsalData extends Command
                 $this->importCards($source, $target);
 
                 if (! $this->option('skip-media')) {
-                    $this->importCardMedia($source, $target);
+                    $cardMediaCount = (new ConvoLabCardMediaImporter(
+                        $this->cardIds,
+                        $this->mediaIds,
+                        $this->mediaUserIds,
+                        $this->userIds,
+                    ))->import($source, $target);
+                    $this->line("Imported {$cardMediaCount} card media links.");
                 }
 
                 $reviewCount = (new ConvoLabReviewImporter($this->cardIds, $this->importJobIds))
@@ -688,53 +695,6 @@ class ImportConvoLabRehearsalData extends Command
             });
 
         $this->line("Imported {$count} cards.");
-    }
-
-    private function importCardMedia(ConnectionInterface $source, ConnectionInterface $target): void
-    {
-        $count = 0;
-
-        $source->table('study_cards')
-            ->select('id', 'userId', 'promptAudioMediaId', 'answerAudioMediaId', 'imageMediaId', 'createdAt', 'updatedAt')
-            ->orderBy('id')
-            ->chunk(500, function ($cards) use ($target, &$count): void {
-                $rows = [];
-
-                foreach ($cards as $card) {
-                    foreach ([$card->promptAudioMediaId, $card->answerAudioMediaId, $card->imageMediaId] as $sourceMediaId) {
-                        if ($sourceMediaId === null || $sourceMediaId === '') {
-                            continue;
-                        }
-
-                        if (! is_string($sourceMediaId) || ! isset($this->mediaIds[$sourceMediaId])) {
-                            throw new \RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
-                        }
-
-                        $cardUserId = $this->mappedUserId($card->userId);
-
-                        if (($this->mediaUserIds[$sourceMediaId] ?? null) !== $cardUserId) {
-                            throw new \RuntimeException(
-                                "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
-                            );
-                        }
-
-                        $rows[$this->cardIds[$card->id].':'.$this->mediaIds[$sourceMediaId]] = [
-                            'card_id' => $this->cardIds[$card->id],
-                            'media_asset_id' => $this->mediaIds[$sourceMediaId],
-                            'created_at' => $card->createdAt,
-                            'updated_at' => $card->updatedAt,
-                        ];
-                    }
-                }
-
-                if ($rows !== []) {
-                    $target->table('card_media')->insert(array_values($rows));
-                }
-
-                $count += count($rows);
-            });
-
-        $this->line("Imported {$count} card media links.");
     }
 
     private function mappedUserId(string $sourceUserId): int

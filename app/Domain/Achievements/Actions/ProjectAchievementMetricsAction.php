@@ -6,6 +6,7 @@ use App\Domain\Achievements\Models\AchievementCardProjection;
 use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Models\AchievementStudySessionProjection;
 use App\Domain\Achievements\Results\AchievementMetricProjectionResult;
+use App\Domain\Achievements\Support\AchievementCardProjectionUpdater;
 use App\Domain\Achievements\Support\AchievementThresholdCrossingTracker;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
@@ -31,6 +32,7 @@ final class ProjectAchievementMetricsAction
 
     public function __construct(
         private readonly CalculateAchievementMetricsAction $calculateMetrics,
+        private readonly AchievementCardProjectionUpdater $cardProjectionUpdater,
         private readonly AchievementThresholdCrossingTracker $thresholdCrossings,
     ) {}
 
@@ -188,7 +190,7 @@ final class ProjectAchievementMetricsAction
             $fact = $cardFacts[$cardId] ?? ['maximumStability' => 0.0, 'lastReviewedAt' => null];
             $fact['maximumStability'] = max(
                 $fact['maximumStability'],
-                $this->stability($event->scheduler_state_after),
+                $this->cardProjectionUpdater->schedulerStability($event->scheduler_state_after),
             );
             $fact['lastReviewedAt'] = $reviewedAt;
             $cardFacts[$cardId] = $fact;
@@ -206,7 +208,10 @@ final class ProjectAchievementMetricsAction
             $counts['cards']++;
             $cardId = (string) $card->id;
             $fact = $cardFacts[$cardId] ?? ['maximumStability' => 0.0, 'lastReviewedAt' => null];
-            $fact['maximumStability'] = max($fact['maximumStability'], $this->stability($card->scheduler_state));
+            $fact['maximumStability'] = max(
+                $fact['maximumStability'],
+                $this->cardProjectionUpdater->schedulerStability($card->scheduler_state),
+            );
             $fact['sourceUpdatedAt'] = CarbonImmutable::instance($card->updated_at);
             $cardFacts[$cardId] = $fact;
         }
@@ -425,20 +430,15 @@ final class ProjectAchievementMetricsAction
 
             $cardProjection = $cardProjections->get($cardId);
             $previousReviewAt = $cardProjection?->last_reviewed_at;
-            if ($event->rating !== CardReviewRating::Again
-                && $previousReviewAt instanceof CarbonInterface
-                && $previousReviewAt->lte($reviewedAt->subMonthsNoOverflow(6))) {
+            if ($this->isOldFriendReview($event, $previousReviewAt, $reviewedAt)) {
                 $metrics[GetAchievementProgressAction::OLD_FRIEND_METRIC] = 1;
             }
 
-            $cardProjections->put($cardId, $this->updateCardProjection(
+            $cardProjections->put($cardId, $this->cardProjectionUpdater->updateFromReview(
+                $cardProjection,
                 $userId,
-                $cardId,
-                $this->stability($event->scheduler_state_after),
-                $reviewedAt,
+                $event,
                 $metrics,
-                CarbonImmutable::parse($event->getAttribute('card_source_updated_at')),
-                fact: $cardProjection,
             ));
             $thresholdDates = $this->thresholdCrossings->recordAll(
                 $before,
@@ -461,6 +461,22 @@ final class ProjectAchievementMetricsAction
             $projection->threshold_reached_at = $thresholdDates;
             $this->persistCardProjections($cardProjections);
         }
+    }
+
+    private function isOldFriendReview(
+        CardReviewEvent $event,
+        mixed $previousReviewAt,
+        CarbonImmutable $reviewedAt,
+    ): bool {
+        if ($event->rating === CardReviewRating::Again) {
+            return false;
+        }
+
+        if (! $previousReviewAt instanceof CarbonInterface) {
+            return false;
+        }
+
+        return $previousReviewAt->lte($reviewedAt->subMonthsNoOverflow(6));
     }
 
     /** @param array{reviews:int,cards:int,studySessions:int} $counts */
@@ -507,14 +523,11 @@ final class ProjectAchievementMetricsAction
             $before = $metrics;
             $cardId = (string) $card->id;
             $crossedAt = CarbonImmutable::instance($card->last_reviewed_at ?? $card->created_at);
-            $cardProjections->put($cardId, $this->updateCardProjection(
-                $userId,
-                $cardId,
-                $this->stability($card->scheduler_state),
-                null,
-                $metrics,
-                CarbonImmutable::instance($card->updated_at),
+            $cardProjections->put($cardId, $this->cardProjectionUpdater->updateFromCard(
                 $cardProjections->get($cardId),
+                $userId,
+                $card,
+                $metrics,
             ));
             $thresholdDates = $this->thresholdCrossings->recordAll(
                 $before,
@@ -679,38 +692,6 @@ final class ProjectAchievementMetricsAction
         );
     }
 
-    /** @param array<string, int> $metrics */
-    private function updateCardProjection(
-        int $userId,
-        string $cardId,
-        float $stability,
-        ?CarbonImmutable $reviewedAt,
-        array &$metrics,
-        ?CarbonImmutable $sourceUpdatedAt = null,
-        ?AchievementCardProjection $fact = null,
-    ): AchievementCardProjection {
-        $previousMaximum = $fact?->maximum_stability ?? 0.0;
-        $maximum = max($previousMaximum, $stability);
-        if ($maximum > $previousMaximum) {
-            foreach ($this->thresholdCrossings->masteryThresholds() as $metricKey => $minimumStability) {
-                if ($previousMaximum < $minimumStability && $maximum >= $minimumStability) {
-                    $metrics[$metricKey]++;
-                }
-            }
-        }
-
-        $fact ??= new AchievementCardProjection;
-        $fact->card_id = $cardId;
-        $fact->user_id = $userId;
-        $fact->maximum_stability = $maximum;
-        $fact->last_reviewed_at = $reviewedAt ?? $fact->last_reviewed_at;
-        $fact->source_updated_at = $sourceUpdatedAt ?? $fact->source_updated_at;
-        $fact->created_at = $fact->created_at ?? now();
-        $fact->updated_at = now();
-
-        return $fact;
-    }
-
     /** @param Collection<int|string, AchievementCardProjection> $facts */
     private function persistCardProjections(Collection $facts): void
     {
@@ -861,14 +842,6 @@ final class ProjectAchievementMetricsAction
             'repeatDays' => $repeatDays,
             'repeatReachedAt' => $repeatReachedAt,
         ];
-    }
-
-    /** @param array<string, mixed>|null $schedulerState */
-    private function stability(?array $schedulerState): float
-    {
-        $stability = $schedulerState['stability'] ?? 0;
-
-        return is_int($stability) || is_float($stability) ? (float) $stability : 0.0;
     }
 
     /** @param mixed $metrics @return array<string, int> */

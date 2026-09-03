@@ -110,54 +110,7 @@ class ImportConvoLabDailyAudio extends Command
 
             $createdPaths = $this->copyMissingFiles();
 
-            $target->transaction(function () use ($target): void {
-                $this->assertTargetMatches($target, lockForUpdate: true);
-
-                foreach ($this->practices as $practice) {
-                    $updated = $target->table('daily_audio_practices')
-                        ->where('id', $practice['id'])
-                        ->update([
-                            'created_at' => $practice['created_at'],
-                            'updated_at' => $practice['updated_at'],
-                        ]);
-
-                    if ($updated !== 1) {
-                        throw new RuntimeException(
-                            "Learning OS Daily Audio practice [{$practice['id']}] changed during import.",
-                        );
-                    }
-                }
-
-                foreach ($this->trackTimestamps as $track) {
-                    $updated = $target->table('daily_audio_practice_tracks')
-                        ->where('id', $track['id'])
-                        ->where('practice_id', $track['practice_id'])
-                        ->update([
-                            'created_at' => $track['created_at'],
-                            'updated_at' => $track['updated_at'],
-                        ]);
-
-                    if ($updated !== 1) {
-                        throw new RuntimeException(
-                            "Learning OS Daily Audio track [{$track['id']}] changed during import.",
-                        );
-                    }
-                }
-
-                foreach ($this->tracks as $track) {
-                    $updated = $target->table('daily_audio_practice_tracks')
-                        ->where('id', $track['id'])
-                        ->where('practice_id', $track['practice_id'])
-                        ->where('status', 'ready')
-                        ->update(['audio_url' => $track['audio_url']]);
-
-                    if ($updated !== 1) {
-                        throw new RuntimeException(
-                            "Learning OS Daily Audio track [{$track['id']}] changed during import.",
-                        );
-                    }
-                }
-            });
+            $this->updateTarget($target);
             $databaseCommitted = true;
 
             $this->info(sprintf(
@@ -211,6 +164,52 @@ class ImportConvoLabDailyAudio extends Command
             : static fn (Builder $query): Builder => $query;
 
         $this->targetValidator($target)->assertMatches($prepareQuery);
+    }
+
+    private function updateTarget(ConnectionInterface $target): void
+    {
+        $target->transaction(function () use ($target): void {
+            $this->assertTargetMatches($target, lockForUpdate: true);
+
+            foreach ($this->practices as $practice) {
+                throw_unless(
+                    $target->table('daily_audio_practices')
+                        ->where('id', $practice['id'])
+                        ->update([
+                            'created_at' => $practice['created_at'],
+                            'updated_at' => $practice['updated_at'],
+                        ]) === 1,
+                    RuntimeException::class,
+                    "Learning OS Daily Audio practice [{$practice['id']}] changed during import.",
+                );
+            }
+
+            foreach ($this->trackTimestamps as $track) {
+                throw_unless(
+                    $target->table('daily_audio_practice_tracks')
+                        ->where('id', $track['id'])
+                        ->where('practice_id', $track['practice_id'])
+                        ->update([
+                            'created_at' => $track['created_at'],
+                            'updated_at' => $track['updated_at'],
+                        ]) === 1,
+                    RuntimeException::class,
+                    "Learning OS Daily Audio track [{$track['id']}] changed during import.",
+                );
+            }
+
+            foreach ($this->tracks as $track) {
+                throw_unless(
+                    $target->table('daily_audio_practice_tracks')
+                        ->where('id', $track['id'])
+                        ->where('practice_id', $track['practice_id'])
+                        ->where('status', 'ready')
+                        ->update(['audio_url' => $track['audio_url']]) === 1,
+                    RuntimeException::class,
+                    "Learning OS Daily Audio track [{$track['id']}] changed during import.",
+                );
+            }
+        });
     }
 
     private function assertProductionConfirmed(ConnectionInterface $target): void

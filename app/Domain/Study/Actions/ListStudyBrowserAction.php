@@ -5,33 +5,21 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Flashcards\Support\CardSearchText;
 use App\Domain\Study\Queries\StudyBrowserQuery;
 use App\Domain\Study\Support\StudyBrowserCardAggregate;
 use App\Domain\Study\Support\StudyBrowserCardDisplay;
-use App\Domain\Study\Support\StudyListScopeFilter;
+use App\Domain\Study\Support\StudyBrowserListCriteria;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
 
 class ListStudyBrowserAction
 {
-    public const DEFAULT_LIMIT = 50;
+    public const DEFAULT_LIMIT = StudyBrowserListCriteria::DEFAULT_LIMIT;
 
-    public const MAX_LIMIT = 100;
+    public const MAX_LIMIT = StudyBrowserListCriteria::MAX_LIMIT;
 
-    public const ALLOWED_SORT_FIELDS = [
-        'created_on',
-        'updated_on',
-        'sort_field',
-        'note_type',
-        'card_count',
-        'review_count',
-    ];
+    public const ALLOWED_SORT_FIELDS = StudyBrowserListCriteria::ALLOWED_SORT_FIELDS;
 
-    public const ALLOWED_SORT_DIRECTIONS = [
-        'asc',
-        'desc',
-    ];
+    public const ALLOWED_SORT_DIRECTIONS = StudyBrowserListCriteria::ALLOWED_SORT_DIRECTIONS;
 
     public function __construct(private readonly StudyBrowserQuery $browserQuery) {}
 
@@ -57,51 +45,68 @@ class ListStudyBrowserAction
         ?string $courseId = null,
         ?string $deckId = null,
     ): array {
-        $q = $this->normalizeSearchQuery($q);
-        $noteType = $this->normalizeNoteTypeFilter($noteType);
-        $cardType = $cardType === null ? null : CardType::fromFilter($cardType);
-        $queueState = $queueState === null ? null : CardStudyStatus::fromFilter($queueState);
-        $sortField = $this->normalizeSortField($sortField);
-        $sortDirection = $this->normalizeSortDirection($sortDirection);
-        $limit = $this->normalizeLimit($limit);
-        $offset = $this->decodeOffsetCursor($cursor);
-        $courseId = StudyListScopeFilter::normalizeId($courseId, 'courseId', 'Study browser');
-        $deckId = StudyListScopeFilter::normalizeId($deckId, 'deckId', 'Study browser');
-        $effectiveSortField = $sortField ?? 'created_on';
-        $effectiveSortDirection = $sortDirection ?? 'desc';
+        $criteria = StudyBrowserListCriteria::fromInput([
+            'userId' => $userId,
+            'q' => $q,
+            'noteType' => $noteType,
+            'cardType' => $cardType,
+            'queueState' => $queueState,
+            'sortField' => $sortField,
+            'sortDirection' => $sortDirection,
+            'cursor' => $cursor,
+            'limit' => $limit,
+            'courseId' => $courseId,
+            'deckId' => $deckId,
+        ]);
 
-        if ($this->canPageWithSqlAggregate($effectiveSortField)) {
-            return $this->handleWithPagedGroups(
-                userId: $userId,
-                q: $q,
-                noteType: $noteType,
-                cardType: $cardType,
-                queueState: $queueState,
-                sortField: $effectiveSortField,
-                sortDirection: $effectiveSortDirection,
-                offset: $offset,
-                limit: $limit,
-                courseId: $courseId,
-                deckId: $deckId,
-            );
+        return $this->list($criteria);
+    }
+
+    /**
+     * @return array{
+     *     rows: list<array<string, mixed>>,
+     *     total: int,
+     *     limit: int,
+     *     nextCursor: string|null,
+     *     filterOptions: array{noteTypes: list<string>, cardTypes: list<string>, queueStates: list<string>}
+     * }
+     */
+    private function list(StudyBrowserListCriteria $criteria): array
+    {
+        if ($this->canPageWithSqlAggregate($criteria->sortField)) {
+            return $this->handleWithPagedGroups($criteria);
         }
 
+        return $this->handleWithLoadedCards($criteria);
+    }
+
+    /**
+     * @return array{
+     *     rows: list<array<string, mixed>>,
+     *     total: int,
+     *     limit: int,
+     *     nextCursor: string|null,
+     *     filterOptions: array{noteTypes: list<string>, cardTypes: list<string>, queueStates: list<string>}
+     * }
+     */
+    private function handleWithLoadedCards(StudyBrowserListCriteria $criteria): array
+    {
         // Text-like sorts depend on rendered display text from JSON payloads, so this compatibility path still materializes matching cards.
         $cards = $this->browserQuery->cards(
-            userId: $userId,
-            q: $q,
-            noteType: $noteType,
-            cardType: $cardType,
-            queueState: $queueState,
-            courseId: $courseId,
-            deckId: $deckId,
+            userId: $criteria->userId,
+            q: $criteria->q,
+            noteType: $criteria->noteType,
+            cardType: $criteria->cardType,
+            queueState: $criteria->queueState,
+            courseId: $criteria->courseId,
+            deckId: $criteria->deckId,
         );
 
         if ($cards->isEmpty()) {
             return [
                 'rows' => [],
                 'total' => 0,
-                'limit' => $limit,
+                'limit' => $criteria->limit,
                 'nextCursor' => null,
                 'filterOptions' => [
                     'noteTypes' => [],
@@ -113,19 +118,31 @@ class ListStudyBrowserAction
 
         $rows = $this->sortRows(
             $this->rowsFromCards($cards),
-            $effectiveSortField,
-            $effectiveSortDirection,
+            $criteria->sortField,
+            $criteria->sortDirection,
         );
-        $pageRows = array_slice($rows, $offset, $limit);
-        $nextOffset = $offset + count($pageRows);
-        $filterOptionRows = $this->canReuseLoadedCardsForFilterOptions($noteType, $cardType, $queueState)
+        $pageRows = array_slice($rows, $criteria->offset, $criteria->limit);
+        $nextOffset = $criteria->offset + count($pageRows);
+        $filterOptionRows = $this->canReuseLoadedCardsForFilterOptions(
+            $criteria->noteType,
+            $criteria->cardType,
+            $criteria->queueState,
+        )
             ? $this->filterOptionRowsFromCards($cards)
-            : $this->browserQuery->filterOptionRows($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
+            : $this->browserQuery->filterOptionRows(
+                $criteria->userId,
+                $criteria->q,
+                $criteria->noteType,
+                $criteria->cardType,
+                $criteria->queueState,
+                $criteria->courseId,
+                $criteria->deckId,
+            );
 
         return [
             'rows' => $pageRows,
             'total' => count($rows),
-            'limit' => $limit,
+            'limit' => $criteria->limit,
             'nextCursor' => $nextOffset < count($rows) ? $this->encodeOffsetCursor($nextOffset) : null,
             'filterOptions' => [
                 'noteTypes' => $this->filterNoteTypes($filterOptionRows),
@@ -149,40 +166,29 @@ class ListStudyBrowserAction
      *     filterOptions: array{noteTypes: list<string>, cardTypes: list<string>, queueStates: list<string>}
      * }
      */
-    private function handleWithPagedGroups(
-        int $userId,
-        ?string $q,
-        ?string $noteType,
-        ?CardType $cardType,
-        ?CardStudyStatus $queueState,
-        string $sortField,
-        string $sortDirection,
-        int $offset,
-        int $limit,
-        ?string $courseId,
-        ?string $deckId,
-    ): array {
+    private function handleWithPagedGroups(StudyBrowserListCriteria $criteria): array
+    {
         $groupRows = $this->browserQuery->groupPage(
-            userId: $userId,
-            q: $q,
-            noteType: $noteType,
-            cardType: $cardType,
-            queueState: $queueState,
-            courseId: $courseId,
-            deckId: $deckId,
-            sortField: $sortField,
-            sortDirection: $sortDirection,
-            offset: $offset,
-            limit: $limit,
+            userId: $criteria->userId,
+            q: $criteria->q,
+            noteType: $criteria->noteType,
+            cardType: $criteria->cardType,
+            queueState: $criteria->queueState,
+            courseId: $criteria->courseId,
+            deckId: $criteria->deckId,
+            sortField: $criteria->sortField,
+            sortDirection: $criteria->sortDirection,
+            offset: $criteria->offset,
+            limit: $criteria->limit,
         );
         $groupCount = $groupRows->count();
         $total = $this->totalFromGroupRows($groupRows);
 
-        if ($total === 0 && $offset === 0) {
+        if ($total === 0 && $criteria->offset === 0) {
             return [
                 'rows' => [],
                 'total' => 0,
-                'limit' => $limit,
+                'limit' => $criteria->limit,
                 'nextCursor' => null,
                 'filterOptions' => [
                     'noteTypes' => [],
@@ -195,38 +201,35 @@ class ListStudyBrowserAction
         if ($total === 0) {
             // Offset cursors can point beyond the final page; this rare path counts once so `total` stays stable.
             // The empty group collection below makes card hydration a no-op while facets still describe the result set.
-            $total = $this->browserQuery->groupCount($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
+            $total = $this->browserQuery->groupCount(
+                $criteria->userId,
+                $criteria->q,
+                $criteria->noteType,
+                $criteria->cardType,
+                $criteria->queueState,
+                $criteria->courseId,
+                $criteria->deckId,
+            );
         }
 
-        $cards = $this->browserQuery->cardsForGroups(
-            userId: $userId,
-            q: $q,
-            noteType: $noteType,
-            cardType: $cardType,
-            queueState: $queueState,
-            courseId: $courseId,
-            deckId: $deckId,
-            groupRows: $groupRows,
-        );
-        // rowsFromCards() and noteIdFromGroupRow() both string-cast IDs so numeric Anki note IDs
-        // and ULID fallback note IDs address the same map keys after database hydration.
-        $rowsByNoteId = collect($this->rowsFromCards($cards))->keyBy('noteId');
-        $pageRows = $groupRows
-            // A concurrent delete between the group query and card hydration can leave a group without cards.
-            // Cursor advancement still follows the original group page so clients do not replay skipped groups.
-            ->map(fn (object $group): ?array => $rowsByNoteId->get($this->noteIdFromGroupRow($group)))
-            ->filter()
-            ->values()
-            ->all();
-        $nextOffset = $offset + $groupCount;
+        $pageRows = $this->pageRowsForGroups($criteria, $groupRows);
+        $nextOffset = $criteria->offset + $groupCount;
         // Empty offset pages are terminal even if a concurrent insert lands before the fallback recount.
         $nextCursor = $groupCount > 0 && $nextOffset < $total ? $this->encodeOffsetCursor($nextOffset) : null;
-        $filterOptionRows = $this->browserQuery->filterOptionRows($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId);
+        $filterOptionRows = $this->browserQuery->filterOptionRows(
+            $criteria->userId,
+            $criteria->q,
+            $criteria->noteType,
+            $criteria->cardType,
+            $criteria->queueState,
+            $criteria->courseId,
+            $criteria->deckId,
+        );
 
         return [
             'rows' => $pageRows,
             'total' => $total,
-            'limit' => $limit,
+            'limit' => $criteria->limit,
             'nextCursor' => $nextCursor,
             'filterOptions' => [
                 'noteTypes' => $this->filterNoteTypes($filterOptionRows),
@@ -236,71 +239,33 @@ class ListStudyBrowserAction
         ];
     }
 
-    private function normalizeSearchQuery(?string $q): ?string
+    /**
+     * @param  Collection<int, object>  $groupRows
+     * @return list<array<string, mixed>>
+     */
+    private function pageRowsForGroups(StudyBrowserListCriteria $criteria, Collection $groupRows): array
     {
-        return CardSearchText::normalizeQuery($q);
-    }
+        $cards = $this->browserQuery->cardsForGroups(
+            userId: $criteria->userId,
+            q: $criteria->q,
+            noteType: $criteria->noteType,
+            cardType: $criteria->cardType,
+            queueState: $criteria->queueState,
+            courseId: $criteria->courseId,
+            deckId: $criteria->deckId,
+            groupRows: $groupRows,
+        );
+        // rowsFromCards() and noteIdFromGroupRow() both string-cast IDs so numeric Anki note IDs
+        // and ULID fallback note IDs address the same map keys after database hydration.
+        $rowsByNoteId = collect($this->rowsFromCards($cards))->keyBy('noteId');
 
-    private function normalizeNoteTypeFilter(?string $noteType): ?string
-    {
-        if ($noteType === null) {
-            return null;
-        }
-
-        $noteType = trim($noteType);
-
-        if ($noteType === '') {
-            throw new InvalidArgumentException('Study browser noteType filter must not be blank when provided.');
-        }
-
-        return $noteType;
-    }
-
-    private function normalizeSortField(?string $sortField): ?string
-    {
-        if ($sortField === null) {
-            return null;
-        }
-
-        $sortField = strtolower(trim($sortField));
-
-        if (! in_array($sortField, self::ALLOWED_SORT_FIELDS, true)) {
-            throw new InvalidArgumentException(
-                'Study browser sortField must be one of: '.implode(', ', self::ALLOWED_SORT_FIELDS).'.',
-            );
-        }
-
-        return $sortField;
-    }
-
-    private function normalizeSortDirection(?string $sortDirection): ?string
-    {
-        if ($sortDirection === null) {
-            return null;
-        }
-
-        $sortDirection = strtolower(trim($sortDirection));
-
-        if (! in_array($sortDirection, self::ALLOWED_SORT_DIRECTIONS, true)) {
-            throw new InvalidArgumentException(
-                'Study browser sortDirection must be one of: '.implode(', ', self::ALLOWED_SORT_DIRECTIONS).'.',
-            );
-        }
-
-        return $sortDirection;
-    }
-
-    private function normalizeLimit(?int $limit): int
-    {
-        if ($limit === null) {
-            return self::DEFAULT_LIMIT;
-        }
-
-        if ($limit < 1 || $limit > self::MAX_LIMIT) {
-            throw new InvalidArgumentException('limit must be an integer between 1 and '.self::MAX_LIMIT.'.');
-        }
-
-        return $limit;
+        return $groupRows
+            // A concurrent delete between the group query and card hydration can leave a group without cards.
+            // Cursor advancement still follows the original group page so clients do not replay skipped groups.
+            ->map(fn (object $group): ?array => $rowsByNoteId->get($this->noteIdFromGroupRow($group)))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function noteIdFromGroupRow(object $group): string
@@ -532,29 +497,11 @@ class ListStudyBrowserAction
         return rtrim(strtr(base64_encode(json_encode(['offset' => $offset], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
     }
 
-    private function decodeOffsetCursor(?string $cursor): int
-    {
-        if ($cursor === null) {
-            return 0;
-        }
-
-        $payload = self::decodeCursorPayload($cursor);
-
-        return $payload['offset'];
-    }
-
     /**
      * @return array{offset: int}
      */
     public static function decodeCursorPayload(string $cursor): array
     {
-        $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
-        $payload = is_string($decoded) ? json_decode($decoded, true) : null;
-
-        if (! is_array($payload) || ! isset($payload['offset']) || ! is_int($payload['offset']) || $payload['offset'] < 0) {
-            throw new InvalidArgumentException('Study browser cursor is invalid.');
-        }
-
-        return ['offset' => $payload['offset']];
+        return StudyBrowserListCriteria::decodeCursorPayload($cursor);
     }
 }

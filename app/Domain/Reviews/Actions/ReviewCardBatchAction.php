@@ -15,6 +15,7 @@ use App\Domain\Reviews\Support\CardReviewCardLock;
 use App\Domain\Reviews\Support\CardReviewChronology;
 use App\Domain\Reviews\Support\CardReviewEventIdentity;
 use App\Domain\Reviews\Support\CardReviewStateSnapshot;
+use App\Domain\Reviews\Support\ReviewCardBatchConflictValidator;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
@@ -30,7 +31,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use LogicException;
 use RuntimeException;
 
 class ReviewCardBatchAction
@@ -43,6 +43,7 @@ class ReviewCardBatchAction
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
         private readonly ?AdvanceCardProgressionAfterReviewAction $advanceCardProgression = null,
         private readonly ?NewCardQueuePosition $newCardQueuePosition = null,
+        private readonly ?ReviewCardBatchConflictValidator $conflictValidator = null,
     ) {}
 
     /**
@@ -70,7 +71,7 @@ class ReviewCardBatchAction
             $existingReviewEventsBySyncKey = $this->existingReviewEventsBySyncKeyWithOwnerContext($preparedItems);
             $existingReviewEventsById = $this->existingReviewEventsByProvidedId($preparedItems);
 
-            $this->assertExistingReviewEventsMatchRequest(
+            $this->conflictValidator()->assertMatches(
                 preparedItems: $preparedItems,
                 reviewEventsBySyncKey: $existingReviewEventsBySyncKey,
                 reviewEventsById: $existingReviewEventsById,
@@ -113,7 +114,7 @@ class ReviewCardBatchAction
                     // Under repeatable-read isolation they may still see the original snapshot; the
                     // partial-match guard above then surfaces the database error for a client retry.
                     // Keep the original card snapshot; it is the ownership context for this rolled-back write attempt.
-                    $this->assertExistingReviewEventsMatchRequest(
+                    $this->conflictValidator()->assertMatches(
                         preparedItems: $preparedItems,
                         reviewEventsBySyncKey: $reviewEventsBySyncKey,
                         reviewEventsById: $this->existingReviewEventsByProvidedId($preparedItems),
@@ -412,98 +413,6 @@ class ReviewCardBatchAction
     }
 
     /**
-     * @param  Collection<int, array{id: string, card_id: string, sync_key: string, client_supplied_id: bool}>  $preparedItems
-     * @param  Collection<string, CardReviewEvent>  $reviewEventsBySyncKey
-     * @param  Collection<string, CardReviewEvent>  $reviewEventsById
-     * @param  Collection<string, Card>  $cardsById
-     */
-    private function assertExistingReviewEventsMatchRequest(
-        Collection $preparedItems,
-        Collection $reviewEventsBySyncKey,
-        Collection $reviewEventsById,
-        Collection $cardsById,
-    ): void {
-        $itemsBySyncKey = $preparedItems->groupBy('sync_key');
-
-        foreach ($itemsBySyncKey as $syncKey => $items) {
-            $item = $items->firstWhere('client_supplied_id', true) ?? $items->first();
-            $card = $cardsById->get($item['card_id'])
-                ?? throw new RuntimeException('Card missing while validating review event conflicts.');
-            $identity = $item['identity'];
-
-            foreach ($items as $duplicateItem) {
-                if (! $identity->matchesRequest($duplicateItem['identity'])) {
-                    throw CardReviewEventConflictException::conflict($card->ownerUserId());
-                }
-            }
-
-            $existingBySyncKey = $reviewEventsBySyncKey->get($syncKey);
-
-            if ($existingBySyncKey !== null) {
-                $this->assertReviewEventBelongsToCardOwner($existingBySyncKey, $card);
-
-                if (! $identity->matchesReviewEvent($existingBySyncKey)) {
-                    throw CardReviewEventConflictException::conflict($this->ownerIdFor($existingBySyncKey));
-                }
-            }
-        }
-
-        $providedItemGroupsById = $preparedItems
-            ->filter(fn (array $item): bool => $item['client_supplied_id'])
-            ->groupBy('id');
-
-        foreach ($providedItemGroupsById as $providedItems) {
-            $item = $providedItems->first();
-            $identity = $item['identity'];
-            $card = $cardsById->get($item['card_id'])
-                ?? throw new RuntimeException('Card missing while validating review event conflicts.');
-
-            foreach ($providedItems as $duplicateItem) {
-                if (! $identity->matchesRequest($duplicateItem['identity'])) {
-                    throw CardReviewEventConflictException::conflict($card->ownerUserId());
-                }
-            }
-
-            $existingById = $reviewEventsById->get($item['id']);
-
-            if ($existingById === null) {
-                continue;
-            }
-
-            $this->assertReviewEventBelongsToCardOwner($existingById, $card);
-
-            if (! $item['identity']->matchesReviewEvent($existingById)) {
-                throw CardReviewEventConflictException::conflict($this->ownerIdFor($existingById));
-            }
-        }
-    }
-
-    private function assertReviewEventBelongsToCardOwner(CardReviewEvent $reviewEvent, Card $card): void
-    {
-        $conflictingUserId = $this->ownerIdFor($reviewEvent);
-
-        if ($conflictingUserId !== $card->ownerUserId()) {
-            throw CardReviewEventConflictException::conflict($conflictingUserId);
-        }
-    }
-
-    private function ownerIdFor(CardReviewEvent $reviewEvent): int
-    {
-        if (! $reviewEvent->relationLoaded('card')) {
-            throw new LogicException('Review event card relation must be eager-loaded for conflict resolution.');
-        }
-
-        $card = $reviewEvent->card;
-
-        if ($card === null) {
-            // Soft-deleted cards are loaded with withTrashed(); null here means broken historical data.
-            throw new LogicException('Review event card owner could not be resolved.');
-        }
-
-        return $card->ownerUserId();
-    }
-
-    /**
      * @param  array{
      *     id: string,
      *     card_id: string,
@@ -681,6 +590,11 @@ class ReviewCardBatchAction
         if ($metadataWasAddedWhileWaiting) {
             throw CardReviewEventConflictException::retryableConflict();
         }
+    }
+
+    private function conflictValidator(): ReviewCardBatchConflictValidator
+    {
+        return $this->conflictValidator ?? new ReviewCardBatchConflictValidator;
     }
 
     private function advanceCardProgression(): AdvanceCardProgressionAfterReviewAction

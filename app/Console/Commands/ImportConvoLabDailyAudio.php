@@ -14,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -593,31 +594,7 @@ class ImportConvoLabDailyAudio extends Command
 
         try {
             foreach ($this->tracks as $track) {
-                $path = $track['destination_path'];
-
-                if ($disk->exists($path)) {
-                    continue;
-                }
-
-                $stream = fopen($track['source_path'], 'rb');
-
-                if ($stream === false) {
-                    throw new RuntimeException("Unable to open source Daily Audio media [{$path}].");
-                }
-
-                $created[] = $path;
-
-                try {
-                    if (! $disk->put($path, $stream)) {
-                        throw new RuntimeException("Unable to write Learning OS Daily Audio media [{$path}].");
-                    }
-                } finally {
-                    if (is_resource($stream)) {
-                        fclose($stream);
-                    }
-                }
-
-                $this->assertDestinationFileMatches($track);
+                $this->copyMissingFile($disk, $track, $created);
             }
         } catch (Throwable $e) {
             foreach ($created as $path) {
@@ -628,5 +605,41 @@ class ImportConvoLabDailyAudio extends Command
         }
 
         return $created;
+    }
+
+    /**
+     * @param  array{source_path: string, destination_path: string, size_bytes: int, checksum_sha256: string}  $track
+     * @param  list<string>  $created
+     */
+    private function copyMissingFile(
+        FilesystemAdapter $disk,
+        array $track,
+        array &$created,
+    ): void {
+        $path = $track['destination_path'];
+
+        if ($disk->exists($path)) {
+            return;
+        }
+
+        $stream = fopen($track['source_path'], 'rb');
+
+        if ($stream === false) {
+            throw new RuntimeException("Unable to open source Daily Audio media [{$path}].");
+        }
+
+        $created[] = $path;
+
+        try {
+            if (! $disk->put($path, $stream)) {
+                throw new RuntimeException("Unable to write Learning OS Daily Audio media [{$path}].");
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        $this->assertDestinationFileMatches($track);
     }
 }

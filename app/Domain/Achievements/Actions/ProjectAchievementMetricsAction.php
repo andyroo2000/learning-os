@@ -7,12 +7,11 @@ use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Models\AchievementStudySessionProjection;
 use App\Domain\Achievements\Results\AchievementMetricProjectionResult;
 use App\Domain\Achievements\Support\AchievementCardProjectionUpdater;
+use App\Domain\Achievements\Support\AchievementStudyMetricFacts;
 use App\Domain\Achievements\Support\AchievementThresholdCrossingTracker;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
-use App\Domain\Study\Enums\StudyActivityCategory;
-use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -33,6 +32,7 @@ final class ProjectAchievementMetricsAction
     public function __construct(
         private readonly CalculateAchievementMetricsAction $calculateMetrics,
         private readonly AchievementCardProjectionUpdater $cardProjectionUpdater,
+        private readonly AchievementStudyMetricFacts $studyMetricFacts,
         private readonly AchievementThresholdCrossingTracker $thresholdCrossings,
     ) {}
 
@@ -279,7 +279,7 @@ final class ProjectAchievementMetricsAction
 
         foreach (StudyActivitySession::query()->where('user_id', $userId)->orderBy('id')->cursor() as $session) {
             $counts['studySessions']++;
-            $fact = $this->studyFact($session);
+            $fact = $this->studyMetricFacts->forSession($session);
             $conversationMs += $fact['conversation_ms'];
             $listeningMs += $fact['listening_ms'];
             $endedAt = CarbonImmutable::instance($session->ended_at);
@@ -385,7 +385,7 @@ final class ProjectAchievementMetricsAction
             ->get();
 
         return $changedSessions->contains(function (StudyActivitySession $session): bool {
-            $fact = $this->studyFact($session);
+            $fact = $this->studyMetricFacts->forSession($session);
 
             return $fact['study_day'] !== (string) $session->getAttribute('projected_study_day')
                 || ! $fact['ended_at']->equalTo(
@@ -570,7 +570,7 @@ final class ProjectAchievementMetricsAction
             $counts['studySessions']++;
             $before = $metrics;
             $existing = $existingProjections->get((string) $session->id);
-            $fact = $this->studyFact($session);
+            $fact = $this->studyMetricFacts->forSession($session);
             $projection->conversation_ms = max(
                 0,
                 $projection->conversation_ms - ($existing?->conversation_ms ?? 0) + $fact['conversation_ms'],
@@ -666,7 +666,7 @@ final class ProjectAchievementMetricsAction
      */
     private function applyStudyMilestones(int $userId, array &$metrics, array &$thresholdDates): void
     {
-        $studyMilestones = $this->studyMilestones($userId);
+        $studyMilestones = $this->studyMetricFacts->milestones($userId);
         $before = $metrics;
         $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC] = $studyMilestones['doubleFeature'];
         $metrics[GetAchievementProgressAction::ON_REPEAT_METRIC] = $studyMilestones['repeatDays'];
@@ -764,84 +764,6 @@ final class ProjectAchievementMetricsAction
             ->orderBy('card_review_events.reviewed_at')
             ->orderBy('card_review_events.id')
             ->cursor();
-    }
-
-    /** @return array{study_day:string,ended_at:CarbonInterface,category:string,conversation_ms:int,listening_ms:int,daily_audio_episode:?string} */
-    private function studyFact(StudyActivitySession $session): array
-    {
-        $episode = null;
-        if ($session->activity === StudyActivityKind::DailyAudio
-            && $session->name !== null
-            && str_starts_with($session->name, CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX)) {
-            $candidate = trim(substr(
-                $session->name,
-                strlen(CalculateAchievementMetricsAction::DAILY_AUDIO_COMPLETION_PREFIX),
-            ));
-            $episode = $candidate === '' ? null : $candidate;
-        }
-
-        return [
-            'study_day' => $session->ended_at->utc()->toDateString(),
-            'ended_at' => $session->ended_at,
-            'category' => $session->category->value,
-            'conversation_ms' => $session->category === StudyActivityCategory::Conversation
-                ? $session->duration_ms
-                : 0,
-            'listening_ms' => $session->category === StudyActivityCategory::Listen
-                ? ($session->audio_playback_ms ?? 0)
-                : 0,
-            'daily_audio_episode' => $episode,
-        ];
-    }
-
-    /**
-     * @return array{
-     *   doubleFeature:int,
-     *   doubleFeatureReachedAt:?CarbonImmutable,
-     *   repeatDays:int,
-     *   repeatReachedAt:array<int, CarbonImmutable>
-     * }
-     */
-    private function studyMilestones(int $userId): array
-    {
-        $categoriesByDay = [];
-        $doubleFeatureReachedAt = null;
-        $daysByEpisode = [];
-        $repeatReachedAt = [];
-        $repeatDays = 0;
-
-        $facts = AchievementStudySessionProjection::query()
-            ->where('user_id', $userId)
-            ->orderBy('ended_at')
-            ->orderBy('study_activity_session_id')
-            ->get(['study_day', 'ended_at', 'category', 'daily_audio_episode']);
-
-        foreach ($facts as $fact) {
-            $day = $fact->study_day->toDateString();
-            $categoriesByDay[$day][$fact->category] = true;
-            if ($doubleFeatureReachedAt === null && isset(
-                $categoriesByDay[$day][StudyActivityCategory::Listen->value],
-                $categoriesByDay[$day][StudyActivityCategory::Conversation->value],
-            )) {
-                $doubleFeatureReachedAt = CarbonImmutable::instance($fact->ended_at);
-            }
-
-            $episode = $fact->daily_audio_episode;
-            if (! is_string($episode) || isset($daysByEpisode[$episode][$day])) {
-                continue;
-            }
-            $daysByEpisode[$episode][$day] = true;
-            $dayCount = count($daysByEpisode[$episode]);
-            $repeatDays = max($repeatDays, $dayCount);
-            $repeatReachedAt[$dayCount] ??= CarbonImmutable::instance($fact->ended_at);
-        }
-
-        return [
-            'doubleFeature' => $doubleFeatureReachedAt === null ? 0 : 1,
-            'doubleFeatureReachedAt' => $doubleFeatureReachedAt,
-            'repeatDays' => $repeatDays,
-            'repeatReachedAt' => $repeatReachedAt,
-        ];
     }
 
     /** @param mixed $metrics @return array<string, int> */

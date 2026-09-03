@@ -22,29 +22,34 @@ final class StudyImportCollectionDatabaseReader
             $pdo = new PDO('sqlite:'.$collectionPath);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            $deck = $this->targetDeck($pdo);
-
-            if (mb_strlen($deck->name) > Deck::MAX_NAME_LENGTH) {
-                throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
-            }
-
-            $cards = $this->cardReader->read($pdo, $deck->sourceDeckId);
-
-            if ($cards === []) {
-                throw new StudyImportPreviewException('Deck "'.$deck->name.'" has no cards to import.');
-            }
-
-            return new StudyImportArchiveRead(
-                deckName: $deck->name,
-                cards: $cards,
-                reviewLogs: $this->fetchTargetDeckReviewLogs($pdo, $deck->sourceDeckId),
-                mediaManifestByFilename: [],
-            );
+            return $this->readDatabase($pdo);
         } catch (StudyImportPreviewException $exception) {
             throw $exception;
         } catch (PDOException|JsonException|RuntimeException $exception) {
             throw StudyImportPreviewException::invalidCollectionDatabase($exception);
         }
+    }
+
+    private function readDatabase(PDO $pdo): StudyImportArchiveRead
+    {
+        $deck = $this->targetDeck($pdo);
+
+        if (mb_strlen($deck->name) > Deck::MAX_NAME_LENGTH) {
+            throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
+        }
+
+        $cards = $this->cardReader->read($pdo, $deck->sourceDeckId);
+
+        if ($cards === []) {
+            throw new StudyImportPreviewException('Deck "'.$deck->name.'" has no cards to import.');
+        }
+
+        return new StudyImportArchiveRead(
+            deckName: $deck->name,
+            cards: $cards,
+            reviewLogs: $this->fetchTargetDeckReviewLogs($pdo, $deck->sourceDeckId),
+            mediaManifestByFilename: [],
+        );
     }
 
     private function targetDeck(PDO $pdo): StudyImportArchiveDeck
@@ -85,19 +90,36 @@ final class StudyImportCollectionDatabaseReader
      */
     private function fetchNormalizedDecks(PDO $pdo): array
     {
-        return array_values(array_filter(array_map(
-            static function (array $row): ?StudyImportArchiveDeck {
-                if (! isset($row['id']) || ! is_numeric($row['id']) || ! isset($row['name']) || ! is_string($row['name'])) {
-                    return null;
-                }
+        $decks = [];
 
-                return new StudyImportArchiveDeck(
-                    sourceDeckId: (int) $row['id'],
-                    name: trim(str_replace("\0", '', $row['name'])),
-                );
-            },
-            $this->fetchAll($pdo, 'SELECT id, name FROM decks ORDER BY id ASC'),
-        )));
+        foreach ($this->fetchAll($pdo, 'SELECT id, name FROM decks ORDER BY id ASC') as $row) {
+            $deck = $this->normalizedDeck($row);
+
+            if ($deck !== null) {
+                $decks[] = $deck;
+            }
+        }
+
+        return $decks;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function normalizedDeck(array $row): ?StudyImportArchiveDeck
+    {
+        if (! isset($row['id']) || ! is_numeric($row['id'])) {
+            return null;
+        }
+
+        if (! isset($row['name']) || ! is_string($row['name'])) {
+            return null;
+        }
+
+        return new StudyImportArchiveDeck(
+            sourceDeckId: (int) $row['id'],
+            name: trim(str_replace("\0", '', $row['name'])),
+        );
     }
 
     /**
@@ -135,33 +157,18 @@ final class StudyImportCollectionDatabaseReader
      */
     private function selectSupportedDeck(array $decks, array $cardDeckIds): StudyImportArchiveDeck
     {
-        $validDecks = array_values(array_filter(
-            $decks,
-            static fn (StudyImportArchiveDeck $deck): bool => $deck->name !== '',
-        ));
-        // If the cards table exists but is empty, keep metadata decks visible so the
-        // downstream no-cards branch can report the selected deck name.
-        $candidateDecks = $cardDeckIds === []
-            ? $validDecks
-            : array_values(array_filter(
-                $validDecks,
-                static fn (StudyImportArchiveDeck $deck): bool => isset($cardDeckIds[$deck->sourceDeckId]),
-            ));
+        $candidateDecks = $this->candidateDecks($decks, $cardDeckIds);
 
-        foreach ($candidateDecks as $deck) {
-            if (! mb_check_encoding($deck->name, 'UTF-8')) {
-                throw StudyImportPreviewException::invalidDeckNameEncoding();
-            }
-        }
+        $this->assertValidDeckNames($candidateDecks);
 
         if ($cardDeckIds !== [] && $candidateDecks === []) {
             throw new StudyImportPreviewException('The uploaded collection references cards from decks that are missing from deck metadata.');
         }
 
-        foreach ($candidateDecks as $deck) {
-            if ($deck->name === StudyImportJob::DEFAULT_DECK_NAME) {
-                return $deck;
-            }
+        $defaultDeck = $this->defaultDeck($candidateDecks);
+
+        if ($defaultDeck !== null) {
+            return $defaultDeck;
         }
 
         if (count($candidateDecks) === 1) {
@@ -172,6 +179,52 @@ final class StudyImportCollectionDatabaseReader
             static fn (StudyImportArchiveDeck $deck): string => $deck->name,
             $candidateDecks,
         ));
+    }
+
+    /**
+     * @param  list<StudyImportArchiveDeck>  $decks
+     * @param  array<int, true>  $cardDeckIds
+     * @return list<StudyImportArchiveDeck>
+     */
+    private function candidateDecks(array $decks, array $cardDeckIds): array
+    {
+        $validDecks = array_values(array_filter(
+            $decks,
+            static fn (StudyImportArchiveDeck $deck): bool => $deck->name !== '',
+        ));
+
+        // If the cards table exists but is empty, keep metadata decks visible so the
+        // downstream no-cards branch can report the selected deck name.
+        if ($cardDeckIds === []) {
+            return $validDecks;
+        }
+
+        return array_values(array_filter(
+            $validDecks,
+            static fn (StudyImportArchiveDeck $deck): bool => isset($cardDeckIds[$deck->sourceDeckId]),
+        ));
+    }
+
+    /** @param list<StudyImportArchiveDeck> $decks */
+    private function assertValidDeckNames(array $decks): void
+    {
+        foreach ($decks as $deck) {
+            if (! mb_check_encoding($deck->name, 'UTF-8')) {
+                throw StudyImportPreviewException::invalidDeckNameEncoding();
+            }
+        }
+    }
+
+    /** @param list<StudyImportArchiveDeck> $decks */
+    private function defaultDeck(array $decks): ?StudyImportArchiveDeck
+    {
+        foreach ($decks as $deck) {
+            if ($deck->name === StudyImportJob::DEFAULT_DECK_NAME) {
+                return $deck;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -252,12 +305,26 @@ final class StudyImportCollectionDatabaseReader
         $columns = [];
 
         foreach ($this->fetchAll($pdo, 'SELECT name FROM pragma_table_info(:table_name)', ['table_name' => $tableName]) as $row) {
-            if (isset($row['name']) && is_string($row['name']) && $row['name'] !== '') {
-                $columns[$row['name']] = true;
+            $name = $this->columnName($row);
+
+            if ($name !== null) {
+                $columns[$name] = true;
             }
         }
 
         return $columns;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function columnName(array $row): ?string
+    {
+        if (! isset($row['name']) || ! is_string($row['name'])) {
+            return null;
+        }
+
+        return $row['name'] !== '' ? $row['name'] : null;
     }
 
     /**

@@ -2,11 +2,10 @@
 
 namespace App\Domain\Sync\Actions;
 
-use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Domain\Sync\Results\ListSyncFeedEntriesResult;
-use App\Domain\Sync\Support\SyncFeedMetadata;
+use App\Domain\Sync\Support\SyncFeedFilters;
 use App\Support\Pagination\CursorPageSize;
 use InvalidArgumentException;
 use LogicException;
@@ -30,41 +29,12 @@ class ListSyncFeedEntriesAction
             throw new InvalidArgumentException('Sync feed checkpoint must be zero or greater.');
         }
 
-        // Direct callers skip HTTP request normalization, so keep this action boundary canonical.
-        $domain = $domain === null ? null : SyncFeedMetadata::normalize($domain);
-        $resourceType = $resourceType === null ? null : SyncFeedMetadata::normalize($resourceType);
-        $resourceId = $resourceId === null ? null : SyncFeedMetadata::normalize($resourceId);
-        $operation = $operation === null ? null : SyncFeedMetadata::normalize($operation);
-
-        if ($domain === '') {
-            throw new InvalidArgumentException('Sync feed domain must not be blank when provided.');
-        }
-
-        if ($resourceType === '') {
-            throw new InvalidArgumentException('Sync feed resource_type must not be blank when provided.');
-        }
-
-        if ($resourceId === '') {
-            throw new InvalidArgumentException('Sync feed resource_id must not be blank when provided.');
-        }
-
-        $this->assertFilterLength('domain', $domain, SyncFeedEntry::MAX_DOMAIN_LENGTH);
-        $this->assertFilterLength('resource_type', $resourceType, SyncFeedEntry::MAX_RESOURCE_TYPE_LENGTH);
-        $this->assertFilterLength('resource_id', $resourceId, SyncFeedEntry::MAX_RESOURCE_ID_LENGTH);
-
-        if ($operation === '') {
-            throw new InvalidArgumentException('Sync feed operation must not be blank when provided.');
-        }
-
-        if ($operation !== null) {
-            if (SyncFeedOperation::tryFrom($operation) === null) {
-                throw new InvalidArgumentException('Sync feed operation must be one of: '.implode(', ', SyncFeedOperation::values()).'.');
-            }
-        }
-
-        if ($resourceId !== null && ($domain === null || $resourceType === null)) {
-            throw new InvalidArgumentException('Sync feed resource_id filters require both domain and resource_type.');
-        }
+        [$domain, $resourceType, $resourceId, $operation] = SyncFeedFilters::fromInput(
+            $domain,
+            $resourceType,
+            $resourceId,
+            $operation,
+        );
 
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
 
@@ -112,12 +82,5 @@ class ListSyncFeedEntriesAction
             ->get();
 
         return ListSyncFeedEntriesResult::fromLookahead($entries, $pageSize, $currentCheckpoint);
-    }
-
-    private function assertFilterLength(string $field, ?string $value, int $maxLength): void
-    {
-        if ($value !== null && mb_strlen($value) > $maxLength) {
-            throw new InvalidArgumentException("Sync feed {$field} must not exceed {$maxLength} characters.");
-        }
     }
 }

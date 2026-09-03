@@ -177,13 +177,27 @@ class ShowStudyBrowserNoteAction
 
         $normalized = ltrim($noteId, '0');
         $normalized = $normalized === '' ? '0' : $normalized;
-        $max = (string) PHP_INT_MAX;
 
-        if (strlen($normalized) > strlen($max) || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
+        if ($this->exceedsPhpIntegerRange($normalized)) {
             return null;
         }
 
         return (int) $normalized;
+    }
+
+    private function exceedsPhpIntegerRange(string $value): bool
+    {
+        $max = (string) PHP_INT_MAX;
+
+        if (strlen($value) > strlen($max)) {
+            return true;
+        }
+
+        if (strlen($value) < strlen($max)) {
+            return false;
+        }
+
+        return strcmp($value, $max) > 0;
     }
 
     /**
@@ -292,10 +306,27 @@ class ShowStudyBrowserNoteAction
             $field = $this->field($name, $value);
 
             // Note-level fields should be unique; keep the first meaningful value across card templates.
-            if (! array_key_exists($name, $fieldsByName) || ($fieldsByName[$name]['value'] === null && $field['value'] !== null)) {
+            if ($this->shouldReplaceField($fieldsByName, $name, $field)) {
                 $fieldsByName[$name] = $field;
             }
         }
+    }
+
+    /**
+     * @param  array<string, array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}>  $fieldsByName
+     * @param  array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}  $candidate
+     */
+    private function shouldReplaceField(array $fieldsByName, string $name, array $candidate): bool
+    {
+        if (! array_key_exists($name, $fieldsByName)) {
+            return true;
+        }
+
+        if ($fieldsByName[$name]['value'] !== null) {
+            return false;
+        }
+
+        return $candidate['value'] !== null;
     }
 
     /**
@@ -304,15 +335,8 @@ class ShowStudyBrowserNoteAction
     private function field(string $name, mixed $value): array
     {
         $textValue = $this->fieldTextValue($value);
-        $media = StudyFieldMediaReferences::fromValue($value);
 
-        return [
-            'name' => $name,
-            'value' => $textValue,
-            'textValue' => $textValue,
-            'audio' => $media['audio'],
-            'image' => $media['image'],
-        ];
+        return $this->fieldPayload($name, $textValue, $textValue, $value);
     }
 
     /**
@@ -348,12 +372,30 @@ class ShowStudyBrowserNoteAction
     private function compatibilityField(string $name, mixed $value): array
     {
         $stringValue = $this->compatibilityFieldStringValue($value);
-        $media = StudyFieldMediaReferences::fromValue($value);
+
+        return $this->fieldPayload(
+            $name,
+            $stringValue,
+            $this->compatibilityFieldPlainText($stringValue),
+            $value,
+        );
+    }
+
+    /**
+     * @return array{name: string, value: string|null, textValue: string|null, audio: array<string, mixed>|null, image: array<string, mixed>|null}
+     */
+    private function fieldPayload(
+        string $name,
+        ?string $value,
+        ?string $textValue,
+        mixed $mediaValue,
+    ): array {
+        $media = StudyFieldMediaReferences::fromValue($mediaValue);
 
         return [
             'name' => $name,
-            'value' => $stringValue,
-            'textValue' => $this->compatibilityFieldPlainText($stringValue),
+            'value' => $value,
+            'textValue' => $textValue,
             'audio' => $media['audio'],
             'image' => $media['image'],
         ];

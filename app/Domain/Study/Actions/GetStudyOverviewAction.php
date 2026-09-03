@@ -4,19 +4,16 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
-use App\Domain\Flashcards\Models\Card;
-use App\Domain\Reviews\Enums\CardReviewRating;
-use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudyListScopeFilter;
+use App\Domain\Study\Support\StudyOverviewCardsQuery;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\DateTime\ServerTimestamp;
 use DateTimeInterface;
 use DateTimeZone;
 use Exception;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -24,23 +21,11 @@ use UnexpectedValueException;
 
 class GetStudyOverviewAction
 {
-    private const PAUSE_RECALL_THRESHOLD = 0.80;
-
-    private const EASE_UP_RECALL_THRESHOLD = 0.88;
-
-    private const STEADY_RECALL_THRESHOLD = 0.93;
-
-    private const STRONG_RECALL_THRESHOLD = 0.97;
-
-    private const MINIMUM_TIMED_REVIEW_SAMPLE_SIZE = 10;
-
-    private const MINIMUM_READINESS_SAMPLE_SIZE = 30;
-
-    private const READY_HEADROOM_MINUTES = 15;
-
-    private const STRONG_HEADROOM_MINUTES = 30;
-
-    public function __construct(private readonly GetJlptMasteryAction $getJlptMastery) {}
+    public function __construct(
+        private readonly GetJlptMasteryAction $getJlptMastery,
+        private readonly GetStudyLearningReadinessAction $getStudyLearningReadiness,
+        private readonly StudyOverviewCardsQuery $cardsQuery,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -91,15 +76,21 @@ class GetStudyOverviewAction
         $masterySpread = $this->masterySpread($userId, $courseId, $deckId);
         $overview['mastery_spread'] = $masterySpread;
         $overview['jlpt_mastery'] = $this->getJlptMastery->handle($userId, $courseId, $deckId);
-        $overview['learning_readiness'] = $this->learningReadiness(
-            userId: $userId,
-            courseId: $courseId,
-            deckId: $deckId,
-            now: $now,
-            dueCount: $dueCount + $failedDueCount,
-            apprenticeCount: $masterySpread[StudyMasteryLevel::Apprentice->value],
-            lessonBatchSize: $cardMetrics['lesson_batch_size'],
-            reviewTimeBudgetMinutes: $cardMetrics['review_time_budget_minutes'],
+        $overview['learning_readiness'] = $this->getStudyLearningReadiness->handle(
+            new StudyLearningReadinessInput(
+                [
+                    'user_id' => $userId,
+                    'course_id' => $courseId,
+                    'deck_id' => $deckId,
+                    'now' => $now,
+                ],
+                [
+                    'due_count' => $dueCount + $failedDueCount,
+                    'apprentice_count' => $masterySpread[StudyMasteryLevel::Apprentice->value],
+                    'lesson_batch_size' => $cardMetrics['lesson_batch_size'],
+                    'review_time_budget_minutes' => $cardMetrics['review_time_budget_minutes'],
+                ],
+            ),
         );
 
         return $overview;
@@ -145,19 +136,6 @@ class GetStudyOverviewAction
     }
 
     /**
-     * @return Builder<Card>
-     */
-    private function ownedActiveCardsQuery(int $userId, ?string $courseId = null, ?string $deckId = null): Builder
-    {
-        return Card::query()
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->whereNull('decks.deleted_at')
-            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
-            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId));
-    }
-
-    /**
      * @return array{
      *     due_count: int,
      *     failed_count: int,
@@ -182,7 +160,7 @@ class GetStudyOverviewAction
         Carbon $dayStart,
         Carbon $dayEnd,
     ): array {
-        $activeDueStatuses = $this->activeDueStatuses();
+        $activeDueStatuses = $this->cardsQuery->activeDueStatuses();
         $learningStatuses = $this->learningStatuses();
         $suspendedStatuses = $this->suspendedStatuses();
         $activeDueStatusPlaceholders = $this->statusPlaceholders($activeDueStatuses, 'active due statuses');
@@ -193,7 +171,7 @@ class GetStudyOverviewAction
         $nowFormatted = $now->toDateTimeString();
         $dayStartFormatted = $dayStart->toDateTimeString();
         $dayEndFormatted = $dayEnd->toDateTimeString();
-        $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+        $row = $this->cardsQuery->forUser($userId, $courseId, $deckId)
             // CASE aggregates keep this portable across SQLite, MySQL, and Postgres.
             // The settings MAX() subquery is a scalar singleton read; study_settings_user_id_unique enforces one row per user.
             ->selectRaw(<<<SQL
@@ -337,10 +315,10 @@ class GetStudyOverviewAction
     private function masterySpread(int $userId, ?string $courseId, ?string $deckId): array
     {
         $stability = $this->schedulerStabilityExpression();
-        $row = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
+        $row = $this->cardsQuery->forUser($userId, $courseId, $deckId)
             ->whereProgressionAvailable()
             // Only introduced, active cards contribute to motivational mastery load.
-            ->whereIn('cards.study_status', $this->activeDueStatuses())
+            ->whereIn('cards.study_status', $this->cardsQuery->activeDueStatuses())
             ->selectRaw(<<<SQL
                 COALESCE(SUM(CASE WHEN cards.study_status IN (?, ?) OR {$stability} IS NULL OR {$stability} < 7 THEN 1 ELSE 0 END), 0) AS apprentice,
                 COALESCE(SUM(CASE WHEN cards.study_status = ? AND {$stability} >= 7 AND {$stability} < 30 THEN 1 ELSE 0 END), 0) AS guru,
@@ -377,179 +355,6 @@ class GetStudyOverviewAction
         };
     }
 
-    /**
-     * @return array{
-     *     recommendation: string,
-     *     readiness_level: string,
-     *     sample_size: int,
-     *     sufficient_data: bool,
-     *     recent_recall: float|null,
-     *     target_recall: float,
-     *     due_backlog: int,
-     *     apprentice_count: int,
-     *     projected_seven_day_reviews: int,
-     *     timed_review_sample_size: int,
-     *     median_review_duration_seconds: float|null,
-     *     projected_daily_review_minutes: int|null,
-     *     review_time_budget_minutes: int,
-     *     review_time_headroom_minutes: int|null,
-     *     suggested_batch_size: int,
-     *     display_status: string,
-     *     display_summary: string
-     * }
-     */
-    private function learningReadiness(
-        int $userId,
-        ?string $courseId,
-        ?string $deckId,
-        Carbon $now,
-        int $dueCount,
-        int $apprenticeCount,
-        int $lessonBatchSize,
-        int $reviewTimeBudgetMinutes,
-    ): array {
-        $targetRecall = 0.9;
-        $reviews = CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->whereNull('decks.deleted_at')
-            ->whereNull('cards.deleted_at')
-            ->when($courseId !== null, fn ($query) => $query->where('decks.course_id', $courseId))
-            ->when($deckId !== null, fn ($query) => $query->where('cards.deck_id', $deckId))
-            ->where('card_review_events.reviewed_at', '>=', $now->copy()->subDays(14))
-            ->orderByDesc('card_review_events.reviewed_at')
-            ->orderByDesc('card_review_events.id')
-            ->limit(100)
-            ->get(['card_review_events.rating', 'card_review_events.duration_ms']);
-        $sampleSize = $reviews->count();
-        $recentRecall = $sampleSize === 0
-            ? null
-            : round(
-                $reviews->reject(
-                    fn (CardReviewEvent $review): bool => $review->rating === CardReviewRating::Again,
-                )->count() / $sampleSize,
-                3,
-            );
-        $projectedSevenDayReviews = $this->ownedActiveCardsQuery($userId, $courseId, $deckId)
-            ->whereProgressionAvailable()
-            ->whereIn('cards.study_status', $this->activeDueStatuses())
-            ->whereNotNull('cards.due_at')
-            ->where('cards.due_at', '<=', $now->copy()->addDays(7))
-            ->count('cards.id');
-        $timedDurations = $reviews
-            ->pluck('duration_ms')
-            ->filter(fn (mixed $duration): bool => is_int($duration) && $duration > 0)
-            ->sort()
-            ->values();
-        $timedReviewSampleSize = $timedDurations->count();
-        $medianReviewDurationMilliseconds = $timedReviewSampleSize >= self::MINIMUM_TIMED_REVIEW_SAMPLE_SIZE
-            ? $this->median($timedDurations->all())
-            : null;
-        $medianReviewDurationSeconds = $medianReviewDurationMilliseconds === null
-            ? null
-            : round($medianReviewDurationMilliseconds / 1000, 1);
-        $projectedDailyReviewMinutes = $medianReviewDurationMilliseconds === null
-            ? null
-            : (int) ceil($projectedSevenDayReviews * $medianReviewDurationMilliseconds / 7 / 60_000);
-        $reviewTimeHeadroomMinutes = $projectedDailyReviewMinutes === null
-            ? null
-            : $reviewTimeBudgetMinutes - $projectedDailyReviewMinutes;
-        $sufficientData = $sampleSize >= self::MINIMUM_READINESS_SAMPLE_SIZE;
-        // Raw due and Apprentice counts remain visible context, but only measured recall and
-        // projected time pressure qualify readiness for an aggressive learner's chosen budget.
-        $readinessLevel = match (true) {
-            ! $sufficientData || $recentRecall === null => 'baseline',
-            $recentRecall < self::PAUSE_RECALL_THRESHOLD => 'pause',
-            $recentRecall < self::EASE_UP_RECALL_THRESHOLD => 'ease_up',
-            $projectedDailyReviewMinutes !== null && $projectedDailyReviewMinutes > $reviewTimeBudgetMinutes => 'ease_up',
-            $recentRecall < self::STEADY_RECALL_THRESHOLD => 'steady',
-            $reviewTimeHeadroomMinutes !== null && $reviewTimeHeadroomMinutes < self::READY_HEADROOM_MINUTES => 'steady',
-            $recentRecall < self::STRONG_RECALL_THRESHOLD => 'ready',
-            $reviewTimeHeadroomMinutes === null => 'ready',
-            $reviewTimeHeadroomMinutes < self::STRONG_HEADROOM_MINUTES => 'ready',
-            default => 'strong',
-        };
-        // Preserve the established recommendation values for older clients during a rolling deployment.
-        $recommendation = match ($readinessLevel) {
-            'pause' => 'pause',
-            'ease_up' => 'caution',
-            default => 'ready',
-        };
-        $displayStatus = match ($recommendation) {
-            'pause' => 'Reviews first recommended',
-            'caution' => 'Add carefully',
-            default => 'Ready to learn',
-        };
-        $displaySummary = $sufficientData && $recentRecall !== null
-            ? sprintf(
-                'Recent recall is %d%% against a %d%% target. %s %s %s reinforcement, with %s %s projected over seven days.',
-                (int) round($recentRecall * 100),
-                (int) round($targetRecall * 100),
-                number_format($apprenticeCount),
-                $apprenticeCount === 1 ? 'Apprentice card' : 'Apprentice cards',
-                $apprenticeCount === 1 ? 'needs' : 'need',
-                number_format($projectedSevenDayReviews),
-                $projectedSevenDayReviews === 1 ? 'review' : 'reviews',
-            )
-            : sprintf(
-                'Building a recommendation from your first %d answers (%s so far). Current seven-day workload: %s %s.',
-                self::MINIMUM_READINESS_SAMPLE_SIZE,
-                number_format($sampleSize),
-                number_format($projectedSevenDayReviews),
-                $projectedSevenDayReviews === 1 ? 'review' : 'reviews',
-            );
-
-        $configuredBatchSize = min(
-            StudySettings::MAX_LESSON_BATCH_SIZE,
-            max(StudySettings::MIN_LESSON_BATCH_SIZE, $lessonBatchSize),
-        );
-        // Baseline and steady learners keep their configured lesson size; only explicit
-        // reviews-first/ease-up guidance recommends shrinking the next lesson.
-        $suggestedBatchSize = match ($readinessLevel) {
-            'pause' => StudySettings::MIN_LESSON_BATCH_SIZE,
-            'ease_up' => max(
-                StudySettings::MIN_LESSON_BATCH_SIZE,
-                (int) ceil($configuredBatchSize / 2),
-            ),
-            default => $configuredBatchSize,
-        };
-
-        return [
-            'recommendation' => $recommendation,
-            'readiness_level' => $readinessLevel,
-            'sample_size' => $sampleSize,
-            'sufficient_data' => $sufficientData,
-            'recent_recall' => $recentRecall,
-            'target_recall' => $targetRecall,
-            'due_backlog' => $dueCount,
-            'apprentice_count' => $apprenticeCount,
-            'projected_seven_day_reviews' => $projectedSevenDayReviews,
-            'timed_review_sample_size' => $timedReviewSampleSize,
-            'median_review_duration_seconds' => $medianReviewDurationSeconds,
-            'projected_daily_review_minutes' => $projectedDailyReviewMinutes,
-            'review_time_budget_minutes' => $reviewTimeBudgetMinutes,
-            'review_time_headroom_minutes' => $reviewTimeHeadroomMinutes,
-            'suggested_batch_size' => $suggestedBatchSize,
-            'display_status' => $displayStatus,
-            'display_summary' => $displaySummary,
-        ];
-    }
-
-    /**
-     * @param  list<int>  $values
-     */
-    private function median(array $values): float
-    {
-        $middle = intdiv(count($values), 2);
-
-        if (count($values) % 2 === 1) {
-            return (float) $values[$middle];
-        }
-
-        return ($values[$middle - 1] + $values[$middle]) / 2;
-    }
-
     private function aggregateTimestamp(mixed $value, string $label): ?string
     {
         if ($value === null) {
@@ -562,18 +367,6 @@ class GetStudyOverviewAction
 
         return ServerTimestamp::toJson($value)
             ?? throw new UnexpectedValueException("Study overview {$label} aggregate is not a valid timestamp.");
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function activeDueStatuses(): array
-    {
-        return [
-            CardStudyStatus::Learning->value,
-            CardStudyStatus::Review->value,
-            CardStudyStatus::Relearning->value,
-        ];
     }
 
     /**

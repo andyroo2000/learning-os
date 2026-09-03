@@ -9,6 +9,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Support\Content\ConvoLabContentTables;
 use App\Support\Identifiers\CanonicalUlid;
+use App\Support\Rehearsal\ConvoLabReviewImporter;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
@@ -176,7 +177,9 @@ class ImportConvoLabRehearsalData extends Command
                     $this->importCardMedia($source, $target);
                 }
 
-                $this->importReviewLogs($source, $target);
+                $reviewCount = (new ConvoLabReviewImporter($this->cardIds, $this->importJobIds))
+                    ->import($source, $target);
+                $this->line("Imported {$reviewCount} review events.");
             });
         } catch (Throwable $e) {
             $this->error($e->getMessage());
@@ -734,59 +737,6 @@ class ImportConvoLabRehearsalData extends Command
         $this->line("Imported {$count} card media links.");
     }
 
-    private function importReviewLogs(ConnectionInterface $source, ConnectionInterface $target): void
-    {
-        $count = 0;
-
-        $source->table('study_review_logs')
-            ->orderBy('reviewedAt')
-            ->orderBy('id')
-            ->chunk(500, function ($reviews) use ($target, &$count): void {
-                $insertRows = [];
-
-                foreach ($reviews as $review) {
-                    if (! isset($this->cardIds[$review->cardId])) {
-                        throw new \RuntimeException("Missing imported card mapping for review [{$review->id}].");
-                    }
-
-                    $insertRows[] = [
-                        'id' => $this->newCanonicalUlid(),
-                        'card_id' => $this->cardIds[$review->cardId],
-                        'rating' => $this->rating((int) $review->rating),
-                        'reviewed_at' => $review->reviewedAt,
-                        'created_at' => $review->createdAt,
-                        'updated_at' => $review->createdAt,
-                        'client_event_id' => null,
-                        'device_id' => null,
-                        'client_created_at' => null,
-                        'scheduler_state_before' => $review->stateBeforeJson,
-                        'scheduler_state_after' => $review->stateAfterJson,
-                        'duration_ms' => $review->durationMs,
-                        'card_state_before' => $this->reviewCardStateBefore($review),
-                        'import_job_id' => $this->mappedImportJobId($review->importJobId),
-                        'source_kind' => $review->source,
-                        'source_review_id' => $review->sourceReviewId,
-                        'source_card_id' => null,
-                        'source_ease' => $review->sourceEase,
-                        'source_interval' => $review->sourceInterval,
-                        'source_last_interval' => $review->sourceLastInterval,
-                        'source_factor' => $review->sourceFactor,
-                        'source_time_ms' => $review->sourceTimeMs,
-                        'source_review_type' => $review->sourceReviewType,
-                        'raw_payload_json' => $review->rawPayloadJson,
-                    ];
-                }
-
-                if ($insertRows !== []) {
-                    $target->table('card_review_events')->insert($insertRows);
-                }
-
-                $count += count($insertRows);
-            });
-
-        $this->line("Imported {$count} review events.");
-    }
-
     private function mappedUserId(string $sourceUserId): int
     {
         return $this->userIds[$sourceUserId]
@@ -872,70 +822,5 @@ class ImportConvoLabRehearsalData extends Command
         }
 
         return '';
-    }
-
-    private function reviewCardStateBefore(object $review): ?string
-    {
-        $rawPayload = $this->jsonObject($review->rawPayloadJson);
-        $schedulerState = $this->jsonObject($review->stateBeforeJson);
-        $queueState = $rawPayload['beforeQueueState'] ?? null;
-
-        if (! is_string($queueState) || CardStudyStatus::tryFrom($queueState) === null || $schedulerState === null) {
-            return null;
-        }
-
-        // Convo Lab did not persist the queue position before a first review, so that state cannot be undone safely.
-        if ($queueState === CardStudyStatus::New->value) {
-            return null;
-        }
-
-        foreach (['beforeDueAt', 'beforeIntroducedAt', 'beforeLastReviewedAt'] as $key) {
-            if (! array_key_exists($key, $rawPayload)
-                || (! is_string($rawPayload[$key]) && $rawPayload[$key] !== null)) {
-                return null;
-            }
-        }
-
-        $beforeFailedAt = $rawPayload['beforeFailedAt'] ?? null;
-
-        if (! is_string($beforeFailedAt) && $beforeFailedAt !== null) {
-            return null;
-        }
-
-        return json_encode([
-            'study_status' => $queueState,
-            'new_queue_position' => null,
-            'scheduler_state' => $schedulerState,
-            'due_at' => $rawPayload['beforeDueAt'],
-            'introduced_at' => $rawPayload['beforeIntroducedAt'],
-            // Older Convo Lab-native reviews omitted this optional key; its undo path restores null.
-            'failed_at' => $beforeFailedAt,
-            'last_reviewed_at' => $rawPayload['beforeLastReviewedAt'],
-        ], JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function jsonObject(?string $json): ?array
-    {
-        if ($json === null || $json === '') {
-            return null;
-        }
-
-        $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
-
-        return is_array($decoded) && ! array_is_list($decoded) ? $decoded : null;
-    }
-
-    private function rating(int $rating): string
-    {
-        return match ($rating) {
-            1 => 'again',
-            2 => 'hard',
-            3 => 'good',
-            4 => 'easy',
-            default => throw new \RuntimeException("Unsupported Convo Lab review rating [{$rating}]."),
-        };
     }
 }

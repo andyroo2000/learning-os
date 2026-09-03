@@ -382,13 +382,13 @@ class ImportConvoLabDailyAudio extends Command
 
     private function assertReadyTrackMedia(object $row): void
     {
-        if ($row->status !== 'ready'
-            || ! is_string($row->audioUrl)
-            || trim($row->audioUrl) === '') {
-            throw new RuntimeException(
-                "Convo Lab Daily Audio track [{$row->id}] has inconsistent ready media state.",
-            );
-        }
+        $invalidState = static fn (): RuntimeException => new RuntimeException(
+            "Convo Lab Daily Audio track [{$row->id}] has inconsistent ready media state.",
+        );
+
+        throw_unless($row->status === 'ready', $invalidState);
+        throw_unless(is_string($row->audioUrl), $invalidState);
+        throw_if(trim($row->audioUrl) === '', $invalidState);
     }
 
     /**
@@ -414,9 +414,13 @@ class ImportConvoLabDailyAudio extends Command
         $size = filesize($sourcePath);
         $checksum = hash_file('sha256', $sourcePath);
 
-        if (! is_int($size) || $size < 1 || $size > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES) {
-            throw new RuntimeException("Convo Lab Daily Audio track [{$track['id']}] has an invalid byte size.");
-        }
+        $invalidSize = static fn (): RuntimeException => new RuntimeException(
+            "Convo Lab Daily Audio track [{$track['id']}] has an invalid byte size.",
+        );
+
+        throw_unless(is_int($size), $invalidSize);
+        throw_if($size < 1, $invalidSize);
+        throw_if($size > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES, $invalidSize);
 
         if (! is_string($checksum)) {
             throw new RuntimeException("Unable to checksum Convo Lab Daily Audio track [{$track['id']}].");

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ConnectsToConvoLabSourceDatabase;
+use App\Console\Support\ConvoLabDailyAudioTargetValidator;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use DateTimeImmutable;
@@ -11,6 +12,7 @@ use DateTimeZone;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -95,8 +97,7 @@ class ImportConvoLabDailyAudio extends Command
 
             $this->buildTimestampManifest($source);
             $this->buildTrackManifest($source, $sourceMediaRoot, $sourceBucket);
-            $this->assertTargetTimestampsMatch($target, false);
-            $this->assertTargetTracksMatch($target, false);
+            $this->assertTargetMatches($target, lockForUpdate: false);
             $this->preflightDestinationFiles();
 
             $this->line(sprintf(
@@ -107,8 +108,7 @@ class ImportConvoLabDailyAudio extends Command
             $createdPaths = $this->copyMissingFiles();
 
             $target->transaction(function () use ($target): void {
-                $this->assertTargetTimestampsMatch($target, true);
-                $this->assertTargetTracksMatch($target, true);
+                $this->assertTargetMatches($target, lockForUpdate: true);
 
                 foreach ($this->practices as $practice) {
                     $updated = $target->table('daily_audio_practices')
@@ -187,6 +187,27 @@ class ImportConvoLabDailyAudio extends Command
             'migration:import-convolab-daily-audio:'.$target->getDatabaseName(),
             self::LOCK_TTL_SECONDS,
         );
+    }
+
+    private function targetValidator(ConnectionInterface $target): ConvoLabDailyAudioTargetValidator
+    {
+        return new ConvoLabDailyAudioTargetValidator(
+            $target,
+            $this->practices,
+            $this->trackTimestamps,
+            $this->tracks,
+        );
+    }
+
+    private function assertTargetMatches(
+        ConnectionInterface $target,
+        bool $lockForUpdate,
+    ): void {
+        $prepareQuery = $lockForUpdate
+            ? static fn (Builder $query): Builder => $query->lockForUpdate()
+            : static fn (Builder $query): Builder => $query;
+
+        $this->targetValidator($target)->assertMatches($prepareQuery);
     }
 
     private function assertProductionConfirmed(ConnectionInterface $target): void
@@ -483,111 +504,6 @@ class ImportConvoLabDailyAudio extends Command
             if (in_array($segment, ['', '.', '..'], true)) {
                 throw new RuntimeException(
                     "Convo Lab Daily Audio track [{$source['track_id']}] has an unsafe GCS object path.",
-                );
-            }
-        }
-    }
-
-    private function assertTargetTracksMatch(
-        ConnectionInterface $target,
-        bool $lockForUpdate,
-    ): void {
-        $legacyQuery = $target->table('daily_audio_practice_tracks')
-            ->where('status', 'ready')
-            ->whereNotNull('audio_url');
-        if ($lockForUpdate) {
-            $legacyQuery->lockForUpdate();
-        }
-
-        foreach ($legacyQuery->get(['id', 'audio_url']) as $targetTrack) {
-            $audioUrl = (string) $targetTrack->audio_url;
-            if (! str_starts_with($audioUrl, '/api/daily-audio-practice/')
-                && ! isset($this->tracks[strtolower((string) $targetTrack->id)])) {
-                throw new RuntimeException(
-                    "Learning OS legacy Daily Audio track [{$targetTrack->id}] ".
-                    'has no matching Convo Lab source media.',
-                );
-            }
-        }
-
-        if ($this->tracks === []) {
-            return;
-        }
-
-        $query = $target->table('daily_audio_practice_tracks')
-            ->whereIn('id', array_keys($this->tracks));
-
-        if ($lockForUpdate) {
-            $query->lockForUpdate();
-        }
-
-        $targetTracks = $query->get(['id', 'practice_id', 'mode', 'status'])->keyBy('id');
-
-        foreach ($this->tracks as $track) {
-            $targetTrack = $targetTracks->get($track['id']);
-
-            if ($targetTrack === null) {
-                throw new RuntimeException(
-                    "Learning OS has no Daily Audio track matching Convo Lab track [{$track['id']}].",
-                );
-            }
-
-            if (strtolower((string) $targetTrack->practice_id) !== $track['practice_id']
-                || (string) $targetTrack->mode !== $track['mode']
-                || (string) $targetTrack->status !== 'ready') {
-                throw new RuntimeException(
-                    "Learning OS Daily Audio track [{$track['id']}] does not match its ready Convo Lab source.",
-                );
-            }
-        }
-    }
-
-    private function assertTargetTimestampsMatch(
-        ConnectionInterface $target,
-        bool $lockForUpdate,
-    ): void {
-        $practiceQuery = $target->table('daily_audio_practices')
-            ->whereIn('id', array_keys($this->practices));
-
-        if ($lockForUpdate) {
-            $practiceQuery->lockForUpdate();
-        }
-
-        $targetPractices = $practiceQuery->pluck('id')->mapWithKeys(
-            fn (mixed $id): array => [strtolower((string) $id) => true],
-        );
-
-        foreach ($this->practices as $practice) {
-            if (! $targetPractices->has($practice['id'])) {
-                throw new RuntimeException(
-                    "Learning OS has no Daily Audio practice matching Convo Lab practice [{$practice['id']}].",
-                );
-            }
-        }
-
-        $trackQuery = $target->table('daily_audio_practice_tracks')
-            ->whereIn('id', array_keys($this->trackTimestamps));
-
-        if ($lockForUpdate) {
-            $trackQuery->lockForUpdate();
-        }
-
-        $targetTracks = $trackQuery->get(['id', 'practice_id'])->keyBy(
-            fn (object $track): string => strtolower((string) $track->id),
-        );
-
-        foreach ($this->trackTimestamps as $track) {
-            $targetTrack = $targetTracks->get($track['id']);
-
-            if ($targetTrack === null) {
-                throw new RuntimeException(
-                    "Learning OS has no Daily Audio track matching Convo Lab track [{$track['id']}].",
-                );
-            }
-
-            if (strtolower((string) $targetTrack->practice_id) !== $track['practice_id']) {
-                throw new RuntimeException(
-                    "Learning OS Daily Audio track [{$track['id']}] belongs to a different practice.",
                 );
             }
         }

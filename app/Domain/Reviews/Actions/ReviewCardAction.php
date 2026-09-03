@@ -40,6 +40,33 @@ class ReviewCardAction
 
     public function handle(ReviewCardData $data): ReviewCardResult
     {
+        $card = $this->validatedCard($data);
+        $rating = $this->validatedRating($data);
+        $this->assertValidReviewEventId($data);
+        $identity = CardReviewEventIdentity::fromReviewCardData($data, $rating);
+
+        $syncMetadata = SyncMetadata::fromNullable(
+            clientEventId: $data->clientEventId,
+            deviceId: $data->deviceId,
+            clientCreatedAt: $data->clientCreatedAt,
+        );
+
+        // Resolve common retries before opening a transaction; the catch below covers concurrent inserts.
+        $existingResult = $this->existingReviewResult($card, $data, $identity, $syncMetadata);
+
+        if ($existingResult !== null) {
+            return $existingResult;
+        }
+
+        try {
+            return $this->createReview($card, $data, $rating, $syncMetadata);
+        } catch (QueryException $exception) {
+            return $this->recoverReviewAfterConstraintViolation($exception, $card, $data, $rating);
+        }
+    }
+
+    private function validatedCard(ReviewCardData $data): Card
+    {
         if (! Str::isUlid($data->cardId)) {
             throw new InvalidArgumentException('Card ID must be a valid ULID.');
         }
@@ -50,6 +77,11 @@ class ReviewCardAction
             throw new InvalidArgumentException('Card does not exist.');
         }
 
+        return $card;
+    }
+
+    private function validatedRating(ReviewCardData $data): CardReviewRating
+    {
         if ($data->rating === '') {
             throw new InvalidArgumentException('Review rating is required.');
         }
@@ -60,182 +92,246 @@ class ReviewCardAction
             throw new InvalidArgumentException('Review rating must be one of: '.implode(', ', CardReviewRating::values()).'.');
         }
 
+        return $rating;
+    }
+
+    private function assertValidReviewEventId(ReviewCardData $data): void
+    {
         if ($data->id !== null && ! Str::isUlid($data->id)) {
             throw new InvalidArgumentException('Review event ID must be a valid ULID.');
         }
+    }
 
+    private function existingReviewResult(
+        Card $card,
+        ReviewCardData $data,
+        CardReviewEventIdentity $identity,
+        ?SyncMetadata $syncMetadata,
+    ): ?ReviewCardResult {
+        $existingReviewEvent = $this->findExistingReviewEventForAttempt($data, $syncMetadata);
+
+        if ($existingReviewEvent === null) {
+            return null;
+        }
+
+        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+            reviewEvent: $existingReviewEvent,
+            identity: $identity,
+            card: $card,
+        ));
+    }
+
+    private function findExistingReviewEventForAttempt(
+        ReviewCardData $data,
+        ?SyncMetadata $syncMetadata,
+    ): ?CardReviewEvent {
+        $existingReviewEvent = $syncMetadata === null
+            ? null
+            : $this->findExistingReviewEvent($syncMetadata);
+
+        if ($existingReviewEvent !== null) {
+            return $existingReviewEvent;
+        }
+
+        return $data->id === null ? null : $this->findExistingReviewEventById($data->id);
+    }
+
+    private function createReview(
+        Card $card,
+        ReviewCardData $data,
+        CardReviewRating $rating,
+        ?SyncMetadata $syncMetadata,
+    ): ReviewCardResult {
+        return DB::transaction(function () use ($card, $data, $rating, $syncMetadata): ReviewCardResult {
+            return $this->createReviewWhileLocked($card, $data, $rating, $syncMetadata);
+        });
+    }
+
+    private function createReviewWhileLocked(
+        Card $card,
+        ReviewCardData $data,
+        CardReviewRating $rating,
+        ?SyncMetadata $syncMetadata,
+    ): ReviewCardResult {
+        [$lockedCard, $progressionOwnerLocked] = $this->lockCardForReview($card);
+
+        // A transport retry may have committed while this request waited for the card lock.
         $identity = CardReviewEventIdentity::fromReviewCardData($data, $rating);
+        $existingResult = $this->existingReviewResult($lockedCard, $data, $identity, $syncMetadata);
 
-        $syncMetadata = SyncMetadata::fromNullable(
-            clientEventId: $data->clientEventId,
-            deviceId: $data->deviceId,
-            clientCreatedAt: $data->clientCreatedAt,
+        if ($existingResult !== null) {
+            return $existingResult;
+        }
+
+        $this->assertProgressionAvailable($lockedCard, $progressionOwnerLocked);
+
+        $reviewEvent = $this->persistReviewEvent($lockedCard, $data, $rating, $syncMetadata);
+        $this->recordReviewEventSync($lockedCard, $reviewEvent);
+        $this->applyLockedCardStudyReview($lockedCard, $rating, $reviewEvent->reviewed_at);
+
+        if ($progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
+            $this->advanceCardProgression()->handle(
+                $lockedCard,
+                $reviewEvent->reviewed_at,
+                $reviewEvent->id,
+            );
+        }
+
+        return ReviewCardResult::created($reviewEvent);
+    }
+
+    /**
+     * @return array{Card, bool}
+     */
+    private function lockCardForReview(Card $card): array
+    {
+        $progressionOwnerLocked = AdvanceCardProgressionAfterReviewAction::supports($card);
+
+        if ($progressionOwnerLocked) {
+            $this->newCardQueuePosition()->lockOwner($card->ownerUserId());
+        }
+
+        $lockedCard = $this->findCardForUpdate((string) $card->getKey());
+
+        if ($lockedCard === null) {
+            throw new InvalidArgumentException('Card does not exist.');
+        }
+
+        return [$lockedCard, $progressionOwnerLocked];
+    }
+
+    private function assertProgressionAvailable(Card $lockedCard, bool $progressionOwnerLocked): void
+    {
+        // Progression metadata may have been added while this request waited.
+        // Retry from a fresh preflight so the owner lock is acquired before this card row.
+        if (! $progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
+            throw CardReviewEventConflictException::retryableConflict();
+        }
+
+        if (! $lockedCard->isProgressionAvailable()) {
+            throw CardReviewEventConflictException::progressionLocked($lockedCard->ownerUserId());
+        }
+    }
+
+    private function persistReviewEvent(
+        Card $lockedCard,
+        ReviewCardData $data,
+        CardReviewRating $rating,
+        ?SyncMetadata $syncMetadata,
+    ): CardReviewEvent {
+        $reviewEventId = $data->id === null
+            ? strtolower((string) Str::ulid())
+            : CanonicalUlid::normalize($data->id);
+        $latestReviewEvent = CardReviewChronology::latestForCards([(string) $lockedCard->getKey()])
+            ->get((string) $lockedCard->getKey());
+
+        CardReviewChronology::assertCanAppend(
+            card: $lockedCard,
+            latestReviewedAt: $latestReviewEvent?->reviewed_at,
+            latestReviewEventId: $latestReviewEvent?->id,
+            candidateReviewedAt: $data->reviewedAt,
+            candidateReviewEventId: $reviewEventId,
+            candidateHasExplicitId: $data->id !== null,
+            candidateHasSyncIdentity: $syncMetadata !== null,
+            latestHasSyncIdentity: CardReviewChronology::hasCompleteSyncIdentity($latestReviewEvent),
         );
 
-        if ($syncMetadata !== null) {
-            $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
+        $reviewEvent = new CardReviewEvent([
+            'card_id' => (string) $lockedCard->getKey(),
+            'rating' => $rating,
+            'duration_ms' => $data->durationMs,
+            'client_event_id' => $data->clientEventId,
+            'device_id' => $data->deviceId,
+        ]);
+        $reviewEvent->setClientTimestamps($data->reviewedAt, $data->clientCreatedAt);
+        $reviewEvent->id = $reviewEventId;
 
-            if ($existingReviewEvent !== null) {
-                return ReviewCardResult::existing($this->matchingExistingReviewEvent(
-                    reviewEvent: $existingReviewEvent,
-                    identity: $identity,
-                    card: $card,
-                ));
-            }
+        $this->assignReviewSnapshots($reviewEvent, $lockedCard, $rating);
+        $this->saveReviewEvent($reviewEvent);
+        $reviewEvent->setRelation('card', $lockedCard);
+
+        return $reviewEvent;
+    }
+
+    private function recordReviewEventSync(Card $lockedCard, CardReviewEvent $reviewEvent): void
+    {
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $lockedCard->ownerUserId(),
+                domain: CardReviewEventSyncPayload::DOMAIN,
+                resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
+                resourceId: $reviewEvent->id,
+                operation: SyncFeedOperation::Create->value,
+                payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
+            ),
+        );
+    }
+
+    private function recoverReviewAfterConstraintViolation(
+        QueryException $exception,
+        Card $card,
+        ReviewCardData $data,
+        CardReviewRating $rating,
+    ): ReviewCardResult {
+        $identity = CardReviewEventIdentity::fromReviewCardData($data, $rating);
+
+        if ($data->id !== null && IntegrityConstraintViolation::matchesPrimaryKey($exception, 'card_review_events')) {
+            return $this->recoverReviewById($data->id, $identity, $card);
         }
 
-        if ($data->id !== null) {
-            // Resolve common retries before opening a transaction; the catch below covers concurrent inserts.
-            $existingReviewEvent = $this->findExistingReviewEventById($data->id);
+        return $this->recoverReviewBySyncIdentity($exception, $card, $data, $identity);
+    }
 
-            if ($existingReviewEvent !== null) {
-                return ReviewCardResult::existing($this->matchingExistingReviewEvent(
-                    reviewEvent: $existingReviewEvent,
-                    identity: $identity,
-                    card: $card,
-                ));
-            }
-        }
+    private function recoverReviewById(
+        string $reviewEventId,
+        CardReviewEventIdentity $identity,
+        Card $card,
+    ): ReviewCardResult {
+        $existingReviewEvent = $this->findExistingReviewEventById($reviewEventId);
 
-        try {
-            return DB::transaction(function () use ($card, $data, $identity, $rating, $syncMetadata): ReviewCardResult {
-                $progressionOwnerLocked = AdvanceCardProgressionAfterReviewAction::supports($card);
-
-                if ($progressionOwnerLocked) {
-                    $this->newCardQueuePosition()->lockOwner($card->ownerUserId());
-                }
-
-                $lockedCard = $this->findCardForUpdate((string) $card->getKey());
-
-                if ($lockedCard === null) {
-                    throw new InvalidArgumentException('Card does not exist.');
-                }
-
-                // A transport retry may have committed while this request waited for the card lock.
-                if ($syncMetadata !== null) {
-                    $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
-
-                    if ($existingReviewEvent !== null) {
-                        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
-                            reviewEvent: $existingReviewEvent,
-                            identity: $identity,
-                            card: $lockedCard,
-                        ));
-                    }
-                }
-
-                if ($data->id !== null) {
-                    $existingReviewEvent = $this->findExistingReviewEventById($data->id);
-
-                    if ($existingReviewEvent !== null) {
-                        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
-                            reviewEvent: $existingReviewEvent,
-                            identity: $identity,
-                            card: $lockedCard,
-                        ));
-                    }
-                }
-
-                // Progression metadata may have been added while this request waited.
-                // Retry from a fresh preflight so the owner lock is acquired before this card row.
-                if (! $progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
-                    throw CardReviewEventConflictException::retryableConflict();
-                }
-
-                if (! $lockedCard->isProgressionAvailable()) {
-                    throw CardReviewEventConflictException::progressionLocked($lockedCard->ownerUserId());
-                }
-
-                $reviewEventId = $data->id === null
-                    ? strtolower((string) Str::ulid())
-                    : CanonicalUlid::normalize($data->id);
-                $latestReviewEvent = CardReviewChronology::latestForCards([(string) $lockedCard->getKey()])
-                    ->get((string) $lockedCard->getKey());
-
-                CardReviewChronology::assertCanAppend(
-                    card: $lockedCard,
-                    latestReviewedAt: $latestReviewEvent?->reviewed_at,
-                    latestReviewEventId: $latestReviewEvent?->id,
-                    candidateReviewedAt: $data->reviewedAt,
-                    candidateReviewEventId: $reviewEventId,
-                    candidateHasExplicitId: $data->id !== null,
-                    candidateHasSyncIdentity: $syncMetadata !== null,
-                    latestHasSyncIdentity: CardReviewChronology::hasCompleteSyncIdentity($latestReviewEvent),
-                );
-
-                $reviewEvent = new CardReviewEvent([
-                    'card_id' => (string) $lockedCard->getKey(),
-                    'rating' => $rating,
-                    'duration_ms' => $data->durationMs,
-                    'client_event_id' => $data->clientEventId,
-                    'device_id' => $data->deviceId,
-                ]);
-                $reviewEvent->setClientTimestamps($data->reviewedAt, $data->clientCreatedAt);
-                $reviewEvent->id = $reviewEventId;
-
-                $this->assignReviewSnapshots($reviewEvent, $lockedCard, $rating);
-                $this->saveReviewEvent($reviewEvent);
-                $reviewEvent->setRelation('card', $lockedCard);
-
-                $this->recordSyncFeedEntry->handle(
-                    RecordSyncFeedEntryData::fromInput(
-                        userId: $lockedCard->ownerUserId(),
-                        domain: CardReviewEventSyncPayload::DOMAIN,
-                        resourceType: CardReviewEventSyncPayload::RESOURCE_TYPE,
-                        resourceId: $reviewEvent->id,
-                        operation: SyncFeedOperation::Create->value,
-                        payload: CardReviewEventSyncPayload::fromReviewEvent($reviewEvent),
-                    ),
-                );
-
-                $this->applyLockedCardStudyReview($lockedCard, $rating, $reviewEvent->reviewed_at);
-
-                if ($progressionOwnerLocked && AdvanceCardProgressionAfterReviewAction::supports($lockedCard)) {
-                    $this->advanceCardProgression()->handle(
-                        $lockedCard,
-                        $reviewEvent->reviewed_at,
-                        $reviewEvent->id,
-                    );
-                }
-
-                return ReviewCardResult::created($reviewEvent);
-            });
-        } catch (QueryException $exception) {
-            if ($data->id !== null && IntegrityConstraintViolation::matchesPrimaryKey($exception, 'card_review_events')) {
-                $existingReviewEvent = $this->findExistingReviewEventById($data->id);
-
-                if ($existingReviewEvent !== null) {
-                    return ReviewCardResult::existing($this->matchingExistingReviewEvent(
-                        reviewEvent: $existingReviewEvent,
-                        identity: $identity,
-                        card: $card,
-                    ));
-                }
-
-                // The race winner disappeared before recovery could map it; ask the client to retry.
-                Log::warning('Review event race recovery failed after primary key collision.', [
-                    'review_event_id' => $data->id,
-                ]);
-
-                throw CardReviewEventConflictException::retryableConflict();
-            }
-
-            if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
-                throw $exception;
-            }
-
-            $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
-
-            if ($existingReviewEvent === null) {
-                throw $exception;
-            }
-
+        if ($existingReviewEvent !== null) {
             return ReviewCardResult::existing($this->matchingExistingReviewEvent(
                 reviewEvent: $existingReviewEvent,
                 identity: $identity,
                 card: $card,
             ));
         }
+
+        // The race winner disappeared before recovery could map it; ask the client to retry.
+        Log::warning('Review event race recovery failed after primary key collision.', [
+            'review_event_id' => $reviewEventId,
+        ]);
+
+        throw CardReviewEventConflictException::retryableConflict();
+    }
+
+    private function recoverReviewBySyncIdentity(
+        QueryException $exception,
+        Card $card,
+        ReviewCardData $data,
+        CardReviewEventIdentity $identity,
+    ): ReviewCardResult {
+        $syncMetadata = SyncMetadata::fromNullable(
+            clientEventId: $data->clientEventId,
+            deviceId: $data->deviceId,
+            clientCreatedAt: $data->clientCreatedAt,
+        );
+
+        if ($syncMetadata === null || ! IntegrityConstraintViolation::matches($exception)) {
+            throw $exception;
+        }
+
+        $existingReviewEvent = $this->findExistingReviewEvent($syncMetadata);
+
+        if ($existingReviewEvent === null) {
+            throw $exception;
+        }
+
+        return ReviewCardResult::existing($this->matchingExistingReviewEvent(
+            reviewEvent: $existingReviewEvent,
+            identity: $identity,
+            card: $card,
+        ));
     }
 
     private function advanceCardProgression(): AdvanceCardProgressionAfterReviewAction
@@ -346,15 +442,7 @@ class ReviewCardAction
 
     private function ownerIdFor(CardReviewEvent $reviewEvent): int
     {
-        if (! $reviewEvent->relationLoaded('card')) {
-            throw new LogicException('Review event card relation must be eager-loaded for conflict resolution.');
-        }
-
-        $card = $reviewEvent->card;
-
-        if ($card === null) {
-            throw new LogicException('Review event card owner could not be resolved.');
-        }
+        $card = $this->cardForConflictResolution($reviewEvent);
 
         if (! $card->relationLoaded('deck')) {
             throw new LogicException('Review event card deck relation must be eager-loaded for conflict resolution.');
@@ -367,5 +455,20 @@ class ReviewCardAction
         }
 
         return (int) $ownerId;
+    }
+
+    private function cardForConflictResolution(CardReviewEvent $reviewEvent): Card
+    {
+        if (! $reviewEvent->relationLoaded('card')) {
+            throw new LogicException('Review event card relation must be eager-loaded for conflict resolution.');
+        }
+
+        $card = $reviewEvent->card;
+
+        if ($card === null) {
+            throw new LogicException('Review event card owner could not be resolved.');
+        }
+
+        return $card;
     }
 }

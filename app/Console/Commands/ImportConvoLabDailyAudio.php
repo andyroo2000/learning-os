@@ -388,48 +388,104 @@ class ImportConvoLabDailyAudio extends Command
         string $practiceId,
         string $trackId,
     ): string {
-        $parts = parse_url($audioUrl);
-
-        if (! is_array($parts)
-            || ($parts['scheme'] ?? null) !== 'https'
-            || ($parts['host'] ?? null) !== 'storage.googleapis.com'
-            || isset($parts['port'])
-            || isset($parts['user'])
-            || isset($parts['pass'])
-            || isset($parts['query'])
-            || isset($parts['fragment'])
-            || ! isset($parts['path'])
-            || ! is_string($parts['path'])) {
-            throw new RuntimeException(
-                "Convo Lab Daily Audio track [{$trackId}] has an unsupported GCS URL.",
-            );
-        }
-
-        $prefix = "/{$sourceBucket}/daily-audio-practice/{$practiceId}/";
+        $source = [
+            'audio_url' => $audioUrl,
+            'track_id' => $trackId,
+        ];
+        $parts = $this->sourceUrlParts($source);
         $path = $parts['path'];
+        $prefix = "/{$sourceBucket}/daily-audio-practice/{$practiceId}/";
+        $objectPath = substr($path, strlen("/{$sourceBucket}/"));
 
-        if (! str_starts_with($path, $prefix)
-            || str_contains($path, '%')
-            || str_contains($path, '\\')
-            || str_contains($path, "\0")
-            || ! str_ends_with(strtolower($path), '.mp3')) {
+        $this->assertSafeSourceObjectPath([
+            'path' => $path,
+            'prefix' => $prefix,
+            'object_path' => $objectPath,
+            'track_id' => $trackId,
+        ]);
+
+        return $objectPath;
+    }
+
+    /**
+     * @param  array{audio_url: string, track_id: string}  $source
+     * @return array{path: string}
+     */
+    private function sourceUrlParts(array $source): array
+    {
+        $parts = $this->parsedSourceUrl($source);
+
+        $origin = [$parts['scheme'] ?? null, $parts['host'] ?? null];
+
+        if ($origin !== ['https', 'storage.googleapis.com']) {
             throw new RuntimeException(
-                "Convo Lab Daily Audio track [{$trackId}] has an unsafe GCS object path.",
+                "Convo Lab Daily Audio track [{$source['track_id']}] has an unsupported GCS URL.",
             );
         }
 
-        $objectPath = substr($path, strlen("/{$sourceBucket}/"));
-        $segments = explode('/', $objectPath);
+        $unsupportedParts = array_intersect(
+            array_keys($parts),
+            ['port', 'user', 'pass', 'query', 'fragment'],
+        );
 
-        foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+        if ($unsupportedParts !== []) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$source['track_id']}] has an unsupported GCS URL.",
+            );
+        }
+
+        $path = $parts['path'] ?? null;
+
+        if (! is_string($path)) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$source['track_id']}] has an unsupported GCS URL.",
+            );
+        }
+
+        return ['path' => $path];
+    }
+
+    /**
+     * @param  array{audio_url: string, track_id: string}  $source
+     * @return array<string, mixed>
+     */
+    private function parsedSourceUrl(array $source): array
+    {
+        $parts = parse_url($source['audio_url']);
+
+        if (! is_array($parts)) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$source['track_id']}] has an unsupported GCS URL.",
+            );
+        }
+
+        return $parts;
+    }
+
+    /** @param  array{path: string, prefix: string, object_path: string, track_id: string}  $source */
+    private function assertSafeSourceObjectPath(array $source): void
+    {
+        $unsafe = [
+            ! str_starts_with($source['path'], $source['prefix']),
+            str_contains($source['path'], '%'),
+            str_contains($source['path'], '\\'),
+            str_contains($source['path'], "\0"),
+            ! str_ends_with(strtolower($source['path']), '.mp3'),
+        ];
+
+        if (in_array(true, $unsafe, true)) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$source['track_id']}] has an unsafe GCS object path.",
+            );
+        }
+
+        foreach (explode('/', $source['object_path']) as $segment) {
+            if (in_array($segment, ['', '.', '..'], true)) {
                 throw new RuntimeException(
-                    "Convo Lab Daily Audio track [{$trackId}] has an unsafe GCS object path.",
+                    "Convo Lab Daily Audio track [{$source['track_id']}] has an unsafe GCS object path.",
                 );
             }
         }
-
-        return $objectPath;
     }
 
     private function assertTargetTracksMatch(

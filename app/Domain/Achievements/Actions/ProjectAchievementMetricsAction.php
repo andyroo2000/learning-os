@@ -6,15 +6,14 @@ use App\Domain\Achievements\Models\AchievementCardProjection;
 use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Models\AchievementStudySessionProjection;
 use App\Domain\Achievements\Results\AchievementMetricProjectionResult;
+use App\Domain\Achievements\Support\AchievementThresholdCrossingTracker;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
-use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Models\User;
-use App\Support\DateTime\ConvoLabTimestamp;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,13 +29,9 @@ final class ProjectAchievementMetricsAction
     // users rebuild the persisted crossing dates required for reconciliation.
     private const PROJECTION_VERSION = 1;
 
-    /** @var array<string, list<int>>|null */
-    private ?array $thresholdsByMetric = null;
-
     public function __construct(
         private readonly CalculateAchievementMetricsAction $calculateMetrics,
-        private readonly GetAchievementCatalogAction $getCatalog,
-        private readonly ResolveAchievementEarnedAtAction $resolveEarnedAt,
+        private readonly AchievementThresholdCrossingTracker $thresholdCrossings,
     ) {}
 
     public function handle(int $userId): AchievementMetricProjectionResult
@@ -149,7 +144,7 @@ final class ProjectAchievementMetricsAction
         $projection->user_id = $userId;
         $projection->projection_version = self::PROJECTION_VERSION;
         $projection->metric_values = $metrics;
-        $projection->threshold_reached_at = $this->backfillThresholdDates($userId, $metrics);
+        $projection->threshold_reached_at = $this->thresholdCrossings->backfill($userId, $metrics);
         $projection->current_correct_run = $reviewState['currentRun'];
         $projection->conversation_ms = $studyState['conversationMs'];
         $projection->listening_ms = $studyState['listeningMs'];
@@ -445,7 +440,12 @@ final class ProjectAchievementMetricsAction
                 CarbonImmutable::parse($event->getAttribute('card_source_updated_at')),
                 fact: $cardProjection,
             ));
-            $this->rememberCrossings($before, $metrics, $reviewedAt, $thresholdDates);
+            $thresholdDates = $this->thresholdCrossings->recordAll(
+                $before,
+                $metrics,
+                $reviewedAt,
+                $thresholdDates,
+            );
             $projection->latest_reviewed_at = $reviewedAt;
             $projection->latest_reviewed_id = (string) $event->id;
         }
@@ -516,7 +516,12 @@ final class ProjectAchievementMetricsAction
                 CarbonImmutable::instance($card->updated_at),
                 $cardProjections->get($cardId),
             ));
-            $this->rememberCrossings($before, $metrics, $crossedAt, $thresholdDates);
+            $thresholdDates = $this->thresholdCrossings->recordAll(
+                $before,
+                $metrics,
+                $crossedAt,
+                $thresholdDates,
+            );
         }
         $this->persistCardProjections($cardProjections);
 
@@ -583,7 +588,7 @@ final class ProjectAchievementMetricsAction
                 3_600_000,
             );
             $endedAt = CarbonImmutable::instance($session->ended_at);
-            $this->rememberCrossings($before, $metrics, $endedAt, $thresholdDates);
+            $thresholdDates = $this->thresholdCrossings->recordAll($before, $metrics, $endedAt, $thresholdDates);
             if ($projection->latest_study_ended_at === null || $endedAt->gt($projection->latest_study_ended_at)) {
                 $projection->latest_study_ended_at = $endedAt;
             }
@@ -652,19 +657,23 @@ final class ProjectAchievementMetricsAction
         $before = $metrics;
         $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC] = $studyMilestones['doubleFeature'];
         $metrics[GetAchievementProgressAction::ON_REPEAT_METRIC] = $studyMilestones['repeatDays'];
-        $this->rememberMetricCrossings(
+        $thresholdDates = $this->thresholdCrossings->recordMetric(
             GetAchievementProgressAction::DOUBLE_FEATURE_METRIC,
-            $before[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC],
-            $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC],
+            [
+                'before' => $before[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC],
+                'after' => $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC],
+            ],
             $studyMilestones['doubleFeatureReachedAt'] === null
                 ? []
                 : [1 => $studyMilestones['doubleFeatureReachedAt']],
             $thresholdDates,
         );
-        $this->rememberMetricCrossings(
+        $thresholdDates = $this->thresholdCrossings->recordMetric(
             GetAchievementProgressAction::ON_REPEAT_METRIC,
-            $before[GetAchievementProgressAction::ON_REPEAT_METRIC],
-            $metrics[GetAchievementProgressAction::ON_REPEAT_METRIC],
+            [
+                'before' => $before[GetAchievementProgressAction::ON_REPEAT_METRIC],
+                'after' => $metrics[GetAchievementProgressAction::ON_REPEAT_METRIC],
+            ],
             $studyMilestones['repeatReachedAt'],
             $thresholdDates,
         );
@@ -683,7 +692,7 @@ final class ProjectAchievementMetricsAction
         $previousMaximum = $fact?->maximum_stability ?? 0.0;
         $maximum = max($previousMaximum, $stability);
         if ($maximum > $previousMaximum) {
-            foreach ($this->masteryThresholds() as $metricKey => $minimumStability) {
+            foreach ($this->thresholdCrossings->masteryThresholds() as $metricKey => $minimumStability) {
                 if ($previousMaximum < $minimumStability && $maximum >= $minimumStability) {
                     $metrics[$metricKey]++;
                 }
@@ -851,100 +860,6 @@ final class ProjectAchievementMetricsAction
             'doubleFeatureReachedAt' => $doubleFeatureReachedAt,
             'repeatDays' => $repeatDays,
             'repeatReachedAt' => $repeatReachedAt,
-        ];
-    }
-
-    /**
-     * @param  array<string, int>  $before
-     * @param  array<string, int>  $after
-     * @param  array<string, array<string, string>>  $thresholdDates
-     */
-    private function rememberCrossings(
-        array $before,
-        array $after,
-        CarbonImmutable $crossedAt,
-        array &$thresholdDates,
-    ): void {
-        foreach ($this->thresholdsByMetric() as $metricKey => $thresholds) {
-            foreach ($thresholds as $threshold) {
-                $key = (string) $threshold;
-                if (($before[$metricKey] ?? 0) < $threshold
-                    && ($after[$metricKey] ?? 0) >= $threshold
-                    && ! isset($thresholdDates[$metricKey][$key])) {
-                    $thresholdDates[$metricKey][$key] = ConvoLabTimestamp::serialize($crossedAt);
-                }
-            }
-        }
-    }
-
-    /**
-     * @param  array<int, CarbonImmutable>  $reachedAtByValue
-     * @param  array<string, array<string, string>>  $thresholdDates
-     */
-    private function rememberMetricCrossings(
-        string $metricKey,
-        int $before,
-        int $after,
-        array $reachedAtByValue,
-        array &$thresholdDates,
-    ): void {
-        foreach ($this->thresholdsByMetric()[$metricKey] ?? [] as $threshold) {
-            $key = (string) $threshold;
-            $crossedAt = $reachedAtByValue[$threshold] ?? null;
-            if ($before < $threshold
-                && $after >= $threshold
-                && $crossedAt instanceof CarbonImmutable
-                && ! isset($thresholdDates[$metricKey][$key])) {
-                $thresholdDates[$metricKey][$key] = ConvoLabTimestamp::serialize($crossedAt);
-            }
-        }
-    }
-
-    /** @param array<string, int> $metrics @return array<string, array<string, string>> */
-    private function backfillThresholdDates(int $userId, array $metrics): array
-    {
-        $dates = [];
-        foreach ($this->thresholdsByMetric() as $metricKey => $thresholds) {
-            foreach ($thresholds as $threshold) {
-                if (($metrics[$metricKey] ?? 0) < $threshold) {
-                    break;
-                }
-                $earnedAt = $this->resolveEarnedAt->handle($userId, $metricKey, $threshold);
-                if ($earnedAt !== null) {
-                    $dates[$metricKey][(string) $threshold] = ConvoLabTimestamp::serialize($earnedAt);
-                }
-            }
-        }
-
-        return $dates;
-    }
-
-    /** @return array<string, list<int>> */
-    private function thresholdsByMetric(): array
-    {
-        if ($this->thresholdsByMetric !== null) {
-            return $this->thresholdsByMetric;
-        }
-
-        $thresholds = [];
-        foreach ($this->getCatalog->handle()['families'] as $family) {
-            $thresholds[(string) $family['metricKey']] = array_map(
-                static fn (array $tier): int => (int) $tier['threshold'],
-                $family['tiers'],
-            );
-        }
-
-        return $this->thresholdsByMetric = $thresholds;
-    }
-
-    /** @return array<string, float> */
-    private function masteryThresholds(): array
-    {
-        return [
-            GetAchievementProgressAction::GURU_CARD_METRIC => StudyMasteryLevel::GURU_STABILITY_DAYS,
-            GetAchievementProgressAction::MASTER_CARD_METRIC => StudyMasteryLevel::MASTER_STABILITY_DAYS,
-            GetAchievementProgressAction::ENLIGHTENED_CARD_METRIC => StudyMasteryLevel::ENLIGHTENED_STABILITY_DAYS,
-            GetAchievementProgressAction::BURNED_CARD_METRIC => StudyMasteryLevel::BURNED_STABILITY_DAYS,
         ];
     }
 

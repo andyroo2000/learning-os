@@ -15,6 +15,7 @@ use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -731,23 +732,35 @@ class ImportConvoLabMedia extends Command
             ->all();
 
         foreach ($existing as $path => $row) {
-            $manifest = $this->mediaByPath[$path];
-
-            if ((int) $row->user_id !== $manifest['user_id']) {
-                throw new RuntimeException("Learning OS media path [{$path}] belongs to another user.");
-            }
-
-            $size = (int) $row->size_bytes;
-            $checksum = is_string($row->checksum_sha256) ? strtolower($row->checksum_sha256) : null;
-            $isMetadataOnly = $size === 0 && $checksum === null;
-
-            if (! $isMetadataOnly
-                && ($size !== $manifest['size_bytes'] || $checksum !== $manifest['checksum_sha256'])) {
-                throw new RuntimeException("Learning OS media path [{$path}] has different verified bytes.");
-            }
+            $this->assertExistingMediaMatches($path, $row, $this->mediaByPath[$path]);
         }
 
         return $existing;
+    }
+
+    /** @param  array{user_id: int, size_bytes: int, checksum_sha256: string}  $manifest */
+    private function assertExistingMediaMatches(string $path, object $row, array $manifest): void
+    {
+        if ((int) $row->user_id !== $manifest['user_id']) {
+            throw new RuntimeException("Learning OS media path [{$path}] belongs to another user.");
+        }
+
+        if ($this->existingMediaHasDifferentVerifiedBytes($row, $manifest)) {
+            throw new RuntimeException("Learning OS media path [{$path}] has different verified bytes.");
+        }
+    }
+
+    /** @param  array{size_bytes: int, checksum_sha256: string}  $manifest */
+    private function existingMediaHasDifferentVerifiedBytes(object $row, array $manifest): bool
+    {
+        $size = (int) $row->size_bytes;
+        $checksum = is_string($row->checksum_sha256) ? strtolower($row->checksum_sha256) : null;
+
+        if ($size === 0 && $checksum === null) {
+            return false;
+        }
+
+        return $size !== $manifest['size_bytes'] || $checksum !== $manifest['checksum_sha256'];
     }
 
     private function preflightDestinationFiles(): void
@@ -787,40 +800,63 @@ class ImportConvoLabMedia extends Command
 
         try {
             foreach ($this->mediaByPath as $path => $manifest) {
-                if ($disk->exists($path)) {
-                    continue;
-                }
-
-                $stream = fopen($manifest['source_path'], 'rb');
-
-                if ($stream === false) {
-                    throw new RuntimeException("Unable to open source media [{$path}].");
-                }
-
-                // Register the path first so a partial or failed write is also cleaned up.
-                $created[] = $path;
-
-                try {
-                    if (! $disk->put($path, $stream)) {
-                        throw new RuntimeException("Unable to write Learning OS media [{$path}].");
-                    }
-                } finally {
-                    if (is_resource($stream)) {
-                        fclose($stream);
-                    }
-                }
-
-                $this->assertDestinationFileMatches($path, $manifest);
+                $this->copyAndTrackFileIfMissing($disk, $path, $manifest, $created);
             }
         } catch (Throwable $e) {
-            foreach ($created as $path) {
-                $disk->delete($path);
-            }
+            $this->deleteCreatedFiles($disk, $created);
 
             throw $e;
         }
 
         return $created;
+    }
+
+    /**
+     * @param  array{source_path: string, size_bytes: int, checksum_sha256: string}  $manifest
+     * @param  list<string>  $created
+     */
+    private function copyAndTrackFileIfMissing(
+        FilesystemAdapter $disk,
+        string $path,
+        array $manifest,
+        array &$created,
+    ): void {
+        if ($disk->exists($path)) {
+            return;
+        }
+
+        $stream = fopen($manifest['source_path'], 'rb');
+
+        if ($stream === false) {
+            throw new RuntimeException("Unable to open source media [{$path}].");
+        }
+
+        // Register the path first so a partial or failed write is also cleaned up.
+        $created[] = $path;
+        $this->writeFileFromStream($disk, $path, $stream);
+        $this->assertDestinationFileMatches($path, $manifest);
+    }
+
+    /** @param  resource  $stream */
+    private function writeFileFromStream(FilesystemAdapter $disk, string $path, mixed $stream): void
+    {
+        try {
+            if (! $disk->put($path, $stream)) {
+                throw new RuntimeException("Unable to write Learning OS media [{$path}].");
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+    }
+
+    /** @param  list<string>  $created */
+    private function deleteCreatedFiles(FilesystemAdapter $disk, array $created): void
+    {
+        foreach ($created as $path) {
+            $disk->delete($path);
+        }
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ConnectsToConvoLabSourceDatabase;
+use App\Console\Support\ConvoLabDailyAudioSourceMedia;
 use App\Console\Support\ConvoLabDailyAudioTargetValidator;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
@@ -13,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -311,6 +313,7 @@ class ImportConvoLabDailyAudio extends Command
         string $sourceBucket,
     ): void {
         $this->tracks = [];
+        $sourceMedia = new ConvoLabDailyAudioSourceMedia($sourceMediaRoot, $sourceBucket);
         $practiceIds = $source->table('daily_audio_practices')
             ->pluck('id')
             ->mapWithKeys(fn (mixed $id): array => [
@@ -326,62 +329,95 @@ class ImportConvoLabDailyAudio extends Command
             ->get(['id', 'practiceId', 'mode', 'status', 'audioUrl']);
 
         foreach ($rows as $row) {
-            $id = $this->sourceUuid($row->id, 'Daily Audio track');
-            $practiceId = $this->sourceUuid($row->practiceId, 'Daily Audio practice');
-
-            if (! $practiceIds->has($practiceId)) {
-                throw new RuntimeException(
-                    "Convo Lab Daily Audio track [{$row->id}] references a missing practice.",
-                );
-            }
-
-            if (isset($this->tracks[$id])) {
-                throw new RuntimeException("Convo Lab Daily Audio track [{$row->id}] is duplicated.");
-            }
-
-            if ($row->status !== 'ready'
-                || ! is_string($row->audioUrl)
-                || trim($row->audioUrl) === '') {
-                throw new RuntimeException(
-                    "Convo Lab Daily Audio track [{$row->id}] has inconsistent ready media state.",
-                );
-            }
-
-            $sourceObjectPath = $this->sourceObjectPath(
-                $row->audioUrl,
-                $sourceBucket,
-                $practiceId,
-                $id,
-            );
-            $sourcePath = $this->resolveConvoLabSourceFile(
-                $sourceMediaRoot,
-                $sourceObjectPath,
-                "Convo Lab Daily Audio bytes are missing for track [{$id}] at ".
-                "[{$sourceObjectPath}].",
-            );
-            $size = filesize($sourcePath);
-            $checksum = hash_file('sha256', $sourcePath);
-
-            if (! is_int($size) || $size < 1 || $size > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES) {
-                throw new RuntimeException("Convo Lab Daily Audio track [{$id}] has an invalid byte size.");
-            }
-
-            if (! is_string($checksum)) {
-                throw new RuntimeException("Unable to checksum Convo Lab Daily Audio track [{$id}].");
-            }
-
-            $destinationPath = DailyAudioPracticeGeneration::storagePath($practiceId, $id);
-            $this->tracks[$id] = [
-                'id' => $id,
-                'practice_id' => $practiceId,
-                'mode' => (string) $row->mode,
-                'source_path' => $sourcePath,
-                'destination_path' => $destinationPath,
-                'size_bytes' => $size,
-                'checksum_sha256' => $checksum,
-                'audio_url' => DailyAudioPracticeGeneration::audioUrl($practiceId, $id),
-            ];
+            $this->addTrackManifestEntry($row, $practiceIds, $sourceMedia);
         }
+    }
+
+    /** @param  Collection<string, true>  $practiceIds */
+    private function addTrackManifestEntry(
+        object $row,
+        Collection $practiceIds,
+        ConvoLabDailyAudioSourceMedia $sourceMedia,
+    ): void {
+        $id = $this->sourceUuid($row->id, 'Daily Audio track');
+        $practiceId = $this->sourceUuid($row->practiceId, 'Daily Audio practice');
+
+        if (! $practiceIds->has($practiceId)) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$row->id}] references a missing practice.",
+            );
+        }
+
+        if (isset($this->tracks[$id])) {
+            throw new RuntimeException("Convo Lab Daily Audio track [{$row->id}] is duplicated.");
+        }
+
+        $this->assertReadyTrackMedia($row);
+        $sourceFile = $this->sourceTrackFile([
+            'id' => $id,
+            'practice_id' => $practiceId,
+            'audio_url' => (string) $row->audioUrl,
+        ], $sourceMedia);
+
+        $this->tracks[$id] = [
+            'id' => $id,
+            'practice_id' => $practiceId,
+            'mode' => (string) $row->mode,
+            'source_path' => $sourceFile['source_path'],
+            'destination_path' => DailyAudioPracticeGeneration::storagePath($practiceId, $id),
+            'size_bytes' => $sourceFile['size_bytes'],
+            'checksum_sha256' => $sourceFile['checksum_sha256'],
+            'audio_url' => DailyAudioPracticeGeneration::audioUrl($practiceId, $id),
+        ];
+    }
+
+    private function assertReadyTrackMedia(object $row): void
+    {
+        if ($row->status !== 'ready'
+            || ! is_string($row->audioUrl)
+            || trim($row->audioUrl) === '') {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$row->id}] has inconsistent ready media state.",
+            );
+        }
+    }
+
+    /**
+     * @param  array{id: string, practice_id: string, audio_url: string}  $track
+     * @return array{source_path: string, size_bytes: int, checksum_sha256: string}
+     */
+    private function sourceTrackFile(
+        array $track,
+        ConvoLabDailyAudioSourceMedia $sourceMedia,
+    ): array {
+        $sourceObjectPath = $this->sourceObjectPath(
+            $track['audio_url'],
+            $sourceMedia->bucket,
+            $track['practice_id'],
+            $track['id'],
+        );
+        $sourcePath = $this->resolveConvoLabSourceFile(
+            $sourceMedia->root,
+            $sourceObjectPath,
+            "Convo Lab Daily Audio bytes are missing for track [{$track['id']}] at ".
+            "[{$sourceObjectPath}].",
+        );
+        $size = filesize($sourcePath);
+        $checksum = hash_file('sha256', $sourcePath);
+
+        if (! is_int($size) || $size < 1 || $size > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES) {
+            throw new RuntimeException("Convo Lab Daily Audio track [{$track['id']}] has an invalid byte size.");
+        }
+
+        if (! is_string($checksum)) {
+            throw new RuntimeException("Unable to checksum Convo Lab Daily Audio track [{$track['id']}].");
+        }
+
+        return [
+            'source_path' => $sourcePath,
+            'size_bytes' => $size,
+            'checksum_sha256' => $checksum,
+        ];
     }
 
     private function sourceUuid(mixed $value, string $label): string

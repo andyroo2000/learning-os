@@ -601,93 +601,7 @@ class ImportConvoLabRehearsalData extends Command
                 $insertRows = [];
 
                 foreach ($cards as $card) {
-                    if (! is_string($card->importedNoteId) || $card->importedNoteId === '') {
-                        throw new \RuntimeException("Missing Convo Lab note [{$card->noteId}] for card [{$card->id}].");
-                    }
-
-                    if ($card->noteUserId !== $card->userId) {
-                        throw new \RuntimeException("Convo Lab card [{$card->id}] references a note owned by another user.");
-                    }
-
-                    $id = $this->newCanonicalUlid();
-                    $this->cardIds[$card->id] = $id;
-                    $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
-                    $promptText = $this->payloadText($card->promptJson, [
-                        'cueText',
-                        'clozeText',
-                        'clozeDisplayText',
-                        'cueMeaning',
-                        'text',
-                        'expression',
-                        'cueHtml',
-                    ]);
-                    $answerText = $this->payloadText($card->answerJson, ['meaning', 'text', 'expression', 'notes']);
-                    $cardType = CardType::fromInput($this->stringOrDefault($card->cardType, CardType::Recognition->value));
-                    $studyStatus = CardStudyStatus::fromFilter(
-                        $this->stringOrDefault($card->queueState, CardStudyStatus::New->value),
-                    );
-                    $convoLabId = $this->sourceUuid($card->id, 'card');
-                    $convoLabNoteId = $this->sourceUuid($card->noteId, 'note');
-                    $deckKey = $this->deckKey($card->userId, $deckName);
-                    $deckId = $this->deckIds[$deckKey]
-                        ?? throw new \RuntimeException("Missing imported deck mapping for [{$deckKey}].");
-
-                    $insertRows[] = [
-                        'id' => $id,
-                        'convolab_id' => $convoLabId,
-                        'convolab_note_id' => $convoLabNoteId,
-                        'convolab_note_created_at' => $card->noteCreatedAt,
-                        'convolab_note_updated_at' => $card->noteUpdatedAt,
-                        'convolab_note_source_kind' => $card->noteSourceKind,
-                        'convolab_note_source_guid' => $card->noteSourceGuid,
-                        'convolab_note_source_notetype_id' => $card->noteSourceNotetypeId,
-                        'convolab_note_raw_fields_json' => $card->noteRawFieldsJson,
-                        'convolab_note_canonical_json' => $card->noteCanonicalJson,
-                        'deck_id' => $deckId,
-                        'front_text' => $promptText,
-                        'back_text' => $answerText,
-                        'card_type' => $cardType->value,
-                        'prompt_json' => $card->promptJson,
-                        'answer_json' => $card->answerJson,
-                        'search_text' => $this->stringOrDefault($card->searchText, trim($promptText.' '.$answerText)),
-                        'study_status' => $studyStatus->value,
-                        'due_at' => $card->dueAt,
-                        'introduced_at' => $card->introducedAt,
-                        'failed_at' => $card->failedAt,
-                        'last_reviewed_at' => $card->lastReviewedAt,
-                        'new_queue_position' => $card->newQueuePosition,
-                        'scheduler_state' => $card->schedulerStateJson,
-                        'import_job_id' => $this->mappedImportJobId($card->importJobId),
-                        'source_kind' => $card->sourceKind,
-                        'source_card_id' => $card->sourceCardId,
-                        'source_note_id' => $card->noteSourceId,
-                        'source_deck_id' => $card->sourceDeckId,
-                        'source_deck_name' => $card->sourceDeckName,
-                        'source_notetype_name' => $card->noteTypeName,
-                        'source_template_ord' => $card->sourceTemplateOrd,
-                        'source_template_name' => $card->sourceTemplateName,
-                        'source_queue' => $card->sourceQueue,
-                        'source_card_type' => $card->sourceCardType,
-                        'source_due' => $card->sourceDue,
-                        'source_interval' => $card->sourceInterval,
-                        'source_factor' => $card->sourceFactor,
-                        'source_reps' => $card->sourceReps,
-                        'source_lapses' => $card->sourceLapses,
-                        'source_left' => $card->sourceLeft,
-                        'source_original_due' => $card->sourceOriginalDue,
-                        'source_original_deck_id' => $card->sourceOriginalDeckId,
-                        'source_fsrs_json' => $card->sourceFsrsJson,
-                        'answer_audio_source' => $card->answerAudioSource,
-                        'variant_group_id' => $card->variantGroupId,
-                        'variant_sentence_id' => $card->variantSentenceId,
-                        'variant_kind' => $card->variantKind,
-                        'variant_stage' => $card->variantStage,
-                        'variant_status' => $card->variantStatus,
-                        'variant_unlocked_at' => $card->variantUnlockedAt,
-                        'deleted_at' => null,
-                        'created_at' => $card->createdAt,
-                        'updated_at' => $card->updatedAt,
-                    ];
+                    $insertRows[] = $this->cardInsertRow($card);
                 }
 
                 $target->table('cards')->insert($insertRows);
@@ -695,6 +609,160 @@ class ImportConvoLabRehearsalData extends Command
             });
 
         $this->line("Imported {$count} cards.");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardInsertRow(object $card): array
+    {
+        $this->assertCardNoteIsImportable($card);
+
+        $id = $this->newCanonicalUlid();
+        $this->cardIds[$card->id] = $id;
+        $deckName = $this->stringOrDefault($card->sourceDeckName, 'Convo Lab Study Cards');
+        $promptText = $this->payloadText($card->promptJson, [
+            'cueText',
+            'clozeText',
+            'clozeDisplayText',
+            'cueMeaning',
+            'text',
+            'expression',
+            'cueHtml',
+        ]);
+        $answerText = $this->payloadText($card->answerJson, ['meaning', 'text', 'expression', 'notes']);
+        $cardType = CardType::fromInput($this->stringOrDefault($card->cardType, CardType::Recognition->value));
+        $studyStatus = CardStudyStatus::fromFilter(
+            $this->stringOrDefault($card->queueState, CardStudyStatus::New->value),
+        );
+
+        return [
+            ...$this->cardIdentityColumns($card, $id, $deckName),
+            ...$this->cardContentColumns($card, $promptText, $answerText, $cardType),
+            ...$this->cardStudyColumns($card, $studyStatus),
+            ...$this->cardSourceColumns($card),
+            ...$this->cardVariantColumns($card),
+        ];
+    }
+
+    private function assertCardNoteIsImportable(object $card): void
+    {
+        if (! is_string($card->importedNoteId) || $card->importedNoteId === '') {
+            throw new \RuntimeException("Missing Convo Lab note [{$card->noteId}] for card [{$card->id}].");
+        }
+
+        if ($card->noteUserId !== $card->userId) {
+            throw new \RuntimeException("Convo Lab card [{$card->id}] references a note owned by another user.");
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardIdentityColumns(object $card, string $id, string $deckName): array
+    {
+        $convoLabId = $this->sourceUuid($card->id, 'card');
+        $convoLabNoteId = $this->sourceUuid($card->noteId, 'note');
+        $deckKey = $this->deckKey($card->userId, $deckName);
+        $deckId = $this->deckIds[$deckKey]
+            ?? throw new \RuntimeException("Missing imported deck mapping for [{$deckKey}].");
+
+        return [
+            'id' => $id,
+            'convolab_id' => $convoLabId,
+            'convolab_note_id' => $convoLabNoteId,
+            'convolab_note_created_at' => $card->noteCreatedAt,
+            'convolab_note_updated_at' => $card->noteUpdatedAt,
+            'convolab_note_source_kind' => $card->noteSourceKind,
+            'convolab_note_source_guid' => $card->noteSourceGuid,
+            'convolab_note_source_notetype_id' => $card->noteSourceNotetypeId,
+            'convolab_note_raw_fields_json' => $card->noteRawFieldsJson,
+            'convolab_note_canonical_json' => $card->noteCanonicalJson,
+            'deck_id' => $deckId,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardContentColumns(
+        object $card,
+        string $promptText,
+        string $answerText,
+        CardType $cardType,
+    ): array {
+        return [
+            'front_text' => $promptText,
+            'back_text' => $answerText,
+            'card_type' => $cardType->value,
+            'prompt_json' => $card->promptJson,
+            'answer_json' => $card->answerJson,
+            'search_text' => $this->stringOrDefault($card->searchText, trim($promptText.' '.$answerText)),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardStudyColumns(object $card, CardStudyStatus $studyStatus): array
+    {
+        return [
+            'study_status' => $studyStatus->value,
+            'due_at' => $card->dueAt,
+            'introduced_at' => $card->introducedAt,
+            'failed_at' => $card->failedAt,
+            'last_reviewed_at' => $card->lastReviewedAt,
+            'new_queue_position' => $card->newQueuePosition,
+            'scheduler_state' => $card->schedulerStateJson,
+            'import_job_id' => $this->mappedImportJobId($card->importJobId),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardSourceColumns(object $card): array
+    {
+        return [
+            'source_kind' => $card->sourceKind,
+            'source_card_id' => $card->sourceCardId,
+            'source_note_id' => $card->noteSourceId,
+            'source_deck_id' => $card->sourceDeckId,
+            'source_deck_name' => $card->sourceDeckName,
+            'source_notetype_name' => $card->noteTypeName,
+            'source_template_ord' => $card->sourceTemplateOrd,
+            'source_template_name' => $card->sourceTemplateName,
+            'source_queue' => $card->sourceQueue,
+            'source_card_type' => $card->sourceCardType,
+            'source_due' => $card->sourceDue,
+            'source_interval' => $card->sourceInterval,
+            'source_factor' => $card->sourceFactor,
+            'source_reps' => $card->sourceReps,
+            'source_lapses' => $card->sourceLapses,
+            'source_left' => $card->sourceLeft,
+            'source_original_due' => $card->sourceOriginalDue,
+            'source_original_deck_id' => $card->sourceOriginalDeckId,
+            'source_fsrs_json' => $card->sourceFsrsJson,
+            'answer_audio_source' => $card->answerAudioSource,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cardVariantColumns(object $card): array
+    {
+        return [
+            'variant_group_id' => $card->variantGroupId,
+            'variant_sentence_id' => $card->variantSentenceId,
+            'variant_kind' => $card->variantKind,
+            'variant_stage' => $card->variantStage,
+            'variant_status' => $card->variantStatus,
+            'variant_unlocked_at' => $card->variantUnlockedAt,
+            'deleted_at' => null,
+            'created_at' => $card->createdAt,
+            'updated_at' => $card->updatedAt,
+        ];
     }
 
     private function mappedUserId(string $sourceUserId): int

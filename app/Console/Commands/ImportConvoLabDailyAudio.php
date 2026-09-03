@@ -450,8 +450,13 @@ class ImportConvoLabDailyAudio extends Command
         $format = str_contains($timestamp, '.') ? '!Y-m-d H:i:s.u' : '!Y-m-d H:i:s';
         $parsed = DateTimeImmutable::createFromFormat($format, $timestamp, new DateTimeZone('UTC'));
         $errors = DateTimeImmutable::getLastErrors();
+        $invalid = [
+            $parsed === false,
+            $errors !== false && $errors['warning_count'] > 0,
+            $errors !== false && $errors['error_count'] > 0,
+        ];
 
-        if ($parsed === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+        if (in_array(true, $invalid, true)) {
             throw new RuntimeException("Convo Lab Daily Audio {$label} is not a valid database timestamp.");
         }
 

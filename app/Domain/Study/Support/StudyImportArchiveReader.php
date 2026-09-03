@@ -4,8 +4,6 @@ namespace App\Domain\Study\Support;
 
 use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use Illuminate\Filesystem\FilesystemAdapter;
-use InvalidArgumentException;
-use JsonException;
 use RuntimeException;
 use Throwable;
 use ZipArchive;
@@ -23,6 +21,8 @@ final class StudyImportArchiveReader
     public function __construct(
         private readonly StudyImportCollectionDatabaseReader $collectionReader,
         private readonly StudyImportArchiveExpansionPolicy $expansionPolicy,
+        private readonly StudyImportArchiveMediaReader $mediaReader,
+        private readonly StudyImportArchiveAccess $archiveAccess,
     ) {}
 
     public function read(FilesystemAdapter $disk, string $sourceObjectPath): StudyImportArchiveRead
@@ -49,7 +49,7 @@ final class StudyImportArchiveReader
         $zip = null;
 
         try {
-            $zip = $this->openArchive($snapshot->path());
+            $zip = $this->archiveAccess->open($snapshot->path());
             $collectionPath = $this->extractCollectionDatabase($zip);
             $collection = $this->collectionReader->read($collectionPath);
 
@@ -57,7 +57,7 @@ final class StudyImportArchiveReader
                 deckName: $collection->deckName,
                 cards: $collection->cards,
                 reviewLogs: $collection->reviewLogs,
-                mediaManifestByFilename: $this->mediaManifestByFilename(
+                mediaManifestByFilename: $this->mediaReader->manifestByFilename(
                     $zip,
                     array_fill_keys($collection->mediaReferences(), true),
                 ),
@@ -80,72 +80,7 @@ final class StudyImportArchiveReader
         FilesystemAdapter $targetDisk,
         array $targetPathsBySourceMediaRef,
     ): array {
-        if ($targetPathsBySourceMediaRef === []) {
-            return [];
-        }
-
-        $zip = null;
-
-        try {
-            $zip = $this->openArchive($snapshot->path());
-            $copied = [];
-            $consumedMediaBytes = 0;
-
-            foreach ($targetPathsBySourceMediaRef as $sourceMediaRef => $targetPath) {
-                $sourceMediaRef = (string) $sourceMediaRef;
-                $index = $zip->locateName($sourceMediaRef);
-                $declaredSize = $index === false ? null : $this->declaredEntrySize($zip, $index);
-
-                if ($declaredSize === null || $declaredSize > $this->expansionPolicy->maxIndividualMediaBytes()) {
-                    $copied[$sourceMediaRef] = false;
-
-                    continue;
-                }
-
-                try {
-                    $consumedMediaBytes = $this->expansionPolicy->addMediaBytes($consumedMediaBytes, $declaredSize);
-                } catch (InvalidArgumentException) {
-                    $copied[$sourceMediaRef] = false;
-
-                    continue;
-                }
-
-                $stream = $zip->getStream((string) $sourceMediaRef);
-
-                if ($stream === false) {
-                    $copied[$sourceMediaRef] = false;
-
-                    continue;
-                }
-
-                $boundedStream = fopen('php://temp/maxmemory:5242880', 'w+b');
-
-                if ($boundedStream === false) {
-                    fclose($stream);
-
-                    throw new RuntimeException('Unable to create a bounded study import media stream.');
-                }
-
-                try {
-                    $copiedBytes = @stream_copy_to_stream($stream, $boundedStream, $declaredSize + 1);
-
-                    if ($copiedBytes !== $declaredSize || ! rewind($boundedStream)) {
-                        $copied[$sourceMediaRef] = false;
-
-                        continue;
-                    }
-
-                    $copied[$sourceMediaRef] = $targetDisk->put($targetPath, $boundedStream);
-                } finally {
-                    fclose($stream);
-                    fclose($boundedStream);
-                }
-            }
-
-            return $copied;
-        } finally {
-            $zip?->close();
-        }
+        return $this->mediaReader->copyEntriesToDisk($snapshot, $targetDisk, $targetPathsBySourceMediaRef);
     }
 
     private function copyStorageObjectToTempFile(FilesystemAdapter $disk, string $sourceObjectPath): string
@@ -197,17 +132,6 @@ final class StudyImportArchiveReader
         }
     }
 
-    private function openArchive(string $archivePath): ZipArchive
-    {
-        $zip = new ZipArchive;
-
-        if ($zip->open($archivePath) !== true) {
-            throw StudyImportPreviewException::invalidCollectionDatabase();
-        }
-
-        return $zip;
-    }
-
     private function extractCollectionDatabase(ZipArchive $zip): string
     {
         foreach (self::COLLECTION_DATABASE_ENTRIES as $entryName) {
@@ -217,7 +141,7 @@ final class StudyImportArchiveReader
                 continue;
             }
 
-            $declaredSize = $this->declaredEntrySize($zip, $index);
+            $declaredSize = $this->archiveAccess->declaredEntrySize($zip, $index);
 
             if ($declaredSize === null) {
                 throw StudyImportPreviewException::invalidCollectionDatabase();
@@ -243,152 +167,6 @@ final class StudyImportArchiveReader
         }
 
         throw StudyImportPreviewException::missingCollectionDatabase();
-    }
-
-    /**
-     * @param  array<string, true>  $referencedFilenames
-     * @return array<string, StudyImportArchiveMediaEntry>
-     */
-    private function mediaManifestByFilename(ZipArchive $zip, array $referencedFilenames): array
-    {
-        $index = $zip->locateName('media');
-
-        if ($index === false) {
-            return [];
-        }
-
-        $declaredSize = $this->declaredEntrySize($zip, $index);
-
-        if ($declaredSize === null) {
-            throw StudyImportPreviewException::invalidMediaManifest();
-        }
-
-        $maxBytes = $this->expansionPolicy->maxMediaManifestBytes();
-
-        if ($declaredSize > $maxBytes) {
-            throw StudyImportPreviewException::mediaManifestTooLarge($maxBytes);
-        }
-
-        $stream = $zip->getStream('media');
-
-        if ($stream === false) {
-            throw StudyImportPreviewException::invalidMediaManifest();
-        }
-
-        try {
-            $contents = @stream_get_contents($stream, $declaredSize + 1);
-
-            if ($contents === false || strlen($contents) !== $declaredSize) {
-                throw StudyImportPreviewException::invalidMediaManifest();
-            }
-
-            try {
-                $decoded = json_decode(str_replace("\0", '', $contents), true, flags: JSON_THROW_ON_ERROR);
-            } catch (JsonException) {
-                throw StudyImportPreviewException::invalidMediaManifest();
-            }
-
-            if (! is_array($decoded)) {
-                return [];
-            }
-
-            $manifest = [];
-            $consumedMediaBytes = 0;
-
-            foreach ($decoded as $sourceMediaRef => $filename) {
-                if (! is_string($filename) || str_contains($filename, "\0")) {
-                    continue;
-                }
-
-                $filename = trim($filename);
-
-                if ($filename === ''
-                    || ! isset($referencedFilenames[$filename])
-                    || array_key_exists($filename, $manifest)) {
-                    continue;
-                }
-
-                $sourceMediaRef = (string) $sourceMediaRef;
-                $contentMetadata = $this->mediaContentMetadata($zip, $sourceMediaRef, $consumedMediaBytes);
-
-                $manifest[$filename] = new StudyImportArchiveMediaEntry(
-                    sourceMediaRef: $sourceMediaRef,
-                    sourceFilename: $filename,
-                    hasContent: $contentMetadata['has_content'],
-                    sizeBytes: $contentMetadata['size_bytes'],
-                    checksumSha256: $contentMetadata['checksum_sha256'],
-                );
-            }
-
-            return $manifest;
-        } finally {
-            fclose($stream);
-        }
-    }
-
-    /**
-     * @return array{has_content: bool, size_bytes: int|null, checksum_sha256: string|null}
-     */
-    private function mediaContentMetadata(ZipArchive $zip, string $sourceMediaRef, int &$consumedMediaBytes): array
-    {
-        $index = $zip->locateName($sourceMediaRef);
-
-        if ($index === false) {
-            return [
-                'has_content' => false,
-                'size_bytes' => null,
-                'checksum_sha256' => null,
-            ];
-        }
-
-        $declaredSize = $this->declaredEntrySize($zip, $index);
-
-        if ($declaredSize === null) {
-            throw StudyImportPreviewException::invalidMediaManifest();
-        }
-
-        if ($declaredSize > $this->expansionPolicy->maxIndividualMediaBytes()) {
-            return [
-                'has_content' => true,
-                'size_bytes' => $declaredSize,
-                'checksum_sha256' => null,
-            ];
-        }
-
-        try {
-            $consumedMediaBytes = $this->expansionPolicy->addMediaBytes($consumedMediaBytes, $declaredSize);
-        } catch (InvalidArgumentException) {
-            throw StudyImportPreviewException::mediaExpansionTooLarge(
-                $this->expansionPolicy->maxTotalMediaBytes(),
-            );
-        }
-
-        $stream = $zip->getStream($sourceMediaRef);
-
-        if ($stream === false) {
-            return [
-                'has_content' => false,
-                'size_bytes' => null,
-                'checksum_sha256' => null,
-            ];
-        }
-
-        try {
-            $hashContext = hash_init('sha256');
-            $hashedBytes = @hash_update_stream($hashContext, $stream, $declaredSize + 1);
-
-            if ($hashedBytes !== $declaredSize) {
-                throw StudyImportPreviewException::invalidMediaManifest();
-            }
-
-            return [
-                'has_content' => true,
-                'size_bytes' => $declaredSize,
-                'checksum_sha256' => hash_final($hashContext),
-            ];
-        } finally {
-            fclose($stream);
-        }
     }
 
     /**
@@ -467,20 +245,5 @@ final class StudyImportArchiveReader
         }
 
         return $tempPath;
-    }
-
-    private function declaredEntrySize(ZipArchive $zip, int $index): ?int
-    {
-        $stat = $zip->statIndex($index);
-
-        if (! is_array($stat) || ! array_key_exists('size', $stat)) {
-            return null;
-        }
-
-        $size = filter_var($stat['size'], FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 0],
-        ]);
-
-        return $size === false ? null : $size;
     }
 }

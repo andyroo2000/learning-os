@@ -474,26 +474,7 @@ final class ProjectAchievementMetricsAction
         AchievementProgressProjection $projection,
         array &$counts,
     ): void {
-        $sessions = StudyActivitySession::query()
-            ->leftJoin(
-                'achievement_study_session_projections',
-                'achievement_study_session_projections.study_activity_session_id',
-                '=',
-                'study_activity_sessions.id',
-            )
-            ->where('study_activity_sessions.user_id', $userId)
-            ->where(function (Builder $query): void {
-                $query->whereNull('achievement_study_session_projections.study_activity_session_id')
-                    ->orWhereColumn(
-                        'study_activity_sessions.updated_at',
-                        '>',
-                        'achievement_study_session_projections.source_updated_at',
-                    );
-            })
-            ->select('study_activity_sessions.*')
-            ->orderBy('study_activity_sessions.ended_at')
-            ->orderBy('study_activity_sessions.id')
-            ->get();
+        $sessions = $this->changedStudySessions($userId);
         if ($sessions->isEmpty()) {
             return;
         }
@@ -551,6 +532,41 @@ final class ProjectAchievementMetricsAction
                 $projection->latest_study_ended_at = $endedAt;
             }
         }
+        $this->persistStudySessionProjections($projectionRows);
+        $this->applyStudyMilestones($userId, $metrics, $thresholdDates);
+
+        $projection->metric_values = $metrics;
+        $projection->threshold_reached_at = $thresholdDates;
+    }
+
+    /** @return Collection<int, StudyActivitySession> */
+    private function changedStudySessions(int $userId): Collection
+    {
+        return StudyActivitySession::query()
+            ->leftJoin(
+                'achievement_study_session_projections',
+                'achievement_study_session_projections.study_activity_session_id',
+                '=',
+                'study_activity_sessions.id',
+            )
+            ->where('study_activity_sessions.user_id', $userId)
+            ->where(function (Builder $query): void {
+                $query->whereNull('achievement_study_session_projections.study_activity_session_id')
+                    ->orWhereColumn(
+                        'study_activity_sessions.updated_at',
+                        '>',
+                        'achievement_study_session_projections.source_updated_at',
+                    );
+            })
+            ->select('study_activity_sessions.*')
+            ->orderBy('study_activity_sessions.ended_at')
+            ->orderBy('study_activity_sessions.id')
+            ->get();
+    }
+
+    /** @param list<array<string, mixed>> $projectionRows */
+    private function persistStudySessionProjections(array $projectionRows): void
+    {
         collect($projectionRows)->chunk(500)->each(
             static fn ($rows) => DB::table('achievement_study_session_projections')->upsert(
                 $rows->all(),
@@ -568,7 +584,14 @@ final class ProjectAchievementMetricsAction
                 ],
             ),
         );
+    }
 
+    /**
+     * @param  array<string, int>  $metrics
+     * @param  array<string, array<string, string>>  $thresholdDates
+     */
+    private function applyStudyMilestones(int $userId, array &$metrics, array &$thresholdDates): void
+    {
         $studyMilestones = $this->studyMilestones($userId);
         $before = $metrics;
         $metrics[GetAchievementProgressAction::DOUBLE_FEATURE_METRIC] = $studyMilestones['doubleFeature'];
@@ -589,9 +612,6 @@ final class ProjectAchievementMetricsAction
             $studyMilestones['repeatReachedAt'],
             $thresholdDates,
         );
-
-        $projection->metric_values = $metrics;
-        $projection->threshold_reached_at = $thresholdDates;
     }
 
     /** @param array<string, int> $metrics */

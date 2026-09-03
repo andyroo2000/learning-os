@@ -87,71 +87,115 @@ class SyncConvoLabAdminProjectionAction
 
         $source->table('InviteCode')
             ->chunkById(200, function ($inviteCodes) use ($target, &$count, &$sourceIds): void {
-                $normalizedInviteCodes = [];
-                foreach ($inviteCodes as $inviteCode) {
-                    $id = strtolower(trim((string) $inviteCode->id));
-                    $convoLabUsedBy = $inviteCode->usedBy === null
-                        ? null
-                        : strtolower(trim((string) $inviteCode->usedBy));
-
-                    if (! Str::isUuid($id)) {
-                        throw new RuntimeException("Convo Lab invite code [{$inviteCode->id}] has an invalid UUID.");
-                    }
-                    if ($convoLabUsedBy !== null && ! Str::isUuid($convoLabUsedBy)) {
-                        throw new RuntimeException("Convo Lab invite code [{$id}] has an invalid user UUID.");
-                    }
-                    $code = trim((string) $inviteCode->code);
-                    if ($code === '' || mb_strlen($code) > 20) {
-                        throw new RuntimeException("Convo Lab invite code [{$id}] has an invalid code value.");
-                    }
-                    $normalizedInviteCodes[] = [$inviteCode, $id, $convoLabUsedBy, $code];
-                }
-
-                $learningOsOwnedIds = $target->table('admin_invite_codes')
-                    ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
-                    ->whereIn('id', array_column($normalizedInviteCodes, 1))
-                    ->pluck('id')
-                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
-                $tombstonedIds = $target->table('admin_invite_code_tombstones')
-                    ->whereIn('invite_code_id', array_column($normalizedInviteCodes, 1))
-                    ->pluck('invite_code_id')
-                    ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
-
-                foreach ($normalizedInviteCodes as [$inviteCode, $id, $convoLabUsedBy, $code]) {
-                    if ($learningOsOwnedIds->has($id) || $tombstonedIds->has($id)) {
-                        $sourceIds[] = $id;
-                        $count++;
-
-                        continue;
-                    }
-
-                    $usedBy = $convoLabUsedBy === null
-                        ? null
-                        : $target->table('users')->where('convolab_id', $convoLabUsedBy)->value('id');
-                    if ($convoLabUsedBy !== null && $usedBy === null) {
-                        throw new RuntimeException("Convo Lab invite code [{$id}] references an unknown user.");
-                    }
-
-                    $target->table('admin_invite_codes')->updateOrInsert(
-                        ['id' => $id],
-                        [
-                            'code' => $code,
-                            'used_by' => $usedBy,
-                            'convolab_used_by' => $convoLabUsedBy,
-                            'used_at' => $inviteCode->usedAt,
-                            'created_at' => $inviteCode->createdAt,
-                            'source_system' => ConvoLabAccountSource::CONVOLAB,
-                        ],
-                    );
-                    $sourceIds[] = $id;
-                    $count++;
-                }
+                $normalizedInviteCodes = $this->normalizeInviteCodes($inviteCodes);
+                $count += $this->syncInviteCodeChunk($target, $normalizedInviteCodes, $sourceIds);
             }, 'id');
 
         $target->table('admin_invite_codes')
             ->where('source_system', ConvoLabAccountSource::CONVOLAB)
             ->when($sourceIds !== [], fn ($query) => $query->whereNotIn('id', $sourceIds))
             ->delete();
+
+        return $count;
+    }
+
+    /**
+     * @param  iterable<int, stdClass>  $inviteCodes
+     * @return list<array{stdClass, string, string|null, string}>
+     */
+    private function normalizeInviteCodes(iterable $inviteCodes): array
+    {
+        $normalized = [];
+
+        foreach ($inviteCodes as $inviteCode) {
+            $normalized[] = $this->normalizeInviteCode($inviteCode);
+        }
+
+        return $normalized;
+    }
+
+    /** @return array{stdClass, string, string|null, string} */
+    private function normalizeInviteCode(stdClass $inviteCode): array
+    {
+        $id = strtolower(trim((string) $inviteCode->id));
+
+        if (! Str::isUuid($id)) {
+            throw new RuntimeException("Convo Lab invite code [{$inviteCode->id}] has an invalid UUID.");
+        }
+
+        $convoLabUsedBy = $this->normalizedInviteCodeUserId($inviteCode->usedBy, $id);
+        $code = trim((string) $inviteCode->code);
+        if ($code === '' || mb_strlen($code) > 20) {
+            throw new RuntimeException("Convo Lab invite code [{$id}] has an invalid code value.");
+        }
+
+        return [$inviteCode, $id, $convoLabUsedBy, $code];
+    }
+
+    private function normalizedInviteCodeUserId(mixed $value, string $inviteCodeId): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        if (! Str::isUuid($normalized)) {
+            throw new RuntimeException("Convo Lab invite code [{$inviteCodeId}] has an invalid user UUID.");
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  list<array{stdClass, string, string|null, string}>  $inviteCodes
+     * @param  list<string>  $sourceIds
+     */
+    private function syncInviteCodeChunk(
+        ConnectionInterface $target,
+        array $inviteCodes,
+        array &$sourceIds,
+    ): int {
+        $learningOsOwnedIds = $target->table('admin_invite_codes')
+            ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
+            ->whereIn('id', array_column($inviteCodes, 1))
+            ->pluck('id')
+            ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+        $tombstonedIds = $target->table('admin_invite_code_tombstones')
+            ->whereIn('invite_code_id', array_column($inviteCodes, 1))
+            ->pluck('invite_code_id')
+            ->mapWithKeys(static fn (string $id): array => [strtolower($id) => true]);
+        $count = 0;
+
+        foreach ($inviteCodes as [$inviteCode, $id, $convoLabUsedBy, $code]) {
+            if ($learningOsOwnedIds->has($id) || $tombstonedIds->has($id)) {
+                $sourceIds[] = $id;
+                $count++;
+
+                continue;
+            }
+
+            $usedBy = $convoLabUsedBy === null
+                ? null
+                : $target->table('users')->where('convolab_id', $convoLabUsedBy)->value('id');
+            if ($convoLabUsedBy !== null && $usedBy === null) {
+                throw new RuntimeException("Convo Lab invite code [{$id}] references an unknown user.");
+            }
+
+            $target->table('admin_invite_codes')->updateOrInsert(
+                ['id' => $id],
+                [
+                    'code' => $code,
+                    'used_by' => $usedBy,
+                    'convolab_used_by' => $convoLabUsedBy,
+                    'used_at' => $inviteCode->usedAt,
+                    'created_at' => $inviteCode->createdAt,
+                    'source_system' => ConvoLabAccountSource::CONVOLAB,
+                ],
+            );
+            $sourceIds[] = $id;
+            $count++;
+        }
 
         return $count;
     }

@@ -3,19 +3,16 @@
 namespace App\Domain\Reviews\Actions;
 
 use App\Domain\Achievements\Actions\InvalidateAchievementProgressProjectionAction;
-use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Reviews\Support\CardReviewChronology;
+use App\Domain\Reviews\Support\CardReviewStateRestorer;
 use App\Domain\Reviews\Sync\CardReviewEventSyncPayload;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
-use App\Domain\Vocabulary\Enums\VocabVariantStatus;
-use App\Support\DateTime\StrictIsoDateTime;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class UndoCardReviewEventAction
@@ -64,24 +61,7 @@ class UndoCardReviewEventAction
                 throw UndoCardReviewEventException::missingSnapshot();
             }
 
-            $preserveProgressionRetirement = AdvanceCardProgressionAfterReviewAction::supports($card)
-                && $card->variant_status === VocabVariantStatus::Locked->value
-                && $card->study_status === CardStudyStatus::Suspended;
-
-            // Keep this restore list in sync with CardReviewStateSnapshot::beforeReview().
-            $card->study_status = $this->studyStatus($snapshot);
-            if ($preserveProgressionRetirement) {
-                $card->study_status = CardStudyStatus::Suspended;
-            }
-            $card->new_queue_position = $this->nullableInteger($snapshot, 'new_queue_position');
-            if (! $card->isProgressionAvailable()) {
-                $card->new_queue_position = null;
-            }
-            $card->scheduler_state = $this->nullableArray($snapshot, 'scheduler_state');
-            $card->due_at = $this->nullableTimestamp($snapshot, 'due_at');
-            $card->introduced_at = $this->nullableTimestamp($snapshot, 'introduced_at');
-            $card->failed_at = $this->nullableTimestamp($snapshot, 'failed_at');
-            $card->setLastReviewedAt($this->nullableTimestamp($snapshot, 'last_reviewed_at'));
+            CardReviewStateRestorer::restore($card, $snapshot);
             $card->saveOrFail();
 
             $userId = $card->ownerUserId();
@@ -121,81 +101,5 @@ class UndoCardReviewEventAction
     {
         return $this->invalidateAchievementProgress
             ?? app(InvalidateAchievementProgressProjectionAction::class);
-    }
-
-    /**
-     * @param  array<string, mixed>  $snapshot
-     */
-    private function studyStatus(array $snapshot): CardStudyStatus
-    {
-        $studyStatus = $snapshot['study_status'] ?? null;
-
-        if (! is_string($studyStatus)) {
-            throw UndoCardReviewEventException::invalidSnapshot('study_status');
-        }
-
-        return CardStudyStatus::tryFrom($studyStatus)
-            ?? throw UndoCardReviewEventException::invalidSnapshot('study_status');
-    }
-
-    /**
-     * @param  array<string, mixed>  $snapshot
-     */
-    private function nullableInteger(array $snapshot, string $key): ?int
-    {
-        $value = $snapshot[$key] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_int($value)) {
-            throw UndoCardReviewEventException::invalidSnapshot($key);
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param  array<string, mixed>  $snapshot
-     * @return array<string, mixed>|null
-     */
-    private function nullableArray(array $snapshot, string $key): ?array
-    {
-        $value = $snapshot[$key] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_array($value)) {
-            throw UndoCardReviewEventException::invalidSnapshot($key);
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param  array<string, mixed>  $snapshot
-     */
-    private function nullableTimestamp(array $snapshot, string $key): ?Carbon
-    {
-        $value = $snapshot[$key] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_string($value) || trim($value) === '') {
-            throw UndoCardReviewEventException::invalidSnapshot($key);
-        }
-
-        $timestamp = StrictIsoDateTime::parseOrNull($value);
-
-        if ($timestamp === null) {
-            throw UndoCardReviewEventException::invalidSnapshot($key);
-        }
-
-        return $timestamp;
     }
 }

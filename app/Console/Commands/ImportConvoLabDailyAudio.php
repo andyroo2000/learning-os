@@ -256,43 +256,53 @@ class ImportConvoLabDailyAudio extends Command
             ->orderBy('createdAt')
             ->orderBy('id')
             ->get(['id', 'createdAt', 'updatedAt']) as $row) {
-            $id = $this->sourceUuid($row->id, 'Daily Audio practice');
-
-            if (isset($this->practices[$id])) {
-                throw new RuntimeException("Convo Lab Daily Audio practice [{$row->id}] is duplicated.");
-            }
-
-            $this->practices[$id] = [
-                'id' => $id,
-                'created_at' => $this->sourceTimestamp($row->createdAt, "practice [{$id}] createdAt"),
-                'updated_at' => $this->sourceTimestamp($row->updatedAt, "practice [{$id}] updatedAt"),
-            ];
+            $this->addPracticeTimestamp($row);
         }
 
         foreach ($source->table('daily_audio_practice_tracks')
             ->orderBy('createdAt')
             ->orderBy('id')
             ->get(['id', 'practiceId', 'createdAt', 'updatedAt']) as $row) {
-            $id = $this->sourceUuid($row->id, 'Daily Audio track');
-            $practiceId = $this->sourceUuid($row->practiceId, 'Daily Audio practice');
-
-            if (! isset($this->practices[$practiceId])) {
-                throw new RuntimeException(
-                    "Convo Lab Daily Audio track [{$row->id}] references a missing practice.",
-                );
-            }
-
-            if (isset($this->trackTimestamps[$id])) {
-                throw new RuntimeException("Convo Lab Daily Audio track [{$row->id}] is duplicated.");
-            }
-
-            $this->trackTimestamps[$id] = [
-                'id' => $id,
-                'practice_id' => $practiceId,
-                'created_at' => $this->sourceTimestamp($row->createdAt, "track [{$id}] createdAt"),
-                'updated_at' => $this->sourceTimestamp($row->updatedAt, "track [{$id}] updatedAt"),
-            ];
+            $this->addTrackTimestamp($row);
         }
+    }
+
+    private function addPracticeTimestamp(object $row): void
+    {
+        $id = $this->sourceUuid($row->id, 'Daily Audio practice');
+
+        if (isset($this->practices[$id])) {
+            throw new RuntimeException("Convo Lab Daily Audio practice [{$row->id}] is duplicated.");
+        }
+
+        $this->practices[$id] = [
+            'id' => $id,
+            'created_at' => $this->sourceTimestamp($row->createdAt, "practice [{$id}] createdAt"),
+            'updated_at' => $this->sourceTimestamp($row->updatedAt, "practice [{$id}] updatedAt"),
+        ];
+    }
+
+    private function addTrackTimestamp(object $row): void
+    {
+        $id = $this->sourceUuid($row->id, 'Daily Audio track');
+        $practiceId = $this->sourceUuid($row->practiceId, 'Daily Audio practice');
+
+        if (! isset($this->practices[$practiceId])) {
+            throw new RuntimeException(
+                "Convo Lab Daily Audio track [{$row->id}] references a missing practice.",
+            );
+        }
+
+        if (isset($this->trackTimestamps[$id])) {
+            throw new RuntimeException("Convo Lab Daily Audio track [{$row->id}] is duplicated.");
+        }
+
+        $this->trackTimestamps[$id] = [
+            'id' => $id,
+            'practice_id' => $practiceId,
+            'created_at' => $this->sourceTimestamp($row->createdAt, "track [{$id}] createdAt"),
+            'updated_at' => $this->sourceTimestamp($row->updatedAt, "track [{$id}] updatedAt"),
+        ];
     }
 
     private function buildTrackManifest(

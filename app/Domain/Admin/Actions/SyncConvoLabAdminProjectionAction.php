@@ -13,6 +13,7 @@ class SyncConvoLabAdminProjectionAction
 {
     public function __construct(
         private readonly SyncConvoLabAdminUsersAction $syncUsers,
+        private readonly SyncConvoLabSpeakerAvatarsAction $syncSpeakerAvatars,
     ) {}
 
     public function handle(
@@ -50,7 +51,7 @@ class SyncConvoLabAdminProjectionAction
 
         [$users, $sourceUserIds] = $this->syncUsers->handle($source, $target);
         $inviteCodes = $this->syncInviteCodes($source, $target);
-        $speakerAvatars = $this->syncSpeakerAvatars($source, $target);
+        $speakerAvatars = $this->syncSpeakerAvatars->handle($source, $target);
         $target->table('admin_user_projections')
             ->where('source_system', ConvoLabAccountSource::CONVOLAB)
             ->when($sourceUserIds !== [], fn ($query) => $query->whereNotIn('convolab_id', $sourceUserIds))
@@ -198,157 +199,5 @@ class SyncConvoLabAdminProjectionAction
         }
 
         return $count;
-    }
-
-    private function syncSpeakerAvatars(ConnectionInterface $source, ConnectionInterface $target): int
-    {
-        $count = 0;
-        $sourceIds = [];
-        $seenFilenames = [];
-
-        $source->table('SpeakerAvatar')
-            ->chunkById(200, function ($avatars) use (
-                $target,
-                &$count,
-                &$sourceIds,
-                &$seenFilenames,
-            ): void {
-                $normalizedAvatars = [];
-                foreach ($avatars as $avatar) {
-                    $id = strtolower(trim((string) $avatar->id));
-                    if (! Str::isUuid($id)) {
-                        throw new RuntimeException("Convo Lab speaker avatar [{$avatar->id}] has an invalid UUID.");
-                    }
-
-                    $filename = strtolower($this->sourceRequiredString($avatar, 'filename', 255));
-                    if (preg_match('/^ja-(male|female)-(casual|polite|formal)\.(jpg|jpeg|png|webp)$/', $filename) !== 1) {
-                        throw new RuntimeException("Convo Lab speaker avatar [{$id}] has an invalid filename.");
-                    }
-                    if (isset($seenFilenames[$filename])) {
-                        throw new RuntimeException('Convo Lab speaker avatars must have unique filenames.');
-                    }
-                    $seenFilenames[$filename] = true;
-
-                    $language = strtolower($this->sourceRequiredString($avatar, 'language', 16));
-                    $gender = strtolower($this->sourceRequiredString($avatar, 'gender', 16));
-                    $tone = strtolower($this->sourceRequiredString($avatar, 'tone', 16));
-                    if ($language !== 'ja' || ! in_array($gender, ['male', 'female'], true)
-                        || ! in_array($tone, ['casual', 'polite', 'formal'], true)) {
-                        throw new RuntimeException("Convo Lab speaker avatar [{$id}] has invalid voice metadata.");
-                    }
-
-                    $normalizedAvatars[] = [
-                        $avatar,
-                        $id,
-                        $filename,
-                        $language,
-                        $gender,
-                        $tone,
-                        $this->sourceRequiredString($avatar, 'croppedUrl', 2048),
-                        $this->sourceRequiredString($avatar, 'originalUrl', 2048),
-                    ];
-                }
-
-                $ids = array_column($normalizedAvatars, 1);
-                $filenames = array_column($normalizedAvatars, 2);
-                $learningOsOwned = $target->table('admin_speaker_avatars')
-                    ->where('source_system', ConvoLabAccountSource::LEARNING_OS)
-                    ->where(function ($query) use ($ids, $filenames): void {
-                        $query->whereIn('id', $ids)->orWhereIn('filename', $filenames);
-                    })
-                    ->get(['id', 'filename']);
-                $ownedIds = $learningOsOwned->pluck('id')->mapWithKeys(
-                    static fn (string $id): array => [strtolower($id) => true],
-                );
-                $ownedFilenames = $learningOsOwned->pluck('filename')->mapWithKeys(
-                    static fn (string $filename): array => [strtolower($filename) => true],
-                );
-
-                $sourceIdByFilename = collect($normalizedAvatars)->mapWithKeys(
-                    static fn (array $avatar): array => [$avatar[2] => $avatar[1]],
-                );
-                $rotatedSourceIds = $target->table('admin_speaker_avatars')
-                    ->where('source_system', ConvoLabAccountSource::CONVOLAB)
-                    ->whereIn('filename', $filenames)
-                    ->get(['id', 'filename'])
-                    ->filter(static fn (stdClass $avatar): bool => strtolower((string) $avatar->id)
-                        !== $sourceIdByFilename->get(strtolower((string) $avatar->filename)))
-                    ->pluck('id');
-                if ($rotatedSourceIds->isNotEmpty()) {
-                    $target->table('admin_speaker_avatars')
-                        ->where('source_system', ConvoLabAccountSource::CONVOLAB)
-                        ->whereIn('id', $rotatedSourceIds)
-                        ->delete();
-                }
-
-                foreach ($normalizedAvatars as [
-                    $avatar,
-                    $id,
-                    $filename,
-                    $language,
-                    $gender,
-                    $tone,
-                    $croppedUrl,
-                    $originalUrl,
-                ]) {
-                    if ($ownedIds->has($id) || $ownedFilenames->has($filename)) {
-                        $sourceIds[] = $id;
-                        $count++;
-
-                        continue;
-                    }
-
-                    $target->table('admin_speaker_avatars')->updateOrInsert(
-                        ['id' => $id],
-                        [
-                            'filename' => $filename,
-                            'cropped_url' => $croppedUrl,
-                            'original_url' => $originalUrl,
-                            'language' => $language,
-                            'gender' => $gender,
-                            'tone' => $tone,
-                            'source_system' => ConvoLabAccountSource::CONVOLAB,
-                            'created_at' => $avatar->createdAt,
-                            'updated_at' => $avatar->updatedAt,
-                        ],
-                    );
-                    $sourceIds[] = $id;
-                    $count++;
-                }
-            }, 'id');
-
-        $target->table('admin_speaker_avatars')
-            ->where('source_system', ConvoLabAccountSource::CONVOLAB)
-            ->when($sourceIds !== [], fn ($query) => $query->whereNotIn('id', $sourceIds))
-            ->delete();
-
-        return $count;
-    }
-
-    private function sourceRequiredString(stdClass $row, string $property, int $maxLength): string
-    {
-        $value = $this->nullableString($row, $property, $maxLength);
-        if ($value === null) {
-            throw new RuntimeException("Convo Lab source field [{$property}] is required.");
-        }
-
-        return $value;
-    }
-
-    private function nullableString(stdClass $row, string $property, ?int $maxLength = null): ?string
-    {
-        if (! isset($row->{$property})) {
-            return null;
-        }
-
-        $value = trim((string) $row->{$property});
-        if ($value === '') {
-            return null;
-        }
-        if ($maxLength !== null && mb_strlen($value) > $maxLength) {
-            throw new RuntimeException("Convo Lab source field [{$property}] exceeds {$maxLength} characters.");
-        }
-
-        return $value;
     }
 }

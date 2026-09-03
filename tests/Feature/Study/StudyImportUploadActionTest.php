@@ -256,38 +256,7 @@ class StudyImportUploadActionTest extends TestCase
 
     public function test_process_job_removes_partial_media_objects_after_copy_failure(): void
     {
-        Storage::fake('study-imports');
-        Storage::fake('media');
-        $sourceObjectPath = 'study/imports/process/partial-media-copy.colpkg';
-        Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
-        $importJob = StudyImportJob::factory()->uploadCompleted()->create([
-            'source_object_path' => $sourceObjectPath,
-        ]);
-        $mediaDisk = Storage::disk('media');
-        $failingMediaDisk = new class($mediaDisk) extends FilesystemAdapter
-        {
-            private bool $failed = false;
-
-            public function __construct(private readonly FilesystemAdapter $inner)
-            {
-                parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
-            }
-
-            public function put($path, $contents, $options = []): bool
-            {
-                if (! $this->failed) {
-                    $this->failed = true;
-                    $this->inner->put($path, 'partial-media-bytes', $options);
-
-                    return false;
-                }
-
-                return $this->inner->put($path, $contents, $options);
-            }
-        };
-        Storage::set('media', $failingMediaDisk);
-
-        $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
+        [$processed, $importJob, $mediaDisk] = $this->processImportWithPartialMediaWriteFailure();
 
         $this->assertSame(StudyImportStatus::Completed, $processed?->status);
         $this->assertSame(1, $processed?->summary_json['imported_media_assets']);
@@ -303,20 +272,49 @@ class StudyImportUploadActionTest extends TestCase
     public function test_process_job_reports_partial_media_cleanup_failure_without_aborting_the_import(): void
     {
         Exceptions::fake();
+        [$processed, $importJob, $mediaDisk] = $this->processImportWithPartialMediaWriteFailure(
+            failPartialWriteCleanup: true,
+        );
+
+        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
+        $this->assertSame(1, $processed?->summary_json['imported_media_assets']);
+        $this->assertSame(1, $processed?->summary_json['skipped_media_assets']);
+        $this->assertDatabaseCount('decks', 1);
+        $this->assertDatabaseCount('cards', 3);
+        $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseCount('card_media', 2);
+        $mediaDisk->assertExists('study/imports/'.$importJob->id.'/0-word.mp3');
+        $mediaDisk->assertExists('study/imports/'.$importJob->id.'/1-company.png');
+        Exceptions::assertReported(
+            fn (RuntimeException $exception): bool => $exception->getMessage()
+                === 'Unable to remove a partial study import media object: study/imports/'.$importJob->id.'/0-word.mp3',
+        );
+        Exceptions::assertReportedCount(1);
+    }
+
+    /** @return array{StudyImportJob|null, StudyImportJob, FilesystemAdapter} */
+    private function processImportWithPartialMediaWriteFailure(
+        bool $failPartialWriteCleanup = false,
+    ): array {
         Storage::fake('study-imports');
         Storage::fake('media');
-        $sourceObjectPath = 'study/imports/process/partial-media-cleanup-failure.colpkg';
+        $filename = $failPartialWriteCleanup
+            ? 'partial-media-cleanup-failure.colpkg'
+            : 'partial-media-copy.colpkg';
+        $sourceObjectPath = 'study/imports/process/'.$filename;
         Storage::disk('study-imports')->put($sourceObjectPath, $this->buildStudyImportArchiveBytes());
         $importJob = StudyImportJob::factory()->uploadCompleted()->create([
             'source_object_path' => $sourceObjectPath,
         ]);
         $mediaDisk = Storage::disk('media');
-        $failingMediaDisk = new class($mediaDisk) extends FilesystemAdapter
+        $failingMediaDisk = new class($mediaDisk, $failPartialWriteCleanup) extends FilesystemAdapter
         {
             private bool $failed = false;
 
-            public function __construct(private readonly FilesystemAdapter $inner)
-            {
+            public function __construct(
+                private readonly FilesystemAdapter $inner,
+                private readonly bool $failPartialWriteCleanup,
+            ) {
                 parent::__construct($inner->getDriver(), $inner->getAdapter(), $inner->getConfig());
             }
 
@@ -334,7 +332,8 @@ class StudyImportUploadActionTest extends TestCase
 
             public function delete($paths): bool
             {
-                if (str_ends_with((string) $paths, '/0-word.mp3')) {
+                if ($this->failPartialWriteCleanup
+                    && str_ends_with((string) $paths, '/0-word.mp3')) {
                     return false;
                 }
 
@@ -345,20 +344,7 @@ class StudyImportUploadActionTest extends TestCase
 
         $processed = app(ProcessStudyImportJobAction::class)->handle($importJob->id);
 
-        $this->assertSame(StudyImportStatus::Completed, $processed?->status);
-        $this->assertSame(1, $processed?->summary_json['imported_media_assets']);
-        $this->assertSame(1, $processed?->summary_json['skipped_media_assets']);
-        $this->assertDatabaseCount('decks', 1);
-        $this->assertDatabaseCount('cards', 3);
-        $this->assertDatabaseCount('media_assets', 1);
-        $this->assertDatabaseCount('card_media', 2);
-        $mediaDisk->assertExists('study/imports/'.$importJob->id.'/0-word.mp3');
-        $mediaDisk->assertExists('study/imports/'.$importJob->id.'/1-company.png');
-        Exceptions::assertReported(
-            fn (RuntimeException $exception): bool => $exception->getMessage()
-                === 'Unable to remove a partial study import media object: study/imports/'.$importJob->id.'/0-word.mp3',
-        );
-        Exceptions::assertReportedCount(1);
+        return [$processed, $importJob, $mediaDisk];
     }
 
     public function test_process_job_rolls_back_media_records_and_copies_after_sync_failure(): void

@@ -201,9 +201,7 @@ final class ProjectAchievementMetricsAction
             $latestReviewedId = (string) $event->id;
 
             $createdAt = CarbonImmutable::instance($event->created_at);
-            if ($lastCreatedAt === null
-                || $createdAt->gt($lastCreatedAt)
-                || ($createdAt->equalTo($lastCreatedAt) && strcmp((string) $event->id, (string) $lastCreatedId) > 0)) {
+            if ($this->isReviewCreatedAfterCursor($event, $createdAt, $lastCreatedAt, $lastCreatedId)) {
                 $lastCreatedAt = $createdAt;
                 $lastCreatedId = (string) $event->id;
             }
@@ -244,6 +242,27 @@ final class ProjectAchievementMetricsAction
             'latestReviewedAt' => $latestReviewedAt,
             'latestReviewedId' => $latestReviewedId,
         ];
+    }
+
+    private function isReviewCreatedAfterCursor(
+        CardReviewEvent $event,
+        CarbonImmutable $createdAt,
+        ?CarbonImmutable $lastCreatedAt,
+        ?string $lastCreatedId,
+    ): bool {
+        if ($lastCreatedAt === null) {
+            return true;
+        }
+
+        if ($createdAt->gt($lastCreatedAt)) {
+            return true;
+        }
+
+        if (! $createdAt->equalTo($lastCreatedAt)) {
+            return false;
+        }
+
+        return strcmp((string) $event->id, (string) $lastCreatedId) > 0;
     }
 
     /**
@@ -291,18 +310,30 @@ final class ProjectAchievementMetricsAction
         AchievementProgressProjection $projection,
         Collection $events,
     ): bool {
-        if ($projection->last_review_created_at === null
-            || $projection->latest_reviewed_at === null
-            || $events->isEmpty()) {
+        if ($projection->last_review_created_at === null) {
+            return false;
+        }
+
+        if ($projection->latest_reviewed_at === null) {
+            return false;
+        }
+
+        if ($events->isEmpty()) {
             return false;
         }
 
         $event = $events->first();
         $reviewedAt = CarbonImmutable::instance($event->reviewed_at);
 
-        return $reviewedAt->lt($projection->latest_reviewed_at)
-            || ($reviewedAt->equalTo($projection->latest_reviewed_at)
-                && strcmp((string) $event->id, (string) $projection->latest_reviewed_id) <= 0);
+        if ($reviewedAt->lt($projection->latest_reviewed_at)) {
+            return true;
+        }
+
+        if (! $reviewedAt->equalTo($projection->latest_reviewed_at)) {
+            return false;
+        }
+
+        return strcmp((string) $event->id, (string) $projection->latest_reviewed_id) <= 0;
     }
 
     private function hasOutOfOrderStudySession(int $userId, AchievementProgressProjection $projection): bool

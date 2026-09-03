@@ -2,7 +2,6 @@
 
 namespace App\Domain\Study\Support;
 
-use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Exceptions\StudyImportPreviewException;
 use App\Domain\Study\Models\StudyImportJob;
@@ -14,7 +13,7 @@ use RuntimeException;
 final class StudyImportCollectionDatabaseReader
 {
     public function __construct(
-        private readonly StudyImportArchiveTemplateRenderer $templateRenderer,
+        private readonly StudyImportCollectionCardReader $cardReader,
     ) {}
 
     public function read(string $collectionPath): StudyImportArchiveRead
@@ -29,8 +28,7 @@ final class StudyImportCollectionDatabaseReader
                 throw StudyImportPreviewException::deckNameTooLong(Deck::MAX_NAME_LENGTH);
             }
 
-            $noteTypes = $this->noteTypesById($pdo);
-            $cards = $this->fetchTargetDeckCards($pdo, $deck->sourceDeckId, $noteTypes);
+            $cards = $this->cardReader->read($pdo, $deck->sourceDeckId);
 
             if ($cards === []) {
                 throw new StudyImportPreviewException('Deck "'.$deck->name.'" has no cards to import.');
@@ -174,191 +172,6 @@ final class StudyImportCollectionDatabaseReader
             static fn (StudyImportArchiveDeck $deck): string => $deck->name,
             $candidateDecks,
         ));
-    }
-
-    /**
-     * @return array<int, array{name: string, fields: list<string>, templates: array<int, array{name: string, front: string, back: string}>}>
-     */
-    private function noteTypesById(PDO $pdo): array
-    {
-        if ($this->hasTable($pdo, 'notetypes')) {
-            $rows = $this->fetchAll($pdo, 'SELECT id, name FROM notetypes');
-
-            return array_reduce(
-                $rows,
-                static function (array $noteTypes, array $row): array {
-                    if (isset($row['id']) && is_numeric($row['id']) && isset($row['name']) && is_string($row['name'])) {
-                        // Normalized Anki schemas split fields/templates into separate tables.
-                        // Querying them is deferred; renderer falls back to positional fields.
-                        $noteTypes[(int) $row['id']] = [
-                            'name' => trim(str_replace("\0", '', $row['name'])),
-                            'fields' => [],
-                            'templates' => [],
-                        ];
-                    }
-
-                    return $noteTypes;
-                },
-                [],
-            );
-        }
-
-        $collectionRow = $this->collectionMetadata($pdo);
-        $models = $this->decodeJsonObject((string) ($collectionRow['models'] ?? '{}'));
-        $noteTypes = [];
-
-        foreach ($models as $model) {
-            if (! is_array($model) || ! isset($model['id']) || ! is_numeric($model['id'])) {
-                continue;
-            }
-
-            $noteTypes[(int) $model['id']] = [
-                'name' => isset($model['name']) && is_string($model['name'])
-                    ? trim(str_replace("\0", '', $model['name']))
-                    : '',
-                'fields' => $this->noteTypeFieldNames($model),
-                'templates' => $this->noteTypeTemplates($model),
-            ];
-        }
-
-        return $noteTypes;
-    }
-
-    /**
-     * @param  array<string, mixed>  $model
-     * @return list<string>
-     */
-    private function noteTypeFieldNames(array $model): array
-    {
-        $fields = $model['flds'] ?? [];
-
-        if (! is_array($fields)) {
-            return [];
-        }
-
-        return array_values(array_map(
-            static fn (mixed $field): string => is_array($field) && isset($field['name']) && is_string($field['name'])
-                ? trim(str_replace("\0", '', $field['name']))
-                : '',
-            $fields,
-        ));
-    }
-
-    /**
-     * @param  array<string, mixed>  $model
-     * @return array<int, array{name: string, front: string, back: string}>
-     */
-    private function noteTypeTemplates(array $model): array
-    {
-        $templates = $model['tmpls'] ?? [];
-
-        if (! is_array($templates)) {
-            return [];
-        }
-
-        $templatesByOrdinal = [];
-
-        foreach ($templates as $index => $template) {
-            if (! is_array($template)) {
-                continue;
-            }
-
-            $ordinal = isset($template['ord']) && is_numeric($template['ord'])
-                ? (int) $template['ord']
-                : (int) $index;
-
-            $templatesByOrdinal[$ordinal] = [
-                'name' => isset($template['name']) && is_string($template['name'])
-                    ? trim(str_replace("\0", '', $template['name']))
-                    : '',
-                'front' => isset($template['qfmt']) && is_string($template['qfmt'])
-                    ? str_replace("\0", '', $template['qfmt'])
-                    : '',
-                'back' => isset($template['afmt']) && is_string($template['afmt'])
-                    ? str_replace("\0", '', $template['afmt'])
-                    : '',
-            ];
-        }
-
-        ksort($templatesByOrdinal);
-
-        return $templatesByOrdinal;
-    }
-
-    /**
-     * @param  array<int, array{name: string, fields: list<string>, templates: array<int, array{name: string, front: string, back: string}>}>  $noteTypes
-     * @return list<StudyImportArchiveCard>
-     */
-    private function fetchTargetDeckCards(PDO $pdo, int $deckId, array $noteTypes): array
-    {
-        $rows = $this->fetchAll(
-            $pdo,
-            <<<'SQL'
-                SELECT
-                    c.id AS card_id,
-                    c.did AS deck_id,
-                    c.ord AS template_ord,
-                    n.id AS note_id,
-                    n.mid AS note_type_id,
-                    n.flds AS note_fields
-                FROM cards c
-                JOIN notes n ON n.id = c.nid
-                WHERE c.did = :deck_id
-                ORDER BY c.id ASC
-                SQL,
-            ['deck_id' => $deckId],
-        );
-
-        $usedNoteTypeIds = [];
-
-        foreach ($rows as $row) {
-            $usedNoteTypeIds[(int) $row['note_type_id']] = true;
-        }
-
-        foreach (array_keys($usedNoteTypeIds) as $noteTypeId) {
-            $noteTypeName = $noteTypes[$noteTypeId]['name'] ?? '';
-
-            if (! mb_check_encoding($noteTypeName, 'UTF-8')) {
-                throw StudyImportPreviewException::invalidNoteTypeNameEncoding();
-            }
-
-            if (mb_strlen($noteTypeName) > Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH) {
-                throw StudyImportPreviewException::noteTypeNameTooLong(Card::MAX_SOURCE_NOTETYPE_NAME_LENGTH);
-            }
-        }
-
-        return array_map(
-            function (array $row) use ($noteTypes): StudyImportArchiveCard {
-                $noteTypeId = (int) $row['note_type_id'];
-                $templateOrdinal = (int) $row['template_ord'];
-                $noteFields = is_string($row['note_fields']) ? str_replace("\0", '', $row['note_fields']) : '';
-                $noteType = $noteTypes[$noteTypeId] ?? [
-                    'name' => '',
-                    'fields' => [],
-                    'templates' => [],
-                ];
-
-                if (! mb_check_encoding($noteFields, 'UTF-8')) {
-                    throw StudyImportPreviewException::invalidCardTextEncoding();
-                }
-
-                $renderedText = $this->templateRenderer->render($noteType, $templateOrdinal, $noteFields);
-
-                return new StudyImportArchiveCard(
-                    sourceCardId: (int) $row['card_id'],
-                    sourceNoteId: (int) $row['note_id'],
-                    sourceDeckId: (int) $row['deck_id'],
-                    sourceNoteTypeId: $noteTypeId,
-                    sourceNoteTypeName: $noteType['name'],
-                    sourceTemplateOrdinal: $templateOrdinal,
-                    frontText: $renderedText['front'],
-                    backText: $renderedText['back'],
-                    noteFields: $noteFields,
-                    frontMediaReferences: $renderedText['front_media_references'],
-                );
-            },
-            $rows,
-        );
     }
 
     /**

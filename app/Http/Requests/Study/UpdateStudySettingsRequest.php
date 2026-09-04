@@ -8,6 +8,18 @@ use Illuminate\Validation\Validator;
 
 class UpdateStudySettingsRequest extends FormRequest
 {
+    /** @var list<string> */
+    private const SETTING_KEYS = [
+        'newCardsPerDay',
+        'new_cards_per_day',
+        'lessonBatchSize',
+        'lesson_batch_size',
+        'reviewTimeBudgetMinutes',
+        'review_time_budget_minutes',
+        'newCardLaneWeights',
+        'new_card_lane_weights',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -69,72 +81,103 @@ class UpdateStudySettingsRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->any()) {
-                    return;
-                }
-
-                $validated = $validator->safe()->all();
-
-                if (! collect([
-                    'newCardsPerDay',
-                    'new_cards_per_day',
-                    'lessonBatchSize',
-                    'lesson_batch_size',
-                    'reviewTimeBudgetMinutes',
-                    'review_time_budget_minutes',
-                    'newCardLaneWeights',
-                    'new_card_lane_weights',
-                ])->contains(fn (string $key): bool => array_key_exists($key, $validated))) {
-                    $validator->errors()->add('settings', 'At least one study setting must be provided.');
-
-                    return;
-                }
-
-                if (
-                    array_key_exists('newCardsPerDay', $validated)
-                    && array_key_exists('new_cards_per_day', $validated)
-                    && (int) $validated['newCardsPerDay'] !== (int) $validated['new_cards_per_day']
-                ) {
-                    $validator->errors()->add(
-                        'newCardsPerDay',
-                        'The newCardsPerDay and new_cards_per_day values must match when both are provided.',
-                    );
-                }
-
-                if (
-                    array_key_exists('newCardLaneWeights', $validated)
-                    && array_key_exists('new_card_lane_weights', $validated)
-                    && $this->camelLaneWeights($validated['newCardLaneWeights'])
-                        !== $this->snakeLaneWeights($validated['new_card_lane_weights'])
-                ) {
-                    $validator->errors()->add(
-                        'newCardLaneWeights',
-                        'The newCardLaneWeights and new_card_lane_weights values must match when both are provided.',
-                    );
-                }
-                if (
-                    array_key_exists('reviewTimeBudgetMinutes', $validated)
-                    && array_key_exists('review_time_budget_minutes', $validated)
-                    && (int) $validated['reviewTimeBudgetMinutes'] !== (int) $validated['review_time_budget_minutes']
-                ) {
-                    $validator->errors()->add(
-                        'reviewTimeBudgetMinutes',
-                        'The reviewTimeBudgetMinutes and review_time_budget_minutes values must match when both are provided.',
-                    );
-                }
-
-                if (
-                    array_key_exists('lessonBatchSize', $validated)
-                    && array_key_exists('lesson_batch_size', $validated)
-                    && (int) $validated['lessonBatchSize'] !== (int) $validated['lesson_batch_size']
-                ) {
-                    $validator->errors()->add(
-                        'lessonBatchSize',
-                        'The lessonBatchSize and lesson_batch_size values must match when both are provided.',
-                    );
-                }
+                $this->validateSettingAliases($validator);
             },
         ];
+    }
+
+    private function validateSettingAliases(Validator $validator): void
+    {
+        if ($validator->errors()->any()) {
+            return;
+        }
+
+        $validated = $validator->safe()->all();
+
+        if (! self::hasSetting($validated)) {
+            $validator->errors()->add('settings', 'At least one study setting must be provided.');
+
+            return;
+        }
+
+        self::addScalarAliasMismatch($validator, $validated, [
+            'camel' => 'newCardsPerDay',
+            'snake' => 'new_cards_per_day',
+            'message' => 'The newCardsPerDay and new_cards_per_day values must match when both are provided.',
+        ]);
+        $this->addLaneWeightAliasMismatch($validator, $validated);
+        self::addScalarAliasMismatch($validator, $validated, [
+            'camel' => 'reviewTimeBudgetMinutes',
+            'snake' => 'review_time_budget_minutes',
+            'message' => 'The reviewTimeBudgetMinutes and review_time_budget_minutes values must match when both are provided.',
+        ]);
+        self::addScalarAliasMismatch($validator, $validated, [
+            'camel' => 'lessonBatchSize',
+            'snake' => 'lesson_batch_size',
+            'message' => 'The lessonBatchSize and lesson_batch_size values must match when both are provided.',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private static function hasSetting(array $validated): bool
+    {
+        foreach (self::SETTING_KEYS as $key) {
+            if (array_key_exists($key, $validated)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @param  array{camel: string, snake: string, message: string}  $aliases
+     */
+    private static function addScalarAliasMismatch(
+        Validator $validator,
+        array $validated,
+        array $aliases,
+    ): void {
+        if (! array_key_exists($aliases['camel'], $validated)) {
+            return;
+        }
+
+        if (! array_key_exists($aliases['snake'], $validated)) {
+            return;
+        }
+
+        if ((int) $validated[$aliases['camel']] === (int) $validated[$aliases['snake']]) {
+            return;
+        }
+
+        $validator->errors()->add($aliases['camel'], $aliases['message']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function addLaneWeightAliasMismatch(Validator $validator, array $validated): void
+    {
+        if (! array_key_exists('newCardLaneWeights', $validated)) {
+            return;
+        }
+
+        if (! array_key_exists('new_card_lane_weights', $validated)) {
+            return;
+        }
+
+        if ($this->camelLaneWeights($validated['newCardLaneWeights'])
+            === $this->snakeLaneWeights($validated['new_card_lane_weights'])) {
+            return;
+        }
+
+        $validator->errors()->add(
+            'newCardLaneWeights',
+            'The newCardLaneWeights and new_card_lane_weights values must match when both are provided.',
+        );
     }
 
     public function newCardsPerDay(): ?int

@@ -72,46 +72,85 @@ final readonly class GenerateContentDialogueData
     /** @return list<array{name: string, voiceId: string, proficiency: string, tone: string, color: string|null}> */
     private static function speakers(mixed $value): array
     {
-        if (! is_array($value) || ! array_is_list($value) || count($value) !== 2) {
+        if (! self::isSpeakerList($value)) {
             throw new InvalidArgumentException('Dialogue generation requires exactly two speakers.');
         }
 
-        $speakers = [];
-        foreach ($value as $speaker) {
-            if (! is_array($speaker) || array_diff(array_keys($speaker), ['name', 'voiceId', 'proficiency', 'tone', 'color']) !== []) {
-                throw new InvalidArgumentException('Dialogue speaker is invalid.');
-            }
-            $proficiency = self::requiredString($speaker, 'proficiency', 32);
-            $tone = self::requiredString($speaker, 'tone', 32);
-            if (! in_array($proficiency, self::PROFICIENCIES, true)) {
-                throw new InvalidArgumentException('Dialogue speaker proficiency is invalid.');
-            }
-            if (! in_array($tone, self::TONES, true)) {
-                throw new InvalidArgumentException('Dialogue speaker tone is invalid.');
-            }
-            $color = self::nullableString($speaker['color'] ?? null, 'Dialogue speaker color', 32);
-            if ($color !== null && preg_match('/^#[0-9a-f]{6}$/i', $color) !== 1) {
-                throw new InvalidArgumentException('Dialogue speaker color is invalid.');
-            }
-
-            $speakers[] = [
-                'name' => self::requiredString($speaker, 'name', 100),
-                'voiceId' => self::requiredString($speaker, 'voiceId', 255),
-                'proficiency' => $proficiency,
-                'tone' => $tone,
-                'color' => $color,
-            ];
-        }
+        $speakers = array_map(self::speaker(...), $value);
 
         $names = array_map(
             static fn (array $speaker): string => mb_strtolower(self::promptName($speaker['name'])),
             $speakers,
         );
-        if ($names[0] === '' || $names[1] === '' || $names[0] === $names[1]) {
+        if (! self::hasDistinctPromptNames($names)) {
             throw new InvalidArgumentException('Dialogue speaker names must be distinct.');
         }
 
         return $speakers;
+    }
+
+    private static function isSpeakerList(mixed $value): bool
+    {
+        return is_array($value) && array_is_list($value) && count($value) === 2;
+    }
+
+    /** @return array{name: string, voiceId: string, proficiency: string, tone: string, color: string|null} */
+    private static function speaker(mixed $speaker): array
+    {
+        if (! self::isSpeakerObject($speaker)) {
+            throw new InvalidArgumentException('Dialogue speaker is invalid.');
+        }
+
+        $proficiency = self::requiredString($speaker, 'proficiency', 32);
+        $tone = self::requiredString($speaker, 'tone', 32);
+        self::assertValidProficiency($proficiency);
+        self::assertValidTone($tone);
+        $color = self::color($speaker);
+
+        return [
+            'name' => self::requiredString($speaker, 'name', 100),
+            'voiceId' => self::requiredString($speaker, 'voiceId', 255),
+            'proficiency' => $proficiency,
+            'tone' => $tone,
+            'color' => $color,
+        ];
+    }
+
+    private static function isSpeakerObject(mixed $speaker): bool
+    {
+        return is_array($speaker)
+            && array_diff(array_keys($speaker), ['name', 'voiceId', 'proficiency', 'tone', 'color']) === [];
+    }
+
+    private static function assertValidProficiency(string $proficiency): void
+    {
+        if (! in_array($proficiency, self::PROFICIENCIES, true)) {
+            throw new InvalidArgumentException('Dialogue speaker proficiency is invalid.');
+        }
+    }
+
+    private static function assertValidTone(string $tone): void
+    {
+        if (! in_array($tone, self::TONES, true)) {
+            throw new InvalidArgumentException('Dialogue speaker tone is invalid.');
+        }
+    }
+
+    /** @param array<string, mixed> $speaker */
+    private static function color(array $speaker): ?string
+    {
+        $color = self::nullableString($speaker['color'] ?? null, 'Dialogue speaker color', 32);
+        if ($color !== null && preg_match('/^#[0-9a-f]{6}$/i', $color) !== 1) {
+            throw new InvalidArgumentException('Dialogue speaker color is invalid.');
+        }
+
+        return $color;
+    }
+
+    /** @param array{string, string} $names */
+    private static function hasDistinctPromptNames(array $names): bool
+    {
+        return $names[0] !== '' && $names[1] !== '' && $names[0] !== $names[1];
     }
 
     /** @param array<string, mixed> $input */
@@ -147,11 +186,16 @@ final readonly class GenerateContentDialogueData
 
     private static function boundedInteger(mixed $value, string $label, int $min, int $max): int
     {
-        if (! is_int($value) || $value < $min || $value > $max) {
+        if (! self::isBoundedInteger($value, $min, $max)) {
             throw new InvalidArgumentException("{$label} is invalid.");
         }
 
         return $value;
+    }
+
+    private static function isBoundedInteger(mixed $value, int $min, int $max): bool
+    {
+        return is_int($value) && $value >= $min && $value <= $max;
     }
 
     public static function promptName(string $name): string

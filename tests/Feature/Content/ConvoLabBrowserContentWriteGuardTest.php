@@ -29,20 +29,20 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
     }
 
     /**
-     * @param  array<string, mixed>  $payload
+     * @param  array{role: string, verified: bool}  $projection
+     * @param  array{method: string, uri: string, payload: array<string, mixed>}  $request
      */
-    #[DataProvider('verifiedGenerationEndpointProvider')]
-    public function test_unverified_browser_users_cannot_use_generation_endpoints(
-        string $method,
-        string $uri,
-        array $payload,
-        int $_allowedStatus,
+    #[DataProvider('blockedGenerationEndpointProvider')]
+    public function test_browser_generation_write_guards(
+        array $projection,
+        array $request,
+        string $message,
     ): void {
-        [$user] = $this->projectedUser('user', verified: false);
-
-        $this->callJsonAsBrowser($user, $method, $uri, $payload)
-            ->assertForbidden()
-            ->assertJsonPath('message', self::VERIFICATION_MESSAGE);
+        $this->assertGenerationRequestIsBlocked(
+            $projection,
+            $request,
+            $message,
+        );
     }
 
     /**
@@ -59,40 +59,6 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
 
         $this->callJsonAsBrowser($admin, $method, $uri, $payload)
             ->assertStatus($allowedStatus);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    #[DataProvider('verifiedGenerationEndpointProvider')]
-    public function test_verified_demo_browser_users_cannot_use_generation_endpoints(
-        string $method,
-        string $uri,
-        array $payload,
-        int $_allowedStatus,
-    ): void {
-        [$demo] = $this->projectedUser('demo');
-
-        $this->callJsonAsBrowser($demo, $method, $uri, $payload)
-            ->assertForbidden()
-            ->assertJsonPath('message', self::DEMO_MESSAGE);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    #[DataProvider('verifiedGenerationEndpointProvider')]
-    public function test_verification_error_precedes_demo_error_for_unverified_demo_users(
-        string $method,
-        string $uri,
-        array $payload,
-        int $_allowedStatus,
-    ): void {
-        [$demo] = $this->projectedUser('demo', verified: false);
-
-        $this->callJsonAsBrowser($demo, $method, $uri, $payload)
-            ->assertForbidden()
-            ->assertJsonPath('message', self::VERIFICATION_MESSAGE);
     }
 
     public function test_course_retry_blocks_demo_users(): void
@@ -114,18 +80,11 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
             ->assertNotFound();
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
+    /** @param array{string, string, array<string, mixed>, string, bool, int} $case */
     #[DataProvider('legacyUnguardedEndpointProvider')]
-    public function test_legacy_unguarded_operations_remain_available_to_unverified_and_demo_users(
-        string $method,
-        string $uri,
-        array $payload,
-        string $role,
-        bool $verified,
-        int $allowedStatus,
-    ): void {
+    public function test_legacy_unguarded_operations_remain_available_to_unverified_and_demo_users(array $case): void
+    {
+        [$method, $uri, $payload, $role, $verified, $allowedStatus] = $case;
         [$user] = $this->projectedUser($role, $verified);
 
         $this->callJsonAsBrowser($user, $method, $uri, $payload)
@@ -148,35 +107,67 @@ class ConvoLabBrowserContentWriteGuardTest extends TestCase
         ];
     }
 
-    /** @return array<string, array{string, string, array<string, mixed>, string, bool, int}> */
+    /** @return array<string, array{array{role: string, verified: bool}, array{method: string, uri: string, payload: array<string, mixed>}, string}> */
+    public static function blockedGenerationEndpointProvider(): array
+    {
+        $scenarios = [
+            'unverified user' => [['role' => 'user', 'verified' => false], self::VERIFICATION_MESSAGE],
+            'verified demo' => [['role' => 'demo', 'verified' => true], self::DEMO_MESSAGE],
+            'unverified demo prioritizes verification' => [['role' => 'demo', 'verified' => false], self::VERIFICATION_MESSAGE],
+        ];
+        $cases = [];
+
+        foreach ($scenarios as $scenario => [$projection, $message]) {
+            foreach (self::verifiedGenerationEndpointProvider() as $endpoint => [$method, $uri, $payload]) {
+                $cases["{$scenario}: {$endpoint}"] = [$projection, compact('method', 'uri', 'payload'), $message];
+            }
+        }
+
+        return $cases;
+    }
+
+    /** @return array<string, array{array{string, string, array<string, mixed>, string, bool, int}}> */
     public static function legacyUnguardedEndpointProvider(): array
     {
         $id = '23c2133b-2a96-4586-851a-d395c2b09807';
 
         return [
-            'unverified course reset' => ['POST', "/api/convolab/courses/{$id}/reset", [], 'user', false, 404],
-            'demo course reset' => ['POST', "/api/convolab/courses/{$id}/reset", [], 'demo', true, 404],
-            'unverified image generation' => ['POST', '/api/convolab/images/generate', [], 'user', false, 422],
-            'demo image generation' => ['POST', '/api/convolab/images/generate', [], 'demo', true, 422],
-            'unverified single-speed audio' => ['POST', '/api/convolab/audio/generate', [], 'user', false, 422],
-            'demo single-speed audio' => ['POST', '/api/convolab/audio/generate', [], 'demo', true, 422],
-            'unverified all-speeds audio' => [
+            'unverified course reset' => [['POST', "/api/convolab/courses/{$id}/reset", [], 'user', false, 404]],
+            'demo course reset' => [['POST', "/api/convolab/courses/{$id}/reset", [], 'demo', true, 404]],
+            'unverified image generation' => [['POST', '/api/convolab/images/generate', [], 'user', false, 422]],
+            'demo image generation' => [['POST', '/api/convolab/images/generate', [], 'demo', true, 422]],
+            'unverified single-speed audio' => [['POST', '/api/convolab/audio/generate', [], 'user', false, 422]],
+            'demo single-speed audio' => [['POST', '/api/convolab/audio/generate', [], 'demo', true, 422]],
+            'unverified all-speeds audio' => [[
                 'POST',
                 '/api/convolab/audio/generate-all-speeds',
                 [],
                 'user',
                 false,
                 422,
-            ],
-            'demo all-speeds audio' => [
+            ]],
+            'demo all-speeds audio' => [[
                 'POST',
                 '/api/convolab/audio/generate-all-speeds',
                 [],
                 'demo',
                 true,
                 422,
-            ],
+            ]],
         ];
+    }
+
+    /**
+     * @param  array{role: string, verified: bool}  $projection
+     * @param  array{method: string, uri: string, payload: array<string, mixed>}  $request
+     */
+    private function assertGenerationRequestIsBlocked(array $projection, array $request, string $message): void
+    {
+        [$user] = $this->projectedUser($projection['role'], $projection['verified']);
+
+        $this->callJsonAsBrowser($user, $request['method'], $request['uri'], $request['payload'])
+            ->assertForbidden()
+            ->assertJsonPath('message', $message);
     }
 
     /**

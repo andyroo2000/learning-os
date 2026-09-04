@@ -10,10 +10,9 @@ final readonly class GoogleCalendarSettings
 
     public static function make(mixed $calendarIds, mixed $titleMatchTerms, mixed $syncEnabled): self
     {
-        if (! is_array($calendarIds) || ! array_is_list($calendarIds) || ! is_array($titleMatchTerms)
-            || ! array_is_list($titleMatchTerms) || ! is_bool($syncEnabled)) {
-            throw new InvalidArgumentException('invalid_shape');
-        }
+        self::ensureList($calendarIds);
+        self::ensureList($titleMatchTerms);
+        self::ensureBoolean($syncEnabled);
 
         $ids = self::strings($calendarIds, 25, 1024, false);
         $terms = self::strings($titleMatchTerms, 50, 100, true);
@@ -23,8 +22,7 @@ final readonly class GoogleCalendarSettings
 
     public static function fromStored(mixed $settings): ?self
     {
-        if (! is_array($settings) || count($settings) !== 3 || ! array_key_exists('calendarIds', $settings)
-            || ! array_key_exists('titleMatchTerms', $settings) || ! array_key_exists('syncEnabled', $settings)) {
+        if (! self::hasStoredShape($settings)) {
             return null;
         }
         try {
@@ -56,16 +54,16 @@ final readonly class GoogleCalendarSettings
 
     private static function strings(array $values, int $maximum, int $length, bool $fold): array
     {
-        if ($values === [] || count($values) > $maximum) {
+        if ($values === []) {
+            throw new InvalidArgumentException('invalid_count');
+        }
+        if (count($values) > $maximum) {
             throw new InvalidArgumentException('invalid_count');
         }
         $result = [];
         $seen = [];
         foreach ($values as $value) {
-            if (! is_string($value) || mb_strlen($value, 'UTF-8') > $length + 64
-                || ($value = self::trimInput($value, $length)) === '' || mb_strlen($value, 'UTF-8') > $length) {
-                throw new InvalidArgumentException('invalid_value');
-            }
+            $value = self::validatedString($value, $length);
             $key = $fold ? mb_strtolower($value, 'UTF-8') : $value;
             if (! isset($seen[$key])) {
                 $seen[$key] = true;
@@ -74,6 +72,45 @@ final readonly class GoogleCalendarSettings
         }
 
         return $result;
+    }
+
+    private static function ensureList(mixed $value): void
+    {
+        if (! is_array($value) || ! array_is_list($value)) {
+            throw new InvalidArgumentException('invalid_shape');
+        }
+    }
+
+    private static function ensureBoolean(mixed $value): void
+    {
+        if (! is_bool($value)) {
+            throw new InvalidArgumentException('invalid_shape');
+        }
+    }
+
+    private static function hasStoredShape(mixed $settings): bool
+    {
+        if (! is_array($settings) || count($settings) !== 3) {
+            return false;
+        }
+
+        return array_key_exists('calendarIds', $settings)
+            && array_key_exists('titleMatchTerms', $settings)
+            && array_key_exists('syncEnabled', $settings);
+    }
+
+    private static function validatedString(mixed $value, int $length): string
+    {
+        if (! is_string($value) || mb_strlen($value, 'UTF-8') > $length + 64) {
+            throw new InvalidArgumentException('invalid_value');
+        }
+
+        $value = self::trimInput($value, $length);
+        if ($value === '' || mb_strlen($value, 'UTF-8') > $length) {
+            throw new InvalidArgumentException('invalid_value');
+        }
+
+        return $value;
     }
 
     public static function trimInput(mixed $value, int $length): mixed

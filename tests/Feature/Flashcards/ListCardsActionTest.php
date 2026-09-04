@@ -12,6 +12,7 @@ use App\Support\Pagination\CursorPageSize;
 use App\Support\Pagination\CursorPagination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
 
@@ -249,94 +250,29 @@ class ListCardsActionTest extends TestCase
         $this->assertSame([$match->id], collect($cards->items())->pluck('id')->all());
     }
 
-    public function test_it_rejects_blank_study_status_filters_for_direct_callers(): void
+    /** @param array<string, string> $filters */
+    #[DataProvider('invalidFilterProvider')]
+    public function test_it_rejects_invalid_filters_for_direct_callers(array $filters, string $message): void
     {
         $user = User::factory()->create();
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card study_status filter must not be blank when provided.');
+        $this->expectExceptionMessage($message);
 
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            studyStatus: '   ',
-        );
+        app(ListCardsAction::class)->handle(...['userId' => $user->id, ...$filters]);
     }
 
-    public function test_it_rejects_blank_search_queries_for_direct_callers(): void
+    /** @return array<string, array{array<string, string>, string}> */
+    public static function invalidFilterProvider(): array
     {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card search query filter must not be blank when provided.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            q: '   ',
-        );
-    }
-
-    public function test_it_rejects_blank_card_type_filters_for_direct_callers(): void
-    {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card type filter must not be blank when provided.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            cardType: '   ',
-        );
-    }
-
-    public function test_it_rejects_malformed_study_status_filters_for_direct_callers(): void
-    {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            studyStatus: 'queued',
-        );
-    }
-
-    public function test_it_rejects_malformed_card_type_filters_for_direct_callers(): void
-    {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card type filter must be one of: recognition, production, cloze.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            cardType: 'reverse',
-        );
-    }
-
-    public function test_it_rejects_blank_course_id_filters(): void
-    {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card course_id filter must not be blank when provided.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            courseId: '   ',
-        );
-    }
-
-    public function test_it_rejects_blank_deck_id_filters(): void
-    {
-        $user = User::factory()->create();
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card deck_id filter must not be blank when provided.');
-
-        app(ListCardsAction::class)->handle(
-            userId: $user->id,
-            deckId: '   ',
-        );
+        return [
+            'blank study status' => [['studyStatus' => '   '], 'Card study_status filter must not be blank when provided.'],
+            'blank search query' => [['q' => '   '], 'Card search query filter must not be blank when provided.'],
+            'blank card type' => [['cardType' => '   '], 'Card type filter must not be blank when provided.'],
+            'malformed study status' => [['studyStatus' => 'queued'], 'Card study_status filter must be one of: new, learning, review, relearning, suspended, buried.'],
+            'malformed card type' => [['cardType' => 'reverse'], 'Card type filter must be one of: recognition, production, cloze.'],
+            'blank course id' => [['courseId' => '   '], 'Card course_id filter must not be blank when provided.'],
+            'blank deck id' => [['deckId' => '   '], 'Card deck_id filter must not be blank when provided.'],
+        ];
     }
 }

@@ -257,18 +257,20 @@ final class AdminPronunciationTestApiTest extends TestCase
         ])->speed);
 
         foreach ([
-            [['text' => '', 'format' => 'kanji', 'voiceId' => self::VOICE_ID], 'text is required'],
-            [[...$this->payload(), 'format' => 'romaji'], 'format is invalid'],
-            [[...$this->payload(), 'voiceId' => 'elevenlabs:id'], 'Fish Audio voice ID'],
-            [[...$this->payload(), 'speed' => INF], 'speed must be between'],
-            [[...$this->payload(), 'speed' => 0.49], 'speed must be between'],
-            [[...$this->payload(), 'speed' => 2.01], 'speed must be between'],
+            [['text' => '', 'format' => 'kanji', 'voiceId' => self::VOICE_ID], 'Pronunciation test text is required.'],
+            [[...$this->payload(), 'format' => 'romaji'], 'Pronunciation test format is invalid.'],
+            [[...$this->payload(), 'voiceId' => 'elevenlabs:id'], 'Pronunciation test voice must be a Fish Audio voice ID.'],
+            [[...$this->payload(), 'speed' => INF], 'Pronunciation test speed must be between 0.5 and 2.'],
+            [[...$this->payload(), 'speed' => NAN], 'Pronunciation test speed must be between 0.5 and 2.'],
+            [[...$this->payload(), 'speed' => []], 'Pronunciation test speed must be between 0.5 and 2.'],
+            [[...$this->payload(), 'speed' => 0.49], 'Pronunciation test speed must be between 0.5 and 2.'],
+            [[...$this->payload(), 'speed' => 2.01], 'Pronunciation test speed must be between 0.5 and 2.'],
         ] as [$input, $message]) {
             try {
                 TestAdminPronunciationData::fromInput($input);
                 $this->fail('Expected direct pronunciation data validation to fail.');
             } catch (InvalidArgumentException $exception) {
-                $this->assertStringContainsString($message, $exception->getMessage());
+                $this->assertSame($message, $exception->getMessage());
             }
         }
     }

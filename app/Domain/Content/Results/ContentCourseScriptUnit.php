@@ -120,18 +120,71 @@ final readonly class ContentCourseScriptUnit implements AudioScriptUnit
 
     private function validateShape(): void
     {
-        if ($this->type === 'marker' && $this->label === null) {
+        $this->validateMarker();
+        $this->validatePause();
+        $this->validateSpokenUnit();
+        $this->validateTargetLanguageUnit();
+    }
+
+    private function validateMarker(): void
+    {
+        if ($this->type !== 'marker') {
+            return;
+        }
+        if ($this->label === null) {
             throw new InvalidArgumentException('Course marker unit requires a label.');
         }
-        if ($this->type === 'pause' && ($this->seconds === null || $this->seconds <= 0 || $this->seconds > 60)) {
+    }
+
+    private function validatePause(): void
+    {
+        if ($this->type !== 'pause') {
+            return;
+        }
+        if ($this->seconds === null) {
             throw new InvalidArgumentException('Course pause unit duration is invalid.');
         }
-        if (in_array($this->type, ['narration_L1', 'L2'], true)
-            && ($this->text === null || $this->voiceId === null)) {
+        if ($this->seconds <= 0) {
+            throw new InvalidArgumentException('Course pause unit duration is invalid.');
+        }
+        if ($this->seconds > 60) {
+            throw new InvalidArgumentException('Course pause unit duration is invalid.');
+        }
+    }
+
+    private function validateSpokenUnit(): void
+    {
+        if (! in_array($this->type, ['narration_L1', 'L2'], true)) {
+            return;
+        }
+        if ($this->text === null) {
             throw new InvalidArgumentException('Course spoken unit requires text and a voice ID.');
         }
-        if ($this->type === 'L2' && ($this->translation === null || $this->speed === null
-            || $this->speed < 0.5 || $this->speed > 2)) {
+        if ($this->voiceId === null) {
+            throw new InvalidArgumentException('Course spoken unit requires text and a voice ID.');
+        }
+    }
+
+    private function validateTargetLanguageUnit(): void
+    {
+        if ($this->type !== 'L2') {
+            return;
+        }
+        if ($this->translation === null) {
+            throw new InvalidArgumentException('Course target-language unit is invalid.');
+        }
+        $this->validateTargetLanguageSpeed();
+    }
+
+    private function validateTargetLanguageSpeed(): void
+    {
+        if ($this->speed === null) {
+            throw new InvalidArgumentException('Course target-language unit is invalid.');
+        }
+        if ($this->speed < 0.5) {
+            throw new InvalidArgumentException('Course target-language unit is invalid.');
+        }
+        if ($this->speed > 2) {
             throw new InvalidArgumentException('Course target-language unit is invalid.');
         }
     }
@@ -150,35 +203,53 @@ final readonly class ContentCourseScriptUnit implements AudioScriptUnit
     /** @param array<string, mixed> $input */
     private static function optionalString(array $input, string $key, int $max): ?string
     {
-        if (! array_key_exists($key, $input) || $input[$key] === null) {
-            return null;
-        }
-        if (! is_string($input[$key])) {
-            throw new InvalidArgumentException("Course script unit {$key} must be a string.");
-        }
-        $value = trim($input[$key]);
-        if ($value === '' || mb_strlen($value) > $max) {
-            throw new InvalidArgumentException("Course script unit {$key} is invalid.");
-        }
+        return self::optionalValue($input, $key, static function (mixed $value) use ($key, $max): string {
+            if (! is_string($value)) {
+                throw new InvalidArgumentException("Course script unit {$key} must be a string.");
+            }
+            $value = trim($value);
+            if ($value === '') {
+                throw new InvalidArgumentException("Course script unit {$key} is invalid.");
+            }
+            if (mb_strlen($value) > $max) {
+                throw new InvalidArgumentException("Course script unit {$key} is invalid.");
+            }
 
-        return $value;
+            return $value;
+        });
     }
 
     /** @param array<string, mixed> $input */
     private static function optionalNumber(array $input, string $key): ?float
     {
-        if (! array_key_exists($key, $input) || $input[$key] === null) {
+        return self::optionalValue($input, $key, static function (mixed $value) use ($key): float {
+            if (! in_array(gettype($value), ['integer', 'double'], true)) {
+                throw new InvalidArgumentException("Course script unit {$key} must be numeric.");
+            }
+            $value = (float) $value;
+            if (! is_finite($value)) {
+                throw new InvalidArgumentException("Course script unit {$key} is invalid.");
+            }
+
+            return $value;
+        });
+    }
+
+    /**
+     * @template TValue
+     *
+     * @param  array<string, mixed>  $input
+     * @param  callable(mixed): TValue  $normalize
+     * @return TValue|null
+     */
+    private static function optionalValue(array $input, string $key, callable $normalize): mixed
+    {
+        $value = $input[$key] ?? null;
+        if ($value === null) {
             return null;
         }
-        if (! is_int($input[$key]) && ! is_float($input[$key])) {
-            throw new InvalidArgumentException("Course script unit {$key} must be numeric.");
-        }
-        $value = (float) $input[$key];
-        if (! is_finite($value)) {
-            throw new InvalidArgumentException("Course script unit {$key} is invalid.");
-        }
 
-        return $value;
+        return $normalize($value);
     }
 
     /** @param array<string, mixed> $input

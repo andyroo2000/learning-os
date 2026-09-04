@@ -7,6 +7,7 @@ use App\Domain\Calendar\Exceptions\GoogleCalendarProviderException;
 use App\Domain\Calendar\Services\LaravelGoogleCalendarReadTransport;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class LaravelGoogleCalendarReadTransportTest extends TestCase
@@ -23,6 +24,15 @@ class LaravelGoogleCalendarReadTransportTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->url() === 'https://oauth2.googleapis.com/token'
             && $request->isForm() && $request['client_id'] === 'client' && $request['client_secret'] === 'secret'
             && $request['grant_type'] === 'refresh_token' && $request['refresh_token'] === 'refresh');
+    }
+
+    /** @param array<string, mixed> $payload */
+    #[DataProvider('invalidRefreshPayloads')]
+    public function test_refresh_rejects_invalid_provider_token_payloads(array $payload): void
+    {
+        Http::fake(['*' => Http::response($payload)]);
+
+        $this->assertProviderFailure(fn () => $this->transport()->refresh('refresh'));
     }
 
     public function test_invalid_grant_is_sanitized_without_secret_leakage(): void
@@ -62,6 +72,16 @@ class LaravelGoogleCalendarReadTransportTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer access'));
     }
 
+    public function test_calendar_primary_defaults_false_and_rejects_non_boolean_values(): void
+    {
+        Http::fakeSequence()
+            ->push(['items' => [['id' => 'secondary', 'summary' => 'Team', 'accessRole' => 'reader']]])
+            ->push(['items' => [['id' => 'invalid', 'summary' => 'Team', 'primary' => 1, 'accessRole' => 'reader']]]);
+
+        $this->assertFalse($this->transport()->calendars('access')->items[0]->primary);
+        $this->assertProviderFailure(fn () => $this->transport()->calendars('access'));
+    }
+
     public function test_events_encode_calendar_id_and_normalize_timed_all_day_and_cancelled_fields(): void
     {
         Http::fake(['*' => Http::response(['items' => [
@@ -92,6 +112,36 @@ class LaravelGoogleCalendarReadTransportTest extends TestCase
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'syncToken=sync') && ! str_contains($request->url(), 'timeMin='));
     }
 
+    #[DataProvider('invalidEventQueries')]
+    public function test_event_queries_reject_invalid_full_and_incremental_windows_before_http(
+        string $calendarId,
+        GoogleCalendarEventQuery $query,
+    ): void {
+        Http::fake();
+
+        $this->assertProviderFailure(
+            fn () => $this->transport()->events('token', $calendarId, $query),
+            GoogleCalendarProviderException::INVALID_REQUEST,
+        );
+
+        Http::assertNothingSent();
+    }
+
+    /** @param array<string, mixed> $start */
+    #[DataProvider('invalidEventTimes')]
+    public function test_events_reject_invalid_provider_time_shapes(array $start): void
+    {
+        Http::fake(['*' => Http::response(['items' => [[
+            'id' => 'event', 'status' => 'confirmed', 'start' => $start,
+        ]]])]);
+
+        $this->assertProviderFailure(fn () => $this->transport()->events(
+            'token',
+            'primary',
+            new GoogleCalendarEventQuery(timeMin: '2026-08-01T00:00:00Z'),
+        ));
+    }
+
     public function test_malformed_responses_and_unbounded_page_tokens_are_rejected(): void
     {
         Http::fake(['*' => Http::response(['items' => [['id' => 'only']]])]);
@@ -118,5 +168,52 @@ class LaravelGoogleCalendarReadTransportTest extends TestCase
     private function transport(): LaravelGoogleCalendarReadTransport
     {
         return app(LaravelGoogleCalendarReadTransport::class);
+    }
+
+    private function assertProviderFailure(callable $operation, string $reason = GoogleCalendarProviderException::INVALID_RESPONSE): void
+    {
+        try {
+            $operation();
+            $this->fail('Expected provider exception.');
+        } catch (GoogleCalendarProviderException $exception) {
+            $this->assertSame($reason, $exception->reason());
+        }
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function invalidRefreshPayloads(): array
+    {
+        return [
+            'missing access token' => [['expires_in' => 3600]],
+            'blank access token' => [['access_token' => '', 'expires_in' => 3600]],
+            'string expiry' => [['access_token' => 'access', 'expires_in' => '3600']],
+            'expiry below minimum' => [['access_token' => 'access', 'expires_in' => 59]],
+            'expiry above maximum' => [['access_token' => 'access', 'expires_in' => 86401]],
+            'explicit null rotated token' => [['access_token' => 'access', 'expires_in' => 3600, 'refresh_token' => null]],
+        ];
+    }
+
+    /** @return array<string, array{string, GoogleCalendarEventQuery}> */
+    public static function invalidEventQueries(): array
+    {
+        return [
+            'blank calendar id' => ['', new GoogleCalendarEventQuery(timeMin: '2026-08-01T00:00:00Z')],
+            'missing full-sync lower bound' => ['primary', new GoogleCalendarEventQuery],
+            'malformed lower bound' => ['primary', new GoogleCalendarEventQuery(timeMin: 'tomorrow')],
+            'malformed upper bound' => ['primary', new GoogleCalendarEventQuery(timeMin: '2026-08-01T00:00:00Z', timeMax: 'tomorrow')],
+            'incremental query with time bound' => ['primary', new GoogleCalendarEventQuery(timeMin: '2026-08-01T00:00:00Z', syncToken: 'sync')],
+            'blank sync token' => ['primary', new GoogleCalendarEventQuery(syncToken: '')],
+        ];
+    }
+
+    /** @return array<string, array{array<string, mixed>}> */
+    public static function invalidEventTimes(): array
+    {
+        return [
+            'missing date and date-time' => [[]],
+            'date and date-time together' => [['date' => '2026-08-16', 'dateTime' => '2026-08-16T10:00:00Z']],
+            'impossible date' => [['date' => '2026-02-30']],
+            'date-time without timezone' => [['dateTime' => '2026-08-16 10:00:00']],
+        ];
     }
 }

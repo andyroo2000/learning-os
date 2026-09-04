@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Study;
 
+use App\Domain\Study\Actions\StageStudyImportUploadAction;
 use App\Domain\Study\Actions\UploadStudyImportFileAction;
 use App\Domain\Study\Enums\StudyImportStatus;
 use App\Domain\Study\Exceptions\StudyImportConflictException;
@@ -188,11 +189,11 @@ class UploadStudyImportFileActionTest extends TestCase
         $stagedContents = tmpfile();
         $this->assertIsResource($stagedContents);
         $actualContentSizeBytes = StudyImportJob::MAX_ASYNC_IMPORT_BYTES;
-        $appendChunk = new ReflectionMethod(UploadStudyImportFileAction::class, 'appendChunk');
+        $appendChunk = new ReflectionMethod(StageStudyImportUploadAction::class, 'appendChunk');
 
         try {
             $appendChunk->invokeArgs(
-                app(UploadStudyImportFileAction::class),
+                app(StageStudyImportUploadAction::class),
                 [$stagedContents, 'x', &$actualContentSizeBytes],
             );
             $this->fail('Expected actual upload bytes above the limit to be rejected.');

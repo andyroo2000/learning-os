@@ -19,37 +19,82 @@ final readonly class TestAdminPronunciationData
     /** @param array<string, mixed> $input */
     public static function fromInput(array $input): self
     {
-        $text = $input['text'] ?? null;
+        return new self(
+            text: self::text($input['text'] ?? null),
+            format: self::format($input['format'] ?? null),
+            voiceId: self::voiceId($input['voiceId'] ?? null),
+            speed: self::speed($input['speed'] ?? 1),
+        );
+    }
+
+    private static function text(mixed $value): string
+    {
+        $text = $value;
         if (! is_string($text) || trim($text) === '') {
             throw new InvalidArgumentException('Pronunciation test text is required.');
         }
+
         $text = trim($text);
         if (mb_strlen($text, 'UTF-8') > FishAudioSpeechGenerator::MAX_TEXT_LENGTH) {
             throw new InvalidArgumentException('Pronunciation test text is too long.');
         }
 
-        $format = $input['format'] ?? null;
-        $format = is_string($format) ? strtolower(trim($format)) : $format;
-        if (! is_string($format) || ! in_array($format, self::FORMATS, true)) {
+        return $text;
+    }
+
+    private static function format(mixed $value): string
+    {
+        $format = self::normalizedString($value, 'Pronunciation test format is invalid.');
+        if (! in_array($format, self::FORMATS, true)) {
             throw new InvalidArgumentException('Pronunciation test format is invalid.');
         }
 
-        $voiceId = $input['voiceId'] ?? null;
-        $voiceId = is_string($voiceId) ? strtolower(trim($voiceId)) : $voiceId;
-        if (! is_string($voiceId) || preg_match('/^fishaudio:[a-f0-9]{32}$/', $voiceId) !== 1) {
-            throw new InvalidArgumentException('Pronunciation test voice must be a Fish Audio voice ID.');
+        return $format;
+    }
+
+    private static function voiceId(mixed $value): string
+    {
+        $message = 'Pronunciation test voice must be a Fish Audio voice ID.';
+        $voiceId = self::normalizedString($value, $message);
+        if (preg_match('/^fishaudio:[a-f0-9]{32}$/', $voiceId) !== 1) {
+            throw new InvalidArgumentException($message);
         }
 
-        $speed = $input['speed'] ?? 1;
-        if ((! is_int($speed) && ! is_float($speed) && ! is_string($speed))
-            || ! is_numeric($speed)
-            || ! is_finite((float) $speed)
-            || (float) $speed < 0.5
-            || (float) $speed > 2) {
-            throw new InvalidArgumentException('Pronunciation test speed must be between 0.5 and 2.');
+        return $voiceId;
+    }
+
+    private static function speed(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            self::invalidSpeed();
         }
 
-        return new self($text, $format, $voiceId, (float) $speed);
+        $speed = (float) $value;
+        if (! is_finite($speed)) {
+            self::invalidSpeed();
+        }
+        if ($speed < 0.5) {
+            self::invalidSpeed();
+        }
+        if ($speed > 2) {
+            self::invalidSpeed();
+        }
+
+        return $speed;
+    }
+
+    private static function normalizedString(mixed $value, string $message): string
+    {
+        if (! is_string($value)) {
+            throw new InvalidArgumentException($message);
+        }
+
+        return strtolower(trim($value));
+    }
+
+    private static function invalidSpeed(): never
+    {
+        throw new InvalidArgumentException('Pronunciation test speed must be between 0.5 and 2.');
     }
 
     public function requiresPreprocessing(): bool

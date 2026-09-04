@@ -6,7 +6,7 @@ use App\Domain\Study\Enums\StudyCardAudioRole;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
-use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
+use App\Domain\Study\Support\StudyCardDraftUpdateInputValidator;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
@@ -73,32 +73,10 @@ final readonly class UpdateStudyCardDraftData
         bool $hasVariantUnlockedAt = false,
         ?DateTimeInterface $variantUnlockedAt = null,
     ): self {
-        if ($hasPrompt !== $hasAnswer) {
-            throw StudyCardDraftValidationException::invalidPayloads();
-        }
-
-        if ($hasPrompt && $hasAnswer) {
-            if ($promptJson === null || $answerJson === null) {
-                throw StudyCardDraftValidationException::invalidPayloads();
-            }
-
-            self::validatePayloadShape($promptJson, $answerJson);
-        }
-
-        if ($hasPreviewAudio) {
-            self::validateNullableMediaRef($previewAudioJson, 'audio');
-        }
-
-        if ($hasPreviewImage) {
-            self::validateNullableMediaRef($previewImageJson, 'image');
-        }
-
-        if ($hasVariantStage) {
-            VocabVariantMetadataInput::assertValidStage(
-                $variantStage,
-                'Study variant stage must be between 1 and 65535.',
-            );
-        }
+        StudyCardDraftUpdateInputValidator::assertPayloads(['hasPrompt' => $hasPrompt, 'promptJson' => $promptJson, 'hasAnswer' => $hasAnswer, 'answerJson' => $answerJson]);
+        StudyCardDraftUpdateInputValidator::assertPreviewAudioWhenPresent(['isPresent' => $hasPreviewAudio, 'mediaReference' => $previewAudioJson]);
+        StudyCardDraftUpdateInputValidator::assertPreviewImageWhenPresent(['isPresent' => $hasPreviewImage, 'mediaReference' => $previewImageJson]);
+        StudyCardDraftUpdateInputValidator::assertVariantStageWhenPresent(['isPresent' => $hasVariantStage, 'variantStage' => $variantStage]);
 
         return new self(
             expectedRevision: $expectedRevision,
@@ -139,19 +117,21 @@ final readonly class UpdateStudyCardDraftData
 
     public function hasAnyField(): bool
     {
-        return $this->hasPrompt
-            || $this->hasAnswer
-            || $this->hasImagePlacement
-            || $this->hasImagePrompt
-            || $this->hasPreviewAudio
-            || $this->hasPreviewAudioRole
-            || $this->hasPreviewImage
-            || $this->hasVariantGroupId
-            || $this->hasVariantSentenceId
-            || $this->hasVariantKind
-            || $this->hasVariantStage
-            || $this->hasVariantStatus
-            || $this->hasVariantUnlockedAt;
+        return in_array(true, [
+            $this->hasPrompt,
+            $this->hasAnswer,
+            $this->hasImagePlacement,
+            $this->hasImagePrompt,
+            $this->hasPreviewAudio,
+            $this->hasPreviewAudioRole,
+            $this->hasPreviewImage,
+            $this->hasVariantGroupId,
+            $this->hasVariantSentenceId,
+            $this->hasVariantKind,
+            $this->hasVariantStage,
+            $this->hasVariantStatus,
+            $this->hasVariantUnlockedAt,
+        ], true);
     }
 
     private static function imagePlacementFromInput(StudyCardImagePlacement|string|null $imagePlacement): StudyCardImagePlacement
@@ -200,46 +180,5 @@ final readonly class UpdateStudyCardDraftData
         }
 
         return $trimmed;
-    }
-
-    private static function validatePayloadShape(array $promptJson, array $answerJson): void
-    {
-        StudyCardPayloadShapeValidator::assertDraftPayloadsAreValid($promptJson, $answerJson);
-    }
-
-    private static function validateNullableMediaRef(?array $mediaRef, string $mediaKind): void
-    {
-        if ($mediaRef === null) {
-            return;
-        }
-
-        foreach (array_keys($mediaRef) as $key) {
-            if (! is_string($key) || ! in_array($key, StudyCardDraft::MEDIA_REF_ALLOWED_KEYS, true)) {
-                throw StudyCardDraftValidationException::invalidPayloads();
-            }
-        }
-
-        $filename = $mediaRef['filename'] ?? null;
-        $source = $mediaRef['source'] ?? null;
-
-        if (! is_string($filename) || trim($filename) === '') {
-            throw StudyCardDraftValidationException::invalidPayloads();
-        }
-
-        if (! is_string($source) || ! in_array($source, StudyCardDraft::MEDIA_SOURCES, true)) {
-            throw StudyCardDraftValidationException::invalidPayloads();
-        }
-
-        if (($mediaRef['mediaKind'] ?? null) !== $mediaKind) {
-            throw StudyCardDraftValidationException::invalidPayloads();
-        }
-
-        foreach (['id', 'url'] as $optionalStringKey) {
-            if (array_key_exists($optionalStringKey, $mediaRef)
-                && $mediaRef[$optionalStringKey] !== null
-                && ! is_string($mediaRef[$optionalStringKey])) {
-                throw StudyCardDraftValidationException::invalidPayloads();
-            }
-        }
     }
 }

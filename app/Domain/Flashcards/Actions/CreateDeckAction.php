@@ -35,27 +35,14 @@ class CreateDeckAction
 
     public function handle(CreateDeckData $data): CreateDeckResult
     {
-        if ($data->name === '') {
-            throw new InvalidArgumentException('Deck name is required.');
-        }
-
-        if ($data->id !== null && ! Str::isUlid($data->id)) {
-            throw new InvalidArgumentException('Deck ID must be a valid ULID.');
-        }
-
-        if ($data->courseId !== null && ! Str::isUlid($data->courseId)) {
-            throw new InvalidArgumentException('Deck course ID must be a valid ULID.');
-        }
+        self::assertValidInput($data);
 
         $description = self::normalizedDescription($data->description);
         $courseId = $this->ownedCourseId($data);
+        $existingDeck = $this->existingDeck($data, $description, $courseId);
 
-        if ($data->id !== null) {
-            $existingDeck = Deck::withTrashed()->find($data->id);
-
-            if ($existingDeck !== null) {
-                return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description, $courseId));
-            }
+        if ($existingDeck !== null) {
+            return CreateDeckResult::existing($existingDeck);
         }
 
         return $this->createNewDeck($data, $description, $courseId);
@@ -66,6 +53,56 @@ class CreateDeckAction
      * failed insert before refetching the winning deck on PostgreSQL.
      */
     private function createNewDeck(CreateDeckData $data, ?string $description, ?string $courseId): CreateDeckResult
+    {
+        $deck = self::newDeck($data, $description, $courseId);
+
+        DB::beginTransaction();
+
+        try {
+            $this->lockOwnedCourse($courseId, $data->userId);
+            $this->saveDeckAndRecordSync($deck);
+        } catch (QueryException $exception) {
+            return $this->recoverFromClientIdConflict($data, $description, $courseId, $exception);
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
+        }
+
+        DB::commit();
+
+        return CreateDeckResult::created($deck);
+    }
+
+    private static function assertValidInput(CreateDeckData $data): void
+    {
+        if ($data->name === '') {
+            throw new InvalidArgumentException('Deck name is required.');
+        }
+
+        self::assertOptionalUlid($data->id, 'Deck ID must be a valid ULID.');
+        self::assertOptionalUlid($data->courseId, 'Deck course ID must be a valid ULID.');
+    }
+
+    private static function assertOptionalUlid(?string $id, string $message): void
+    {
+        if ($id !== null && ! Str::isUlid($id)) {
+            throw new InvalidArgumentException($message);
+        }
+    }
+
+    private function existingDeck(CreateDeckData $data, ?string $description, ?string $courseId): ?Deck
+    {
+        if ($data->id === null) {
+            return null;
+        }
+
+        $deck = Deck::withTrashed()->find($data->id);
+
+        return $deck === null ? null : $this->matchingExistingDeck($deck, $data, $description, $courseId);
+    }
+
+    private static function newDeck(CreateDeckData $data, ?string $description, ?string $courseId): Deck
     {
         $deck = new Deck([
             'user_id' => $data->userId,
@@ -79,63 +116,68 @@ class CreateDeckAction
             $deck->id = $data->id;
         }
 
-        DB::beginTransaction();
+        return $deck;
+    }
 
-        try {
-            if ($courseId !== null) {
-                // Match DeleteCourseAction's Course -> Deck lock order. Revalidate after
-                // the preflight read so creation cannot escape a concurrent course cascade.
-                $ownedCourse = Course::query()
-                    ->whereKey($courseId)
-                    ->where('user_id', $data->userId)
-                    ->lockForUpdate()
-                    ->first();
+    private function lockOwnedCourse(?string $courseId, string $userId): void
+    {
+        if ($courseId === null) {
+            return;
+        }
 
-                if ($ownedCourse === null) {
-                    throw new DeckCourseNotFoundException($courseId);
-                }
-            }
+        // Match DeleteCourseAction's Course -> Deck lock order. Revalidate after
+        // the preflight read so creation cannot escape a concurrent course cascade.
+        $ownedCourse = Course::query()
+            ->whereKey($courseId)
+            ->where('user_id', $userId)
+            ->lockForUpdate()
+            ->first();
 
-            $deck->save();
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $deck->user_id,
-                    domain: DeckSyncPayload::DOMAIN,
-                    resourceType: DeckSyncPayload::RESOURCE_TYPE,
-                    resourceId: $deck->id,
-                    operation: SyncFeedOperation::Create->value,
-                    payload: DeckSyncPayload::fromDeck($deck),
-                ),
-            );
-        } catch (QueryException $exception) {
-            DB::rollBack();
+        if ($ownedCourse === null) {
+            throw new DeckCourseNotFoundException($courseId);
+        }
+    }
 
-            if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'decks')) {
-                throw $exception;
-            }
+    private function saveDeckAndRecordSync(Deck $deck): void
+    {
+        $deck->save();
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $deck->user_id,
+                domain: DeckSyncPayload::DOMAIN,
+                resourceType: DeckSyncPayload::RESOURCE_TYPE,
+                resourceId: $deck->id,
+                operation: SyncFeedOperation::Create->value,
+                payload: DeckSyncPayload::fromDeck($deck),
+            ),
+        );
+    }
 
-            // Covers a retry race where another request inserts this client-generated ULID
-            // between the pre-check above and this save attempt.
-            if ($this->afterClientIdUniqueConflict !== null) {
-                ($this->afterClientIdUniqueConflict)($data, $exception);
-            }
+    private function recoverFromClientIdConflict(
+        CreateDeckData $data,
+        ?string $description,
+        ?string $courseId,
+        QueryException $exception,
+    ): CreateDeckResult {
+        DB::rollBack();
 
-            $existingDeck = Deck::withTrashed()->find($data->id);
-
-            if ($existingDeck === null) {
-                throw $exception;
-            }
-
-            return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description, $courseId));
-        } catch (Throwable $exception) {
-            DB::rollBack();
-
+        if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'decks')) {
             throw $exception;
         }
 
-        DB::commit();
+        // Covers a retry race where another request inserts this client-generated ULID
+        // between the pre-check above and this save attempt.
+        if ($this->afterClientIdUniqueConflict !== null) {
+            ($this->afterClientIdUniqueConflict)($data, $exception);
+        }
 
-        return CreateDeckResult::created($deck);
+        $existingDeck = Deck::withTrashed()->find($data->id);
+
+        if ($existingDeck === null) {
+            throw $exception;
+        }
+
+        return CreateDeckResult::existing($this->matchingExistingDeck($existingDeck, $data, $description, $courseId));
     }
 
     private static function normalizedDescription(?string $description): ?string
@@ -171,16 +213,35 @@ class CreateDeckAction
 
         // Cross-user conflicts are still represented here so the HTTP layer can
         // hide them behind a 404 without coupling this action to status codes.
-        if (
-            $deck->user_id !== $data->userId
-            || $deck->course_id !== $courseId
-            || $deck->name !== $data->name
-            || $deck->description !== $description
-            || $deck->is_manual_study_deck !== $data->isManualStudyDeck
-        ) {
+        if (! self::matchesSubmittedDeck($deck, $data, $description, $courseId)) {
             throw DeckConflictException::conflict($deck);
         }
 
         return $deck;
+    }
+
+    private static function matchesSubmittedDeck(
+        Deck $deck,
+        CreateDeckData $data,
+        ?string $description,
+        ?string $courseId,
+    ): bool {
+        if ($deck->user_id !== $data->userId) {
+            return false;
+        }
+
+        if ($deck->course_id !== $courseId) {
+            return false;
+        }
+
+        if ($deck->name !== $data->name) {
+            return false;
+        }
+
+        if ($deck->description !== $description) {
+            return false;
+        }
+
+        return $deck->is_manual_study_deck === $data->isManualStudyDeck;
     }
 }

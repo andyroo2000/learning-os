@@ -13,6 +13,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Data\RegenerateStudyCardAnswerAudioData;
 use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
+use App\Domain\Study\Results\GeneratedStudyMediaResult;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
 use App\Domain\Study\Support\StudyCardAudioRecognition;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
@@ -62,58 +63,14 @@ class RegenerateStudyCardAnswerAudioAction
         );
 
         try {
-            $updated = DB::transaction(function () use (
-                $card,
-                $prompt,
-                $nextAnswer,
-                $generated,
-                $snapshotFingerprint,
-                $syncPromptAudio,
-                $oldGeneratedMedia,
-            ): Card {
-                $lockedCard = Card::query()->whereKey($card->id)->lockForUpdate()->firstOrFail();
-
-                if (! hash_equals($snapshotFingerprint, $this->cardFingerprint($lockedCard))) {
-                    throw StudyCardAudioConflictException::cardChanged();
-                }
-
-                $nextAnswer['answerAudio'] = $generated->mediaRef;
-                $nextPrompt = $prompt;
-                if ($syncPromptAudio) {
-                    // Audio-recognition cards play cueAudio on the front, so both sides must
-                    // advance together or regeneration leaves the prompt on retired media.
-                    $nextPrompt['cueAudio'] = $generated->mediaRef;
-                }
-                $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
-                    frontText: $lockedCard->front_text,
-                    backText: $lockedCard->back_text,
-                    hasFrontText: false,
-                    hasBackText: false,
-                    hasPromptJson: $syncPromptAudio,
-                    promptJson: $nextPrompt,
-                    hasAnswerJson: true,
-                    answerJson: $nextAnswer,
-                    hasAnswerAudioSource: true,
-                    answerAudioSource: 'generated',
-                ));
-                $this->attachMedia->handle(AttachMediaToCardData::fromModels(
-                    $lockedCard,
-                    $generated->mediaAsset,
-                ));
-                foreach ($oldGeneratedMedia as $oldMedia) {
-                    if ($oldMedia->is($generated->mediaAsset)
-                        || $this->payloadsReferenceAudioMedia($nextPrompt, $nextAnswer, $oldMedia)) {
-                        continue;
-                    }
-
-                    $this->detachMedia->handle(DetachMediaFromCardData::fromModels(
-                        $lockedCard,
-                        $oldMedia,
-                    ));
-                }
-
-                return $lockedCard->fresh(['deck', 'mediaAssets']) ?? $lockedCard;
-            });
+            $updated = $this->replaceGeneratedAudio($card, [
+                'prompt' => $prompt,
+                'answer' => $nextAnswer,
+                'generated' => $generated,
+                'snapshot_fingerprint' => $snapshotFingerprint,
+                'sync_prompt_audio' => $syncPromptAudio,
+                'old_generated_media' => $oldGeneratedMedia,
+            ]);
         } catch (Throwable $exception) {
             $this->discardGeneratedMedia->handle($generated->mediaAsset);
 
@@ -125,6 +82,65 @@ class RegenerateStudyCardAnswerAudioAction
         }
 
         return $updated;
+    }
+
+    /**
+     * @param  array{
+     *     prompt: array<string, mixed>,
+     *     answer: array<string, mixed>,
+     *     generated: GeneratedStudyMediaResult,
+     *     snapshot_fingerprint: string,
+     *     sync_prompt_audio: bool,
+     *     old_generated_media: Collection<int, MediaAsset>
+     * }  $context
+     */
+    private function replaceGeneratedAudio(Card $card, array $context): Card
+    {
+        return DB::transaction(function () use ($card, $context): Card {
+            $lockedCard = Card::query()->whereKey($card->id)->lockForUpdate()->firstOrFail();
+
+            if (! hash_equals($context['snapshot_fingerprint'], $this->cardFingerprint($lockedCard))) {
+                throw StudyCardAudioConflictException::cardChanged();
+            }
+
+            $nextAnswer = $context['answer'];
+            $nextAnswer['answerAudio'] = $context['generated']->mediaRef;
+            $nextPrompt = $context['prompt'];
+            if ($context['sync_prompt_audio']) {
+                // Audio-recognition cards play cueAudio on the front, so both sides must
+                // advance together or regeneration leaves the prompt on retired media.
+                $nextPrompt['cueAudio'] = $context['generated']->mediaRef;
+            }
+            $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
+                frontText: $lockedCard->front_text,
+                backText: $lockedCard->back_text,
+                hasFrontText: false,
+                hasBackText: false,
+                hasPromptJson: $context['sync_prompt_audio'],
+                promptJson: $nextPrompt,
+                hasAnswerJson: true,
+                answerJson: $nextAnswer,
+                hasAnswerAudioSource: true,
+                answerAudioSource: 'generated',
+            ));
+            $this->attachMedia->handle(AttachMediaToCardData::fromModels(
+                $lockedCard,
+                $context['generated']->mediaAsset,
+            ));
+            foreach ($context['old_generated_media'] as $oldMedia) {
+                if ($oldMedia->is($context['generated']->mediaAsset)
+                    || $this->payloadsReferenceAudioMedia($nextPrompt, $nextAnswer, $oldMedia)) {
+                    continue;
+                }
+
+                $this->detachMedia->handle(DetachMediaFromCardData::fromModels(
+                    $lockedCard,
+                    $oldMedia,
+                ));
+            }
+
+            return $lockedCard->fresh(['deck', 'mediaAssets']) ?? $lockedCard;
+        });
     }
 
     /**
@@ -224,14 +240,27 @@ class RegenerateStudyCardAnswerAudioAction
         MediaAsset $media,
     ): bool {
         foreach ([$prompt['cueAudio'] ?? null, $answer['answerAudio'] ?? null] as $reference) {
-            if (is_array($reference)
-                && is_string($reference['id'] ?? null)
-                && strtolower($reference['id']) === strtolower($media->id)) {
+            if ($this->isReferenceToMedia($reference, $media)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function isReferenceToMedia(mixed $reference, MediaAsset $media): bool
+    {
+        if (! is_array($reference)) {
+            return false;
+        }
+
+        $mediaId = $reference['id'] ?? null;
+
+        if (! is_string($mediaId)) {
+            return false;
+        }
+
+        return strtolower($mediaId) === strtolower($media->id);
     }
 
     private function cardFingerprint(Card $card): string

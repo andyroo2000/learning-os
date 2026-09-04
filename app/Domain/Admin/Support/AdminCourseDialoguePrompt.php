@@ -121,7 +121,7 @@ PROMPT;
     /** @param list<array{word: string, reading?: string, translation: string}> $words */
     private static function vocabularySeed(?string $level, array $words): string
     {
-        if ($level === null || $level === '' || $words === []) {
+        if (! self::hasSeedContent($level, $words)) {
             return '';
         }
 
@@ -144,7 +144,7 @@ PROMPT;
     /** @param list<array{pattern: string, meaning: string, example: string, exampleTranslation: string}> $points */
     private static function grammarSeed(?string $level, array $points): string
     {
-        if ($level === null || $level === '' || $points === []) {
+        if (! self::hasSeedContent($level, $points)) {
             return '';
         }
 
@@ -162,6 +162,11 @@ PROMPT;
         return "\n\nSUGGESTED {$level} GRAMMAR PATTERNS TO INCORPORATE:\n"
             ."Try to naturally use 2-3 of these JLPT {$level}-level grammar patterns in the dialogue:\n"
             ."{$formatted}\n\nUse these patterns where they naturally fit the conversation flow.";
+    }
+
+    private static function hasSeedContent(?string $level, array $items): bool
+    {
+        return $level !== null && $level !== '' && $items !== [];
     }
 
     private static function japaneseInstructions(): string

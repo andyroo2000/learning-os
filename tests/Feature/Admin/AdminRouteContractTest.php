@@ -9,9 +9,26 @@ use Tests\TestCase;
 
 class AdminRouteContractTest extends TestCase
 {
+    private const UUID_PATTERN = '[\\da-fA-F]{8}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{12}';
+
     public function test_api_admin_routes_preserve_registration_order_actions_middleware_and_constraints(): void
     {
-        $actualRoutes = collect(Route::getRoutes()->getRoutes())
+        $actualRoutes = $this->actualAdminRoutes();
+
+        $this->assertSame(array_merge(
+            $this->expectedUserAndInviteRoutes(),
+            $this->expectedAvatarAndPronunciationRoutes(),
+            $this->expectedScriptLabCourseRoutes(),
+            $this->expectedScriptLabSentenceRoutes(),
+            $this->expectedCoursePipelineRoutes(),
+            $this->expectedCourseRenderingRoutes(),
+        ), $actualRoutes);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function actualAdminRoutes(): array
+    {
+        return collect(Route::getRoutes()->getRoutes())
             ->filter(static fn (LaravelRoute $route): bool => str_starts_with(
                 $route->getActionName(),
                 'App\\Http\\Controllers\\Api\\Admin\\',
@@ -26,10 +43,14 @@ class AdminRouteContractTest extends TestCase
             ])
             ->values()
             ->all();
+    }
 
-        $uuid = '[\\da-fA-F]{8}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{12}';
+    /** @return list<array<string, mixed>> */
+    private function expectedUserAndInviteRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
 
-        $this->assertSame([
+        return [
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/stats', 'ShowAdminStatsController'),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/users', 'ListAdminUsersController'),
             $this->expectedRoute(
@@ -59,6 +80,15 @@ class AdminRouteContractTest extends TestCase
                 'convolab-admin-invite-delete',
                 ['inviteId' => $uuid],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedAvatarAndPronunciationRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/admin/avatars/speaker/{filename}/original',
@@ -99,6 +129,15 @@ class AdminRouteContractTest extends TestCase
                 'UpdateAdminPronunciationDictionaryController',
                 'convolab-admin-pronunciation-dictionary-update',
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedScriptLabCourseRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/admin/script-lab/courses',
@@ -122,6 +161,15 @@ class AdminRouteContractTest extends TestCase
                 'DeleteAdminScriptLabCoursesController',
                 'convolab-admin-script-lab-course-delete',
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedScriptLabSentenceRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'POST',
                 'api/convolab/admin/script-lab/sentence-script',
@@ -163,6 +211,15 @@ class AdminRouteContractTest extends TestCase
                 'DownloadAdminScriptLabAudioController',
                 wheres: ['renderingId' => $uuid],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedCoursePipelineRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/admin/courses/{courseId}/pipeline-data',
@@ -209,6 +266,15 @@ class AdminRouteContractTest extends TestCase
                 'convolab-admin-course-audio-generate',
                 ['courseId' => $uuid],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedCourseRenderingRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'POST',
                 'api/convolab/admin/courses/{courseId}/synthesize-line',
@@ -235,7 +301,7 @@ class AdminRouteContractTest extends TestCase
                 'convolab-admin-course-line-delete',
                 ['courseId' => $uuid, 'renderingId' => $uuid],
             ),
-        ], $actualRoutes);
+        ];
     }
 
     public function test_admin_routes_remain_at_their_original_global_boundaries(): void

@@ -5,6 +5,8 @@ namespace App\Domain\Reviews\Support;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Exceptions\CardReviewEventConflictException;
 use App\Domain\Reviews\Models\CardReviewEvent;
+use App\Domain\Reviews\Values\CardReviewAppendCandidate;
+use App\Domain\Reviews\Values\LatestCardReviewChronology;
 use App\Support\Identifiers\CanonicalUlid;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -79,41 +81,88 @@ final class CardReviewChronology
         bool $candidateHasSyncIdentity,
         bool $latestHasSyncIdentity,
     ): void {
+        $latest = new LatestCardReviewChronology(
+            $latestReviewedAt,
+            $latestReviewEventId,
+            $latestHasSyncIdentity,
+        );
+        $candidate = new CardReviewAppendCandidate(
+            $candidateReviewedAt,
+            $candidateReviewEventId,
+            $candidateHasExplicitId,
+            $candidateHasSyncIdentity,
+        );
+
+        self::assertAfterCardReview($card, $latest, $candidate);
+        self::assertHasRequiredIdentity($card, $latest, $candidate);
+        self::assertAfterLatestEvent($card, $latest, $candidate);
+    }
+
+    private static function assertAfterCardReview(
+        Card $card,
+        LatestCardReviewChronology $latest,
+        CardReviewAppendCandidate $candidate,
+    ): void {
         $cardReviewedAt = $card->last_reviewed_at;
 
-        if ($cardReviewedAt !== null) {
-            if ($candidateReviewedAt->lessThan($cardReviewedAt)) {
-                throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
-            }
-
-            if (
-                $candidateReviewedAt->equalTo($cardReviewedAt)
-                && ($latestReviewedAt === null || ! $latestReviewedAt->equalTo($cardReviewedAt))
-            ) {
-                // The card records a review at this instant but no event ID can establish a safe tie order.
-                throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
-            }
+        if ($cardReviewedAt === null) {
+            return;
         }
 
-        if (
-            ! $candidateHasExplicitId
-            && $latestReviewedAt !== null
-            && $candidateReviewedAt->equalTo($latestReviewedAt)
-            && (! $candidateHasSyncIdentity || ! $latestHasSyncIdentity)
-        ) {
+        if ($candidate->reviewedAt->lessThan($cardReviewedAt)) {
+            throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
+        }
+
+        if (self::matchesCardWithoutLatestEvent($cardReviewedAt, $latest, $candidate)) {
+            // The card records a review at this instant but no event ID can establish a safe tie order.
+            throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
+        }
+    }
+
+    private static function matchesCardWithoutLatestEvent(
+        CarbonInterface $cardReviewedAt,
+        LatestCardReviewChronology $latest,
+        CardReviewAppendCandidate $candidate,
+    ): bool {
+        return $candidate->reviewedAt->equalTo($cardReviewedAt)
+            && ($latest->reviewedAt === null || ! $latest->reviewedAt->equalTo($cardReviewedAt));
+    }
+
+    private static function assertHasRequiredIdentity(
+        Card $card,
+        LatestCardReviewChronology $latest,
+        CardReviewAppendCandidate $candidate,
+    ): void {
+        if (self::requiresIdentity($latest, $candidate)) {
             throw CardReviewEventConflictException::identityRequired($card->ownerUserId());
         }
+    }
 
-        if (
-            $latestReviewedAt !== null
-            && $latestReviewEventId !== null
-            && self::compare(
-                $candidateReviewedAt,
-                $candidateReviewEventId,
-                $latestReviewedAt,
-                $latestReviewEventId,
-            ) <= 0
-        ) {
+    private static function requiresIdentity(
+        LatestCardReviewChronology $latest,
+        CardReviewAppendCandidate $candidate,
+    ): bool {
+        return ! $candidate->hasExplicitId
+            && $latest->reviewedAt !== null
+            && $candidate->reviewedAt->equalTo($latest->reviewedAt)
+            && (! $candidate->hasSyncIdentity || ! $latest->hasSyncIdentity);
+    }
+
+    private static function assertAfterLatestEvent(
+        Card $card,
+        LatestCardReviewChronology $latest,
+        CardReviewAppendCandidate $candidate,
+    ): void {
+        if ($latest->reviewedAt === null || $latest->reviewEventId === null) {
+            return;
+        }
+
+        if (self::compare(
+            $candidate->reviewedAt,
+            $candidate->reviewEventId,
+            $latest->reviewedAt,
+            $latest->reviewEventId,
+        ) <= 0) {
             throw CardReviewEventConflictException::outOfOrder($card->ownerUserId());
         }
     }

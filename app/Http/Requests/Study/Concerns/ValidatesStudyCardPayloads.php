@@ -67,34 +67,36 @@ trait ValidatesStudyCardPayloads
 
     protected static function studyCardImagePlacementMessage(): string
     {
-        $values = StudyCardImagePlacement::values();
-        $last = array_pop($values);
-
-        if ($last === null) {
-            return 'imagePlacement is not supported.';
-        }
-
-        if ($values === []) {
-            return "imagePlacement must be {$last}.";
-        }
-
-        return 'imagePlacement must be '.implode(', ', $values).", or {$last}.";
+        return self::supportedValuesMessage(
+            StudyCardImagePlacement::values(),
+            'imagePlacement',
+        );
     }
 
     protected static function studyCardMediaSourcesMessage(): string
     {
-        $values = StudyCardDraft::MEDIA_SOURCES;
+        return self::supportedValuesMessage(
+            StudyCardDraft::MEDIA_SOURCES,
+            'draft media source',
+        );
+    }
+
+    /**
+     * @param  list<string>  $values
+     */
+    private static function supportedValuesMessage(array $values, string $subject): string
+    {
         $last = array_pop($values);
 
         if ($last === null) {
-            return 'draft media source is not supported.';
+            return "{$subject} is not supported.";
         }
 
         if ($values === []) {
-            return "draft media source must be {$last}.";
+            return "{$subject} must be {$last}.";
         }
 
-        return 'draft media source must be '.implode(', ', $values).", or {$last}.";
+        return "{$subject} must be ".implode(', ', $values).", or {$last}.";
     }
 
     /**
@@ -155,6 +157,55 @@ trait ValidatesStudyCardPayloads
             return;
         }
 
+        if (! self::validateSerializedPayloads($fail, $prompt, $answer)) {
+            return;
+        }
+
+        $promptIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt);
+        $answerIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($answer);
+
+        self::addPayloadDepthError($fail, 'prompt', $promptIsTooDeep);
+        self::addPayloadDepthError($fail, 'answer', $answerIsTooDeep);
+
+        foreach (StudyCardPayloadSchema::validationErrors($prompt, $answer) as $attribute => $message) {
+            $fail($attribute, $message);
+        }
+
+        $this->capturePayloadText(
+            $fail,
+            $prompt,
+            [
+                'is_too_deep' => $promptIsTooDeep,
+                'required' => $requirePromptText,
+                'attribute' => 'prompt',
+                'extract' => StudyCardPayloadText::frontText(...),
+                'capture' => function (string $text): void {
+                    $this->frontText = $text;
+                },
+            ],
+        );
+        $this->capturePayloadText(
+            $fail,
+            $answer,
+            [
+                'is_too_deep' => $answerIsTooDeep,
+                'required' => $requireAnswerText,
+                'attribute' => 'answer',
+                'extract' => StudyCardPayloadText::backText(...),
+                'capture' => function (string $text): void {
+                    $this->backText = $text;
+                },
+            ],
+        );
+    }
+
+    /**
+     * @param  Closure(string, string): void  $fail
+     * @param  array<array-key, mixed>  $prompt
+     * @param  array<array-key, mixed>  $answer
+     */
+    private static function validateSerializedPayloads(Closure $fail, array $prompt, array $answer): bool
+    {
         $serialized = StudyCardPayloadShapeValidator::serializePayloads($prompt, $answer);
 
         // Serialization runs before depth traversal so invalid or oversized payloads are rejected
@@ -163,43 +214,75 @@ trait ValidatesStudyCardPayloads
         if ($serialized === null) {
             $fail('payloads', 'study card payloads contain invalid content.');
 
-            return;
+            return false;
         }
 
         if (StudyCardPayloadShapeValidator::exceedsMaxBytes($serialized)) {
             // Size is the authoritative combined-payload error when size and depth both fail.
             $fail('payloads', 'study card payloads must be '.StudyCardPayloadShapeValidator::maxPayloadKilobytes().' KB or smaller.');
 
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  Closure(string, string): void  $fail
+     */
+    private static function addPayloadDepthError(Closure $fail, string $attribute, bool $isTooDeep): void
+    {
+        if ($isTooDeep) {
+            $fail($attribute, "{$attribute} must be ".StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        }
+    }
+
+    /**
+     * @param  Closure(string, string): void  $fail
+     * @param  array<array-key, mixed>  $payload
+     * @param  array{
+     *     is_too_deep: bool,
+     *     required: bool,
+     *     attribute: string,
+     *     extract: Closure(array<array-key, mixed>): ?string,
+     *     capture: Closure(string): void
+     * }  $target
+     */
+    private function capturePayloadText(
+        Closure $fail,
+        array $payload,
+        array $target,
+    ): void {
+        if (self::payloadCannotContainText($payload, $target['is_too_deep'])) {
             return;
         }
 
-        $promptIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($prompt);
-        $answerIsTooDeep = StudyCardPayloadShapeValidator::exceedsMaxDepth($answer);
-        $promptHasInvalidShape = $prompt !== [] && array_is_list($prompt);
-        $answerHasInvalidShape = $answer !== [] && array_is_list($answer);
+        $text = $target['extract']($payload);
 
-        if ($promptIsTooDeep) {
-            $fail('prompt', 'prompt must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        if ($text !== null) {
+            $target['capture']($text);
+
+            return;
         }
 
-        if ($answerIsTooDeep) {
-            $fail('answer', 'answer must be '.StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH.' levels deep or fewer.');
+        if ($target['required']) {
+            $fail($target['attribute'], "{$target['attribute']} must include a non-empty text field.");
+        }
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $payload
+     */
+    private static function payloadCannotContainText(array $payload, bool $isTooDeep): bool
+    {
+        if ($isTooDeep) {
+            return true;
         }
 
-        foreach (StudyCardPayloadSchema::validationErrors($prompt, $answer) as $attribute => $message) {
-            $fail($attribute, $message);
+        if ($payload === []) {
+            return false;
         }
 
-        if (! $promptIsTooDeep && ! $promptHasInvalidShape && ($frontText = StudyCardPayloadText::frontText($prompt)) !== null) {
-            $this->frontText = $frontText;
-        } elseif (! $promptIsTooDeep && ! $promptHasInvalidShape && $requirePromptText) {
-            $fail('prompt', 'prompt must include a non-empty text field.');
-        }
-
-        if (! $answerIsTooDeep && ! $answerHasInvalidShape && ($backText = StudyCardPayloadText::backText($answer)) !== null) {
-            $this->backText = $backText;
-        } elseif (! $answerIsTooDeep && ! $answerHasInvalidShape && $requireAnswerText) {
-            $fail('answer', 'answer must include a non-empty text field.');
-        }
+        return array_is_list($payload);
     }
 }

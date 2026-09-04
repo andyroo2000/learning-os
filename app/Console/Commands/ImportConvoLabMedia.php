@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\BuildsConvoLabMediaImportManifest;
 use App\Console\Concerns\ConnectsToConvoLabSourceDatabase;
+use App\Console\Support\ConvoLabMediaImportMapper;
+use App\Console\Support\ConvoLabMediaImportState;
 use App\Domain\Media\Actions\RecordCardMediaSyncFeedEntryAction;
 use App\Domain\Media\Actions\RecordMediaAssetSyncFeedEntryAction;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Sync\CardMediaSyncPayload;
 use App\Domain\Media\Sync\MediaAssetSyncPayload;
-use App\Domain\Media\Values\OriginalFilename;
 use App\Domain\Study\Actions\RepairLegacyStudyMediaReferencesAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
@@ -16,7 +18,6 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Filesystem\FilesystemAdapter;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,11 +27,8 @@ use Throwable;
 
 class ImportConvoLabMedia extends Command
 {
+    use BuildsConvoLabMediaImportManifest;
     use ConnectsToConvoLabSourceDatabase;
-
-    private const MAX_SOURCE_KIND_LENGTH = 64;
-
-    private const MAX_SOURCE_METADATA_LENGTH = 255;
 
     private const LOCK_TTL_SECONDS = 86400;
 
@@ -49,55 +47,10 @@ class ImportConvoLabMedia extends Command
 
     protected $description = 'Incrementally import verified Convo Lab study media into an existing Learning OS database.';
 
-    /**
-     * @var array<string, array{
-     *     source_ids: list<string>,
-     *     user_id: int,
-     *     import_job_id: string|null,
-     *     path: string,
-     *     source_path: string,
-     *     mime_type: string,
-     *     size_bytes: int,
-     *     checksum_sha256: string,
-     *     original_filename: string|null,
-     *     source_kind: string|null,
-     *     source_media_ref: string|null,
-     *     source_filename: string|null,
-     *     created_at: mixed,
-     *     updated_at: mixed
-     * }>
-     */
-    private array $mediaByPath = [];
-
-    /**
-     * @var array<string, string>
-     */
-    private array $pathBySourceMediaId = [];
-
-    /**
-     * @var array<string, int>
-     */
-    private array $userIdBySourceMediaId = [];
-
-    /**
-     * @var array<string, true>
-     */
-    private array $unavailableSourceMediaIds = [];
-
-    /**
-     * @var array<string, true>
-     */
-    private array $skippedUnavailableCardMediaPairs = [];
-
-    /**
-     * @var array<string, array{
-     *     card_id: string,
-     *     user_id: int,
-     *     deck_id: string,
-     *     course_id: string|null
-     * }>
-     */
-    private array $cardsBySourceId = [];
+    public function __construct(private readonly ConvoLabMediaImportMapper $importMapper)
+    {
+        parent::__construct();
+    }
 
     public function handle(
         RecordMediaAssetSyncFeedEntryAction $recordMediaAssetSyncFeedEntry,
@@ -201,10 +154,10 @@ class ImportConvoLabMedia extends Command
     ): array {
         $this->info('Preflighting Convo Lab study media');
 
-        $userIds = $this->mapSourceUsers($source, $target);
-        $importJobIds = $this->mapSourceImportJobs($source, $target);
-        $this->cardsBySourceId = $this->mapSourceCards($source, $target, $userIds);
-        $this->buildMediaManifest($source, $sourceMediaRoot, $userIds, $importJobIds);
+        $this->importState = new ConvoLabMediaImportState;
+        $mappings = $this->importMapper->map($source, $target);
+        $this->importState->cardsBySourceId = $mappings->cardsBySourceId;
+        $this->buildMediaManifest($source, $sourceMediaRoot, $mappings);
         $cardMediaPairs = $this->buildCardMediaPairs($source);
         $existingMedia = $this->preflightExistingMedia($target);
         $this->preflightDestinationFiles();
@@ -212,7 +165,7 @@ class ImportConvoLabMedia extends Command
         $this->reportUnavailableMedia();
         $this->line(sprintf(
             'Verified %d unique media files and %d card media links.',
-            count($this->mediaByPath),
+            count($this->importState->mediaByPath),
             count($cardMediaPairs),
         ));
 
@@ -238,14 +191,14 @@ class ImportConvoLabMedia extends Command
 
     private function reportUnavailableMedia(): void
     {
-        if ($this->unavailableSourceMediaIds === []) {
+        if ($this->importState->unavailableSourceMediaIds === []) {
             return;
         }
 
         $this->warn(sprintf(
             'Skipped %d unavailable Convo Lab media rows and %d card media links without storage paths.',
-            count($this->unavailableSourceMediaIds),
-            count($this->skippedUnavailableCardMediaPairs),
+            count($this->importState->unavailableSourceMediaIds),
+            count($this->importState->skippedUnavailableCardMediaPairs),
         ));
     }
 
@@ -318,523 +271,23 @@ class ImportConvoLabMedia extends Command
     }
 
     /**
-     * @return array<string, int>
-     */
-    private function mapSourceUsers(
-        ConnectionInterface $source,
-        ConnectionInterface $target,
-    ): array {
-        $referencedSourceUserIds = $source->table('study_media')
-            ->pluck('userId')
-            ->merge(
-                $source->table('study_cards')
-                    ->where(function ($query): void {
-                        $query->whereNotNull('promptAudioMediaId')
-                            ->orWhereNotNull('answerAudioMediaId')
-                            ->orWhereNotNull('imageMediaId');
-                    })
-                    ->pluck('userId'),
-            )
-            ->map(fn (mixed $id): string => (string) $id)
-            ->unique()
-            ->values();
-        $targetUsersByEmail = $target->table('users')
-            ->get(['id', 'email'])
-            ->mapWithKeys(fn (object $user): array => [
-                strtolower(trim((string) $user->email)) => (int) $user->id,
-            ])
-            ->all();
-        $mapped = [];
-
-        foreach ($source->table('User')
-            ->whereIn('id', $referencedSourceUserIds)
-            ->get(['id', 'email']) as $user) {
-            $email = strtolower(trim((string) $user->email));
-            $targetUserId = $targetUsersByEmail[$email] ?? null;
-
-            if ($targetUserId === null) {
-                throw new RuntimeException("Learning OS has no user matching Convo Lab email [{$user->email}].");
-            }
-
-            $mapped[(string) $user->id] = $targetUserId;
-        }
-
-        return $mapped;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function mapSourceImportJobs(
-        ConnectionInterface $source,
-        ConnectionInterface $target,
-    ): array {
-        $targetJobs = $target->table('study_import_jobs')
-            ->whereNotNull('convolab_id')
-            ->pluck('id', 'convolab_id')
-            ->mapWithKeys(fn (mixed $id, mixed $sourceId): array => [
-                strtolower((string) $sourceId) => (string) $id,
-            ])
-            ->all();
-        $mapped = [];
-
-        foreach ($source->table('study_media')
-            ->whereNotNull('importJobId')
-            ->pluck('importJobId')
-            ->unique() as $sourceId) {
-            $normalized = strtolower(trim((string) $sourceId));
-
-            if (! Str::isUuid($normalized)) {
-                throw new RuntimeException("Convo Lab import job [{$sourceId}] does not have a valid UUID.");
-            }
-
-            if (! isset($targetJobs[$normalized])) {
-                throw new RuntimeException(
-                    "Learning OS has no import job matching Convo Lab import job [{$sourceId}].",
-                );
-            }
-
-            $mapped[(string) $sourceId] = $targetJobs[$normalized];
-        }
-
-        return $mapped;
-    }
-
-    /**
-     * @param  array<string, int>  $userIds
-     * @return array<string, array{
-     *     card_id: string,
-     *     user_id: int,
-     *     deck_id: string,
-     *     course_id: string|null
-     * }>
-     */
-    private function mapSourceCards(
-        ConnectionInterface $source,
-        ConnectionInterface $target,
-        array $userIds,
-    ): array {
-        $targetCards = $target->table('cards')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->whereNotNull('cards.convolab_id')
-            ->whereNull('cards.deleted_at')
-            ->whereNull('decks.deleted_at')
-            ->get([
-                'cards.id',
-                'cards.convolab_id',
-                'cards.deck_id',
-                'decks.user_id',
-                'decks.course_id',
-            ])
-            ->mapWithKeys(fn (object $card): array => [
-                strtolower((string) $card->convolab_id) => [
-                    'card_id' => (string) $card->id,
-                    'user_id' => (int) $card->user_id,
-                    'deck_id' => (string) $card->deck_id,
-                    'course_id' => $card->course_id === null ? null : (string) $card->course_id,
-                ],
-            ])
-            ->all();
-        $mapped = [];
-
-        foreach ($source->table('study_cards')
-            ->where(function ($query): void {
-                $query->whereNotNull('promptAudioMediaId')
-                    ->orWhereNotNull('answerAudioMediaId')
-                    ->orWhereNotNull('imageMediaId');
-            })
-            ->get(['id', 'userId']) as $sourceCard) {
-            $sourceId = strtolower(trim((string) $sourceCard->id));
-            $targetCard = $targetCards[$sourceId] ?? null;
-            $expectedUserId = $userIds[(string) $sourceCard->userId] ?? null;
-
-            if ($targetCard === null) {
-                throw new RuntimeException("Learning OS has no card matching Convo Lab card [{$sourceCard->id}].");
-            }
-
-            if ($expectedUserId === null || $targetCard['user_id'] !== $expectedUserId) {
-                throw new RuntimeException("Convo Lab card [{$sourceCard->id}] does not match the Learning OS owner.");
-            }
-
-            $mapped[(string) $sourceCard->id] = $targetCard;
-        }
-
-        return $mapped;
-    }
-
-    /**
-     * @param  array<string, int>  $userIds
-     * @param  array<string, string>  $importJobIds
-     */
-    private function buildMediaManifest(
-        ConnectionInterface $source,
-        string $sourceMediaRoot,
-        array $userIds,
-        array $importJobIds,
-    ): void {
-        $this->mediaByPath = [];
-        $this->pathBySourceMediaId = [];
-        $this->userIdBySourceMediaId = [];
-        $this->unavailableSourceMediaIds = [];
-
-        $source->table('study_media')
-            ->orderBy('createdAt')
-            ->orderBy('id')
-            ->chunk(500, function (Collection $rows) use ($sourceMediaRoot, $userIds, $importJobIds): void {
-                foreach ($rows as $media) {
-                    $this->addMediaToManifest($media, $sourceMediaRoot, $userIds, $importJobIds);
-                }
-            });
-    }
-
-    /**
-     * @param  array<string, int>  $userIds
-     * @param  array<string, string>  $importJobIds
-     */
-    private function addMediaToManifest(
-        object $media,
-        string $sourceMediaRoot,
-        array $userIds,
-        array $importJobIds,
-    ): void {
-        $sourceId = (string) $media->id;
-
-        if ($this->hasNoStoragePath($media)) {
-            $this->unavailableSourceMediaIds[$sourceId] = true;
-
-            return;
-        }
-
-        $userId = $this->mappedMediaUserId($media, $sourceId, $userIds);
-        $verifiedFile = $this->verifiedSourceFile($media, $sourceId, $sourceMediaRoot, $userId);
-
-        if (isset($this->mediaByPath[$verifiedFile['path']])) {
-            $this->addSourceToExistingManifestPath($verifiedFile);
-        } else {
-            $this->mediaByPath[$verifiedFile['path']] = $this->newMediaManifestEntry(
-                $media,
-                $verifiedFile,
-                $importJobIds,
-            );
-        }
-
-        $this->pathBySourceMediaId[$sourceId] = $verifiedFile['path'];
-        $this->userIdBySourceMediaId[$sourceId] = $userId;
-    }
-
-    private function hasNoStoragePath(object $media): bool
-    {
-        return ! is_string($media->storagePath) || trim($media->storagePath) === '';
-    }
-
-    /** @param  array<string, int>  $userIds */
-    private function mappedMediaUserId(object $media, string $sourceId, array $userIds): int
-    {
-        $userId = $userIds[(string) $media->userId] ?? null;
-
-        if ($userId === null) {
-            throw new RuntimeException("Missing Learning OS user mapping for media [{$sourceId}].");
-        }
-
-        return $userId;
-    }
-
-    /**
-     * @return array{
-     *     source_id: string,
-     *     user_id: int,
-     *     path: string,
-     *     source_path: string,
-     *     size_bytes: int,
-     *     checksum_sha256: string
-     * }
-     */
-    private function verifiedSourceFile(
-        object $media,
-        string $sourceId,
-        string $sourceMediaRoot,
-        int $userId,
-    ): array {
-        $path = $this->validatedStoragePath($media->storagePath, $sourceId);
-        $sourcePath = $this->resolveConvoLabSourceFile(
-            $sourceMediaRoot,
-            $path,
-            "Convo Lab media bytes are missing for [{$sourceId}] at [{$path}].",
-        );
-        $size = filesize($sourcePath);
-        $checksum = hash_file('sha256', $sourcePath);
-
-        if (! $this->isValidSourceSize($size)) {
-            throw new RuntimeException("Convo Lab media [{$sourceId}] has an invalid byte size.");
-        }
-
-        if (! is_string($checksum)) {
-            throw new RuntimeException("Unable to checksum Convo Lab media [{$sourceId}].");
-        }
-
-        return [
-            'source_id' => $sourceId,
-            'user_id' => $userId,
-            'path' => $path,
-            'source_path' => $sourcePath,
-            'size_bytes' => $size,
-            'checksum_sha256' => $checksum,
-        ];
-    }
-
-    private function isValidSourceSize(mixed $size): bool
-    {
-        return is_int($size) && $size >= 1 && $size <= MediaAsset::MAX_JSON_SAFE_SIZE_BYTES;
-    }
-
-    /**
-     * @param  array{source_id: string, user_id: int, path: string, size_bytes: int, checksum_sha256: string}  $verifiedFile
-     */
-    private function addSourceToExistingManifestPath(array $verifiedFile): void
-    {
-        $path = $verifiedFile['path'];
-        $existing = $this->mediaByPath[$path];
-
-        if ($existing['user_id'] !== $verifiedFile['user_id']) {
-            throw new RuntimeException("Media path [{$path}] is shared by multiple Convo Lab users.");
-        }
-
-        if ($existing['size_bytes'] !== $verifiedFile['size_bytes']
-            || $existing['checksum_sha256'] !== $verifiedFile['checksum_sha256']) {
-            throw new RuntimeException("Media path [{$path}] resolves to inconsistent source bytes.");
-        }
-
-        $this->mediaByPath[$path]['source_ids'][] = $verifiedFile['source_id'];
-    }
-
-    /**
-     * @param  array{
-     *     source_id: string,
-     *     user_id: int,
-     *     path: string,
-     *     source_path: string,
-     *     size_bytes: int,
-     *     checksum_sha256: string
-     * }  $verifiedFile
-     * @param  array<string, string>  $importJobIds
-     * @return array{
-     *     source_ids: list<string>,
-     *     user_id: int,
-     *     import_job_id: string|null,
-     *     path: string,
-     *     source_path: string,
-     *     mime_type: string,
-     *     size_bytes: int,
-     *     checksum_sha256: string,
-     *     original_filename: string|null,
-     *     source_kind: string|null,
-     *     source_media_ref: string|null,
-     *     source_filename: string|null,
-     *     created_at: mixed,
-     *     updated_at: mixed
-     * }
-     */
-    private function newMediaManifestEntry(object $media, array $verifiedFile, array $importJobIds): array
-    {
-        $sourceId = $verifiedFile['source_id'];
-        $sourceImportJobId = is_string($media->importJobId) ? $media->importJobId : null;
-
-        return [
-            'source_ids' => [$sourceId],
-            'user_id' => $verifiedFile['user_id'],
-            'import_job_id' => $sourceImportJobId === null
-                ? null
-                : ($importJobIds[$sourceImportJobId] ?? null),
-            'path' => $verifiedFile['path'],
-            'source_path' => $verifiedFile['source_path'],
-            'mime_type' => $this->mimeType($media->contentType, $sourceId),
-            'size_bytes' => $verifiedFile['size_bytes'],
-            'checksum_sha256' => $verifiedFile['checksum_sha256'],
-            'original_filename' => $this->boundedNullableString(
-                OriginalFilename::normalize(is_string($media->sourceFilename) ? $media->sourceFilename : null),
-                MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH,
-                'original filename',
-                $sourceId,
-            ),
-            'source_kind' => $this->boundedNullableString(
-                $media->sourceKind,
-                self::MAX_SOURCE_KIND_LENGTH,
-                'source kind',
-                $sourceId,
-            ),
-            'source_media_ref' => $this->boundedNullableString(
-                $media->sourceMediaKey,
-                self::MAX_SOURCE_METADATA_LENGTH,
-                'source media reference',
-                $sourceId,
-            ),
-            'source_filename' => $this->boundedNullableString(
-                $media->sourceFilename,
-                self::MAX_SOURCE_METADATA_LENGTH,
-                'source filename',
-                $sourceId,
-            ),
-            'created_at' => $media->createdAt,
-            'updated_at' => $media->updatedAt,
-        ];
-    }
-
-    private function mimeType(mixed $value, string $sourceId): string
-    {
-        return $this->boundedNullableString(
-            $value,
-            MediaAsset::MAX_MIME_TYPE_LENGTH,
-            'content type',
-            $sourceId,
-        ) ?? 'application/octet-stream';
-    }
-
-    private function validatedStoragePath(mixed $value, string $sourceId): string
-    {
-        $path = is_string($value) ? trim(str_replace('\\', '/', $value)) : '';
-        $normalized = ltrim($path, '/');
-
-        if ($this->isUnsafeStoragePath($path, $normalized)) {
-            throw new RuntimeException("Convo Lab media [{$sourceId}] has an unsafe storage path.");
-        }
-
-        return $normalized;
-    }
-
-    private function isUnsafeStoragePath(string $path, string $normalized): bool
-    {
-        return $path === ''
-            || $normalized !== $path
-            || str_contains($normalized, "\0")
-            || preg_match(MediaAsset::PATH_ABSOLUTE_PATTERN, $normalized) === 1
-            || preg_match(MediaAsset::PATH_TRAVERSAL_PATTERN, $normalized) === 1
-            || ! str_starts_with($normalized, 'study-media/')
-            || strlen($normalized) > MediaAsset::MAX_PATH_LENGTH;
-    }
-
-    /**
-     * @return list<array{
-     *     card_id: string,
-     *     user_id: int,
-     *     deck_id: string,
-     *     course_id: string|null,
-     *     path: string,
-     *     created_at: mixed,
-     *     updated_at: mixed
-     * }>
-     */
-    private function buildCardMediaPairs(ConnectionInterface $source): array
-    {
-        $pairs = [];
-        $this->skippedUnavailableCardMediaPairs = [];
-
-        foreach ($source->table('study_cards')
-            ->where(function ($query): void {
-                $query->whereNotNull('promptAudioMediaId')
-                    ->orWhereNotNull('answerAudioMediaId')
-                    ->orWhereNotNull('imageMediaId');
-            })
-            ->get(['id', 'userId', 'promptAudioMediaId', 'answerAudioMediaId', 'imageMediaId', 'createdAt', 'updatedAt']) as $card) {
-            $this->addCardMediaPairsForSourceCard($pairs, $card);
-        }
-
-        return array_values($pairs);
-    }
-
-    /**
-     * @param  array<string, array{
-     *     card_id: string,
-     *     user_id: int,
-     *     deck_id: string,
-     *     course_id: string|null,
-     *     path: string,
-     *     created_at: mixed,
-     *     updated_at: mixed
-     * }>  $pairs
-     */
-    private function addCardMediaPairsForSourceCard(array &$pairs, object $card): void
-    {
-        $targetCard = $this->cardsBySourceId[(string) $card->id];
-
-        foreach ([$card->promptAudioMediaId, $card->answerAudioMediaId, $card->imageMediaId] as $sourceMediaId) {
-            $this->addCardMediaPair($pairs, $card, $targetCard, $sourceMediaId);
-        }
-    }
-
-    /**
-     * @param  array<string, array{
-     *     card_id: string,
-     *     user_id: int,
-     *     deck_id: string,
-     *     course_id: string|null,
-     *     path: string,
-     *     created_at: mixed,
-     *     updated_at: mixed
-     * }>  $pairs
-     * @param  array{card_id: string, user_id: int, deck_id: string, course_id: string|null}  $targetCard
-     */
-    private function addCardMediaPair(
-        array &$pairs,
-        object $card,
-        array $targetCard,
-        mixed $sourceMediaId,
-    ): void {
-        if ($sourceMediaId === null || $sourceMediaId === '') {
-            return;
-        }
-
-        $sourceMediaId = (string) $sourceMediaId;
-
-        if (isset($this->unavailableSourceMediaIds[$sourceMediaId])) {
-            $this->skippedUnavailableCardMediaPairs[
-                (string) $card->id."\n".$sourceMediaId
-            ] = true;
-
-            return;
-        }
-
-        $path = $this->pathBySourceMediaId[$sourceMediaId] ?? null;
-
-        if ($path === null) {
-            throw new RuntimeException("Missing imported media mapping for [{$sourceMediaId}].");
-        }
-
-        if (($this->userIdBySourceMediaId[$sourceMediaId] ?? null) !== $targetCard['user_id']) {
-            throw new RuntimeException(
-                "Card [{$card->id}] references media [{$sourceMediaId}] owned by another user.",
-            );
-        }
-
-        $key = $targetCard['card_id']."\n".$path;
-        $pairs[$key] = [
-            'card_id' => $targetCard['card_id'],
-            'user_id' => $targetCard['user_id'],
-            'deck_id' => $targetCard['deck_id'],
-            'course_id' => $targetCard['course_id'],
-            'path' => $path,
-            'created_at' => $card->createdAt,
-            'updated_at' => $card->updatedAt,
-        ];
-    }
-
-    /**
      * @return array<string, object>
      */
     private function preflightExistingMedia(ConnectionInterface $target): array
     {
-        if ($this->mediaByPath === []) {
+        if ($this->importState->mediaByPath === []) {
             return [];
         }
 
         $existing = $target->table('media_assets')
             ->where('disk', MediaAsset::DISK_MEDIA)
-            ->whereIn('path', array_keys($this->mediaByPath))
+            ->whereIn('path', array_keys($this->importState->mediaByPath))
             ->get()
             ->keyBy('path')
             ->all();
 
         foreach ($existing as $path => $row) {
-            $this->assertExistingMediaMatches($path, $row, $this->mediaByPath[$path]);
+            $this->assertExistingMediaMatches($path, $row, $this->importState->mediaByPath[$path]);
         }
 
         return $existing;
@@ -869,7 +322,7 @@ class ImportConvoLabMedia extends Command
     {
         $disk = Storage::disk(MediaAsset::DISK_MEDIA);
 
-        foreach ($this->mediaByPath as $path => $manifest) {
+        foreach ($this->importState->mediaByPath as $path => $manifest) {
             if (! $disk->exists($path)) {
                 continue;
             }
@@ -901,7 +354,7 @@ class ImportConvoLabMedia extends Command
         $created = [];
 
         try {
-            foreach ($this->mediaByPath as $path => $manifest) {
+            foreach ($this->importState->mediaByPath as $path => $manifest) {
                 $this->copyAndTrackFileIfMissing($disk, $path, $manifest, $created);
             }
         } catch (Throwable $e) {
@@ -983,7 +436,7 @@ class ImportConvoLabMedia extends Command
             $existingResourceUserIds,
         );
 
-        foreach ($this->mediaByPath as $path => $manifest) {
+        foreach ($this->importState->mediaByPath as $path => $manifest) {
             $row = $existing[$path] ?? null;
 
             if ($row !== null) {
@@ -1150,22 +603,5 @@ class ImportConvoLabMedia extends Command
             operation: SyncFeedOperation::Create,
             mediaAsset: $mediaAsset,
         );
-    }
-
-    private function boundedNullableString(
-        mixed $value,
-        int $maxLength,
-        string $label,
-        string $sourceId,
-    ): ?string {
-        $normalized = is_string($value) && trim($value) !== '' ? trim($value) : null;
-
-        if ($normalized !== null && mb_strlen($normalized) > $maxLength) {
-            throw new RuntimeException(
-                "Convo Lab media [{$sourceId}] {$label} exceeds {$maxLength} characters.",
-            );
-        }
-
-        return $normalized;
     }
 }

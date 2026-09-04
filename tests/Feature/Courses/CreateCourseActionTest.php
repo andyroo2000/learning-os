@@ -159,14 +159,10 @@ class CreateCourseActionTest extends TestCase
             $id,
             $user,
         ): void {
-            $sql = strtolower($query->sql);
-
-            if (
-                $inserted
-                || ! str_starts_with($sql, 'select')
-                || ! str_contains($sql, 'from "courses"')
-                || ! in_array($id, $query->bindings, true)
-            ) {
+            if ($inserted) {
+                return;
+            }
+            if (! $this->isCourseLookupFor($query, $id)) {
                 return;
             }
 
@@ -305,5 +301,19 @@ class CreateCourseActionTest extends TestCase
                 id: $id,
             ),
         );
+    }
+
+    private function isCourseLookupFor(QueryExecuted $query, string $id): bool
+    {
+        $sql = strtolower($query->sql);
+
+        if (! str_starts_with($sql, 'select')) {
+            return false;
+        }
+        if (! str_contains($sql, 'from "courses"')) {
+            return false;
+        }
+
+        return in_array($id, $query->bindings, true);
     }
 }

@@ -6,11 +6,13 @@ use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentCourseCoreItem;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
+use App\Domain\Content\Results\ContentCourseScriptGenerationResult;
 use App\Domain\Content\Services\ContentCourseScriptGenerator;
 use App\Domain\Content\Support\ContentCourseId;
 use App\Domain\Content\Support\ContentSourceLock;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Content\Support\ConvoLabUserId;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -35,20 +37,41 @@ class GenerateContentCourseScriptAction
             throw new InvalidArgumentException('Course generation attempt must be positive.');
         }
 
-        $prepared = DB::transaction(function () use ($userId, $convoLabUserId, $courseId, $expectedAttempt): ?array {
+        $scope = [
+            'userId' => $userId,
+            'convoLabUserId' => $convoLabUserId,
+            'courseId' => $courseId,
+            'expectedAttempt' => $expectedAttempt,
+        ];
+        $prepared = $this->prepareGeneration($scope);
+
+        if ($prepared === null) {
+            return null;
+        }
+
+        $generated = $this->generator->generate($prepared['snapshot']);
+
+        return $this->persistGeneration(
+            $scope,
+            $prepared,
+            $generated,
+        );
+    }
+
+    /**
+     * @param  array{userId: int, convoLabUserId: string, courseId: string, expectedAttempt: int|null}  $scope
+     * @return array{revision: int, episodeId: string, snapshot: array<string, mixed>}|null
+     */
+    private function prepareGeneration(array $scope): ?array
+    {
+        return DB::transaction(function () use ($scope): ?array {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
-            $course = ContentCourse::query()
-                ->whereKey($courseId)
-                ->where('user_id', $userId)
-                ->where('convolab_user_id', $convoLabUserId)
-                ->lockForUpdate()
-                ->first();
+            $course = $this->lockedCourse($scope);
             if ($course === null) {
                 return null;
             }
-            if ($expectedAttempt !== null && ($course->status !== 'generating'
-                || (int) $course->generation_attempt !== $expectedAttempt)) {
+            if (! $this->matchesExpectedAttempt($course, $scope['expectedAttempt'])) {
                 return null;
             }
 
@@ -62,25 +85,7 @@ class GenerateContentCourseScriptAction
                 throw new RuntimeException('Course generation requires at least one Episode.');
             }
 
-            $episodesById = ContentEpisode::query()
-                ->whereIn('id', $links->pluck('episode_id'))
-                ->where('user_id', $userId)
-                ->where('convolab_user_id', $convoLabUserId)
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-            if ($episodesById->count() !== $links->count()) {
-                throw new RuntimeException('Course generation found an incomplete Episode graph.');
-            }
-
-            $episodes = $links->map(function (ContentEpisodeCourse $link) use ($episodesById): ContentEpisode {
-                $episode = $episodesById->get($link->episode_id);
-                if (! $episode instanceof ContentEpisode) {
-                    throw new RuntimeException('Course generation found an incomplete Episode graph.');
-                }
-
-                return $episode;
-            });
+            $episodes = $this->lockedEpisodes($scope, $links);
             $this->promoteEpisodeOwnership->handle(DB::connection(), $episodes);
 
             $course->source_system = ContentSourceSystem::LEARNING_OS;
@@ -90,10 +95,7 @@ class GenerateContentCourseScriptAction
                 ->whereKey($links->pluck('id'))
                 ->update(['source_system' => ContentSourceSystem::LEARNING_OS]);
 
-            $firstEpisode = $episodes->first();
-            if (! $firstEpisode instanceof ContentEpisode) {
-                throw new RuntimeException('Course generation requires at least one Episode.');
-            }
+            $firstEpisode = $this->firstEpisode($episodes);
 
             return [
                 'revision' => (int) $course->generation_revision,
@@ -101,40 +103,30 @@ class GenerateContentCourseScriptAction
                 'snapshot' => $this->generationSnapshot($course, $firstEpisode),
             ];
         });
+    }
 
-        if ($prepared === null) {
-            return null;
-        }
-
-        $generated = $this->generator->generate($prepared['snapshot']);
-
+    /**
+     * @param  array{userId: int, convoLabUserId: string, courseId: string, expectedAttempt: int|null}  $scope
+     * @param  array{revision: int, episodeId: string, snapshot: array<string, mixed>}  $prepared
+     */
+    private function persistGeneration(
+        array $scope,
+        array $prepared,
+        ContentCourseScriptGenerationResult $generated,
+    ): ContentCourse {
         return DB::transaction(function () use (
-            $userId,
-            $convoLabUserId,
-            $courseId,
-            $expectedAttempt,
+            $scope,
             $prepared,
             $generated,
         ): ContentCourse {
             ContentSourceLock::acquireConvoLab(DB::connection());
 
-            $course = ContentCourse::query()
-                ->whereKey($courseId)
-                ->where('user_id', $userId)
-                ->where('convolab_user_id', $convoLabUserId)
-                ->lockForUpdate()
-                ->first();
-            if ($course === null
-                || (int) $course->generation_revision !== $prepared['revision']
-                || ($expectedAttempt !== null && ($course->status !== 'generating'
-                    || (int) $course->generation_attempt !== $expectedAttempt))) {
-                throw new RuntimeException('Course changed while its script was being generated.');
-            }
+            $course = $this->lockedCourseForPersistence($scope, $prepared['revision']);
 
             $course->script_json = $generated->pipelinePayload();
             $course->script_units_json = $generated->scriptUnitsPayload();
             $course->approx_duration_seconds = $generated->estimatedDurationSeconds;
-            if ($expectedAttempt !== null) {
+            if ($scope['expectedAttempt'] !== null) {
                 $course->generation_stage = 'audio';
                 $course->generation_progress = 60;
                 $course->generation_heartbeat_at = now();
@@ -159,6 +151,85 @@ class GenerateContentCourseScriptAction
 
             return $course->load('coreItems');
         });
+    }
+
+    /**
+     * Caller owns the transaction and acquires the shared ConvoLab source lock first.
+     *
+     * @param  array{userId: int, convoLabUserId: string, courseId: string, expectedAttempt: int|null}  $scope
+     */
+    private function lockedCourse(array $scope): ?ContentCourse
+    {
+        return ContentCourse::query()
+            ->whereKey($scope['courseId'])
+            ->where('user_id', $scope['userId'])
+            ->where('convolab_user_id', $scope['convoLabUserId'])
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * Caller owns the transaction and has already locked the Course and Episode links.
+     *
+     * @param  array{userId: int, convoLabUserId: string, courseId: string, expectedAttempt: int|null}  $scope
+     * @param  Collection<int, ContentEpisodeCourse>  $links
+     * @return Collection<int, ContentEpisode>
+     */
+    private function lockedEpisodes(array $scope, Collection $links): Collection
+    {
+        $episodesById = ContentEpisode::query()
+            ->whereIn('id', $links->pluck('episode_id'))
+            ->where('user_id', $scope['userId'])
+            ->where('convolab_user_id', $scope['convoLabUserId'])
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+        if ($episodesById->count() !== $links->count()) {
+            throw new RuntimeException('Course generation found an incomplete Episode graph.');
+        }
+
+        return $links->map(function (ContentEpisodeCourse $link) use ($episodesById): ContentEpisode {
+            $episode = $episodesById->get($link->episode_id);
+            if (! $episode instanceof ContentEpisode) {
+                throw new RuntimeException('Course generation found an incomplete Episode graph.');
+            }
+
+            return $episode;
+        });
+    }
+
+    /** @param Collection<int, ContentEpisode> $episodes */
+    private function firstEpisode(Collection $episodes): ContentEpisode
+    {
+        $firstEpisode = $episodes->first();
+        if (! $firstEpisode instanceof ContentEpisode) {
+            throw new RuntimeException('Course generation requires at least one Episode.');
+        }
+
+        return $firstEpisode;
+    }
+
+    /** @param array{userId: int, convoLabUserId: string, courseId: string, expectedAttempt: int|null} $scope */
+    private function lockedCourseForPersistence(array $scope, int $revision): ContentCourse
+    {
+        $course = $this->lockedCourse($scope);
+        if ($course === null) {
+            throw new RuntimeException('Course changed while its script was being generated.');
+        }
+        if ((int) $course->generation_revision !== $revision) {
+            throw new RuntimeException('Course changed while its script was being generated.');
+        }
+        if (! $this->matchesExpectedAttempt($course, $scope['expectedAttempt'])) {
+            throw new RuntimeException('Course changed while its script was being generated.');
+        }
+
+        return $course;
+    }
+
+    private function matchesExpectedAttempt(ContentCourse $course, ?int $expectedAttempt): bool
+    {
+        return $expectedAttempt === null
+            || ($course->status === 'generating' && (int) $course->generation_attempt === $expectedAttempt);
     }
 
     /** @return array<string, mixed> */

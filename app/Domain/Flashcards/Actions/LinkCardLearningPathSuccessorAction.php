@@ -84,11 +84,8 @@ final class LinkCardLearningPathSuccessorAction
                 // position is ordered after any successor that remains available.
                 $this->assignSuccessorStage(
                     $liveSuccessor,
-                    $groupId,
-                    2,
-                    $unlockRequirement,
                     collect([$livePredecessor]),
-                    $userId,
+                    $unlockRequirement,
                     $unlockedAt,
                 );
                 $this->saveAndSync($liveSuccessor, $userId);
@@ -150,11 +147,8 @@ final class LinkCardLearningPathSuccessorAction
 
             $this->assignSuccessorStage(
                 $liveSuccessor,
-                $groupId,
-                $expectedStage,
-                $unlockRequirement,
                 $familyCards->where('variant_stage', $livePredecessor->variant_stage)->values(),
-                $userId,
+                $unlockRequirement,
                 now()->utc()->startOfSecond(),
             );
             $this->saveAndSync($liveSuccessor, $userId);
@@ -255,20 +249,23 @@ final class LinkCardLearningPathSuccessorAction
                 ->count() > 1);
     }
 
-    /** @param Collection<int, Card> $predecessorStageCards */
+    /**
+     * @param  Collection<int, Card>  $predecessorStageCards  Non-empty locked cards sharing one group, stage, and owner.
+     */
     private function assignSuccessorStage(
         Card $card,
-        string $groupId,
-        int $stage,
-        CardProgressionUnlockRequirement $unlockRequirement,
         Collection $predecessorStageCards,
-        int $userId,
+        CardProgressionUnlockRequirement $unlockRequirement,
         \DateTimeInterface $linkedAt,
     ): void {
-        $isImmediatelyAvailable = $predecessorStageCards->isNotEmpty()
-            && $predecessorStageCards->every(
-                fn (Card $predecessor): bool => $unlockRequirement->isSatisfiedByMastery($predecessor),
-            );
+        /** @var Card $predecessor */
+        $predecessor = $predecessorStageCards->firstOrFail();
+        $groupId = trim((string) $predecessor->variant_group_id);
+        $stage = $predecessor->variant_stage + 1;
+        $userId = $predecessor->ownerUserId();
+        $isImmediatelyAvailable = $predecessorStageCards->every(
+            fn (Card $stageCard): bool => $unlockRequirement->isSatisfiedByMastery($stageCard),
+        );
 
         $card->variant_group_id = $groupId;
         $card->variant_stage = $stage;

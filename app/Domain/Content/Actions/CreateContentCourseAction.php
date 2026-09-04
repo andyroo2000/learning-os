@@ -10,7 +10,6 @@ use App\Domain\Content\Models\ContentCourseTombstone;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Models\ContentEpisodeCourse;
 use App\Domain\Content\Results\CreateContentCourseResult;
-use App\Domain\Content\Services\ContentCourseDescriptionGenerator;
 use App\Domain\Content\Support\ContentCourseDefaults;
 use App\Domain\Content\Support\ContentCreationFingerprint;
 use App\Domain\Content\Support\ContentSourceLock;
@@ -19,14 +18,13 @@ use App\Support\Database\IntegrityConstraintViolation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 
 final class CreateContentCourseAction
 {
     public function __construct(
         private readonly CreateContentEpisodeAction $createEpisode,
         private readonly PromoteContentEpisodeOwnershipAction $promoteEpisodeOwnership,
-        private readonly ContentCourseDescriptionGenerator $descriptionGenerator,
+        private readonly FinalizeContentCourseDescriptionAction $finalizeDescription,
     ) {}
 
     public function handle(CreateContentCourseData $data): CreateContentCourseResult
@@ -43,76 +41,11 @@ final class CreateContentCourseAction
         $episodeTitles = [];
         $descriptionGenerationToken = $data->description === null ? (string) Str::uuid() : null;
         try {
-            $result = DB::transaction(function () use (
+            [$result, $episodeTitles] = $this->createCourse(
                 $data,
                 $fingerprint,
-                &$episodeTitles,
                 $descriptionGenerationToken,
-            ): CreateContentCourseResult {
-                ContentSourceLock::acquireConvoLab(DB::connection());
-
-                if ($data->id !== null) {
-                    $this->assertNotTombstoned($data, true);
-                    $existing = ContentCourse::query()->whereKey($data->id)->lockForUpdate()->first();
-                    if ($existing instanceof ContentCourse) {
-                        return CreateContentCourseResult::existing($this->matchingExisting($existing, $data, $fingerprint));
-                    }
-                }
-
-                $episodes = $data->sourceText !== null
-                    ? [$this->createInlineEpisode($data)]
-                    : $this->findOwnedEpisodes($data);
-
-                if ($episodes === null) {
-                    return CreateContentCourseResult::episodesNotFound();
-                }
-
-                $this->promoteEpisodeOwnership->handle(DB::connection(), $episodes);
-
-                $episodeTitles = array_map(
-                    static fn (ContentEpisode $episode): string => $episode->title,
-                    $episodes,
-                );
-
-                $course = new ContentCourse;
-                $course->id = $data->id ?? (string) Str::uuid();
-                $course->user_id = $data->userId;
-                $course->convolab_user_id = $data->convoLabUserId;
-                $course->source_system = ContentSourceSystem::LEARNING_OS;
-                $course->title = $data->title;
-                $course->description = $data->description
-                    ?? ContentCourseDefaults::description($data->targetLanguage);
-                $course->status = 'draft';
-                $course->is_sample_content = false;
-                $course->is_test_course = false;
-                $course->native_language = $data->nativeLanguage;
-                $course->target_language = $data->targetLanguage;
-                $course->max_lesson_duration_minutes = $data->maxLessonDurationMinutes;
-                $course->l1_voice_id = $data->l1VoiceId;
-                $course->l1_voice_provider = ContentCourseDefaults::voiceProvider($data->l1VoiceId);
-                $course->jlpt_level = $data->jlptLevel;
-                $course->speaker1_gender = $data->speaker1Gender;
-                $course->speaker2_gender = $data->speaker2Gender;
-                $course->speaker1_voice_id = $data->speaker1VoiceId;
-                $course->speaker1_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker1VoiceId);
-                $course->speaker2_voice_id = $data->speaker2VoiceId;
-                $course->speaker2_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker2VoiceId);
-                $course->creation_fingerprint = $fingerprint;
-                $course->description_generation_token = $descriptionGenerationToken;
-                $course->save();
-
-                foreach ($episodes as $sortOrder => $episode) {
-                    $link = new ContentEpisodeCourse;
-                    $link->id = (string) Str::uuid();
-                    $link->episode_id = $episode->id;
-                    $link->convolab_course_id = $course->id;
-                    $link->sort_order = $sortOrder;
-                    $link->source_system = ContentSourceSystem::LEARNING_OS;
-                    $link->save();
-                }
-
-                return CreateContentCourseResult::created($course);
-            });
+            );
         } catch (QueryException $exception) {
             // Cooperative ConvoLab writers serialize on ContentSourceLock. Retain PK recovery for
             // imports, maintenance code, or older deployments that can write without that lock.
@@ -129,50 +62,110 @@ final class CreateContentCourseAction
             $result = CreateContentCourseResult::existing($this->matchingExisting($existing, $data, $fingerprint));
         }
 
-        if ($result->wasCreated && $result->course !== null && $data->description === null) {
-            try {
-                $description = $this->descriptionGenerator->generate(
-                    $episodeTitles,
-                    strtoupper($data->targetLanguage),
-                    strtoupper($data->nativeLanguage),
-                );
-            } catch (Throwable $e) {
-                // Course creation remains available when optional description generation fails.
-                report($e);
-                $description = null;
-            }
-
-            $courseId = $result->course->id;
-            $course = DB::transaction(function () use (
-                $courseId,
-                $description,
-                $descriptionGenerationToken,
-            ): ?ContentCourse {
-                ContentSourceLock::acquireConvoLab(DB::connection());
-
-                $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
-                if (! $course instanceof ContentCourse) {
-                    return null;
-                }
-
-                if (is_string($course->description_generation_token)
-                    && hash_equals($course->description_generation_token, $descriptionGenerationToken)) {
-                    if ($description !== null) {
-                        $course->description = $description;
-                    }
-                    $course->description_generation_token = null;
-                    $course->save();
-                }
-
-                return $course;
-            });
-
-            if ($course instanceof ContentCourse) {
-                $result = CreateContentCourseResult::created($course);
-            }
+        if ($descriptionGenerationToken === null) {
+            return $result;
         }
 
-        return $result;
+        return $this->finalizeDescription->handle(
+            $result,
+            $data,
+            $episodeTitles,
+            $descriptionGenerationToken,
+        );
+    }
+
+    /** @return array{CreateContentCourseResult, list<string>} */
+    private function createCourse(
+        CreateContentCourseData $data,
+        ?string $fingerprint,
+        ?string $descriptionGenerationToken,
+    ): array {
+        return DB::transaction(function () use (
+            $data,
+            $fingerprint,
+            $descriptionGenerationToken,
+        ): array {
+            ContentSourceLock::acquireConvoLab(DB::connection());
+
+            if ($data->id !== null) {
+                $this->assertNotTombstoned($data, true);
+                $existing = ContentCourse::query()->whereKey($data->id)->lockForUpdate()->first();
+                if ($existing instanceof ContentCourse) {
+                    return [
+                        CreateContentCourseResult::existing($this->matchingExisting($existing, $data, $fingerprint)),
+                        [],
+                    ];
+                }
+            }
+
+            $episodes = $data->sourceText !== null
+                ? [$this->createInlineEpisode($data)]
+                : $this->findOwnedEpisodes($data);
+
+            if ($episodes === null) {
+                return [CreateContentCourseResult::episodesNotFound(), []];
+            }
+
+            $this->promoteEpisodeOwnership->handle(DB::connection(), $episodes);
+            $episodeTitles = array_map(
+                static fn (ContentEpisode $episode): string => $episode->title,
+                $episodes,
+            );
+
+            $course = $this->storeCourse($data, $fingerprint, $descriptionGenerationToken);
+            $this->linkEpisodes($course, $episodes);
+
+            return [CreateContentCourseResult::created($course), $episodeTitles];
+        });
+    }
+
+    private function storeCourse(
+        CreateContentCourseData $data,
+        ?string $fingerprint,
+        ?string $descriptionGenerationToken,
+    ): ContentCourse {
+        $course = new ContentCourse;
+        $course->id = $data->id ?? (string) Str::uuid();
+        $course->user_id = $data->userId;
+        $course->convolab_user_id = $data->convoLabUserId;
+        $course->source_system = ContentSourceSystem::LEARNING_OS;
+        $course->title = $data->title;
+        $course->description = $data->description
+            ?? ContentCourseDefaults::description($data->targetLanguage);
+        $course->status = 'draft';
+        $course->is_sample_content = false;
+        $course->is_test_course = false;
+        $course->native_language = $data->nativeLanguage;
+        $course->target_language = $data->targetLanguage;
+        $course->max_lesson_duration_minutes = $data->maxLessonDurationMinutes;
+        $course->l1_voice_id = $data->l1VoiceId;
+        $course->l1_voice_provider = ContentCourseDefaults::voiceProvider($data->l1VoiceId);
+        $course->jlpt_level = $data->jlptLevel;
+        $course->speaker1_gender = $data->speaker1Gender;
+        $course->speaker2_gender = $data->speaker2Gender;
+        $course->speaker1_voice_id = $data->speaker1VoiceId;
+        $course->speaker1_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker1VoiceId);
+        $course->speaker2_voice_id = $data->speaker2VoiceId;
+        $course->speaker2_voice_provider = ContentCourseDefaults::voiceProvider($data->speaker2VoiceId);
+        $course->creation_fingerprint = $fingerprint;
+        $course->description_generation_token = $descriptionGenerationToken;
+        $course->save();
+
+        return $course;
+    }
+
+    /** @param list<ContentEpisode> $episodes */
+    private function linkEpisodes(ContentCourse $course, array $episodes): void
+    {
+        foreach ($episodes as $sortOrder => $episode) {
+            $link = new ContentEpisodeCourse;
+            $link->id = (string) Str::uuid();
+            $link->episode_id = $episode->id;
+            $link->convolab_course_id = $course->id;
+            $link->sort_order = $sortOrder;
+            $link->source_system = ContentSourceSystem::LEARNING_OS;
+            $link->save();
+        }
     }
 
     private function createInlineEpisode(CreateContentCourseData $data): ContentEpisode

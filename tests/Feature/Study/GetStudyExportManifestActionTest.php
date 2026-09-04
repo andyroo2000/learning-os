@@ -4,6 +4,7 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\GetStudyExportManifestAction;
@@ -32,36 +33,7 @@ class GetStudyExportManifestActionTest extends TestCase
     public function test_it_returns_current_export_section_counts_for_the_user(): void
     {
         $user = User::factory()->create();
-        $otherUser = User::factory()->create();
-        $course = Course::factory()->for($user)->create();
-        $deletedCourse = Course::factory()->for($user)->create();
-        $deck = $this->deckFor($user, ['course_id' => $course->id]);
-        $deletedDeck = $this->deckFor($user);
-        $activeCard = Card::factory()->for($deck)->create();
-        $deletedCard = Card::factory()->for($deck)->create();
-        $deletedDeckCard = Card::factory()->for($deletedDeck)->create();
-
-        CardReviewEvent::factory()->for($activeCard)->create();
-        CardReviewEvent::factory()->for($deletedCard)->create();
-        CardReviewEvent::factory()->for($deletedDeckCard)->create();
-        StudyCardDraft::factory()->for($user)->create();
-        StudyImportJob::factory()->for($user)->create();
-        $mediaAsset = MediaAsset::factory()->for($user)->create();
-        $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
-        $activeCard->mediaAssets()->attach($mediaAsset->id);
-        $activeCard->mediaAssets()->attach($otherMediaAsset->id);
-        $deletedCard->mediaAssets()->attach($mediaAsset->id);
-        $deletedDeckCard->mediaAssets()->attach($mediaAsset->id);
-        $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
-        SyncFeedEntry::factory()->for($otherUser)->create();
-        StudyCardDraft::factory()->for($otherUser)->create();
-        StudyImportJob::factory()->for($otherUser)->create();
-        Course::factory()->for($otherUser)->create();
-        Card::factory()->for($this->deckFor($otherUser))->create();
-
-        $deletedCourse->delete();
-        $deletedCard->delete();
-        $deletedDeck->delete();
+        $currentCheckpoint = $this->seedCurrentExportSectionRecords($user);
 
         $manifest = app(GetStudyExportManifestAction::class)->handle(
             userId: $user->id,
@@ -81,6 +53,67 @@ class GetStudyExportManifestActionTest extends TestCase
             'imports' => ['total' => 1],
             'media_assets' => ['total' => 1],
         ], $manifest['sections']);
+    }
+
+    private function seedCurrentExportSectionRecords(User $user): SyncFeedEntry
+    {
+        $otherUser = User::factory()->create();
+        $cards = $this->currentExportCards($user);
+
+        $this->seedCurrentReviewDraftImportRecords($user, $cards);
+        $this->attachCurrentExportMedia($user, $otherUser, $cards);
+        $currentCheckpoint = SyncFeedEntry::factory()->for($user)->create();
+        $this->seedOtherUserExportRecords($otherUser);
+
+        $cards['deletedCourse']->delete();
+        $cards['deletedCard']->delete();
+        $cards['deletedDeck']->delete();
+
+        return $currentCheckpoint;
+    }
+
+    /** @return array{deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, deletedDeckCard: Card} */
+    private function currentExportCards(User $user): array
+    {
+        $course = Course::factory()->for($user)->create();
+        $deletedCourse = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+        $deletedDeck = $this->deckFor($user);
+        $activeCard = Card::factory()->for($deck)->create();
+        $deletedCard = Card::factory()->for($deck)->create();
+        $deletedDeckCard = Card::factory()->for($deletedDeck)->create();
+
+        return compact('deletedCourse', 'deletedDeck', 'activeCard', 'deletedCard', 'deletedDeckCard');
+    }
+
+    /** @param array{deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, deletedDeckCard: Card} $cards */
+    private function seedCurrentReviewDraftImportRecords(User $user, array $cards): void
+    {
+        CardReviewEvent::factory()->for($cards['activeCard'])->create();
+        CardReviewEvent::factory()->for($cards['deletedCard'])->create();
+        CardReviewEvent::factory()->for($cards['deletedDeckCard'])->create();
+        StudyCardDraft::factory()->for($user)->create();
+        StudyImportJob::factory()->for($user)->create();
+    }
+
+    /** @param array{deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, deletedDeckCard: Card} $cards */
+    private function attachCurrentExportMedia(User $user, User $otherUser, array $cards): void
+    {
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $otherMediaAsset = MediaAsset::factory()->for($otherUser)->create();
+        $cards['activeCard']->mediaAssets()->attach($mediaAsset->id);
+        $cards['activeCard']->mediaAssets()->attach($otherMediaAsset->id);
+        $cards['deletedCard']->mediaAssets()->attach($mediaAsset->id);
+        $cards['deletedDeckCard']->mediaAssets()->attach($mediaAsset->id);
+    }
+
+    private function seedOtherUserExportRecords(User $otherUser): void
+    {
+        SyncFeedEntry::factory()->for($otherUser)->create();
+        StudyCardDraft::factory()->for($otherUser)->create();
+        StudyImportJob::factory()->for($otherUser)->create();
+        Course::factory()->for($otherUser)->create();
+        Card::factory()->for($this->deckFor($otherUser))->create();
     }
 
     public function test_it_reports_zero_current_checkpoint_when_the_user_has_no_sync_feed_entries(): void
@@ -109,6 +142,26 @@ class GetStudyExportManifestActionTest extends TestCase
     public function test_manifest_totals_match_current_export_section_actions(): void
     {
         $user = User::factory()->create();
+        $this->seedManifestComparisonRecords($user);
+
+        $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
+
+        $this->assertManifestSectionsMatch($user, $manifest);
+    }
+
+    private function seedManifestComparisonRecords(User $user): void
+    {
+        $records = $this->manifestComparisonCards($user);
+        $records = array_merge($records, $this->manifestComparisonMedia($user, $records['otherUser']));
+        $this->seedManifestComparisonReviews($records);
+        $this->seedManifestComparisonUserRecords($user, $records['otherUser']);
+        $this->attachManifestComparisonMedia($records);
+        $this->deleteExcludedManifestComparisonRecords($records);
+    }
+
+    /** @return array{otherUser: User, deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, cardInDeletedDeck: Card, otherCard: Card} */
+    private function manifestComparisonCards(User $user): array
+    {
         $otherUser = User::factory()->create();
         $course = Course::factory()->for($user)->create();
         $deletedCourse = Course::factory()->for($user)->create();
@@ -118,85 +171,96 @@ class GetStudyExportManifestActionTest extends TestCase
         $deletedCard = Card::factory()->for($deck)->create();
         $cardInDeletedDeck = Card::factory()->for($deletedDeck)->create();
         $otherCard = $this->cardFor($otherUser);
+
+        return compact(
+            'otherUser',
+            'deletedCourse',
+            'deletedDeck',
+            'activeCard',
+            'deletedCard',
+            'cardInDeletedDeck',
+            'otherCard',
+        );
+    }
+
+    /** @return array{mediaAsset: MediaAsset, deletedMediaAsset: MediaAsset, otherUserMediaAsset: MediaAsset} */
+    private function manifestComparisonMedia(User $user, User $otherUser): array
+    {
         $mediaAsset = MediaAsset::factory()->for($user)->create();
         $deletedMediaAsset = MediaAsset::factory()->for($user)->create();
         $otherUserMediaAsset = MediaAsset::factory()->for($otherUser)->create();
 
-        CardReviewEvent::factory()->for($activeCard)->count(2)->create();
-        CardReviewEvent::factory()->for($deletedCard)->create();
-        CardReviewEvent::factory()->for($cardInDeletedDeck)->create();
-        CardReviewEvent::factory()->for($otherCard)->create();
+        return compact('mediaAsset', 'deletedMediaAsset', 'otherUserMediaAsset');
+    }
+
+    /** @param array{otherUser: User, deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, cardInDeletedDeck: Card, otherCard: Card, mediaAsset: MediaAsset, deletedMediaAsset: MediaAsset, otherUserMediaAsset: MediaAsset} $records */
+    private function seedManifestComparisonReviews(array $records): void
+    {
+        CardReviewEvent::factory()->for($records['activeCard'])->count(2)->create();
+        CardReviewEvent::factory()->for($records['deletedCard'])->create();
+        CardReviewEvent::factory()->for($records['cardInDeletedDeck'])->create();
+        CardReviewEvent::factory()->for($records['otherCard'])->create();
+    }
+
+    private function seedManifestComparisonUserRecords(User $user, User $otherUser): void
+    {
         StudyCardDraft::factory()->for($user)->count(2)->create();
         StudyCardDraft::factory()->for($otherUser)->create();
         StudyImportJob::factory()->for($user)->count(2)->create();
         StudyImportJob::factory()->for($otherUser)->create();
         MediaAsset::factory()->for($user)->create();
         MediaAsset::factory()->for($otherUser)->create();
-        $activeCard->mediaAssets()->attach($mediaAsset->id);
+    }
+
+    /** @param array{otherUser: User, deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, cardInDeletedDeck: Card, otherCard: Card, mediaAsset: MediaAsset, deletedMediaAsset: MediaAsset, otherUserMediaAsset: MediaAsset} $records */
+    private function attachManifestComparisonMedia(array $records): void
+    {
+        $records['activeCard']->mediaAssets()->attach($records['mediaAsset']->id);
         // Hard-deleting the asset leaves an orphaned pivot; the inner join should exclude it.
-        $activeCard->mediaAssets()->attach($deletedMediaAsset->id);
-        $activeCard->mediaAssets()->attach($otherUserMediaAsset->id);
-        $deletedCard->mediaAssets()->attach($mediaAsset->id);
-        $cardInDeletedDeck->mediaAssets()->attach($mediaAsset->id);
-        $otherCard->mediaAssets()->attach($mediaAsset->id);
+        $records['activeCard']->mediaAssets()->attach($records['deletedMediaAsset']->id);
+        $records['activeCard']->mediaAssets()->attach($records['otherUserMediaAsset']->id);
+        $records['deletedCard']->mediaAssets()->attach($records['mediaAsset']->id);
+        $records['cardInDeletedDeck']->mediaAssets()->attach($records['mediaAsset']->id);
+        $records['otherCard']->mediaAssets()->attach($records['mediaAsset']->id);
+    }
 
-        $deletedCourse->delete();
-        $deletedMediaAsset->delete();
-        $deletedCard->delete();
-        $deletedDeck->delete();
+    /** @param array{otherUser: User, deletedCourse: Course, deletedDeck: Deck, activeCard: Card, deletedCard: Card, cardInDeletedDeck: Card, otherCard: Card, mediaAsset: MediaAsset, deletedMediaAsset: MediaAsset, otherUserMediaAsset: MediaAsset} $records */
+    private function deleteExcludedManifestComparisonRecords(array $records): void
+    {
+        $records['deletedCourse']->delete();
+        $records['deletedMediaAsset']->delete();
+        $records['deletedCard']->delete();
+        $records['deletedDeck']->delete();
+    }
 
-        $manifest = app(GetStudyExportManifestAction::class)->handle($user->id);
-
+    /** @param array<string, mixed> $manifest */
+    private function assertManifestSectionsMatch(User $user, array $manifest): void
+    {
         $this->assertSame(1, $manifest['sections']['settings']['total']);
-        $this->assertSame(
-            app(ListStudyExportCoursesAction::class)->handle($user->id)->count(),
-            $manifest['sections']['courses']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportDecksAction::class)->handle($user->id)->count(),
-            $manifest['sections']['decks']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportCardsAction::class)->handle($user->id)->count(),
-            $manifest['sections']['cards']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportCardDraftsAction::class)->handle($user->id)->count(),
-            $manifest['sections']['card_drafts']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportCardMediaAction::class)->handle($user->id)->count(),
-            $manifest['sections']['card_media']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportReviewEventsAction::class)->handle($user->id)->count(),
-            $manifest['sections']['review_events']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportImportJobsAction::class)->handle($user->id)->count(),
-            $manifest['sections']['imports']['total'],
-        );
-        $this->assertSame(
-            app(ListStudyExportMediaAssetsAction::class)->handle($user->id)->count(),
-            $manifest['sections']['media_assets']['total'],
-        );
+
+        $sectionActions = [
+            'courses' => ListStudyExportCoursesAction::class,
+            'decks' => ListStudyExportDecksAction::class,
+            'cards' => ListStudyExportCardsAction::class,
+            'card_drafts' => ListStudyExportCardDraftsAction::class,
+            'card_media' => ListStudyExportCardMediaAction::class,
+            'review_events' => ListStudyExportReviewEventsAction::class,
+            'imports' => ListStudyExportImportJobsAction::class,
+            'media_assets' => ListStudyExportMediaAssetsAction::class,
+        ];
+
+        foreach ($sectionActions as $section => $action) {
+            $this->assertSame(
+                app($action)->handle($user->id)->count(),
+                $manifest['sections'][$section]['total'],
+            );
+        }
     }
 
     public function test_it_loads_export_counts_with_one_manifest_query(): void
     {
         $user = User::factory()->create();
-        $course = Course::factory()->for($user)->create();
-        $deck = $this->deckFor($user, ['course_id' => $course->id]);
-        $card = Card::factory()->for($deck)->create();
-        CardReviewEvent::factory()->for($card)->create();
-        StudyCardDraft::factory()->for($user)->create();
-        StudyImportJob::factory()->for($user)->create();
-        $mediaAsset = MediaAsset::factory()->for($user)->create();
-        $deletedMediaAsset = MediaAsset::factory()->for($user)->create();
-        $card->mediaAssets()->attach($mediaAsset->id);
-        $card->mediaAssets()->attach($deletedMediaAsset->id);
-        $deletedMediaAsset->delete();
-        SyncFeedEntry::factory()->for($user)->create();
+        $this->seedManifestQueryRecords($user);
 
         DB::enableQueryLog();
         DB::flushQueryLog();
@@ -221,5 +285,37 @@ class GetStudyExportManifestActionTest extends TestCase
         $this->assertCount(1, $queries, $queries->pluck('query')->implode("\n"));
         $this->assertStringContainsString('SELECT COUNT(courses.id)', $queries->first()['query']);
         $this->assertStringContainsString('SELECT COUNT(*)', $queries->first()['query']);
+    }
+
+    private function seedManifestQueryRecords(User $user): void
+    {
+        $card = $this->manifestQueryCard($user);
+        $this->seedManifestQueryActivityRecords($user, $card);
+        $this->attachManifestQueryMedia($user, $card);
+        SyncFeedEntry::factory()->for($user)->create();
+    }
+
+    private function manifestQueryCard(User $user): Card
+    {
+        $course = Course::factory()->for($user)->create();
+        $deck = $this->deckFor($user, ['course_id' => $course->id]);
+
+        return Card::factory()->for($deck)->create();
+    }
+
+    private function seedManifestQueryActivityRecords(User $user, Card $card): void
+    {
+        CardReviewEvent::factory()->for($card)->create();
+        StudyCardDraft::factory()->for($user)->create();
+        StudyImportJob::factory()->for($user)->create();
+    }
+
+    private function attachManifestQueryMedia(User $user, Card $card): void
+    {
+        $mediaAsset = MediaAsset::factory()->for($user)->create();
+        $deletedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $card->mediaAssets()->attach($mediaAsset->id);
+        $card->mediaAssets()->attach($deletedMediaAsset->id);
+        $deletedMediaAsset->delete();
     }
 }

@@ -41,10 +41,43 @@ class CreateMediaAssetAction
      */
     public function handle(CreateMediaAssetData $data): CreateMediaAssetResult
     {
+        $this->validate($data);
+
+        $existingMediaAsset = $this->existingMediaAssetForClientId($data);
+        if ($existingMediaAsset !== null) {
+            return CreateMediaAssetResult::existing($existingMediaAsset);
+        }
+
+        return $this->createNewMediaAsset($this->newMediaAsset($data), $data);
+    }
+
+    private function validate(CreateMediaAssetData $data): void
+    {
         if ($data->userId < 1) {
             throw new LogicException('Media asset user ID must be a positive integer.');
         }
 
+        $this->validateStorageLocation($data);
+        $this->validateMediaMetadata($data);
+    }
+
+    private function validateStorageLocation(CreateMediaAssetData $data): void
+    {
+        $this->validateDisk($data);
+        $this->validatePath($data);
+        $this->validateMimeType($data);
+    }
+
+    private function validateMediaMetadata(CreateMediaAssetData $data): void
+    {
+        $this->validateSize($data);
+        $this->validateChecksum($data);
+        $this->validatePublicUrl($data);
+        $this->validateOriginalFilename($data);
+    }
+
+    private function validateDisk(CreateMediaAssetData $data): void
+    {
         if ($data->disk === '') {
             throw new MediaAssetValidationException('disk', 'Media asset disk is required.');
         }
@@ -56,7 +89,10 @@ class CreateMediaAssetAction
         if (! in_array($data->disk, MediaAsset::ALLOWED_DISKS, true)) {
             throw new MediaAssetValidationException('disk', 'Media asset disk is not supported.');
         }
+    }
 
+    private function validatePath(CreateMediaAssetData $data): void
+    {
         if ($data->path === '') {
             throw new MediaAssetValidationException('path', 'Media asset path is required.');
         }
@@ -65,6 +101,11 @@ class CreateMediaAssetAction
             throw new MediaAssetValidationException('path', 'Media asset path must not exceed '.MediaAsset::MAX_PATH_LENGTH.' characters.');
         }
 
+        $this->validatePathShape($data);
+    }
+
+    private function validatePathShape(CreateMediaAssetData $data): void
+    {
         if (preg_match(MediaAsset::PATH_ABSOLUTE_PATTERN, $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must be relative.');
         }
@@ -72,7 +113,10 @@ class CreateMediaAssetAction
         if (preg_match(MediaAsset::PATH_TRAVERSAL_PATTERN, $data->path) === 1) {
             throw new MediaAssetValidationException('path', 'Media asset path must not contain traversal sequences.');
         }
+    }
 
+    private function validateMimeType(CreateMediaAssetData $data): void
+    {
         if ($data->mimeType === '') {
             throw new MediaAssetValidationException('mime_type', 'Media asset MIME type is required.');
         }
@@ -86,7 +130,10 @@ class CreateMediaAssetAction
         if (! MimeType::hasValidNormalizedShape($data->mimeType)) {
             throw new MediaAssetValidationException('mime_type', 'Media asset MIME type must include a type and subtype.');
         }
+    }
 
+    private function validateSize(CreateMediaAssetData $data): void
+    {
         if ($data->sizeBytes < 1) {
             throw new MediaAssetValidationException('size_bytes', 'Media asset size must be at least 1 byte.');
         }
@@ -94,12 +141,18 @@ class CreateMediaAssetAction
         if ($data->sizeBytes > MediaAsset::MAX_JSON_SAFE_SIZE_BYTES) {
             throw new MediaAssetValidationException('size_bytes', 'Media asset size must not exceed '.MediaAsset::MAX_JSON_SAFE_SIZE_BYTES.' bytes.');
         }
+    }
 
+    private function validateChecksum(CreateMediaAssetData $data): void
+    {
         // No product upload cap here; this only preserves JSON integer precision for API clients.
         if ($data->checksumSha256 !== null && ! $this->isSha256Checksum($data->checksumSha256)) {
             throw new MediaAssetValidationException('checksum_sha256', 'Media asset checksum must be a 64-character SHA-256 hex digest.');
         }
+    }
 
+    private function validatePublicUrl(CreateMediaAssetData $data): void
+    {
         if ($data->publicUrl !== null) {
             try {
                 PublicUrl::assertValid($data->publicUrl, MediaAsset::MAX_PUBLIC_URL_LENGTH);
@@ -107,28 +160,40 @@ class CreateMediaAssetAction
                 throw new MediaAssetValidationException('public_url', $exception->getMessage(), $exception);
             }
         }
+    }
 
+    private function validateOriginalFilename(CreateMediaAssetData $data): void
+    {
         // Validate the already-normalized basename against the stored column limit.
         if ($data->originalFilename !== null && mb_strlen($data->originalFilename) > MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH) {
             throw new MediaAssetValidationException('original_filename', 'Media asset original filename must not exceed '.MediaAsset::MAX_ORIGINAL_FILENAME_LENGTH.' characters.');
         }
+    }
 
-        if ($data->id !== null) {
-            if (! Str::isUlid($data->id)) {
-                throw new MediaAssetValidationException('id', 'Media asset ID must be a valid ULID.');
-            }
-
-            $existingMediaAsset = MediaAsset::query()->find($data->id);
-
-            if ($existingMediaAsset !== null) {
-                return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
-            }
-
-            if ($this->afterClientIdPrecheckMiss !== null) {
-                ($this->afterClientIdPrecheckMiss)($data);
-            }
+    private function existingMediaAssetForClientId(CreateMediaAssetData $data): ?MediaAsset
+    {
+        if ($data->id === null) {
+            return null;
         }
 
+        if (! Str::isUlid($data->id)) {
+            throw new MediaAssetValidationException('id', 'Media asset ID must be a valid ULID.');
+        }
+
+        $existingMediaAsset = MediaAsset::query()->find($data->id);
+        if ($existingMediaAsset !== null) {
+            return $this->matchingExistingMediaAsset($existingMediaAsset, $data);
+        }
+
+        if ($this->afterClientIdPrecheckMiss !== null) {
+            ($this->afterClientIdPrecheckMiss)($data);
+        }
+
+        return null;
+    }
+
+    private function newMediaAsset(CreateMediaAssetData $data): MediaAsset
+    {
         $mediaAsset = new MediaAsset([
             'user_id' => $data->userId,
             'disk' => $data->disk,
@@ -146,7 +211,7 @@ class CreateMediaAssetAction
         // public_url is intentionally not fillable; assign it explicitly after invariants are checked.
         $mediaAsset->public_url = $data->publicUrl;
 
-        return $this->createNewMediaAsset($mediaAsset, $data);
+        return $mediaAsset;
     }
 
     private function createNewMediaAsset(MediaAsset $mediaAsset, CreateMediaAssetData $data): CreateMediaAssetResult
@@ -159,42 +224,7 @@ class CreateMediaAssetAction
         } catch (QueryException $exception) {
             DB::rollBack();
 
-            if (! IntegrityConstraintViolation::matches($exception)) {
-                throw $exception;
-            }
-
-            if ($data->id !== null) {
-                // Covers a retry race where another request inserts this client-generated ULID
-                // between the pre-check above and this save attempt.
-                $existingMediaAsset = MediaAsset::query()->find($data->id);
-
-                if ($existingMediaAsset !== null) {
-                    return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
-                }
-            }
-
-            if (! IntegrityConstraintViolation::matchesUniqueKey($exception)) {
-                throw $exception;
-            }
-
-            $existingMediaAsset = MediaAsset::query()
-                ->where('disk', $data->disk)
-                ->where('path', $data->path)
-                ->first();
-
-            if ($existingMediaAsset !== null) {
-                throw MediaAssetConflictException::storagePathExists($existingMediaAsset);
-            }
-
-            // If the conflicting row disappeared before this lookup, keep the client-facing
-            // retry signal as a conflict while logging the unresolved database detail.
-            Log::warning('Media asset integrity violation could not be mapped to an existing asset.', [
-                'disk' => $data->disk,
-                'path' => $data->path,
-                'id' => $data->id,
-            ]);
-
-            throw MediaAssetConflictException::unresolvedStorageConflict();
+            return $this->recoverFromConstraintViolation($exception, $data);
         } catch (Throwable $exception) {
             DB::rollBack();
 
@@ -218,6 +248,64 @@ class CreateMediaAssetAction
         return CreateMediaAssetResult::created($mediaAsset);
     }
 
+    private function recoverFromConstraintViolation(
+        QueryException $exception,
+        CreateMediaAssetData $data,
+    ): CreateMediaAssetResult {
+        if (! IntegrityConstraintViolation::matches($exception)) {
+            throw $exception;
+        }
+
+        $clientIdRetry = $this->clientIdRetryResult($data);
+        if ($clientIdRetry !== null) {
+            return $clientIdRetry;
+        }
+
+        if (! IntegrityConstraintViolation::matchesUniqueKey($exception)) {
+            throw $exception;
+        }
+
+        $this->throwStoragePathConflict($data);
+
+        // If the conflicting row disappeared before this lookup, keep the client-facing
+        // retry signal as a conflict while logging the unresolved database detail.
+        Log::warning('Media asset integrity violation could not be mapped to an existing asset.', [
+            'disk' => $data->disk,
+            'path' => $data->path,
+            'id' => $data->id,
+        ]);
+
+        throw MediaAssetConflictException::unresolvedStorageConflict();
+    }
+
+    private function clientIdRetryResult(CreateMediaAssetData $data): ?CreateMediaAssetResult
+    {
+        if ($data->id === null) {
+            return null;
+        }
+
+        // Covers a retry race where another request inserts this client-generated ULID
+        // between the pre-check above and this save attempt.
+        $existingMediaAsset = MediaAsset::query()->find($data->id);
+        if ($existingMediaAsset === null) {
+            return null;
+        }
+
+        return CreateMediaAssetResult::existing($this->matchingExistingMediaAsset($existingMediaAsset, $data));
+    }
+
+    private function throwStoragePathConflict(CreateMediaAssetData $data): void
+    {
+        $existingMediaAsset = MediaAsset::query()
+            ->where('disk', $data->disk)
+            ->where('path', $data->path)
+            ->first();
+
+        if ($existingMediaAsset !== null) {
+            throw MediaAssetConflictException::storagePathExists($existingMediaAsset);
+        }
+    }
+
     private function isSha256Checksum(string $value): bool
     {
         return strlen($value) === 64 && ctype_xdigit($value);
@@ -232,16 +320,30 @@ class CreateMediaAssetAction
         // before relying on client-generated ID retries for these rows.
         // public_url is immutable create metadata; later server-assigned URLs should use a
         // separate update action rather than relaxing idempotent retry matching.
-        if (
-            $mediaAsset->user_id !== $data->userId
-            || $mediaAsset->disk !== $data->disk
-            || $mediaAsset->path !== $data->path
-            || $mediaAsset->mime_type !== $data->mimeType
-            || $mediaAsset->size_bytes !== $data->sizeBytes
-            || $mediaAsset->public_url !== $data->publicUrl
-            || $mediaAsset->checksum_sha256 !== $data->checksumSha256
-            || $mediaAsset->original_filename !== $data->originalFilename
-        ) {
+        $storedIdentity = [
+            'user_id' => $mediaAsset->user_id,
+            'disk' => $mediaAsset->disk,
+            'path' => $mediaAsset->path,
+            'mime_type' => $mediaAsset->mime_type,
+            'size_bytes' => $mediaAsset->size_bytes,
+            'public_url' => $mediaAsset->public_url,
+            'checksum_sha256' => $mediaAsset->checksum_sha256,
+            'original_filename' => $mediaAsset->original_filename,
+        ];
+        $requestedIdentity = [
+            'user_id' => $data->userId,
+            'disk' => $data->disk,
+            'path' => $data->path,
+            'mime_type' => $data->mimeType,
+            'size_bytes' => $data->sizeBytes,
+            'public_url' => $data->publicUrl,
+            'checksum_sha256' => $data->checksumSha256,
+            'original_filename' => $data->originalFilename,
+        ];
+        ksort($storedIdentity);
+        ksort($requestedIdentity);
+
+        if ($storedIdentity !== $requestedIdentity) {
             throw MediaAssetConflictException::idMismatch($mediaAsset);
         }
 

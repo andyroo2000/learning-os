@@ -145,37 +145,69 @@ final class StudyCardPayloadSchema
         array $stringFields,
         array $mediaFields,
     ): array {
-        if ($payload !== [] && array_is_list($payload)) {
+        if (self::isNonEmptyList($payload)) {
             return [$payloadName => "{$payloadName} must be an object."];
         }
 
-        $errors = [];
-
-        foreach ($stringFields as $field) {
-            if (array_key_exists($field, $payload) && ! is_string($payload[$field]) && $payload[$field] !== null) {
-                $errors["{$payloadName}.{$field}"] = "{$payloadName}.{$field} must be a string or null.";
-            }
-        }
+        $errors = self::nullableStringValidationErrors($payloadName, $payload, $stringFields);
 
         foreach ($mediaFields as $field) {
-            $path = "{$payloadName}.{$field}";
-            $value = $payload[$field] ?? null;
-            $errors = [...$errors, ...self::nullableObjectValidationError($path, $value)];
+            $errors = [...$errors, ...self::mediaValidationErrors($payloadName, $payload, $field)];
+        }
 
-            if (! is_array($value) || array_is_list($value)) {
-                continue;
-            }
+        return $errors;
+    }
 
-            foreach (self::MEDIA_STRING_FIELDS as $mediaField) {
-                if (array_key_exists($mediaField, $value)
-                    && ! is_string($value[$mediaField])
-                    && $value[$mediaField] !== null) {
-                    $errors["{$path}.{$mediaField}"] = "{$path}.{$mediaField} must be a string or null.";
-                }
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $fields
+     * @return array<string, string>
+     */
+    private static function nullableStringValidationErrors(string $path, array $payload, array $fields): array
+    {
+        $errors = [];
+
+        foreach ($fields as $field) {
+            if (self::hasInvalidNullableString($payload, $field)) {
+                $errors["{$path}.{$field}"] = "{$path}.{$field} must be a string or null.";
             }
         }
 
         return $errors;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function hasInvalidNullableString(array $payload, string $field): bool
+    {
+        if (! array_key_exists($field, $payload)) {
+            return false;
+        }
+
+        if ($payload[$field] === null) {
+            return false;
+        }
+
+        return ! is_string($payload[$field]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, string>
+     */
+    private static function mediaValidationErrors(string $payloadName, array $payload, string $field): array
+    {
+        $path = "{$payloadName}.{$field}";
+        $value = $payload[$field] ?? null;
+        $errors = self::nullableObjectValidationError($path, $value);
+
+        if (! self::isNonEmptyObject($value)) {
+            return $errors;
+        }
+
+        return [
+            ...$errors,
+            ...self::nullableStringValidationErrors($path, $value, self::MEDIA_STRING_FIELDS),
+        ];
     }
 
     /**
@@ -200,10 +232,41 @@ final class StudyCardPayloadSchema
     {
         // PHP decodes an empty JSON object and an empty JSON array to the same value. Empty media
         // objects are retained for compatibility and validated by the owning media operation.
-        if ($value === null || (is_array($value) && ($value === [] || ! array_is_list($value)))) {
+        if ($value === null) {
+            return [];
+        }
+
+        if ($value === []) {
+            return [];
+        }
+
+        if (self::isNonEmptyObject($value)) {
             return [];
         }
 
         return [$path => "{$path} must be an object or null."];
+    }
+
+    /** @param array<array-key, mixed> $value */
+    private static function isNonEmptyList(array $value): bool
+    {
+        if ($value === []) {
+            return false;
+        }
+
+        return array_is_list($value);
+    }
+
+    private static function isNonEmptyObject(mixed $value): bool
+    {
+        if (! is_array($value)) {
+            return false;
+        }
+
+        if ($value === []) {
+            return false;
+        }
+
+        return ! array_is_list($value);
     }
 }

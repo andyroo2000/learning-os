@@ -4,6 +4,7 @@ namespace App\Domain\Study\Actions;
 
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
+use App\Domain\Study\Results\DailyAudioCardSelectionResult;
 use App\Domain\Study\Services\DailyAudioContextTrackGenerator;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
@@ -29,8 +30,7 @@ class ProcessDailyAudioPracticeAction
     ): void {
         $practiceId = strtolower(trim($practiceId));
         $generationRunId = $generationRunId === null ? null : strtolower(trim($generationRunId));
-        if (! DailyAudioPracticeId::isValid($practiceId)
-            || ($generationRunId !== null && ! DailyAudioPracticeId::isValid($generationRunId))) {
+        if (! $this->hasValidGenerationIds($practiceId, $generationRunId)) {
             return;
         }
 
@@ -51,8 +51,7 @@ class ProcessDailyAudioPracticeAction
 
         $this->storeSelection(
             $practice,
-            $selected->clientCardIds(),
-            $selected->summary,
+            $selected,
             $generationRunId,
             $requireMatchingRun,
         );
@@ -143,6 +142,18 @@ class ProcessDailyAudioPracticeAction
         });
     }
 
+    private function hasValidGenerationIds(string $practiceId, ?string $generationRunId): bool
+    {
+        if (! DailyAudioPracticeId::isValid($practiceId)) {
+            return false;
+        }
+        if ($generationRunId === null) {
+            return true;
+        }
+
+        return DailyAudioPracticeId::isValid($generationRunId);
+    }
+
     /**
      * @return null|array{
      *     practice: DailyAudioPractice,
@@ -198,14 +209,9 @@ class ProcessDailyAudioPracticeAction
         });
     }
 
-    /**
-     * @param  list<string>  $cardIds
-     * @param  array<string, int>  $summary
-     */
     private function storeSelection(
         DailyAudioPractice $practice,
-        array $cardIds,
-        array $summary,
+        DailyAudioCardSelectionResult $selected,
         ?string $generationRunId,
         bool $requireMatchingRun,
     ): void {
@@ -217,8 +223,8 @@ class ProcessDailyAudioPracticeAction
                 fn ($query) => $query->where('generation_run_id', $generationRunId),
             )
             ->update([
-                'source_card_ids_json' => $cardIds,
-                'selection_summary_json' => $summary,
+                'source_card_ids_json' => $selected->clientCardIds(),
+                'selection_summary_json' => $selected->summary,
             ]);
     }
 }

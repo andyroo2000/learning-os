@@ -24,71 +24,191 @@ class AudioTrackAssembler
         string $temporaryPrefix,
         string $label,
     ): AudioTrackAssemblyResult {
+        $request = new AudioTrackAssemblyRequest($disk, $storagePath, $temporaryPrefix, $label);
         $units = collect($scriptUnits)->values();
-        if ($units->isEmpty() || $units->count() > self::MAX_SCRIPT_UNITS) {
-            throw new InvalidArgumentException("{$label} script unit count is invalid.");
-        }
-        if ($units->contains(fn (mixed $unit): bool => ! $unit instanceof AudioScriptUnit)) {
-            throw new InvalidArgumentException("{$label} assembly requires typed script units.");
-        }
-        if ($units->contains(fn (AudioScriptUnit $unit): bool => ! in_array(
-            $unit->audioType(),
-            ['marker', 'narration_L1', 'pause', 'L2'],
-            true,
-        ))) {
-            throw new InvalidArgumentException("{$label} script unit type is invalid.");
-        }
-        if ($units->every(fn (AudioScriptUnit $unit): bool => $unit->audioType() === 'marker')) {
-            throw new InvalidArgumentException("{$label} assembly requires at least one audio unit.");
-        }
-        if ($disk === '' || $storagePath === '' || str_starts_with($storagePath, '/')
-            || str_contains($storagePath, '..') || str_contains($storagePath, '\\')) {
-            throw new InvalidArgumentException("{$label} storage target is invalid.");
-        }
+        $this->assertValidUnitCount($units->all(), $request);
+        $this->assertTypedUnits($units->all(), $request);
+        $this->assertSupportedUnitTypes($units->all(), $request);
+        $this->assertHasAudioUnit($units->all(), $request);
+        $this->assertValidStorageTarget($request);
+        $this->assertValidUnitSettings($units->all(), $request);
 
-        foreach ($units as $unit) {
-            $speed = $unit->audioSpeed();
-            if ($speed !== null && (! is_finite($speed) || $speed < 0.5 || $speed > 2)) {
-                throw new InvalidArgumentException("{$label} speech speed is invalid.");
-            }
-            $pause = $unit->audioPauseSeconds();
-            if ($unit->audioType() === 'pause'
-                && ($pause === null || ! is_finite($pause) || $pause <= 0 || $pause > 60)) {
-                throw new InvalidArgumentException("{$label} pause duration is invalid.");
-            }
-        }
-
-        $safePrefix = preg_replace('/[^a-z0-9-]+/i', '-', trim($temporaryPrefix));
-        if (! is_string($safePrefix) || trim($safePrefix, '-') === '') {
-            throw new InvalidArgumentException("{$label} temporary prefix is invalid.");
-        }
-        $directory = sys_get_temp_dir().'/'.trim($safePrefix, '-').'-'.bin2hex(random_bytes(12));
-        if (! mkdir($directory, 0700, true) && ! is_dir($directory)) {
-            throw new RuntimeException("{$label} temporary directory could not be created.");
-        }
+        $directory = $this->createTemporaryDirectory($request);
+        $workspace = compact('request', 'directory');
 
         try {
-            return $this->assembleIn($units->all(), $disk, $storagePath, $directory, $label);
+            return $this->assembleIn($units->all(), $workspace);
         } finally {
             $this->deleteDirectory($directory);
         }
     }
 
+    /** @param list<mixed> $units */
+    private function assertValidUnitCount(array $units, AudioTrackAssemblyRequest $request): void
+    {
+        if ($units === [] || count($units) > self::MAX_SCRIPT_UNITS) {
+            throw new InvalidArgumentException("{$request->label} script unit count is invalid.");
+        }
+    }
+
+    /** @param list<mixed> $units */
+    private function assertTypedUnits(array $units, AudioTrackAssemblyRequest $request): void
+    {
+        if (collect($units)->contains(fn (mixed $unit): bool => ! $unit instanceof AudioScriptUnit)) {
+            throw new InvalidArgumentException("{$request->label} assembly requires typed script units.");
+        }
+    }
+
     /** @param list<AudioScriptUnit> $units */
-    private function assembleIn(
-        array $units,
-        string $disk,
-        string $storagePath,
-        string $directory,
-        string $label,
-    ): AudioTrackAssemblyResult {
-        $segmentPaths = [];
-        $durations = [];
-        $syntheses = [];
-        $silences = [];
-        $spokenUnitCount = 0;
-        $pauseUnitCount = 0;
-        $reusedSynthesisCount = 0;
+    private function assertSupportedUnitTypes(array $units, AudioTrackAssemblyRequest $request): void
+    {
+        if (collect($units)->contains(fn (AudioScriptUnit $unit): bool => ! in_array(
+            $unit->audioType(),
+            ['marker', 'narration_L1', 'pause', 'L2'],
+            true,
+        ))) {
+            throw new InvalidArgumentException("{$request->label} script unit type is invalid.");
+        }
+    }
+
+    /** @param list<AudioScriptUnit> $units */
+    private function assertHasAudioUnit(array $units, AudioTrackAssemblyRequest $request): void
+    {
+        if (collect($units)->every(fn (AudioScriptUnit $unit): bool => $unit->audioType() === 'marker')) {
+            throw new InvalidArgumentException("{$request->label} assembly requires at least one audio unit.");
+        }
+    }
+
+    private function assertValidStorageTarget(AudioTrackAssemblyRequest $request): void
+    {
+        if ($request->disk === '') {
+            throw new InvalidArgumentException("{$request->label} storage target is invalid.");
+        }
+        if ($request->storagePath === '') {
+            throw new InvalidArgumentException("{$request->label} storage target is invalid.");
+        }
+        if ($this->unsafeStoragePath($request->storagePath)) {
+            throw new InvalidArgumentException("{$request->label} storage target is invalid.");
+        }
+    }
+
+    private function unsafeStoragePath(string $storagePath): bool
+    {
+        return str_starts_with($storagePath, '/')
+            || str_contains($storagePath, '..')
+            || str_contains($storagePath, '\\');
+    }
+
+    /** @param list<AudioScriptUnit> $units */
+    private function assertValidUnitSettings(array $units, AudioTrackAssemblyRequest $request): void
+    {
+        foreach ($units as $unit) {
+            $this->assertValidSpeechSpeed($unit->audioSpeed(), $request);
+            $this->assertValidPause($unit, $request);
+        }
+    }
+
+    private function assertValidSpeechSpeed(?float $speed, AudioTrackAssemblyRequest $request): void
+    {
+        if ($speed === null) {
+            return;
+        }
+        if (! $this->validSpeechSpeed($speed)) {
+            throw new InvalidArgumentException("{$request->label} speech speed is invalid.");
+        }
+    }
+
+    private function validSpeechSpeed(float $speed): bool
+    {
+        return is_finite($speed) && $speed >= 0.5 && $speed <= 2;
+    }
+
+    private function assertValidPause(AudioScriptUnit $unit, AudioTrackAssemblyRequest $request): void
+    {
+        if ($unit->audioType() !== 'pause') {
+            return;
+        }
+
+        $pause = $unit->audioPauseSeconds();
+        if ($pause === null) {
+            throw new InvalidArgumentException("{$request->label} pause duration is invalid.");
+        }
+        if (! $this->validPause($pause)) {
+            throw new InvalidArgumentException("{$request->label} pause duration is invalid.");
+        }
+    }
+
+    private function validPause(float $pause): bool
+    {
+        return is_finite($pause) && $pause > 0 && $pause <= 60;
+    }
+
+    private function createTemporaryDirectory(AudioTrackAssemblyRequest $request): string
+    {
+        $safePrefix = preg_replace('/[^a-z0-9-]+/i', '-', trim($request->temporaryPrefix));
+        if (! is_string($safePrefix) || trim($safePrefix, '-') === '') {
+            throw new InvalidArgumentException("{$request->label} temporary prefix is invalid.");
+        }
+        $directory = sys_get_temp_dir().'/'.trim($safePrefix, '-').'-'.bin2hex(random_bytes(12));
+        if (! mkdir($directory, 0700, true) && ! is_dir($directory)) {
+            throw new RuntimeException("{$request->label} temporary directory could not be created.");
+        }
+
+        return $directory;
+    }
+
+    /**
+     * @param  list<AudioScriptUnit>  $units
+     * @param  array{request:AudioTrackAssemblyRequest,directory:string}  $workspace
+     */
+    private function assembleIn(array $units, array $workspace): AudioTrackAssemblyResult
+    {
+        $segments = $this->buildSegments($units, $workspace);
+        $outputPath = $workspace['directory'].'/track.mp3';
+        $this->audio->concatenate($segments['paths'], $workspace['directory'], $outputPath);
+        $actualDuration = $this->audio->duration($outputPath);
+        $timingData = $this->timingData(
+            $units,
+            $segments['durations'],
+            $actualDuration,
+            $workspace['request']->label,
+        );
+        $this->persistTrack($outputPath, $workspace);
+
+        return new AudioTrackAssemblyResult(
+            storagePath: $workspace['request']->storagePath,
+            durationSeconds: max(1, (int) round($actualDuration)),
+            timingData: $timingData,
+            metadata: [
+                'unitCount' => count($units),
+                'spokenUnitCount' => $segments['spokenUnitCount'],
+                'pauseUnitCount' => $segments['pauseUnitCount'],
+                'uniqueSynthesisCount' => count($segments['syntheses']),
+                'reusedSynthesisCount' => $segments['reusedSynthesisCount'],
+            ],
+        );
+    }
+
+    /**
+     * @param  list<AudioScriptUnit>  $units
+     * @param  array{request:AudioTrackAssemblyRequest,directory:string}  $workspace
+     * @return array{
+     *   paths:list<string>,durations:array<int,float>,syntheses:array<string,array{path:string,duration:float}>,
+     *   silences:array<string,array{path:string,duration:float}>,spokenUnitCount:int,pauseUnitCount:int,
+     *   reusedSynthesisCount:int
+     * }
+     */
+    private function buildSegments(array $units, array $workspace): array
+    {
+        $segments = [
+            'paths' => [],
+            'durations' => [],
+            'syntheses' => [],
+            'silences' => [],
+            'spokenUnitCount' => 0,
+            'pauseUnitCount' => 0,
+            'reusedSynthesisCount' => 0,
+        ];
 
         foreach ($units as $index => $unit) {
             if ($unit->audioType() === 'marker') {
@@ -96,92 +216,116 @@ class AudioTrackAssembler
             }
 
             if ($unit->audioType() === 'pause') {
-                $pauseUnitCount++;
-                $seconds = $unit->audioPauseSeconds()
-                    ?? throw new InvalidArgumentException("{$label} pause duration is missing.");
-                $cacheKey = number_format($seconds, 3, '.', '');
-                if (! isset($silences[$cacheKey])) {
-                    $path = $directory.'/silence-'.count($silences).'.mp3';
-                    $this->audio->silence($seconds, $path);
-                    $silences[$cacheKey] = ['path' => $path, 'duration' => $this->audio->duration($path)];
-                }
-                $segment = $silences[$cacheKey];
+                $segments['pauseUnitCount']++;
+                $segment = $this->pauseSegment($unit, $workspace, $segments['silences']);
             } else {
-                $spokenUnitCount++;
-                $text = $unit->audioText()
-                    ?? throw new InvalidArgumentException("{$label} spoken text is missing.");
-                $voiceId = $unit->audioVoiceId()
-                    ?? throw new InvalidArgumentException("{$label} voice ID is missing.");
-                $speed = $unit->audioSpeed() ?? 1.0;
-                $cacheKey = hash('sha256', implode("\0", [
-                    $voiceId, $text, number_format($speed, 3, '.', ''),
-                ]));
-                if (! isset($syntheses[$cacheKey])) {
-                    $syntheses[$cacheKey] = $this->synthesize(
-                        $text, $voiceId, $speed, $directory, count($syntheses), $label,
-                    );
-                } else {
-                    $reusedSynthesisCount++;
-                }
-                $segment = $syntheses[$cacheKey];
+                $segments['spokenUnitCount']++;
+                $segment = $this->spokenSegment($unit, $workspace, $segments);
             }
 
-            $segmentPaths[] = $segment['path'];
-            $durations[$index] = $segment['duration'];
+            $segments['paths'][] = $segment['path'];
+            $segments['durations'][$index] = $segment['duration'];
         }
 
-        $outputPath = $directory.'/track.mp3';
-        $this->audio->concatenate($segmentPaths, $directory, $outputPath);
-        $actualDuration = $this->audio->duration($outputPath);
-        $timingData = $this->timingData($units, $durations, $actualDuration, $label);
+        return $segments;
+    }
+
+    /**
+     * @param  array{request:AudioTrackAssemblyRequest,directory:string}  $workspace
+     * @param  array<string,array{path:string,duration:float}>  $silences
+     * @return array{path:string,duration:float}
+     */
+    private function pauseSegment(AudioScriptUnit $unit, array $workspace, array &$silences): array
+    {
+        $seconds = $unit->audioPauseSeconds()
+            ?? throw new InvalidArgumentException("{$workspace['request']->label} pause duration is missing.");
+        $cacheKey = number_format($seconds, 3, '.', '');
+        if (! isset($silences[$cacheKey])) {
+            $path = $workspace['directory'].'/silence-'.count($silences).'.mp3';
+            $this->audio->silence($seconds, $path);
+            $silences[$cacheKey] = ['path' => $path, 'duration' => $this->audio->duration($path)];
+        }
+
+        return $silences[$cacheKey];
+    }
+
+    /**
+     * @param  array{request:AudioTrackAssemblyRequest,directory:string}  $workspace
+     * @param  array{
+     *   paths:list<string>,durations:array<int,float>,syntheses:array<string,array{path:string,duration:float}>,
+     *   silences:array<string,array{path:string,duration:float}>,spokenUnitCount:int,pauseUnitCount:int,
+     *   reusedSynthesisCount:int
+     * }  $segments
+     * @return array{path:string,duration:float}
+     */
+    private function spokenSegment(AudioScriptUnit $unit, array $workspace, array &$segments): array
+    {
+        $speech = $this->speechUnit($unit, $workspace['request']);
+        $cacheKey = hash('sha256', implode("\0", [
+            $speech['voiceId'], $speech['text'], number_format($speech['speed'], 3, '.', ''),
+        ]));
+        if (isset($segments['syntheses'][$cacheKey])) {
+            $segments['reusedSynthesisCount']++;
+
+            return $segments['syntheses'][$cacheKey];
+        }
+
+        return $segments['syntheses'][$cacheKey] = $this->synthesize(
+            $speech,
+            $workspace,
+            count($segments['syntheses']),
+        );
+    }
+
+    /** @return array{text:string,voiceId:string,speed:float} */
+    private function speechUnit(AudioScriptUnit $unit, AudioTrackAssemblyRequest $request): array
+    {
+        return [
+            'text' => $unit->audioText()
+                ?? throw new InvalidArgumentException("{$request->label} spoken text is missing."),
+            'voiceId' => $unit->audioVoiceId()
+                ?? throw new InvalidArgumentException("{$request->label} voice ID is missing."),
+            'speed' => $unit->audioSpeed() ?? 1.0,
+        ];
+    }
+
+    /** @param array{request:AudioTrackAssemblyRequest,directory:string} $workspace */
+    private function persistTrack(string $outputPath, array $workspace): void
+    {
         $stream = fopen($outputPath, 'rb');
         if ($stream === false) {
-            throw new RuntimeException("{$label} track could not be opened for persistence.");
+            throw new RuntimeException("{$workspace['request']->label} track could not be opened for persistence.");
         }
 
         try {
-            $stored = Storage::disk($disk)->put($storagePath, $stream);
+            $stored = Storage::disk($workspace['request']->disk)->put($workspace['request']->storagePath, $stream);
         } finally {
             fclose($stream);
         }
         if (! $stored) {
-            throw new RuntimeException("{$label} track could not be persisted.");
+            throw new RuntimeException("{$workspace['request']->label} track could not be persisted.");
         }
-
-        return new AudioTrackAssemblyResult(
-            storagePath: $storagePath,
-            durationSeconds: max(1, (int) round($actualDuration)),
-            timingData: $timingData,
-            metadata: [
-                'unitCount' => count($units),
-                'spokenUnitCount' => $spokenUnitCount,
-                'pauseUnitCount' => $pauseUnitCount,
-                'uniqueSynthesisCount' => count($syntheses),
-                'reusedSynthesisCount' => $reusedSynthesisCount,
-            ],
-        );
     }
 
-    /** @return array{path: string, duration: float} */
-    private function synthesize(
-        string $text,
-        string $voiceId,
-        float $speed,
-        string $directory,
-        int $sequence,
-        string $label,
-    ): array {
-        $maximumDuration = max(10.0, mb_strlen($text, 'UTF-8') * 0.5) / min(1.0, $speed);
+    /**
+     * @param  array{text:string,voiceId:string,speed:float}  $speech
+     * @param  array{request:AudioTrackAssemblyRequest,directory:string}  $workspace
+     * @return array{path: string, duration: float}
+     */
+    private function synthesize(array $speech, array $workspace, int $sequence): array
+    {
+        $maximumDuration = max(10.0, mb_strlen($speech['text'], 'UTF-8') * 0.5)
+            / min(1.0, $speech['speed']);
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
-            $rawPath = "{$directory}/speech-{$sequence}-{$attempt}-raw.mp3";
-            $normalizedPath = "{$directory}/speech-{$sequence}-{$attempt}.mp3";
+            $rawPath = "{$workspace['directory']}/speech-{$sequence}-{$attempt}-raw.mp3";
+            $normalizedPath = "{$workspace['directory']}/speech-{$sequence}-{$attempt}.mp3";
             if (file_put_contents(
                 $rawPath,
-                $this->speech->generate($text, $voiceId, $speed),
+                $this->speech->generate($speech['text'], $speech['voiceId'], $speech['speed']),
                 LOCK_EX,
             ) === false) {
-                throw new RuntimeException("{$label} speech segment could not be written.");
+                throw new RuntimeException("{$workspace['request']->label} speech segment could not be written.");
             }
             $this->audio->normalize($rawPath, $normalizedPath);
             $duration = $this->audio->duration($normalizedPath);
@@ -190,7 +334,7 @@ class AudioTrackAssembler
             }
         }
 
-        $truncatedPath = "{$directory}/speech-{$sequence}-truncated.mp3";
+        $truncatedPath = "{$workspace['directory']}/speech-{$sequence}-truncated.mp3";
         $this->audio->truncate($normalizedPath, $maximumDuration, $truncatedPath);
 
         return ['path' => $truncatedPath, 'duration' => $this->audio->duration($truncatedPath)];

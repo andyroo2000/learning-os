@@ -9,9 +9,24 @@ use Tests\TestCase;
 
 class ContentRouteContractTest extends TestCase
 {
+    private const UUID_PATTERN = '[\\da-fA-F]{8}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{12}';
+
     public function test_api_content_routes_preserve_registration_order_actions_middleware_and_constraints(): void
     {
-        $actualRoutes = collect(Route::getRoutes()->getRoutes())
+        $actualRoutes = $this->actualContentRoutes();
+
+        $this->assertSame(array_merge(
+            $this->expectedEpisodeRoutes(),
+            $this->expectedGenerationRoutes(),
+            $this->expectedScriptRoutes(),
+            $this->expectedCourseRoutes(),
+        ), $actualRoutes);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function actualContentRoutes(): array
+    {
+        return collect(Route::getRoutes()->getRoutes())
             ->filter(static fn (LaravelRoute $route): bool => str_starts_with(
                 $route->getActionName(),
                 'App\\Http\\Controllers\\Api\\Content\\',
@@ -26,10 +41,14 @@ class ContentRouteContractTest extends TestCase
             ])
             ->values()
             ->all();
+    }
 
-        $uuid = '[\\da-fA-F]{8}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{4}-[\\da-fA-F]{12}';
+    /** @return list<array<string, mixed>> */
+    private function expectedEpisodeRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
 
-        $this->assertSame([
+        return [
             $this->expectedRoute('GET|HEAD', 'api/convolab/episodes', 'ListContentEpisodesController'),
             $this->expectedRoute(
                 'POST',
@@ -57,6 +76,15 @@ class ContentRouteContractTest extends TestCase
                 'content-episode-delete',
                 ['episodeId' => $uuid],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedGenerationRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'POST',
                 'api/convolab/dialogue/generate',
@@ -108,6 +136,15 @@ class ContentRouteContractTest extends TestCase
                     'track' => 'default|0.7|0.85|1.0',
                 ],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedScriptRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/scripts/media/{mediaId}',
@@ -168,6 +205,15 @@ class ContentRouteContractTest extends TestCase
                 'content-audio-script-media-read',
                 ['episodeId' => $uuid, 'renderId' => $uuid],
             ),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function expectedCourseRoutes(): array
+    {
+        $uuid = self::UUID_PATTERN;
+
+        return [
             $this->expectedRoute('GET|HEAD', 'api/convolab/courses', 'ListContentCoursesController'),
             $this->expectedRoute(
                 'POST',
@@ -228,7 +274,7 @@ class ContentRouteContractTest extends TestCase
                 'DownloadContentCourseAudioController',
                 wheres: ['courseId' => $uuid],
             ),
-        ], $actualRoutes);
+        ];
     }
 
     public function test_content_routes_remain_at_their_original_global_boundaries(): void

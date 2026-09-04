@@ -461,85 +461,63 @@ class PerformStudyCardActionCompatibilityApiTest extends TestCase
         try {
             $card = $this->cardFor($this->signIn());
 
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
-                'action' => ['suspend'],
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['action']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
-                'action' => 'not-real',
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['action']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            $this->assertActionValidationErrors($card, ['action' => ['suspend']], ['action']);
+            $this->assertActionValidationErrors($card, ['action' => 'not-real'], ['action']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'tomorrow',
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['timeZone']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['timeZone']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'tomorrow',
                 'timeZone' => ['America/New_York'],
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['timeZone']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['timeZone']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'dueAt' => ['2026-06-05T15:30:00Z'],
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['dueAt']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'dueAt' => 'tomorrow',
                 'currentOverview' => 'stale',
                 'course_id' => 'not-a-ulid',
                 'deckId' => ['not-a-ulid'],
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt', 'currentOverview', 'course_id', 'deckId']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['dueAt', 'currentOverview', 'course_id', 'deckId']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'suspend',
                 'courseId' => strtolower((string) str()->ulid()),
                 'course_id' => strtolower((string) str()->ulid()),
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['courseId']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['courseId']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'dueAt' => 1780668900,
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['dueAt']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'dueAt' => '2026-06-05T15:30:00',
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt']);
-
-            $this->postJson("/api/study/cards/{$card->id}/actions", [
+            ], ['dueAt']);
+            $this->assertActionValidationErrors($card, [
                 'action' => 'set_due',
                 'mode' => 'custom_date',
                 'dueAt' => '2037-06-05T15:30:00Z',
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['dueAt']);
+            ], ['dueAt']);
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $errors
+     */
+    private function assertActionValidationErrors(Card $card, array $payload, array $errors): void
+    {
+        $this->postJson("/api/study/cards/{$card->id}/actions", $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors($errors);
     }
 }

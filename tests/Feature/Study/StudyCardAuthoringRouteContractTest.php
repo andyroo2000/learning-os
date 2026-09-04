@@ -15,7 +15,21 @@ class StudyCardAuthoringRouteContractTest extends TestCase
 
     public function test_study_card_authoring_routes_preserve_registration_order_names_actions_middleware_and_constraints(): void
     {
-        $actualRoutes = collect(Route::getRoutes()->getRoutes())
+        $actualRoutes = $this->actualAuthoringRoutes();
+        $draftIdWhere = ['draftId' => self::ULID_PATTERN];
+        $cardIdWhere = ['cardId' => self::CARD_ID_PATTERN];
+
+        $this->assertSame(array_merge(
+            $this->expectedDraftRoutes($draftIdWhere),
+            $this->expectedCardRoutes($cardIdWhere),
+            $this->expectedFinalDraftRoutes($draftIdWhere),
+        ), $actualRoutes);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function actualAuthoringRoutes(): array
+    {
+        return collect(Route::getRoutes()->getRoutes())
             ->filter(static function (LaravelRoute $route): bool {
                 $uri = $route->uri();
 
@@ -37,11 +51,12 @@ class StudyCardAuthoringRouteContractTest extends TestCase
             ])
             ->values()
             ->all();
+    }
 
-        $draftIdWhere = ['draftId' => self::ULID_PATTERN];
-        $cardIdWhere = ['cardId' => self::CARD_ID_PATTERN];
-
-        $this->assertSame([
+    /** @param array<string, string> $draftIdWhere */
+    private function expectedDraftRoutes(array $draftIdWhere): array
+    {
+        return [
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/study/card-drafts',
@@ -100,6 +115,13 @@ class StudyCardAuthoringRouteContractTest extends TestCase
                 'GenerateStudyCardDraftPreviewImageController',
                 wheres: $draftIdWhere,
             ),
+        ];
+    }
+
+    /** @param array<string, string> $cardIdWhere */
+    private function expectedCardRoutes(array $cardIdWhere): array
+    {
+        return [
             $this->expectedRoute(
                 'POST',
                 'api/study/cards/{cardId}/regenerate-answer-audio',
@@ -133,6 +155,13 @@ class StudyCardAuthoringRouteContractTest extends TestCase
                 'throttle:study-card-audio-prepare',
                 $cardIdWhere,
             ),
+        ];
+    }
+
+    /** @param array<string, string> $draftIdWhere */
+    private function expectedFinalDraftRoutes(array $draftIdWhere): array
+    {
+        return [
             $this->expectedRoute(
                 'POST',
                 'api/study/card-drafts/{draftId}/retry',
@@ -147,7 +176,7 @@ class StudyCardAuthoringRouteContractTest extends TestCase
                 'throttle:study-card-draft-delete',
                 $draftIdWhere,
             ),
-        ], $actualRoutes);
+        ];
     }
 
     public function test_study_card_authoring_routes_remain_inside_the_network_limit_at_their_original_global_boundaries(): void

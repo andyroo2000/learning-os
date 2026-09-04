@@ -13,6 +13,16 @@ use LogicException;
 
 class UpdateStudySettingsAction
 {
+    /** @var list<string> */
+    private const UPDATE_FIELDS = [
+        'new_cards_per_day',
+        'lesson_batch_size',
+        'review_time_budget_minutes',
+        'standard_lane_weight',
+        'lesson_followup_lane_weight',
+        'wanikani_lane_weight',
+    ];
+
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
     ) {}
@@ -26,146 +36,181 @@ class UpdateStudySettingsAction
         ?int $lessonFollowupLaneWeight = null,
         ?int $wanikaniLaneWeight = null,
     ): StudySettings {
-        if (
-            $newCardsPerDay === null
-            && $lessonBatchSize === null
-            && $reviewTimeBudgetMinutes === null
-            && $standardLaneWeight === null
-            && $lessonFollowupLaneWeight === null
-            && $wanikaniLaneWeight === null
-        ) {
+        $updates = [
+            'new_cards_per_day' => $newCardsPerDay,
+            'lesson_batch_size' => $lessonBatchSize,
+            'review_time_budget_minutes' => $reviewTimeBudgetMinutes,
+            'standard_lane_weight' => $standardLaneWeight,
+            'lesson_followup_lane_weight' => $lessonFollowupLaneWeight,
+            'wanikani_lane_weight' => $wanikaniLaneWeight,
+        ];
+
+        self::assertValidUpdates($updates);
+
+        return $this->persistUpdates($userId, $updates);
+    }
+
+    /**
+     * @param  array<string, int|null>  $updates
+     */
+    private static function assertValidUpdates(array $updates): void
+    {
+        if (! self::hasUpdates($updates)) {
             throw new InvalidArgumentException('At least one study setting must be provided.');
         }
 
-        $this->assertLaneWeightInRange(
-            'standard_lane_weight',
-            $standardLaneWeight,
-            StudySettings::MIN_STANDARD_LANE_WEIGHT,
-        );
-        $this->assertLaneWeightInRange(
-            'lesson_followup_lane_weight',
-            $lessonFollowupLaneWeight,
-            StudySettings::MIN_PRIORITY_LANE_WEIGHT,
-        );
-        $this->assertLaneWeightInRange(
-            'wanikani_lane_weight',
-            $wanikaniLaneWeight,
-            StudySettings::MIN_PRIORITY_LANE_WEIGHT,
-        );
+        self::assertInRange([
+            'field' => 'standard_lane_weight',
+            'value' => $updates['standard_lane_weight'],
+            'minimum' => StudySettings::MIN_STANDARD_LANE_WEIGHT,
+            'maximum' => StudySettings::MAX_LANE_WEIGHT,
+        ]);
+        self::assertInRange([
+            'field' => 'lesson_followup_lane_weight',
+            'value' => $updates['lesson_followup_lane_weight'],
+            'minimum' => StudySettings::MIN_PRIORITY_LANE_WEIGHT,
+            'maximum' => StudySettings::MAX_LANE_WEIGHT,
+        ]);
+        self::assertInRange([
+            'field' => 'wanikani_lane_weight',
+            'value' => $updates['wanikani_lane_weight'],
+            'minimum' => StudySettings::MIN_PRIORITY_LANE_WEIGHT,
+            'maximum' => StudySettings::MAX_LANE_WEIGHT,
+        ]);
+        self::assertInRange([
+            'field' => 'new_cards_per_day',
+            'value' => $updates['new_cards_per_day'],
+            'minimum' => StudySettings::MIN_NEW_CARDS_PER_DAY,
+            'maximum' => StudySettings::MAX_NEW_CARDS_PER_DAY,
+        ]);
+        self::assertInRange([
+            'field' => 'lesson_batch_size',
+            'value' => $updates['lesson_batch_size'],
+            'minimum' => StudySettings::MIN_LESSON_BATCH_SIZE,
+            'maximum' => StudySettings::MAX_LESSON_BATCH_SIZE,
+        ]);
+        self::assertInRange([
+            'field' => 'review_time_budget_minutes',
+            'value' => $updates['review_time_budget_minutes'],
+            'minimum' => StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES,
+            'maximum' => StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES,
+        ]);
+    }
 
-        if ($newCardsPerDay !== null && ($newCardsPerDay < 0 || $newCardsPerDay > StudySettings::MAX_NEW_CARDS_PER_DAY)) {
-            throw new InvalidArgumentException(
-                'new_cards_per_day must be an integer between 0 and '.StudySettings::MAX_NEW_CARDS_PER_DAY.'.',
-            );
+    /**
+     * @param  array<string, int|null>  $updates
+     */
+    private static function hasUpdates(array $updates): bool
+    {
+        foreach ($updates as $value) {
+            if ($value !== null) {
+                return true;
+            }
         }
 
-        if (
-            $lessonBatchSize !== null
-            && ($lessonBatchSize < StudySettings::MIN_LESSON_BATCH_SIZE
-                || $lessonBatchSize > StudySettings::MAX_LESSON_BATCH_SIZE)
-        ) {
-            throw new InvalidArgumentException(
-                'lesson_batch_size must be an integer between '
-                .StudySettings::MIN_LESSON_BATCH_SIZE.' and '.StudySettings::MAX_LESSON_BATCH_SIZE.'.',
-            );
+        return false;
+    }
+
+    /**
+     * @param  array{field: string, value: int|null, minimum: int, maximum: int}  $range
+     */
+    private static function assertInRange(array $range): void
+    {
+        if ($range['value'] === null) {
+            return;
         }
 
-        if (
-            $reviewTimeBudgetMinutes !== null
-            && ($reviewTimeBudgetMinutes < StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES
-                || $reviewTimeBudgetMinutes > StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES)
-        ) {
-            throw new InvalidArgumentException(
-                'review_time_budget_minutes must be an integer between '
-                .StudySettings::MIN_REVIEW_TIME_BUDGET_MINUTES.' and '
-                .StudySettings::MAX_REVIEW_TIME_BUDGET_MINUTES.'.',
-            );
+        if ($range['value'] < $range['minimum']) {
+            throw self::rangeException($range);
         }
 
-        return DB::transaction(function () use (
-            $userId,
-            $newCardsPerDay,
-            $lessonBatchSize,
-            $reviewTimeBudgetMinutes,
-            $standardLaneWeight,
-            $lessonFollowupLaneWeight,
-            $wanikaniLaneWeight,
-        ): StudySettings {
+        if ($range['value'] > $range['maximum']) {
+            throw self::rangeException($range);
+        }
+    }
+
+    /**
+     * @param  array{field: string, value: int|null, minimum: int, maximum: int}  $range
+     */
+    private static function rangeException(array $range): InvalidArgumentException
+    {
+        return new InvalidArgumentException(
+            "{$range['field']} must be an integer between {$range['minimum']} and {$range['maximum']}.",
+        );
+    }
+
+    /**
+     * @param  array<string, int|null>  $updates
+     */
+    private function persistUpdates(int $userId, array $updates): StudySettings
+    {
+        return DB::transaction(function () use ($userId, $updates): StudySettings {
             $this->lockSettingsOwner($userId);
 
-            $settings = StudySettings::query()
-                ->where('user_id', $userId)
-                ->first();
-
-            if ($settings === null) {
-                $settings = new StudySettings([
-                    'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
-                    'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
-                    'review_time_budget_minutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
-                    'standard_lane_weight' => StudySettings::DEFAULT_STANDARD_LANE_WEIGHT,
-                    'lesson_followup_lane_weight' => StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT,
-                    'wanikani_lane_weight' => StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT,
-                ]);
-                $settings->user_id = $userId;
-            }
-
-            if ($newCardsPerDay !== null) {
-                $settings->new_cards_per_day = $newCardsPerDay;
-            }
-            if ($lessonBatchSize !== null) {
-                $settings->lesson_batch_size = $lessonBatchSize;
-            }
-            if ($reviewTimeBudgetMinutes !== null) {
-                $settings->review_time_budget_minutes = $reviewTimeBudgetMinutes;
-            }
-            if ($standardLaneWeight !== null) {
-                $settings->standard_lane_weight = $standardLaneWeight;
-            }
-            if ($lessonFollowupLaneWeight !== null) {
-                $settings->lesson_followup_lane_weight = $lessonFollowupLaneWeight;
-            }
-            if ($wanikaniLaneWeight !== null) {
-                $settings->wanikani_lane_weight = $wanikaniLaneWeight;
-            }
+            $settings = $this->settingsForUpdate($userId);
+            self::applyUpdates($settings, $updates);
             $operation = $settings->exists ? SyncFeedOperation::Update : SyncFeedOperation::Create;
-            $wasUpdated = $settings->isDirty([
-                'new_cards_per_day',
-                'lesson_batch_size',
-                'review_time_budget_minutes',
-                'standard_lane_weight',
-                'lesson_followup_lane_weight',
-                'wanikani_lane_weight',
-            ]);
+            $wasUpdated = $settings->isDirty(self::UPDATE_FIELDS);
 
             $settings->saveOrFail();
 
-            if (! $wasUpdated) {
-                return $settings;
+            if ($wasUpdated) {
+                $this->recordSync($userId, $settings, $operation);
             }
-
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $userId,
-                    domain: StudySettingsSyncPayload::DOMAIN,
-                    resourceType: StudySettingsSyncPayload::RESOURCE_TYPE,
-                    resourceId: StudySettingsSyncPayload::RESOURCE_ID,
-                    operation: $operation->value,
-                    payload: StudySettingsSyncPayload::fromSettings($settings),
-                ),
-            );
 
             return $settings;
         });
     }
 
-    private function assertLaneWeightInRange(string $field, ?int $weight, int $minimum): void
+    private function settingsForUpdate(int $userId): StudySettings
     {
-        if ($weight === null || ($weight >= $minimum && $weight <= StudySettings::MAX_LANE_WEIGHT)) {
-            return;
+        $settings = StudySettings::query()
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($settings instanceof StudySettings) {
+            return $settings;
         }
 
-        throw new InvalidArgumentException(
-            "{$field} must be an integer between {$minimum} and ".StudySettings::MAX_LANE_WEIGHT.'.',
+        $settings = new StudySettings([
+            'new_cards_per_day' => StudySettings::DEFAULT_NEW_CARDS_PER_DAY,
+            'lesson_batch_size' => StudySettings::DEFAULT_LESSON_BATCH_SIZE,
+            'review_time_budget_minutes' => StudySettings::DEFAULT_REVIEW_TIME_BUDGET_MINUTES,
+            'standard_lane_weight' => StudySettings::DEFAULT_STANDARD_LANE_WEIGHT,
+            'lesson_followup_lane_weight' => StudySettings::DEFAULT_LESSON_FOLLOWUP_LANE_WEIGHT,
+            'wanikani_lane_weight' => StudySettings::DEFAULT_WANIKANI_LANE_WEIGHT,
+        ]);
+        $settings->user_id = $userId;
+
+        return $settings;
+    }
+
+    /**
+     * @param  array<string, int|null>  $updates
+     */
+    private static function applyUpdates(StudySettings $settings, array $updates): void
+    {
+        foreach ($updates as $field => $value) {
+            if ($value !== null) {
+                $settings->{$field} = $value;
+            }
+        }
+    }
+
+    private function recordSync(
+        int $userId,
+        StudySettings $settings,
+        SyncFeedOperation $operation,
+    ): void {
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $userId,
+                domain: StudySettingsSyncPayload::DOMAIN,
+                resourceType: StudySettingsSyncPayload::RESOURCE_TYPE,
+                resourceId: StudySettingsSyncPayload::RESOURCE_ID,
+                operation: $operation->value,
+                payload: StudySettingsSyncPayload::fromSettings($settings),
+            ),
         );
     }
 

@@ -3,12 +3,43 @@
 namespace Tests\Unit\Domain\Study;
 
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
 
 class OpenAiStudyCardGeneratorTest extends TestCase
 {
+    public function test_it_sends_the_configured_json_request_and_prefers_output_text(): void
+    {
+        config()->set('services.openai.api_key', ' test-key ');
+        Http::fake([
+            'https://api.openai.com/v1/responses' => Http::response([
+                'output_text' => '{"source":"direct"}',
+                'output' => [[
+                    'content' => [['type' => 'output_text', 'text' => '{"source":"nested"}']],
+                ]],
+            ]),
+        ]);
+
+        $result = app(OpenAiStudyCardGenerator::class)->generateJson('system', 'prompt', 'model', 'high');
+
+        $this->assertSame('{"source":"direct"}', $result);
+        /** @var Request $request */
+        $request = Http::recorded()->sole()[0];
+        $this->assertSame('https://api.openai.com/v1/responses', $request->url());
+        $this->assertTrue($request->hasHeader('Authorization', 'Bearer test-key'));
+        $this->assertSame([
+            'model' => 'model',
+            'input' => [
+                ['role' => 'system', 'content' => [['type' => 'input_text', 'text' => 'system']]],
+                ['role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'prompt']]],
+            ],
+            'reasoning' => ['effort' => 'high'],
+            'text' => ['format' => ['type' => 'json_object']],
+        ], $request->data());
+    }
+
     public function test_it_reads_nested_output_content_when_output_text_is_absent(): void
     {
         config()->set('services.openai.api_key', 'test-key');

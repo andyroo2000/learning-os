@@ -60,42 +60,67 @@ class AchievementCatalogApiTest extends TestCase
         $this->assertFileExists($path);
         $this->assertSame([128, 128], array_slice(getimagesize($path), 0, 2));
 
-        $catalog = $response->json();
+        $this->assertPublishedCatalogAssets($response->json());
+    }
+
+    /** @param  array<string, mixed>  $catalog */
+    private function assertPublishedCatalogAssets(array $catalog): void
+    {
         $publishedTierIds = [];
 
         foreach ($catalog['families'] as $family) {
-            $this->assertNotEmpty($family['tiers']);
-            $thresholds = array_column($family['tiers'], 'threshold');
-            $sortedThresholds = $thresholds;
-            sort($sortedThresholds, SORT_NUMERIC);
-            $this->assertSame($sortedThresholds, $thresholds, "{$family['key']} thresholds must increase.");
-
-            foreach ($family['tiers'] as $tier) {
-                $publishedTierIds[] = "{$family['key']}.{$tier['key']}";
-                $this->assertNotSame('', $tier['earnedDescription']);
-
-                foreach (['earned', 'locked'] as $state) {
-                    foreach ([64, 128, 256, 512] as $size) {
-                        $publishedAsset = $tier['assets'][$state]['png'][(string) $size];
-                        $publishedPath = public_path(ltrim($publishedAsset['path'], '/'));
-
-                        $this->assertSame($size, $publishedAsset['width']);
-                        $this->assertSame($size, $publishedAsset['height']);
-                        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $publishedAsset['checksumSha256']);
-                        $this->assertFileExists($publishedPath);
-                        $this->assertSame(
-                            $publishedAsset['checksumSha256'],
-                            hash_file('sha256', $publishedPath),
-                            "{$family['key']}.{$tier['key']} {$state}-{$size} checksum must match its file.",
-                        );
-                        $this->assertSame([$size, $size], array_slice(getimagesize($publishedPath), 0, 2));
-                    }
-                }
-            }
+            $this->assertPublishedFamilyAssets($family, $publishedTierIds);
         }
 
         foreach ($catalog['presentation']['noDataFallbackTierIds'] as $fallbackTierId) {
             $this->assertContains($fallbackTierId, $publishedTierIds);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $family
+     * @param  list<string>  $publishedTierIds
+     */
+    private function assertPublishedFamilyAssets(array $family, array &$publishedTierIds): void
+    {
+        $this->assertNotEmpty($family['tiers']);
+        $thresholds = array_column($family['tiers'], 'threshold');
+        $sortedThresholds = $thresholds;
+        sort($sortedThresholds, SORT_NUMERIC);
+        $this->assertSame($sortedThresholds, $thresholds, "{$family['key']} thresholds must increase.");
+
+        foreach ($family['tiers'] as $tier) {
+            $publishedTierIds[] = "{$family['key']}.{$tier['key']}";
+            $this->assertNotSame('', $tier['earnedDescription']);
+            $this->assertPublishedTierAssets($family['key'], $tier);
+        }
+    }
+
+    /** @param  array<string, mixed>  $tier */
+    private function assertPublishedTierAssets(string $familyKey, array $tier): void
+    {
+        foreach (['earned', 'locked'] as $state) {
+            $this->assertPublishedStateAssets($familyKey, $tier, $state);
+        }
+    }
+
+    /** @param  array<string, mixed>  $tier */
+    private function assertPublishedStateAssets(string $familyKey, array $tier, string $state): void
+    {
+        foreach ([64, 128, 256, 512] as $size) {
+            $publishedAsset = $tier['assets'][$state]['png'][(string) $size];
+            $publishedPath = public_path(ltrim($publishedAsset['path'], '/'));
+
+            $this->assertSame($size, $publishedAsset['width']);
+            $this->assertSame($size, $publishedAsset['height']);
+            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $publishedAsset['checksumSha256']);
+            $this->assertFileExists($publishedPath);
+            $this->assertSame(
+                $publishedAsset['checksumSha256'],
+                hash_file('sha256', $publishedPath),
+                "{$familyKey}.{$tier['key']} {$state}-{$size} checksum must match its file.",
+            );
+            $this->assertSame([$size, $size], array_slice(getimagesize($publishedPath), 0, 2));
         }
     }
 

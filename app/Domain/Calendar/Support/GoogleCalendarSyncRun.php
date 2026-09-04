@@ -33,7 +33,10 @@ final class GoogleCalendarSyncRun
         return DB::transaction(static function () use ($connectionId, $runId, $requireEnabled, $afterCommit): ?array {
             $connection = GoogleCalendarConnection::query()->whereKey($connectionId)->lockForUpdate()->first();
             $settings = $connection === null ? null : GoogleCalendarSettings::fromStored($connection->settings);
-            if ($settings === null || ($requireEnabled && ! $settings->syncEnabled)) {
+            if ($settings === null) {
+                return null;
+            }
+            if ($requireEnabled && ! $settings->syncEnabled) {
                 return null;
             }
             if (in_array($connection->sync_status, [GoogleCalendarSyncStatus::Queued, GoogleCalendarSyncStatus::Running], true)
@@ -86,9 +89,19 @@ final class GoogleCalendarSyncRun
         return DB::transaction(static function () use ($connectionId, $runId, $requireEnabled): ?GoogleCalendarConnection {
             $connection = GoogleCalendarConnection::query()->whereKey($connectionId)->lockForUpdate()->first();
             $settings = $connection === null ? null : GoogleCalendarSettings::fromStored($connection->settings);
-            if ($connection === null || $connection->sync_run_id !== $runId || $settings === null
-                || ($requireEnabled && ! $settings->syncEnabled)
-                || ! in_array($connection->sync_status, [GoogleCalendarSyncStatus::Queued, GoogleCalendarSyncStatus::Running], true)) {
+            if ($connection === null) {
+                return null;
+            }
+            if ($connection->sync_run_id !== $runId) {
+                return null;
+            }
+            if ($settings === null) {
+                return null;
+            }
+            if ($requireEnabled && ! $settings->syncEnabled) {
+                return null;
+            }
+            if (! in_array($connection->sync_status, [GoogleCalendarSyncStatus::Queued, GoogleCalendarSyncStatus::Running], true)) {
                 return null;
             }
             $connection->forceFill(['sync_status' => GoogleCalendarSyncStatus::Running, 'sync_status_at' => now()])->save();

@@ -16,6 +16,54 @@ use PHPUnit\Framework\TestCase;
 
 class FlashcardSyncPayloadTest extends TestCase
 {
+    private const CARD_IDENTITY = [
+        'id' => '01jzq4nny5xbnzw14q1g68b2yt',
+        'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
+    ];
+
+    private const CLIENT_CARD_SOURCE = [
+        'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
+        'source_kind' => 'anki_import',
+        'source_card_id' => 701,
+        'source_note_id' => 501,
+        'source_deck_id' => 1700000000000,
+        'source_notetype_name' => 'Basic',
+        'source_template_ord' => 0,
+        'front_text' => 'What is ATP?',
+        'back_text' => 'Cellular energy currency.',
+    ];
+
+    private const SOFT_DELETED_CARD_SOURCE = [
+        'import_job_id' => null,
+        'source_kind' => null,
+        'source_card_id' => null,
+        'source_note_id' => null,
+        'source_deck_id' => null,
+        'source_notetype_name' => null,
+        'source_template_ord' => null,
+        'front_text' => 'What is ATP?',
+        'back_text' => 'Cellular energy currency.',
+    ];
+
+    private const UNAVAILABLE_PROGRESSION = [
+        'variant_group_id' => null,
+        'variant_sentence_id' => null,
+        'variant_kind' => null,
+        'variant_stage' => null,
+        'variant_status' => null,
+        'variant_unlock_requirement' => null,
+        'variant_unlocked_at' => null,
+        'variant_retired_at' => null,
+        'introduction_cohort_id' => null,
+        'selection_policy' => null,
+        'priority_until' => null,
+        'introduction_available_at' => null,
+        'due_at' => null,
+        'introduced_at' => null,
+        'failed_at' => null,
+        'last_reviewed_at' => null,
+    ];
+
     public function test_soft_deleted_deck_payload_serializes_deleted_at(): void
     {
         $deck = new Deck;
@@ -79,106 +127,11 @@ class FlashcardSyncPayloadTest extends TestCase
     public function test_card_payload_uses_client_facing_resource_keys(): void
     {
         $card = new Card;
-        $card->setRawAttributes([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
-            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
-            'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
-            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => 'anki_import',
-            'source_card_id' => 701,
-            'source_note_id' => 501,
-            'source_deck_id' => 1700000000000,
-            'source_notetype_name' => 'Basic',
-            'source_template_ord' => 0,
-            'front_text' => 'What is ATP?',
-            'back_text' => 'Cellular energy currency.',
-            'card_type' => CardType::Cloze->value,
-            'prompt_json' => json_encode([
-                'type' => 'text',
-                'text' => 'What is ATP?',
-            ]),
-            'answer_json' => json_encode([
-                'type' => 'text',
-                'text' => 'Cellular energy currency.',
-            ]),
-            'content_revision' => 7,
-            'search_text' => 'What is ATP? Cellular energy currency.',
-            'study_status' => CardStudyStatus::Review,
-            'new_queue_position' => null,
-            'scheduler_state' => json_encode([
-                'difficulty' => 5,
-                'stability' => 0.1,
-                'state' => 0,
-            ]),
-            'variant_group_id' => 'vocab-group-1',
-            'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
-            'variant_stage' => 1,
-            'variant_status' => VocabVariantStatus::Available->value,
-            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Guru->value,
-            'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
-            'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
-            'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
-            'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
-            'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
-            'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
-            'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
-            'deleted_at' => null,
-        ], sync: true);
+        $card->setRawAttributes($this->clientFacingCardAttributes(), sync: true);
 
         $payload = CardSyncPayload::fromCard($card);
 
-        $expected = [
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
-            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
-            'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
-            'import_job_id' => '01k1j8n4st9y2aqj9b43r1dz0e',
-            'source_kind' => 'anki_import',
-            'source_card_id' => 701,
-            'source_note_id' => 501,
-            'source_deck_id' => 1700000000000,
-            'source_notetype_name' => 'Basic',
-            'source_template_ord' => 0,
-            'front_text' => 'What is ATP?',
-            'back_text' => 'Cellular energy currency.',
-            'card_type' => 'cloze',
-            'prompt_json' => [
-                'type' => 'text',
-                'text' => 'What is ATP?',
-            ],
-            'answer_json' => [
-                'type' => 'text',
-                'text' => 'Cellular energy currency.',
-            ],
-            'content_revision' => 7,
-            'search_text' => 'What is ATP? Cellular energy currency.',
-            'study_status' => 'review',
-            'new_queue_position' => null,
-            'scheduler_state' => [
-                'difficulty' => 5,
-                'stability' => 0.1,
-                'state' => 0,
-            ],
-            'variant_group_id' => 'vocab-group-1',
-            'variant_sentence_id' => 'sentence-1',
-            'variant_kind' => 'sentence_audio_recognition',
-            'variant_stage' => 1,
-            'variant_status' => 'available',
-            'variant_unlock_requirement' => 'guru',
-            'variant_unlocked_at' => '2026-06-04T14:15:00.000000Z',
-            'variant_retired_at' => null,
-            'introduction_cohort_id' => null,
-            'selection_policy' => null,
-            'priority_until' => null,
-            'introduction_available_at' => null,
-            'due_at' => '2026-06-05T14:15:00.000000Z',
-            'introduced_at' => '2026-06-01T14:15:00.000000Z',
-            'failed_at' => '2026-06-02T14:15:00.000000Z',
-            'last_reviewed_at' => '2026-06-03T14:15:00.000000Z',
-            'created_at' => '2026-05-28T10:14:00.000000Z',
-            'updated_at' => '2026-05-28T10:15:00.000000Z',
-            'deleted_at' => null,
-        ];
+        $expected = $this->clientFacingCardPayload();
 
         $this->assertSame('flashcards', CardSyncPayload::DOMAIN);
         $this->assertSame('card', CardSyncPayload::RESOURCE_TYPE);
@@ -188,92 +141,13 @@ class FlashcardSyncPayloadTest extends TestCase
 
     public function test_soft_deleted_card_payload_serializes_deleted_at(): void
     {
+        $fixture = $this->softDeletedCardFixture();
         $card = new Card;
-        $card->setRawAttributes([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
-            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
-            'deck_course_id' => null,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_card_id' => null,
-            'source_note_id' => null,
-            'source_deck_id' => null,
-            'source_notetype_name' => null,
-            'source_template_ord' => null,
-            'front_text' => 'What is ATP?',
-            'back_text' => 'Cellular energy currency.',
-            'card_type' => CardType::Production->value,
-            'prompt_json' => null,
-            'answer_json' => null,
-            'content_revision' => 0,
-            'search_text' => 'What is ATP? Cellular energy currency.',
-            'study_status' => CardStudyStatus::New,
-            'new_queue_position' => 7,
-            'scheduler_state' => null,
-            'variant_group_id' => null,
-            'variant_sentence_id' => null,
-            'variant_kind' => null,
-            'variant_stage' => null,
-            'variant_status' => null,
-            'variant_unlock_requirement' => null,
-            'variant_unlocked_at' => null,
-            'variant_retired_at' => null,
-            'introduction_cohort_id' => null,
-            'selection_policy' => null,
-            'priority_until' => null,
-            'introduction_available_at' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-            'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
-            'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
-            'deleted_at' => Carbon::parse('2026-05-28T10:20:00Z'),
-        ], sync: true);
+        $card->setRawAttributes($fixture['attributes'], sync: true);
 
         $payload = CardSyncPayload::fromCard($card);
 
-        $this->assertSame([
-            'id' => '01jzq4nny5xbnzw14q1g68b2yt',
-            'deck_id' => '01jzq4kkf4sx5ebxnyqcg3dwdg',
-            'course_id' => null,
-            'import_job_id' => null,
-            'source_kind' => null,
-            'source_card_id' => null,
-            'source_note_id' => null,
-            'source_deck_id' => null,
-            'source_notetype_name' => null,
-            'source_template_ord' => null,
-            'front_text' => 'What is ATP?',
-            'back_text' => 'Cellular energy currency.',
-            'card_type' => 'production',
-            'prompt_json' => null,
-            'answer_json' => null,
-            'content_revision' => 0,
-            'search_text' => 'What is ATP? Cellular energy currency.',
-            'study_status' => 'new',
-            'new_queue_position' => 7,
-            'scheduler_state' => null,
-            'variant_group_id' => null,
-            'variant_sentence_id' => null,
-            'variant_kind' => null,
-            'variant_stage' => null,
-            'variant_status' => null,
-            'variant_unlock_requirement' => null,
-            'variant_unlocked_at' => null,
-            'variant_retired_at' => null,
-            'introduction_cohort_id' => null,
-            'selection_policy' => null,
-            'priority_until' => null,
-            'introduction_available_at' => null,
-            'due_at' => null,
-            'introduced_at' => null,
-            'failed_at' => null,
-            'last_reviewed_at' => null,
-            'created_at' => '2026-05-28T10:14:00.000000Z',
-            'updated_at' => '2026-05-28T10:15:00.000000Z',
-            'deleted_at' => '2026-05-28T10:20:00.000000Z',
-        ], $payload);
+        $this->assertSame($fixture['payload'], $payload);
     }
 
     public function test_card_payload_defaults_missing_study_status_to_new(): void
@@ -315,5 +189,141 @@ class FlashcardSyncPayloadTest extends TestCase
         $this->assertNull($payload['scheduler_state']);
         $this->assertNull($payload['variant_group_id']);
         $this->assertNull($payload['variant_status']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function clientFacingCardAttributes(): array
+    {
+        return [
+            ...self::CARD_IDENTITY,
+            'deck_course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
+            ...self::CLIENT_CARD_SOURCE,
+            'card_type' => CardType::Cloze->value,
+            'prompt_json' => json_encode([
+                'type' => 'text',
+                'text' => 'What is ATP?',
+            ]),
+            'answer_json' => json_encode([
+                'type' => 'text',
+                'text' => 'Cellular energy currency.',
+            ]),
+            'content_revision' => 7,
+            'search_text' => 'What is ATP? Cellular energy currency.',
+            'study_status' => CardStudyStatus::Review,
+            'new_queue_position' => null,
+            'scheduler_state' => json_encode([
+                'difficulty' => 5,
+                'stability' => 0.1,
+                'state' => 0,
+            ]),
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => VocabVariantKind::SentenceAudioRecognition->value,
+            'variant_stage' => 1,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlock_requirement' => CardProgressionUnlockRequirement::Guru->value,
+            'variant_unlocked_at' => Carbon::parse('2026-06-04T14:15:00Z'),
+            'due_at' => Carbon::parse('2026-06-05T14:15:00Z'),
+            'introduced_at' => Carbon::parse('2026-06-01T14:15:00Z'),
+            'failed_at' => Carbon::parse('2026-06-02T14:15:00Z'),
+            'last_reviewed_at' => Carbon::parse('2026-06-03T14:15:00Z'),
+            'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
+            'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
+            'deleted_at' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function clientFacingCardPayload(): array
+    {
+        return [
+            ...self::CARD_IDENTITY,
+            'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
+            ...self::CLIENT_CARD_SOURCE,
+            'card_type' => 'cloze',
+            'prompt_json' => [
+                'type' => 'text',
+                'text' => 'What is ATP?',
+            ],
+            'answer_json' => [
+                'type' => 'text',
+                'text' => 'Cellular energy currency.',
+            ],
+            'content_revision' => 7,
+            'search_text' => 'What is ATP? Cellular energy currency.',
+            'study_status' => 'review',
+            'new_queue_position' => null,
+            'scheduler_state' => [
+                'difficulty' => 5,
+                'stability' => 0.1,
+                'state' => 0,
+            ],
+            'variant_group_id' => 'vocab-group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => 'sentence_audio_recognition',
+            'variant_stage' => 1,
+            'variant_status' => 'available',
+            'variant_unlock_requirement' => 'guru',
+            'variant_unlocked_at' => '2026-06-04T14:15:00.000000Z',
+            'variant_retired_at' => null,
+            'introduction_cohort_id' => null,
+            'selection_policy' => null,
+            'priority_until' => null,
+            'introduction_available_at' => null,
+            'due_at' => '2026-06-05T14:15:00.000000Z',
+            'introduced_at' => '2026-06-01T14:15:00.000000Z',
+            'failed_at' => '2026-06-02T14:15:00.000000Z',
+            'last_reviewed_at' => '2026-06-03T14:15:00.000000Z',
+            'created_at' => '2026-05-28T10:14:00.000000Z',
+            'updated_at' => '2026-05-28T10:15:00.000000Z',
+            'deleted_at' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function softDeletedCardFixture(): array
+    {
+        return [
+            'attributes' => [
+                ...self::CARD_IDENTITY,
+                'deck_course_id' => null,
+                ...self::SOFT_DELETED_CARD_SOURCE,
+                'card_type' => CardType::Production->value,
+                'prompt_json' => null,
+                'answer_json' => null,
+                'content_revision' => 0,
+                'search_text' => 'What is ATP? Cellular energy currency.',
+                'study_status' => CardStudyStatus::New,
+                'new_queue_position' => 7,
+                'scheduler_state' => null,
+                ...self::UNAVAILABLE_PROGRESSION,
+                'created_at' => Carbon::parse('2026-05-28T10:14:00Z'),
+                'updated_at' => Carbon::parse('2026-05-28T10:15:00Z'),
+                'deleted_at' => Carbon::parse('2026-05-28T10:20:00Z'),
+            ],
+            'payload' => [
+                ...self::CARD_IDENTITY,
+                'course_id' => null,
+                ...self::SOFT_DELETED_CARD_SOURCE,
+                'card_type' => 'production',
+                'prompt_json' => null,
+                'answer_json' => null,
+                'content_revision' => 0,
+                'search_text' => 'What is ATP? Cellular energy currency.',
+                'study_status' => 'new',
+                'new_queue_position' => 7,
+                'scheduler_state' => null,
+                ...self::UNAVAILABLE_PROGRESSION,
+                'created_at' => '2026-05-28T10:14:00.000000Z',
+                'updated_at' => '2026-05-28T10:15:00.000000Z',
+                'deleted_at' => '2026-05-28T10:20:00.000000Z',
+            ],
+        ];
     }
 }

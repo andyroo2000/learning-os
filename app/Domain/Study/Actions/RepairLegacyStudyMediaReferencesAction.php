@@ -33,37 +33,37 @@ final class RepairLegacyStudyMediaReferencesAction
         bool $apply,
         ?array $cardIds = null,
     ): StudyMediaReferenceRepairResult {
-        $result = new StudyMediaReferenceRepairResult;
-
         if ($cardIds !== null) {
-            foreach (array_chunk(array_values(array_unique($cardIds)), $this->chunkSize) as $chunk) {
-                $result->add($this->repairChunk($connection, $chunk, $apply));
-            }
-
-            return $result;
+            return $this->repairSelectedCards($connection, $cardIds, $apply);
         }
 
+        return $this->repairAllCards($connection, $apply);
+    }
+
+    /** @param list<string> $cardIds */
+    private function repairSelectedCards(
+        ConnectionInterface $connection,
+        array $cardIds,
+        bool $apply,
+    ): StudyMediaReferenceRepairResult {
+        $result = new StudyMediaReferenceRepairResult;
+
+        foreach (array_chunk(array_values(array_unique($cardIds)), $this->chunkSize) as $chunk) {
+            $result->add($this->repairChunk($connection, $chunk, $apply));
+        }
+
+        return $result;
+    }
+
+    private function repairAllCards(
+        ConnectionInterface $connection,
+        bool $apply,
+    ): StudyMediaReferenceRepairResult {
+        $result = new StudyMediaReferenceRepairResult;
         $lastId = null;
 
         do {
-            $query = $connection->table('cards')
-                ->select('cards.id')
-                ->join('decks', 'decks.id', '=', 'cards.deck_id')
-                ->whereNull('cards.deleted_at')
-                ->whereNull('decks.deleted_at')
-                ->whereExists(function ($query): void {
-                    $query->selectRaw('1')
-                        ->from('card_media')
-                        ->whereColumn('card_media.card_id', 'cards.id');
-                })
-                ->orderBy('cards.id')
-                ->limit($this->chunkSize);
-
-            if ($lastId !== null) {
-                $query->where('cards.id', '>', $lastId);
-            }
-
-            $ids = $query->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
+            $ids = $this->nextCardIds($connection, $lastId);
 
             if ($ids === []) {
                 break;
@@ -74,6 +74,29 @@ final class RepairLegacyStudyMediaReferencesAction
         } while (count($ids) === $this->chunkSize);
 
         return $result;
+    }
+
+    /** @return list<string> */
+    private function nextCardIds(ConnectionInterface $connection, ?string $lastId): array
+    {
+        $query = $connection->table('cards')
+            ->select('cards.id')
+            ->join('decks', 'decks.id', '=', 'cards.deck_id')
+            ->whereNull('cards.deleted_at')
+            ->whereNull('decks.deleted_at')
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('card_media')
+                    ->whereColumn('card_media.card_id', 'cards.id');
+            })
+            ->orderBy('cards.id')
+            ->limit($this->chunkSize);
+
+        if ($lastId !== null) {
+            $query->where('cards.id', '>', $lastId);
+        }
+
+        return $query->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
     }
 
     /**
@@ -139,67 +162,81 @@ final class RepairLegacyStudyMediaReferencesAction
 
         foreach ($cards as $card) {
             $assets = $assetsByCard->get((string) $card->id, collect());
-            $candidates = $this->mediaCandidates($assets);
-            $prompt = $this->decodePayload($card->prompt_json, 'prompt_json', (string) $card->id);
-            $answer = $this->decodePayload($card->answer_json, 'answer_json', (string) $card->id);
-            $cardResult = new StudyMediaReferenceRepairResult;
-            $repairedPrompt = $this->repairValue($prompt, $candidates, $cardResult);
-            $repairedAnswer = $this->repairValue($answer, $candidates, $cardResult);
-
-            $result->referencesChanged += $cardResult->referencesChanged;
-            $result->unmatchedReferences += $cardResult->unmatchedReferences;
-            $result->ambiguousReferences += $cardResult->ambiguousReferences;
-
-            if ($repairedPrompt === $prompt && $repairedAnswer === $answer) {
-                continue;
-            }
-
-            $result->cardsChanged++;
-
-            if (! $apply) {
-                continue;
-            }
-
-            $searchText = CardSearchText::fromContent(
-                frontText: $card->front_text,
-                backText: $card->back_text,
-                promptJson: $repairedPrompt,
-                answerJson: $repairedAnswer,
-            );
-            // Normalize before both persistence and payload construction so the sync timestamp
-            // is byte-for-byte equivalent across the supported database timestamp grammars.
-            $updatedAt = now()->startOfSecond();
-            $cardModel = (new Card)->newFromBuilder((array) $card, $connection->getName());
-            CardContentRevision::advance($cardModel);
-
-            $connection->table('cards')
-                ->where('id', $card->id)
-                ->update([
-                    'prompt_json' => $this->encodePayload($repairedPrompt),
-                    'answer_json' => $this->encodePayload($repairedAnswer),
-                    'content_revision' => $cardModel->content_revision,
-                    'search_text' => $searchText,
-                    'updated_at' => $updatedAt,
-                ]);
-
-            $cardModel->setAttribute('prompt_json', $repairedPrompt);
-            $cardModel->setAttribute('answer_json', $repairedAnswer);
-            $cardModel->setAttribute('search_text', $searchText);
-            $cardModel->setAttribute('updated_at', $updatedAt);
-
-            $this->recordSyncFeedEntry->handle(
-                RecordSyncFeedEntryData::fromInput(
-                    userId: $cardModel->ownerUserId(),
-                    domain: CardSyncPayload::DOMAIN,
-                    resourceType: CardSyncPayload::RESOURCE_TYPE,
-                    resourceId: $cardModel->id,
-                    operation: SyncFeedOperation::Update->value,
-                    payload: CardSyncPayload::fromCard($cardModel),
-                ),
-            );
+            $result->add($this->repairCard($connection, $card, $assets, $apply));
         }
 
         return $result;
+    }
+
+    /** @param Collection<int, object> $assets */
+    private function repairCard(
+        ConnectionInterface $connection,
+        object $card,
+        Collection $assets,
+        bool $apply,
+    ): StudyMediaReferenceRepairResult {
+        $candidates = $this->mediaCandidates($assets);
+        $prompt = $this->decodePayload($card->prompt_json, 'prompt_json', (string) $card->id);
+        $answer = $this->decodePayload($card->answer_json, 'answer_json', (string) $card->id);
+        $result = new StudyMediaReferenceRepairResult;
+        $repairedPrompt = $this->repairValue($prompt, $candidates, $result);
+        $repairedAnswer = $this->repairValue($answer, $candidates, $result);
+
+        if ($repairedPrompt === $prompt && $repairedAnswer === $answer) {
+            return $result;
+        }
+
+        $result->cardsChanged++;
+        if ($apply) {
+            $this->persistRepairedCard($connection, $card, $repairedPrompt, $repairedAnswer);
+        }
+
+        return $result;
+    }
+
+    private function persistRepairedCard(
+        ConnectionInterface $connection,
+        object $card,
+        ?array $repairedPrompt,
+        ?array $repairedAnswer,
+    ): void {
+        $searchText = CardSearchText::fromContent(
+            frontText: $card->front_text,
+            backText: $card->back_text,
+            promptJson: $repairedPrompt,
+            answerJson: $repairedAnswer,
+        );
+        // Normalize before both persistence and payload construction so the sync timestamp
+        // is byte-for-byte equivalent across the supported database timestamp grammars.
+        $updatedAt = now()->startOfSecond();
+        $cardModel = (new Card)->newFromBuilder((array) $card, $connection->getName());
+        CardContentRevision::advance($cardModel);
+
+        $connection->table('cards')
+            ->where('id', $card->id)
+            ->update([
+                'prompt_json' => $this->encodePayload($repairedPrompt),
+                'answer_json' => $this->encodePayload($repairedAnswer),
+                'content_revision' => $cardModel->content_revision,
+                'search_text' => $searchText,
+                'updated_at' => $updatedAt,
+            ]);
+
+        $cardModel->setAttribute('prompt_json', $repairedPrompt);
+        $cardModel->setAttribute('answer_json', $repairedAnswer);
+        $cardModel->setAttribute('search_text', $searchText);
+        $cardModel->setAttribute('updated_at', $updatedAt);
+
+        $this->recordSyncFeedEntry->handle(
+            RecordSyncFeedEntryData::fromInput(
+                userId: $cardModel->ownerUserId(),
+                domain: CardSyncPayload::DOMAIN,
+                resourceType: CardSyncPayload::RESOURCE_TYPE,
+                resourceId: $cardModel->id,
+                operation: SyncFeedOperation::Update->value,
+                payload: CardSyncPayload::fromCard($cardModel),
+            ),
+        );
     }
 
     /**
@@ -297,39 +334,7 @@ final class RepairLegacyStudyMediaReferencesAction
         }
 
         if ($this->isLegacyMediaReference($value)) {
-            $kind = (string) $value['mediaKind'];
-            $filename = $this->normalizedFilename($value['filename']);
-            $key = $kind."\0".$filename;
-            $fallbackKey = $kind."\0";
-
-            if (! array_key_exists($key, $candidates)
-                && ! array_key_exists($fallbackKey, $candidates)) {
-                $result->unmatchedReferences++;
-
-                return $value;
-            }
-
-            $candidate = $candidates[$key] ?? $candidates[$fallbackKey];
-
-            if ($candidate === null) {
-                $result->ambiguousReferences++;
-
-                return $value;
-            }
-
-            $url = "/api/study/media/{$candidate['id']}";
-
-            if (($value['id'] ?? null) === $candidate['id'] && ($value['url'] ?? null) === $url) {
-                return $value;
-            }
-
-            $result->referencesChanged++;
-
-            return [
-                ...$value,
-                'id' => $candidate['id'],
-                'url' => $url,
-            ];
+            return $this->repairLegacyReference($value, $candidates, $result);
         }
 
         foreach ($value as $key => $child) {
@@ -341,33 +346,80 @@ final class RepairLegacyStudyMediaReferencesAction
 
     /**
      * @param  array<mixed>  $value
+     * @param  array<string, array{id: string}|null>  $candidates
+     * @return array<mixed>
+     */
+    private function repairLegacyReference(
+        array $value,
+        array $candidates,
+        StudyMediaReferenceRepairResult $result,
+    ): array {
+        $kind = (string) $value['mediaKind'];
+        $filename = $this->normalizedFilename($value['filename']);
+        $key = $kind."\0".$filename;
+        $fallbackKey = $kind."\0";
+
+        if (! array_key_exists($key, $candidates) && ! array_key_exists($fallbackKey, $candidates)) {
+            $result->unmatchedReferences++;
+
+            return $value;
+        }
+
+        $candidate = $candidates[$key] ?? $candidates[$fallbackKey];
+        if ($candidate === null) {
+            $result->ambiguousReferences++;
+
+            return $value;
+        }
+
+        $url = "/api/study/media/{$candidate['id']}";
+        if (($value['id'] ?? null) === $candidate['id'] && ($value['url'] ?? null) === $url) {
+            return $value;
+        }
+
+        $result->referencesChanged++;
+
+        return [...$value, 'id' => $candidate['id'], 'url' => $url];
+    }
+
+    /**
+     * @param  array<mixed>  $value
      */
     private function isLegacyMediaReference(array $value): bool
     {
         $kind = $value['mediaKind'] ?? null;
         $filename = $this->normalizedFilename($value['filename'] ?? null);
 
-        if (! in_array($kind, ['audio', 'image'], true) || $filename === null) {
+        if (! in_array($kind, ['audio', 'image'], true)) {
+            return false;
+        }
+        if ($filename === null) {
             return false;
         }
 
         $id = $value['id'] ?? null;
         $normalizedId = is_string($id) ? trim($id) : null;
 
-        if ($normalizedId !== null && $normalizedId !== '' && ! Str::isUlid($normalizedId)) {
+        if ($this->isInvalidLegacyId($normalizedId)) {
             return true;
         }
 
-        $url = $value['url'] ?? null;
+        return $this->hasMismatchedLegacyUrl($value['url'] ?? null, $normalizedId);
+    }
 
+    private function isInvalidLegacyId(?string $id): bool
+    {
+        return $id !== null && $id !== '' && ! Str::isUlid($id);
+    }
+
+    private function hasMismatchedLegacyUrl(mixed $url, ?string $normalizedId): bool
+    {
         if (! is_string($url)) {
             return false;
         }
-
         if (preg_match('~^/api/study/media/([^/?#]+)$~', trim($url), $matches) !== 1) {
             return false;
         }
-
         if (! Str::isUlid($matches[1])) {
             return true;
         }
@@ -402,7 +454,10 @@ final class RepairLegacyStudyMediaReferencesAction
      */
     private function decodePayload(mixed $value, string $column, string $cardId): ?array
     {
-        if ($value === null || is_array($value)) {
+        if ($value === null) {
+            return null;
+        }
+        if (is_array($value)) {
             return $value;
         }
 
@@ -410,17 +465,24 @@ final class RepairLegacyStudyMediaReferencesAction
             throw new RuntimeException("Card [{$cardId}] has an invalid {$column} value.");
         }
 
-        try {
-            $decoded = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw new RuntimeException("Card [{$cardId}] has invalid {$column} JSON.", previous: $e);
+        $decoded = $this->decodeJsonPayload($value, $column, $cardId);
+        if ($decoded === null) {
+            return null;
         }
-
-        if ($decoded !== null && ! is_array($decoded)) {
+        if (! is_array($decoded)) {
             throw new RuntimeException("Card [{$cardId}] has a non-object {$column} payload.");
         }
 
         return $decoded;
+    }
+
+    private function decodeJsonPayload(string $value, string $column, string $cardId): mixed
+    {
+        try {
+            return json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new RuntimeException("Card [{$cardId}] has invalid {$column} JSON.", previous: $e);
+        }
     }
 
     private function encodePayload(?array $value): ?string

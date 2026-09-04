@@ -5,18 +5,13 @@ namespace App\Domain\Study\Data;
 use App\Domain\Calendar\Data\GoogleCalendarEvent;
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
-use App\Domain\Study\Support\GoogleCalendarEventIdentity;
 use App\Domain\Study\Support\StudyActivitySourceKey;
 use Carbon\CarbonImmutable;
-use DateTimeImmutable;
 use Illuminate\Support\Str;
-use Throwable;
 
 final readonly class GoogleCalendarStudyEvent
 {
     private const MAX_TITLE_LENGTH = 4096;
-
-    private const TIMESTAMP = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/';
 
     private function __construct(
         public string $title,
@@ -35,12 +30,7 @@ final readonly class GoogleCalendarStudyEvent
         CarbonImmutable $now,
     ): ?self {
         return self::make(
-            $event->status,
-            $event->summary,
-            self::timestamp($event->start?->dateTime),
-            self::timestamp($event->end?->dateTime),
-            $event->start?->date !== null || $event->end?->date !== null,
-            GoogleCalendarEventIdentity::sourceKey($event, $accountId, $calendarId),
+            GoogleCalendarStudyEventCandidate::fromProvider($event, $accountId, $calendarId),
             $settings,
             $now,
         );
@@ -51,16 +41,7 @@ final readonly class GoogleCalendarStudyEvent
         GoogleCalendarSettings $settings,
         CarbonImmutable $now,
     ): ?self {
-        return self::make(
-            $mirror->status,
-            $mirror->title,
-            $mirror->starts_at,
-            $mirror->ends_at,
-            $mirror->all_day,
-            StudyActivitySourceKey::tryFromCanonical($mirror->source_key),
-            $settings,
-            $now,
-        );
+        return self::make(GoogleCalendarStudyEventCandidate::fromMirror($mirror), $settings, $now);
     }
 
     public function ledgerName(): string
@@ -78,42 +59,55 @@ final readonly class GoogleCalendarStudyEvent
     }
 
     private static function make(
-        string $status,
-        mixed $title,
-        ?CarbonImmutable $start,
-        ?CarbonImmutable $end,
-        bool $allDay,
-        ?StudyActivitySourceKey $key,
+        GoogleCalendarStudyEventCandidate $candidate,
         GoogleCalendarSettings $settings,
         CarbonImmutable $now,
     ): ?self {
-        $title = GoogleCalendarSettings::trimInput($title, self::MAX_TITLE_LENGTH);
-        if ($status !== 'confirmed' || $allDay || ! is_string($title) || $title === ''
-            || mb_strlen($title, 'UTF-8') > self::MAX_TITLE_LENGTH || $start === null || $end === null || $key === null) {
-            return null;
-        }
-        $terms = $settings->matchedTerms($title);
-        $duration = $end->getTimestampMs() - $start->getTimestampMs();
-        if ($terms === [] || $duration <= 0 || $duration > StudyActivitySessionData::MAX_DURATION_MS || $end->isAfter($now)) {
+        $title = GoogleCalendarSettings::trimInput($candidate->title, self::MAX_TITLE_LENGTH);
+        if (self::isInvalidCandidate($candidate, $title)) {
             return null;
         }
 
-        return new self($title, $start->utc(), $end->utc(), $duration, $terms, $key);
+        $terms = $settings->matchedTerms($title);
+        $duration = $candidate->context->end->getTimestampMs() - $candidate->context->start->getTimestampMs();
+        if (self::isInvalidSession($terms, $duration, $candidate->context->end, $now)) {
+            return null;
+        }
+
+        return new self(
+            $title,
+            $candidate->context->start->utc(),
+            $candidate->context->end->utc(),
+            $duration,
+            $terms,
+            $candidate->context->key,
+        );
     }
 
-    private static function timestamp(?string $value): ?CarbonImmutable
-    {
-        if ($value === null || preg_match(self::TIMESTAMP, $value) !== 1) {
-            return null;
-        }
-        try {
-            $timestamp = new DateTimeImmutable($value);
-            $errors = DateTimeImmutable::getLastErrors();
+    private static function isInvalidCandidate(
+        GoogleCalendarStudyEventCandidate $candidate,
+        mixed $title,
+    ): bool {
+        return $candidate->status !== 'confirmed'
+            || $candidate->context->allDay
+            || ! is_string($title)
+            || $title === ''
+            || mb_strlen($title, 'UTF-8') > self::MAX_TITLE_LENGTH
+            || $candidate->context->start === null
+            || $candidate->context->end === null
+            || $candidate->context->key === null;
+    }
 
-            return is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)
-                ? null : CarbonImmutable::instance($timestamp);
-        } catch (Throwable) {
-            return null;
-        }
+    /** @param list<string> $terms */
+    private static function isInvalidSession(
+        array $terms,
+        int $duration,
+        CarbonImmutable $end,
+        CarbonImmutable $now,
+    ): bool {
+        return $terms === []
+            || $duration <= 0
+            || $duration > StudyActivitySessionData::MAX_DURATION_MS
+            || $end->isAfter($now);
     }
 }

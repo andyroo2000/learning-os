@@ -45,7 +45,41 @@ final class ListStudyLearningItemsAction
         $pageSize ??= CursorPageSize::fromDefaultPageSize();
         $searchPattern = $q === null ? null : CardSearchText::likePattern($q);
 
-        $representatives = Card::query()
+        $representatives = $this->representativeCardsQuery($userId, $searchPattern)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->cursorPaginate($pageSize->value());
+
+        /** @var Collection<int, Card> $representativeCards */
+        $representativeCards = collect($representatives->items());
+        $groupCards = $this->groupCards($userId, $representativeCards);
+
+        return [
+            'items' => $representativeCards
+                ->map(function (Card $representative) use ($groupCards): array {
+                    $groupId = $this->groupId($representative);
+                    /** @var Collection<int, Card> $cards */
+                    $cards = $groupId === null
+                        ? collect([$representative])
+                        : $groupCards->get($groupId, collect());
+
+                    // Keep the already-authorized representative visible if a concurrent
+                    // delete removes the family between the representative and family reads.
+                    if ($cards->isEmpty()) {
+                        $cards = collect([$representative]);
+                    }
+
+                    return $this->learningItem($representative, $groupId, $cards);
+                })
+                ->values(),
+            'nextCursor' => $representatives->nextCursor(),
+        ];
+    }
+
+    /** @return Builder<Card> */
+    private function representativeCardsQuery(int $userId, ?string $searchPattern): Builder
+    {
+        $query = Card::query()
             ->whereHas('deck', fn (Builder $query) => $query->where('user_id', $userId))
             ->where(function (Builder $query) use ($userId): void {
                 $query
@@ -84,90 +118,81 @@ final class ListStudyLearningItemsAction
                                     });
                             });
                     });
-            })
-            ->when($searchPattern !== null, function (Builder $query) use ($searchPattern, $userId): void {
-                $query->where(function (Builder $query) use ($searchPattern, $userId): void {
-                    $query
-                        ->where(function (Builder $ungrouped) use ($searchPattern): void {
-                            $ungrouped
-                                ->whereNull('cards.variant_group_id')
+            });
+
+        return $query->when(
+            $searchPattern !== null,
+            fn (Builder $query) => $this->applySearch($query, $userId, $searchPattern),
+        );
+    }
+
+    /** @return Builder<Card> */
+    private function applySearch(Builder $query, int $userId, string $searchPattern): Builder
+    {
+        return $query->where(function (Builder $query) use ($searchPattern, $userId): void {
+            $query
+                ->where(function (Builder $ungrouped) use ($searchPattern): void {
+                    $ungrouped
+                        ->whereNull('cards.variant_group_id')
+                        ->whereRaw(
+                            "lower(coalesce(cards.search_text, '')) like ? escape ?",
+                            [$searchPattern, '\\'],
+                        );
+                })
+                ->orWhere(function (Builder $grouped) use ($searchPattern, $userId): void {
+                    $grouped
+                        ->whereNotNull('cards.variant_group_id')
+                        ->whereExists(function ($matches) use ($searchPattern, $userId): void {
+                            $matches
+                                ->selectRaw('1')
+                                ->from('cards as matching_group_card')
+                                ->join(
+                                    'decks as matching_group_deck',
+                                    'matching_group_deck.id',
+                                    '=',
+                                    'matching_group_card.deck_id',
+                                )
+                                ->whereColumn(
+                                    'matching_group_card.variant_group_id',
+                                    'cards.variant_group_id',
+                                )
+                                ->where('matching_group_deck.user_id', $userId)
+                                ->whereNull('matching_group_deck.deleted_at')
+                                ->whereNull('matching_group_card.deleted_at')
                                 ->whereRaw(
-                                    "lower(coalesce(cards.search_text, '')) like ? escape ?",
+                                    "lower(coalesce(matching_group_card.search_text, '')) like ? escape ?",
                                     [$searchPattern, '\\'],
                                 );
-                        })
-                        ->orWhere(function (Builder $grouped) use ($searchPattern, $userId): void {
-                            $grouped
-                                ->whereNotNull('cards.variant_group_id')
-                                ->whereExists(function ($matches) use ($searchPattern, $userId): void {
-                                    $matches
-                                        ->selectRaw('1')
-                                        ->from('cards as matching_group_card')
-                                        ->join(
-                                            'decks as matching_group_deck',
-                                            'matching_group_deck.id',
-                                            '=',
-                                            'matching_group_card.deck_id',
-                                        )
-                                        ->whereColumn(
-                                            'matching_group_card.variant_group_id',
-                                            'cards.variant_group_id',
-                                        )
-                                        ->where('matching_group_deck.user_id', $userId)
-                                        ->whereNull('matching_group_deck.deleted_at')
-                                        ->whereNull('matching_group_card.deleted_at')
-                                        ->whereRaw(
-                                            "lower(coalesce(matching_group_card.search_text, '')) like ? escape ?",
-                                            [$searchPattern, '\\'],
-                                        );
-                                });
                         });
                 });
-            })
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->cursorPaginate($pageSize->value());
+        });
+    }
 
-        /** @var Collection<int, Card> $representativeCards */
-        $representativeCards = collect($representatives->items());
+    /**
+     * @param  Collection<int, Card>  $representativeCards
+     * @return Collection<string, Collection<int, Card>>
+     */
+    private function groupCards(int $userId, Collection $representativeCards): Collection
+    {
         $groupIds = $representativeCards
             ->map(fn (Card $card): ?string => $this->groupId($card))
             ->filter()
             ->unique()
             ->values();
 
-        $groupCards = $groupIds->isEmpty()
-            ? collect()
-            : Card::query()
-                ->whereHas('deck', fn (Builder $query) => $query->where('user_id', $userId))
-                ->whereIn('cards.variant_group_id', $groupIds->all())
-                ->orderByRaw('CASE WHEN cards.variant_stage IS NULL THEN 1 ELSE 0 END')
-                ->orderBy('cards.variant_stage')
-                ->orderByRaw('LOWER(cards.id)')
-                ->orderBy('cards.id')
-                ->get()
-                ->groupBy('variant_group_id');
+        if ($groupIds->isEmpty()) {
+            return collect();
+        }
 
-        return [
-            'items' => $representativeCards
-                ->map(function (Card $representative) use ($groupCards): array {
-                    $groupId = $this->groupId($representative);
-                    /** @var Collection<int, Card> $cards */
-                    $cards = $groupId === null
-                        ? collect([$representative])
-                        : $groupCards->get($groupId, collect());
-
-                    // Keep the already-authorized representative visible if a concurrent
-                    // delete removes the family between the representative and family reads.
-                    if ($cards->isEmpty()) {
-                        $cards = collect([$representative]);
-                    }
-
-                    return $this->learningItem($representative, $groupId, $cards);
-                })
-                ->values(),
-            'nextCursor' => $representatives->nextCursor(),
-        ];
+        return Card::query()
+            ->whereHas('deck', fn (Builder $query) => $query->where('user_id', $userId))
+            ->whereIn('cards.variant_group_id', $groupIds->all())
+            ->orderByRaw('CASE WHEN cards.variant_stage IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('cards.variant_stage')
+            ->orderByRaw('LOWER(cards.id)')
+            ->orderBy('cards.id')
+            ->get()
+            ->groupBy('variant_group_id');
     }
 
     private function groupId(Card $card): ?string
@@ -279,11 +304,7 @@ final class ListStudyLearningItemsAction
     /** @param Collection<int, Card> $cards */
     private function stageStatus(Collection $cards): ?string
     {
-        if ($cards->isNotEmpty() && $cards->every(
-            fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value
-                && $card->study_status === CardStudyStatus::Suspended
-                && $card->variant_retired_at !== null,
-        )) {
+        if ($this->isRetiredStage($cards)) {
             return self::RETIRED_STAGE_STATUS;
         }
 
@@ -303,5 +324,15 @@ final class ListStudyLearningItemsAction
         }
 
         return null;
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private function isRetiredStage(Collection $cards): bool
+    {
+        return $cards->isNotEmpty() && $cards->every(
+            fn (Card $card): bool => $card->variant_status === VocabVariantStatus::Locked->value
+                && $card->study_status === CardStudyStatus::Suspended
+                && $card->variant_retired_at !== null,
+        );
     }
 }

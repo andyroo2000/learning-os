@@ -16,37 +16,31 @@ class SyncMetadataTest extends TestCase
 
     public function test_it_requires_sync_metadata_fields_together(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
-
-        SyncMetadata::fromNullable(
-            clientEventId: 'event-123',
-            deviceId: null,
-            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        $this->assertNullableMetadataFails(
+            'Client event ID, device ID, and client created at must be provided together.',
+            'event-123',
+            null,
+            Carbon::parse('2026-05-27T09:14:00Z'),
         );
     }
 
     public function test_nullable_construction_requires_client_event_id_when_other_fields_are_present(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
-
-        SyncMetadata::fromNullable(
-            clientEventId: null,
-            deviceId: 'device-abc',
-            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        $this->assertNullableMetadataFails(
+            'Client event ID, device ID, and client created at must be provided together.',
+            null,
+            'device-abc',
+            Carbon::parse('2026-05-27T09:14:00Z'),
         );
     }
 
     public function test_nullable_construction_requires_client_created_at_when_other_fields_are_present(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Client event ID, device ID, and client created at must be provided together.');
-
-        SyncMetadata::fromNullable(
-            clientEventId: 'event-123',
-            deviceId: 'device-abc',
-            clientCreatedAt: null,
+        $this->assertNullableMetadataFails(
+            'Client event ID, device ID, and client created at must be provided together.',
+            'event-123',
+            'device-abc',
+            null,
         );
     }
 
@@ -81,26 +75,34 @@ class SyncMetadataTest extends TestCase
 
     public function test_nullable_construction_rejects_overlong_client_event_id(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Client event ID must not exceed '.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH.' characters.');
-
-        SyncMetadata::fromNullable(
-            clientEventId: str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH + 1),
-            deviceId: 'device-abc',
-            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        $this->assertNullableMetadataFails(
+            'Client event ID must not exceed '.SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH.' characters.',
+            str_repeat('a', SyncMetadata::MAX_CLIENT_EVENT_ID_LENGTH + 1),
+            'device-abc',
+            Carbon::parse('2026-05-27T09:14:00Z'),
         );
     }
 
     public function test_nullable_construction_rejects_overlong_device_id(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Device ID must not exceed '.SyncMetadata::MAX_DEVICE_ID_LENGTH.' characters.');
-
-        SyncMetadata::fromNullable(
-            clientEventId: 'event-123',
-            deviceId: str_repeat('a', SyncMetadata::MAX_DEVICE_ID_LENGTH + 1),
-            clientCreatedAt: Carbon::parse('2026-05-27T09:14:00Z'),
+        $this->assertNullableMetadataFails(
+            'Device ID must not exceed '.SyncMetadata::MAX_DEVICE_ID_LENGTH.' characters.',
+            'event-123',
+            str_repeat('a', SyncMetadata::MAX_DEVICE_ID_LENGTH + 1),
+            Carbon::parse('2026-05-27T09:14:00Z'),
         );
+    }
+
+    private function assertNullableMetadataFails(
+        string $expectedMessage,
+        ?string $clientEventId,
+        ?string $deviceId,
+        ?Carbon $clientCreatedAt,
+    ): void {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($expectedMessage);
+
+        SyncMetadata::fromNullable($clientEventId, $deviceId, $clientCreatedAt);
     }
 
     public function test_it_requires_metadata_for_required_construction(): void

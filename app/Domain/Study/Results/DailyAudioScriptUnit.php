@@ -113,40 +113,71 @@ final readonly class DailyAudioScriptUnit implements AudioScriptUnit
 
     private function validate(): void
     {
+        $this->validateType();
+        $this->validateMarker();
+        $this->validatePause();
+        $this->validateSpokenUnit();
+        $this->validateTargetLanguageSpeed();
+    }
+
+    private function validateType(): void
+    {
         if (! in_array($this->type, self::SUPPORTED_TYPES, true)) {
             throw new InvalidArgumentException('Unsupported daily audio script unit.');
         }
+    }
 
+    private function validateMarker(): void
+    {
         if ($this->type === 'marker' && $this->label === '') {
             throw new InvalidArgumentException('Marker units must include a label.');
         }
+    }
 
-        if ($this->type === 'pause' && (
-            $this->seconds === null
-            || ! is_finite($this->seconds)
-            || $this->seconds <= 0
-            || $this->seconds > self::MAX_PAUSE_SECONDS
-        )) {
+    private function validatePause(): void
+    {
+        if ($this->type !== 'pause') {
+            return;
+        }
+        if (! $this->hasValidTimingValue()) {
             throw new InvalidArgumentException('Pause units must have a positive duration.');
         }
+    }
 
-        if (in_array($this->type, ['narration_L1', 'L2'], true)) {
-            if ($this->text === '') {
-                throw new InvalidArgumentException('Spoken units must include text.');
-            }
-            if ($this->voiceId === '') {
-                throw new InvalidArgumentException('Spoken units must include a voice ID.');
-            }
+    private function validateSpokenUnit(): void
+    {
+        if (! in_array($this->type, ['narration_L1', 'L2'], true)) {
+            return;
         }
+        if ($this->text === '') {
+            throw new InvalidArgumentException('Spoken units must include text.');
+        }
+        if ($this->voiceId === '') {
+            throw new InvalidArgumentException('Spoken units must include a voice ID.');
+        }
+    }
 
-        if ($this->type === 'L2' && (
-            $this->speed === null
-            || ! is_finite($this->speed)
-            || $this->speed < self::MIN_SPEECH_SPEED
-            || $this->speed > self::MAX_SPEECH_SPEED
-        )) {
+    private function validateTargetLanguageSpeed(): void
+    {
+        if ($this->type !== 'L2') {
+            return;
+        }
+        if (! $this->hasValidTimingValue()) {
             throw new InvalidArgumentException('Target-language units must have a positive speed.');
         }
+    }
+
+    private function hasValidTimingValue(): bool
+    {
+        [$value, $minimum, $maximum, $inclusive] = $this->type === 'pause'
+            ? [$this->seconds, 0, self::MAX_PAUSE_SECONDS, false]
+            : [$this->speed, self::MIN_SPEECH_SPEED, self::MAX_SPEECH_SPEED, true];
+
+        if ($value === null || ! is_finite($value)) {
+            return false;
+        }
+
+        return ($inclusive ? $value >= $minimum : $value > $minimum) && $value <= $maximum;
     }
 
     private static function nullableTrimmed(?string $value): ?string

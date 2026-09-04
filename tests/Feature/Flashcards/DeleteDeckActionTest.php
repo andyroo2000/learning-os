@@ -53,55 +53,7 @@ class DeleteDeckActionTest extends TestCase
 
         // Checkpoint order is the sync feed replay contract: child card tombstones come first.
         foreach ($deletedCards as $index => $card) {
-            $entry = $entries[$index];
-
-            $this->assertNotNull($card->deleted_at);
-            $this->assertSame($deck->user_id, $entry->user_id);
-            $this->assertSame('flashcards', $entry->domain);
-            $this->assertSame('card', $entry->resource_type);
-            $this->assertSame($card->id, $entry->resource_id);
-            $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
-            $this->assertSame([
-                'id' => $card->id,
-                'deck_id' => $deck->id,
-                'course_id' => null,
-                'import_job_id' => null,
-                'source_kind' => null,
-                'source_card_id' => null,
-                'source_note_id' => null,
-                'source_deck_id' => null,
-                'source_notetype_name' => null,
-                'source_template_ord' => null,
-                'front_text' => $card->front_text,
-                'back_text' => $card->back_text,
-                'card_type' => 'recognition',
-                'prompt_json' => null,
-                'answer_json' => null,
-                'content_revision' => 0,
-                'search_text' => $card->search_text,
-                'study_status' => 'new',
-                'new_queue_position' => $card->new_queue_position,
-                'scheduler_state' => null,
-                'variant_group_id' => null,
-                'variant_sentence_id' => null,
-                'variant_kind' => null,
-                'variant_stage' => null,
-                'variant_status' => null,
-                'variant_unlock_requirement' => null,
-                'variant_unlocked_at' => null,
-                'variant_retired_at' => null,
-                'introduction_cohort_id' => null,
-                'selection_policy' => 'standard',
-                'priority_until' => null,
-                'introduction_available_at' => null,
-                'due_at' => null,
-                'introduced_at' => null,
-                'failed_at' => null,
-                'last_reviewed_at' => null,
-                'created_at' => $card->created_at?->toJSON(),
-                'updated_at' => $card->updated_at?->toJSON(),
-                'deleted_at' => $card->deleted_at?->toJSON(),
-            ], $entry->payload);
+            $this->assertCardDeleteEntry($deck, $card, $entries[$index]);
         }
 
         $entry = $this->assertDeckSyncPayloadRecorded($deck, SyncFeedOperation::Delete);
@@ -109,6 +61,57 @@ class DeleteDeckActionTest extends TestCase
         // The deck tombstone must replay after child card tombstones.
         $this->assertSame($entries->last()->getKey(), $entry->getKey());
         $this->assertFalse($entry->payload['is_manual_study_deck']);
+    }
+
+    private function assertCardDeleteEntry(Deck $deck, Card $card, SyncFeedEntry $entry): void
+    {
+        $this->assertNotNull($card->deleted_at);
+        $this->assertSame($deck->user_id, $entry->user_id);
+        $this->assertSame('flashcards', $entry->domain);
+        $this->assertSame('card', $entry->resource_type);
+        $this->assertSame($card->id, $entry->resource_id);
+        $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
+        $this->assertSame([
+            'id' => $card->id,
+            'deck_id' => $deck->id,
+            'course_id' => null,
+            'import_job_id' => null,
+            'source_kind' => null,
+            'source_card_id' => null,
+            'source_note_id' => null,
+            'source_deck_id' => null,
+            'source_notetype_name' => null,
+            'source_template_ord' => null,
+            'front_text' => $card->front_text,
+            'back_text' => $card->back_text,
+            'card_type' => 'recognition',
+            'prompt_json' => null,
+            'answer_json' => null,
+            'content_revision' => 0,
+            'search_text' => $card->search_text,
+            'study_status' => 'new',
+            'new_queue_position' => $card->new_queue_position,
+            'scheduler_state' => null,
+            'variant_group_id' => null,
+            'variant_sentence_id' => null,
+            'variant_kind' => null,
+            'variant_stage' => null,
+            'variant_status' => null,
+            'variant_unlock_requirement' => null,
+            'variant_unlocked_at' => null,
+            'variant_retired_at' => null,
+            'introduction_cohort_id' => null,
+            'selection_policy' => 'standard',
+            'priority_until' => null,
+            'introduction_available_at' => null,
+            'due_at' => null,
+            'introduced_at' => null,
+            'failed_at' => null,
+            'last_reviewed_at' => null,
+            'created_at' => $card->created_at?->toJSON(),
+            'updated_at' => $card->updated_at?->toJSON(),
+            'deleted_at' => $card->deleted_at?->toJSON(),
+        ], $entry->payload);
     }
 
     public function test_it_soft_deletes_an_empty_deck(): void

@@ -47,22 +47,7 @@ class CreateCourseAction
 
     public function handle(CreateCourseData $data): CreateCourseResult
     {
-        if ($data->title === '') {
-            throw new InvalidArgumentException('Course title is required.');
-        }
-
-        if ($data->nativeLanguage === '') {
-            throw new InvalidArgumentException('Course native language is required.');
-        }
-
-        if ($data->targetLanguage === '') {
-            throw new InvalidArgumentException('Course target language is required.');
-        }
-
-        if ($data->id !== null && ! Str::isUlid($data->id)) {
-            throw new InvalidArgumentException('Course ID must be a valid ULID.');
-        }
-
+        $this->validate($data);
         $description = self::normalizedDescription($data->description);
 
         if ($data->id !== null) {
@@ -77,24 +62,42 @@ class CreateCourseAction
         return $this->createNewCourse($data, $description);
     }
 
+    private function validate(CreateCourseData $data): void
+    {
+        $this->assertRequiredValues($data);
+        $this->assertValidClientId($data);
+    }
+
+    private function assertRequiredValues(CreateCourseData $data): void
+    {
+        if ($data->title === '') {
+            throw new InvalidArgumentException('Course title is required.');
+        }
+        if ($data->nativeLanguage === '') {
+            throw new InvalidArgumentException('Course native language is required.');
+        }
+        if ($data->targetLanguage === '') {
+            throw new InvalidArgumentException('Course target language is required.');
+        }
+    }
+
+    private function assertValidClientId(CreateCourseData $data): void
+    {
+        if ($data->id === null) {
+            return;
+        }
+        if (! Str::isUlid($data->id)) {
+            throw new InvalidArgumentException('Course ID must be a valid ULID.');
+        }
+    }
+
     /**
      * Manual transaction control keeps PostgreSQL primary-key race recovery outside
      * a failed transaction before refetching the winning course.
      */
     private function createNewCourse(CreateCourseData $data, ?string $description): CreateCourseResult
     {
-        $course = new Course([
-            'title' => $data->title,
-            'description' => $description,
-            'native_language' => $data->nativeLanguage,
-            'target_language' => $data->targetLanguage,
-        ]);
-        $course->user_id = $data->userId;
-        $course->status = CourseStatus::Draft;
-
-        if ($data->id !== null) {
-            $course->id = $data->id;
-        }
+        $course = $this->newCourse($data, $description);
 
         DB::beginTransaction();
 
@@ -113,22 +116,7 @@ class CreateCourseAction
         } catch (QueryException $exception) {
             DB::rollBack();
 
-            if ($data->id === null || ! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'courses')) {
-                throw $exception;
-            }
-
-            if ($this->afterClientIdUniqueConflict !== null) {
-                ($this->afterClientIdUniqueConflict)($data, $exception);
-            }
-
-            // Re-read by primary key first; matchingExistingCourse hides cross-user collisions after recovery.
-            $existingCourse = Course::withTrashed()->find($data->id);
-
-            if ($existingCourse === null) {
-                throw $exception;
-            }
-
-            return CreateCourseResult::existing($this->matchingExistingCourse($existingCourse, $data, $description));
+            return $this->recoverClientIdConflict($data, $description, $exception);
         } catch (Throwable $exception) {
             DB::rollBack();
 
@@ -138,6 +126,48 @@ class CreateCourseAction
         DB::commit();
 
         return CreateCourseResult::created($course);
+    }
+
+    private function recoverClientIdConflict(
+        CreateCourseData $data,
+        ?string $description,
+        QueryException $exception,
+    ): CreateCourseResult {
+        if ($data->id === null) {
+            throw $exception;
+        }
+        if (! IntegrityConstraintViolation::matchesPrimaryKey($exception, 'courses')) {
+            throw $exception;
+        }
+        if ($this->afterClientIdUniqueConflict !== null) {
+            ($this->afterClientIdUniqueConflict)($data, $exception);
+        }
+
+        // Re-read by primary key first; matchingExistingCourse hides cross-user collisions after recovery.
+        $existingCourse = Course::withTrashed()->find($data->id);
+        if ($existingCourse === null) {
+            throw $exception;
+        }
+
+        return CreateCourseResult::existing($this->matchingExistingCourse($existingCourse, $data, $description));
+    }
+
+    private function newCourse(CreateCourseData $data, ?string $description): Course
+    {
+        $course = new Course([
+            'title' => $data->title,
+            'description' => $description,
+            'native_language' => $data->nativeLanguage,
+            'target_language' => $data->targetLanguage,
+        ]);
+        $course->user_id = $data->userId;
+        $course->status = CourseStatus::Draft;
+
+        if ($data->id !== null) {
+            $course->id = $data->id;
+        }
+
+        return $course;
     }
 
     private static function normalizedDescription(?string $description): ?string
@@ -151,17 +181,29 @@ class CreateCourseAction
             throw CourseConflictException::deleted($course);
         }
 
-        // Status is server-controlled after creation and must not block idempotent retries.
-        if (
-            $course->user_id !== $data->userId
-            || $course->title !== $data->title
-            || $course->description !== $description
-            || $course->native_language !== $data->nativeLanguage
-            || $course->target_language !== $data->targetLanguage
-        ) {
+        if (! $this->hasMatchingIdentity($course, $data, $description)) {
             throw CourseConflictException::conflict($course);
         }
 
         return $course;
+    }
+
+    /** Status is server-controlled after creation and must not block idempotent retries. */
+    private function hasMatchingIdentity(Course $course, CreateCourseData $data, ?string $description): bool
+    {
+        if ($course->user_id !== $data->userId) {
+            return false;
+        }
+        if ($course->title !== $data->title) {
+            return false;
+        }
+        if ($course->description !== $description) {
+            return false;
+        }
+        if ($course->native_language !== $data->nativeLanguage) {
+            return false;
+        }
+
+        return $course->target_language === $data->targetLanguage;
     }
 }

@@ -14,6 +14,7 @@ use App\Domain\Study\Data\GoogleCalendarStudyEvent;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Models\StudyActivitySession;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 final class PreviewGoogleCalendarEventsAction
 {
@@ -29,6 +30,18 @@ final class PreviewGoogleCalendarEventsAction
 
     private const MAX_MATCHES = 200;
 
+    private string $token;
+
+    private GoogleCalendarSettings $settings;
+
+    private string $providerAccountId;
+
+    private Collection $availableCalendars;
+
+    private CarbonImmutable $startsAt;
+
+    private CarbonImmutable $generatedAt;
+
     public function __construct(
         private ListReadableGoogleCalendarsAction $listCalendars,
         private GetGoogleCalendarAccessTokenAction $accessToken,
@@ -41,70 +54,142 @@ final class PreviewGoogleCalendarEventsAction
         $generatedAt = CarbonImmutable::instance(now())->utc();
         $startsAt = $generatedAt->subDays(self::WINDOW_DAYS);
         $connection = GoogleCalendarConnection::query()->where('user_id', $userId)->firstOrFail();
-        $token = $this->accessToken->handle($userId);
-        $available = collect($this->listCalendars->handle($userId, $token)['calendars'])->keyBy('id');
-        foreach ($settings->calendarIds as $calendarId) {
-            if (! $available->has($calendarId)) {
+        $this->token = $this->accessToken->handle($userId);
+        $this->settings = $settings;
+        $this->providerAccountId = $connection->provider_account_id;
+        $this->availableCalendars = collect(
+            $this->listCalendars->handle($userId, $this->token)['calendars'],
+        )->keyBy('id');
+        $this->startsAt = $startsAt;
+        $this->generatedAt = $generatedAt;
+        $this->assertCalendarsAvailable();
+        $scan = $this->scanCalendars();
+        $matches = $scan['matches'];
+        $this->sortMatches($matches);
+        $matchedCount = count($matches);
+        $truncated = $scan['truncated'] || $matchedCount > self::MAX_MATCHES;
+        $matches = array_slice($matches, 0, self::MAX_MATCHES);
+        $this->markAlreadySynced($userId, $matches);
+
+        return [
+            'generatedAt' => $generatedAt->toIso8601ZuluString(), 'startsAt' => $startsAt->toIso8601ZuluString(),
+            'endsAt' => $generatedAt->toIso8601ZuluString(), 'scannedEventCount' => $scan['scanned'],
+            'matchedEventCount' => $matchedCount, 'truncated' => $truncated, 'matches' => $matches,
+        ];
+    }
+
+    private function assertCalendarsAvailable(): void
+    {
+        foreach ($this->settings->calendarIds as $calendarId) {
+            if (! $this->availableCalendars->has($calendarId)) {
                 throw new GoogleCalendarSelectionException;
             }
         }
+    }
 
-        $matches = [];
-        $scanned = 0;
-        $requests = 0;
-        $truncated = false;
-        foreach ($settings->calendarIds as $calendarId) {
-            $pageToken = null;
-            for ($page = 0; $page < self::MAX_PAGES_PER_CALENDAR; $page++) {
-                if ($requests === self::MAX_EVENT_REQUESTS || $scanned === self::MAX_SCANNED_EVENTS) {
-                    $truncated = true;
-                    break 2;
-                }
-                // Google timeMin/timeMax select overlaps. Preserve real boundaries
-                // and duration; later synchronization must not clip the event.
-                $result = $this->google->events($token, $calendarId, new GoogleCalendarEventQuery(
-                    timeMin: $startsAt->toIso8601ZuluString(),
-                    timeMax: $generatedAt->toIso8601ZuluString(),
-                    pageToken: $pageToken,
-                    maxResults: min(self::PAGE_SIZE, self::MAX_SCANNED_EVENTS - $scanned),
-                ));
-                $requests++;
-                foreach ($result->items as $event) {
-                    if ($scanned === self::MAX_SCANNED_EVENTS) {
-                        $truncated = true;
-                        break 3;
-                    }
-                    $scanned++;
-                    if ($event instanceof GoogleCalendarEvent) {
-                        $event = GoogleCalendarStudyEvent::fromProvider(
-                            $event, $settings, $connection->provider_account_id, $calendarId, $generatedAt,
-                        );
-                        if ($event !== null) {
-                            $matches[] = [
-                                'calendarId' => $calendarId, 'calendarName' => $available[$calendarId]['name'], 'title' => $event->title,
-                                'startsAt' => $event->startsAt->toIso8601ZuluString(), 'endsAt' => $event->endsAt->toIso8601ZuluString(),
-                                'durationMs' => $event->durationMs, 'matchedTerms' => $event->matchedTerms, '_sourceKey' => $event->sourceKey->value,
-                            ];
-                        }
-                    }
-                }
-                $pageToken = $result->nextPageToken;
-                if ($pageToken === null) {
-                    break;
-                }
-                if ($page === self::MAX_PAGES_PER_CALENDAR - 1) {
-                    $truncated = true;
-                }
+    /** @return array{matches: list<array<string, mixed>>, scanned: int, requests: int, truncated: bool} */
+    private function scanCalendars(): array
+    {
+        $scan = ['matches' => [], 'scanned' => 0, 'requests' => 0, 'truncated' => false];
+        foreach ($this->settings->calendarIds as $calendarId) {
+            if (! $this->scanCalendar($scan, $calendarId)) {
+                break;
             }
         }
 
+        return $scan;
+    }
+
+    /** @param array{matches: list<array<string, mixed>>, scanned: int, requests: int, truncated: bool} $scan */
+    private function scanCalendar(
+        array &$scan,
+        string $calendarId,
+    ): bool {
+        $pageToken = null;
+        for ($page = 0; $page < self::MAX_PAGES_PER_CALENDAR; $page++) {
+            if ($scan['requests'] === self::MAX_EVENT_REQUESTS || $scan['scanned'] === self::MAX_SCANNED_EVENTS) {
+                $scan['truncated'] = true;
+
+                return false;
+            }
+            // Google timeMin/timeMax select overlaps. Preserve real boundaries
+            // and duration; later synchronization must not clip the event.
+            $result = $this->google->events($this->token, $calendarId, new GoogleCalendarEventQuery(
+                timeMin: $this->startsAt->toIso8601ZuluString(),
+                timeMax: $this->generatedAt->toIso8601ZuluString(),
+                pageToken: $pageToken,
+                maxResults: min(self::PAGE_SIZE, self::MAX_SCANNED_EVENTS - $scan['scanned']),
+            ));
+            $scan['requests']++;
+            if (! $this->scanEvents($scan, $result->items, $calendarId)) {
+                return false;
+            }
+            $pageToken = $result->nextPageToken;
+            if ($pageToken === null) {
+                return true;
+            }
+            if ($page === self::MAX_PAGES_PER_CALENDAR - 1) {
+                $scan['truncated'] = true;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array{matches: list<array<string, mixed>>, scanned: int, requests: int, truncated: bool}  $scan
+     * @param  list<mixed>  $events
+     */
+    private function scanEvents(array &$scan, array $events, string $calendarId): bool
+    {
+        foreach ($events as $event) {
+            if ($scan['scanned'] === self::MAX_SCANNED_EVENTS) {
+                $scan['truncated'] = true;
+
+                return false;
+            }
+            $scan['scanned']++;
+            $match = $this->calendarMatch($event, $calendarId);
+            if ($match !== null) {
+                $scan['matches'][] = $match;
+            }
+        }
+
+        return true;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function calendarMatch(
+        mixed $event,
+        string $calendarId,
+    ): ?array {
+        if (! $event instanceof GoogleCalendarEvent) {
+            return null;
+        }
+        $event = GoogleCalendarStudyEvent::fromProvider(
+            $event, $this->settings, $this->providerAccountId, $calendarId, $this->generatedAt,
+        );
+        if ($event === null) {
+            return null;
+        }
+
+        return [
+            'calendarId' => $calendarId, 'calendarName' => $this->availableCalendars[$calendarId]['name'], 'title' => $event->title,
+            'startsAt' => $event->startsAt->toIso8601ZuluString(), 'endsAt' => $event->endsAt->toIso8601ZuluString(),
+            'durationMs' => $event->durationMs, 'matchedTerms' => $event->matchedTerms, '_sourceKey' => $event->sourceKey->value,
+        ];
+    }
+
+    /** @param list<array<string, mixed>> $matches */
+    private function sortMatches(array &$matches): void
+    {
         usort($matches, static fn (array $a, array $b): int => ($b['startsAt'] <=> $a['startsAt'])
             ?: ($b['endsAt'] <=> $a['endsAt']) ?: ($a['calendarId'] <=> $b['calendarId']) ?: ($a['_sourceKey'] <=> $b['_sourceKey']));
-        $matchedCount = count($matches);
-        if ($matchedCount > self::MAX_MATCHES) {
-            $truncated = true;
-        }
-        $matches = array_slice($matches, 0, self::MAX_MATCHES);
+    }
+
+    /** @param list<array<string, mixed>> $matches */
+    private function markAlreadySynced(int $userId, array &$matches): void
+    {
         $sourceKeys = array_values(array_unique(array_column($matches, '_sourceKey')));
         $synced = StudyActivitySession::query()
             ->where('user_id', $userId)
@@ -115,11 +200,5 @@ final class PreviewGoogleCalendarEventsAction
             $match['alreadySynced'] = $synced->has($match['_sourceKey']);
             unset($match['_sourceKey']);
         }
-
-        return [
-            'generatedAt' => $generatedAt->toIso8601ZuluString(), 'startsAt' => $startsAt->toIso8601ZuluString(),
-            'endsAt' => $generatedAt->toIso8601ZuluString(), 'scannedEventCount' => $scanned,
-            'matchedEventCount' => $matchedCount, 'truncated' => $truncated, 'matches' => $matches,
-        ];
     }
 }

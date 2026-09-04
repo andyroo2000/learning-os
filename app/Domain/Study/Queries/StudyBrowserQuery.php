@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\CardSearchText;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
@@ -103,6 +104,29 @@ final class StudyBrowserQuery
         ?string $deckId,
         Collection $groupRows,
     ): Collection {
+        [$convoLabNoteIds, $sourceNoteIds, $unsourcedCardIds] = $this->groupIds($groupRows);
+
+        if ([$convoLabNoteIds, $sourceNoteIds, $unsourcedCardIds] === [[], [], []]) {
+            return new Collection;
+        }
+
+        $query = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId)
+            ->where(fn (Builder $query) => $this->applyGroupFilters(
+                $query,
+                $convoLabNoteIds,
+                $sourceNoteIds,
+                $unsourcedCardIds,
+            ));
+
+        return $this->cardsWithReviewCounts($query);
+    }
+
+    /**
+     * @param  Collection<int, object{convolab_note_id: string|null, source_note_id: int|string|null, unsourced_card_id: string|null}>  $groupRows
+     * @return array{list<string>, list<int>, list<string>}
+     */
+    private function groupIds(Collection $groupRows): array
+    {
         $convoLabNoteIds = $groupRows
             ->pluck('convolab_note_id')
             ->filter(fn (mixed $noteId): bool => is_string($noteId) && $noteId !== '')
@@ -125,45 +149,53 @@ final class StudyBrowserQuery
             ->values()
             ->all();
 
-        if ($convoLabNoteIds === [] && $sourceNoteIds === [] && $unsourcedCardIds === []) {
-            return new Collection;
+        return [$convoLabNoteIds, $sourceNoteIds, $unsourcedCardIds];
+    }
+
+    /**
+     * @param  list<string>  $convoLabNoteIds
+     * @param  list<int>  $sourceNoteIds
+     * @param  list<string>  $unsourcedCardIds
+     */
+    private function applyGroupFilters(
+        Builder $query,
+        array $convoLabNoteIds,
+        array $sourceNoteIds,
+        array $unsourcedCardIds,
+    ): void {
+        $hasPreviousGroup = false;
+        if ($convoLabNoteIds !== []) {
+            $query->whereIn('cards.convolab_note_id', $convoLabNoteIds);
+            $hasPreviousGroup = true;
         }
 
-        $query = $this->browserCardQuery($userId, $q, $noteType, $cardType, $queueState, $courseId, $deckId)
-            ->where(function (Builder $query) use ($convoLabNoteIds, $sourceNoteIds, $unsourcedCardIds): void {
-                if ($convoLabNoteIds !== []) {
-                    $query->whereIn('cards.convolab_note_id', $convoLabNoteIds);
-                }
+        if ($sourceNoteIds !== []) {
+            $matchSourceNotes = fn (Builder $query) => $query
+                ->whereNull('cards.convolab_note_id')
+                ->whereIn('cards.source_note_id', $sourceNoteIds);
+            $this->addGroupClause($query, $hasPreviousGroup, $matchSourceNotes);
+            $hasPreviousGroup = true;
+        }
 
-                if ($sourceNoteIds !== []) {
-                    $matchSourceNotes = fn (Builder $query) => $query
-                        ->whereNull('cards.convolab_note_id')
-                        ->whereIn('cards.source_note_id', $sourceNoteIds);
+        if ($unsourcedCardIds !== []) {
+            $matchUnsourcedCards = fn (Builder $query) => $query
+                ->whereNull('cards.convolab_note_id')
+                ->whereNull('cards.source_note_id')
+                ->whereIn('cards.id', $unsourcedCardIds);
+            $this->addGroupClause($query, $hasPreviousGroup, $matchUnsourcedCards);
+        }
+    }
 
-                    if ($convoLabNoteIds === []) {
-                        $query->where($matchSourceNotes);
-                    } else {
-                        $query->orWhere($matchSourceNotes);
-                    }
-                }
+    /** @param  Closure(Builder): mixed  $clause */
+    private function addGroupClause(Builder $query, bool $useOr, Closure $clause): void
+    {
+        if ($useOr) {
+            $query->orWhere($clause);
 
-                if ($unsourcedCardIds !== []) {
-                    $matchUnsourcedCards = function (Builder $query) use ($unsourcedCardIds): void {
-                        $query
-                            ->whereNull('cards.convolab_note_id')
-                            ->whereNull('cards.source_note_id')
-                            ->whereIn('cards.id', $unsourcedCardIds);
-                    };
+            return;
+        }
 
-                    if ($convoLabNoteIds === [] && $sourceNoteIds === []) {
-                        $query->where($matchUnsourcedCards);
-                    } else {
-                        $query->orWhere($matchUnsourcedCards);
-                    }
-                }
-            });
-
-        return $this->cardsWithReviewCounts($query);
+        $query->where($clause);
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Domain\Study\Results\DailyAudioDrillEnhancement;
 use App\Domain\Study\Results\DailyAudioDrillGenerationResult;
 use App\Domain\Study\Results\DailyAudioLearningAtom;
 use App\Domain\Study\Results\DailyAudioScriptUnit;
+use App\Domain\Study\Support\DailyAudioDrillVoices;
 use App\Domain\Study\Support\DailyAudioJapaneseText;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use Illuminate\Support\Collection;
@@ -86,12 +87,12 @@ class DailyAudioDrillScriptGenerator
         }
 
         $enhancements = $this->enhancer->enhance($atoms);
+        $voices = new DailyAudioDrillVoices($l1VoiceId, $l2VoiceId);
 
         return $this->buildScript(
             $atoms,
             $enhancements,
-            $l1VoiceId,
-            $l2VoiceId,
+            $voices,
             $targetDurationMinutes,
         );
     }
@@ -103,111 +104,162 @@ class DailyAudioDrillScriptGenerator
     private function buildScript(
         Collection $atoms,
         array $enhancements,
-        string $l1VoiceId,
-        string $l2VoiceId,
+        DailyAudioDrillVoices $voices,
         int $targetDurationMinutes,
     ): DailyAudioDrillGenerationResult {
-        $units = collect([
-            DailyAudioScriptUnit::marker('Daily Audio Practice - Drills'),
-            DailyAudioScriptUnit::narration(
-                "Daily Audio Practice. We'll start with recognition drills, then switch to production drills.",
-                $l1VoiceId,
-            ),
-            DailyAudioScriptUnit::pause(1),
-        ]);
-        $promptLadders = [];
-        $seenJapanese = [];
-        $metadata = [
-            'enhancedAtomCount' => 0,
-            'generatedPromptCount' => 0,
-            'fallbackPromptCount' => 0,
-            'missingCueCount' => 0,
-            'totalPromptCount' => 0,
-            'unitCount' => 0,
-            'l2UnitCount' => 0,
-            'l2UnitsWithReadingCount' => 0,
-            'l2UnitsMissingReadingCount' => 0,
-            'targetDurationMinutes' => $targetDurationMinutes,
-            'availablePromptCount' => 0,
-            'estimatedDurationSeconds' => 0,
-            'durationContentExhausted' => false,
-        ];
-
-        foreach ($atoms as $atom) {
-            $enhancement = $enhancements[$atom->cardId] ?? null;
-            $built = $this->prompts($atom, $enhancement);
-            if ($built['enhanced']) {
-                $metadata['enhancedAtomCount']++;
-            }
-            $metadata['missingCueCount'] += $built['missingCueCount'];
-
-            $ladder = [];
-            foreach ($built['prompts'] as $prompt) {
-                $key = preg_replace('/\s+/u', '', $prompt['japanese']);
-                $key = is_string($key) ? $key : $prompt['japanese'];
-                if (isset($seenJapanese[$key])) {
-                    continue;
-                }
-                $seenJapanese[$key] = true;
-                $ladder[] = $prompt;
-            }
-            if ($ladder !== []) {
-                $promptLadders[] = $ladder;
-            }
-        }
-
-        $availablePrompts = $this->roundRobinPrompts($promptLadders);
+        $units = $this->initialUnits($voices);
+        $built = $this->buildPromptLadders($atoms, $enhancements);
+        $availablePrompts = $this->roundRobinPrompts($built['ladders']);
         $prompts = $this->promptsForDuration(
             $availablePrompts,
             $targetDurationMinutes,
-            $l1VoiceId,
+            $voices,
         );
-        foreach ($prompts as $prompt) {
-            $metadata[$prompt['source'] === 'generated'
-                ? 'generatedPromptCount'
-                : 'fallbackPromptCount']++;
-        }
-        $metadata['availablePromptCount'] = count($availablePrompts);
-        $metadata['totalPromptCount'] = count($prompts);
-        $metadata['durationContentExhausted'] = count($prompts) === count($availablePrompts);
+        $this->appendDrills($units, $prompts, $voices);
+        $metadata = $this->scriptMetadata(
+            $units,
+            [
+                'prompts' => $prompts,
+                'available_prompts' => $availablePrompts,
+                'built' => $built,
+            ],
+            $targetDurationMinutes,
+        );
 
+        return new DailyAudioDrillGenerationResult($units, $metadata);
+    }
+
+    /** @return Collection<int, DailyAudioScriptUnit> */
+    private function initialUnits(DailyAudioDrillVoices $voices): Collection
+    {
+        return collect([
+            DailyAudioScriptUnit::marker('Daily Audio Practice - Drills'),
+            DailyAudioScriptUnit::narration(
+                "Daily Audio Practice. We'll start with recognition drills, then switch to production drills.",
+                $voices->narrator,
+            ),
+            DailyAudioScriptUnit::pause(1),
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, DailyAudioLearningAtom>  $atoms
+     * @param  array<string, DailyAudioDrillEnhancement>  $enhancements
+     * @return array{ladders: list<list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>>, enhanced_count: int, missing_cue_count: int}
+     */
+    private function buildPromptLadders(Collection $atoms, array $enhancements): array
+    {
+        $ladders = [];
+        $seenJapanese = [];
+        $enhancedCount = 0;
+        $missingCueCount = 0;
+
+        foreach ($atoms as $atom) {
+            $built = $this->prompts($atom, $enhancements[$atom->cardId] ?? null);
+            $enhancedCount += $built['enhanced'] ? 1 : 0;
+            $missingCueCount += $built['missingCueCount'];
+            $ladder = $this->uniquePromptLadder($built['prompts'], $seenJapanese);
+            if ($ladder !== []) {
+                $ladders[] = $ladder;
+            }
+        }
+
+        return [
+            'ladders' => $ladders,
+            'enhanced_count' => $enhancedCount,
+            'missing_cue_count' => $missingCueCount,
+        ];
+    }
+
+    /**
+     * @param  list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>  $prompts
+     * @param  array<string, true>  $seenJapanese
+     * @return list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>
+     */
+    private function uniquePromptLadder(array $prompts, array &$seenJapanese): array
+    {
+        $ladder = [];
+        foreach ($prompts as $prompt) {
+            $key = preg_replace('/\s+/u', '', $prompt['japanese']);
+            $key = is_string($key) ? $key : $prompt['japanese'];
+            if (isset($seenJapanese[$key])) {
+                continue;
+            }
+            $seenJapanese[$key] = true;
+            $ladder[] = $prompt;
+        }
+
+        return $ladder;
+    }
+
+    /**
+     * @param  Collection<int, DailyAudioScriptUnit>  $units
+     * @param  list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>  $prompts
+     */
+    private function appendDrills(Collection $units, array $prompts, DailyAudioDrillVoices $voices): void
+    {
         $units->push(DailyAudioScriptUnit::marker('Recognition drills'));
         foreach ($prompts as $prompt) {
-            $this->pushRecognitionPrompt($units, $prompt, $l1VoiceId, $l2VoiceId);
+            $this->pushRecognitionPrompt($units, $prompt, $voices);
         }
 
         $units->push(
             DailyAudioScriptUnit::marker('Production drills'),
             DailyAudioScriptUnit::narration(
                 'Now the order reverses. Listen to the English prompt, then say the Japanese before the answer.',
-                $l1VoiceId,
+                $voices->narrator,
             ),
             DailyAudioScriptUnit::pause(1),
         );
         foreach ($prompts as $prompt) {
-            $this->pushProductionPrompt($units, $prompt, $l1VoiceId, $l2VoiceId);
+            $this->pushProductionPrompt($units, $prompt, $voices);
         }
 
         $units->push(DailyAudioScriptUnit::narration(
             'Drill track complete. Nice work.',
-            $l1VoiceId,
+            $voices->narrator,
         ));
+    }
 
-        $metadata['unitCount'] = $units->count();
-        $metadata['estimatedDurationSeconds'] = (int) round(
-            $this->estimatedScriptDurationSeconds($units),
+    /**
+     * @param  Collection<int, DailyAudioScriptUnit>  $units
+     * @param  array{prompts: list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>, available_prompts: list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>, built: array{ladders: list<list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>>, enhanced_count: int, missing_cue_count: int}}  $script
+     * @return array<string, int|bool>
+     */
+    private function scriptMetadata(
+        Collection $units,
+        array $script,
+        int $targetDurationMinutes,
+    ): array {
+        $prompts = $script['prompts'];
+        $availablePrompts = $script['available_prompts'];
+        $built = $script['built'];
+        $l2Units = $units->filter(
+            static fn (DailyAudioScriptUnit $unit): bool => $unit->type === 'L2',
         );
-        foreach ($units as $unit) {
-            if ($unit->type !== 'L2') {
-                continue;
-            }
-            $metadata['l2UnitCount']++;
-            $metadata[$unit->reading === null
-                ? 'l2UnitsMissingReadingCount'
-                : 'l2UnitsWithReadingCount']++;
-        }
+        $l2UnitsMissingReading = $l2Units->filter(
+            static fn (DailyAudioScriptUnit $unit): bool => $unit->reading === null,
+        )->count();
 
-        return new DailyAudioDrillGenerationResult($units, $metadata);
+        return [
+            'enhancedAtomCount' => $built['enhanced_count'],
+            'generatedPromptCount' => collect($prompts)
+                ->filter(static fn (array $prompt): bool => $prompt['source'] === 'generated')
+                ->count(),
+            'fallbackPromptCount' => collect($prompts)
+                ->filter(static fn (array $prompt): bool => $prompt['source'] === 'fallback')
+                ->count(),
+            'missingCueCount' => $built['missing_cue_count'],
+            'totalPromptCount' => count($prompts),
+            'unitCount' => $units->count(),
+            'l2UnitCount' => $l2Units->count(),
+            'l2UnitsWithReadingCount' => $l2Units->count() - $l2UnitsMissingReading,
+            'l2UnitsMissingReadingCount' => $l2UnitsMissingReading,
+            'targetDurationMinutes' => $targetDurationMinutes,
+            'availablePromptCount' => count($availablePrompts),
+            'estimatedDurationSeconds' => (int) round($this->estimatedScriptDurationSeconds($units)),
+            'durationContentExhausted' => count($prompts) === count($availablePrompts),
+        ];
     }
 
     /**
@@ -240,21 +292,21 @@ class DailyAudioDrillScriptGenerator
     private function promptsForDuration(
         array $availablePrompts,
         int $targetDurationMinutes,
-        string $l1VoiceId,
+        DailyAudioDrillVoices $voices,
     ): array {
         $targetSeconds = $targetDurationMinutes * 60;
         $fixedUnits = collect([
             DailyAudioScriptUnit::narration(
                 "Daily Audio Practice. We'll start with recognition drills, then switch to production drills.",
-                $l1VoiceId,
+                $voices->narrator,
             ),
             DailyAudioScriptUnit::pause(1),
             DailyAudioScriptUnit::narration(
                 'Now the order reverses. Listen to the English prompt, then say the Japanese before the answer.',
-                $l1VoiceId,
+                $voices->narrator,
             ),
             DailyAudioScriptUnit::pause(1),
-            DailyAudioScriptUnit::narration('Drill track complete. Nice work.', $l1VoiceId),
+            DailyAudioScriptUnit::narration('Drill track complete. Nice work.', $voices->narrator),
         ]);
         $estimatedSeconds = $this->estimatedScriptDurationSeconds($fixedUnits);
         $selected = [];
@@ -262,9 +314,11 @@ class DailyAudioDrillScriptGenerator
         foreach ($availablePrompts as $prompt) {
             $promptSeconds = $this->estimatedPromptDurationSeconds($prompt);
             $nextSeconds = $estimatedSeconds + $promptSeconds;
-            if ($selected !== []
-                && $nextSeconds > $targetSeconds
-                && abs($targetSeconds - $estimatedSeconds) <= abs($nextSeconds - $targetSeconds)) {
+            if ($this->shouldStopBeforePrompt($selected, [
+                'target' => $targetSeconds,
+                'current' => $estimatedSeconds,
+                'next' => $nextSeconds,
+            ])) {
                 break;
             }
 
@@ -276,6 +330,23 @@ class DailyAudioDrillScriptGenerator
         }
 
         return $selected;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $selected
+     * @param  array{target: float|int, current: float|int, next: float|int}  $duration
+     */
+    private function shouldStopBeforePrompt(array $selected, array $duration): bool
+    {
+        if ($selected === []) {
+            return false;
+        }
+        if ($duration['next'] <= $duration['target']) {
+            return false;
+        }
+
+        return abs($duration['target'] - $duration['current'])
+            <= abs($duration['next'] - $duration['target']);
     }
 
     /**
@@ -357,31 +428,71 @@ class DailyAudioDrillScriptGenerator
             ?? DailyAudioJapaneseText::safeEnglish($atom->english)
             ?? DailyAudioJapaneseText::safeEnglish($atom->exampleEn);
         $target = DailyAudioJapaneseText::normalizeDisplay($atom->targetText, $atom->reading);
-        $prompts = [];
         $hasGeneratedContent = $enhancement?->hasGeneratedContent() ?? false;
-        $hasGeneratedAnchor = $enhancement?->exampleJp !== null
-            && $enhancement->exampleEn !== null;
-        $exampleJp = $enhancement?->exampleJp ?? $atom->exampleJp;
-        $exampleEn = $enhancement?->exampleEn
-            ?? DailyAudioJapaneseText::safeEnglish($atom->exampleEn);
-
-        if ($exampleJp !== null && $exampleEn !== null) {
-            $example = DailyAudioJapaneseText::normalizeDisplay(
-                $exampleJp,
-                $enhancement?->exampleReading
-                    ?? ($exampleJp === $atom->targetText ? $atom->reading : null),
-            );
-            if ($example !== null) {
-                $prompts[] = [
-                    'label' => 'Anchor: '.$this->labelTarget($atom),
-                    'japanese' => $example['text'],
-                    'reading' => $example['reading'] ?? null,
-                    'english' => $exampleEn,
-                    'source' => $hasGeneratedAnchor ? 'generated' : 'fallback',
-                ];
-            }
+        $hasGeneratedAnchor = $this->hasGeneratedAnchor($enhancement);
+        $prompts = $this->anchorPrompt($atom, $enhancement, $hasGeneratedAnchor);
+        array_push($prompts, ...$this->variationPrompts($atom, $enhancement));
+        $fallback = $this->fallbackPrompt($atom, $cueText, $target, $hasGeneratedAnchor);
+        if ($fallback !== null) {
+            array_unshift($prompts, $fallback);
         }
 
+        return [
+            'prompts' => $prompts,
+            'enhanced' => $hasGeneratedContent,
+            'missingCueCount' => $this->missingCueCount($cueText, $hasGeneratedContent),
+        ];
+    }
+
+    private function hasGeneratedAnchor(?DailyAudioDrillEnhancement $enhancement): bool
+    {
+        if ($enhancement?->exampleJp === null) {
+            return false;
+        }
+
+        return $enhancement->exampleEn !== null;
+    }
+
+    /**
+     * @return list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'|'fallback'}>
+     */
+    private function anchorPrompt(
+        DailyAudioLearningAtom $atom,
+        ?DailyAudioDrillEnhancement $enhancement,
+        bool $hasGeneratedAnchor,
+    ): array {
+        $exampleJp = $enhancement?->exampleJp ?? $atom->exampleJp;
+        if ($exampleJp === null) {
+            return [];
+        }
+        $exampleEn = $enhancement?->exampleEn ?? DailyAudioJapaneseText::safeEnglish($atom->exampleEn);
+        if ($exampleEn === null) {
+            return [];
+        }
+        $reading = $enhancement?->exampleReading
+            ?? ($exampleJp === $atom->targetText ? $atom->reading : null);
+        $example = DailyAudioJapaneseText::normalizeDisplay($exampleJp, $reading);
+        if ($example === null) {
+            return [];
+        }
+
+        return [[
+            'label' => 'Anchor: '.$this->labelTarget($atom),
+            'japanese' => $example['text'],
+            'reading' => $example['reading'] ?? null,
+            'english' => $exampleEn,
+            'source' => $hasGeneratedAnchor ? 'generated' : 'fallback',
+        ]];
+    }
+
+    /**
+     * @return list<array{label: string, japanese: string, reading: string|null, english: string, source: 'generated'}>
+     */
+    private function variationPrompts(
+        DailyAudioLearningAtom $atom,
+        ?DailyAudioDrillEnhancement $enhancement,
+    ): array {
+        $prompts = [];
         foreach (array_slice($enhancement?->variations ?? [], 0, self::MAX_VARIATIONS_PER_ATOM) as $index => $variation) {
             $japanese = DailyAudioJapaneseText::normalizeDisplay(
                 $variation->japanese,
@@ -399,21 +510,45 @@ class DailyAudioDrillScriptGenerator
             ];
         }
 
-        if (! $hasGeneratedAnchor && $cueText !== null && $target !== null) {
-            array_unshift($prompts, [
-                'label' => 'Drill: '.$this->labelTarget($atom),
-                'japanese' => $target['text'],
-                'reading' => $target['reading'] ?? null,
-                'english' => $cueText,
-                'source' => 'fallback',
-            ]);
+        return $prompts;
+    }
+
+    /**
+     * @param  array{text: string, reading?: string|null}|null  $target
+     * @return array{label: string, japanese: string, reading: string|null, english: string, source: 'fallback'}|null
+     */
+    private function fallbackPrompt(
+        DailyAudioLearningAtom $atom,
+        ?string $cueText,
+        ?array $target,
+        bool $hasGeneratedAnchor,
+    ): ?array {
+        if ($hasGeneratedAnchor) {
+            return null;
+        }
+        if ($cueText === null) {
+            return null;
+        }
+        if ($target === null) {
+            return null;
         }
 
         return [
-            'prompts' => $prompts,
-            'enhanced' => $hasGeneratedContent,
-            'missingCueCount' => $cueText === null && ! $hasGeneratedContent ? 1 : 0,
+            'label' => 'Drill: '.$this->labelTarget($atom),
+            'japanese' => $target['text'],
+            'reading' => $target['reading'] ?? null,
+            'english' => $cueText,
+            'source' => 'fallback',
         ];
+    }
+
+    private function missingCueCount(?string $cueText, bool $hasGeneratedContent): int
+    {
+        if ($cueText !== null) {
+            return 0;
+        }
+
+        return $hasGeneratedContent ? 0 : 1;
     }
 
     /**
@@ -423,8 +558,7 @@ class DailyAudioDrillScriptGenerator
     private function pushRecognitionPrompt(
         Collection $units,
         array $prompt,
-        string $l1VoiceId,
-        string $l2VoiceId,
+        DailyAudioDrillVoices $voices,
     ): void {
         $units->push(
             DailyAudioScriptUnit::marker("Recognition: {$prompt['label']}"),
@@ -432,7 +566,7 @@ class DailyAudioDrillScriptGenerator
                 $prompt['japanese'],
                 $prompt['reading'],
                 $prompt['english'],
-                $l2VoiceId,
+                $voices->speaker,
                 self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause($this->recallPauseSeconds($prompt['english'])),
@@ -440,11 +574,11 @@ class DailyAudioDrillScriptGenerator
                 $prompt['japanese'],
                 $prompt['reading'],
                 $prompt['english'],
-                $l2VoiceId,
+                $voices->speaker,
                 self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(1.25),
-            DailyAudioScriptUnit::narration($prompt['english'], $l1VoiceId),
+            DailyAudioScriptUnit::narration($prompt['english'], $voices->narrator),
             DailyAudioScriptUnit::pause(2),
         );
     }
@@ -456,21 +590,20 @@ class DailyAudioDrillScriptGenerator
     private function pushProductionPrompt(
         Collection $units,
         array $prompt,
-        string $l1VoiceId,
-        string $l2VoiceId,
+        DailyAudioDrillVoices $voices,
     ): void {
         $units->push(
             DailyAudioScriptUnit::marker($prompt['label']),
             DailyAudioScriptUnit::narration(
                 "How do you say \"{$prompt['english']}\"?",
-                $l1VoiceId,
+                $voices->narrator,
             ),
             DailyAudioScriptUnit::pause($this->recallPauseSeconds($prompt['english'])),
             DailyAudioScriptUnit::targetLanguage(
                 $prompt['japanese'],
                 $prompt['reading'],
                 $prompt['english'],
-                $l2VoiceId,
+                $voices->speaker,
                 self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(1),
@@ -478,7 +611,7 @@ class DailyAudioDrillScriptGenerator
                 $prompt['japanese'],
                 $prompt['reading'],
                 $prompt['english'],
-                $l2VoiceId,
+                $voices->speaker,
                 self::JAPANESE_SPEECH_SPEED,
             ),
             DailyAudioScriptUnit::pause(2.5),

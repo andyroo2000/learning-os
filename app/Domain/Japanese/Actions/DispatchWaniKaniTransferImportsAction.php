@@ -59,48 +59,72 @@ final class DispatchWaniKaniTransferImportsAction
             }
 
             $retried = $this->retryFailedImports($userId);
-            $createdToday = StudyVocabVariantGroup::query()
-                ->where('user_id', $userId)
-                ->whereNotNull('wanikani_subject_id')
-                ->where('created_at', '>=', CarbonImmutable::now('UTC')->startOfDay())
-                ->count();
-            $remaining = max(0, self::DAILY_NEW_IMPORT_LIMIT - $createdToday);
-            if ($remaining === 0) {
-                return ['created' => 0, 'retried' => $retried];
-            }
 
-            $candidates = $this->candidates($userId, $remaining);
-            $created = 0;
-
-            foreach ($candidates as $candidate) {
-                try {
-                    $this->createBundleDrafts->handle(
-                        CreateStudyVocabBundleData::fromInput(
-                            userId: $userId,
-                            targetWord: (string) $candidate->characters,
-                            sourceSentence: null,
-                            context: $this->candidateContext($candidate),
-                            includeLearnerContext: true,
-                            waniKaniSubjectId: (int) $candidate->subject_id,
-                        ),
-                        static fn (string $groupId) => ProcessStudyVocabBundleDrafts::dispatch($groupId),
-                    );
-                    $created++;
-                } catch (Throwable $exception) {
-                    report($exception);
-                    $group = StudyVocabVariantGroup::query()
-                        ->where('user_id', $userId)
-                        ->where('wanikani_subject_id', (int) $candidate->subject_id)
-                        ->first();
-                    if ($group !== null) {
-                        $this->markFailed($group, 'Could not queue this automatic vocabulary import.');
-                    }
-                }
-            }
-
-            return ['created' => $created, 'retried' => $retried];
+            return [
+                'created' => $this->createImports($connection),
+                'retried' => $retried,
+            ];
         } finally {
             $lock->release();
+        }
+    }
+
+    private function remainingImportCapacity(WaniKaniConnection $connection): int
+    {
+        $createdToday = StudyVocabVariantGroup::query()
+            ->where('user_id', (int) $connection->user_id)
+            ->whereNotNull('wanikani_subject_id')
+            ->where('created_at', '>=', CarbonImmutable::now('UTC')->startOfDay())
+            ->count();
+
+        return max(0, self::DAILY_NEW_IMPORT_LIMIT - $createdToday);
+    }
+
+    private function createImports(WaniKaniConnection $connection): int
+    {
+        $remaining = $this->remainingImportCapacity($connection);
+        if ($remaining === 0) {
+            return 0;
+        }
+
+        $created = 0;
+
+        foreach ($this->candidates((int) $connection->user_id, $remaining) as $candidate) {
+            try {
+                $this->createImport($connection, $candidate);
+                $created++;
+            } catch (Throwable $exception) {
+                report($exception);
+                $this->markFailedImport($connection, $candidate);
+            }
+        }
+
+        return $created;
+    }
+
+    private function createImport(WaniKaniConnection $connection, object $candidate): void
+    {
+        $this->createBundleDrafts->handle(
+            CreateStudyVocabBundleData::fromInput(
+                userId: (int) $connection->user_id,
+                targetWord: (string) $candidate->characters,
+                sourceSentence: null,
+                context: $this->candidateContext($candidate),
+                includeLearnerContext: true,
+                waniKaniSubjectId: (int) $candidate->subject_id,
+            ),
+            static fn (string $groupId) => ProcessStudyVocabBundleDrafts::dispatch($groupId),
+        );
+    }
+
+    private function markFailedImport(WaniKaniConnection $connection, object $candidate): void
+    {
+        $group = StudyVocabVariantGroup::query()
+            ->where('user_id', (int) $connection->user_id)
+            ->where('wanikani_subject_id', (int) $candidate->subject_id)
+            ->first();
+        if ($group !== null) {
+            $this->markFailed($group, 'Could not queue this automatic vocabulary import.');
         }
     }
 
@@ -250,9 +274,10 @@ final class DispatchWaniKaniTransferImportsAction
     private function stringList(string $json): array
     {
         $values = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
-        if (! is_array($values)
-            || ! array_is_list($values)
-            || array_filter($values, static fn (mixed $value): bool => ! is_string($value)) !== []) {
+        if (! is_array($values) || ! array_is_list($values)) {
+            throw new RuntimeException('Stored WaniKani vocabulary metadata is invalid.');
+        }
+        if (array_filter($values, static fn (mixed $value): bool => ! is_string($value)) !== []) {
             throw new RuntimeException('Stored WaniKani vocabulary metadata is invalid.');
         }
 

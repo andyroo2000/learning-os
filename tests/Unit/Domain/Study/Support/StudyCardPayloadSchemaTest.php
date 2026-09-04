@@ -37,10 +37,12 @@ class StudyCardPayloadSchemaTest extends TestCase
             [
                 'cueText' => ['not text'],
                 'cueAudio' => ['filename' => 123],
+                'cueImage' => ['nested list item'],
                 'futurePromptField' => ['preserved' => true],
             ],
             [
                 'meaning' => false,
+                'answerAudio' => false,
                 'pitchAccent' => 'invalid',
                 'futureAnswerField' => ['preserved' => true],
             ],
@@ -49,7 +51,9 @@ class StudyCardPayloadSchemaTest extends TestCase
         $this->assertSame([
             'prompt.cueText' => 'prompt.cueText must be a string or null.',
             'prompt.cueAudio.filename' => 'prompt.cueAudio.filename must be a string or null.',
+            'prompt.cueImage' => 'prompt.cueImage must be an object or null.',
             'answer.meaning' => 'answer.meaning must be a string or null.',
+            'answer.answerAudio' => 'answer.answerAudio must be an object or null.',
             'answer.pitchAccent' => 'answer.pitchAccent must be an object or null.',
         ], $errors);
     }
@@ -69,6 +73,13 @@ class StudyCardPayloadSchemaTest extends TestCase
             StudyCardPayloadSchema::validationErrors(
                 [['cueText' => 'nested list item']],
                 ['meaning' => 'company'],
+            ),
+        );
+        $this->assertSame(
+            ['answer' => 'answer must be an object.'],
+            StudyCardPayloadSchema::validationErrors(
+                ['cueText' => '会社'],
+                [['meaning' => 'nested list item']],
             ),
         );
     }

@@ -170,6 +170,17 @@ class StudyFieldMediaReferencesTest extends TestCase
             'source' => 'generated',
             'url' => ['not-a-string'],
         ]));
+        $this->assertNull(StudyFieldMediaReferences::audioFromValue([
+            'id' => ['not-a-string'],
+            'filename' => 'word.mp3',
+            'mediaKind' => 'audio',
+            'source' => 'generated',
+        ]));
+        $this->assertNull(StudyFieldMediaReferences::audioFromValue([
+            'filename' => '   ',
+            'mediaKind' => 'audio',
+            'source' => 'generated',
+        ]));
         $this->assertNull(StudyFieldMediaReferences::imageFromValue([
             'filename' => 'company.png',
             'mediaKind' => 'audio',

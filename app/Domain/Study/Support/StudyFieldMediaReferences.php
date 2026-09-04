@@ -148,33 +148,49 @@ final class StudyFieldMediaReferences
             return null;
         }
 
-        $filename = $value['filename'] ?? null;
-        $source = $value['source'] ?? null;
+        $filename = self::normalizedFilename($value['filename'] ?? null);
+        $source = self::recognizedSource($value['source'] ?? null);
 
-        if (! is_string($filename)
-            || trim($filename) === ''
-            || ! is_string($source)
-            || ! in_array($source, StudyCardDraft::MEDIA_SOURCES, true)) {
+        if ($filename === null || $source === null) {
             return null;
         }
 
         $id = $value['id'] ?? null;
         $url = $value['url'] ?? null;
 
-        if ($id !== null && ! is_string($id)) {
-            return null;
-        }
-
-        if ($url !== null && ! is_string($url)) {
+        if (! self::isNullableString($id) || ! self::isNullableString($url)) {
             return null;
         }
 
         return [
             'id' => $id,
-            'filename' => trim($filename),
+            'filename' => $filename,
             'url' => $url,
             'mediaKind' => $mediaKind,
             'source' => $source,
         ];
+    }
+
+    private static function normalizedFilename(mixed $filename): ?string
+    {
+        if (! is_string($filename)) {
+            return null;
+        }
+
+        $filename = trim($filename);
+
+        return $filename === '' ? null : $filename;
+    }
+
+    private static function recognizedSource(mixed $source): ?string
+    {
+        return is_string($source) && in_array($source, StudyCardDraft::MEDIA_SOURCES, true)
+            ? $source
+            : null;
+    }
+
+    private static function isNullableString(mixed $value): bool
+    {
+        return $value === null || is_string($value);
     }
 }

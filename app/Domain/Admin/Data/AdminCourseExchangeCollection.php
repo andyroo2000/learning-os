@@ -22,64 +22,114 @@ final readonly class AdminCourseExchangeCollection
 
     public static function fromPipeline(mixed $scriptJson): self
     {
-        if (! is_array($scriptJson)
-            || ($scriptJson['_pipelineStage'] ?? null) !== 'exchanges'
-            || ! is_array($scriptJson['_exchanges'] ?? null)
-            || ! array_is_list($scriptJson['_exchanges'])
-            || $scriptJson['_exchanges'] === []
-            || count($scriptJson['_exchanges']) > self::MAX_EXCHANGES) {
-            throw new InvalidArgumentException(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED);
-        }
+        $rawExchanges = self::pipelineExchanges($scriptJson);
 
         $exchanges = [];
         $coreItems = [];
-        foreach ($scriptJson['_exchanges'] as $rawExchange) {
-            if (! is_array($rawExchange) || array_is_list($rawExchange)) {
-                throw new InvalidArgumentException('Saved dialogue exchange is invalid.');
-            }
-
+        foreach ($rawExchanges as $rawExchange) {
+            $rawExchange = self::exchangeObject($rawExchange);
             $vocabulary = self::vocabulary($rawExchange['vocabularyItems'] ?? []);
-            $speakerName = self::string($rawExchange['speakerName'] ?? null, 'Saved dialogue speaker', 100);
-            $exchange = [
-                'order' => self::integer($rawExchange['order'] ?? null, 'Saved dialogue order'),
-                'speakerName' => $speakerName,
-                'relationshipName' => self::optionalString(
-                    $rawExchange['relationshipName'] ?? null,
-                    'Saved dialogue relationship',
-                    255,
-                ) ?? $speakerName,
-                'speakerVoiceId' => self::string(
-                    $rawExchange['speakerVoiceId'] ?? null,
-                    'Saved dialogue voice',
-                    255,
-                ),
-                'textL2' => self::string($rawExchange['textL2'] ?? null, 'Saved dialogue text', 5_000),
-                'readingL2' => self::optionalString(
-                    $rawExchange['readingL2'] ?? null,
-                    'Saved dialogue reading',
-                    10_000,
-                ),
-                'translationL1' => self::string(
-                    $rawExchange['translationL1'] ?? null,
-                    'Saved dialogue translation',
-                    5_000,
-                ),
-                'vocabularyItems' => $vocabulary,
-            ];
-            $exchanges[] = $exchange;
-
-            foreach ($vocabulary as $item) {
-                // Legacy stores insertion order here as a placeholder, not a difficulty estimate.
-                $coreItems[] = [
-                    'textL2' => $item['textL2'],
-                    'readingL2' => $item['readingL2'] ?? null,
-                    'translationL1' => $item['translationL1'],
-                    'complexityScore' => count($coreItems),
-                ];
-            }
+            $exchanges[] = self::exchange($rawExchange, $vocabulary);
+            self::appendCoreItems($coreItems, $vocabulary);
         }
 
         return new self($exchanges, $coreItems);
+    }
+
+    /** @return list<mixed> */
+    private static function pipelineExchanges(mixed $scriptJson): array
+    {
+        if (! is_array($scriptJson)) {
+            self::invalidPipeline();
+        }
+        if (($scriptJson['_pipelineStage'] ?? null) !== 'exchanges') {
+            self::invalidPipeline();
+        }
+
+        $exchanges = $scriptJson['_exchanges'] ?? null;
+        if (! is_array($exchanges)) {
+            self::invalidPipeline();
+        }
+        if (! array_is_list($exchanges)) {
+            self::invalidPipeline();
+        }
+        if ($exchanges === []) {
+            self::invalidPipeline();
+        }
+        if (count($exchanges) > self::MAX_EXCHANGES) {
+            self::invalidPipeline();
+        }
+
+        return $exchanges;
+    }
+
+    private static function invalidPipeline(): never
+    {
+        throw new InvalidArgumentException(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED);
+    }
+
+    /** @return array<string, mixed> */
+    private static function exchangeObject(mixed $rawExchange): array
+    {
+        if (! is_array($rawExchange) || array_is_list($rawExchange)) {
+            throw new InvalidArgumentException('Saved dialogue exchange is invalid.');
+        }
+
+        return $rawExchange;
+    }
+
+    /**
+     * @param  array<string, mixed>  $rawExchange
+     * @param  list<array{textL2: string, readingL2?: string, translationL1: string, jlptLevel?: string}>  $vocabulary
+     * @return array<string, mixed>
+     */
+    private static function exchange(array $rawExchange, array $vocabulary): array
+    {
+        $speakerName = self::string($rawExchange['speakerName'] ?? null, 'Saved dialogue speaker', 100);
+
+        return [
+            'order' => self::integer($rawExchange['order'] ?? null, 'Saved dialogue order'),
+            'speakerName' => $speakerName,
+            'relationshipName' => self::optionalString(
+                $rawExchange['relationshipName'] ?? null,
+                'Saved dialogue relationship',
+                255,
+            ) ?? $speakerName,
+            'speakerVoiceId' => self::string(
+                $rawExchange['speakerVoiceId'] ?? null,
+                'Saved dialogue voice',
+                255,
+            ),
+            'textL2' => self::string($rawExchange['textL2'] ?? null, 'Saved dialogue text', 5_000),
+            'readingL2' => self::optionalString(
+                $rawExchange['readingL2'] ?? null,
+                'Saved dialogue reading',
+                10_000,
+            ),
+            'translationL1' => self::string(
+                $rawExchange['translationL1'] ?? null,
+                'Saved dialogue translation',
+                5_000,
+            ),
+            'vocabularyItems' => $vocabulary,
+        ];
+    }
+
+    /**
+     * @param  list<array{textL2: string, readingL2: ?string, translationL1: string, complexityScore: int}>  $coreItems
+     * @param  list<array{textL2: string, readingL2?: string, translationL1: string, jlptLevel?: string}>  $vocabulary
+     */
+    private static function appendCoreItems(array &$coreItems, array $vocabulary): void
+    {
+        foreach ($vocabulary as $item) {
+            // Legacy stores insertion order here as a placeholder, not a difficulty estimate.
+            $coreItems[] = [
+                'textL2' => $item['textL2'],
+                'readingL2' => $item['readingL2'] ?? null,
+                'translationL1' => $item['translationL1'],
+                'complexityScore' => count($coreItems),
+            ];
+        }
     }
 
     /** @return list<string> */
@@ -91,36 +141,48 @@ final readonly class AdminCourseExchangeCollection
     /** @return list<array{textL2: string, readingL2?: string, translationL1: string, jlptLevel?: string}> */
     private static function vocabulary(mixed $value): array
     {
-        if (! is_array($value) || ! array_is_list($value)
-            || count($value) > self::MAX_VOCABULARY_PER_EXCHANGE) {
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('Saved dialogue vocabulary is invalid.');
+        }
+        if (! array_is_list($value)) {
+            throw new InvalidArgumentException('Saved dialogue vocabulary is invalid.');
+        }
+        if (count($value) > self::MAX_VOCABULARY_PER_EXCHANGE) {
             throw new InvalidArgumentException('Saved dialogue vocabulary is invalid.');
         }
 
         $items = [];
         foreach ($value as $rawItem) {
-            if (! is_array($rawItem) || array_is_list($rawItem)) {
-                throw new InvalidArgumentException('Saved dialogue vocabulary item is invalid.');
-            }
-            $item = [
-                'textL2' => self::string($rawItem['textL2'] ?? null, 'Saved vocabulary text', 1_000),
-                'translationL1' => self::string(
-                    $rawItem['translationL1'] ?? null,
-                    'Saved vocabulary translation',
-                    2_000,
-                ),
-            ];
-            $reading = self::optionalString($rawItem['readingL2'] ?? null, 'Saved vocabulary reading', 2_000);
-            $level = self::optionalString($rawItem['jlptLevel'] ?? null, 'Saved vocabulary JLPT level', 8);
-            if ($reading !== null) {
-                $item['readingL2'] = $reading;
-            }
-            if ($level !== null) {
-                $item['jlptLevel'] = $level;
-            }
-            $items[] = $item;
+            $items[] = self::vocabularyItem($rawItem);
         }
 
         return $items;
+    }
+
+    /** @return array{textL2: string, readingL2?: string, translationL1: string, jlptLevel?: string} */
+    private static function vocabularyItem(mixed $rawItem): array
+    {
+        if (! is_array($rawItem) || array_is_list($rawItem)) {
+            throw new InvalidArgumentException('Saved dialogue vocabulary item is invalid.');
+        }
+        $item = [
+            'textL2' => self::string($rawItem['textL2'] ?? null, 'Saved vocabulary text', 1_000),
+            'translationL1' => self::string(
+                $rawItem['translationL1'] ?? null,
+                'Saved vocabulary translation',
+                2_000,
+            ),
+        ];
+        $reading = self::optionalString($rawItem['readingL2'] ?? null, 'Saved vocabulary reading', 2_000);
+        $level = self::optionalString($rawItem['jlptLevel'] ?? null, 'Saved vocabulary JLPT level', 8);
+        if ($reading !== null) {
+            $item['readingL2'] = $reading;
+        }
+        if ($level !== null) {
+            $item['jlptLevel'] = $level;
+        }
+
+        return $item;
     }
 
     private static function string(mixed $value, string $label, int $max): string
@@ -154,7 +216,13 @@ final readonly class AdminCourseExchangeCollection
 
     private static function integer(mixed $value, string $label): int
     {
-        if (! is_int($value) || $value < 0 || $value > self::MAX_EXCHANGES) {
+        if (! is_int($value)) {
+            throw new InvalidArgumentException("{$label} is invalid.");
+        }
+        if ($value < 0) {
+            throw new InvalidArgumentException("{$label} is invalid.");
+        }
+        if ($value > self::MAX_EXCHANGES) {
             throw new InvalidArgumentException("{$label} is invalid.");
         }
 

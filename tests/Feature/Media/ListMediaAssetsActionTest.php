@@ -31,24 +31,7 @@ class ListMediaAssetsActionTest extends TestCase
     public function test_it_filters_media_assets_by_attached_card_course(): void
     {
         $user = User::factory()->create();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $courseDeck = Deck::factory()->for($course)->for($user)->create();
-        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
-        $courseCard = Card::factory()->for($courseDeck)->create();
-        $secondCourseCard = Card::factory()->for($courseDeck)->create();
-        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
-        $courseMediaAsset = MediaAsset::factory()->for($user)->create([
-            'created_at' => now(),
-        ]);
-        $otherCourseMediaAsset = MediaAsset::factory()->for($user)->create();
-        $unattachedMediaAsset = MediaAsset::factory()->for($user)->create();
-        $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
-
-        $courseCard->mediaAssets()->attach($courseMediaAsset->id);
-        $secondCourseCard->mediaAssets()->attach($courseMediaAsset->id);
-        $otherCourseCard->mediaAssets()->attach($otherCourseMediaAsset->id);
-        $courseCard->mediaAssets()->attach($crossUserMediaAsset->id);
+        [$course, $courseMediaAsset, $otherCourseMediaAsset, $unattachedMediaAsset, $crossUserMediaAsset] = $this->courseMediaFixtures($user);
 
         $mediaAssets = app(ListMediaAssetsAction::class)->handle(
             userId: $user->id,
@@ -59,6 +42,48 @@ class ListMediaAssetsActionTest extends TestCase
         $this->assertNotContains($otherCourseMediaAsset->id, collect($mediaAssets->items())->pluck('id')->all());
         $this->assertNotContains($unattachedMediaAsset->id, collect($mediaAssets->items())->pluck('id')->all());
         $this->assertNotContains($crossUserMediaAsset->id, collect($mediaAssets->items())->pluck('id')->all());
+    }
+
+    /** @return array{Course, MediaAsset, MediaAsset, MediaAsset, MediaAsset} */
+    private function courseMediaFixtures(User $user): array
+    {
+        $course = Course::factory()->for($user)->create();
+        $otherCourse = Course::factory()->for($user)->create();
+        [$courseCard, $secondCourseCard, $otherCourseCard] = $this->courseCards($user, $course, $otherCourse);
+        [$courseMediaAsset, $otherCourseMediaAsset, $unattachedMediaAsset, $crossUserMediaAsset] = $this->mediaAssetsForCourseFilter($user);
+
+        $courseCard->mediaAssets()->attach($courseMediaAsset->id);
+        $secondCourseCard->mediaAssets()->attach($courseMediaAsset->id);
+        $otherCourseCard->mediaAssets()->attach($otherCourseMediaAsset->id);
+        $courseCard->mediaAssets()->attach($crossUserMediaAsset->id);
+
+        return [$course, $courseMediaAsset, $otherCourseMediaAsset, $unattachedMediaAsset, $crossUserMediaAsset];
+    }
+
+    /** @return array{Card, Card, Card} */
+    private function courseCards(User $user, Course $course, Course $otherCourse): array
+    {
+        $courseDeck = Deck::factory()->for($course)->for($user)->create();
+        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
+
+        return [
+            Card::factory()->for($courseDeck)->create(),
+            Card::factory()->for($courseDeck)->create(),
+            Card::factory()->for($otherCourseDeck)->create(),
+        ];
+    }
+
+    /** @return array{MediaAsset, MediaAsset, MediaAsset, MediaAsset} */
+    private function mediaAssetsForCourseFilter(User $user): array
+    {
+        $courseMediaAsset = MediaAsset::factory()->for($user)->create([
+            'created_at' => now(),
+        ]);
+        $otherCourseMediaAsset = MediaAsset::factory()->for($user)->create();
+        $unattachedMediaAsset = MediaAsset::factory()->for($user)->create();
+        $crossUserMediaAsset = MediaAsset::factory()->for(User::factory()->create())->create();
+
+        return [$courseMediaAsset, $otherCourseMediaAsset, $unattachedMediaAsset, $crossUserMediaAsset];
     }
 
     public function test_it_filters_media_assets_by_attached_card_deck(): void

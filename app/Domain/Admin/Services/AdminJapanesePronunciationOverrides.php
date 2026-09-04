@@ -20,46 +20,96 @@ final class AdminJapanesePronunciationOverrides
         $reading = is_string($reading) ? trim($reading) : null;
         $furigana = is_string($furigana) ? trim($furigana) : null;
         $cache = $this->dictionaryCache();
-        $bracketSource = str_contains((string) $reading, '[')
-            ? $reading
-            : (str_contains((string) $furigana, '[') ? $furigana : null);
-
-        if (is_string($bracketSource) && $bracketSource !== '') {
-            $overridden = trim($this->applyToUnits($this->parseFuriganaUnits($bracketSource), $cache));
-            if ($overridden !== '') {
-                return $overridden;
-            }
+        $bracketOverride = $this->bracketOverride($reading, $furigana, $cache);
+        if ($bracketOverride !== null) {
+            return $bracketOverride;
         }
 
         $normalizedText = $this->normalizeMatchText($text);
         /** @var list<string> $keepKanji */
         $keepKanji = $cache['keep'];
-        /** @var array<string, string> $forceKana */
-        $forceKana = $cache['force'];
 
-        if ($normalizedText !== '') {
-            if (in_array($normalizedText, $keepKanji, true)) {
-                return $this->applyForceKanaToText($text, $cache);
-            }
-            if (isset($forceKana[$normalizedText])) {
-                return $forceKana[$normalizedText];
-            }
+        $directOverride = $this->directTextOverride($text, $normalizedText, $cache);
+        if ($directOverride !== null) {
+            return $directOverride;
         }
 
-        foreach ($keepKanji as $word) {
-            if ($word !== '' && str_contains($normalizedText, $word)) {
-                return $this->applyForceKanaToText($text, $cache);
-            }
+        if ($this->containsKeptWord($normalizedText, $keepKanji)) {
+            return $this->applyForceKanaToText($text, $cache);
         }
 
-        if (is_string($reading) && $reading !== '') {
-            $normalizedReading = $this->normalizeJapaneseReading($reading);
-            if (trim($normalizedReading) !== '') {
-                return $normalizedReading;
-            }
+        $normalizedReading = $this->usableReading($reading);
+        if ($normalizedReading !== null) {
+            return $normalizedReading;
         }
 
         return $this->applyForceKanaToText($text, $cache);
+    }
+
+    /** @param array{keep: list<string>, force: array<string, string>, keepSorted: list<string>, forceSorted: array<string, string>} $cache */
+    private function bracketOverride(?string $reading, ?string $furigana, array $cache): ?string
+    {
+        $source = $this->bracketSource($reading, $furigana);
+        if ($source === null) {
+            return null;
+        }
+
+        $overridden = trim($this->applyToUnits($this->parseFuriganaUnits($source), $cache));
+
+        return $overridden === '' ? null : $overridden;
+    }
+
+    private function bracketSource(?string $reading, ?string $furigana): ?string
+    {
+        if (str_contains((string) $reading, '[')) {
+            return $reading;
+        }
+        if (str_contains((string) $furigana, '[')) {
+            return $furigana;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{keep: list<string>, force: array<string, string>, keepSorted: list<string>, forceSorted: array<string, string>}  $cache
+     */
+    private function directTextOverride(
+        string $text,
+        string $normalizedText,
+        array $cache,
+    ): ?string {
+        if ($normalizedText === '') {
+            return null;
+        }
+        if (in_array($normalizedText, $cache['keep'], true)) {
+            return $this->applyForceKanaToText($text, $cache);
+        }
+
+        return $cache['force'][$normalizedText] ?? null;
+    }
+
+    /** @param  list<string>  $keepKanji */
+    private function containsKeptWord(string $normalizedText, array $keepKanji): bool
+    {
+        foreach ($keepKanji as $word) {
+            if ($word !== '' && str_contains($normalizedText, $word)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function usableReading(?string $reading): ?string
+    {
+        if ($reading === null || $reading === '') {
+            return null;
+        }
+
+        $normalized = $this->normalizeJapaneseReading($reading);
+
+        return trim($normalized) === '' ? null : $normalized;
     }
 
     /** @return array{keep: list<string>, force: array<string, string>, keepSorted: list<string>, forceSorted: array<string, string>} */
@@ -76,8 +126,9 @@ final class AdminJapanesePronunciationOverrides
         ));
         $force = [];
         foreach ($dictionary->force_kana as $word => $kana) {
-            if (is_string($word) && is_string($kana) && $this->normalizeMatchText($word) !== '' && trim($kana) !== '') {
-                $force[$this->normalizeMatchText($word)] = trim($kana);
+            $entry = $this->forceEntry($word, $kana);
+            if ($entry !== null) {
+                $force[$entry['word']] = $entry['kana'];
             }
         }
         foreach ($this->derivedVerbEntries($dictionary->verb_kana) as $word => $kana) {
@@ -94,6 +145,22 @@ final class AdminJapanesePronunciationOverrides
         $this->cache = compact('keep', 'force', 'keepSorted', 'forceSorted');
 
         return $this->dictionaryCache();
+    }
+
+    /** @return array{word: string, kana: string}|null */
+    private function forceEntry(mixed $word, mixed $kana): ?array
+    {
+        if (! is_string($word) || ! is_string($kana)) {
+            return null;
+        }
+
+        $word = $this->normalizeMatchText($word);
+        $kana = trim($kana);
+        if ($word === '' || $kana === '') {
+            return null;
+        }
+
+        return compact('word', 'kana');
     }
 
     /** @param array<string, string> $verbs
@@ -133,33 +200,43 @@ final class AdminJapanesePronunciationOverrides
     {
         $output = [];
         for ($index = 0; $index < count($units); $index++) {
-            $keepMatch = $this->findMatch($units, $index, $cache['keepSorted']);
-            if ($keepMatch !== null) {
-                $output[] = $keepMatch['surface'];
-                $index = $keepMatch['end'];
-
-                continue;
-            }
-
-            $forceMatch = $this->findMatch($units, $index, array_keys($cache['forceSorted']));
-            if ($forceMatch !== null) {
-                $output[] = $cache['forceSorted'][$forceMatch['word']];
-                if ($forceMatch['trailing'] !== null) {
-                    $output[] = $this->normalizeParticle($forceMatch['trailing'], $forceMatch['trailing']);
-                }
-                $index = $forceMatch['end'];
-
-                continue;
-            }
-
-            $reading = $this->normalizeNumericYear(
-                $units[$index]['surface'],
-                $this->normalizeParticle($units[$index]['surface'], $units[$index]['reading']),
-            );
-            $this->pushReadingWithOverlapCollapse($output, $units[$index]['surface'], $reading);
+            $index = $this->applyUnit($units, $index, $cache, $output);
         }
 
         return implode('', $output);
+    }
+
+    /**
+     * @param  list<array{surface: string, reading: string}>  $units
+     * @param  array{keep: list<string>, force: array<string, string>, keepSorted: list<string>, forceSorted: array<string, string>}  $cache
+     * @param  list<string>  $output
+     */
+    private function applyUnit(array $units, int $index, array $cache, array &$output): int
+    {
+        $keepMatch = $this->findMatch($units, $index, $cache['keepSorted']);
+        if ($keepMatch !== null) {
+            $output[] = $keepMatch['surface'];
+
+            return $keepMatch['end'];
+        }
+
+        $forceMatch = $this->findMatch($units, $index, array_keys($cache['forceSorted']));
+        if ($forceMatch !== null) {
+            $output[] = $cache['forceSorted'][$forceMatch['word']];
+            if ($forceMatch['trailing'] !== null) {
+                $output[] = $this->normalizeParticle($forceMatch['trailing'], $forceMatch['trailing']);
+            }
+
+            return $forceMatch['end'];
+        }
+
+        $reading = $this->normalizeNumericYear(
+            $units[$index]['surface'],
+            $this->normalizeParticle($units[$index]['surface'], $units[$index]['reading']),
+        );
+        $this->pushReadingWithOverlapCollapse($output, $units[$index]['surface'], $reading);
+
+        return $index;
     }
 
     /** @param list<array{surface: string, reading: string}> $units
@@ -169,28 +246,42 @@ final class AdminJapanesePronunciationOverrides
     private function findMatch(array $units, int $start, array $words): ?array
     {
         foreach ($words as $word) {
-            $remaining = $word;
-            $surface = '';
-            for ($end = $start; $end < count($units); $end++) {
-                $unitSurface = $units[$end]['surface'];
-                if (str_starts_with($remaining, $unitSurface)) {
-                    $surface .= $unitSurface;
-                    $remaining = mb_substr($remaining, mb_strlen($unitSurface));
-                    if ($remaining === '') {
-                        return compact('word', 'end', 'surface') + ['trailing' => null];
-                    }
-
-                    continue;
-                }
-                if (str_starts_with($unitSurface, $remaining) && $units[$end]['reading'] === $unitSurface) {
-                    $surface .= $remaining;
-
-                    return compact('word', 'end', 'surface') + [
-                        'trailing' => mb_substr($unitSurface, mb_strlen($remaining)),
-                    ];
-                }
-                break;
+            $match = $this->matchWord($units, $start, $word);
+            if ($match !== null) {
+                return $match;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array{surface: string, reading: string}>  $units
+     * @return array{word: string, end: int, surface: string, trailing: ?string}|null
+     */
+    private function matchWord(array $units, int $start, string $word): ?array
+    {
+        $remaining = $word;
+        $surface = '';
+        for ($end = $start; $end < count($units); $end++) {
+            $unitSurface = $units[$end]['surface'];
+            if (str_starts_with($remaining, $unitSurface)) {
+                $surface .= $unitSurface;
+                $remaining = mb_substr($remaining, mb_strlen($unitSurface));
+                if ($remaining === '') {
+                    return compact('word', 'end', 'surface') + ['trailing' => null];
+                }
+
+                continue;
+            }
+            if (str_starts_with($unitSurface, $remaining) && $units[$end]['reading'] === $unitSurface) {
+                $surface .= $remaining;
+
+                return compact('word', 'end', 'surface') + [
+                    'trailing' => mb_substr($unitSurface, mb_strlen($remaining)),
+                ];
+            }
+            break;
         }
 
         return null;
@@ -244,39 +335,73 @@ final class AdminJapanesePronunciationOverrides
     /** @param list<string> $characters */
     private function annotatedSurfaceStart(array $characters): int
     {
-        if ($characters !== [] && preg_match('/[0-9０-９]/u', end($characters))) {
-            $start = count($characters) - 1;
-            while ($start > 0 && preg_match('/[0-9０-９]/u', $characters[$start - 1])) {
-                $start--;
-            }
-            if ($start === 0 || preg_match('/[A-Za-z]/', $characters[$start - 1]) !== 1) {
-                return $start;
-            }
+        $numericSuffixStart = $this->numericSuffixStart($characters);
+        if ($numericSuffixStart !== null) {
+            return $numericSuffixStart;
         }
-        $lastKanji = null;
-        for ($index = count($characters) - 1; $index >= 0; $index--) {
-            if (preg_match('/[\x{4E00}-\x{9FFF}]/u', $characters[$index])) {
-                $lastKanji = $index;
-                break;
-            }
-        }
+
+        $lastKanji = $this->lastKanjiStart($characters);
         if ($lastKanji === null) {
             return count($characters);
         }
-        while ($lastKanji > 0 && preg_match('/[\x{4E00}-\x{9FFF}]/u', $characters[$lastKanji - 1])) {
-            $lastKanji--;
-        }
 
-        $digitStart = $lastKanji;
-        while ($digitStart > 0 && preg_match('/[0-9０-９]/u', $characters[$digitStart - 1])) {
-            $digitStart--;
+        $digitStart = $this->precedingDigitStart($characters, $lastKanji);
+        if ($digitStart === $lastKanji) {
+            return $lastKanji;
         }
-        if ($digitStart < $lastKanji
-            && ($digitStart === 0 || preg_match('/[A-Za-z]/', $characters[$digitStart - 1]) !== 1)) {
+        if ($digitStart === 0 || preg_match('/[A-Za-z]/', $characters[$digitStart - 1]) !== 1) {
             return $digitStart;
         }
 
         return $lastKanji;
+    }
+
+    /** @param  list<string>  $characters */
+    private function numericSuffixStart(array $characters): ?int
+    {
+        if ($characters === []) {
+            return null;
+        }
+        if (! preg_match('/[0-9０-９]/u', end($characters))) {
+            return null;
+        }
+
+        $start = count($characters) - 1;
+        while ($start > 0 && preg_match('/[0-9０-９]/u', $characters[$start - 1])) {
+            $start--;
+        }
+        if ($start > 0 && preg_match('/[A-Za-z]/', $characters[$start - 1]) === 1) {
+            return null;
+        }
+
+        return $start;
+    }
+
+    /** @param  list<string>  $characters */
+    private function lastKanjiStart(array $characters): ?int
+    {
+        for ($index = count($characters) - 1; $index >= 0; $index--) {
+            if (preg_match('/[\x{4E00}-\x{9FFF}]/u', $characters[$index])) {
+                while ($index > 0 && preg_match('/[\x{4E00}-\x{9FFF}]/u', $characters[$index - 1])) {
+                    $index--;
+                }
+
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param  list<string>  $characters */
+    private function precedingDigitStart(array $characters, int $lastKanji): int
+    {
+        $start = $lastKanji;
+        while ($start > 0 && preg_match('/[0-9０-９]/u', $characters[$start - 1])) {
+            $start--;
+        }
+
+        return $start;
     }
 
     private function normalizeJapaneseReading(string $reading): string

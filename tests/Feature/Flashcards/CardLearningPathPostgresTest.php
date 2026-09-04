@@ -22,23 +22,47 @@ class CardLearningPathPostgresTest extends TestCase
 
     public function test_concurrent_successor_links_serialize_on_the_owner_and_only_one_wins(): void
     {
-        if (DB::connection()->getDriverName() !== 'pgsql') {
-            $this->markTestSkipped('PostgreSQL is required to exercise runtime row-lock behavior.');
-        }
-
-        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
-
+        $this->requirePostgresConcurrencySupport();
         $user = User::factory()->create();
         $deck = Deck::factory()->for($user)->create(['user_id' => $user->id]);
         $predecessor = Card::factory()->for($deck)->create();
         $firstSuccessor = Card::factory()->for($deck)->create();
         $secondSuccessor = Card::factory()->for($deck)->create();
         $sockets = $this->socketPairs(2);
+        $workerInputs = $this->workerInputs($predecessor, $firstSuccessor, $secondSuccessor);
+        $pids = [];
 
+        try {
+            $this->spawnWorkers($sockets, $workerInputs, $pids);
+            $results = $this->readWorkerResults($sockets);
+            $this->assertWorkersExitedSuccessfully($pids, $results);
+            $this->assertConcurrentWorkerResults($results);
+            $this->assertPersistedLearningPath($user, $predecessor, $firstSuccessor, $secondSuccessor);
+        } finally {
+            $this->stopRunningWorkers($pids);
+            $this->closeSockets($sockets);
+            DB::purge();
+            User::query()->whereKey($user->id)->delete();
+        }
+    }
+
+    private function requirePostgresConcurrencySupport(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL is required to exercise runtime row-lock behavior.');
+        }
+
+        $this->assertTrue(function_exists('pcntl_fork'), 'The PostgreSQL concurrency gate requires pcntl_fork().');
+    }
+
+    /** @return list<array{connection: string, predecessor_id: string, successor_id: string, start_delay_microseconds: int, hold_lock: bool}> */
+    private function workerInputs(Card $predecessor, Card $firstSuccessor, Card $secondSuccessor): array
+    {
         DB::disconnect();
         config()->set('database.connections.pgsql_path_worker_a', config('database.connections.pgsql'));
         config()->set('database.connections.pgsql_path_worker_b', config('database.connections.pgsql'));
-        $workerInputs = [
+
+        return [
             [
                 'connection' => 'pgsql_path_worker_a',
                 'predecessor_id' => $predecessor->id,
@@ -54,75 +78,118 @@ class CardLearningPathPostgresTest extends TestCase
                 'hold_lock' => false,
             ],
         ];
-        $pids = [];
+    }
 
-        try {
-            foreach ($workerInputs as $index => $input) {
-                $pid = pcntl_fork();
+    /**
+     * @param  list<array{0: resource, 1: resource}>  $sockets
+     * @param  list<array{connection: string, predecessor_id: string, successor_id: string, start_delay_microseconds: int, hold_lock: bool}>  $workerInputs
+     * @param  array<int, int>  $pids
+     */
+    private function spawnWorkers(array $sockets, array $workerInputs, array &$pids): void
+    {
+        foreach ($workerInputs as $index => $input) {
+            $pid = pcntl_fork();
 
-                if ($pid === -1) {
-                    throw new RuntimeException('Unable to fork PostgreSQL learning-path worker.');
-                }
-
-                if ($pid === 0) {
-                    foreach ($sockets as $socketIndex => $pair) {
-                        fclose($pair[0]);
-
-                        if ($socketIndex !== $index) {
-                            fclose($pair[1]);
-                        }
-                    }
-
-                    $this->runWorker($sockets[$index][1], $input);
-                }
-
-                $pids[$index] = $pid;
+            if ($pid === -1) {
+                throw new RuntimeException('Unable to fork PostgreSQL learning-path worker.');
             }
 
-            $results = [];
-            foreach ($sockets as $pair) {
+            if ($pid === 0) {
+                $this->closeParentAndUnusedChildSockets($sockets, $index);
+                $this->runWorker($sockets[$index][1], $input);
+            }
+
+            $pids[$index] = $pid;
+        }
+    }
+
+    /** @param list<array{0: resource, 1: resource}> $sockets */
+    private function closeParentAndUnusedChildSockets(array $sockets, int $workerIndex): void
+    {
+        foreach ($sockets as $socketIndex => $pair) {
+            fclose($pair[0]);
+
+            if ($socketIndex !== $workerIndex) {
                 fclose($pair[1]);
-                stream_set_timeout($pair[0], 15);
-                $payload = trim((string) stream_get_contents($pair[0]));
-                $results[] = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-                fclose($pair[0]);
             }
+        }
+    }
 
-            foreach ($pids as $index => $pid) {
+    /**
+     * @param  list<array{0: resource, 1: resource}>  $sockets
+     * @return list<array{outcome: string, reason: ?string, duration_ms: int}>
+     */
+    private function readWorkerResults(array $sockets): array
+    {
+        $results = [];
+
+        foreach ($sockets as $pair) {
+            fclose($pair[1]);
+            stream_set_timeout($pair[0], 15);
+            $payload = trim((string) stream_get_contents($pair[0]));
+            $results[] = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+            fclose($pair[0]);
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  array<int, int>  $pids
+     * @param  list<array{outcome: string, reason: ?string, duration_ms: int}>  $results
+     */
+    private function assertWorkersExitedSuccessfully(array $pids, array $results): void
+    {
+        foreach ($pids as $index => $pid) {
+            pcntl_waitpid($pid, $status);
+            $this->assertSame(0, pcntl_wexitstatus($status), json_encode($results[$index]));
+        }
+    }
+
+    /** @param list<array{outcome: string, reason: ?string, duration_ms: int}> $results */
+    private function assertConcurrentWorkerResults(array $results): void
+    {
+        $this->assertSame('linked', $results[0]['outcome']);
+        $this->assertSame('conflict', $results[1]['outcome']);
+        $this->assertSame('learning_path_predecessor_not_tail', $results[1]['reason']);
+        $this->assertGreaterThanOrEqual(250, $results[1]['duration_ms']);
+    }
+
+    private function assertPersistedLearningPath(
+        User $user,
+        Card $predecessor,
+        Card $firstSuccessor,
+        Card $secondSuccessor,
+    ): void {
+        DB::purge();
+        $groupId = $predecessor->refresh()->variant_group_id;
+        $this->assertNotNull($groupId);
+        $this->assertSame(VocabVariantStatus::Locked->value, $firstSuccessor->refresh()->variant_status);
+        $this->assertSame($groupId, $firstSuccessor->variant_group_id);
+        $this->assertNull($secondSuccessor->refresh()->variant_group_id);
+        $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
+    }
+
+    /** @param array<int, int> $pids */
+    private function stopRunningWorkers(array $pids): void
+    {
+        foreach ($pids as $pid) {
+            if (pcntl_waitpid($pid, $status, WNOHANG) === 0) {
+                posix_kill($pid, SIGTERM);
                 pcntl_waitpid($pid, $status);
-                $this->assertSame(0, pcntl_wexitstatus($status), json_encode($results[$index]));
             }
+        }
+    }
 
-            $this->assertSame('linked', $results[0]['outcome']);
-            $this->assertSame('conflict', $results[1]['outcome']);
-            $this->assertSame('learning_path_predecessor_not_tail', $results[1]['reason']);
-            $this->assertGreaterThanOrEqual(250, $results[1]['duration_ms']);
-
-            DB::purge();
-            $groupId = $predecessor->refresh()->variant_group_id;
-            $this->assertNotNull($groupId);
-            $this->assertSame(VocabVariantStatus::Locked->value, $firstSuccessor->refresh()->variant_status);
-            $this->assertSame($groupId, $firstSuccessor->variant_group_id);
-            $this->assertNull($secondSuccessor->refresh()->variant_group_id);
-            $this->assertSame(2, SyncFeedEntry::query()->where('user_id', $user->id)->count());
-        } finally {
-            foreach ($pids as $pid) {
-                if (pcntl_waitpid($pid, $status, WNOHANG) === 0) {
-                    posix_kill($pid, SIGTERM);
-                    pcntl_waitpid($pid, $status);
+    /** @param list<array{0: resource, 1: resource}> $sockets */
+    private function closeSockets(array $sockets): void
+    {
+        foreach ($sockets as $pair) {
+            foreach ($pair as $socket) {
+                if (is_resource($socket)) {
+                    fclose($socket);
                 }
             }
-
-            foreach ($sockets as $pair) {
-                foreach ($pair as $socket) {
-                    if (is_resource($socket)) {
-                        fclose($socket);
-                    }
-                }
-            }
-
-            DB::purge();
-            User::query()->whereKey($user->id)->delete();
         }
     }
 

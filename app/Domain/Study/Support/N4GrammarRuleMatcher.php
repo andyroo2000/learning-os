@@ -94,37 +94,75 @@ final class N4GrammarRuleMatcher
 
         foreach ($candidates as $candidate) {
             foreach ($this->significantTokenSegments($candidate['tokens']) as $tokens) {
-                foreach (self::RULES as $conceptId => $surfaces) {
-                    if (isset($matches[$conceptId])) {
-                        continue;
-                    }
-
-                    foreach ($surfaces as $surface) {
-                        if (! $this->hasTokenPhrase($tokens, LearningConceptText::normalize($surface))) {
-                            continue;
-                        }
-
-                        // たり〜たり / だり〜だり is defined by repetition rather
-                        // than one incidental connecting-particle occurrence.
-                        if ($conceptId === 'n4-grammar-tari-tari-suru'
-                            && $this->tokenPhraseCount($tokens, 'たり') + $this->tokenPhraseCount($tokens, 'だり') < 2
-                        ) {
-                            continue;
-                        }
-
-                        $matches[$conceptId] = [
-                            'field' => $candidate['field'],
-                            'matchedText' => $candidate['raw'],
-                            'rule' => $conceptId,
-                            'surface' => $surface,
-                        ];
-
-                        break;
-                    }
-                }
+                $this->matchSegment($matches, $candidate, $tokens);
             }
         }
 
+        return $this->suppressGeneralMatches($matches);
+    }
+
+    /**
+     * @param  array<string, array{field: string, matchedText: string, rule: string, surface: string}>  $matches
+     * @param  array{field: string, raw: string, normalized: string, tokens: list<array<string, string>>}  $candidate
+     * @param  list<array<string, string>>  $tokens
+     */
+    private function matchSegment(array &$matches, array $candidate, array $tokens): void
+    {
+        foreach (self::RULES as $conceptId => $surfaces) {
+            if (isset($matches[$conceptId])) {
+                continue;
+            }
+
+            $surface = $this->matchingSurface($tokens, $conceptId, $surfaces);
+
+            if ($surface === null) {
+                continue;
+            }
+
+            $matches[$conceptId] = [
+                'field' => $candidate['field'],
+                'matchedText' => $candidate['raw'],
+                'rule' => $conceptId,
+                'surface' => $surface,
+            ];
+        }
+    }
+
+    /**
+     * @param  list<array<string, string>>  $tokens
+     * @param  list<string>  $surfaces
+     */
+    private function matchingSurface(array $tokens, string $conceptId, array $surfaces): ?string
+    {
+        foreach ($surfaces as $surface) {
+            if (! $this->hasTokenPhrase($tokens, LearningConceptText::normalize($surface))) {
+                continue;
+            }
+
+            if ($conceptId === 'n4-grammar-tari-tari-suru' && ! $this->hasRepeatedTariForm($tokens)) {
+                continue;
+            }
+
+            return $surface;
+        }
+
+        return null;
+    }
+
+    /** @param list<array<string, string>> $tokens */
+    private function hasRepeatedTariForm(array $tokens): bool
+    {
+        // たり〜たり / だり〜だり is defined by repetition rather
+        // than one incidental connecting-particle occurrence.
+        return $this->tokenPhraseCount($tokens, 'たり') + $this->tokenPhraseCount($tokens, 'だり') >= 2;
+    }
+
+    /**
+     * @param  array<string, array{field: string, matchedText: string, rule: string, surface: string}>  $matches
+     * @return array<string, array{field: string, matchedText: string, rule: string, surface: string}>
+     */
+    private function suppressGeneralMatches(array $matches): array
+    {
         foreach (self::SUPPRESSED_BY_MORE_SPECIFIC_RULE as $specific => $generalRules) {
             if (! isset($matches[$specific])) {
                 continue;
@@ -151,7 +189,7 @@ final class N4GrammarRuleMatcher
             $surface = LearningConceptText::normalize($token['surface'] ?? '');
             $partOfSpeech = $token['partOfSpeech'] ?? '';
 
-            if ($surface === '' || str_starts_with($partOfSpeech, '記号') || str_starts_with($partOfSpeech, '補助記号')) {
+            if ($this->endsSignificantSegment($surface, $partOfSpeech)) {
                 if ($segment !== []) {
                     $segments[] = $segment;
                     $segment = [];
@@ -169,6 +207,13 @@ final class N4GrammarRuleMatcher
         }
 
         return $segments;
+    }
+
+    private function endsSignificantSegment(string $surface, string $partOfSpeech): bool
+    {
+        return $surface === ''
+            || str_starts_with($partOfSpeech, '記号')
+            || str_starts_with($partOfSpeech, '補助記号');
     }
 
     /** @param list<array<string, string>> $tokens */

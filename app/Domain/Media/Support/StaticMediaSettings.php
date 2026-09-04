@@ -114,11 +114,16 @@ final class StaticMediaSettings
     public function publicObjectPath(string $url): ?string
     {
         $bucket = $this->bucketName();
+        if ($bucket === null) {
+            return null;
+        }
+
         $parts = parse_url($url);
-        if ($bucket === null || $parts === false
-            || ($parts['scheme'] ?? null) !== 'https'
-            || ($parts['host'] ?? null) !== 'storage.googleapis.com'
-            || isset($parts['query']) || isset($parts['fragment'])) {
+        if ($parts === false) {
+            return null;
+        }
+
+        if (! self::isPublicStorageUrl($parts)) {
             return null;
         }
 
@@ -130,19 +135,52 @@ final class StaticMediaSettings
 
         $encodedSegments = explode('/', substr($path, strlen($encodedPrefix)));
         $segments = array_map(rawurldecode(...), $encodedSegments);
-        if (in_array('', $segments, true) || in_array('.', $segments, true) || in_array('..', $segments, true)) {
+        if (! self::hasSafeObjectPathSegments($segments)) {
             return null;
-        }
-        foreach ($segments as $segment) {
-            if (str_contains($segment, '/') || str_contains($segment, '\\')) {
-                return null;
-            }
         }
 
         $objectPath = implode('/', $segments);
         $avatarRoot = rtrim($this->avatarObjectPath(''), '/').'/';
 
         return str_starts_with($objectPath, $avatarRoot) ? $objectPath : null;
+    }
+
+    /** @param array<string, int|string> $parts */
+    private static function isPublicStorageUrl(array $parts): bool
+    {
+        if (($parts['scheme'] ?? null) !== 'https') {
+            return false;
+        }
+
+        if (($parts['host'] ?? null) !== 'storage.googleapis.com') {
+            return false;
+        }
+
+        return ! isset($parts['query']) && ! isset($parts['fragment']);
+    }
+
+    /** @param list<string> $segments */
+    private static function hasSafeObjectPathSegments(array $segments): bool
+    {
+        if (in_array('', $segments, true)) {
+            return false;
+        }
+
+        if (in_array('.', $segments, true)) {
+            return false;
+        }
+
+        if (in_array('..', $segments, true)) {
+            return false;
+        }
+
+        foreach ($segments as $segment) {
+            if (str_contains($segment, '/') || str_contains($segment, '\\')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function signingEnabled(mixed $configured): bool

@@ -144,26 +144,15 @@ final class StudyCardPresentation
         ?array $promptAudio,
         ?array $promptImage,
     ): array {
-        $rawText = self::firstString($prompt, ['cueText', 'text']);
-        if ($rawText === null && $prompt === []) {
-            $rawText = is_string($card->front_text) ? $card->front_text : null;
-        }
-
-        [$text, $ruby] = self::textAndRuby($rawText, [
+        [$text, $ruby] = self::textAndRuby(self::rawFrontText($card, $prompt), [
             self::firstString($prompt, ['cueReading']),
             self::firstString($answer, ['expressionReading']),
         ]);
 
         $cueMeaning = self::displayText(self::firstString($prompt, ['cueMeaning']));
-        $hasRenderableMedia = self::isRenderableMedia($promptAudio)
-            || self::isRenderableMedia($promptImage);
-        $isMediaLed = $hasRenderableMedia && $text === null;
-        $isVisualProduction = $cardType === CardType::Production->value
-            && $isMediaLed
-            && self::isRenderableMedia($promptImage)
-            && ! self::isRenderableMedia($promptAudio)
-            && $cueMeaning !== null
-            && in_array($cueMeaning, self::VISUAL_PRODUCTION_LABELS, true);
+        $media = ['audio' => $promptAudio, 'image' => $promptImage];
+        $isMediaLed = self::hasRenderableMedia($media) && $text === null;
+        $isVisualProduction = self::isVisualProduction($cardType, $isMediaLed, $media, $cueMeaning);
 
         return [
             'mode' => $isMediaLed ? 'media' : 'text',
@@ -172,15 +161,54 @@ final class StudyCardPresentation
             'hint' => $isMediaLed
                 ? ($isVisualProduction ? $cueMeaning : null)
                 : $cueMeaning,
-            'media' => [
-                'audio' => $promptAudio,
-                'image' => $promptImage,
-            ],
-            'autoplayAudio' => $cardType === CardType::Recognition->value
-                && $isMediaLed
-                && self::isRenderableMedia($promptAudio)
-                && $cueMeaning === null,
+            'media' => $media,
+            'autoplayAudio' => self::shouldAutoplayAudio($cardType, $isMediaLed, $promptAudio, $cueMeaning),
         ];
+    }
+
+    /** @param array<string, mixed> $prompt */
+    private static function rawFrontText(Card $card, array $prompt): ?string
+    {
+        $rawText = self::firstString($prompt, ['cueText', 'text']);
+        if ($rawText === null && $prompt === []) {
+            return is_string($card->front_text) ? $card->front_text : null;
+        }
+
+        return $rawText;
+    }
+
+    /** @param array{audio:?array<string,mixed>,image:?array<string,mixed>} $media */
+    private static function hasRenderableMedia(array $media): bool
+    {
+        return self::isRenderableMedia($media['audio']) || self::isRenderableMedia($media['image']);
+    }
+
+    /** @param array{audio:?array<string,mixed>,image:?array<string,mixed>} $media */
+    private static function isVisualProduction(
+        string $cardType,
+        bool $isMediaLed,
+        array $media,
+        ?string $cueMeaning,
+    ): bool {
+        return $cardType === CardType::Production->value
+            && $isMediaLed
+            && self::isRenderableMedia($media['image'])
+            && ! self::isRenderableMedia($media['audio'])
+            && $cueMeaning !== null
+            && in_array($cueMeaning, self::VISUAL_PRODUCTION_LABELS, true);
+    }
+
+    /** @param array<string, mixed>|null $promptAudio */
+    private static function shouldAutoplayAudio(
+        string $cardType,
+        bool $isMediaLed,
+        ?array $promptAudio,
+        ?string $cueMeaning,
+    ): bool {
+        return $cardType === CardType::Recognition->value
+            && $isMediaLed
+            && self::isRenderableMedia($promptAudio)
+            && $cueMeaning === null;
     }
 
     /**
@@ -458,7 +486,7 @@ final class StudyCardPresentation
     private static function normalizeLooseCloze(?string $value): ?string
     {
         $value = $value === null ? null : trim($value);
-        if ($value === null || $value === '' || preg_match('/\{\{c\d+::/u', $value) === 1) {
+        if (self::isAlreadyNormalizedCloze($value)) {
             return $value === '' ? null : $value;
         }
 
@@ -493,14 +521,18 @@ final class StudyCardPresentation
         return $found ? $normalized : $value;
     }
 
+    private static function isAlreadyNormalizedCloze(?string $value): bool
+    {
+        return $value === null || $value === '' || preg_match('/\{\{c\d+::/u', $value) === 1;
+    }
+
     private static function maskedRuby(?string $display, ?string $restored, ?string $ruby): ?string
     {
-        if ($display === null || $restored === null || $ruby === null || ! self::hasRuby($ruby)) {
+        if (! self::hasMaskInputs($display, $restored, $ruby)) {
             return null;
         }
 
-        if (substr_count($display, '[...]') !== 1
-            || self::withoutWhitespace(self::rubyPlainText($ruby)) !== self::withoutWhitespace($restored)) {
+        if (! self::maskMatchesRestoredText($display, $restored, $ruby)) {
             return null;
         }
 
@@ -511,6 +543,17 @@ final class StudyCardPresentation
 
         return self::sliceRuby($ruby, 0, mb_strlen($prefix))
             .'[...]'.self::sliceRuby($ruby, mb_strlen($restored) - mb_strlen($suffix), mb_strlen($restored));
+    }
+
+    private static function hasMaskInputs(?string $display, ?string $restored, ?string $ruby): bool
+    {
+        return $display !== null && $restored !== null && $ruby !== null && self::hasRuby($ruby);
+    }
+
+    private static function maskMatchesRestoredText(string $display, string $restored, string $ruby): bool
+    {
+        return substr_count($display, '[...]') === 1
+            && self::withoutWhitespace(self::rubyPlainText($ruby)) === self::withoutWhitespace($restored);
     }
 
     private static function hasRuby(string $value): bool
@@ -554,7 +597,11 @@ final class StudyCardPresentation
                 continue;
             }
 
-            if ($sliceStart === $segmentStart && $sliceEnd === $segmentEnd && self::hasRuby($segment)) {
+            if (self::containsCompleteRubySegment(
+                $segment,
+                [$sliceStart, $sliceEnd],
+                [$segmentStart, $segmentEnd],
+            )) {
                 $result .= $segment;
             } else {
                 $result .= mb_substr($plain, $sliceStart - $segmentStart, $sliceEnd - $sliceStart);
@@ -565,23 +612,31 @@ final class StudyCardPresentation
     }
 
     /**
+     * @param  array{0:int,1:int}  $slice
+     * @param  array{0:int,1:int}  $segmentBounds
+     */
+    private static function containsCompleteRubySegment(
+        string $segment,
+        array $slice,
+        array $segmentBounds,
+    ): bool {
+        [$sliceStart, $sliceEnd] = $slice;
+        [$segmentStart, $segmentEnd] = $segmentBounds;
+
+        return $sliceStart === $segmentStart
+            && $sliceEnd === $segmentEnd
+            && self::hasRuby($segment);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private static function pitchAccent(mixed $value): ?array
     {
-        if (! is_array($value)
-            || ($value['status'] ?? null) !== 'resolved'
-            || ! self::isNonEmptyString($value['expression'] ?? null)
-            || ! self::isNonEmptyString($value['reading'] ?? null)
-            || ! self::isNonEmptyString($value['patternName'] ?? null)
-            || ! is_array($value['morae'] ?? null)
-            || ! array_is_list($value['morae'])
-            || ! is_array($value['pattern'] ?? null)
-            || ! array_is_list($value['pattern'])
-            || count($value['morae']) === 0
-            || count($value['morae']) !== count($value['pattern'])
-            || array_filter($value['morae'], fn (mixed $mora): bool => ! self::isNonEmptyString($mora)) !== []
-            || array_filter($value['pattern'], static fn (mixed $pitch): bool => ! is_int($pitch) || ! in_array($pitch, [0, 1], true)) !== []) {
+        if (! is_array($value)) {
+            return null;
+        }
+        if (! self::isResolvedPitchAccent($value)) {
             return null;
         }
 
@@ -593,9 +648,55 @@ final class StudyCardPresentation
             'morae' => array_values($value['morae']),
             'pattern' => array_values($value['pattern']),
             'patternName' => trim($value['patternName']),
-            'source' => self::isNonEmptyString($value['source'] ?? null) ? trim($value['source']) : null,
-            'resolvedBy' => self::isNonEmptyString($value['resolvedBy'] ?? null) ? trim($value['resolvedBy']) : null,
+            'source' => self::optionalNonEmptyString($value['source'] ?? null),
+            'resolvedBy' => self::optionalNonEmptyString($value['resolvedBy'] ?? null),
         ];
+    }
+
+    /** @param array<string, mixed> $value */
+    private static function isResolvedPitchAccent(array $value): bool
+    {
+        return ($value['status'] ?? null) === 'resolved'
+            && self::isNonEmptyString($value['expression'] ?? null)
+            && self::isNonEmptyString($value['reading'] ?? null)
+            && self::isNonEmptyString($value['patternName'] ?? null)
+            && self::hasValidMoraeAndPattern($value);
+    }
+
+    /** @param array<string, mixed> $value */
+    private static function hasValidMoraeAndPattern(array $value): bool
+    {
+        $morae = $value['morae'] ?? null;
+        $pattern = $value['pattern'] ?? null;
+
+        return is_array($morae)
+            && array_is_list($morae)
+            && is_array($pattern)
+            && array_is_list($pattern)
+            && $morae !== []
+            && count($morae) === count($pattern)
+            && self::hasValidMorae($morae)
+            && self::hasValidPitchPattern($pattern);
+    }
+
+    /** @param list<mixed> $morae */
+    private static function hasValidMorae(array $morae): bool
+    {
+        return array_filter($morae, fn (mixed $mora): bool => ! self::isNonEmptyString($mora)) === [];
+    }
+
+    /** @param list<mixed> $pattern */
+    private static function hasValidPitchPattern(array $pattern): bool
+    {
+        return array_filter(
+            $pattern,
+            static fn (mixed $pitch): bool => ! is_int($pitch) || ! in_array($pitch, [0, 1], true),
+        ) === [];
+    }
+
+    private static function optionalNonEmptyString(mixed $value): ?string
+    {
+        return self::isNonEmptyString($value) ? trim($value) : null;
     }
 
     private static function isNonEmptyString(mixed $value): bool

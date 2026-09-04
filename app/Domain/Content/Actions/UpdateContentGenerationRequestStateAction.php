@@ -9,6 +9,8 @@ use App\Domain\Content\Support\ContentDialogueGeneration;
 use App\Domain\Content\Support\ContentGenerationRequestState;
 use App\Domain\Content\Support\ContentGenerationRequestTerminalState;
 use App\Domain\Content\Support\ContentSourceLock;
+use App\Domain\Content\Values\ContentGenerationRequestReference;
+use Closure;
 use Illuminate\Support\Facades\DB;
 
 final class UpdateContentGenerationRequestStateAction
@@ -16,10 +18,7 @@ final class UpdateContentGenerationRequestStateAction
     public function active(?string $requestId, string $operation, string $jobId, ?int $attempt = null): bool
     {
         return $this->transition(
-            $requestId,
-            $operation,
-            $jobId,
-            $attempt,
+            new ContentGenerationRequestReference($requestId, $operation, $jobId, $attempt),
             ContentGenerationRequestState::ACTIVE,
         );
     }
@@ -27,85 +26,68 @@ final class UpdateContentGenerationRequestStateAction
     public function completed(?string $requestId, string $operation, string $jobId, ?int $attempt = null): bool
     {
         return $this->transition(
-            $requestId,
-            $operation,
-            $jobId,
-            $attempt,
+            new ContentGenerationRequestReference($requestId, $operation, $jobId, $attempt),
             ContentGenerationRequestState::COMPLETED,
         );
     }
 
     public function synchronizeDialogue(?string $requestId, string $jobId): bool
     {
-        if ($requestId === null) {
-            return false;
-        }
-
-        return DB::transaction(function () use ($jobId, $requestId): bool {
-            ContentSourceLock::acquireConvoLab(DB::connection());
-            $request = $this->lockedRequest(
+        return $this->withLockedRequest(
+            new ContentGenerationRequestReference(
                 $requestId,
                 ContentGenerationRequestState::DIALOGUE_OPERATION,
                 $jobId,
                 null,
-            );
-            if (! $request instanceof ContentGenerationRequest) {
-                return false;
-            }
+            ),
+            function (ContentGenerationRequest $request) use ($jobId): bool {
+                $job = ContentDialogueGenerationJob::query()->whereKey($jobId)->lockForUpdate()->first();
+                if (! $job instanceof ContentDialogueGenerationJob) {
+                    return false;
+                }
 
-            $job = ContentDialogueGenerationJob::query()->whereKey($jobId)->lockForUpdate()->first();
-            if (! $job instanceof ContentDialogueGenerationJob) {
-                return false;
-            }
-
-            return match ($job->state) {
-                ContentDialogueGeneration::STATE_COMPLETED => $this->writeTerminal(
-                    $request,
-                    ContentGenerationRequestState::COMPLETED,
-                ),
-                ContentDialogueGeneration::STATE_FAILED => $this->writeTerminal(
-                    $request,
-                    ContentGenerationRequestState::FAILED,
-                    (string) ($job->error_message ?: ContentDialogueGeneration::FAILED_MESSAGE),
-                ),
-                default => false,
-            };
-        });
+                return match ($job->state) {
+                    ContentDialogueGeneration::STATE_COMPLETED => $this->writeTerminal(
+                        $request,
+                        ContentGenerationRequestState::COMPLETED,
+                    ),
+                    ContentDialogueGeneration::STATE_FAILED => $this->writeTerminal(
+                        $request,
+                        ContentGenerationRequestState::FAILED,
+                        (string) ($job->error_message ?: ContentDialogueGeneration::FAILED_MESSAGE),
+                    ),
+                    default => false,
+                };
+            },
+        );
     }
 
     public function synchronizeCourse(?string $requestId, string $courseId, int $attempt): bool
     {
-        if ($requestId === null) {
-            return false;
-        }
-
-        return DB::transaction(function () use ($attempt, $courseId, $requestId): bool {
-            ContentSourceLock::acquireConvoLab(DB::connection());
-            $request = $this->lockedRequest(
+        return $this->withLockedRequest(
+            new ContentGenerationRequestReference(
                 $requestId,
                 ContentGenerationRequestState::COURSE_OPERATION,
                 $courseId,
                 $attempt,
-            );
-            if (! $request instanceof ContentGenerationRequest) {
-                return false;
-            }
+            ),
+            function (ContentGenerationRequest $request) use ($attempt, $courseId): bool {
+                $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
+                if (! $course instanceof ContentCourse || (int) $course->generation_attempt !== $attempt) {
+                    return false;
+                }
 
-            $course = ContentCourse::query()->whereKey($courseId)->lockForUpdate()->first();
-            if (! $course instanceof ContentCourse || (int) $course->generation_attempt !== $attempt) {
-                return false;
-            }
-
-            return match ($course->status) {
-                'ready' => $this->writeTerminal($request, ContentGenerationRequestState::COMPLETED),
-                'error' => $this->writeTerminal(
-                    $request,
-                    ContentGenerationRequestState::FAILED,
-                    (string) ($course->generation_error_message ?: 'Course generation failed. Please try again.'),
-                ),
-                default => false,
-            };
-        });
+                return match ($course->status) {
+                    'ready' => $this->writeTerminal($request, ContentGenerationRequestState::COMPLETED),
+                    'error' => $this->writeTerminal(
+                        $request,
+                        ContentGenerationRequestState::FAILED,
+                        (string) ($course->generation_error_message ?: 'Course generation failed. Please try again.'),
+                    ),
+                    default => false,
+                };
+            },
+        );
     }
 
     public function failed(
@@ -116,68 +98,68 @@ final class UpdateContentGenerationRequestStateAction
         string $message,
     ): bool {
         return $this->transition(
-            $requestId,
-            $operation,
-            $jobId,
-            $attempt,
+            new ContentGenerationRequestReference($requestId, $operation, $jobId, $attempt),
             ContentGenerationRequestState::FAILED,
             trim($message),
         );
     }
 
     private function transition(
-        ?string $requestId,
-        string $operation,
-        string $jobId,
-        ?int $attempt,
+        ContentGenerationRequestReference $reference,
         string $state,
         ?string $message = null,
     ): bool {
-        if ($requestId === null) {
+        return $this->withLockedRequest(
+            $reference,
+            function (ContentGenerationRequest $request) use ($message, $state): bool {
+                if (ContentGenerationRequestState::isTerminal($state)) {
+                    return $this->writeTerminal($request, $state, $message);
+                }
+
+                $request->state = $state;
+                $request->save();
+
+                return true;
+            },
+        );
+    }
+
+    private function withLockedRequest(ContentGenerationRequestReference $reference, Closure $callback): bool
+    {
+        if ($reference->requestId === null) {
             return false;
         }
 
-        return DB::transaction(function () use (
-            $attempt,
-            $jobId,
-            $message,
-            $operation,
-            $requestId,
-            $state,
-        ): bool {
+        return DB::transaction(function () use ($callback, $reference): bool {
             ContentSourceLock::acquireConvoLab(DB::connection());
-            $request = $this->lockedRequest($requestId, $operation, $jobId, $attempt);
+            $request = $this->lockedRequest($reference);
             if (! $request instanceof ContentGenerationRequest) {
                 return false;
             }
 
-            if (ContentGenerationRequestState::isTerminal($state)) {
-                return $this->writeTerminal($request, $state, $message);
-            }
-
-            $request->state = $state;
-            $request->save();
-
-            return true;
+            return $callback($request);
         });
     }
 
-    private function lockedRequest(
-        string $requestId,
-        string $operation,
-        string $jobId,
-        ?int $attempt,
-    ): ?ContentGenerationRequest {
-        $request = ContentGenerationRequest::query()->whereKey($requestId)->lockForUpdate()->first();
-        if (! $request instanceof ContentGenerationRequest
-            || ! hash_equals((string) $request->operation, $operation)
-            || ! hash_equals((string) $request->job_id, $jobId)
-            || ($attempt !== null && (int) $request->job_attempt !== $attempt)
-            || ContentGenerationRequestState::isTerminal($request->state)) {
+    private function lockedRequest(ContentGenerationRequestReference $reference): ?ContentGenerationRequest
+    {
+        $request = ContentGenerationRequest::query()->whereKey($reference->requestId)->lockForUpdate()->first();
+        if (! $this->matchesReference($request, $reference)) {
             return null;
         }
 
         return $request;
+    }
+
+    private function matchesReference(
+        ?ContentGenerationRequest $request,
+        ContentGenerationRequestReference $reference,
+    ): bool {
+        return $request instanceof ContentGenerationRequest
+            && hash_equals((string) $request->operation, $reference->operation)
+            && hash_equals((string) $request->job_id, $reference->jobId)
+            && ($reference->attempt === null || (int) $request->job_attempt === $reference->attempt)
+            && ! ContentGenerationRequestState::isTerminal($request->state);
     }
 
     private function writeTerminal(

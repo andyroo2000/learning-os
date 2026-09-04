@@ -59,28 +59,7 @@ class ContentOpenAiClient
             throw $this->serviceException($response, $contentLabel);
         }
 
-        $text = $response->json('output_text');
-        if (is_string($text) && trim($text) !== '') {
-            return trim($text);
-        }
-
-        $output = $response->json('output');
-        if (is_array($output)) {
-            foreach ($output as $item) {
-                $contentItems = is_array($item) && is_array($item['content'] ?? null)
-                    ? $item['content']
-                    : [];
-
-                foreach ($contentItems as $content) {
-                    $text = is_array($content) ? ($content['text'] ?? null) : null;
-                    if (is_string($text) && trim($text) !== '') {
-                        return trim($text);
-                    }
-                }
-            }
-        }
-
-        throw new RuntimeException("OpenAI returned no {$contentLabel} content.");
+        return (new ContentOpenAiResponse($response, $contentLabel))->text();
     }
 
     private function serviceException(Response $response, string $contentLabel): RuntimeException

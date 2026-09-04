@@ -91,14 +91,34 @@ class CreateLessonFollowupCohortAction
     /** @param Collection<int, Card> $cards @param list<string> $cardIds */
     private function assertCardsAvailable(Collection $cards, array $cardIds): void
     {
-        if ($cards->pluck('id')->all() !== $cardIds
-            || $cards->contains(fn (Card $card): bool => ($card->study_status ?? CardStudyStatus::New) !== CardStudyStatus::New
-                || ! $card->isProgressionAvailable()
-                || $card->new_queue_position === null
-                || $card->introduction_cohort_id !== null
-                || ! in_array($card->source_kind, [null, '', CardSourceKind::Manual->value], true))) {
+        if ($cards->pluck('id')->all() !== $cardIds) {
             throw LessonFollowupCohortConflictException::cardsUnavailable();
         }
+
+        if ($cards->contains(fn (Card $card): bool => ! $this->isAvailableForCohort($card))) {
+            throw LessonFollowupCohortConflictException::cardsUnavailable();
+        }
+    }
+
+    private function isAvailableForCohort(Card $card): bool
+    {
+        if (($card->study_status ?? CardStudyStatus::New) !== CardStudyStatus::New) {
+            return false;
+        }
+
+        if (! $card->isProgressionAvailable()) {
+            return false;
+        }
+
+        if ($card->new_queue_position === null) {
+            return false;
+        }
+
+        if ($card->introduction_cohort_id !== null) {
+            return false;
+        }
+
+        return in_array($card->source_kind, [null, '', CardSourceKind::Manual->value], true);
     }
 
     /** @param list<string> $cardIds */
@@ -107,9 +127,15 @@ class CreateLessonFollowupCohortAction
         array $cardIds,
         ?string $label,
     ): CardIntroductionCohort {
-        if ($cohort->source_kind !== CardSourceKind::LessonFollowup
-            || $cohort->label !== $label
-            || $cohort->cards->pluck('id')->all() !== $cardIds) {
+        if ($cohort->source_kind !== CardSourceKind::LessonFollowup) {
+            throw LessonFollowupCohortConflictException::replayMismatch();
+        }
+
+        if ($cohort->label !== $label) {
+            throw LessonFollowupCohortConflictException::replayMismatch();
+        }
+
+        if ($cohort->cards->pluck('id')->all() !== $cardIds) {
             throw LessonFollowupCohortConflictException::replayMismatch();
         }
 

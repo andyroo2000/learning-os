@@ -33,7 +33,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         $user = User::factory()->create();
         $card = $this->cardFor($user);
 
-        $this->assertConcurrentRetryIsUnchanged('card', $card, expectedFeedEntries: 1);
+        $this->assertConcurrentRetryIsUnchanged(DeletionResourceType::Card, $card, expectedFeedEntries: 1);
     }
 
     public function test_deck_delete_retry_waits_and_does_not_duplicate_descendant_tombstones(): void
@@ -44,7 +44,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         $deck = $this->deckFor($user);
         Card::factory()->for($deck)->create();
 
-        $this->assertConcurrentRetryIsUnchanged('deck', $deck, expectedFeedEntries: 2);
+        $this->assertConcurrentRetryIsUnchanged(DeletionResourceType::Deck, $deck, expectedFeedEntries: 2);
     }
 
     public function test_course_delete_retry_waits_and_does_not_duplicate_descendant_tombstones(): void
@@ -56,7 +56,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         $deck = Deck::factory()->for($course)->for($user)->create();
         Card::factory()->for($deck)->create();
 
-        $this->assertConcurrentRetryIsUnchanged('course', $course, expectedFeedEntries: 3);
+        $this->assertConcurrentRetryIsUnchanged(DeletionResourceType::Course, $course, expectedFeedEntries: 3);
     }
 
     public function test_deck_deletion_waits_for_a_concurrent_card_delete_and_does_not_repeat_its_tombstone(): void
@@ -67,34 +67,17 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         $deck = $this->deckFor($user);
         $card = Card::factory()->for($deck)->create();
         $staleDeck = Deck::query()->findOrFail($deck->id);
-        $sockets = $this->sockets('card/deck deletion');
-
-        DB::disconnect();
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
-            throw new RuntimeException('Unable to fork the PostgreSQL card deletion worker.');
-        }
-
-        if ($pid === 0) {
-            fclose($sockets[0]);
-            $this->runDeletionWorker($sockets[1], 'card', $card->id);
-        }
-
-        fclose($sockets[1]);
-        stream_set_timeout($sockets[0], 10);
+        [$pid, $socket] = $this->startDeletionWorker('card/deck deletion', $card);
+        $status = null;
 
         try {
-            $this->assertSame('deleted', trim((string) fgets($sockets[0])));
-            DB::purge();
-            DB::connection()->statement("SET lock_timeout = '5s'");
-            $startedAt = microtime(true);
+            $startedAt = $this->waitForDeletionToHoldLock($socket);
 
             $result = app(DeleteDeckAction::class)->handle($staleDeck);
 
             $this->assertTrue($result->wasDeleted);
             $this->assertWaitedForLock($startedAt, 'Expected deck deletion to wait for direct card deletion.');
-            $status = $this->waitForWorker($pid, $sockets[0]);
+            $status = $this->waitForWorker($pid, $socket);
             $this->assertSame(0, $status);
 
             $entries = SyncFeedEntry::query()
@@ -111,13 +94,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
             $this->assertSame($card->id, $entries[0]->resource_id);
             $this->assertSame($deck->id, $entries[1]->resource_id);
         } finally {
-            fclose($sockets[0]);
-
-            if (isset($status) === false) {
-                pcntl_waitpid($pid, $workerStatus);
-            }
-
-            $this->cleanup($user);
+            $this->cleanupWorker($user, $pid, $socket, $status);
         }
     }
 
@@ -127,28 +104,11 @@ class FlashcardDeletionLockPostgresTest extends TestCase
 
         $user = User::factory()->create();
         $course = Course::factory()->for($user)->create();
-        $sockets = $this->sockets('course deletion/deck creation');
-
-        DB::disconnect();
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
-            throw new RuntimeException('Unable to fork the PostgreSQL course deletion worker.');
-        }
-
-        if ($pid === 0) {
-            fclose($sockets[0]);
-            $this->runDeletionWorker($sockets[1], 'course', $course->id);
-        }
-
-        fclose($sockets[1]);
-        stream_set_timeout($sockets[0], 10);
+        [$pid, $socket] = $this->startDeletionWorker('course deletion/deck creation', $course);
+        $status = null;
 
         try {
-            $this->assertSame('deleted', trim((string) fgets($sockets[0])));
-            DB::purge();
-            DB::connection()->statement("SET lock_timeout = '5s'");
-            $startedAt = microtime(true);
+            $startedAt = $this->waitForDeletionToHoldLock($socket);
 
             try {
                 app(CreateDeckAction::class)->handle(CreateDeckData::fromInput(
@@ -162,7 +122,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
                 $this->assertWaitedForLock($startedAt, 'Expected deck creation to wait for course deletion.');
             }
 
-            $status = $this->waitForWorker($pid, $sockets[0]);
+            $status = $this->waitForWorker($pid, $socket);
             $this->assertSame(0, $status);
             $this->assertSoftDeleted('courses', ['id' => $course->id]);
             $this->assertDatabaseCount('decks', 0);
@@ -173,13 +133,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
                 'operation' => SyncFeedOperation::Delete->value,
             ]);
         } finally {
-            fclose($sockets[0]);
-
-            if (isset($status) === false) {
-                pcntl_waitpid($pid, $workerStatus);
-            }
-
-            $this->cleanup($user);
+            $this->cleanupWorker($user, $pid, $socket, $status);
         }
     }
 
@@ -189,28 +143,11 @@ class FlashcardDeletionLockPostgresTest extends TestCase
 
         $user = User::factory()->create();
         $deck = $this->deckFor($user);
-        $sockets = $this->sockets('deck deletion/card creation');
-
-        DB::disconnect();
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
-            throw new RuntimeException('Unable to fork the PostgreSQL deck deletion worker.');
-        }
-
-        if ($pid === 0) {
-            fclose($sockets[0]);
-            $this->runDeletionWorker($sockets[1], 'deck', $deck->id);
-        }
-
-        fclose($sockets[1]);
-        stream_set_timeout($sockets[0], 10);
+        [$pid, $socket] = $this->startDeletionWorker('deck deletion/card creation', $deck);
+        $status = null;
 
         try {
-            $this->assertSame('deleted', trim((string) fgets($sockets[0])));
-            DB::purge();
-            DB::connection()->statement("SET lock_timeout = '5s'");
-            $startedAt = microtime(true);
+            $startedAt = $this->waitForDeletionToHoldLock($socket);
 
             try {
                 app(CreateCardAction::class)->handle(CreateCardData::fromInput(
@@ -225,7 +162,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
                 $this->assertWaitedForLock($startedAt, 'Expected card creation to wait for deck deletion.');
             }
 
-            $status = $this->waitForWorker($pid, $sockets[0]);
+            $status = $this->waitForWorker($pid, $socket);
             $this->assertSame(0, $status);
             $this->assertSoftDeleted('decks', ['id' => $deck->id]);
             $this->assertDatabaseCount('cards', 0);
@@ -236,13 +173,7 @@ class FlashcardDeletionLockPostgresTest extends TestCase
                 'operation' => SyncFeedOperation::Delete->value,
             ]);
         } finally {
-            fclose($sockets[0]);
-
-            if (isset($status) === false) {
-                pcntl_waitpid($pid, $workerStatus);
-            }
-
-            $this->cleanup($user);
+            $this->cleanupWorker($user, $pid, $socket, $status);
         }
     }
 
@@ -255,34 +186,17 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         $deck = Deck::factory()->for($course)->for($user)->create();
         $card = Card::factory()->for($deck)->create();
         $staleCourse = Course::query()->findOrFail($course->id);
-        $sockets = $this->sockets('deck/course deletion');
-
-        DB::disconnect();
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
-            throw new RuntimeException('Unable to fork the PostgreSQL deck deletion worker.');
-        }
-
-        if ($pid === 0) {
-            fclose($sockets[0]);
-            $this->runDeletionWorker($sockets[1], 'deck', $deck->id);
-        }
-
-        fclose($sockets[1]);
-        stream_set_timeout($sockets[0], 10);
+        [$pid, $socket] = $this->startDeletionWorker('deck/course deletion', $deck);
+        $status = null;
 
         try {
-            $this->assertSame('deleted', trim((string) fgets($sockets[0])));
-            DB::purge();
-            DB::connection()->statement("SET lock_timeout = '5s'");
-            $startedAt = microtime(true);
+            $startedAt = $this->waitForDeletionToHoldLock($socket);
 
             $result = app(DeleteCourseAction::class)->handle($staleCourse);
 
             $this->assertTrue($result->wasDeleted);
             $this->assertWaitedForLock($startedAt, 'Expected course deletion to wait for direct deck deletion.');
-            $status = $this->waitForWorker($pid, $sockets[0]);
+            $status = $this->waitForWorker($pid, $socket);
             $this->assertSame(0, $status);
 
             $entries = SyncFeedEntry::query()
@@ -300,18 +214,12 @@ class FlashcardDeletionLockPostgresTest extends TestCase
                 $entries->pluck('operation')->all(),
             );
         } finally {
-            fclose($sockets[0]);
-
-            if (isset($status) === false) {
-                pcntl_waitpid($pid, $workerStatus);
-            }
-
-            $this->cleanup($user);
+            $this->cleanupWorker($user, $pid, $socket, $status);
         }
     }
 
     private function assertConcurrentRetryIsUnchanged(
-        string $resourceType,
+        DeletionResourceType $resourceType,
         Card|Deck|Course $model,
         int $expectedFeedEntries,
     ): void {
@@ -319,43 +227,26 @@ class FlashcardDeletionLockPostgresTest extends TestCase
             ? User::query()->findOrFail($model->ownerUserId())
             : User::query()->findOrFail($model->user_id);
         $staleModel = $model::query()->findOrFail($model->getKey());
-        $sockets = $this->sockets("{$resourceType} deletion");
-
-        DB::disconnect();
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
-            throw new RuntimeException("Unable to fork the PostgreSQL {$resourceType} deletion worker.");
-        }
-
-        if ($pid === 0) {
-            fclose($sockets[0]);
-            $this->runDeletionWorker($sockets[1], $resourceType, $model->getKey());
-        }
-
-        fclose($sockets[1]);
-        stream_set_timeout($sockets[0], 10);
+        [$pid, $socket] = $this->startDeletionWorker("{$resourceType->value} deletion", $model);
+        $status = null;
 
         try {
-            $this->assertSame('deleted', trim((string) fgets($sockets[0])));
-            DB::purge();
-            DB::connection()->statement("SET lock_timeout = '5s'");
-            $startedAt = microtime(true);
+            $startedAt = $this->waitForDeletionToHoldLock($socket);
 
             $result = $this->performDeletion($resourceType, $staleModel);
 
             $this->assertFalse($result->wasDeleted);
-            $this->assertWaitedForLock($startedAt, "Expected {$resourceType} retry to wait for the first deletion.");
-            $status = $this->waitForWorker($pid, $sockets[0]);
+            $this->assertWaitedForLock($startedAt, "Expected {$resourceType->value} retry to wait for the first deletion.");
+            $status = $this->waitForWorker($pid, $socket);
             $this->assertSame(0, $status);
             $entries = SyncFeedEntry::query()
                 ->where('user_id', $user->id)
                 ->orderBy('checkpoint')
                 ->get();
             $expectedResourceTypes = match ($resourceType) {
-                'card' => ['card'],
-                'deck' => ['card', 'deck'],
-                'course' => ['card', 'deck', 'course'],
+                DeletionResourceType::Card => ['card'],
+                DeletionResourceType::Deck => ['card', 'deck'],
+                DeletionResourceType::Course => ['card', 'deck', 'course'],
             };
 
             $this->assertCount($expectedFeedEntries, $entries);
@@ -367,20 +258,59 @@ class FlashcardDeletionLockPostgresTest extends TestCase
             $this->assertSame(
                 1,
                 SyncFeedEntry::query()
-                    ->where('resource_type', $resourceType)
+                    ->where('resource_type', $resourceType->value)
                     ->where('resource_id', $model->getKey())
                     ->where('operation', SyncFeedOperation::Delete->value)
                     ->count(),
             );
         } finally {
-            fclose($sockets[0]);
-
-            if (isset($status) === false) {
-                pcntl_waitpid($pid, $workerStatus);
-            }
-
-            $this->cleanup($user);
+            $this->cleanupWorker($user, $pid, $socket, $status);
         }
+    }
+
+    /** @return array{0: int, 1: resource} */
+    private function startDeletionWorker(string $label, Card|Deck|Course $model): array
+    {
+        $sockets = $this->sockets($label);
+        $resourceType = DeletionResourceType::for($model);
+        DB::disconnect();
+        $pid = pcntl_fork();
+
+        if ($pid === -1) {
+            throw new RuntimeException("Unable to fork the PostgreSQL {$resourceType->value} deletion worker.");
+        }
+
+        if ($pid === 0) {
+            fclose($sockets[0]);
+            $this->runDeletionWorker($sockets[1], $resourceType, $model);
+        }
+
+        fclose($sockets[1]);
+        stream_set_timeout($sockets[0], 10);
+
+        return [$pid, $sockets[0]];
+    }
+
+    /** @param resource $socket */
+    private function waitForDeletionToHoldLock($socket): float
+    {
+        $this->assertSame('deleted', trim((string) fgets($socket)));
+        DB::purge();
+        DB::connection()->statement("SET lock_timeout = '5s'");
+
+        return microtime(true);
+    }
+
+    /** @param resource $socket */
+    private function cleanupWorker(User $user, int $pid, $socket, ?int $status): void
+    {
+        fclose($socket);
+
+        if ($status === null) {
+            pcntl_waitpid($pid, $workerStatus);
+        }
+
+        $this->cleanup($user);
     }
 
     private function requirePostgresConcurrency(): void
@@ -405,17 +335,16 @@ class FlashcardDeletionLockPostgresTest extends TestCase
     }
 
     /** @param resource $socket */
-    private function runDeletionWorker($socket, string $resourceType, string $resourceId): never
+    private function runDeletionWorker($socket, DeletionResourceType $resourceType, Card|Deck|Course $resource): never
     {
         try {
             DB::purge();
             DB::connection()->statement("SET statement_timeout = '10s'");
-            DB::transaction(function () use ($socket, $resourceType, $resourceId): void {
+            DB::transaction(function () use ($socket, $resourceType, $resource): void {
                 $model = match ($resourceType) {
-                    'card' => Card::query()->findOrFail($resourceId),
-                    'deck' => Deck::query()->findOrFail($resourceId),
-                    'course' => Course::query()->findOrFail($resourceId),
-                    default => throw new RuntimeException("Unsupported resource type {$resourceType}."),
+                    DeletionResourceType::Card => Card::query()->findOrFail($resource->getKey()),
+                    DeletionResourceType::Deck => Deck::query()->findOrFail($resource->getKey()),
+                    DeletionResourceType::Course => Course::query()->findOrFail($resource->getKey()),
                 };
 
                 $this->performDeletion($resourceType, $model);
@@ -436,13 +365,12 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         }
     }
 
-    private function performDeletion(string $resourceType, Card|Deck|Course $model): object
+    private function performDeletion(DeletionResourceType $resourceType, Card|Deck|Course $model): object
     {
         return match ($resourceType) {
-            'card' => app(DeleteCardAction::class)->handle($model),
-            'deck' => app(DeleteDeckAction::class)->handle($model),
-            'course' => app(DeleteCourseAction::class)->handle($model),
-            default => throw new RuntimeException("Unsupported resource type {$resourceType}."),
+            DeletionResourceType::Card => app(DeleteCardAction::class)->handle($model),
+            DeletionResourceType::Deck => app(DeleteDeckAction::class)->handle($model),
+            DeletionResourceType::Course => app(DeleteCourseAction::class)->handle($model),
         };
     }
 
@@ -470,5 +398,21 @@ class FlashcardDeletionLockPostgresTest extends TestCase
         Deck::query()->withTrashed()->where('user_id', $user->id)->forceDelete();
         Course::query()->withTrashed()->where('user_id', $user->id)->forceDelete();
         User::query()->whereKey($user->id)->delete();
+    }
+}
+
+enum DeletionResourceType: string
+{
+    case Card = 'card';
+    case Deck = 'deck';
+    case Course = 'course';
+
+    public static function for(Card|Deck|Course $model): self
+    {
+        return match (true) {
+            $model instanceof Card => self::Card,
+            $model instanceof Deck => self::Deck,
+            $model instanceof Course => self::Course,
+        };
     }
 }

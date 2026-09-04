@@ -6,6 +6,7 @@ use App\Domain\Calendar\Contracts\GoogleCalendarReadTransport;
 use App\Domain\Calendar\Data\GoogleCalendarEvent;
 use App\Domain\Calendar\Data\GoogleCalendarEventQuery;
 use App\Domain\Calendar\Data\GoogleCalendarEventTime;
+use App\Domain\Calendar\Data\GoogleCalendarPage;
 use App\Domain\Calendar\Data\GoogleCalendarSettings;
 use App\Domain\Calendar\Exceptions\GoogleCalendarProviderException;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
@@ -56,30 +57,18 @@ final class SyncGoogleCalendarEventMirrorsAction
             return false;
         }
 
-        $totalPages = 0;
-        $totalItems = 0;
+        $usage = ['pages' => 0, 'items' => 0];
         foreach ($snapshot['settings']->calendarIds as $index => $calendarId) {
-            $cursor = $snapshot['cursors'][$calendarId] ?? null;
-            try {
-                [$rows, $nextCursor] = $this->fetchCalendar(
-                    $token, $snapshot['account'], $calendarId, $cursor, $initialTimeMin,
-                    $totalPages, $totalItems,
-                );
-            } catch (GoogleCalendarProviderException $exception) {
-                if ($cursor === null || $exception->reason() !== GoogleCalendarProviderException::SYNC_TOKEN_EXPIRED) {
-                    throw $exception;
-                }
-                if (! $this->resetExpiredCalendar($snapshot, $calendarId, $cursor)) {
-                    return false;
-                }
-                $cursor = null;
-                [$rows, $nextCursor] = $this->fetchCalendar(
-                    $token, $snapshot['account'], $calendarId, null, $initialTimeMin,
-                    $totalPages, $totalItems,
-                );
+            $changes = $this->calendarChanges(
+                $this->calendarRequest($token, $snapshot, $calendarId, $initialTimeMin),
+                $snapshot,
+                $usage,
+            );
+            if ($changes === null) {
+                return false;
             }
 
-            if (! $this->commitCalendar($snapshot, $calendarId, $cursor, $rows, $nextCursor,
+            if (! $this->commitCalendar($snapshot, $calendarId, $changes['cursor'], $changes['rows'], $changes['nextCursor'],
                 $publishLastSynced && $index === array_key_last($snapshot['settings']->calendarIds))) {
                 return false;
             }
@@ -88,21 +77,70 @@ final class SyncGoogleCalendarEventMirrorsAction
         return true;
     }
 
+    /**
+     * @param  array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string}  $snapshot
+     * @param  array{token:string,account:string,calendarId:string,initialTimeMin:CarbonImmutable}  $request
+     * @param  array{pages:int,items:int}  $usage
+     * @return array{cursor:?string,rows:list<array<string,mixed>>,nextCursor:string}|null
+     */
+    private function calendarChanges(
+        array $request,
+        array $snapshot,
+        array &$usage,
+    ): ?array {
+        $calendarId = $request['calendarId'];
+        $cursor = $snapshot['cursors'][$calendarId] ?? null;
+        try {
+            [$rows, $nextCursor] = $this->fetchCalendar($request, $cursor, $usage);
+        } catch (GoogleCalendarProviderException $exception) {
+            if (! $this->isExpiredCursor($cursor, $exception)) {
+                throw $exception;
+            }
+            if (! $this->resetExpiredCalendar($snapshot, $calendarId, $cursor)) {
+                return null;
+            }
+            $cursor = null;
+            [$rows, $nextCursor] = $this->fetchCalendar($request, null, $usage);
+        }
+
+        return ['cursor' => $cursor, 'rows' => $rows, 'nextCursor' => $nextCursor];
+    }
+
+    /**
+     * @param  array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string}  $snapshot
+     * @return array{token:string,account:string,calendarId:string,initialTimeMin:CarbonImmutable}
+     */
+    private function calendarRequest(
+        string $token,
+        array $snapshot,
+        string $calendarId,
+        CarbonImmutable $initialTimeMin,
+    ): array {
+        return [
+            'token' => $token,
+            'account' => $snapshot['account'],
+            'calendarId' => $calendarId,
+            'initialTimeMin' => $initialTimeMin,
+        ];
+    }
+
+    private function isExpiredCursor(?string $cursor, GoogleCalendarProviderException $exception): bool
+    {
+        return $cursor !== null
+            && $exception->reason() === GoogleCalendarProviderException::SYNC_TOKEN_EXPIRED;
+    }
+
     /** @return array{id:int,user:int,account:string,settings:GoogleCalendarSettings,cursors:array<string,string>,run:?string}|null */
     private function snapshot(int $userId, int $connectionId, bool $allowDisabled, ?string $expectedRunId): ?array
     {
         $connection = GoogleCalendarConnection::query()
             ->whereKey($connectionId)
             ->first();
-        if ($connection === null) {
+        if (! $this->belongsToUser($connection, $userId)) {
             return null;
         }
-        if ((int) $connection->user_id !== $userId) {
-            throw (new ModelNotFoundException)->setModel(GoogleCalendarConnection::class);
-        }
         $settings = GoogleCalendarSettings::fromStored($connection->settings);
-        if ($settings === null || (! $allowDisabled && ! $settings->syncEnabled)
-            || ($expectedRunId !== null && $connection->sync_run_id !== $expectedRunId)) {
+        if (! $this->canSync($connection, $settings, $allowDisabled, $expectedRunId)) {
             return null;
         }
 
@@ -116,57 +154,59 @@ final class SyncGoogleCalendarEventMirrorsAction
         ];
     }
 
-    /** @return array{0:list<array<string,mixed>>,1:string} */
+    private function belongsToUser(?GoogleCalendarConnection $connection, int $userId): bool
+    {
+        if ($connection === null) {
+            return false;
+        }
+        if ((int) $connection->user_id !== $userId) {
+            throw (new ModelNotFoundException)->setModel(GoogleCalendarConnection::class);
+        }
+
+        return true;
+    }
+
+    private function canSync(
+        GoogleCalendarConnection $connection,
+        ?GoogleCalendarSettings $settings,
+        bool $allowDisabled,
+        ?string $expectedRunId,
+    ): bool {
+        return $settings !== null
+            && ($allowDisabled || $settings->syncEnabled)
+            && ($expectedRunId === null || $connection->sync_run_id === $expectedRunId);
+    }
+
+    /**
+     * @param  array{token:string,account:string,calendarId:string,initialTimeMin:CarbonImmutable}  $request
+     * @param  array{pages:int,items:int}  $usage
+     * @return array{0:list<array<string,mixed>>,1:string}
+     */
     private function fetchCalendar(
-        string $token,
-        string $account,
-        string $calendarId,
+        array $request,
         ?string $cursor,
-        CarbonImmutable $initialTimeMin,
-        int &$totalPages,
-        int &$totalItems,
+        array &$usage,
     ): array {
         $rows = [];
         $pageToken = null;
         $seenPageTokens = [];
         for ($page = 0; $page < self::MAX_PAGES_PER_CALENDAR; $page++) {
-            if ($totalPages >= self::MAX_TOTAL_PAGES) {
-                throw $this->invalidResponse();
-            }
-            $result = $this->google->events($token, $calendarId, new GoogleCalendarEventQuery(
-                timeMin: $cursor === null ? $initialTimeMin->utc()->toIso8601ZuluString() : null,
+            $this->assertPageAvailable($usage['pages']);
+            $result = $this->google->events($request['token'], $request['calendarId'], new GoogleCalendarEventQuery(
+                timeMin: $cursor === null ? $request['initialTimeMin']->utc()->toIso8601ZuluString() : null,
                 syncToken: $cursor,
                 pageToken: $pageToken,
                 maxResults: self::PAGE_SIZE,
             ));
-            $totalPages++;
-            if (! is_array($result->items) || ! array_is_list($result->items)
-                || count($result->items) > self::PAGE_SIZE
-                || count($rows) + count($result->items) > self::MAX_ITEMS_PER_CALENDAR
-                || $totalItems + count($result->items) > self::MAX_TOTAL_ITEMS) {
-                throw $this->invalidResponse();
-            }
-            foreach ($result->items as $event) {
-                if (! $event instanceof GoogleCalendarEvent) {
-                    throw $this->invalidResponse();
-                }
-                $row = $this->normalize($event, $account, $calendarId);
-                $rows[$row['source_key']] = $row;
-                $totalItems++;
-            }
+            $usage['pages']++;
+            $this->assertPageCapacity($result, count($rows), $usage['items']);
+            $this->appendEvents($result->items, $rows, $usage, $request);
 
-            $nextPage = $this->token($result->nextPageToken);
-            $nextCursor = $this->token($result->nextSyncToken);
+            [$nextPage, $nextCursor] = $this->pageTokens($result);
             if ($nextPage === null) {
-                if ($nextCursor === null) {
-                    throw $this->invalidResponse();
-                }
-
-                return [array_values($rows), $nextCursor];
+                return [array_values($rows), $this->requiredCursor($nextCursor)];
             }
-            if ($nextCursor !== null || isset($seenPageTokens[$nextPage])) {
-                throw $this->invalidResponse();
-            }
+            $this->assertNextPage($nextPage, $nextCursor, $seenPageTokens);
             $seenPageTokens[$nextPage] = true;
             $pageToken = $nextPage;
         }
@@ -174,26 +214,84 @@ final class SyncGoogleCalendarEventMirrorsAction
         throw $this->invalidResponse();
     }
 
+    private function assertPageAvailable(int $totalPages): void
+    {
+        if ($totalPages >= self::MAX_TOTAL_PAGES) {
+            throw $this->invalidResponse();
+        }
+    }
+
+    private function assertPageCapacity(GoogleCalendarPage $page, int $calendarItems, int $totalItems): void
+    {
+        $pageItems = count($page->items);
+        if (! $this->pageFits($page->items, $pageItems, $calendarItems, $totalItems)) {
+            throw $this->invalidResponse();
+        }
+    }
+
+    private function pageFits(array $items, int $pageItems, int $calendarItems, int $totalItems): bool
+    {
+        return array_is_list($items)
+            && $pageItems <= self::PAGE_SIZE
+            && $calendarItems + $pageItems <= self::MAX_ITEMS_PER_CALENDAR
+            && $totalItems + $pageItems <= self::MAX_TOTAL_ITEMS;
+    }
+
+    /**
+     * @param  list<mixed>  $events
+     * @param  array<string, array<string, mixed>>  $rows
+     * @param  array{pages:int,items:int}  $usage
+     * @param  array{token:string,account:string,calendarId:string,initialTimeMin:CarbonImmutable}  $request
+     */
+    private function appendEvents(
+        array $events,
+        array &$rows,
+        array &$usage,
+        array $request,
+    ): void {
+        foreach ($events as $event) {
+            if (! $event instanceof GoogleCalendarEvent) {
+                throw $this->invalidResponse();
+            }
+            $row = $this->normalize($event, $request['account'], $request['calendarId']);
+            $rows[$row['source_key']] = $row;
+            $usage['items']++;
+        }
+    }
+
+    /** @return array{0:?string,1:?string} */
+    private function pageTokens(GoogleCalendarPage $page): array
+    {
+        return [$this->token($page->nextPageToken), $this->token($page->nextSyncToken)];
+    }
+
+    private function requiredCursor(?string $cursor): string
+    {
+        return $cursor ?? throw $this->invalidResponse();
+    }
+
+    /** @param array<string, true> $seenPageTokens */
+    private function assertNextPage(string $nextPage, ?string $nextCursor, array $seenPageTokens): void
+    {
+        if ($nextCursor !== null || isset($seenPageTokens[$nextPage])) {
+            throw $this->invalidResponse();
+        }
+    }
+
     /** @return array<string, mixed> */
     private function normalize(GoogleCalendarEvent $event, string $account, string $calendarId): array
     {
-        if ($event->id === '' || strlen($event->id) > 1024
-            || ! in_array($event->status, ['confirmed', 'tentative', 'cancelled'], true)) {
-            throw $this->invalidResponse();
-        }
+        $this->assertEvent($event);
         $key = GoogleCalendarEventIdentity::sourceKey($event, $account, $calendarId);
         if ($key === null) {
             throw $this->invalidResponse();
         }
-        [$startsAt, $startAllDay] = $this->time($event->start);
-        [$endsAt, $endAllDay] = $this->time($event->end);
-        if (($startsAt === null) !== ($endsAt === null)
-            || ($startsAt !== null && $startAllDay !== $endAllDay)
-            || ($event->status !== 'cancelled' && $startsAt === null)) {
-            throw $this->invalidResponse();
-        }
+        $start = $this->time($event->start);
+        $end = $this->time($event->end);
+        $this->assertEventTimes($event, $start, $end);
+        [$startsAt, $startAllDay] = $start;
+        [$endsAt, $endAllDay] = $end;
         [$originalStart] = $this->time($event->originalStartTime);
-        $title = GoogleCalendarSettings::trimInput($event->summary, 4096);
         $now = CarbonImmutable::instance(now())->utc();
 
         return [
@@ -203,7 +301,7 @@ final class SyncGoogleCalendarEventMirrorsAction
             'recurring_event_id' => $event->recurringEventId,
             'original_start_at' => $originalStart,
             'status' => $event->status,
-            'title' => is_string($title) && $title !== '' ? $title : null,
+            'title' => $this->title($event),
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
             'all_day' => $startsAt !== null ? $startAllDay : $event->originalStartTime?->date !== null,
@@ -214,26 +312,88 @@ final class SyncGoogleCalendarEventMirrorsAction
         ];
     }
 
+    private function assertEvent(GoogleCalendarEvent $event): void
+    {
+        if (! $this->isValidEvent($event)) {
+            throw $this->invalidResponse();
+        }
+    }
+
+    private function isValidEvent(GoogleCalendarEvent $event): bool
+    {
+        return $event->id !== ''
+            && strlen($event->id) <= 1024
+            && in_array($event->status, ['confirmed', 'tentative', 'cancelled'], true);
+    }
+
+    /**
+     * @param  array{0:?CarbonImmutable,1:bool}  $start
+     * @param  array{0:?CarbonImmutable,1:bool}  $end
+     */
+    private function assertEventTimes(
+        GoogleCalendarEvent $event,
+        array $start,
+        array $end,
+    ): void {
+        if (! $this->areValidEventTimes($event, $start, $end)) {
+            throw $this->invalidResponse();
+        }
+    }
+
+    /**
+     * @param  array{0:?CarbonImmutable,1:bool}  $start
+     * @param  array{0:?CarbonImmutable,1:bool}  $end
+     */
+    private function areValidEventTimes(
+        GoogleCalendarEvent $event,
+        array $start,
+        array $end,
+    ): bool {
+        [$startsAt, $startAllDay] = $start;
+        [$endsAt, $endAllDay] = $end;
+
+        return ($startsAt === null) === ($endsAt === null)
+            && ($startsAt === null || $startAllDay === $endAllDay)
+            && ($event->status === 'cancelled' || $startsAt !== null);
+    }
+
+    private function title(GoogleCalendarEvent $event): ?string
+    {
+        $title = GoogleCalendarSettings::trimInput($event->summary, 4096);
+
+        return is_string($title) && $title !== '' ? $title : null;
+    }
+
     /** @return array{0:?CarbonImmutable,1:bool} */
     private function time(?GoogleCalendarEventTime $time): array
     {
         if ($time === null) {
             return [null, false];
         }
-        if (($time->date === null) === ($time->dateTime === null)) {
+        if (! $this->hasOneTimeRepresentation($time)) {
             throw $this->invalidResponse();
         }
 
         if ($time->date !== null) {
-            $date = CarbonImmutable::createFromFormat('!Y-m-d', $time->date, 'UTC');
-            if ($date === false || $date->format('Y-m-d') !== $time->date) {
-                throw $this->invalidResponse();
-            }
-
-            return [$date, true];
+            return [$this->date($time->date), true];
         }
 
         return [$this->timestamp($time->dateTime) ?? throw $this->invalidResponse(), false];
+    }
+
+    private function hasOneTimeRepresentation(GoogleCalendarEventTime $time): bool
+    {
+        return ($time->date === null) !== ($time->dateTime === null);
+    }
+
+    private function date(string $value): CarbonImmutable
+    {
+        $date = CarbonImmutable::createFromFormat('!Y-m-d', $value, 'UTC');
+        if ($date === false || $date->format('Y-m-d') !== $value) {
+            throw $this->invalidResponse();
+        }
+
+        return $date;
     }
 
     private function timestamp(?string $value): ?CarbonImmutable
@@ -325,13 +485,21 @@ final class SyncGoogleCalendarEventMirrorsAction
             throw $this->invalidResponse();
         }
         foreach ($value as $calendarId => $token) {
-            if (! is_string($calendarId) || $calendarId === '' || strlen($calendarId) > 1024
-                || ! is_string($token) || $this->token($token) === null) {
+            if (! $this->isCursor($calendarId, $token)) {
                 throw $this->invalidResponse();
             }
         }
 
         return $value;
+    }
+
+    private function isCursor(mixed $calendarId, mixed $token): bool
+    {
+        return is_string($calendarId)
+            && $calendarId !== ''
+            && strlen($calendarId) <= 1024
+            && is_string($token)
+            && $this->token($token) !== null;
     }
 
     private function token(?string $value): ?string

@@ -16,30 +16,64 @@ final readonly class SynthesizeAdminScriptLabLineData
     /** @param array<string, mixed> $input */
     public static function fromInput(array $input): self
     {
-        $text = $input['text'] ?? null;
+        return new self(
+            text: self::text($input['text'] ?? null),
+            voiceId: self::voiceId($input['voiceId'] ?? null),
+            speed: self::speed($input['speed'] ?? 1),
+        );
+    }
+
+    private static function text(mixed $value): string
+    {
+        $text = $value;
         if (! is_string($text) || trim($text) === '') {
             throw new InvalidArgumentException('Line text is required.');
         }
+
         $text = trim($text);
         if (mb_strlen($text, 'UTF-8') > FishAudioSpeechGenerator::MAX_TEXT_LENGTH) {
             throw new InvalidArgumentException('Line text is too long.');
         }
 
-        $voiceId = $input['voiceId'] ?? null;
-        $voiceId = is_string($voiceId) ? strtolower(trim($voiceId)) : $voiceId;
-        if (! is_string($voiceId) || preg_match('/^fishaudio:[a-f0-9]{32}$/', $voiceId) !== 1) {
+        return $text;
+    }
+
+    private static function voiceId(mixed $value): string
+    {
+        if (! is_string($value)) {
             throw new InvalidArgumentException('Line voice must be a Fish Audio voice ID.');
         }
 
-        $speed = $input['speed'] ?? 1;
-        if ((! is_int($speed) && ! is_float($speed) && ! is_string($speed))
-            || ! is_numeric($speed)
-            || ! is_finite((float) $speed)
-            || (float) $speed < 0.5
-            || (float) $speed > 2) {
-            throw new InvalidArgumentException('Line speed must be between 0.5 and 2.');
+        $voiceId = strtolower(trim($value));
+        if (preg_match('/^fishaudio:[a-f0-9]{32}$/', $voiceId) !== 1) {
+            throw new InvalidArgumentException('Line voice must be a Fish Audio voice ID.');
         }
 
-        return new self($text, $voiceId, (float) $speed);
+        return $voiceId;
+    }
+
+    private static function speed(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            self::invalidSpeed();
+        }
+
+        $speed = (float) $value;
+        if (! is_finite($speed)) {
+            self::invalidSpeed();
+        }
+        if ($speed < 0.5) {
+            self::invalidSpeed();
+        }
+        if ($speed > 2) {
+            self::invalidSpeed();
+        }
+
+        return $speed;
+    }
+
+    private static function invalidSpeed(): never
+    {
+        throw new InvalidArgumentException('Line speed must be between 0.5 and 2.');
     }
 }

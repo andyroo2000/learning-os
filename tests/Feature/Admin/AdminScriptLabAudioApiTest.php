@@ -207,7 +207,7 @@ final class AdminScriptLabAudioApiTest extends TestCase
             'speed' => 2,
         ])->speed);
 
-        foreach ([INF, NAN, 0.49, 2.01] as $speed) {
+        foreach ([INF, NAN, [], 0.49, 2.01] as $speed) {
             try {
                 SynthesizeAdminScriptLabLineData::fromInput([
                     'text' => 'Text',

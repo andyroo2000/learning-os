@@ -71,9 +71,12 @@ final class SynthesizeAdminCourseLineDataTest extends TestCase
         yield 'low speed' => [[...$valid, 'speed' => 0.49]];
         yield 'high speed' => [[...$valid, 'speed' => 2.01]];
         yield 'non-finite speed' => [[...$valid, 'speed' => INF]];
+        yield 'not-a-number speed' => [[...$valid, 'speed' => NAN]];
         yield 'boolean speed' => [[...$valid, 'speed' => true]];
+        yield 'array speed' => [[...$valid, 'speed' => []]];
         yield 'negative index' => [[...$valid, 'unitIndex' => -1]];
         yield 'large index' => [[...$valid, 'unitIndex' => 1_000_001]];
         yield 'fractional index' => [[...$valid, 'unitIndex' => 1.5]];
+        yield 'array index' => [[...$valid, 'unitIndex' => []]];
     }
 }

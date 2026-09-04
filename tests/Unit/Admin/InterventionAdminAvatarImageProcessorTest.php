@@ -45,12 +45,34 @@ class InterventionAdminAvatarImageProcessorTest extends TestCase
         );
     }
 
+    public function test_it_rejects_a_crop_that_rounds_to_zero_pixels(): void
+    {
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxMDAwMAAAAwBAQDJ/pLvAAAAAElFTkSuQmCC',
+            true,
+        );
+        $this->assertIsString($png);
+
+        $this->expectException(AdminMutationException::class);
+        $this->expectExceptionMessage('Invalid crop area');
+
+        (new InterventionAdminAvatarImageProcessor)->process(
+            $png,
+            AdminAvatarCropArea::from(['x' => 0, 'y' => 0, 'width' => 0.1, 'height' => 1]),
+        );
+    }
+
     /** @return iterable<string, array{string}> */
     public static function invalidImageProvider(): iterable
     {
         yield 'empty' => [''];
         yield 'not an image' => ['not-an-image'];
         yield 'over byte limit' => [str_repeat('x', InterventionAdminAvatarImageProcessor::MAX_BYTES + 1)];
+
+        $gif = base64_decode('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', true);
+        if (is_string($gif)) {
+            yield 'unsupported media type' => [$gif];
+        }
 
         $png = base64_decode(
             'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxMDAwMAAAAwBAQDJ/pLvAAAAAElFTkSuQmCC',

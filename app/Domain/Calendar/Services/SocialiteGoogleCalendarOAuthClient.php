@@ -41,32 +41,105 @@ final class SocialiteGoogleCalendarOAuthClient implements GoogleCalendarOAuthCli
         $providerId = $user->getId();
         $email = $user->getEmail();
         $raw = $user->getRaw();
-        $scopes = array_values(array_filter(
-            is_array($user->approvedScopes) ? $user->approvedScopes : [],
-            static fn (mixed $scope): bool => is_string($scope) && $scope !== '',
-        ));
+        $scopes = $this->approvedScopes($user);
 
-        if (! is_string($providerId) || trim($providerId) === '' || strlen(trim($providerId)) > 255
-            || ! is_string($email) || strlen(trim($email)) > 254
-            || filter_var(trim($email), FILTER_VALIDATE_EMAIL) === false
-            || ! filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOL)) {
-            throw new GoogleCalendarOAuthException('invalid_profile');
-        }
-        if (! is_string($user->token) || trim($user->token) === '' || ! is_int($user->expiresIn) || $user->expiresIn <= 0) {
-            throw new GoogleCalendarOAuthException('missing_token');
-        }
-        if (! in_array(self::CALENDAR_SCOPE, $scopes, true)) {
-            throw new GoogleCalendarOAuthException('missing_scope');
-        }
+        $this->assertValidProfile($providerId, $email, $raw);
+        $this->assertValidAccessToken($user);
+        $this->assertCalendarScope($scopes);
 
         return new GoogleCalendarOAuthGrant(
             trim($providerId),
             trim($email),
             $user->token,
-            is_string($user->refreshToken) && trim($user->refreshToken) !== '' ? $user->refreshToken : null,
+            $this->refreshToken($user),
             $user->expiresIn,
             $scopes,
         );
+    }
+
+    /** @param array<string, mixed> $raw */
+    private function assertValidProfile(mixed $providerId, mixed $email, array $raw): void
+    {
+        if (! $this->isValidProviderId($providerId)) {
+            throw new GoogleCalendarOAuthException('invalid_profile');
+        }
+
+        if (! $this->isValidEmail($email)) {
+            throw new GoogleCalendarOAuthException('invalid_profile');
+        }
+
+        if (! $this->isVerifiedProfile($raw)) {
+            throw new GoogleCalendarOAuthException('invalid_profile');
+        }
+    }
+
+    private function assertValidAccessToken(User $user): void
+    {
+        if (! $this->hasValidAccessToken($user)) {
+            throw new GoogleCalendarOAuthException('missing_token');
+        }
+    }
+
+    /** @param list<string> $scopes */
+    private function assertCalendarScope(array $scopes): void
+    {
+        if (! in_array(self::CALENDAR_SCOPE, $scopes, true)) {
+            throw new GoogleCalendarOAuthException('missing_scope');
+        }
+    }
+
+    /** @return list<string> */
+    private function approvedScopes(User $user): array
+    {
+        return array_values(array_filter(
+            is_array($user->approvedScopes) ? $user->approvedScopes : [],
+            static fn (mixed $scope): bool => is_string($scope) && $scope !== '',
+        ));
+    }
+
+    private function isValidProviderId(mixed $providerId): bool
+    {
+        if (! is_string($providerId)) {
+            return false;
+        }
+
+        $providerId = trim($providerId);
+
+        return $providerId !== '' && strlen($providerId) <= 255;
+    }
+
+    private function isValidEmail(mixed $email): bool
+    {
+        if (! is_string($email)) {
+            return false;
+        }
+
+        $email = trim($email);
+
+        return strlen($email) <= 254 && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /** @param array<string, mixed> $raw */
+    private function isVerifiedProfile(array $raw): bool
+    {
+        return filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOL) === true;
+    }
+
+    private function hasValidAccessToken(User $user): bool
+    {
+        return is_string($user->token)
+            && trim($user->token) !== ''
+            && is_int($user->expiresIn)
+            && $user->expiresIn > 0;
+    }
+
+    private function refreshToken(User $user): ?string
+    {
+        if (! is_string($user->refreshToken) || trim($user->refreshToken) === '') {
+            return null;
+        }
+
+        return $user->refreshToken;
     }
 
     private function provider(): GoogleProvider

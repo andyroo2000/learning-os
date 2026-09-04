@@ -9,6 +9,7 @@ use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Http\Support\AuthenticatedUser;
 use App\Support\Identifiers\CanonicalUlid;
+use BackedEnum;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,6 +28,21 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $normalized = [
+            ...$this->normalizedChoiceInputs(),
+            ...$this->normalizedImagePromptInput(),
+        ];
+
+        $this->mergeNormalizedVocabVariantMetadataForValidation($normalized);
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
+    }
+
+    /** @return array<string, string> */
+    private function normalizedChoiceInputs(): array
+    {
         $normalized = [];
 
         foreach (['imagePlacement', 'previewAudioRole'] as $key) {
@@ -37,20 +53,24 @@ class UpdateStudyCardDraftRequest extends FormRequest
             }
         }
 
-        if (array_key_exists('imagePrompt', $this->all())) {
-            $value = $this->input('imagePrompt');
+        return $normalized;
+    }
 
-            if (is_string($value)) {
-                $trimmed = trim($value);
-                $normalized['imagePrompt'] = $trimmed === '' ? null : $trimmed;
-            }
+    /** @return array{imagePrompt: ?string}|array{} */
+    private function normalizedImagePromptInput(): array
+    {
+        if (! array_key_exists('imagePrompt', $this->all())) {
+            return [];
         }
 
-        $this->mergeNormalizedVocabVariantMetadataForValidation($normalized);
-
-        if ($normalized !== []) {
-            $this->merge($normalized);
+        $value = $this->input('imagePrompt');
+        if (! is_string($value)) {
+            return [];
         }
+
+        $trimmed = trim($value);
+
+        return ['imagePrompt' => $trimmed === '' ? null : $trimmed];
     }
 
     public function authorize(): bool
@@ -109,39 +129,78 @@ class UpdateStudyCardDraftRequest extends FormRequest
     {
         return [
             $this->studyCardPayloadAfterValidator(requireText: false),
-            function (Validator $validator): void {
-                $data = $validator->getData();
-
-                if (array_key_exists('prompt', $data) xor array_key_exists('answer', $data)) {
-                    $validator->errors()->add('prompt', self::PAYLOAD_REQUIRED_MESSAGE);
-                    $validator->errors()->add('answer', self::PAYLOAD_REQUIRED_MESSAGE);
-                }
-
-                $hasPreviewAudioRole = array_key_exists('previewAudioRole', $data)
-                    && $data['previewAudioRole'] !== null
-                    && ! $validator->errors()->has('previewAudioRole');
-                $previewAudioHasErrors = false;
-
-                foreach ($validator->errors()->keys() as $errorKey) {
-                    if ($errorKey === 'previewAudio' || str_starts_with($errorKey, 'previewAudio.')) {
-                        $previewAudioHasErrors = true;
-
-                        break;
-                    }
-                }
-
-                $addsPreviewAudio = array_key_exists('previewAudio', $data)
-                    && $data['previewAudio'] !== null
-                    && ! $previewAudioHasErrors;
-                $clearsPreviewAudio = array_key_exists('previewAudio', $data) && $data['previewAudio'] === null;
-
-                if ($hasPreviewAudioRole
-                    && ! $addsPreviewAudio
-                    && ($clearsPreviewAudio || $this->studyCardDraft()->preview_audio_json === null)) {
-                    $validator->errors()->add('previewAudioRole', 'previewAudioRole requires previewAudio.');
-                }
-            },
+            $this->validateStudyCardDraftUpdate(...),
         ];
+    }
+
+    private function validateStudyCardDraftUpdate(Validator $validator): void
+    {
+        $data = $validator->getData();
+        $this->addMissingPayloadPairErrors($validator, $data);
+        $this->addMissingPreviewAudioError($validator, $data);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function addMissingPayloadPairErrors(Validator $validator, array $data): void
+    {
+        if (array_key_exists('prompt', $data) xor array_key_exists('answer', $data)) {
+            $validator->errors()->add('prompt', self::PAYLOAD_REQUIRED_MESSAGE);
+            $validator->errors()->add('answer', self::PAYLOAD_REQUIRED_MESSAGE);
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function addMissingPreviewAudioError(Validator $validator, array $data): void
+    {
+        if (! self::hasValidPreviewAudioRole($validator, $data)) {
+            return;
+        }
+
+        if (self::addsValidPreviewAudio($validator, $data)) {
+            return;
+        }
+
+        $clearsPreviewAudio = array_key_exists('previewAudio', $data) && $data['previewAudio'] === null;
+        if (! $clearsPreviewAudio && $this->studyCardDraft()->preview_audio_json !== null) {
+            return;
+        }
+
+        $validator->errors()->add('previewAudioRole', 'previewAudioRole requires previewAudio.');
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function hasValidPreviewAudioRole(Validator $validator, array $data): bool
+    {
+        if (! array_key_exists('previewAudioRole', $data)) {
+            return false;
+        }
+
+        if ($data['previewAudioRole'] === null) {
+            return false;
+        }
+
+        return ! $validator->errors()->has('previewAudioRole');
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function addsValidPreviewAudio(Validator $validator, array $data): bool
+    {
+        if (! array_key_exists('previewAudio', $data) || $data['previewAudio'] === null) {
+            return false;
+        }
+
+        return ! self::previewAudioHasErrors($validator);
+    }
+
+    private static function previewAudioHasErrors(Validator $validator): bool
+    {
+        foreach ($validator->errors()->keys() as $errorKey) {
+            if ($errorKey === 'previewAudio' || str_starts_with($errorKey, 'previewAudio.')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -227,18 +286,8 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     public function imagePlacement(): ?StudyCardImagePlacement
     {
-        $validated = $this->validated();
-        $value = $validated['imagePlacement'] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_string($value)) {
-            throw new LogicException('imagePlacement called after validation failed to reject a non-string value.');
-        }
-
-        return StudyCardImagePlacement::from($value);
+        /** @var StudyCardImagePlacement|null */
+        return $this->nullableValidatedEnum('imagePlacement', StudyCardImagePlacement::class);
     }
 
     public function hasImagePrompt(): bool
@@ -277,17 +326,29 @@ class UpdateStudyCardDraftRequest extends FormRequest
 
     public function previewAudioRole(): ?StudyCardAudioRole
     {
-        $value = $this->validated('previewAudioRole');
+        /** @var StudyCardAudioRole|null */
+        return $this->nullableValidatedEnum('previewAudioRole', StudyCardAudioRole::class);
+    }
+
+    /**
+     * @template TEnum of BackedEnum
+     *
+     * @param  class-string<TEnum>  $enumClass
+     * @return TEnum|null
+     */
+    private function nullableValidatedEnum(string $key, string $enumClass): ?BackedEnum
+    {
+        $value = $this->validated($key);
 
         if ($value === null) {
             return null;
         }
 
         if (! is_string($value)) {
-            throw new LogicException('previewAudioRole called after validation failed to reject a non-string value.');
+            throw new LogicException("{$key} called after validation failed to reject a non-string value.");
         }
 
-        return StudyCardAudioRole::from($value);
+        return $enumClass::from($value);
     }
 
     public function hasPreviewImage(): bool

@@ -9,6 +9,8 @@ use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Http\Resources\Study\StudyCardSummaryResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -137,62 +139,7 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
     public function test_it_shows_browser_note_detail_grouped_by_source_note_id(): void
     {
         $user = $this->signIn();
-        $deck = $this->deckFor($user);
-        $firstCard = Card::factory()->for($deck)->create([
-            'front_text' => 'fallback front',
-            'back_text' => 'fallback back',
-            'card_type' => CardType::Recognition,
-            'study_status' => CardStudyStatus::Review,
-            'source_kind' => 'anki_import',
-            'source_card_id' => 701,
-            'source_note_id' => 501,
-            'source_notetype_name' => 'Japanese - Vocab',
-            'source_template_ord' => 0,
-            'prompt_json' => [
-                'cueText' => ' 会社 ',
-                'cueReading' => 'かいしゃ',
-            ],
-            'answer_json' => [
-                'meaning' => 'company',
-            ],
-            'created_at' => now()->subDays(3),
-            'updated_at' => now()->subDay(),
-        ]);
-        $secondCard = Card::factory()->for($deck)->create([
-            'front_text' => 'production fallback',
-            'back_text' => 'answer fallback',
-            'card_type' => CardType::Production,
-            'study_status' => CardStudyStatus::New,
-            'source_kind' => 'anki_import',
-            'source_card_id' => 702,
-            'source_note_id' => 501,
-            'source_notetype_name' => 'Japanese - Vocab',
-            'source_template_ord' => 1,
-            'prompt_json' => [
-                'cueText' => 'company',
-            ],
-            'answer_json' => [
-                'expression' => '会社',
-            ],
-            'created_at' => now()->subDays(2),
-            'updated_at' => now(),
-        ]);
-        Card::factory()->for($deck)->create([
-            'front_text' => 'other note',
-            'source_note_id' => 502,
-        ]);
-        $latestReviewAt = now()->subHour()->milliseconds(0);
-        $latestSecondCardReviewAt = $latestReviewAt->copy()->addMinute();
-
-        CardReviewEvent::factory()->for($firstCard)->create([
-            'reviewed_at' => now()->subDays(2),
-        ]);
-        CardReviewEvent::factory()->for($firstCard)->create([
-            'reviewed_at' => $latestReviewAt,
-        ]);
-        CardReviewEvent::factory()->for($secondCard)->create([
-            'reviewed_at' => $latestSecondCardReviewAt,
-        ]);
+        [$firstCard, $secondCard, $latestReviewAt, $latestSecondCardReviewAt] = $this->cardsForSharedSourceNote($user);
 
         DB::enableQueryLog();
         DB::flushQueryLog();
@@ -255,6 +202,77 @@ class StudyBrowserNoteDetailCompatibilityApiTest extends TestCase
             'Study browser note detail should keep the first card value when raw field names collide.',
         );
 
+        $this->assertBoundedCardReviewQueries($queries);
+    }
+
+    /**
+     * @return array{Card, Card, Carbon, Carbon}
+     */
+    private function cardsForSharedSourceNote(User $user): array
+    {
+        $deck = $this->deckFor($user);
+        $firstCard = Card::factory()->for($deck)->create([
+            'front_text' => 'fallback front',
+            'back_text' => 'fallback back',
+            'card_type' => CardType::Recognition,
+            'study_status' => CardStudyStatus::Review,
+            'source_kind' => 'anki_import',
+            'source_card_id' => 701,
+            'source_note_id' => 501,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 0,
+            'prompt_json' => [
+                'cueText' => ' 会社 ',
+                'cueReading' => 'かいしゃ',
+            ],
+            'answer_json' => [
+                'meaning' => 'company',
+            ],
+            'created_at' => now()->subDays(3),
+            'updated_at' => now()->subDay(),
+        ]);
+        $secondCard = Card::factory()->for($deck)->create([
+            'front_text' => 'production fallback',
+            'back_text' => 'answer fallback',
+            'card_type' => CardType::Production,
+            'study_status' => CardStudyStatus::New,
+            'source_kind' => 'anki_import',
+            'source_card_id' => 702,
+            'source_note_id' => 501,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 1,
+            'prompt_json' => [
+                'cueText' => 'company',
+            ],
+            'answer_json' => [
+                'expression' => '会社',
+            ],
+            'created_at' => now()->subDays(2),
+            'updated_at' => now(),
+        ]);
+        Card::factory()->for($deck)->create([
+            'front_text' => 'other note',
+            'source_note_id' => 502,
+        ]);
+        $latestReviewAt = now()->subHour()->milliseconds(0);
+        $latestSecondCardReviewAt = $latestReviewAt->copy()->addMinute();
+
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => now()->subDays(2),
+        ]);
+        CardReviewEvent::factory()->for($firstCard)->create([
+            'reviewed_at' => $latestReviewAt,
+        ]);
+        CardReviewEvent::factory()->for($secondCard)->create([
+            'reviewed_at' => $latestSecondCardReviewAt,
+        ]);
+
+        return [$firstCard, $secondCard, $latestReviewAt, $latestSecondCardReviewAt];
+    }
+
+    /** @param  Collection<int, array{query: string}>  $queries */
+    private function assertBoundedCardReviewQueries(Collection $queries): void
+    {
         $cardSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')
             && str_contains(strtolower($query['query']), 'from "cards"'));
         $standaloneReviewStatsSelects = $queries->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'select')

@@ -43,8 +43,7 @@ class AssembleContentCourseAudioAction
             if ($course === null) {
                 return null;
             }
-            if ($expectedAttempt !== null && ($course->status !== 'generating'
-                || (int) $course->generation_attempt !== $expectedAttempt)) {
+            if (! $this->matchesExpectedAttempt($course, $expectedAttempt)) {
                 return null;
             }
 
@@ -90,10 +89,13 @@ class AssembleContentCourseAudioAction
                     ->where('convolab_user_id', $convoLabUserId)
                     ->lockForUpdate()
                     ->first();
-                if ($course === null
-                    || (int) $course->generation_revision !== $prepared['revision']
-                    || ($expectedAttempt !== null && ($course->status !== 'generating'
-                        || (int) $course->generation_attempt !== $expectedAttempt))) {
+                if ($course === null) {
+                    throw new RuntimeException('Course changed while its audio was being assembled.');
+                }
+                if ((int) $course->generation_revision !== $prepared['revision']) {
+                    throw new RuntimeException('Course changed while its audio was being assembled.');
+                }
+                if (! $this->matchesExpectedAttempt($course, $expectedAttempt)) {
                     throw new RuntimeException('Course changed while its audio was being assembled.');
                 }
 
@@ -115,6 +117,18 @@ class AssembleContentCourseAudioAction
         }
 
         return $course;
+    }
+
+    private function matchesExpectedAttempt(ContentCourse $course, ?int $expectedAttempt): bool
+    {
+        if ($expectedAttempt === null) {
+            return true;
+        }
+        if ($course->status !== 'generating') {
+            return false;
+        }
+
+        return (int) $course->generation_attempt === $expectedAttempt;
     }
 
     private function deleteOwnedPath(string $courseId, ?string $path): void

@@ -28,32 +28,9 @@ final readonly class ProcessContentAudioGenerationAction
             return;
         }
 
-        $generated = [];
         try {
-            $sentences = ContentSentence::query()
-                ->where('dialogue_id', $claimed['data']->dialogueId)
-                ->with('speaker')
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get()
-                ->all();
-            if ($sentences === []) {
-                throw new \RuntimeException('Dialogue has no sentences to synthesize.');
-            }
-
-            $tracks = $this->tracks($claimed['data']);
-            foreach ($tracks as $index => $track) {
-                $generated[] = $this->assembler->assemble(
-                    $claimed['data']->episodeId,
-                    $claimed['attempt'],
-                    $track['track'],
-                    $track['speed'],
-                    $sentences,
-                    $claimed['data']->pauseMode,
-                );
-                $this->progress($jobId, (int) round((($index + 1) / count($tracks)) * 90));
-            }
-
+            $sentences = $this->sentences($claimed['data']);
+            $generated = $this->assembleTracks($jobId, $claimed['data'], $claimed['attempt'], $sentences);
             $oldPaths = $this->complete($jobId, $claimed['data'], $generated);
             if ($oldPaths === null) {
                 $this->deletePaths(
@@ -79,6 +56,50 @@ final readonly class ProcessContentAudioGenerationAction
         }
     }
 
+    /** @return list<ContentSentence> */
+    private function sentences(GenerateContentAudioData $data): array
+    {
+        $sentences = ContentSentence::query()
+            ->where('dialogue_id', $data->dialogueId)
+            ->with('speaker')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->all();
+        if ($sentences === []) {
+            throw new \RuntimeException('Dialogue has no sentences to synthesize.');
+        }
+
+        return $sentences;
+    }
+
+    /**
+     * @param  list<ContentSentence>  $sentences
+     * @return list<ContentEpisodeAudioTrackResult>
+     */
+    private function assembleTracks(
+        string $jobId,
+        GenerateContentAudioData $data,
+        int $attempt,
+        array $sentences,
+    ): array {
+        $generated = [];
+        $tracks = $this->tracks($data);
+        foreach ($tracks as $index => $track) {
+            $generated[] = $this->assembler->assemble(
+                $data->episodeId,
+                $attempt,
+                $track['track'],
+                $track['speed'],
+                $sentences,
+                $data->pauseMode,
+            );
+            $this->progress($jobId, (int) round((($index + 1) / count($tracks)) * 90));
+        }
+
+        return $generated;
+    }
+
     /** @return null|array{data: GenerateContentAudioData, attempt: int} */
     private function claim(string $jobId): ?array
     {
@@ -88,9 +109,7 @@ final readonly class ProcessContentAudioGenerationAction
             if ($job === null || ContentAudioGeneration::isTerminal($job->state)) {
                 return null;
             }
-            if ($job->state === ContentAudioGeneration::STATE_ACTIVE
-                && $job->started_at !== null
-                && $job->started_at->isAfter(now()->subSeconds(ContentAudioGeneration::ACTIVE_STALE_AFTER_SECONDS))) {
+            if ($this->hasFreshActiveClaim($job)) {
                 return null;
             }
 
@@ -114,6 +133,18 @@ final readonly class ProcessContentAudioGenerationAction
                 'attempt' => (int) $job->attempt,
             ];
         });
+    }
+
+    private function hasFreshActiveClaim(ContentAudioGenerationJob $job): bool
+    {
+        if ($job->state !== ContentAudioGeneration::STATE_ACTIVE) {
+            return false;
+        }
+        if ($job->started_at === null) {
+            return false;
+        }
+
+        return $job->started_at->isAfter(now()->subSeconds(ContentAudioGeneration::ACTIVE_STALE_AFTER_SECONDS));
     }
 
     private function progress(string $jobId, int $progress): void
@@ -163,30 +194,7 @@ final readonly class ProcessContentAudioGenerationAction
                 return null;
             }
 
-            $oldPaths = [];
-            $payload = [];
-            $sentenceUpdates = [];
-            foreach ($results as $result) {
-                [$urlField, $pathField, $startField, $endField] = $this->fields($result->track);
-                if (is_string($episode->{$pathField})) {
-                    $oldPaths[] = $episode->{$pathField};
-                }
-                $url = ContentEpisodeAudio::audioUrl($episode->id, $result->track);
-                $episode->{$urlField} = $url;
-                $episode->{$pathField} = $result->storagePath;
-                foreach ($result->sentenceTimings as $sentenceId => $timing) {
-                    $sentenceUpdates[$sentenceId] = [
-                        ...($sentenceUpdates[$sentenceId] ?? []),
-                        $startField => $timing['startTime'],
-                        $endField => $timing['endTime'],
-                    ];
-                }
-                $payload[] = [
-                    'speed' => $this->resultSpeed($result->track, $data->speed),
-                    'audioUrl' => $url,
-                    'duration' => $result->durationSeconds * 1_000,
-                ];
-            }
+            [$oldPaths, $payload, $sentenceUpdates] = $this->applyAudioResults($episode, $data, $results);
             foreach ($sentenceUpdates as $sentenceId => $timings) {
                 ContentSentence::query()
                     ->whereKey($sentenceId)
@@ -214,6 +222,47 @@ final readonly class ProcessContentAudioGenerationAction
 
             return array_values(array_unique($oldPaths));
         });
+    }
+
+    /**
+     * @param  list<ContentEpisodeAudioTrackResult>  $results
+     * @return array{
+     *     list<string>,
+     *     list<array{speed: string, audioUrl: string, duration: float|int}>,
+     *     array<string, array<string, float|int>>
+     * }
+     */
+    private function applyAudioResults(
+        ContentEpisode $episode,
+        GenerateContentAudioData $data,
+        array $results,
+    ): array {
+        $oldPaths = [];
+        $payload = [];
+        $sentenceUpdates = [];
+        foreach ($results as $result) {
+            [$urlField, $pathField, $startField, $endField] = $this->fields($result->track);
+            if (is_string($episode->{$pathField})) {
+                $oldPaths[] = $episode->{$pathField};
+            }
+            $url = ContentEpisodeAudio::audioUrl($episode->id, $result->track);
+            $episode->{$urlField} = $url;
+            $episode->{$pathField} = $result->storagePath;
+            foreach ($result->sentenceTimings as $sentenceId => $timing) {
+                $sentenceUpdates[$sentenceId] = [
+                    ...($sentenceUpdates[$sentenceId] ?? []),
+                    $startField => $timing['startTime'],
+                    $endField => $timing['endTime'],
+                ];
+            }
+            $payload[] = [
+                'speed' => $this->resultSpeed($result->track, $data->speed),
+                'audioUrl' => $url,
+                'duration' => $result->durationSeconds * 1_000,
+            ];
+        }
+
+        return [$oldPaths, $payload, $sentenceUpdates];
     }
 
     /** @return list<array{track: string, speed: float}> */

@@ -57,6 +57,17 @@ trait BuildsStudyImportArchives
         $pdo = new PDO('sqlite:'.$databasePath);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+        $this->createStudyImportTables($pdo, $options);
+
+        $this->insertStudyImportCollection($pdo, $options);
+        $this->insertNormalizedStudyImportMetadata($pdo, $options);
+        $this->insertStudyImportNotes($pdo, $options);
+        $this->insertStudyImportCards($pdo, $options);
+        $this->insertStudyImportReviewLogs($pdo, $options);
+    }
+
+    private function createStudyImportTables(PDO $pdo, array $options): void
+    {
         $pdo->exec('CREATE TABLE col (id integer primary key, models text not null, decks text not null)');
         $pdo->exec('CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, flds text not null)');
         if (! ($options['omit_cards_table'] ?? false)) {
@@ -69,57 +80,15 @@ trait BuildsStudyImportArchives
         } else {
             $pdo->exec('CREATE TABLE revlog (id integer primary key, cid integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null)');
         }
+    }
 
+    private function insertStudyImportCollection(PDO $pdo, array $options): void
+    {
         $deckId = $options['deck_id'] ?? 1700000000000;
-        $basicNoteTypeId = 1001;
-        $clozeNoteTypeId = 1002;
         $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
-        $cardDeckId = $options['card_deck_id'] ?? $deckId;
         $extraDecks = $options['extra_decks'] ?? [];
-        $extraCards = $options['extra_cards'] ?? [];
-        $fieldSeparator = "\x1f";
-        $basicNoteTypeName = $options['basic_note_type_name'] ?? 'Basic';
-        $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
-        $models = [
-            (string) $basicNoteTypeId => [
-                'id' => $basicNoteTypeId,
-                'name' => $basicNoteTypeName,
-                'flds' => [
-                    ['name' => 'Front'],
-                    ['name' => 'Back'],
-                ],
-                'tmpls' => [
-                    [
-                        'name' => 'Card 1',
-                        'ord' => 0,
-                        'qfmt' => '{{Front}}',
-                        'afmt' => '{{FrontSide}}<hr id="answer">{{Back}}',
-                    ],
-                    [
-                        'name' => 'Card 2',
-                        'ord' => 1,
-                        'qfmt' => '{{Back}}',
-                        'afmt' => '{{FrontSide}}<hr id="answer">{{Front}}',
-                    ],
-                ],
-            ],
-            (string) $clozeNoteTypeId => [
-                'id' => $clozeNoteTypeId,
-                'name' => 'Cloze',
-                'flds' => [
-                    ['name' => 'Text'],
-                ],
-                'tmpls' => [
-                    [
-                        'name' => 'Cloze',
-                        'ord' => 0,
-                        'qfmt' => '{{cloze:Text}}',
-                        'afmt' => '{{cloze:Text}}',
-                    ],
-                ],
-            ],
-        ];
+        $models = $this->studyImportModels($options);
         $decks = [
             (string) $deckId => [
                 'id' => $deckId,
@@ -148,78 +117,160 @@ trait BuildsStudyImportArchives
             'models' => json_encode($models, JSON_THROW_ON_ERROR),
             'decks' => json_encode($decks, JSON_THROW_ON_ERROR),
         ]);
+    }
 
-        if ($options['normalized_schema'] ?? false) {
-            $pdo->exec('CREATE TABLE decks (id integer primary key, name text not null)');
-            $pdo->exec('CREATE TABLE notetypes (id integer primary key, name text not null)');
+    private function studyImportModels(array $options): array
+    {
+        $basicNoteTypeName = $options['basic_note_type_name'] ?? 'Basic';
 
-            $statement = $pdo->prepare('INSERT INTO decks (id, name) VALUES (:id, :name)');
-            $statement->execute([
-                'id' => $deckId,
-                'name' => $options['normalized_deck_name'] ?? $deckName,
-            ]);
-            foreach ($extraDecks as $extraDeck) {
-                if (! is_array($extraDeck) || ! isset($extraDeck['id']) || ! is_numeric($extraDeck['id'])) {
-                    continue;
-                }
+        return [
+            '1001' => [
+                'id' => 1001,
+                'name' => $basicNoteTypeName,
+                'flds' => [
+                    ['name' => 'Front'],
+                    ['name' => 'Back'],
+                ],
+                'tmpls' => [
+                    [
+                        'name' => 'Card 1',
+                        'ord' => 0,
+                        'qfmt' => '{{Front}}',
+                        'afmt' => '{{FrontSide}}<hr id="answer">{{Back}}',
+                    ],
+                    [
+                        'name' => 'Card 2',
+                        'ord' => 1,
+                        'qfmt' => '{{Back}}',
+                        'afmt' => '{{FrontSide}}<hr id="answer">{{Front}}',
+                    ],
+                ],
+            ],
+            '1002' => [
+                'id' => 1002,
+                'name' => 'Cloze',
+                'flds' => [
+                    ['name' => 'Text'],
+                ],
+                'tmpls' => [
+                    [
+                        'name' => 'Cloze',
+                        'ord' => 0,
+                        'qfmt' => '{{cloze:Text}}',
+                        'afmt' => '{{cloze:Text}}',
+                    ],
+                ],
+            ],
+        ];
+    }
 
-                $statement->execute([
-                    'id' => (int) $extraDeck['id'],
-                    'name' => (string) ($extraDeck['normalized_name'] ?? $extraDeck['name'] ?? ''),
-                ]);
+    private function insertNormalizedStudyImportMetadata(PDO $pdo, array $options): void
+    {
+        if (! ($options['normalized_schema'] ?? false)) {
+            return;
+        }
+
+        $deckId = $options['deck_id'] ?? 1700000000000;
+        $deckName = $options['deck_name'] ?? StudyImportJob::DEFAULT_DECK_NAME;
+        $basicNoteTypeName = $options['basic_note_type_name'] ?? 'Basic';
+
+        $pdo->exec('CREATE TABLE decks (id integer primary key, name text not null)');
+        $pdo->exec('CREATE TABLE notetypes (id integer primary key, name text not null)');
+
+        $statement = $pdo->prepare('INSERT INTO decks (id, name) VALUES (:id, :name)');
+        $statement->execute([
+            'id' => $deckId,
+            'name' => $options['normalized_deck_name'] ?? $deckName,
+        ]);
+        foreach ($options['extra_decks'] ?? [] as $extraDeck) {
+            if (! $this->isNormalizedExtraDeck($extraDeck)) {
+                continue;
             }
 
-            $statement = $pdo->prepare('INSERT INTO notetypes (id, name) VALUES (:id, :name)');
             $statement->execute([
-                'id' => $basicNoteTypeId,
-                'name' => $options['normalized_basic_note_type_name'] ?? $basicNoteTypeName,
+                'id' => (int) $extraDeck['id'],
+                'name' => (string) ($extraDeck['normalized_name'] ?? $extraDeck['name'] ?? ''),
             ]);
-            $statement->execute(['id' => $clozeNoteTypeId, 'name' => 'Cloze']);
         }
+
+        $statement = $pdo->prepare('INSERT INTO notetypes (id, name) VALUES (:id, :name)');
+        $statement->execute([
+            'id' => 1001,
+            'name' => $options['normalized_basic_note_type_name'] ?? $basicNoteTypeName,
+        ]);
+        $statement->execute(['id' => 1002, 'name' => 'Cloze']);
+    }
+
+    private function isNormalizedExtraDeck(mixed $extraDeck): bool
+    {
+        if (! is_array($extraDeck)) {
+            return false;
+        }
+
+        if (! isset($extraDeck['id'])) {
+            return false;
+        }
+
+        return is_numeric($extraDeck['id']);
+    }
+
+    private function insertStudyImportNotes(PDO $pdo, array $options): void
+    {
+        $fieldSeparator = "\x1f";
+        $noteOneFields = $options['note_one_fields'] ?? '会社[sound:word.mp3]'.$fieldSeparator.'<img src="company.png"> company';
 
         $statement = $pdo->prepare('INSERT INTO notes (id, guid, mid, flds) VALUES (:id, :guid, :mid, :flds)');
         $statement->execute([
             'id' => 501,
             'guid' => 'note-one',
-            'mid' => $basicNoteTypeId,
+            'mid' => 1001,
             'flds' => $noteOneFields,
         ]);
         $statement->execute([
             'id' => 502,
             'guid' => 'note-two',
-            'mid' => $clozeNoteTypeId,
+            'mid' => 1002,
             'flds' => '{{c1::漢字}}',
         ]);
+    }
 
-        if (! ($options['omit_cards_table'] ?? false)) {
-            $statement = $pdo->prepare('INSERT INTO cards (id, nid, did, ord) VALUES (:id, :nid, :did, :ord)');
-            $statement->execute([
-                'id' => 701,
-                'nid' => 501,
-                'did' => $cardDeckId,
-                'ord' => $options['card_one_template_ord'] ?? 0,
-            ]);
-            $statement->execute([
-                'id' => 702,
-                'nid' => 501,
-                'did' => $cardDeckId,
-                'ord' => $options['card_two_template_ord'] ?? 1,
-            ]);
-            $statement->execute(['id' => 703, 'nid' => 502, 'did' => $cardDeckId, 'ord' => 0]);
-            foreach ($extraCards as $extraCard) {
-                if (! is_array($extraCard)) {
-                    continue;
-                }
-
-                $statement->execute([
-                    'id' => $extraCard['id'] ?? 704,
-                    'nid' => $extraCard['nid'] ?? 501,
-                    'did' => $extraCard['did'] ?? 1700000000001,
-                    'ord' => $extraCard['ord'] ?? 0,
-                ]);
-            }
+    private function insertStudyImportCards(PDO $pdo, array $options): void
+    {
+        if ($options['omit_cards_table'] ?? false) {
+            return;
         }
 
+        $cardDeckId = $options['card_deck_id'] ?? $options['deck_id'] ?? 1700000000000;
+        $statement = $pdo->prepare('INSERT INTO cards (id, nid, did, ord) VALUES (:id, :nid, :did, :ord)');
+        $statement->execute([
+            'id' => 701,
+            'nid' => 501,
+            'did' => $cardDeckId,
+            'ord' => $options['card_one_template_ord'] ?? 0,
+        ]);
+        $statement->execute([
+            'id' => 702,
+            'nid' => 501,
+            'did' => $cardDeckId,
+            'ord' => $options['card_two_template_ord'] ?? 1,
+        ]);
+        $statement->execute(['id' => 703, 'nid' => 502, 'did' => $cardDeckId, 'ord' => 0]);
+        foreach ($options['extra_cards'] ?? [] as $extraCard) {
+            if (! is_array($extraCard)) {
+                continue;
+            }
+
+            $statement->execute([
+                'id' => $extraCard['id'] ?? 704,
+                'nid' => $extraCard['nid'] ?? 501,
+                'did' => $extraCard['did'] ?? 1700000000001,
+                'ord' => $extraCard['ord'] ?? 0,
+            ]);
+        }
+    }
+
+    private function insertStudyImportReviewLogs(PDO $pdo, array $options): void
+    {
         if ($options['omit_revlog_table'] ?? false) {
             return;
         }
@@ -230,27 +281,39 @@ trait BuildsStudyImportArchives
         ];
 
         if ($options['legacy_revlog_schema'] ?? false) {
-            $statement = $pdo->prepare('INSERT INTO revlog (id, cid) VALUES (:id, :cid)');
-            foreach ($reviewLogs as $reviewLog) {
-                $statement->execute([
-                    'id' => $reviewLog['id'],
-                    'cid' => $reviewLog['cid'],
-                ]);
-            }
-        } else {
-            $statement = $pdo->prepare('INSERT INTO revlog (id, cid, ease, ivl, lastIvl, factor, time, type) VALUES (:id, :cid, :ease, :ivl, :lastIvl, :factor, :time, :type)');
-            foreach ($reviewLogs as $reviewLog) {
-                $statement->execute([
-                    'id' => $reviewLog['id'],
-                    'cid' => $reviewLog['cid'],
-                    'ease' => $reviewLog['ease'],
-                    'ivl' => $reviewLog['ivl'],
-                    'lastIvl' => $reviewLog['lastIvl'],
-                    'factor' => $reviewLog['factor'],
-                    'time' => $reviewLog['time'],
-                    'type' => $reviewLog['type'],
-                ]);
-            }
+            $this->insertLegacyStudyImportReviewLogs($pdo, $reviewLogs);
+
+            return;
+        }
+
+        $this->insertCurrentStudyImportReviewLogs($pdo, $reviewLogs);
+    }
+
+    private function insertLegacyStudyImportReviewLogs(PDO $pdo, array $reviewLogs): void
+    {
+        $statement = $pdo->prepare('INSERT INTO revlog (id, cid) VALUES (:id, :cid)');
+        foreach ($reviewLogs as $reviewLog) {
+            $statement->execute([
+                'id' => $reviewLog['id'],
+                'cid' => $reviewLog['cid'],
+            ]);
+        }
+    }
+
+    private function insertCurrentStudyImportReviewLogs(PDO $pdo, array $reviewLogs): void
+    {
+        $statement = $pdo->prepare('INSERT INTO revlog (id, cid, ease, ivl, lastIvl, factor, time, type) VALUES (:id, :cid, :ease, :ivl, :lastIvl, :factor, :time, :type)');
+        foreach ($reviewLogs as $reviewLog) {
+            $statement->execute([
+                'id' => $reviewLog['id'],
+                'cid' => $reviewLog['cid'],
+                'ease' => $reviewLog['ease'],
+                'ivl' => $reviewLog['ivl'],
+                'lastIvl' => $reviewLog['lastIvl'],
+                'factor' => $reviewLog['factor'],
+                'time' => $reviewLog['time'],
+                'type' => $reviewLog['type'],
+            ]);
         }
     }
 

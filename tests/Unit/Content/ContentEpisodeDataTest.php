@@ -73,6 +73,12 @@ class ContentEpisodeDataTest extends TestCase
         $this->assertFalse($title->hasStatus);
         $this->assertNull($title->status);
 
+        $status = UpdateContentEpisodeData::fromInput(['status' => ' ready ']);
+        $this->assertFalse($status->hasTitle);
+        $this->assertNull($status->title);
+        $this->assertTrue($status->hasStatus);
+        $this->assertSame('ready', $status->status);
+
         $empty = UpdateContentEpisodeData::fromInput([]);
         $this->assertFalse($empty->hasTitle);
         $this->assertFalse($empty->hasStatus);

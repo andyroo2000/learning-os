@@ -158,62 +158,14 @@ PROMPT;
         ?string $expectedSourceSentence,
         bool $isTransfer,
     ): array {
-        try {
-            $decoded = json_decode($this->stripCodeFence($response), true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException('Could not parse the generated study vocab bundle.', 0, $exception);
-        }
-
-        if (! is_array($decoded) || array_is_list($decoded)) {
-            throw new RuntimeException('Generated study vocab bundle must be an object.');
-        }
-
+        $decoded = $this->decodeResponse($response);
         $targetWord = $this->requiredString($decoded, 'targetWord', 500);
         if ($targetWord !== $expectedTargetWord) {
             throw new RuntimeException('Generated study vocab bundle changed the requested target word.');
         }
         $targetReading = $this->requiredString($decoded, 'targetReading', 1000);
         $targetMeaning = $this->requiredString($decoded, 'targetMeaning', 1000);
-        $rawSentences = $decoded['sentences'] ?? null;
-
-        $expectedSentenceCount = $isTransfer ? self::TRANSFER_SENTENCE_COUNT : self::SENTENCE_COUNT;
-        if (! is_array($rawSentences) || count($rawSentences) !== $expectedSentenceCount) {
-            throw new RuntimeException($isTransfer
-                ? 'Generated study vocab bundle must include exactly four sentences.'
-                : 'Generated study vocab bundle must include exactly three sentences.');
-        }
-
-        $sentences = [];
-        foreach (array_values($rawSentences) as $ordinal => $rawSentence) {
-            if (! is_array($rawSentence) || array_is_list($rawSentence)) {
-                throw new RuntimeException('Generated study vocab sentence must be an object.');
-            }
-
-            $sentences[] = [
-                'ordinal' => $ordinal,
-                'sentenceJp' => $this->requiredString($rawSentence, 'sentenceJp', 4000),
-                'sentenceReading' => $this->requiredString($rawSentence, 'sentenceReading', 8000),
-                'sentenceEn' => $this->requiredString($rawSentence, 'sentenceEn', 4000),
-                'clozeText' => $this->requiredString($rawSentence, 'clozeText', 4000),
-                'clozeHint' => $this->requiredString($rawSentence, 'clozeHint', 1000),
-                'clozeSuitable' => $isTransfer
-                    ? $this->requiredBoolean($rawSentence, 'clozeSuitable')
-                    : true,
-                'notes' => $this->nullableString($rawSentence, 'notes', 4000),
-            ];
-        }
-
-        if ($isTransfer
-            && count(array_unique(array_column($sentences, 'sentenceJp'))) !== self::TRANSFER_SENTENCE_COUNT) {
-            throw new RuntimeException('Generated transfer bundle must use four distinct sentence contexts.');
-        }
-
-        if (
-            $expectedSourceSentence !== null
-            && $sentences[0]['sentenceJp'] !== $expectedSourceSentence
-        ) {
-            throw new RuntimeException('Generated study vocab bundle changed the requested source sentence.');
-        }
+        $sentences = $this->parseSentences($decoded, $expectedSourceSentence, $isTransfer);
 
         return [
             'targetWord' => $targetWord,
@@ -230,11 +182,203 @@ PROMPT;
                 $sentences,
             ),
             'variants' => $this->variants(
-                targetWord: $targetWord,
-                targetReading: $targetReading,
-                targetMeaning: $targetMeaning,
-                sentences: $sentences,
-                isTransfer: $isTransfer,
+                [
+                    'word' => $targetWord,
+                    'reading' => $targetReading,
+                    'meaning' => $targetMeaning,
+                ],
+                $sentences,
+                $isTransfer,
+            ),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeResponse(string $response): array
+    {
+        try {
+            $decoded = json_decode($this->stripCodeFence($response), true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Could not parse the generated study vocab bundle.', 0, $exception);
+        }
+
+        if (! is_array($decoded) || array_is_list($decoded)) {
+            throw new RuntimeException('Generated study vocab bundle must be an object.');
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * @param  array<string, mixed>  $decoded
+     * @return list<array<string, mixed>>
+     */
+    private function parseSentences(
+        array $decoded,
+        ?string $expectedSourceSentence,
+        bool $isTransfer,
+    ): array {
+        $sentences = [];
+        foreach ($this->rawSentences($decoded, $isTransfer) as $ordinal => $sentence) {
+            $sentences[] = $this->parseSentence($sentence, $ordinal, $isTransfer);
+        }
+        $this->assertDistinctTransferSentences($sentences, $isTransfer);
+        $this->assertSourceSentencePreserved($sentences, $expectedSourceSentence);
+
+        return $sentences;
+    }
+
+    /**
+     * @param  array<string, mixed>  $decoded
+     * @return list<mixed>
+     */
+    private function rawSentences(array $decoded, bool $isTransfer): array
+    {
+        $sentences = $decoded['sentences'] ?? null;
+        $expectedCount = $isTransfer ? self::TRANSFER_SENTENCE_COUNT : self::SENTENCE_COUNT;
+        if (! is_array($sentences) || count($sentences) !== $expectedCount) {
+            throw new RuntimeException($isTransfer
+                ? 'Generated study vocab bundle must include exactly four sentences.'
+                : 'Generated study vocab bundle must include exactly three sentences.');
+        }
+
+        return array_values($sentences);
+    }
+
+    /** @return array<string, mixed> */
+    private function parseSentence(mixed $sentence, int $ordinal, bool $isTransfer): array
+    {
+        if (! is_array($sentence) || array_is_list($sentence)) {
+            throw new RuntimeException('Generated study vocab sentence must be an object.');
+        }
+
+        return [
+            'ordinal' => $ordinal,
+            'sentenceJp' => $this->requiredString($sentence, 'sentenceJp', 4000),
+            'sentenceReading' => $this->requiredString($sentence, 'sentenceReading', 8000),
+            'sentenceEn' => $this->requiredString($sentence, 'sentenceEn', 4000),
+            'clozeText' => $this->requiredString($sentence, 'clozeText', 4000),
+            'clozeHint' => $this->requiredString($sentence, 'clozeHint', 1000),
+            'clozeSuitable' => $isTransfer
+                ? $this->requiredBoolean($sentence, 'clozeSuitable')
+                : true,
+            'notes' => $this->nullableString($sentence, 'notes', 4000),
+        ];
+    }
+
+    /** @param  list<array<string, mixed>>  $sentences */
+    private function assertDistinctTransferSentences(array $sentences, bool $isTransfer): void
+    {
+        if (! $isTransfer) {
+            return;
+        }
+        if (count(array_unique(array_column($sentences, 'sentenceJp'))) !== self::TRANSFER_SENTENCE_COUNT) {
+            throw new RuntimeException('Generated transfer bundle must use four distinct sentence contexts.');
+        }
+    }
+
+    /** @param  list<array<string, mixed>>  $sentences */
+    private function assertSourceSentencePreserved(array $sentences, ?string $expectedSourceSentence): void
+    {
+        if ($expectedSourceSentence === null) {
+            return;
+        }
+        if ($sentences[0]['sentenceJp'] !== $expectedSourceSentence) {
+            throw new RuntimeException('Generated study vocab bundle changed the requested source sentence.');
+        }
+    }
+
+    /**
+     * @param  array{word: string, reading: string, meaning: string}  $target
+     * @param  list<array<string, mixed>>  $sentences
+     * @return list<array<string, mixed>>
+     */
+    private function variants(
+        array $target,
+        array $sentences,
+        bool $isTransfer,
+    ): array {
+        if ($isTransfer) {
+            return $this->transferVariants($sentences);
+        }
+
+        $variants = [
+            ...$this->recognitionVariants(
+                $sentences,
+                StudyCardCreationKind::AudioRecognition,
+                VocabVariantKind::SentenceAudioRecognition,
+                1,
+            ),
+            ...$this->recognitionVariants(
+                $sentences,
+                StudyCardCreationKind::TextRecognition,
+                VocabVariantKind::SentenceTextRecognition,
+                2,
+            ),
+            ...$this->wordVariants($target, $sentences[0]),
+            ...$this->sentenceVariants($sentences, StudyCardCreationKind::Cloze),
+            ...$this->sentenceVariants($sentences, StudyCardCreationKind::ProductionText),
+        ];
+
+        if (count($variants) !== self::DRAFT_COUNT) {
+            throw new RuntimeException('Generated study vocab bundle has an unexpected variant count.');
+        }
+
+        return $variants;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sentences
+     * @return list<array<string, mixed>>
+     */
+    private function recognitionVariants(
+        array $sentences,
+        StudyCardCreationKind $creationKind,
+        VocabVariantKind $variantKind,
+        int $stage,
+    ): array {
+        return array_map(
+            fn (array $sentence): array => $this->recognitionVariant(
+                $creationKind,
+                $variantKind,
+                $stage,
+                $sentence,
+            ),
+            $sentences,
+        );
+    }
+
+    /**
+     * @param  array{word: string, reading: string, meaning: string}  $target
+     * @param  array<string, mixed>  $firstSentence
+     * @return list<array<string, mixed>>
+     */
+    private function wordVariants(array $target, array $firstSentence): array
+    {
+        $wordAnswer = [
+            'expression' => $target['word'],
+            'expressionReading' => $target['reading'],
+            'meaning' => $target['meaning'],
+            'notes' => "Target word: {$target['word']}",
+            'sentenceJp' => $firstSentence['sentenceJp'],
+            'sentenceEn' => $firstSentence['sentenceEn'],
+            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+        ];
+
+        return [
+            $this->variant(
+                StudyCardCreationKind::AudioRecognition,
+                [],
+                $wordAnswer,
+                VocabVariantKind::WordAudioRecognition,
+                3,
+            ),
+            $this->variant(
+                StudyCardCreationKind::TextRecognition,
+                ['cueText' => $target['word'], 'cueReading' => $target['reading']],
+                $wordAnswer,
+                VocabVariantKind::WordTextRecognition,
+                4,
             ),
         ];
     }
@@ -243,62 +387,19 @@ PROMPT;
      * @param  list<array<string, mixed>>  $sentences
      * @return list<array<string, mixed>>
      */
-    private function variants(
-        string $targetWord,
-        string $targetReading,
-        string $targetMeaning,
-        array $sentences,
-        bool $isTransfer,
-    ): array {
-        if ($isTransfer) {
-            return $this->transferVariants($sentences);
-        }
-
-        $variants = [];
-
-        foreach ($sentences as $sentence) {
-            $variants[] = $this->recognitionVariant(
-                StudyCardCreationKind::AudioRecognition,
-                VocabVariantKind::SentenceAudioRecognition,
-                1,
-                $sentence,
-            );
-        }
-        foreach ($sentences as $sentence) {
-            $variants[] = $this->recognitionVariant(
-                StudyCardCreationKind::TextRecognition,
-                VocabVariantKind::SentenceTextRecognition,
-                2,
-                $sentence,
-            );
-        }
-
-        $wordAnswer = [
-            'expression' => $targetWord,
-            'expressionReading' => $targetReading,
-            'meaning' => $targetMeaning,
-            'notes' => "Target word: {$targetWord}",
-            'sentenceJp' => $sentences[0]['sentenceJp'],
-            'sentenceEn' => $sentences[0]['sentenceEn'],
-            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
-        ];
-        $variants[] = $this->variant(
-            StudyCardCreationKind::AudioRecognition,
-            [],
-            $wordAnswer,
-            VocabVariantKind::WordAudioRecognition,
-            3,
+    private function sentenceVariants(array $sentences, StudyCardCreationKind $creationKind): array
+    {
+        return array_map(
+            fn (array $sentence): array => $this->sentenceVariant($sentence, $creationKind),
+            $sentences,
         );
-        $variants[] = $this->variant(
-            StudyCardCreationKind::TextRecognition,
-            ['cueText' => $targetWord, 'cueReading' => $targetReading],
-            $wordAnswer,
-            VocabVariantKind::WordTextRecognition,
-            4,
-        );
+    }
 
-        foreach ($sentences as $sentence) {
-            $variants[] = $this->variant(
+    /** @param  array<string, mixed>  $sentence */
+    private function sentenceVariant(array $sentence, StudyCardCreationKind $creationKind): array
+    {
+        if ($creationKind === StudyCardCreationKind::Cloze) {
+            return $this->variant(
                 StudyCardCreationKind::Cloze,
                 [
                     'clozeText' => $sentence['clozeText'],
@@ -318,28 +419,20 @@ PROMPT;
             );
         }
 
-        foreach ($sentences as $sentence) {
-            $variants[] = $this->variant(
-                StudyCardCreationKind::ProductionText,
-                ['cueText' => $sentence['sentenceEn']],
-                [
-                    'expression' => $sentence['sentenceJp'],
-                    'expressionReading' => $sentence['sentenceReading'],
-                    'meaning' => $sentence['sentenceEn'],
-                    'notes' => $sentence['notes'],
-                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
-                ],
-                VocabVariantKind::SentenceProduction,
-                6,
-                $sentence['ordinal'],
-            );
-        }
-
-        if (count($variants) !== self::DRAFT_COUNT) {
-            throw new RuntimeException('Generated study vocab bundle has an unexpected variant count.');
-        }
-
-        return $variants;
+        return $this->variant(
+            StudyCardCreationKind::ProductionText,
+            ['cueText' => $sentence['sentenceEn']],
+            [
+                'expression' => $sentence['sentenceJp'],
+                'expressionReading' => $sentence['sentenceReading'],
+                'meaning' => $sentence['sentenceEn'],
+                'notes' => $sentence['notes'],
+                'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+            ],
+            VocabVariantKind::SentenceProduction,
+            6,
+            $sentence['ordinal'],
+        );
     }
 
     /**

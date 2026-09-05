@@ -125,6 +125,20 @@ OUTPUT, 1)[0];
     /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
     public static function grammarExamples(): array
     {
+        return array_merge(
+            self::copulaExamples(),
+            self::existenceAndParticleFallbackExamples(),
+            self::verbFormExamples(),
+            self::adjectiveExamples(),
+            self::particleExamples(),
+            self::counterExamples(),
+            self::timeQuestionExamples(),
+        );
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function copulaExamples(): array
+    {
         return [
             'noun copula' => [
                 '学生です。',
@@ -168,6 +182,13 @@ OUTPUT, 1)[0];
                 ['n5-grammar-na-adjective-nonpast'],
                 ['n5-grammar-desu-polite-copula', 'n5-grammar-i-adj-desu-politeness'],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function existenceAndParticleFallbackExamples(): array
+    {
+        return [
             'animate existence' => [
                 '猫がいます。',
                 [['猫', '猫', '名詞-普通名詞-一般'], ['が', 'が', '助詞-格助詞'], ['い', '居る', '動詞-非自立可能'], ['ます', 'ます', '助動詞']],
@@ -209,6 +230,13 @@ OUTPUT, 1)[0];
                 [['学校', '学校', '名詞'], ['に', 'に', '助詞', '*'], ['行き', '行く', '動詞'], ['ます', 'ます', '助動詞']],
                 ['n5-grammar-particle-ni-target'],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function verbFormExamples(): array
+    {
+        return [
             'polite past negative' => [
                 '読みませんでした。',
                 [['読み', '読む', '動詞-一般'], ['ませ', 'ます', '助動詞'], ['ん', 'ぬ', '助動詞'], ['でし', 'です', '助動詞'], ['た', 'た', '助動詞']],
@@ -233,6 +261,13 @@ OUTPUT, 1)[0];
                 ['n5-grammar-mashita-polite-past-verb'],
                 ['n5-grammar-mou-ta-already'],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function adjectiveExamples(): array
+    {
+        return [
             'i adjective negative and past' => [
                 '高くない。安かった。',
                 [
@@ -281,6 +316,13 @@ OUTPUT, 1)[0];
                 ['n5-grammar-particle-de-means', 'n5-grammar-nai-de-kudasai'],
                 ['n5-grammar-dewa-arimasen-negative-polite-copula'],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function particleExamples(): array
+    {
+        return [
             'noun structures and location' => [
                 '机の上に本と鉛筆があります。',
                 [
@@ -314,6 +356,13 @@ OUTPUT, 1)[0];
                 ],
                 ['n5-grammar-mo-mo-both'],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function counterExamples(): array
+    {
+        return [
             'counters' => [
                 '三人で二時間、三本を五百円で買いました。',
                 [
@@ -361,6 +410,13 @@ OUTPUT, 1)[0];
                     'n5-grammar-counter-sai-age',
                 ],
             ],
+        ];
+    }
+
+    /** @return array<string, array{string, list<array{string, string, string, string?: string, string?: string}>, list<string>, list<string>?}> */
+    private static function timeQuestionExamples(): array
+    {
+        return [
             'time questions and toki' => [
                 '何時ですか。何曜日ですか。学生の時に勉強しました。',
                 [

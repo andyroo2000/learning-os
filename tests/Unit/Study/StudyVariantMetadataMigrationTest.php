@@ -50,93 +50,111 @@ class StudyVariantMetadataMigrationTest extends TestCase
     public static function studyVariantMetadataSqlProvider(): array
     {
         return [
-            'sqlite' => [
-                SQLiteConnection::class,
-                SQLiteGrammar::class,
-                [
-                    'alter table "study_card_drafts" add column "variant_group_id" varchar',
-                    'alter table "study_card_drafts" add column "variant_sentence_id" varchar',
-                    'alter table "study_card_drafts" add column "variant_kind" varchar',
-                    'alter table "study_card_drafts" add column "variant_stage" integer',
-                    'alter table "study_card_drafts" add column "variant_status" varchar',
-                    'alter table "study_card_drafts" add column "variant_unlocked_at" datetime',
-                ],
-                [
-                    'alter table "cards" add column "variant_group_id" varchar',
-                    'alter table "cards" add column "variant_sentence_id" varchar',
-                    'alter table "cards" add column "variant_kind" varchar',
-                    'alter table "cards" add column "variant_stage" integer',
-                    'alter table "cards" add column "variant_status" varchar',
-                    'alter table "cards" add column "variant_unlocked_at" datetime',
-                ],
-                [
-                    'alter table "cards" drop column "variant_group_id"',
-                    'alter table "cards" drop column "variant_sentence_id"',
-                    'alter table "cards" drop column "variant_kind"',
-                    'alter table "cards" drop column "variant_stage"',
-                    'alter table "cards" drop column "variant_status"',
-                    'alter table "cards" drop column "variant_unlocked_at"',
-                ],
-                [
-                    'alter table "study_card_drafts" drop column "variant_group_id"',
-                    'alter table "study_card_drafts" drop column "variant_sentence_id"',
-                    'alter table "study_card_drafts" drop column "variant_kind"',
-                    'alter table "study_card_drafts" drop column "variant_stage"',
-                    'alter table "study_card_drafts" drop column "variant_status"',
-                    'alter table "study_card_drafts" drop column "variant_unlocked_at"',
-                ],
+            'sqlite' => self::sqliteSqlExpectations(),
+            'postgres' => self::postgresSqlExpectations(),
+            'mysql' => self::mysqlSqlExpectations(),
+        ];
+    }
+
+    /** @return array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>, list<string>, list<string>} */
+    private static function sqliteSqlExpectations(): array
+    {
+        return [
+            SQLiteConnection::class,
+            SQLiteGrammar::class,
+            [
+                'alter table "study_card_drafts" add column "variant_group_id" varchar',
+                'alter table "study_card_drafts" add column "variant_sentence_id" varchar',
+                'alter table "study_card_drafts" add column "variant_kind" varchar',
+                'alter table "study_card_drafts" add column "variant_stage" integer',
+                'alter table "study_card_drafts" add column "variant_status" varchar',
+                'alter table "study_card_drafts" add column "variant_unlocked_at" datetime',
             ],
-            'postgres' => [
-                PostgresConnection::class,
-                PostgresGrammar::class,
-                [
-                    'alter table "study_card_drafts" add column "variant_group_id" varchar(64) null',
-                    'alter table "study_card_drafts" add column "variant_sentence_id" varchar(64) null',
-                    'alter table "study_card_drafts" add column "variant_kind" varchar(64) null',
-                    'alter table "study_card_drafts" add column "variant_stage" smallint null',
-                    'alter table "study_card_drafts" add column "variant_status" varchar(16) null',
-                    'alter table "study_card_drafts" add column "variant_unlocked_at" timestamp(0) without time zone null',
-                ],
-                [
-                    'alter table "cards" add column "variant_group_id" varchar(64) null',
-                    'alter table "cards" add column "variant_sentence_id" varchar(64) null',
-                    'alter table "cards" add column "variant_kind" varchar(64) null',
-                    'alter table "cards" add column "variant_stage" smallint null',
-                    'alter table "cards" add column "variant_status" varchar(16) null',
-                    'alter table "cards" add column "variant_unlocked_at" timestamp(0) without time zone null',
-                ],
-                [
-                    'alter table "cards" drop column "variant_group_id", drop column "variant_sentence_id", drop column "variant_kind", drop column "variant_stage", drop column "variant_status", drop column "variant_unlocked_at"',
-                ],
-                [
-                    'alter table "study_card_drafts" drop column "variant_group_id", drop column "variant_sentence_id", drop column "variant_kind", drop column "variant_stage", drop column "variant_status", drop column "variant_unlocked_at"',
-                ],
+            [
+                'alter table "cards" add column "variant_group_id" varchar',
+                'alter table "cards" add column "variant_sentence_id" varchar',
+                'alter table "cards" add column "variant_kind" varchar',
+                'alter table "cards" add column "variant_stage" integer',
+                'alter table "cards" add column "variant_status" varchar',
+                'alter table "cards" add column "variant_unlocked_at" datetime',
             ],
-            'mysql' => [
-                MySqlConnection::class,
-                MySqlGrammar::class,
-                [
-                    'alter table `study_card_drafts` add `variant_group_id` varchar(64) null after `preview_image_json`',
-                    'alter table `study_card_drafts` add `variant_sentence_id` varchar(64) null after `variant_group_id`',
-                    'alter table `study_card_drafts` add `variant_kind` varchar(64) null after `variant_sentence_id`',
-                    'alter table `study_card_drafts` add `variant_stage` smallint unsigned null after `variant_kind`',
-                    'alter table `study_card_drafts` add `variant_status` varchar(16) null after `variant_stage`',
-                    'alter table `study_card_drafts` add `variant_unlocked_at` timestamp null after `variant_status`',
-                ],
-                [
-                    'alter table `cards` add `variant_group_id` varchar(64) null after `scheduler_state`',
-                    'alter table `cards` add `variant_sentence_id` varchar(64) null after `variant_group_id`',
-                    'alter table `cards` add `variant_kind` varchar(64) null after `variant_sentence_id`',
-                    'alter table `cards` add `variant_stage` smallint unsigned null after `variant_kind`',
-                    'alter table `cards` add `variant_status` varchar(16) null after `variant_stage`',
-                    'alter table `cards` add `variant_unlocked_at` timestamp null after `variant_status`',
-                ],
-                [
-                    'alter table `cards` drop `variant_group_id`, drop `variant_sentence_id`, drop `variant_kind`, drop `variant_stage`, drop `variant_status`, drop `variant_unlocked_at`',
-                ],
-                [
-                    'alter table `study_card_drafts` drop `variant_group_id`, drop `variant_sentence_id`, drop `variant_kind`, drop `variant_stage`, drop `variant_status`, drop `variant_unlocked_at`',
-                ],
+            [
+                'alter table "cards" drop column "variant_group_id"',
+                'alter table "cards" drop column "variant_sentence_id"',
+                'alter table "cards" drop column "variant_kind"',
+                'alter table "cards" drop column "variant_stage"',
+                'alter table "cards" drop column "variant_status"',
+                'alter table "cards" drop column "variant_unlocked_at"',
+            ],
+            [
+                'alter table "study_card_drafts" drop column "variant_group_id"',
+                'alter table "study_card_drafts" drop column "variant_sentence_id"',
+                'alter table "study_card_drafts" drop column "variant_kind"',
+                'alter table "study_card_drafts" drop column "variant_stage"',
+                'alter table "study_card_drafts" drop column "variant_status"',
+                'alter table "study_card_drafts" drop column "variant_unlocked_at"',
+            ],
+        ];
+    }
+
+    /** @return array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>, list<string>, list<string>} */
+    private static function postgresSqlExpectations(): array
+    {
+        return [
+            PostgresConnection::class,
+            PostgresGrammar::class,
+            [
+                'alter table "study_card_drafts" add column "variant_group_id" varchar(64) null',
+                'alter table "study_card_drafts" add column "variant_sentence_id" varchar(64) null',
+                'alter table "study_card_drafts" add column "variant_kind" varchar(64) null',
+                'alter table "study_card_drafts" add column "variant_stage" smallint null',
+                'alter table "study_card_drafts" add column "variant_status" varchar(16) null',
+                'alter table "study_card_drafts" add column "variant_unlocked_at" timestamp(0) without time zone null',
+            ],
+            [
+                'alter table "cards" add column "variant_group_id" varchar(64) null',
+                'alter table "cards" add column "variant_sentence_id" varchar(64) null',
+                'alter table "cards" add column "variant_kind" varchar(64) null',
+                'alter table "cards" add column "variant_stage" smallint null',
+                'alter table "cards" add column "variant_status" varchar(16) null',
+                'alter table "cards" add column "variant_unlocked_at" timestamp(0) without time zone null',
+            ],
+            [
+                'alter table "cards" drop column "variant_group_id", drop column "variant_sentence_id", drop column "variant_kind", drop column "variant_stage", drop column "variant_status", drop column "variant_unlocked_at"',
+            ],
+            [
+                'alter table "study_card_drafts" drop column "variant_group_id", drop column "variant_sentence_id", drop column "variant_kind", drop column "variant_stage", drop column "variant_status", drop column "variant_unlocked_at"',
+            ],
+        ];
+    }
+
+    /** @return array{class-string<Connection>, class-string<Grammar>, list<string>, list<string>, list<string>, list<string>} */
+    private static function mysqlSqlExpectations(): array
+    {
+        return [
+            MySqlConnection::class,
+            MySqlGrammar::class,
+            [
+                'alter table `study_card_drafts` add `variant_group_id` varchar(64) null after `preview_image_json`',
+                'alter table `study_card_drafts` add `variant_sentence_id` varchar(64) null after `variant_group_id`',
+                'alter table `study_card_drafts` add `variant_kind` varchar(64) null after `variant_sentence_id`',
+                'alter table `study_card_drafts` add `variant_stage` smallint unsigned null after `variant_kind`',
+                'alter table `study_card_drafts` add `variant_status` varchar(16) null after `variant_stage`',
+                'alter table `study_card_drafts` add `variant_unlocked_at` timestamp null after `variant_status`',
+            ],
+            [
+                'alter table `cards` add `variant_group_id` varchar(64) null after `scheduler_state`',
+                'alter table `cards` add `variant_sentence_id` varchar(64) null after `variant_group_id`',
+                'alter table `cards` add `variant_kind` varchar(64) null after `variant_sentence_id`',
+                'alter table `cards` add `variant_stage` smallint unsigned null after `variant_kind`',
+                'alter table `cards` add `variant_status` varchar(16) null after `variant_stage`',
+                'alter table `cards` add `variant_unlocked_at` timestamp null after `variant_status`',
+            ],
+            [
+                'alter table `cards` drop `variant_group_id`, drop `variant_sentence_id`, drop `variant_kind`, drop `variant_stage`, drop `variant_status`, drop `variant_unlocked_at`',
+            ],
+            [
+                'alter table `study_card_drafts` drop `variant_group_id`, drop `variant_sentence_id`, drop `variant_kind`, drop `variant_stage`, drop `variant_status`, drop `variant_unlocked_at`',
             ],
         ];
     }

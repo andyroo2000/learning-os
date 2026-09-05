@@ -8,27 +8,14 @@ use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Models\User;
-use App\Support\Pagination\CursorPagination;
-use Illuminate\Foundation\Http\Middleware\TrimStrings;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Tests\Support\AssertsCursorPagination;
-use Tests\TestCase;
+use Illuminate\Testing\TestResponse;
 
-class ListReviewEventsApiTest extends TestCase
+class ListReviewEventsApiTest extends ListReviewEventsApiTestCase
 {
-    use AssertsCursorPagination;
-    use RefreshDatabase;
-
     public function test_it_lists_review_events_for_the_authenticated_user_across_cards(): void
     {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $firstDeck = Deck::factory()->for($course)->for($user)->create();
-        $secondDeck = Deck::factory()->for($course)->for($user)->create();
-        $firstCard = Card::factory()->for($firstDeck)->create();
-        $secondCard = Card::factory()->for($secondDeck)->create();
-        $otherUser = User::factory()->create();
+        [$course, $firstDeck, $secondDeck, $firstCard, $secondCard, $otherUser] = $this->listingCards();
 
         $firstEvent = CardReviewEvent::factory()->for($firstCard)->create([
             'rating' => CardReviewRating::Hard,
@@ -49,6 +36,66 @@ class ListReviewEventsApiTest extends TestCase
 
         $response = $this->getJson('/api/card-review-events');
 
+        $this->assertListResponseStructure($response, $firstEvent, $secondEvent);
+        $response
+            ->assertJsonFragment([
+                'id' => $firstEvent->id,
+                'card_id' => $firstCard->id,
+                'deck_id' => $firstDeck->id,
+                'course_id' => $course->id,
+                'rating' => CardReviewRating::Hard->value,
+                'reviewed_at' => $firstEvent->reviewed_at->toJSON(),
+                'duration_ms' => 1200,
+                'client_event_id' => 'event-1',
+                'device_id' => 'device-a',
+                'client_created_at' => $firstEvent->client_created_at->toJSON(),
+                'card_state_before' => null,
+                'scheduler_state_before' => null,
+                'scheduler_state_after' => null,
+            ]);
+        $response
+            ->assertJsonFragment([
+                'id' => $secondEvent->id,
+                'card_id' => $secondCard->id,
+                'deck_id' => $secondDeck->id,
+                'course_id' => $course->id,
+                'rating' => CardReviewRating::Good->value,
+                'reviewed_at' => $secondEvent->reviewed_at->toJSON(),
+                'client_event_id' => 'event-2',
+                'device_id' => 'device-a',
+                'client_created_at' => $secondEvent->client_created_at->toJSON(),
+                'card_state_before' => null,
+                'scheduler_state_before' => null,
+                'scheduler_state_after' => null,
+            ])
+            ->assertJsonMissing([
+                'id' => $otherEvent->id,
+            ]);
+    }
+
+    /** @return array{Course, Deck, Deck, Card, Card, User} */
+    private function listingCards(): array
+    {
+        $user = $this->signIn();
+        $course = Course::factory()->for($user)->create();
+        $firstDeck = Deck::factory()->for($course)->for($user)->create();
+        $secondDeck = Deck::factory()->for($course)->for($user)->create();
+
+        return [
+            $course,
+            $firstDeck,
+            $secondDeck,
+            Card::factory()->for($firstDeck)->create(),
+            Card::factory()->for($secondDeck)->create(),
+            User::factory()->create(),
+        ];
+    }
+
+    private function assertListResponseStructure(
+        TestResponse $response,
+        CardReviewEvent $firstEvent,
+        CardReviewEvent $secondEvent,
+    ): void {
         $response
             ->assertOk()
             ->assertJsonCount(2, 'data')
@@ -76,38 +123,6 @@ class ListReviewEventsApiTest extends TestCase
                 ],
                 'links',
                 'meta',
-            ])
-            ->assertJsonFragment([
-                'id' => $firstEvent->id,
-                'card_id' => $firstCard->id,
-                'deck_id' => $firstDeck->id,
-                'course_id' => $course->id,
-                'rating' => CardReviewRating::Hard->value,
-                'reviewed_at' => $firstEvent->reviewed_at->toJSON(),
-                'duration_ms' => 1200,
-                'client_event_id' => 'event-1',
-                'device_id' => 'device-a',
-                'client_created_at' => $firstEvent->client_created_at->toJSON(),
-                'card_state_before' => null,
-                'scheduler_state_before' => null,
-                'scheduler_state_after' => null,
-            ])
-            ->assertJsonFragment([
-                'id' => $secondEvent->id,
-                'card_id' => $secondCard->id,
-                'deck_id' => $secondDeck->id,
-                'course_id' => $course->id,
-                'rating' => CardReviewRating::Good->value,
-                'reviewed_at' => $secondEvent->reviewed_at->toJSON(),
-                'client_event_id' => 'event-2',
-                'device_id' => 'device-a',
-                'client_created_at' => $secondEvent->client_created_at->toJSON(),
-                'card_state_before' => null,
-                'scheduler_state_before' => null,
-                'scheduler_state_after' => null,
-            ])
-            ->assertJsonMissing([
-                'id' => $otherEvent->id,
             ]);
     }
 
@@ -130,366 +145,6 @@ class ListReviewEventsApiTest extends TestCase
             ]);
     }
 
-    public function test_it_filters_review_events_by_course_id(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $deck = Deck::factory()->for($course)->for($user)->create();
-        $otherDeck = Deck::factory()->for($otherCourse)->for($user)->create();
-        $card = Card::factory()->for($deck)->create();
-        $otherCard = Card::factory()->for($otherDeck)->create();
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherCourseEvent = CardReviewEvent::factory()->for($otherCard)->create();
-        $otherUserEvent = $this->cardReviewEventFor(User::factory()->create());
-
-        $response = $this->getJson("/api/card-review-events?course_id={$course->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.deck_id', $deck->id)
-            ->assertJsonPath('data.0.course_id', $course->id)
-            ->assertJsonMissing([
-                'id' => $otherCourseEvent->id,
-            ])
-            ->assertJsonMissing([
-                'id' => $otherUserEvent->id,
-            ]);
-    }
-
-    public function test_it_filters_review_events_by_card_id(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-        $otherCard = $this->cardFor($user);
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherCardEvent = CardReviewEvent::factory()->for($otherCard)->create();
-        $otherUserEvent = $this->cardReviewEventFor(User::factory()->create());
-
-        $response = $this->getJson("/api/card-review-events?card_id={$card->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.card_id', $card->id)
-            ->assertJsonMissing([
-                'id' => $otherCardEvent->id,
-            ])
-            ->assertJsonMissing([
-                'id' => $otherUserEvent->id,
-            ]);
-    }
-
-    public function test_it_filters_review_events_by_deck_id(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $deck = Deck::factory()->for($course)->for($user)->create();
-        $otherDeck = Deck::factory()->for($user)->create();
-        $card = Card::factory()->for($deck)->create();
-        $otherCard = Card::factory()->for($otherDeck)->create();
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create();
-        $otherUserEvent = $this->cardReviewEventFor(User::factory()->create());
-
-        $response = $this->getJson("/api/card-review-events?deck_id={$deck->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.deck_id', $deck->id)
-            ->assertJsonPath('data.0.course_id', $course->id)
-            ->assertJsonMissing([
-                'id' => $otherDeckEvent->id,
-            ])
-            ->assertJsonMissing([
-                'id' => $otherUserEvent->id,
-            ]);
-    }
-
-    public function test_it_requires_card_id_filters_to_match_the_course_filter_when_both_are_provided(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
-        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
-        $otherCourseEvent = CardReviewEvent::factory()->for($otherCourseCard)->create();
-
-        $response = $this->getJson("/api/card-review-events?course_id={$course->id}&card_id={$otherCourseCard->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(0, 'data')
-            ->assertJsonMissing([
-                'id' => $otherCourseEvent->id,
-            ]);
-    }
-
-    public function test_it_returns_empty_when_deck_id_and_course_id_are_in_different_courses(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $otherCourseDeck = Deck::factory()->for($otherCourse)->for($user)->create();
-        $otherCourseCard = Card::factory()->for($otherCourseDeck)->create();
-        $otherCourseEvent = CardReviewEvent::factory()->for($otherCourseCard)->create();
-
-        $response = $this->getJson("/api/card-review-events?course_id={$course->id}&deck_id={$otherCourseDeck->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(0, 'data')
-            ->assertJsonMissing([
-                'id' => $otherCourseEvent->id,
-            ]);
-    }
-
-    public function test_it_returns_empty_when_card_id_and_deck_id_do_not_match(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-        $otherDeck = $this->deckFor($user);
-        $otherDeckCard = Card::factory()->for($otherDeck)->create();
-        $otherDeckEvent = CardReviewEvent::factory()->for($otherDeckCard)->create();
-
-        $response = $this->getJson("/api/card-review-events?deck_id={$deck->id}&card_id={$otherDeckCard->id}");
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(0, 'data')
-            ->assertJsonMissing([
-                'id' => $otherDeckEvent->id,
-            ]);
-    }
-
-    public function test_it_trims_course_id_filters_without_global_trim_middleware(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $courseDeck = Deck::factory()->for($course)->for($user)->create();
-        $standaloneDeck = Deck::factory()->for($user)->create();
-        $courseCard = Card::factory()->for($courseDeck)->create();
-        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
-        $reviewEvent = CardReviewEvent::factory()->for($courseCard)->create();
-        $standaloneReviewEvent = CardReviewEvent::factory()->for($standaloneCard)->create();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?course_id=%20'.$course->id.'%20');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.course_id', $course->id)
-            ->assertJsonMissing([
-                'id' => $standaloneReviewEvent->id,
-            ]);
-    }
-
-    public function test_it_lowercases_course_id_filters_without_global_trim_middleware(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $courseDeck = Deck::factory()->for($course)->for($user)->create();
-        $standaloneDeck = Deck::factory()->for($user)->create();
-        $courseCard = Card::factory()->for($courseDeck)->create();
-        $standaloneCard = Card::factory()->for($standaloneDeck)->create();
-        $reviewEvent = CardReviewEvent::factory()->for($courseCard)->create();
-        $standaloneReviewEvent = CardReviewEvent::factory()->for($standaloneCard)->create();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?course_id='.strtoupper($course->id));
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.course_id', $course->id)
-            ->assertJsonMissing([
-                'id' => $standaloneReviewEvent->id,
-            ]);
-    }
-
-    public function test_it_trims_card_id_filters_without_global_trim_middleware(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-        $otherCard = $this->cardFor($user);
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherCardEvent = CardReviewEvent::factory()->for($otherCard)->create();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?card_id=%20'.$card->id.'%20');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.card_id', $card->id)
-            ->assertJsonMissing([
-                'id' => $otherCardEvent->id,
-            ]);
-    }
-
-    public function test_it_lowercases_card_id_filters_without_global_trim_middleware(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-        $otherCard = $this->cardFor($user);
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherCardEvent = CardReviewEvent::factory()->for($otherCard)->create();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?card_id='.strtoupper($card->id));
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.card_id', $card->id)
-            ->assertJsonMissing([
-                'id' => $otherCardEvent->id,
-            ]);
-    }
-
-    public function test_it_normalizes_deck_id_filters_without_global_trim_middleware(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-        $otherDeck = $this->deckFor($user);
-        $card = Card::factory()->for($deck)->create();
-        $otherCard = Card::factory()->for($otherDeck)->create();
-        $reviewEvent = CardReviewEvent::factory()->for($card)->create();
-        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?deck_id=%20'.strtoupper($deck->id).'%20');
-
-        $response
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $reviewEvent->id)
-            ->assertJsonPath('data.0.deck_id', $deck->id)
-            ->assertJsonMissing([
-                'id' => $otherDeckEvent->id,
-            ]);
-    }
-
-    public function test_it_rejects_a_blank_course_id_filter_without_global_trim_middleware(): void
-    {
-        $this->signIn();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?course_id=%20%20%20');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('course_id');
-    }
-
-    public function test_it_rejects_a_blank_card_id_filter_without_global_trim_middleware(): void
-    {
-        $this->signIn();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?card_id=%20%20%20');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('card_id');
-    }
-
-    public function test_it_rejects_a_blank_deck_id_filter_without_global_trim_middleware(): void
-    {
-        $this->signIn();
-
-        $response = $this
-            ->withoutMiddleware(TrimStrings::class)
-            ->getJson('/api/card-review-events?deck_id=%20%20%20');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('deck_id');
-    }
-
-    public function test_it_rejects_a_malformed_course_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?course_id=not-a-ulid');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('course_id');
-    }
-
-    public function test_it_rejects_a_malformed_card_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?card_id=not-a-ulid');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('card_id');
-    }
-
-    public function test_it_rejects_a_malformed_deck_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?deck_id=not-a-ulid');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('deck_id');
-    }
-
-    public function test_it_rejects_an_array_course_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?course_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('course_id');
-    }
-
-    public function test_it_rejects_an_array_card_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?card_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('card_id');
-    }
-
-    public function test_it_rejects_an_array_deck_id_filter(): void
-    {
-        $this->signIn();
-
-        $response = $this->getJson('/api/card-review-events?deck_id[]=01jzk7k5g9e1k8z6w3b4n9y2pc');
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('deck_id');
-    }
-
     public function test_it_returns_empty_results_for_a_card_id_owned_by_another_user(): void
     {
         $this->signIn();
@@ -498,12 +153,7 @@ class ListReviewEventsApiTest extends TestCase
 
         $response = $this->getJson("/api/card-review-events?card_id={$otherUserCard->id}");
 
-        $response
-            ->assertOk()
-            ->assertJsonCount(0, 'data')
-            ->assertJsonMissing([
-                'id' => $otherUserEvent->id,
-            ]);
+        $this->assertEmptyFilterResponse($response, $otherUserEvent);
     }
 
     public function test_it_returns_empty_results_for_a_deck_id_owned_by_another_user(): void
@@ -515,11 +165,16 @@ class ListReviewEventsApiTest extends TestCase
 
         $response = $this->getJson("/api/card-review-events?deck_id={$otherDeck->id}");
 
+        $this->assertEmptyFilterResponse($response, $otherUserEvent);
+    }
+
+    private function assertEmptyFilterResponse(TestResponse $response, CardReviewEvent $excludedEvent): void
+    {
         $response
             ->assertOk()
             ->assertJsonCount(0, 'data')
             ->assertJsonMissing([
-                'id' => $otherUserEvent->id,
+                'id' => $excludedEvent->id,
             ]);
     }
 
@@ -567,267 +222,5 @@ class ListReviewEventsApiTest extends TestCase
             ->assertJsonMissing([
                 'id' => $deletedDeckEvent->id,
             ]);
-    }
-
-    public function test_it_uses_cursor_pagination_with_a_stable_id_tiebreaker(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-        $sharedReviewedAt = now()->subDays(2);
-
-        foreach (range(1, CursorPagination::MAX_PAGE_SIZE - 1) as $index) {
-            CardReviewEvent::factory()->for($card)->create([
-                'rating' => CardReviewRating::Good,
-                'reviewed_at' => now()->subMinutes($index),
-            ]);
-        }
-
-        // Explicit neighboring ULIDs keep the reviewed_at tie deterministic.
-        $lowTieEvent = CardReviewEvent::factory()->for($card)->create([
-            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pc',
-            'reviewed_at' => $sharedReviewedAt,
-        ]);
-        $highTieEvent = CardReviewEvent::factory()->for($card)->create([
-            'id' => '01jzk7k5g9e1k8z6w3b4n9y2pd',
-            'reviewed_at' => $sharedReviewedAt,
-        ]);
-
-        $firstPage = $this->getJson('/api/card-review-events');
-
-        $firstPage
-            ->assertOk()
-            ->assertJsonCount(CursorPagination::MAX_PAGE_SIZE, 'data')
-            ->assertJsonPath('data.'.(CursorPagination::MAX_PAGE_SIZE - 1).'.id', $highTieEvent->id)
-            ->assertJsonPath('meta.per_page', CursorPagination::MAX_PAGE_SIZE);
-
-        $nextCursor = $firstPage->json('meta.next_cursor');
-
-        $this->assertNotNull($nextCursor);
-
-        $secondPage = $this->getJson("/api/card-review-events?cursor={$nextCursor}");
-
-        $secondPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lowTieEvent->id)
-            ->assertJsonPath('meta.next_cursor', null);
-    }
-
-    public function test_it_preserves_course_id_filter_when_following_a_cursor(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $deck = Deck::factory()->for($course)->for($user)->create();
-        $otherDeck = Deck::factory()->for($otherCourse)->for($user)->create();
-        $card = Card::factory()->for($deck)->create();
-        $otherCard = Card::factory()->for($otherDeck)->create();
-        $olderEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinutes(2),
-        ]);
-        $newerEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinute(),
-        ]);
-        $otherCourseEvent = CardReviewEvent::factory()->for($otherCard)->create([
-            'reviewed_at' => now(),
-        ]);
-
-        $firstPage = $this->getJson("/api/card-review-events?course_id={$course->id}&per_page=1");
-
-        $firstPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newerEvent->id);
-
-        $nextUrl = $firstPage->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'course_id', $course->id);
-
-        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
-
-        $secondPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $olderEvent->id)
-            ->assertJsonMissing([
-                'id' => $otherCourseEvent->id,
-            ]);
-    }
-
-    public function test_it_preserves_card_id_filter_when_following_a_cursor(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-        $otherCard = $this->cardFor($user);
-        $olderEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinutes(2),
-        ]);
-        $newerEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinute(),
-        ]);
-        $otherCardEvent = CardReviewEvent::factory()->for($otherCard)->create([
-            'reviewed_at' => now(),
-        ]);
-
-        $firstPage = $this->getJson("/api/card-review-events?card_id={$card->id}&per_page=1");
-
-        $firstPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newerEvent->id);
-
-        $nextUrl = $firstPage->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'card_id', $card->id);
-
-        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
-
-        $secondPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $olderEvent->id)
-            ->assertJsonMissing([
-                'id' => $otherCardEvent->id,
-            ]);
-    }
-
-    public function test_it_preserves_deck_id_filter_when_following_a_cursor(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-        $otherDeck = $this->deckFor($user);
-        $card = Card::factory()->for($deck)->create();
-        $otherCard = Card::factory()->for($otherDeck)->create();
-        $olderEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinutes(2),
-        ]);
-        $newerEvent = CardReviewEvent::factory()->for($card)->create([
-            'reviewed_at' => now()->subMinute(),
-        ]);
-        $otherDeckEvent = CardReviewEvent::factory()->for($otherCard)->create([
-            'reviewed_at' => now(),
-        ]);
-
-        $firstPage = $this->getJson("/api/card-review-events?deck_id={$deck->id}&per_page=1");
-
-        $firstPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newerEvent->id);
-
-        $nextUrl = $firstPage->json('links.next');
-
-        $this->assertNotNull($nextUrl);
-        $this->assertUrlQueryParameter($nextUrl, 'deck_id', $deck->id);
-
-        $secondPage = $this->getJson($this->pathAndQueryFromUrl($nextUrl));
-
-        $secondPage
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $olderEvent->id)
-            ->assertJsonMissing([
-                'id' => $otherDeckEvent->id,
-            ]);
-    }
-
-    public function test_it_accepts_a_custom_page_size(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-
-        CardReviewEvent::factory()->count(3)->for($card)->create();
-
-        $this->assertCursorEndpointAcceptsCustomPageSize('/api/card-review-events');
-    }
-
-    public function test_it_uses_the_default_page_size_when_omitted(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-
-        CardReviewEvent::factory()->count(CursorPagination::DEFAULT_PAGE_SIZE + 1)->for($card)->create();
-
-        $this->assertCursorEndpointUsesDefaultPageSize('/api/card-review-events');
-    }
-
-    public function test_it_accepts_the_minimum_page_size(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-
-        CardReviewEvent::factory()->count(3)->for($card)->create();
-
-        $this->assertCursorEndpointAcceptsMinimumPageSize('/api/card-review-events');
-    }
-
-    public function test_it_accepts_the_maximum_page_size(): void
-    {
-        $user = $this->signIn();
-        $card = $this->cardFor($user);
-
-        CardReviewEvent::factory()->count(CursorPagination::MAX_PAGE_SIZE + 1)->for($card)->create();
-
-        $this->assertCursorEndpointAcceptsMaximumPageSize('/api/card-review-events');
-    }
-
-    public function test_it_rejects_a_page_size_above_the_maximum(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', CursorPagination::MAX_PAGE_SIZE + 1);
-    }
-
-    public function test_it_rejects_a_page_size_below_the_minimum(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', 0);
-    }
-
-    public function test_it_rejects_a_negative_page_size(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', -1);
-    }
-
-    public function test_it_rejects_a_non_numeric_page_size(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsPageSize('/api/card-review-events', 'abc');
-    }
-
-    public function test_it_rejects_an_array_page_size(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsArrayPageSize('/api/card-review-events');
-    }
-
-    public function test_it_rejects_a_blank_page_size_without_global_trim_middleware(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsBlankPageSizeWithoutTrimMiddleware('/api/card-review-events');
-    }
-
-    public function test_it_rejects_invalid_cursor_values(): void
-    {
-        $this->signIn();
-
-        $this->assertCursorEndpointRejectsMalformedCursor('/api/card-review-events');
-        $this->assertCursorEndpointRejectsArrayCursor('/api/card-review-events');
-        $this->assertCursorEndpointRejectsParameterlessCursor('/api/card-review-events');
-    }
-
-    public function test_it_requires_authentication(): void
-    {
-        $response = $this->getJson('/api/card-review-events');
-
-        $response->assertUnauthorized();
     }
 }

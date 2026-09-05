@@ -301,7 +301,25 @@ class CardReviewCardLockPostgresTest extends TestCase
      */
     private function runConcurrentWorkers(array $workerInputs): array
     {
-        $socketPairs = array_map(function (): array {
+        $socketPairs = $this->createWorkerSocketPairs($workerInputs);
+        $workerPids = $this->forkWorkers($socketPairs, $workerInputs);
+        $this->prepareParentSockets($socketPairs);
+        $readyMessages = $this->readSocketMessages($socketPairs);
+        $this->releaseWorkers($socketPairs);
+        $exitStatuses = $this->waitForWorkers($workerPids);
+        $resultMessages = $this->readSocketMessages($socketPairs);
+        $this->closeParentSockets($socketPairs);
+
+        $this->assertSame(['ready', 'ready'], $readyMessages);
+        $this->assertSame([0, 0], $exitStatuses, 'A PostgreSQL worker failed: '.implode(' | ', $resultMessages));
+
+        return array_map($this->decodeWorkerResult(...), $resultMessages);
+    }
+
+    /** @return list<array{0: resource, 1: resource}> */
+    private function createWorkerSocketPairs(array $workerInputs): array
+    {
+        return array_map(function (): array {
             $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
 
             if ($pair === false) {
@@ -310,7 +328,15 @@ class CardReviewCardLockPostgresTest extends TestCase
 
             return $pair;
         }, $workerInputs);
+    }
 
+    /**
+     * @param  list<array{0: resource, 1: resource}>  $socketPairs
+     * @param  list<array{card_ids: list<string>, event_prefix: string, reviewed_at: string, start_delay_microseconds: int, mode?: string, event_id?: string}>  $workerInputs
+     * @return list<int>
+     */
+    private function forkWorkers(array $socketPairs, array $workerInputs): array
+    {
         $workerPids = [];
 
         foreach ($workerInputs as $index => $workerInput) {
@@ -321,35 +347,61 @@ class CardReviewCardLockPostgresTest extends TestCase
             }
 
             if ($pid === 0) {
-                foreach ($socketPairs as $pairIndex => $pair) {
-                    fclose($pair[0]);
-
-                    if ($pairIndex !== $index) {
-                        fclose($pair[1]);
-                    }
-                }
-
+                $this->closeUnneededChildSockets($socketPairs, $index);
                 $this->runWorker($socketPairs[$index][1], $workerInput);
             }
 
             $workerPids[$index] = $pid;
         }
 
+        return $workerPids;
+    }
+
+    /** @param list<array{0: resource, 1: resource}> $socketPairs */
+    private function closeUnneededChildSockets(array $socketPairs, int $workerIndex): void
+    {
+        foreach ($socketPairs as $pairIndex => $pair) {
+            fclose($pair[0]);
+
+            if ($pairIndex !== $workerIndex) {
+                fclose($pair[1]);
+            }
+        }
+    }
+
+    /** @param list<array{0: resource, 1: resource}> $socketPairs */
+    private function prepareParentSockets(array $socketPairs): void
+    {
         foreach ($socketPairs as $pair) {
             fclose($pair[1]);
             stream_set_timeout($pair[0], 15);
         }
+    }
 
-        $readyMessages = array_map(
+    /**
+     * @param  list<array{0: resource, 1: resource}>  $socketPairs
+     * @return list<string>
+     */
+    private function readSocketMessages(array $socketPairs): array
+    {
+        return array_map(
             fn (array $pair): string => trim((string) fgets($pair[0])),
             $socketPairs,
         );
+    }
 
+    /** @param list<array{0: resource, 1: resource}> $socketPairs */
+    private function releaseWorkers(array $socketPairs): void
+    {
         foreach ($socketPairs as $pair) {
             fwrite($pair[0], "go\n");
             fflush($pair[0]);
         }
+    }
 
+    /** @param list<int> $workerPids */
+    private function waitForWorkers(array $workerPids): array
+    {
         $exitStatuses = [];
 
         foreach ($workerPids as $index => $pid) {
@@ -357,38 +409,38 @@ class CardReviewCardLockPostgresTest extends TestCase
             $exitStatuses[$index] = pcntl_wifexited($status) ? pcntl_wexitstatus($status) : -1;
         }
 
-        $resultMessages = array_map(
-            fn (array $pair): string => trim((string) fgets($pair[0])),
-            $socketPairs,
-        );
+        return $exitStatuses;
+    }
 
+    /** @param list<array{0: resource, 1: resource}> $socketPairs */
+    private function closeParentSockets(array $socketPairs): void
+    {
         foreach ($socketPairs as $pair) {
             fclose($pair[0]);
         }
+    }
 
-        $this->assertSame(['ready', 'ready'], $readyMessages);
-        $this->assertSame([0, 0], $exitStatuses, 'A PostgreSQL worker failed: '.implode(' | ', $resultMessages));
+    /** @return array{card_ids: list<string>, lock_wait_ms: int, outcome: string, reason: string|null} */
+    private function decodeWorkerResult(string $message): array
+    {
+        try {
+            $result = json_decode($message, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $this->fail('PostgreSQL worker returned invalid JSON: '.$message.' ('.$e->getMessage().')');
+        }
 
-        return array_map(function (string $message): array {
-            try {
-                $result = json_decode($message, true, flags: JSON_THROW_ON_ERROR);
-            } catch (JsonException $e) {
-                $this->fail('PostgreSQL worker returned invalid JSON: '.$message.' ('.$e->getMessage().')');
-            }
+        $this->assertIsArray($result);
+        $this->assertTrue($result['ok'] ?? false, 'PostgreSQL worker failed: '.($result['error'] ?? 'unknown error'));
+        $this->assertIsArray($result['card_ids'] ?? null);
+        $this->assertIsInt($result['lock_wait_ms'] ?? null);
+        $this->assertContains($result['outcome'] ?? null, ['created', 'existing', 'conflict']);
 
-            $this->assertIsArray($result);
-            $this->assertTrue($result['ok'] ?? false, 'PostgreSQL worker failed: '.($result['error'] ?? 'unknown error'));
-            $this->assertIsArray($result['card_ids'] ?? null);
-            $this->assertIsInt($result['lock_wait_ms'] ?? null);
-            $this->assertContains($result['outcome'] ?? null, ['created', 'existing', 'conflict']);
-
-            return [
-                'card_ids' => array_values($result['card_ids']),
-                'lock_wait_ms' => $result['lock_wait_ms'],
-                'outcome' => $result['outcome'],
-                'reason' => $result['reason'] ?? null,
-            ];
-        }, $resultMessages);
+        return [
+            'card_ids' => array_values($result['card_ids']),
+            'lock_wait_ms' => $result['lock_wait_ms'],
+            'outcome' => $result['outcome'],
+            'reason' => $result['reason'] ?? null,
+        ];
     }
 
     /**
@@ -398,76 +450,18 @@ class CardReviewCardLockPostgresTest extends TestCase
     private function runWorker($socket, array $workerInput): never
     {
         try {
-            DB::purge();
-            $connection = DB::connection();
-            $connection->statement("SET lock_timeout = '5s'");
-            $connection->statement("SET deadlock_timeout = '100ms'");
-            $connection->statement("SET statement_timeout = '10s'");
-
-            fwrite($socket, "ready\n");
-            fflush($socket);
-
-            if (trim((string) fgets($socket)) !== 'go') {
-                throw new RuntimeException('PostgreSQL concurrency worker did not receive its start signal.');
-            }
-
+            $this->configureWorkerConnection();
+            $this->awaitWorkerStart($socket);
             usleep($workerInput['start_delay_microseconds']);
+            $mode = $workerInput['mode'] ?? 'batch';
+            $action = $mode === 'single'
+                ? $this->createSingleWorkerAction()
+                : $this->createBatchWorkerAction();
 
             try {
-                if (($workerInput['mode'] ?? 'batch') === 'single') {
-                    $action = new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardAction
-                    {
-                        public int $lockWaitMilliseconds = 0;
-
-                        protected function findCardForUpdate(string $cardId): ?Card
-                        {
-                            $startedAt = microtime(true);
-                            $card = parent::findCardForUpdate($cardId);
-                            $this->lockWaitMilliseconds = (int) round((microtime(true) - $startedAt) * 1000);
-                            usleep(CardReviewCardLockPostgresTest::LOCK_HOLD_MICROSECONDS);
-
-                            return $card;
-                        }
-                    };
-                    $result = $action->handle(ReviewCardData::fromInput(
-                        cardId: $workerInput['card_ids'][0],
-                        rating: CardReviewRating::Good->value,
-                        reviewedAt: $workerInput['reviewed_at'],
-                        id: $workerInput['event_id'] ?? null,
-                    ));
-                    $cardIds = [$result->reviewEvent->card_id];
-                    $outcome = $result->wasCreated ? 'created' : 'existing';
-                } else {
-                    $action = new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardBatchAction
-                    {
-                        public int $lockWaitMilliseconds = 0;
-
-                        protected function cardsById(Collection $preparedItems): Collection
-                        {
-                            $startedAt = microtime(true);
-                            $cards = parent::cardsById($preparedItems);
-                            $this->lockWaitMilliseconds = (int) round((microtime(true) - $startedAt) * 1000);
-                            usleep(CardReviewCardLockPostgresTest::LOCK_HOLD_MICROSECONDS);
-
-                            return $cards;
-                        }
-                    };
-                    $result = $action->handle(array_map(
-                        fn (string $cardId, int $index): ReviewCardData => ReviewCardData::fromInput(
-                            cardId: $cardId,
-                            rating: CardReviewRating::Good->value,
-                            reviewedAt: $workerInput['reviewed_at'],
-                            clientEventId: $workerInput['event_prefix'].'-'.$index,
-                            deviceId: $workerInput['event_prefix'].'-device',
-                            clientCreatedAt: $workerInput['reviewed_at'],
-                        ),
-                        $workerInput['card_ids'],
-                        array_keys($workerInput['card_ids']),
-                    ));
-                    $cardIds = $result->reviewEvents->pluck('card_id')->all();
-                    $outcome = 'created';
-                }
-
+                [$cardIds, $outcome] = $mode === 'single'
+                    ? $this->performSingleWorkerReview($action, $workerInput)
+                    : $this->performBatchWorkerReview($action, $workerInput);
                 $reason = null;
             } catch (CardReviewEventConflictException $e) {
                 $cardIds = $workerInput['card_ids'];
@@ -492,6 +486,100 @@ class CardReviewCardLockPostgresTest extends TestCase
             fclose($socket);
             exit(1);
         }
+    }
+
+    private function configureWorkerConnection(): void
+    {
+        DB::purge();
+        $connection = DB::connection();
+        $connection->statement("SET lock_timeout = '5s'");
+        $connection->statement("SET deadlock_timeout = '100ms'");
+        $connection->statement("SET statement_timeout = '10s'");
+    }
+
+    /** @param resource $socket */
+    private function awaitWorkerStart($socket): void
+    {
+        fwrite($socket, "ready\n");
+        fflush($socket);
+
+        if (trim((string) fgets($socket)) !== 'go') {
+            throw new RuntimeException('PostgreSQL concurrency worker did not receive its start signal.');
+        }
+    }
+
+    private function createSingleWorkerAction(): ReviewCardAction
+    {
+        return new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardAction
+        {
+            public int $lockWaitMilliseconds = 0;
+
+            protected function findCardForUpdate(string $cardId): ?Card
+            {
+                $startedAt = microtime(true);
+                $card = parent::findCardForUpdate($cardId);
+                $this->lockWaitMilliseconds = (int) round((microtime(true) - $startedAt) * 1000);
+                usleep(CardReviewCardLockPostgresTest::LOCK_HOLD_MICROSECONDS);
+
+                return $card;
+            }
+        };
+    }
+
+    private function createBatchWorkerAction(): ReviewCardBatchAction
+    {
+        return new class(app(RecordSyncFeedEntryAction::class)) extends ReviewCardBatchAction
+        {
+            public int $lockWaitMilliseconds = 0;
+
+            protected function cardsById(Collection $preparedItems): Collection
+            {
+                $startedAt = microtime(true);
+                $cards = parent::cardsById($preparedItems);
+                $this->lockWaitMilliseconds = (int) round((microtime(true) - $startedAt) * 1000);
+                usleep(CardReviewCardLockPostgresTest::LOCK_HOLD_MICROSECONDS);
+
+                return $cards;
+            }
+        };
+    }
+
+    /**
+     * @param  array{card_ids: list<string>, event_prefix: string, reviewed_at: string, start_delay_microseconds: int, mode?: string, event_id?: string}  $workerInput
+     * @return array{list<string>, string}
+     */
+    private function performSingleWorkerReview(ReviewCardAction $action, array $workerInput): array
+    {
+        $result = $action->handle(ReviewCardData::fromInput(
+            cardId: $workerInput['card_ids'][0],
+            rating: CardReviewRating::Good->value,
+            reviewedAt: $workerInput['reviewed_at'],
+            id: $workerInput['event_id'] ?? null,
+        ));
+
+        return [[$result->reviewEvent->card_id], $result->wasCreated ? 'created' : 'existing'];
+    }
+
+    /**
+     * @param  array{card_ids: list<string>, event_prefix: string, reviewed_at: string, start_delay_microseconds: int, mode?: string, event_id?: string}  $workerInput
+     * @return array{list<string>, string}
+     */
+    private function performBatchWorkerReview(ReviewCardBatchAction $action, array $workerInput): array
+    {
+        $result = $action->handle(array_map(
+            fn (string $cardId, int $index): ReviewCardData => ReviewCardData::fromInput(
+                cardId: $cardId,
+                rating: CardReviewRating::Good->value,
+                reviewedAt: $workerInput['reviewed_at'],
+                clientEventId: $workerInput['event_prefix'].'-'.$index,
+                deviceId: $workerInput['event_prefix'].'-device',
+                clientCreatedAt: $workerInput['reviewed_at'],
+            ),
+            $workerInput['card_ids'],
+            array_keys($workerInput['card_ids']),
+        ));
+
+        return [$result->reviewEvents->pluck('card_id')->all(), 'created'];
     }
 
     /**

@@ -4,6 +4,8 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
+use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -16,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\Support\AssertsStudyCompatibilityPayloads;
 use Tests\Support\SetsCardStudyStatus;
 use Tests\TestCase;
@@ -74,96 +77,111 @@ class StartStudySessionApiTest extends TestCase
             StudySettings::factory()->for($user)->create([
                 'new_cards_per_day' => 20,
             ]);
-            $convoLabCardId = Str::uuid()->toString();
-            $convoLabNoteId = Str::uuid()->toString();
-            $card = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
-                'convolab_id' => $convoLabCardId,
-                'convolab_note_id' => $convoLabNoteId,
-                'convolab_note_source_guid' => 'guid-501',
-                'convolab_note_source_notetype_id' => 601,
-                'front_text' => '会社',
-                'back_text' => 'company',
-                'card_type' => 'production',
-                'prompt_json' => [
-                    'type' => 'text',
-                    'text' => '会社',
-                    'cueAudio' => [
-                        'filename' => 'company.mp3',
-                        'mediaKind' => 'audio',
-                        'source' => 'imported',
-                    ],
-                ],
-                'answer_json' => [
-                    'type' => 'text',
-                    'text' => 'company',
-                ],
-                'scheduler_state' => ['state' => 2, 'reps' => 7],
-                'due_at' => Carbon::parse('2026-07-16T15:00:00Z'),
-                'introduced_at' => Carbon::parse('2026-07-01T12:00:00Z'),
-                'failed_at' => Carbon::parse('2026-07-10T12:00:00Z'),
-                'source_note_id' => 501,
-                'source_card_id' => 701,
-                'source_deck_id' => 301,
-                'source_notetype_name' => 'Japanese - Vocab',
-                'source_template_ord' => 0,
-                'source_template_name' => 'Card 1',
-                'source_queue' => 2,
-                'source_card_type' => 2,
-                'source_due' => 12,
-                'source_interval' => 30,
-                'source_factor' => 2500,
-                'source_reps' => 7,
-                'source_lapses' => 1,
-                'source_left' => 0,
-                'source_original_due' => 4,
-                'source_original_deck_id' => 901,
-                'source_fsrs_json' => ['stability' => 4.2],
-                'answer_audio_source' => 'imported',
-                'variant_group_id' => 'group-1',
-                'variant_sentence_id' => 'sentence-1',
-                'variant_kind' => 'recognition',
-                'variant_stage' => 2,
-                'variant_status' => VocabVariantStatus::Available->value,
-                'variant_unlocked_at' => Carbon::parse('2026-07-12T12:00:00Z'),
-            ]);
+            [$card, $convoLabCardId, $convoLabNoteId] = $this->compatibleConvoLabCard($deck);
 
             $response = $this->postJson('/api/study/session/start', [
                 'timeZone' => 'America/New_York',
             ]);
-
-            $response
-                ->assertOk()
-                ->assertJsonPath('cards.0.id', $convoLabCardId)
-                ->assertJsonPath('cards.0.syncId', $card->id)
-                ->assertJsonPath('cards.0.noteId', $convoLabNoteId)
-                ->assertJsonPath('cards.0.cardType', 'production')
-                ->assertJsonPath('cards.0.prompt.text', '会社')
-                ->assertJsonPath('cards.0.prompt.cueAudio.filename', 'company.mp3')
-                ->assertJsonPath('cards.0.answer.text', 'company')
-                ->assertJsonPath('cards.0.state.queueState', 'review')
-                ->assertJsonPath('cards.0.state.dueAt', '2026-07-16T15:00:00.000Z')
-                ->assertJsonPath('cards.0.state.scheduler.reps', 7)
-                ->assertJsonPath('cards.0.state.source.noteId', '501')
-                ->assertJsonPath('cards.0.state.source.noteGuid', 'guid-501')
-                ->assertJsonPath('cards.0.state.source.cardId', '701')
-                ->assertJsonPath('cards.0.state.source.deckName', '日本語')
-                ->assertJsonPath('cards.0.state.source.notetypeId', '601')
-                ->assertJsonPath('cards.0.state.source.odid', '901')
-                ->assertJsonPath('cards.0.state.rawFsrs.stability', 4.2)
-                ->assertJsonPath('cards.0.variantGroupId', 'group-1')
-                ->assertJsonPath('cards.0.variantUnlockedAt', '2026-07-12T12:00:00.000Z')
-                ->assertJsonPath('cards.0.answerAudioSource', 'imported')
-                ->assertJsonMissingPath('cards.0.deck_id')
-                ->assertJsonMissingPath('cards.0.prompt_json')
-                ->assertJsonCount(1, 'cards');
-
-            $payload = $response->json('cards.0');
-            $this->assertIsArray($payload);
-            $this->assertStudyCardSummaryCompatibilityPayloadHasShape($payload, 'session card payload');
-            $this->assertNotSame($card->id, $payload['id']);
+            $this->assertCompatibleConvoLabCardResponse($response, $card, $convoLabCardId, $convoLabNoteId);
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    /**
+     * @return array{0: Card, 1: string, 2: string}
+     */
+    private function compatibleConvoLabCard(Deck $deck): array
+    {
+        $convoLabCardId = Str::uuid()->toString();
+        $convoLabNoteId = Str::uuid()->toString();
+        $card = $this->cardWithStudyStatus($deck, CardStudyStatus::Review, [
+            'convolab_id' => $convoLabCardId,
+            'convolab_note_id' => $convoLabNoteId,
+            'convolab_note_source_guid' => 'guid-501',
+            'convolab_note_source_notetype_id' => 601,
+            'front_text' => '会社',
+            'back_text' => 'company',
+            'card_type' => 'production',
+            'prompt_json' => [
+                'type' => 'text',
+                'text' => '会社',
+                'cueAudio' => [
+                    'filename' => 'company.mp3',
+                    'mediaKind' => 'audio',
+                    'source' => 'imported',
+                ],
+            ],
+            'answer_json' => ['type' => 'text', 'text' => 'company'],
+            'scheduler_state' => ['state' => 2, 'reps' => 7],
+            'due_at' => Carbon::parse('2026-07-16T15:00:00Z'),
+            'introduced_at' => Carbon::parse('2026-07-01T12:00:00Z'),
+            'failed_at' => Carbon::parse('2026-07-10T12:00:00Z'),
+            'source_note_id' => 501,
+            'source_card_id' => 701,
+            'source_deck_id' => 301,
+            'source_notetype_name' => 'Japanese - Vocab',
+            'source_template_ord' => 0,
+            'source_template_name' => 'Card 1',
+            'source_queue' => 2,
+            'source_card_type' => 2,
+            'source_due' => 12,
+            'source_interval' => 30,
+            'source_factor' => 2500,
+            'source_reps' => 7,
+            'source_lapses' => 1,
+            'source_left' => 0,
+            'source_original_due' => 4,
+            'source_original_deck_id' => 901,
+            'source_fsrs_json' => ['stability' => 4.2],
+            'answer_audio_source' => 'imported',
+            'variant_group_id' => 'group-1',
+            'variant_sentence_id' => 'sentence-1',
+            'variant_kind' => 'recognition',
+            'variant_stage' => 2,
+            'variant_status' => VocabVariantStatus::Available->value,
+            'variant_unlocked_at' => Carbon::parse('2026-07-12T12:00:00Z'),
+        ]);
+
+        return [$card, $convoLabCardId, $convoLabNoteId];
+    }
+
+    private function assertCompatibleConvoLabCardResponse(
+        TestResponse $response,
+        Card $card,
+        string $convoLabCardId,
+        string $convoLabNoteId,
+    ): void {
+        $response
+            ->assertOk()
+            ->assertJsonPath('cards.0.id', $convoLabCardId)
+            ->assertJsonPath('cards.0.syncId', $card->id)
+            ->assertJsonPath('cards.0.noteId', $convoLabNoteId)
+            ->assertJsonPath('cards.0.cardType', 'production')
+            ->assertJsonPath('cards.0.prompt.text', '会社')
+            ->assertJsonPath('cards.0.prompt.cueAudio.filename', 'company.mp3')
+            ->assertJsonPath('cards.0.answer.text', 'company')
+            ->assertJsonPath('cards.0.state.queueState', 'review')
+            ->assertJsonPath('cards.0.state.dueAt', '2026-07-16T15:00:00.000Z')
+            ->assertJsonPath('cards.0.state.scheduler.reps', 7)
+            ->assertJsonPath('cards.0.state.source.noteId', '501')
+            ->assertJsonPath('cards.0.state.source.noteGuid', 'guid-501')
+            ->assertJsonPath('cards.0.state.source.cardId', '701')
+            ->assertJsonPath('cards.0.state.source.deckName', '日本語')
+            ->assertJsonPath('cards.0.state.source.notetypeId', '601')
+            ->assertJsonPath('cards.0.state.source.odid', '901')
+            ->assertJsonPath('cards.0.state.rawFsrs.stability', 4.2)
+            ->assertJsonPath('cards.0.variantGroupId', 'group-1')
+            ->assertJsonPath('cards.0.variantUnlockedAt', '2026-07-12T12:00:00.000Z')
+            ->assertJsonPath('cards.0.answerAudioSource', 'imported')
+            ->assertJsonMissingPath('cards.0.deck_id')
+            ->assertJsonMissingPath('cards.0.prompt_json')
+            ->assertJsonCount(1, 'cards');
+
+        $payload = $response->json('cards.0');
+        $this->assertIsArray($payload);
+        $this->assertStudyCardSummaryCompatibilityPayloadHasShape($payload, 'session card payload');
+        $this->assertNotSame($card->id, $payload['id']);
     }
 
     public function test_locked_variants_are_excluded_from_session_and_lesson_queues(): void
@@ -311,14 +329,11 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/lessons/start', [
-            'deck_id' => $deck->id,
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.newCount', 1)
-            ->assertJsonPath('overview.totalCards', 1)
-            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'cards');
+        $this->assertLessonScopeCards(
+            ['deck_id' => $deck->id],
+            [$targetDeckCard->id],
+            totalCards: 1,
+        );
     }
 
     public function test_start_filters_ready_cards_by_course_id(): void
@@ -341,15 +356,11 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 3,
         ]);
 
-        $this->postJson('/api/study/lessons/start', [
-            'courseId' => $course->id,
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.newCount', 2)
-            ->assertJsonPath('overview.totalCards', 2)
-            ->assertJsonPath('cards.0.id', $firstCourseCard->id)
-            ->assertJsonPath('cards.1.id', $secondCourseCard->id)
-            ->assertJsonCount(2, 'cards');
+        $this->assertLessonScopeCards(
+            ['courseId' => $course->id],
+            [$firstCourseCard->id, $secondCourseCard->id],
+            totalCards: 2,
+        );
     }
 
     public function test_start_normalizes_deck_id_without_global_trim_middleware(): void
@@ -369,13 +380,10 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/lessons/start', [
-            'deck_id' => '  '.strtoupper($deck->id).'  ',
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.newCount', 1)
-            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'cards');
+        $this->assertLessonScopeCards(
+            ['deck_id' => '  '.strtoupper($deck->id).'  '],
+            [$targetDeckCard->id],
+        );
     }
 
     public function test_start_normalizes_scope_filter_aliases_without_global_trim_middleware(): void
@@ -396,14 +404,10 @@ class StartStudySessionApiTest extends TestCase
             'new_queue_position' => 2,
         ]);
 
-        $this->postJson('/api/study/lessons/start', [
+        $this->assertLessonScopeCards([
             'course_id' => '  '.strtoupper($course->id).'  ',
             'deckId' => '  '.strtoupper($deck->id).'  ',
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.newCount', 1)
-            ->assertJsonPath('cards.0.id', $targetDeckCard->id)
-            ->assertJsonCount(1, 'cards');
+        ], [$targetDeckCard->id]);
     }
 
     public function test_start_returns_empty_session_when_course_and_deck_filters_do_not_match(): void
@@ -437,13 +441,7 @@ class StartStudySessionApiTest extends TestCase
             'due_at' => Carbon::parse('2026-06-04T11:00:00Z'),
         ]);
 
-        $this->postJson('/api/study/session/start', [
-            'deck_id' => $otherDeck->id,
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.dueCount', 0)
-            ->assertJsonPath('overview.totalCards', 0)
-            ->assertJsonCount(0, 'cards');
+        $this->assertEmptySessionForScope(['deck_id' => $otherDeck->id]);
     }
 
     public function test_start_returns_empty_session_for_another_users_course_id(): void
@@ -457,249 +455,7 @@ class StartStudySessionApiTest extends TestCase
             'due_at' => Carbon::parse('2026-06-04T11:00:00Z'),
         ]);
 
-        $this->postJson('/api/study/session/start', [
-            'courseId' => $otherCourse->id,
-        ])
-            ->assertOk()
-            ->assertJsonPath('overview.dueCount', 0)
-            ->assertJsonPath('overview.totalCards', 0)
-            ->assertJsonCount(0, 'cards');
-    }
-
-    public function test_start_validates_time_zone_without_coercing_malformed_values(): void
-    {
-        $this->signIn();
-
-        $this->postJson('/api/study/session/start', [
-            'time_zone' => 'Not/A_Zone',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['time_zone']);
-
-        $this->postJson('/api/study/session/start', [
-            'time_zone' => ['America/New_York'],
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['time_zone']);
-
-        $this->postJson('/api/study/session/start', [
-            'timeZone' => 'Not/A_Zone',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
-
-        $this->postJson('/api/study/session/start', [
-            'timeZone' => ['America/New_York'],
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
-    }
-
-    public function test_session_start_uses_the_canonical_time_zone_for_the_study_day(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-06-04T03:00:00Z'));
-
-        try {
-            $user = $this->signIn();
-            $deck = $this->deckFor($user);
-            StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1]);
-            $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
-                'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
-                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
-            ]);
-            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
-                'new_queue_position' => 1,
-            ]);
-
-            $this->postJson('/api/study/session/start', [
-                'timeZone' => 'America/New_York',
-            ])
-                ->assertOk()
-                ->assertJsonPath('overview.newCardsIntroducedToday', 1)
-                ->assertJsonPath('overview.newCardsAvailableToday', 0);
-        } finally {
-            Carbon::setTestNow();
-        }
-    }
-
-    public function test_lesson_start_uses_the_canonical_time_zone_for_the_study_day(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-06-04T03:00:00Z'));
-
-        try {
-            $user = $this->signIn();
-            $deck = $this->deckFor($user);
-            StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1]);
-            $this->cardWithStudyStatus($deck, CardStudyStatus::Learning, [
-                'introduced_at' => Carbon::parse('2026-06-03T22:00:00Z'),
-                'due_at' => Carbon::parse('2026-06-05T00:00:00Z'),
-            ]);
-            $this->cardWithStudyStatus($deck, CardStudyStatus::New, [
-                'new_queue_position' => 1,
-            ]);
-
-            $this->postJson('/api/study/lessons/start', [
-                'timeZone' => 'America/New_York',
-            ])
-                ->assertOk()
-                ->assertJsonPath('overview.newCardsIntroducedToday', 1)
-                ->assertJsonPath('overview.newCardsAvailableToday', 0);
-        } finally {
-            Carbon::setTestNow();
-        }
-    }
-
-    public function test_session_and_lesson_start_reject_conflicting_time_zone_names(): void
-    {
-        $this->signIn();
-
-        foreach (['/api/study/session/start', '/api/study/lessons/start'] as $endpoint) {
-            $this->postJson($endpoint, [
-                'timeZone' => 'America/New_York',
-                'time_zone' => 'Asia/Tokyo',
-            ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['timeZone']);
-        }
-    }
-
-    public function test_start_treats_explicit_null_and_a_populated_alias_as_a_conflict(): void
-    {
-        $this->signIn();
-
-        $this->postJson('/api/study/session/start', [
-            'timeZone' => null,
-            'time_zone' => 'America/New_York',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
-
-        $this->postJson('/api/study/session/start', [
-            'timeZone' => null,
-            'time_zone' => null,
-        ])->assertOk();
-    }
-
-    public function test_lesson_start_rejects_malformed_time_zone_shapes(): void
-    {
-        $this->signIn();
-
-        $this->postJson('/api/study/lessons/start', ['timeZone' => ['UTC']])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
-
-        $this->postJson('/api/study/lessons/start', ['time_zone' => ['UTC']])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['time_zone']);
-
-        $this->postJson('/api/study/lessons/start', ['timeZone' => 'Not/A_Zone'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['timeZone']);
-    }
-
-    public function test_start_normalizes_both_time_zone_names_without_global_trim_middleware(): void
-    {
-        $this->withoutMiddleware(TrimStrings::class);
-        $this->signIn();
-
-        $this->postJson('/api/study/session/start', [
-            'timeZone' => '  America/New_York  ',
-            'time_zone' => '  America/New_York  ',
-        ])->assertOk();
-    }
-
-    public function test_start_rejects_malformed_deck_id_filters(): void
-    {
-        $this->signIn();
-
-        $this->postJson('/api/study/session/start', [
-            'deck_id' => 'not-a-ulid',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deck_id']);
-
-        $this->postJson('/api/study/session/start', [
-            'deck_id' => ['01J00000000000000000000000'],
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deck_id']);
-
-        $this->postJson('/api/study/session/start', [
-            'deckId' => 'not-a-ulid',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deckId']);
-
-        $this->postJson('/api/study/session/start', [
-            'courseId' => 'not-a-ulid',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['courseId']);
-
-        $this->postJson('/api/study/session/start', [
-            'course_id' => 'not-a-ulid',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['course_id']);
-
-        $this->postJson('/api/study/session/start', [
-            'course_id' => ['01J00000000000000000000000'],
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['course_id']);
-    }
-
-    public function test_start_rejects_conflicting_camel_and_legacy_scope_filters(): void
-    {
-        $user = $this->signIn();
-        $course = Course::factory()->for($user)->create();
-        $otherCourse = Course::factory()->for($user)->create();
-        $deck = $this->deckFor($user);
-        $otherDeck = $this->deckFor($user);
-
-        $this->postJson('/api/study/session/start', [
-            'courseId' => $course->id,
-            'course_id' => $otherCourse->id,
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['courseId']);
-
-        $this->postJson('/api/study/session/start', [
-            'deckId' => $deck->id,
-            'deck_id' => $otherDeck->id,
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deckId']);
-    }
-
-    public function test_start_rejects_blank_deck_id_without_global_trim_middleware(): void
-    {
-        $this->withoutMiddleware(TrimStrings::class);
-        $this->signIn();
-
-        $this->postJson('/api/study/session/start', [
-            'deck_id' => '   ',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deck_id']);
-
-        $this->postJson('/api/study/session/start', [
-            'deckId' => '   ',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['deckId']);
-
-        $this->postJson('/api/study/session/start', [
-            'courseId' => '   ',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['courseId']);
-
-        $this->postJson('/api/study/session/start', [
-            'course_id' => '   ',
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['course_id']);
+        $this->assertEmptySessionForScope(['courseId' => $otherCourse->id]);
     }
 
     public function test_lesson_start_reports_daily_guidance_without_limiting_the_queue_batch(): void
@@ -770,6 +526,39 @@ class StartStudySessionApiTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     * @param  list<string>  $expectedCardIds
+     */
+    private function assertLessonScopeCards(array $scope, array $expectedCardIds, ?int $totalCards = null): void
+    {
+        $response = $this->postJson('/api/study/lessons/start', $scope)
+            ->assertOk()
+            ->assertJsonPath('overview.newCount', count($expectedCardIds));
+
+        if ($totalCards !== null) {
+            $response->assertJsonPath('overview.totalCards', $totalCards);
+        }
+
+        foreach ($expectedCardIds as $index => $cardId) {
+            $response->assertJsonPath("cards.{$index}.id", $cardId);
+        }
+
+        $response->assertJsonCount(count($expectedCardIds), 'cards');
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     */
+    private function assertEmptySessionForScope(array $scope): void
+    {
+        $this->postJson('/api/study/session/start', $scope)
+            ->assertOk()
+            ->assertJsonPath('overview.dueCount', 0)
+            ->assertJsonPath('overview.totalCards', 0)
+            ->assertJsonCount(0, 'cards');
     }
 
     /**

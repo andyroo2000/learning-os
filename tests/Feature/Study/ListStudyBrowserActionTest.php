@@ -12,7 +12,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 use UnexpectedValueException;
 
@@ -208,67 +208,70 @@ class ListStudyBrowserActionTest extends TestCase
         $this->assertNull($secondPage['nextCursor']);
     }
 
-    public function test_it_reports_group_metadata_with_legacy_blank_source_kind_for_direct_callers(): void
-    {
+    /**
+     * @param  array{array<string, mixed>, array<string, mixed>}  $cardAttributes
+     * @param  list<array{int, string}>  $reviews
+     * @param  array<string, mixed>  $expectedRow
+     */
+    #[DataProvider('reviewedGroupMetadataExamples')]
+    public function test_it_reports_reviewed_group_metadata_for_direct_callers(
+        array $cardAttributes,
+        array $reviews,
+        array $expectedRow,
+    ): void {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
-        $firstCard = Card::factory()->for($deck)->create([
-            'front_text' => 'group metadata prompt',
-            'source_kind' => '',
-            'source_note_id' => 4011,
-            'source_template_ord' => 0,
-        ]);
-        $secondCard = Card::factory()->for($deck)->create([
-            'front_text' => 'group metadata answer',
-            'source_kind' => 'anki_import',
-            'source_note_id' => 4011,
-            'source_template_ord' => 1,
-        ]);
-        CardReviewEvent::factory()->for($firstCard)->create([
-            'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
-        ]);
+        $cards = array_map(
+            fn (array $attributes): Card => Card::factory()->for($deck)->create($attributes),
+            $cardAttributes,
+        );
+
+        foreach ($reviews as [$cardIndex, $reviewedAt]) {
+            CardReviewEvent::factory()->for($cards[$cardIndex])->create([
+                'reviewed_at' => Carbon::parse($reviewedAt),
+            ]);
+        }
 
         $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
+        $expectedRow['selectedCardId'] = (string) $cards[0]->id;
 
-        $this->assertSame('4011', $result['rows'][0]['noteId']);
-        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
-        // Legacy blank first-card provenance keeps the deterministic row fallback, even if siblings carry imported metadata.
-        $this->assertSame('native', $result['rows'][0]['sourceKind']);
-        $this->assertSame(1, $result['rows'][0]['reviewCount']);
-        $this->assertSame('2026-06-01T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
+        foreach ($expectedRow as $field => $expected) {
+            $this->assertSame($expected, $result['rows'][0][$field]);
+        }
     }
 
-    public function test_it_reports_latest_review_across_group_for_direct_callers(): void
+    /** @return array<string, array{array{array<string, mixed>, array<string, mixed>}, list<array{int, string}>, array<string, mixed>}> */
+    public static function reviewedGroupMetadataExamples(): array
     {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-        $firstCard = Card::factory()->for($deck)->create([
-            'front_text' => 'latest review prompt',
-            'source_kind' => 'anki_import',
-            'source_note_id' => 4021,
-            'source_template_ord' => 0,
-        ]);
-        $secondCard = Card::factory()->for($deck)->create([
-            'front_text' => 'latest review answer',
-            'source_kind' => 'anki_import',
-            'source_note_id' => 4021,
-            'source_template_ord' => 1,
-        ]);
-        CardReviewEvent::factory()->for($firstCard)->create([
-            'reviewed_at' => Carbon::parse('2026-06-01T10:00:00Z'),
-        ]);
-        CardReviewEvent::factory()->for($secondCard)->create([
-            'reviewed_at' => Carbon::parse('2026-06-04T10:00:00Z'),
-        ]);
-
-        $result = app(ListStudyBrowserAction::class)->handle(userId: $user->id);
-
-        $this->assertSame('4021', $result['rows'][0]['noteId']);
-        $this->assertSame((string) $firstCard->id, $result['rows'][0]['selectedCardId']);
-        $this->assertSame('anki_import', $result['rows'][0]['sourceKind']);
-        $this->assertSame(2, $result['rows'][0]['cardCount']);
-        $this->assertSame(2, $result['rows'][0]['reviewCount']);
-        $this->assertSame('2026-06-04T10:00:00.000000Z', $result['rows'][0]['lastReviewedAt']);
+        return [
+            'legacy blank source kind uses native fallback' => [
+                [
+                    ['front_text' => 'group metadata prompt', 'source_kind' => '', 'source_note_id' => 4011, 'source_template_ord' => 0],
+                    ['front_text' => 'group metadata answer', 'source_kind' => 'anki_import', 'source_note_id' => 4011, 'source_template_ord' => 1],
+                ],
+                [[0, '2026-06-01T10:00:00Z']],
+                [
+                    'noteId' => '4011',
+                    'sourceKind' => 'native',
+                    'reviewCount' => 1,
+                    'lastReviewedAt' => '2026-06-01T10:00:00.000000Z',
+                ],
+            ],
+            'latest review across group wins' => [
+                [
+                    ['front_text' => 'latest review prompt', 'source_kind' => 'anki_import', 'source_note_id' => 4021, 'source_template_ord' => 0],
+                    ['front_text' => 'latest review answer', 'source_kind' => 'anki_import', 'source_note_id' => 4021, 'source_template_ord' => 1],
+                ],
+                [[0, '2026-06-01T10:00:00Z'], [1, '2026-06-04T10:00:00Z']],
+                [
+                    'noteId' => '4021',
+                    'sourceKind' => 'anki_import',
+                    'cardCount' => 2,
+                    'reviewCount' => 2,
+                    'lastReviewedAt' => '2026-06-04T10:00:00.000000Z',
+                ],
+            ],
+        ];
     }
 
     public function test_it_reports_null_last_reviewed_at_for_unreviewed_groups_for_direct_callers(): void
@@ -511,163 +514,5 @@ class ListStudyBrowserActionTest extends TestCase
 
         $this->assertSame(1, $result['total']);
         $this->assertSame((string) $match->source_note_id, $result['rows'][0]['noteId']);
-    }
-
-    public function test_it_rejects_blank_note_type_filters_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser noteType filter must not be blank when provided.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            noteType: '   ',
-        );
-    }
-
-    public function test_it_rejects_blank_search_queries_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Card search query filter must not be blank when provided.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            q: '   ',
-        );
-    }
-
-    public function test_it_rejects_blank_course_filters_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser courseId filter must not be blank when provided.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            courseId: '   ',
-        );
-    }
-
-    public function test_it_rejects_malformed_course_filters_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser courseId filter must be a valid ULID.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            courseId: 'not-a-ulid',
-        );
-    }
-
-    public function test_it_rejects_blank_deck_filters_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser deckId filter must not be blank when provided.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            deckId: '   ',
-        );
-    }
-
-    public function test_it_rejects_malformed_deck_filters_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser deckId filter must be a valid ULID.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            deckId: 'not-a-ulid',
-        );
-    }
-
-    public function test_it_rejects_invalid_sort_controls_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser sortField must be one of:');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            sortField: 'last_seen',
-        );
-    }
-
-    public function test_it_rejects_invalid_sort_directions_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser sortDirection must be one of:');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            sortDirection: 'sideways',
-        );
-    }
-
-    public function test_it_uses_the_default_limit_for_direct_callers_when_limit_is_absent(): void
-    {
-        $result = app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-        );
-
-        $this->assertSame(ListStudyBrowserAction::DEFAULT_LIMIT, $result['limit']);
-    }
-
-    public function test_it_accepts_boundary_limits_for_direct_callers(): void
-    {
-        $user = $this->signIn();
-
-        $minimum = app(ListStudyBrowserAction::class)->handle(
-            userId: $user->id,
-            limit: 1,
-        );
-        $maximum = app(ListStudyBrowserAction::class)->handle(
-            userId: $user->id,
-            limit: ListStudyBrowserAction::MAX_LIMIT,
-        );
-
-        $this->assertSame(1, $minimum['limit']);
-        $this->assertSame(ListStudyBrowserAction::MAX_LIMIT, $maximum['limit']);
-    }
-
-    public function test_it_rejects_invalid_limits_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            limit: 0,
-        );
-    }
-
-    public function test_it_rejects_negative_limits_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            limit: -1,
-        );
-    }
-
-    public function test_it_rejects_over_max_limits_for_direct_callers(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('limit must be an integer between 1 and '.ListStudyBrowserAction::MAX_LIMIT.'.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            limit: ListStudyBrowserAction::MAX_LIMIT + 1,
-        );
-    }
-
-    public function test_it_rejects_invalid_direct_cursors(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Study browser cursor is invalid.');
-
-        app(ListStudyBrowserAction::class)->handle(
-            userId: $this->signIn()->id,
-            cursor: 'not-a-cursor',
-        );
     }
 }

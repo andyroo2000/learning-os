@@ -8,6 +8,7 @@ use App\Http\Resources\Flashcards\DeckResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Flashcards\Concerns\UsesDeckRateLimitOverrides;
 use Tests\TestCase;
 
@@ -249,19 +250,21 @@ class UpdateDeckApiTest extends TestCase
         );
     }
 
-    public function test_it_rejects_blank_name(): void
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $errors
+     */
+    #[DataProvider('invalidDeckPayloadProvider')]
+    public function test_it_rejects_invalid_deck_payloads(array $payload, array $errors): void
     {
         $user = $this->signIn();
         $deck = $this->deckFor($user);
 
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => '   ',
-            'description' => null,
-        ]);
+        $response = $this->putJson("/api/decks/{$deck->id}", $payload);
 
         $response
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
+            ->assertJsonValidationErrors($errors);
 
         $this->assertDatabaseHas('decks', [
             'id' => $deck->id,
@@ -270,146 +273,19 @@ class UpdateDeckApiTest extends TestCase
         ]);
     }
 
-    public function test_it_rejects_non_string_description(): void
+    /** @return array<string, array{array<string, mixed>, list<string>}> */
+    public static function invalidDeckPayloadProvider(): array
     {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => 'Italian Travel',
-            'description' => ['not a string'],
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['description']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_non_string_name(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => 123,
-            'description' => null,
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_oversized_description(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => 'Italian Travel',
-            'description' => str_repeat('a', 10_001),
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['description']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_oversized_name(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => str_repeat('a', 256),
-            'description' => null,
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_missing_required_fields(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", []);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name', 'description']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_missing_description(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'name' => 'Italian Travel',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['description']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
-    }
-
-    public function test_it_rejects_missing_name(): void
-    {
-        $user = $this->signIn();
-        $deck = $this->deckFor($user);
-
-        $response = $this->putJson("/api/decks/{$deck->id}", [
-            'description' => null,
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
-
-        $this->assertDatabaseHas('decks', [
-            'id' => $deck->id,
-            'name' => $deck->name,
-            'description' => $deck->description,
-        ]);
+        return [
+            'blank name' => [['name' => '   ', 'description' => null], ['name']],
+            'non-string description' => [['name' => 'Italian Travel', 'description' => ['not a string']], ['description']],
+            'non-string name' => [['name' => 123, 'description' => null], ['name']],
+            'oversized description' => [['name' => 'Italian Travel', 'description' => str_repeat('a', 10_001)], ['description']],
+            'oversized name' => [['name' => str_repeat('a', 256), 'description' => null], ['name']],
+            'missing required fields' => [[], ['name', 'description']],
+            'missing description' => [['name' => 'Italian Travel'], ['description']],
+            'missing name' => [['description' => null], ['name']],
+        ];
     }
 
     public function test_it_hides_another_users_deck(): void

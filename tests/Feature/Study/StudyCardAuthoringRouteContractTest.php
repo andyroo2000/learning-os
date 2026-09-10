@@ -20,6 +20,7 @@ class StudyCardAuthoringRouteContractTest extends TestCase
         $cardIdWhere = ['cardId' => self::CARD_ID_PATTERN];
 
         $this->assertSame(array_merge(
+            [$this->expectedRoute('POST', 'api/study/cards/capture', 'CaptureStudyCardController', 'throttle:study-card-create')],
             $this->expectedDraftRoutes($draftIdWhere),
             $this->expectedCardRoutes($cardIdWhere),
             $this->expectedFinalDraftRoutes($draftIdWhere),
@@ -33,7 +34,8 @@ class StudyCardAuthoringRouteContractTest extends TestCase
             ->filter(static function (LaravelRoute $route): bool {
                 $uri = $route->uri();
 
-                return $uri === 'api/study/card-drafts'
+                return $uri === 'api/study/cards/capture'
+                    || $uri === 'api/study/card-drafts'
                     || str_starts_with($uri, 'api/study/card-drafts/')
                     || $uri === 'api/study/card-candidates/vocab-bundle/drafts'
                     || preg_match(
@@ -195,7 +197,7 @@ class StudyCardAuthoringRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/study/browser/{noteId}',
-            'GET|HEAD api/study/card-drafts',
+            'POST api/study/cards/capture',
         );
         $this->assertImmediatelyBefore(
             $routeOrder,

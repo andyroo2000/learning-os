@@ -6,10 +6,6 @@ use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
-use App\Domain\Media\Actions\AttachMediaToCardAction;
-use App\Domain\Media\Actions\DetachMediaFromCardAction;
-use App\Domain\Media\Data\AttachMediaToCardData;
-use App\Domain\Media\Data\DetachMediaFromCardData;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
@@ -25,10 +21,8 @@ class UploadStudyCardAudioAction
 {
     public function __construct(
         private readonly PersistUploadedStudyAudioAction $persistUploadedAudio,
-        private readonly DiscardGeneratedStudyMediaAction $discardMedia,
         private readonly UpdateCardAction $updateCard,
-        private readonly AttachMediaToCardAction $attachMedia,
-        private readonly DetachMediaFromCardAction $detachMedia,
+        private readonly ReplaceStudyCardAudioMediaAction $media,
     ) {}
 
     public function handle(Card $card, UploadedFile $audio): Card
@@ -75,29 +69,17 @@ class UploadStudyCardAudioAction
                     hasAnswerAudioSource: true,
                     answerAudioSource: StudyCardDraft::MEDIA_SOURCE_IMPORTED,
                 ));
-                $this->attachMedia->handle(AttachMediaToCardData::fromModels(
-                    $lockedCard,
-                    $uploaded->mediaAsset,
-                ));
-
-                foreach ($oldManagedMedia as $oldMedia) {
-                    $this->detachMedia->handle(DetachMediaFromCardData::fromModels(
-                        $lockedCard,
-                        $oldMedia,
-                    ));
-                }
+                $this->media->attachReplacement($lockedCard, $uploaded->mediaAsset, $oldManagedMedia);
 
                 return $lockedCard->fresh(['deck', 'mediaAssets']) ?? $lockedCard;
             });
         } catch (Throwable $exception) {
-            $this->discardMedia->handle($uploaded->mediaAsset);
+            $this->media->discardFailedUpload($uploaded->mediaAsset);
 
             throw $exception;
         }
 
-        foreach ($oldManagedMedia as $oldMedia) {
-            $this->discardMedia->handleIfUnreferenced($oldMedia);
-        }
+        $this->media->discardUnreferenced($oldManagedMedia);
 
         return $updated;
     }

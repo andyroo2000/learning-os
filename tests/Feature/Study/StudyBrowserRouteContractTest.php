@@ -49,7 +49,7 @@ class StudyBrowserRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/study/browser/{noteId}',
-            'GET|HEAD api/study/card-drafts',
+            'POST api/study/cards/capture',
         );
     }
 

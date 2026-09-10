@@ -10,4 +10,9 @@ class StudyCardAudioConflictException extends RuntimeException
     {
         return new self('The study card changed while answer audio was being generated. Please retry.');
     }
+
+    public static function cardChangedDuringUpload(): self
+    {
+        return new self('The study card changed while its audio was being uploaded. Please retry.');
+    }
 }

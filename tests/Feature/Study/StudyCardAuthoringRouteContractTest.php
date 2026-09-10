@@ -37,7 +37,7 @@ class StudyCardAuthoringRouteContractTest extends TestCase
                     || str_starts_with($uri, 'api/study/card-drafts/')
                     || $uri === 'api/study/card-candidates/vocab-bundle/drafts'
                     || preg_match(
-                        '#^api/study/cards/\{cardId\}/(?:regenerate-answer-audio|regenerate-image|image|pitch-accent|prepare-answer-audio)$#',
+                        '#^api/study/cards/\{cardId\}/(?:regenerate-answer-audio|regenerate-image|image|audio|pitch-accent|prepare-answer-audio)$#',
                         $uri,
                     ) === 1;
             })
@@ -138,6 +138,13 @@ class StudyCardAuthoringRouteContractTest extends TestCase
                 'POST',
                 'api/study/cards/{cardId}/image',
                 'UploadStudyCardImageController',
+                'throttle:study-card-update',
+                $cardIdWhere,
+            ),
+            $this->expectedRoute(
+                'POST',
+                'api/study/cards/{cardId}/audio',
+                'UploadStudyCardAudioController',
                 'throttle:study-card-update',
                 $cardIdWhere,
             ),

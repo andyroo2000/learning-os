@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyCardFromDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyVocabBundleDraftsController;
 use App\Http\Controllers\Api\Study\UpdateStudyCardDraftController;
+use App\Http\Controllers\Api\Study\UploadStudyCardAudioController;
 use App\Http\Controllers\Api\Study\UploadStudyCardImageController;
 use Illuminate\Support\Facades\Route;
 
@@ -58,6 +59,9 @@ return static function (): void {
     Route::post('/study/cards/{cardId}/regenerate-image', RegenerateStudyCardImageController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN);
     Route::post('/study/cards/{cardId}/image', UploadStudyCardImageController::class)
+        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
+        ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
+    Route::post('/study/cards/{cardId}/audio', UploadStudyCardAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
     Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)

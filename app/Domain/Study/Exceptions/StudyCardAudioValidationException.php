@@ -28,6 +28,26 @@ class StudyCardAudioValidationException extends RuntimeException
         return new self('answer.answerAudioVoiceId must be a Fish Audio voice ID.', 'answer.answerAudioVoiceId');
     }
 
+    public static function invalidUpload(): self
+    {
+        return new self('The audio must be a valid PCM WAV file.', 'audio');
+    }
+
+    public static function uploadTooLarge(int $maxMegabytes): self
+    {
+        return new self("The audio must not be larger than {$maxMegabytes} MB.", 'audio');
+    }
+
+    public static function uploadTooLong(int $maxSeconds): self
+    {
+        return new self("The audio must not be longer than {$maxSeconds} seconds.", 'audio');
+    }
+
+    public static function recognitionCardRequired(): self
+    {
+        return new self('Captured audio can only be attached to a recognition card.', 'audio');
+    }
+
     public function field(): string
     {
         return $this->field;

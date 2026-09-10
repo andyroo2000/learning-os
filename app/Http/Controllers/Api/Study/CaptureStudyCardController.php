@@ -21,8 +21,8 @@ class CaptureStudyCardController extends Controller
         $userId = AuthenticatedUser::id($request);
         try {
             $result = $capture->handle($userId, $request->captureData(), [
-                'audio' => $request->audio(),
-                'image' => $request->image(),
+                'audio' => $request->uploadedAudio(),
+                'image' => $request->uploadedImage(),
             ]);
         } catch (StudyCardAudioValidationException|StudyCardImageValidationException $exception) {
             throw ValidationException::withMessages([$exception->field() => [$exception->getMessage()]]);

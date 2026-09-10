@@ -32,12 +32,12 @@ class CaptureStudyCardRequest extends FormRequest
         return new CaptureStudyCardData($this->validated('id'), $this->validated());
     }
 
-    public function audio(): UploadedFile
+    public function uploadedAudio(): UploadedFile
     {
         return $this->validated('audio');
     }
 
-    public function image(): ?UploadedFile
+    public function uploadedImage(): ?UploadedFile
     {
         return $this->validated('image');
     }

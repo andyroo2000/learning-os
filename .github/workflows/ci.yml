@@ -66,10 +66,6 @@ jobs:
       - name: Run PHP tests
         run: composer run test
 
-      - name: Show PHP fatal errors on failure
-        if: failure()
-        run: grep -E 'Allowed memory size|Maximum call stack size|Maximum execution time|PHP Fatal error|Stack size limit|testing.ERROR' storage/logs/laravel.log | tail -15 || true
-
       - name: Build frontend assets
         run: npm run build
 

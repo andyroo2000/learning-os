@@ -146,6 +146,8 @@ class UploadStudyCardAudioApiTest extends TestCase
         $card = $this->studyCardFor($user, [
             'prompt_json' => [
                 'cueText' => '今日は行けない。',
+                'cueReading' => 'きょうはいけない。',
+                'cueMeaning' => 'I cannot go today.',
                 'cueImage' => $imageReference,
             ],
         ]);
@@ -157,6 +159,8 @@ class UploadStudyCardAudioApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('prompt.cueImage.id', $image->id)
             ->assertJsonMissingPath('prompt.cueText')
+            ->assertJsonMissingPath('prompt.cueReading')
+            ->assertJsonMissingPath('prompt.cueMeaning')
             ->assertJsonPath('prompt.cueAudio.source', 'imported');
 
         $card->refresh();

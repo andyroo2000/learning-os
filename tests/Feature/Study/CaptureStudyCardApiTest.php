@@ -12,8 +12,10 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
+use Throwable;
 
 class CaptureStudyCardApiTest extends TestCase
 {
@@ -76,13 +78,13 @@ class CaptureStudyCardApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 2);
     }
 
-    public function test_failed_image_persistence_rolls_back_audio_deck_and_sync_entries(): void
+    #[DataProvider('captureFailures')]
+    public function test_failed_capture_rolls_back_files_deck_card_and_sync_entries(string $action, Throwable $failure, int $status): void
     {
         $this->signIn();
         $feedCount = DB::table('sync_feed_entries')->count();
-        $this->mock(PersistUploadedStudyImageAction::class)->shouldReceive('handle')->once()
-            ->andThrow(StudyCardImageValidationException::invalidUpload());
-        $this->postCapture((string) Str::ulid(), true)->assertUnprocessable();
+        $this->mock($action)->shouldReceive('handle')->once()->andThrow($failure);
+        $this->postCapture((string) Str::ulid(), true)->assertStatus($status);
         $this->assertDatabaseCount('cards', 0);
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('decks', 0);
@@ -90,17 +92,12 @@ class CaptureStudyCardApiTest extends TestCase
         $this->assertSame($feedCount, DB::table('sync_feed_entries')->count());
     }
 
-    public function test_failed_promotion_rolls_back_both_files_and_card(): void
+    public static function captureFailures(): array
     {
-        $this->signIn();
-        $feedCount = DB::table('sync_feed_entries')->count();
-        $this->mock(PromoteNewCardToFrontAction::class)->shouldReceive('handle')->once()
-            ->andThrow(new RuntimeException('Promotion unavailable'));
-        $this->postCapture((string) Str::ulid(), true)->assertStatus(500);
-        $this->assertDatabaseCount('cards', 0);
-        $this->assertDatabaseCount('media_assets', 0);
-        $this->assertSame([], Storage::disk('media')->allFiles());
-        $this->assertSame($feedCount, DB::table('sync_feed_entries')->count());
+        return [
+            'image persistence after audio' => [PersistUploadedStudyImageAction::class, StudyCardImageValidationException::invalidUpload(), 422],
+            'promotion after both files' => [PromoteNewCardToFrontAction::class, new RuntimeException('Promotion unavailable'), 500],
+        ];
     }
 
     public function test_it_hides_cross_user_capture_ids_and_rejects_deleted_replays(): void

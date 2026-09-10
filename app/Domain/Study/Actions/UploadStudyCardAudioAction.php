@@ -27,7 +27,7 @@ class UploadStudyCardAudioAction
 
     public function handle(Card $card, UploadedFile $audio): Card
     {
-        if (($card->card_type ?? CardType::Recognition) !== CardType::Recognition) {
+        if ($card->card_type !== CardType::Recognition) {
             throw StudyCardAudioValidationException::recognitionCardRequired();
         }
 

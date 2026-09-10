@@ -17,6 +17,19 @@ class ShowStudyBrowserNoteActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_it_loads_the_persisted_content_revision_for_browser_cards(): void
+    {
+        $user = $this->signIn();
+        $card = Card::factory()->for($this->deckFor($user))->create(['source_note_id' => null]);
+        $card->answer_json = ['meaning' => 'updated meaning'];
+        $card->save();
+
+        $result = app(ShowStudyBrowserNoteAction::class)->handle($user->id, $card->id);
+
+        $this->assertNotNull($result);
+        $this->assertSame(1, $result->cards->sole()->content_revision);
+    }
+
     public function test_it_resolves_convolab_note_ids_and_returns_compatibility_card_ids(): void
     {
         $user = $this->signIn();

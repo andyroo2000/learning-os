@@ -68,6 +68,45 @@ class CaptureStudyCardApiTest extends TestCase
         $this->assertSame($feedCount, DB::table('sync_feed_entries')->count());
     }
 
+    public function test_captured_card_can_be_edited_using_its_browser_revision(): void
+    {
+        $this->signIn();
+        $id = strtolower((string) Str::ulid());
+        $captured = $this->postCapture($id, true)->assertCreated();
+        $this->assertGreaterThan(0, $captured->json('revision'));
+
+        $detail = $this->getJson("/api/study/browser/{$id}")->assertOk();
+        $card = $detail->json('cards.0');
+        $answer = [...$card['answer'], 'notes' => 'Captured from Episode 1'];
+        $this->patchJson("/api/study/cards/{$id}", [
+            'expectedRevision' => $card['revision'],
+            'prompt' => $card['prompt'],
+            'answer' => $answer,
+        ])->assertOk()->assertJsonPath('answer.notes', 'Captured from Episode 1');
+
+        $this->assertSame($captured->json('revision'), $card['revision']);
+        $this->patchJson("/api/study/cards/{$id}", [
+            'expectedRevision' => $card['revision'],
+            'prompt' => $card['prompt'],
+            'answer' => $card['answer'],
+        ])->assertConflict()->assertJsonPath('code', 'card_revision_conflict');
+    }
+
+    public function test_captured_card_learning_path_is_available_using_browser_sync_id(): void
+    {
+        $user = $this->signIn();
+        $id = strtolower((string) Str::ulid());
+        $this->postCapture($id)->assertCreated();
+        $this->asConvoLabBrowser($user);
+        $detail = $this->getJson("/api/study/browser/{$id}")->assertOk();
+        $syncId = $detail->json('cards.0.syncId');
+
+        $this->getJson("/api/cards/{$syncId}/learning-path")
+            ->assertOk()
+            ->assertJsonPath('data.anchor_card_id', $id)
+            ->assertJsonCount(0, 'data.stages');
+    }
+
     public function test_image_capture_retry_is_idempotent_and_changed_image_presence_conflicts(): void
     {
         $this->signIn();

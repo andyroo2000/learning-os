@@ -108,6 +108,7 @@ class ShowStudyBrowserNoteAction
             )
             ->select([
                 'cards.id',
+                'cards.content_revision',
                 'cards.convolab_id',
                 'cards.convolab_note_id',
                 'cards.convolab_note_created_at',

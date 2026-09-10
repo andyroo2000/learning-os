@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Actions\PersistUploadedStudyImageAction;
 use App\Domain\Study\Exceptions\StudyCardImageValidationException;
+use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +85,10 @@ class CaptureStudyCardApiTest extends TestCase
         $this->signIn();
         $feedCount = DB::table('sync_feed_entries')->count();
         $this->mock($action)->shouldReceive('handle')->once()->andThrow($failure);
-        $this->postCapture((string) Str::ulid(), true)->assertStatus($status);
+        $response = $this->postCapture((string) Str::ulid(), true)->assertStatus($status);
+        if ($failure instanceof StudyPreviewMediaGenerationException) {
+            $response->assertJsonPath('message', $failure->getMessage());
+        }
         $this->assertDatabaseCount('cards', 0);
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('decks', 0);
@@ -97,6 +101,7 @@ class CaptureStudyCardApiTest extends TestCase
         return [
             'image persistence after audio' => [PersistUploadedStudyImageAction::class, StudyCardImageValidationException::invalidUpload(), 422],
             'promotion after both files' => [PromoteNewCardToFrontAction::class, new RuntimeException('Promotion unavailable'), 500],
+            'image storage after audio' => [PersistUploadedStudyImageAction::class, StudyPreviewMediaGenerationException::storageFailed(), 500],
         ];
     }
 

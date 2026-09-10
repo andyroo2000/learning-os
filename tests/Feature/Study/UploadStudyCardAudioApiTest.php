@@ -128,6 +128,43 @@ class UploadStudyCardAudioApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
     }
 
+    public function test_it_preserves_an_existing_prompt_image_when_adding_audio(): void
+    {
+        $user = $this->signIn();
+        $image = MediaAsset::factory()->for($user)->create([
+            'mime_type' => 'image/png',
+            'path' => "study/uploads/{$user->id}/prompt.png",
+            'original_filename' => 'prompt.png',
+        ]);
+        $imageReference = [
+            'id' => $image->id,
+            'filename' => 'prompt.png',
+            'url' => "/api/study/media/{$image->id}",
+            'mediaKind' => 'image',
+            'source' => 'imported_image',
+        ];
+        $card = $this->studyCardFor($user, [
+            'prompt_json' => [
+                'cueText' => '今日は行けない。',
+                'cueImage' => $imageReference,
+            ],
+        ]);
+        $card->mediaAssets()->attach($image);
+
+        $this->post("/api/study/cards/{$card->id}/audio", [
+            'audio' => $this->wavUpload(),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('prompt.cueImage.id', $image->id)
+            ->assertJsonMissingPath('prompt.cueText')
+            ->assertJsonPath('prompt.cueAudio.source', 'imported');
+
+        $card->refresh();
+        $this->assertSame($imageReference, $card->prompt_json['cueImage']);
+        $this->assertTrue($card->mediaAssets()->whereKey($image->id)->exists());
+        $this->assertDatabaseCount('media_assets', 2);
+    }
+
     public function test_it_rejects_invalid_audio_and_non_recognition_cards(): void
     {
         $user = $this->signIn();

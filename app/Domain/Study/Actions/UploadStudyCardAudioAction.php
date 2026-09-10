@@ -146,6 +146,7 @@ class UploadStudyCardAudioAction
             $card->card_type?->value,
             $card->prompt_json,
             $card->answer_json,
+            $card->answer_audio_source,
             $card->updated_at?->toJSON(),
         ]));
     }

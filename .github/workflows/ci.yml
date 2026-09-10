@@ -24,6 +24,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: gd, mbstring, pdo_sqlite, sqlite3
           coverage: none
+          ini-values: display_errors=On, log_errors=On, error_log=/dev/stderr
 
       - name: Cache Composer dependencies
         uses: actions/cache@v5
@@ -67,7 +68,7 @@ jobs:
 
       - name: Show PHP fatal errors on failure
         if: failure()
-        run: rg 'Allowed memory size|Maximum call stack size|Maximum execution time|PHP Fatal error|Stack size limit' storage/logs/laravel.log || true
+        run: grep -E 'Allowed memory size|Maximum call stack size|Maximum execution time|PHP Fatal error|Stack size limit|testing.ERROR' storage/logs/laravel.log | tail -15 || true
 
       - name: Build frontend assets
         run: npm run build

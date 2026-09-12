@@ -3,6 +3,7 @@
 namespace App\Domain\Achievements\Actions\Concerns;
 
 use App\Domain\Achievements\Models\AchievementProgressProjection;
+use App\Domain\Achievements\Support\AchievementReviewQuery;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,19 +24,8 @@ trait QueriesAchievementProjectionSources
     /** @return Builder<CardReviewEvent> */
     private function newReviewEvents(int $userId, AchievementProgressProjection $projection): Builder
     {
-        $query = CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->select([
-                'card_review_events.id',
-                'card_review_events.card_id',
-                'card_review_events.rating',
-                'card_review_events.reviewed_at',
-                'card_review_events.created_at',
-                'card_review_events.scheduler_state_after',
-                'cards.updated_at as card_source_updated_at',
-            ]);
+        $query = AchievementReviewQuery::forUser($userId)
+            ->addSelect('cards.updated_at as card_source_updated_at');
 
         if ($projection->last_review_created_at === null) {
             return $query;
@@ -53,18 +43,7 @@ trait QueriesAchievementProjectionSources
     /** @return LazyCollection<int, CardReviewEvent> */
     private function reviewTimeline(int $userId): LazyCollection
     {
-        return CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->select([
-                'card_review_events.id',
-                'card_review_events.card_id',
-                'card_review_events.rating',
-                'card_review_events.reviewed_at',
-                'card_review_events.created_at',
-                'card_review_events.scheduler_state_after',
-            ])
+        return AchievementReviewQuery::forUser($userId)
             ->orderBy('card_review_events.reviewed_at')
             ->orderBy('card_review_events.id')
             ->cursor();

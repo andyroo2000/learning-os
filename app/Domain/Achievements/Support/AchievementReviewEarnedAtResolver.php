@@ -163,17 +163,7 @@ final class AchievementReviewEarnedAtResolver
     {
         // Lifetime review achievements keep their original award dates after a
         // card or deck is archived, so these joins deliberately include trash.
-        return CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->select([
-                'card_review_events.id',
-                'card_review_events.card_id',
-                'card_review_events.rating',
-                'card_review_events.reviewed_at',
-                'card_review_events.scheduler_state_after',
-            ])
+        return AchievementReviewQuery::forUser($userId)
             ->orderBy('card_review_events.reviewed_at')
             ->orderBy('card_review_events.id')
             ->cursor();

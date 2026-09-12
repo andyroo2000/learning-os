@@ -28,7 +28,12 @@ trait QueriesAchievementProjectionSources
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
             ->select([
-                'card_review_events.*',
+                'card_review_events.id',
+                'card_review_events.card_id',
+                'card_review_events.rating',
+                'card_review_events.reviewed_at',
+                'card_review_events.created_at',
+                'card_review_events.scheduler_state_after',
                 'cards.updated_at as card_source_updated_at',
             ]);
 
@@ -52,7 +57,14 @@ trait QueriesAchievementProjectionSources
             ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
             ->join('decks', 'decks.id', '=', 'cards.deck_id')
             ->where('decks.user_id', $userId)
-            ->select('card_review_events.*')
+            ->select([
+                'card_review_events.id',
+                'card_review_events.card_id',
+                'card_review_events.rating',
+                'card_review_events.reviewed_at',
+                'card_review_events.created_at',
+                'card_review_events.scheduler_state_after',
+            ])
             ->orderBy('card_review_events.reviewed_at')
             ->orderBy('card_review_events.id')
             ->cursor();

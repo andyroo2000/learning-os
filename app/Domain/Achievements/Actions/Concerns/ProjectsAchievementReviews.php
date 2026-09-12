@@ -104,10 +104,18 @@ trait ProjectsAchievementReviews
         Collection $cardProjections,
         array $projectionValues,
     ): void {
-        $lastCreated = $events->sort(
-            static fn ($left, $right): int => [$left->created_at->getTimestampMs(), (string) $left->id]
-                <=> [$right->created_at->getTimestampMs(), (string) $right->id],
-        )->last();
+        // Reviews are processed in reviewed-at order, but the incremental cursor
+        // follows creation order. Find its maximum without sorting and repeatedly
+        // casting every event's timestamp during comparisons.
+        $lastCreated = null;
+        $lastCreatedKey = null;
+        foreach ($events as $event) {
+            $createdKey = [$event->created_at->getTimestampMs(), (string) $event->id];
+            if ($lastCreatedKey === null || $createdKey > $lastCreatedKey) {
+                $lastCreated = $event;
+                $lastCreatedKey = $createdKey;
+            }
+        }
         $projection->last_review_created_at = CarbonImmutable::instance($lastCreated->created_at);
         $projection->last_review_id = (string) $lastCreated->id;
         $projection->metric_values = $projectionValues['metrics'];

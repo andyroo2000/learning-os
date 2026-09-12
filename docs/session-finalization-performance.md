@@ -54,17 +54,23 @@ Verification: all 24 achievement feature tests and 10 achievement unit tests pas
 The added regression covers creation order differing from review order, equal
 creation timestamps, cursor advancement, and exact review/correct-run totals.
 
+## Desktop wait removed
+
+The companion [ConvoLab PR #658](https://github.com/andyroo2000/convo-lab/pull/658)
+keeps Done available while achievements update in the background. Dismissed
+sessions persist only their achievement baseline and pending award IDs, separately
+from review records. Late responses and a subsequent Study visit can recover
+badges without reopening the old summary. Session IDs and refresh revisions
+protect a new session and undo/re-end flows; acknowledging a badge removes
+pending duplicates. Tests cover late responses, reload, failure recovery, account
+isolation, legacy saved sessions, and immediate Done with 1,000 reviewed cards.
+
 ## Further opportunities
 
-1. Bound the time that badge refresh can disable Done, while preserving late
-   awards for later presentation. Simply enabling Done or adding a timeout is
-   insufficient: the current Done handler consumes the persisted achievement
-   session, and the refresh ignores results after the session epoch changes.
-   A follow-up must cover leaving, returning, starting another session, and undo.
-2. Consolidate the full-history rebuild passes, or rebuild only the affected
+1. Consolidate the full-history rebuild passes, or rebuild only the affected
    metric family when study-time data changes. Preserve exact first-earned dates
    and chronological correct-run behavior.
-3. Consider occasional progress-only refreshes during long sessions, with
+2. Consider occasional progress-only refreshes during long sessions, with
    throttling and final-request ordering, to spread incremental work across the
    session without prematurely awarding badges.
 

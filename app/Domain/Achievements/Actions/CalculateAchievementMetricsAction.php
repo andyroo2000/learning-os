@@ -2,9 +2,9 @@
 
 namespace App\Domain\Achievements\Actions;
 
+use App\Domain\Achievements\Support\AchievementReviewQuery;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
-use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyMasteryLevel;
@@ -49,11 +49,7 @@ final class CalculateAchievementMetricsAction
         // Review achievements are lifetime records: archiving a card or deck must
         // not erase reviews the user already completed. Raw ownership joins here
         // intentionally include soft-deleted cards and decks.
-        $events = CardReviewEvent::query()
-            ->join('cards', 'cards.id', '=', 'card_review_events.card_id')
-            ->join('decks', 'decks.id', '=', 'cards.deck_id')
-            ->where('decks.user_id', $userId)
-            ->select('card_review_events.*')
+        $events = AchievementReviewQuery::forUser($userId)
             ->orderBy('card_review_events.reviewed_at')
             ->orderBy('card_review_events.id')
             ->cursor();
@@ -159,13 +155,9 @@ final class CalculateAchievementMetricsAction
             if ($session->category === StudyActivityCategory::Listen) {
                 $listeningMilliseconds += $session->audio_playback_ms ?? 0;
             }
-            if ($session->activity === StudyActivityKind::DailyAudio
-                && $session->name !== null
-                && str_starts_with($session->name, self::DAILY_AUDIO_COMPLETION_PREFIX)) {
-                $episode = trim(substr($session->name, strlen(self::DAILY_AUDIO_COMPLETION_PREFIX)));
-                if ($episode !== '') {
-                    $listeningDaysByEpisode[$episode][$day] = true;
-                }
+            $episode = $this->dailyAudioEpisode($session);
+            if ($episode !== null) {
+                $listeningDaysByEpisode[$episode][$day] = true;
             }
         }
 
@@ -186,5 +178,21 @@ final class CalculateAchievementMetricsAction
             GetAchievementProgressAction::DOUBLE_FEATURE_METRIC => $doubleFeature ? 1 : 0,
             GetAchievementProgressAction::ON_REPEAT_METRIC => $repeatDays,
         ];
+    }
+
+    private function dailyAudioEpisode(StudyActivitySession $session): ?string
+    {
+        if ($session->activity !== StudyActivityKind::DailyAudio) {
+            return null;
+        }
+        if ($session->name === null) {
+            return null;
+        }
+        if (! str_starts_with($session->name, self::DAILY_AUDIO_COMPLETION_PREFIX)) {
+            return null;
+        }
+        $episode = trim(substr($session->name, strlen(self::DAILY_AUDIO_COMPLETION_PREFIX)));
+
+        return $episode === '' ? null : $episode;
     }
 }

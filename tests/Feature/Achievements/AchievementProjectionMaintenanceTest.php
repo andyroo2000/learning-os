@@ -18,6 +18,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\Achievements\BuildsAchievementStudySessions;
 use Tests\TestCase;
 
@@ -63,10 +64,7 @@ class AchievementProjectionMaintenanceTest extends TestCase
             $thresholdReviewAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
             $projection->threshold_reached_at[GetAchievementProgressAction::REVIEW_METRIC]['100'],
         );
-        $this->assertCount(1, collect($queries)->filter(
-            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
-                && str_contains($sql, 'achievement_card_projections'),
-        ), implode("\n", $queries));
+        $this->assertSingleCardProjectionInsert($queries);
     }
 
     public function test_late_cross_card_review_rebuilds_global_correct_run_chronology(): void
@@ -108,6 +106,53 @@ class AchievementProjectionMaintenanceTest extends TestCase
             1,
             AchievementProgressProjection::query()->findOrFail($user->id)->current_correct_run,
         );
+    }
+
+    public function test_review_cursor_uses_creation_order_and_id_ties_without_changing_review_order(): void
+    {
+        $user = User::factory()->create();
+        $deck = Deck::factory()->for($user)->create();
+        $card = Card::factory()->for($deck)->create();
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+
+        $start = now()->subHour()->startOfSecond();
+        $ids = collect(range(1, 5))->map(static fn (): string => strtolower((string) Str::ulid()))->sort()->values();
+        // The newest creation timestamp has an ID tie-break; neither candidate
+        // is the last event in reviewed-at order.
+        foreach ([
+            [$ids[2], CardReviewRating::Good, 10],
+            [$ids[3], CardReviewRating::Again, 10],
+            [$ids[0], CardReviewRating::Good, 5],
+            [$ids[1], CardReviewRating::Good, 5],
+        ] as $index => [$id, $rating, $createdMinutes]) {
+            CardReviewEvent::factory()->for($card, 'card')->create([
+                'id' => $id,
+                'rating' => $rating,
+                'reviewed_at' => $start->copy()->addMinutes($index),
+                'created_at' => $start->copy()->addMinutes($createdMinutes),
+            ]);
+        }
+
+        $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+        $projection = AchievementProgressProjection::query()->findOrFail($user->id);
+        $this->assertSame($ids[3], $projection->last_review_id);
+        $this->assertTrue($projection->last_review_created_at->equalTo($start->copy()->addMinutes(10)));
+        $this->assertSame($ids[1], $projection->latest_reviewed_id);
+        $this->assertSame(2, $projection->current_correct_run);
+
+        CardReviewEvent::factory()->for($card, 'card')->create([
+            'id' => $ids[4],
+            'rating' => CardReviewRating::Good,
+            'reviewed_at' => $start->copy()->addMinutes(4),
+            'created_at' => $start->copy()->addMinutes(10),
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/api/achievements/progress')->assertOk();
+        $this->assertSame(5, $response->json('metricValues')[GetAchievementProgressAction::REVIEW_METRIC]);
+        $this->assertSame(3, $response->json('metricValues')[GetAchievementProgressAction::CORRECT_RUN_METRIC]);
+        $projection->refresh();
+        $this->assertSame($ids[4], $projection->last_review_id);
+        $this->assertSame(3, $projection->current_correct_run);
     }
 
     public function test_it_projects_new_study_time_without_rescanning_review_history(): void
@@ -177,10 +222,7 @@ class AchievementProjectionMaintenanceTest extends TestCase
                 ->source_updated_at
                 ->equalTo($card->refresh()->updated_at),
         );
-        $this->assertCount(1, collect($queries)->filter(
-            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
-                && str_contains($sql, 'achievement_card_projections'),
-        ), implode("\n", $queries));
+        $this->assertSingleCardProjectionInsert($queries);
     }
 
     public function test_unchanged_cards_are_not_rewritten_after_projection_bootstrap(): void
@@ -400,5 +442,13 @@ class AchievementProjectionMaintenanceTest extends TestCase
             ->getJson('/api/achievements/progress')
             ->assertOk()
             ->assertJsonCount(6, 'awards');
+    }
+
+    private function assertSingleCardProjectionInsert(array $queries): void
+    {
+        $this->assertCount(1, collect($queries)->filter(
+            static fn (string $sql): bool => str_starts_with($sql, 'insert ')
+                && str_contains($sql, 'achievement_card_projections'),
+        ), implode("\n", $queries));
     }
 }

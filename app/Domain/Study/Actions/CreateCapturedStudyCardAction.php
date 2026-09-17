@@ -16,9 +16,10 @@ class CreateCapturedStudyCardAction
         private readonly CreateCardAction $create,
         private readonly UpdateCardAction $update,
         private readonly PromoteNewCardToFrontAction $promote,
+        private readonly ResolveManualStudyDeckAction $deck,
     ) {}
 
-    public function handle(int $userId, string $deckId, CaptureStudyCardData $data, array $media): Card
+    public function handle(int $userId, CaptureStudyCardData $data, array $media, string $reading): Card
     {
         $prompt = ['cueAudio' => $media['audio']->mediaRef];
         if (isset($media['image'])) {
@@ -26,12 +27,12 @@ class CreateCapturedStudyCardAction
         }
         $result = $this->create->handle(CreateCardData::fromInput(
             userId: $userId,
-            deckId: $deckId,
+            deckId: $this->deck->handle($userId)->id,
             id: $data->id,
             frontText: $data->answer['expression'],
             backText: $data->answer['meaning'],
             promptJson: $prompt,
-            answerJson: [...$data->answer, 'answerAudio' => $media['audio']->mediaRef],
+            answerJson: [...$data->answer, 'expressionReading' => $reading, 'answerAudio' => $media['audio']->mediaRef],
         ));
         $this->update->handle($result->card, UpdateCardData::fromInput(
             frontText: $data->answer['expression'],

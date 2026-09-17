@@ -8,6 +8,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Actions\PersistUploadedStudyImageAction;
 use App\Domain\Study\Exceptions\StudyCardImageValidationException;
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
+use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,8 @@ class CaptureStudyCardApiTest extends TestCase
     {
         parent::setUp();
         Storage::fake('media');
+        $this->mock(OpenAiStudyCardGenerator::class)->shouldReceive('generateJson')
+            ->andReturn('{"reading":"今日[きょう]は行[い]けない。"}')->byDefault();
     }
 
     public function test_it_atomically_creates_audio_and_optional_front_image_and_promotes_the_card(): void
@@ -39,8 +42,11 @@ class CaptureStudyCardApiTest extends TestCase
             ->assertJsonPath('prompt.cueImage.source', 'imported_image')
             ->assertJsonPath('prompt.cueAudio.source', 'imported')
             ->assertJsonPath('answerAudioSource', 'imported')
-            ->assertJsonPath('answer.expression', '今日は行けない。');
+            ->assertJsonPath('answer.expression', '今日は行けない。')
+            ->assertJsonPath('answer.expressionReading', '今日[きょう]は行[い]けない。')
+            ->assertJsonMissingPath('prompt.cueReading');
         $card = Card::findOrFail(strtolower($id));
+        $this->assertSame('今日[きょう]は行[い]けない。', $card->answer_json['expressionReading']);
         $this->assertLessThan($old->new_queue_position, $card->new_queue_position);
         $this->assertSame(2, $card->mediaAssets()->count());
         $this->assertSame($response->json('prompt.cueAudio.id'), $response->json('answer.answerAudio.id'));
@@ -52,6 +58,8 @@ class CaptureStudyCardApiTest extends TestCase
     public function test_audio_only_capture_and_retry_do_not_duplicate_or_repromote(): void
     {
         $this->signIn();
+        $this->mock(OpenAiStudyCardGenerator::class)->shouldReceive('generateJson')->once()
+            ->andReturn('{"reading":"今日[きょう]は行[い]けない。"}');
         $id = (string) Str::ulid();
         $this->postCapture($id)->assertCreated()->assertJsonMissingPath('prompt.cueImage');
         $card = Card::findOrFail(strtolower($id));
@@ -66,6 +74,57 @@ class CaptureStudyCardApiTest extends TestCase
         $this->assertDatabaseCount('media_assets', 1);
         $this->assertDatabaseCount('cards', 1);
         $this->assertSame($feedCount, DB::table('sync_feed_entries')->count());
+    }
+
+    #[DataProvider('readingFailures')]
+    public function test_reading_failure_is_retryable_without_persisting_capture_data(?string $output): void
+    {
+        $this->signIn();
+        $feedCount = DB::table('sync_feed_entries')->count();
+        $provider = $this->mock(OpenAiStudyCardGenerator::class)->shouldReceive('generateJson')->once();
+        if ($output === null) {
+            $provider->andThrow(new RuntimeException('Provider unavailable'));
+        } else {
+            $provider->andReturn($output);
+        }
+
+        $id = (string) Str::ulid();
+        $this->postCapture($id, true)->assertStatus(503)
+            ->assertJsonPath('message', 'Furigana could not be generated. Please retry saving this capture.');
+        $this->assertDatabaseCount('cards', 0);
+        $this->assertDatabaseCount('decks', 0);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertSame([], Storage::disk('media')->allFiles());
+        $this->assertSame($feedCount, DB::table('sync_feed_entries')->count());
+
+        $this->mock(OpenAiStudyCardGenerator::class)->shouldReceive('generateJson')->once()
+            ->andReturn('{"reading":"今日[きょう]は行[い]けない。"}');
+        $this->postCapture($id, true)->assertCreated();
+    }
+
+    public static function readingFailures(): array
+    {
+        return [
+            'provider outage' => [null],
+            'malformed response' => ['not json'],
+            'missing readings' => ['{"reading":"今日は行けない。"}'],
+            'changed subtitle' => ['{"reading":"明日[あした]は行[い]けない。"}'],
+        ];
+    }
+
+    public function test_reading_generation_does_not_hold_the_capture_transaction_open(): void
+    {
+        $this->signIn();
+        $testTransactionLevel = DB::transactionLevel();
+        $this->mock(OpenAiStudyCardGenerator::class)->shouldReceive('generateJson')->once()
+            ->andReturnUsing(function () use ($testTransactionLevel) {
+                $this->assertSame($testTransactionLevel, DB::transactionLevel());
+                $this->assertDatabaseCount('media_assets', 0);
+
+                return '{"reading":"今日[きょう]は行[い]けない。"}';
+            });
+
+        $this->postCapture((string) Str::ulid())->assertCreated();
     }
 
     public function test_captured_card_can_be_edited_using_its_browser_revision(): void

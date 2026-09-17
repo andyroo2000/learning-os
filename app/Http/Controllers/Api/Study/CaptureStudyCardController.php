@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Study\Actions\CaptureStudyCardAction;
+use App\Domain\Study\Exceptions\StudyCaptureReadingException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
 use App\Domain\Study\Exceptions\StudyCardImageValidationException;
 use App\Domain\Study\Exceptions\StudyPreviewMediaGenerationException;
@@ -28,6 +29,10 @@ class CaptureStudyCardController extends Controller
             throw ValidationException::withMessages([$exception->field() => [$exception->getMessage()]]);
         } catch (CardConflictException $exception) {
             return $this->conflict($exception, $userId);
+        } catch (StudyCaptureReadingException $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 503);
         } catch (StudyPreviewMediaGenerationException $exception) {
             return response()->json(
                 ['message' => $exception->getMessage()],

@@ -18,7 +18,7 @@ final class StudyCaptureReading
 
     public static function validate(string $expression, mixed $reading): string
     {
-        if (! is_string($reading) || mb_strlen($reading) > 8000) {
+        if (! is_string($reading)) {
             throw new RuntimeException('Invalid captured sentence reading.');
         }
         $restored = preg_replace(self::ANNOTATION, '$1', $reading);

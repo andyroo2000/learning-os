@@ -24,6 +24,14 @@ class StudyCaptureReadingTest extends TestCase
         $this->assertSame($reading, StudyCaptureReading::validate("人々が\n集まる。", $reading));
     }
 
+    public function test_a_maximum_length_source_can_have_more_than_8000_reading_characters(): void
+    {
+        $expression = str_repeat('働', 2000);
+        $reading = str_repeat('働[はたら]', 2000);
+        $this->assertGreaterThan(8000, mb_strlen($reading));
+        $this->assertSame($reading, StudyCaptureReading::validate($expression, $reading));
+    }
+
     #[DataProvider('invalidReadings')]
     public function test_it_rejects_incomplete_or_altered_readings(mixed $reading): void
     {

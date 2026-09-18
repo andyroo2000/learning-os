@@ -23,10 +23,6 @@ class StudyCardPayloadSchemaTest extends TestCase
             ['$ref' => '#/$defs/media'],
             $schema['properties']['prompt']['properties']['cueAudio'],
         );
-        $this->assertSame(
-            ['$ref' => '#/$defs/pitchAccent'],
-            $schema['properties']['answer']['properties']['pitchAccent'],
-        );
         $this->assertTrue($schema['properties']['prompt']['additionalProperties']);
         $this->assertTrue($schema['properties']['answer']['additionalProperties']);
     }
@@ -43,7 +39,6 @@ class StudyCardPayloadSchemaTest extends TestCase
             [
                 'meaning' => false,
                 'answerAudio' => false,
-                'pitchAccent' => 'invalid',
                 'futureAnswerField' => ['preserved' => true],
             ],
         );
@@ -54,7 +49,6 @@ class StudyCardPayloadSchemaTest extends TestCase
             'prompt.cueImage' => 'prompt.cueImage must be an object or null.',
             'answer.meaning' => 'answer.meaning must be a string or null.',
             'answer.answerAudio' => 'answer.answerAudio must be an object or null.',
-            'answer.pitchAccent' => 'answer.pitchAccent must be an object or null.',
         ], $errors);
     }
 
@@ -62,7 +56,7 @@ class StudyCardPayloadSchemaTest extends TestCase
     {
         $this->assertSame([], StudyCardPayloadSchema::validationErrors(
             ['cueText' => null, 'cueAudio' => []],
-            ['meaning' => 'company', 'answerImage' => null, 'pitchAccent' => []],
+            ['meaning' => 'company', 'answerImage' => null],
         ));
     }
 

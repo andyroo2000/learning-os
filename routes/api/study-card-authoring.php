@@ -6,7 +6,6 @@ use App\Domain\Study\Support\StudyCardCreateRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftAutosaveRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
-use App\Domain\Study\Support\StudyCardPitchAccentRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
@@ -18,7 +17,6 @@ use App\Http\Controllers\Api\Study\ListStudyCardDraftsController;
 use App\Http\Controllers\Api\Study\PrepareStudyCardAnswerAudioController;
 use App\Http\Controllers\Api\Study\RegenerateStudyCardAnswerAudioController;
 use App\Http\Controllers\Api\Study\RegenerateStudyCardImageController;
-use App\Http\Controllers\Api\Study\ResolveStudyCardPitchAccentController;
 use App\Http\Controllers\Api\Study\RetryStudyCardDraftController;
 use App\Http\Controllers\Api\Study\ShowStudyCardDraftController;
 use App\Http\Controllers\Api\Study\StoreStudyCardDraftController;
@@ -67,9 +65,6 @@ return static function (): void {
     Route::post('/study/cards/{cardId}/audio', UploadStudyCardAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardUpdateRateLimiter::NAME);
-    Route::post('/study/cards/{cardId}/pitch-accent', ResolveStudyCardPitchAccentController::class)
-        ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
-        ->middleware('throttle:'.StudyCardPitchAccentRateLimiter::NAME);
     Route::post('/study/cards/{cardId}/prepare-answer-audio', PrepareStudyCardAnswerAudioController::class)
         ->where('cardId', Card::CLIENT_ID_ROUTE_PATTERN)
         ->middleware('throttle:'.StudyCardAudioPrepareRateLimiter::NAME);

@@ -58,7 +58,7 @@ See [docs/architecture.md](docs/architecture.md) for the current platform archit
   identifier for incremental client sync.
 - Daily Audio produces drill, dialogue, and story tracks. Provider failures fall back to
   deterministic card-based scripts so a practice remains usable.
-- Manual card drafts receive generated reading, meaning, pitch-accent, and media
+- Manual card drafts receive generated reading, meaning, and media
   enrichment without overwriting concurrent user edits.
 - Content generation has no monthly entitlement or cooldown quota. Short-window endpoint
   rate limits remain as operational abuse protection.

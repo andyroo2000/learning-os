@@ -19,7 +19,7 @@ class StudyCardPresentationTest extends TestCase
         ]);
 
         $this->assertSame([
-            'version' => 1,
+            'version' => 2,
             'front' => [
                 'mode' => 'text',
                 'text' => '聞く',
@@ -40,7 +40,6 @@ class StudyCardPresentationTest extends TestCase
                 'notes' => [],
                 'media' => ['image' => null],
                 'audio' => null,
-                'pitchAccent' => null,
             ],
         ], StudyCardPresentation::fromCard($card));
 
@@ -81,18 +80,6 @@ class StudyCardPresentationTest extends TestCase
                 'sentenceEn' => 'I work at this company.',
                 'notes' => '<div>• Business context</div><div>- Common word</div>',
                 'answerAudio' => $audio,
-                'pitchAccent' => [
-                    'status' => 'resolved',
-                    'expression' => '会社',
-                    'reading' => 'かいしゃ',
-                    'pitchNum' => 0,
-                    'morae' => ['か', 'い', 'しゃ'],
-                    'pattern' => [0, 1, 1],
-                    'patternName' => '平板',
-                    'source' => 'kanjium',
-                    'resolvedBy' => 'local-reading',
-                    'ignoredFutureField' => true,
-                ],
             ],
         ]);
 
@@ -120,17 +107,6 @@ class StudyCardPresentationTest extends TestCase
         $this->assertSame(['Business context', 'Common word'], $presentation['answer']['notes']);
         $this->assertSame(['image' => $image], $presentation['answer']['media']);
         $this->assertSame($audio, $presentation['answer']['audio']);
-        $this->assertSame([
-            'status' => 'resolved',
-            'expression' => '会社',
-            'reading' => 'かいしゃ',
-            'pitchNum' => 0,
-            'morae' => ['か', 'い', 'しゃ'],
-            'pattern' => [0, 1, 1],
-            'patternName' => '平板',
-            'source' => 'kanjium',
-            'resolvedBy' => 'local-reading',
-        ], $presentation['answer']['pitchAccent']);
     }
 
     public function test_it_projects_audio_led_cards_with_the_logical_audio_fallback(): void
@@ -285,32 +261,6 @@ class StudyCardPresentationTest extends TestCase
 
         $this->assertSame('The [...] is hidden.', $presentation['front']['text']);
         $this->assertSame('The answer is hidden.', $presentation['answer']['restored']);
-    }
-
-    public function test_it_keeps_unresolved_or_malformed_pitch_accent_out_of_the_rendering_contract(): void
-    {
-        $unresolved = $this->card([
-            'answer_json' => ['pitchAccent' => ['status' => 'unresolved', 'reason' => 'not-found']],
-        ]);
-        $malformed = $this->card([
-            'answer_json' => [
-                'pitchAccent' => [
-                    'status' => 'resolved',
-                    'expression' => '会社',
-                    'reading' => 'かいしゃ',
-                    'morae' => ['か', 'い', 'しゃ'],
-                    'pattern' => [0, 1],
-                    'patternName' => '平板',
-                ],
-            ],
-        ]);
-
-        $this->assertNull(StudyCardPresentation::fromCard($unresolved)['answer']['pitchAccent']);
-        $this->assertNull(StudyCardPresentation::fromCard($malformed)['answer']['pitchAccent']);
-        $this->assertSame(
-            ['status' => 'unresolved', 'reason' => 'not-found'],
-            $unresolved->answer_json['pitchAccent'],
-        );
     }
 
     /** @param array<string, mixed> $attributes */

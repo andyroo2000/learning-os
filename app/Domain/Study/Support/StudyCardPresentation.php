@@ -13,7 +13,7 @@ use App\Domain\Flashcards\Models\Card;
  */
 final class StudyCardPresentation
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     // Production-image generation uses these Japanese part-of-speech cue labels.
     private const VISUAL_PRODUCTION_LABELS = ['名詞', '動詞', '形容詞', '副詞', '表現'];
@@ -42,8 +42,7 @@ final class StudyCardPresentation
      *     },
      *     notes: list<string>,
      *     media: array{image: ?array<string, mixed>},
-     *     audio: ?array<string, mixed>,
-     *     pitchAccent: ?array<string, mixed>
+     *     audio: ?array<string, mixed>
      *   }
      * }
      */
@@ -228,8 +227,7 @@ final class StudyCardPresentation
      *   },
      *   notes: list<string>,
      *   media: array{image: ?array<string, mixed>},
-     *   audio: ?array<string, mixed>,
-     *   pitchAccent: ?array<string, mixed>
+     *   audio: ?array<string, mixed>
      * }
      */
     private static function answer(
@@ -290,7 +288,6 @@ final class StudyCardPresentation
             // Listening-card audio historically lived on the prompt. Keep one logical
             // card-audio rule instead of asking clients to know that storage detail.
             'audio' => $answerAudio,
-            'pitchAccent' => self::pitchAccent($answer['pitchAccent'] ?? null),
         ];
     }
 
@@ -524,81 +521,5 @@ final class StudyCardPresentation
     private static function isAlreadyNormalizedCloze(?string $value): bool
     {
         return $value === null || $value === '' || preg_match('/\{\{c\d+::/u', $value) === 1;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private static function pitchAccent(mixed $value): ?array
-    {
-        if (! is_array($value)) {
-            return null;
-        }
-        if (! self::isResolvedPitchAccent($value)) {
-            return null;
-        }
-
-        return [
-            'status' => 'resolved',
-            'expression' => trim($value['expression']),
-            'reading' => trim($value['reading']),
-            'pitchNum' => is_int($value['pitchNum'] ?? null) ? $value['pitchNum'] : null,
-            'morae' => array_values($value['morae']),
-            'pattern' => array_values($value['pattern']),
-            'patternName' => trim($value['patternName']),
-            'source' => self::optionalNonEmptyString($value['source'] ?? null),
-            'resolvedBy' => self::optionalNonEmptyString($value['resolvedBy'] ?? null),
-        ];
-    }
-
-    /** @param array<string, mixed> $value */
-    private static function isResolvedPitchAccent(array $value): bool
-    {
-        return ($value['status'] ?? null) === 'resolved'
-            && self::isNonEmptyString($value['expression'] ?? null)
-            && self::isNonEmptyString($value['reading'] ?? null)
-            && self::isNonEmptyString($value['patternName'] ?? null)
-            && self::hasValidMoraeAndPattern($value);
-    }
-
-    /** @param array<string, mixed> $value */
-    private static function hasValidMoraeAndPattern(array $value): bool
-    {
-        $morae = $value['morae'] ?? null;
-        $pattern = $value['pattern'] ?? null;
-
-        return is_array($morae)
-            && array_is_list($morae)
-            && is_array($pattern)
-            && array_is_list($pattern)
-            && $morae !== []
-            && count($morae) === count($pattern)
-            && self::hasValidMorae($morae)
-            && self::hasValidPitchPattern($pattern);
-    }
-
-    /** @param list<mixed> $morae */
-    private static function hasValidMorae(array $morae): bool
-    {
-        return array_filter($morae, fn (mixed $mora): bool => ! self::isNonEmptyString($mora)) === [];
-    }
-
-    /** @param list<mixed> $pattern */
-    private static function hasValidPitchPattern(array $pattern): bool
-    {
-        return array_filter(
-            $pattern,
-            static fn (mixed $pitch): bool => ! is_int($pitch) || ! in_array($pitch, [0, 1], true),
-        ) === [];
-    }
-
-    private static function optionalNonEmptyString(mixed $value): ?string
-    {
-        return self::isNonEmptyString($value) ? trim($value) : null;
-    }
-
-    private static function isNonEmptyString(mixed $value): bool
-    {
-        return is_string($value) && trim($value) !== '';
     }
 }

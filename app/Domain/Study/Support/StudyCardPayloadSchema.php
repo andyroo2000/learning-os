@@ -57,8 +57,7 @@ final class StudyCardPayloadSchema
 
     /**
      * The public schema intentionally permits extension fields so an older API can round-trip
-     * cards written by a newer producer. API-owned strings and media fields are typed; the
-     * pitch-accent object stays opaque so its resolver can evolve independently.
+     * cards written by a newer producer. API-owned strings and media fields are typed.
      *
      * @return array<string, mixed>
      */
@@ -75,10 +74,6 @@ final class StudyCardPayloadSchema
                     'properties' => self::nullableStringProperties(self::MEDIA_STRING_FIELDS),
                     'additionalProperties' => true,
                 ],
-                'pitchAccent' => [
-                    'type' => ['object', 'null'],
-                    'additionalProperties' => true,
-                ],
             ],
             'type' => 'object',
             'required' => ['prompt', 'answer'],
@@ -87,7 +82,6 @@ final class StudyCardPayloadSchema
                 'answer' => self::objectSchema(
                     self::ANSWER_STRING_FIELDS,
                     self::ANSWER_MEDIA_FIELDS,
-                    ['pitchAccent' => ['$ref' => '#/$defs/pitchAccent']],
                 ),
             ],
             'additionalProperties' => false,
@@ -104,17 +98,15 @@ final class StudyCardPayloadSchema
         return [
             ...self::payloadValidationErrors('prompt', $prompt, self::PROMPT_STRING_FIELDS, self::PROMPT_MEDIA_FIELDS),
             ...self::payloadValidationErrors('answer', $answer, self::ANSWER_STRING_FIELDS, self::ANSWER_MEDIA_FIELDS),
-            ...self::nullableObjectValidationError('answer.pitchAccent', $answer['pitchAccent'] ?? null),
         ];
     }
 
     /**
      * @param  list<string>  $stringFields
      * @param  list<string>  $mediaFields
-     * @param  array<string, mixed>  $extraProperties
      * @return array<string, mixed>
      */
-    private static function objectSchema(array $stringFields, array $mediaFields, array $extraProperties = []): array
+    private static function objectSchema(array $stringFields, array $mediaFields): array
     {
         $properties = [];
 
@@ -128,7 +120,7 @@ final class StudyCardPayloadSchema
 
         return [
             'type' => 'object',
-            'properties' => [...$properties, ...$extraProperties],
+            'properties' => $properties,
             'additionalProperties' => true,
         ];
     }

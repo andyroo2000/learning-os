@@ -152,7 +152,7 @@ trait AssertsStudyCompatibilityPayloads
     {
         $this->assertArrayHasKeys($this->studyCardSummaryCompatibilityPayloadKeys(), $payload, $label);
         $this->assertIsArray($payload['presentation'], "{$label}.presentation should be an object payload.");
-        $this->assertSame(1, $payload['presentation']['version'] ?? null);
+        $this->assertSame(2, $payload['presentation']['version'] ?? null);
         $this->assertIsArray(
             $payload['presentation']['front'] ?? null,
             "{$label}.presentation.front should be an object payload.",
@@ -167,7 +167,7 @@ trait AssertsStudyCompatibilityPayloads
             "{$label}.presentation.answer should be an object payload.",
         );
         $this->assertArrayHasKeys(
-            ['heading', 'ruby', 'restored', 'meaning', 'sentences', 'notes', 'media', 'audio', 'pitchAccent'],
+            ['heading', 'ruby', 'restored', 'meaning', 'sentences', 'notes', 'media', 'audio'],
             $payload['presentation']['answer'],
             "{$label}.presentation.answer",
         );

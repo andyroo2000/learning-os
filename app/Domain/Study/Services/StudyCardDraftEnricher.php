@@ -49,13 +49,8 @@ class StudyCardDraftEnricher
 
         $imagePrompt = $this->existingText($draft->image_prompt)
             ?? $this->generatedText($response['imagePrompt'] ?? null);
-        $this->assertComplete(
-            $draft->creation_kind,
-            $draft->image_placement,
-            $prompt,
-            $answer,
-            $imagePrompt,
-        );
+        $this->assertLearningContent($draft->creation_kind, $prompt, $answer);
+        $this->assertImagePrompt($draft->image_placement, $imagePrompt);
 
         return [
             'prompt' => $prompt,
@@ -211,30 +206,37 @@ PROMPT;
      * @param  array<string, mixed>  $prompt
      * @param  array<string, mixed>  $answer
      */
-    private function assertComplete(
+    private function assertLearningContent(
         StudyCardCreationKind $kind,
-        StudyCardImagePlacement $imagePlacement,
         array $prompt,
         array $answer,
-        ?string $imagePrompt,
     ): void {
-        $complete = match ($kind) {
-            StudyCardCreationKind::TextRecognition => $this->hasText($prompt, 'cueText')
-                && $this->hasText($answer, 'expression')
-                && $this->hasText($answer, 'meaning'),
-            StudyCardCreationKind::AudioRecognition => $this->hasText($answer, 'expression')
-                && $this->hasText($answer, 'meaning'),
-            StudyCardCreationKind::ProductionText, StudyCardCreationKind::ProductionImage => $this->hasText($prompt, 'cueText')
-                && $this->hasText($answer, 'expression')
-                && $this->hasText($answer, 'meaning'),
-            StudyCardCreationKind::Cloze => $this->hasText($prompt, 'clozeText')
-                && $this->hasText($answer, 'restoredText')
-                && $this->hasText($answer, 'meaning'),
-        };
+        $expressionKey = $kind === StudyCardCreationKind::Cloze ? 'restoredText' : 'expression';
+        $complete = $this->hasCompletePrompt($kind, $prompt)
+            && $this->hasText($answer, $expressionKey)
+            && $this->hasText($answer, 'meaning');
 
         if (! $complete) {
             throw new RuntimeException('Generated study card draft is missing required learning content.');
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $prompt
+     */
+    private function hasCompletePrompt(StudyCardCreationKind $kind, array $prompt): bool
+    {
+        return match ($kind) {
+            StudyCardCreationKind::AudioRecognition => true,
+            StudyCardCreationKind::Cloze => $this->hasText($prompt, 'clozeText'),
+            StudyCardCreationKind::TextRecognition,
+            StudyCardCreationKind::ProductionText,
+            StudyCardCreationKind::ProductionImage => $this->hasText($prompt, 'cueText'),
+        };
+    }
+
+    private function assertImagePrompt(StudyCardImagePlacement $imagePlacement, ?string $imagePrompt): void
+    {
         if ($imagePlacement !== StudyCardImagePlacement::None && $imagePrompt === null) {
             throw new RuntimeException('Generated study card draft is missing its image prompt.');
         }

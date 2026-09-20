@@ -39,7 +39,7 @@ class StudyCardDraftEnricher
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
         ));
 
-        $generatedPrompt = $this->object($response, 'prompt');
+        $generatedPrompt = $this->generatedPrompt($response, $draft->creation_kind);
         $generatedAnswer = $this->object($response, 'answer');
         $prompt = $this->mergeMissing($seedPrompt, $generatedPrompt);
         $answer = $this->mergeMissing($seedAnswer, $generatedAnswer);
@@ -68,11 +68,13 @@ class StudyCardDraftEnricher
     {
         $kindGuidance = match ($creationKind) {
             StudyCardCreationKind::TextRecognition => <<<'GUIDANCE'
-prompt: cueText (Japanese), cueReading (bracket furigana or kana), cueMeaning (short English).
+prompt: cueText (Japanese), cueReading (bracket furigana or kana).
+Do not generate cueMeaning, English translations, or semantic hints on the prompt. Put English meanings in answer.meaning only.
 answer: expression, expressionReading, meaning, sentenceJp, sentenceEn, notes.
 GUIDANCE,
             StudyCardCreationKind::AudioRecognition => <<<'GUIDANCE'
 prompt may remain empty because audio is the recognition cue.
+Do not generate cueMeaning, English translations, or semantic hints on the prompt. Put English meanings in answer.meaning only.
 answer: expression (Japanese), expressionReading (bracket furigana or kana), meaning, sentenceJp, sentenceEn, notes.
 GUIDANCE,
             StudyCardCreationKind::ProductionText, StudyCardCreationKind::ProductionImage => <<<'GUIDANCE'
@@ -131,6 +133,22 @@ PROMPT;
         $value = $record[$key] ?? null;
 
         return is_array($value) && ! array_is_list($value) ? $value : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return array<string, mixed>
+     */
+    private function generatedPrompt(array $response, StudyCardCreationKind $kind): array
+    {
+        $prompt = $this->object($response, 'prompt');
+        if (in_array($kind, [StudyCardCreationKind::TextRecognition, StudyCardCreationKind::AudioRecognition], true)) {
+            // Recognition must not gain an answer-revealing hint from provider output.
+            // Filter before merging so deliberately supplied manual hints remain user-owned.
+            unset($prompt['cueMeaning']);
+        }
+
+        return $prompt;
     }
 
     /**

@@ -79,6 +79,59 @@ class StudyVocabBundleGeneratorTest extends TestCase
         $this->assertSame('sentence_text_recognition', $bundle['variants'][2]['variantKind']->value);
     }
 
+    #[DataProvider('transferLearnerContextProvider')]
+    public function test_wanikani_prompt_requires_only_known_surrounding_language(?string $summary): void
+    {
+        $openAi = $this->mock(OpenAiStudyCardGenerator::class);
+        $openAi->shouldReceive('generateJson')->once()
+            ->withArgs(function (string $instruction, string $payload) use ($summary): bool {
+                $this->assertKnownContextInstructions($instruction);
+                $input = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+                $this->assertSame('会社', $input['targetWord']);
+                $this->assertSame($summary, $input['learnerContextSummary']);
+
+                return true;
+            })
+            ->andReturn(json_encode(self::validTransferBundle(), JSON_THROW_ON_ERROR));
+        $context = $this->mock(StudyLearnerContextBuilder::class);
+        $context->shouldReceive('build')->once()->with(1)->andReturn($summary);
+        $group = $this->transferGroup();
+        $group->include_learner_context = true;
+
+        $bundle = (new StudyVocabBundleGenerator($openAi, $context))->generate($group);
+
+        $this->assertCount(4, $bundle['variants']);
+    }
+
+    /** @return array<string, array{?string}> */
+    public static function transferLearnerContextProvider(): array
+    {
+        return [
+            'no learner history' => [null],
+            'familiar basic context' => ['- recognition/review: その国は大きいです。 - That country is big.'],
+            'recent exposure is not mastery' => ['- recognition/relearning (3 lapses): 共和国 - republic'],
+        ];
+    }
+
+    private function assertKnownContextInstructions(string $instruction): void
+    {
+        foreach ([
+            'targetWord is the only permitted learning target',
+            'All surrounding vocabulary, word senses, readings, grammar, and conjugations must already be familiar',
+            'learnerContextSummary is a limited sample of recent cards, not a vocabulary whitelist',
+            'Do not infer vocabulary knowledge from known kanji, a WaniKani/JLPT level, or a word merely appearing in a recent card',
+            'When learner evidence is missing or uncertain, simplify',
+            'Never add an unfamiliar synonym, antonym, comparison term, compound, or topic-specific word',
+            'n+1 takes priority over variety, rich context, and making a cloze unambiguous',
+            'use a complete English phrase as the cloze hint',
+            '社会の授業で、君主国と共和国の違いを習いました。',
+            'その国は君主国です。',
+            'Audit all four sentences before returning JSON',
+        ] as $rule) {
+            $this->assertStringContainsString($rule, $instruction);
+        }
+    }
+
     public function test_transfer_bundles_require_an_explicit_cloze_suitability_decision(): void
     {
         $response = self::validTransferBundle();

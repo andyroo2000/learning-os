@@ -42,7 +42,7 @@ class CreateStudyVocabBundleDraftsAction
                 : AutomaticStudyVocabImportStatus::Generating;
             $group->save();
 
-            $sentenceOrdinals = $data->waniKaniSubjectId === null ? [0, 1, 2] : [0, 1, 2, 3];
+            $sentenceOrdinals = $data->waniKaniSubjectId === null ? [0, 1, 2] : [0, 1];
             $sentences = collect($sentenceOrdinals)->map(function (int $ordinal) use ($data, $group): StudyVocabVariantSentence {
                 $placeholder = $ordinal === 0 && $data->sourceSentence !== null
                     ? $data->sourceSentence
@@ -101,34 +101,7 @@ class CreateStudyVocabBundleDraftsAction
             return $this->transferPlaceholderVariants($targetWord);
         }
 
-        $variants = [];
-
-        foreach ([0, 1, 2] as $ordinal) {
-            $label = $this->placeholderLabel($ordinal, $targetWord);
-            $variants[] = [
-                'creationKind' => StudyCardCreationKind::AudioRecognition,
-                'cardType' => CardType::Recognition,
-                'prompt' => [],
-                'answer' => $this->placeholderAnswer($label),
-                'variantKind' => VocabVariantKind::SentenceAudioRecognition,
-                'variantStage' => 1,
-                'variantStatus' => VocabVariantStatus::Available,
-                'sentenceOrdinal' => $ordinal,
-            ];
-        }
-        foreach ([0, 1, 2] as $ordinal) {
-            $label = $this->placeholderLabel($ordinal, $targetWord);
-            $variants[] = [
-                'creationKind' => StudyCardCreationKind::TextRecognition,
-                'cardType' => CardType::Recognition,
-                'prompt' => ['cueText' => $label],
-                'answer' => $this->placeholderAnswer($label),
-                'variantKind' => VocabVariantKind::SentenceTextRecognition,
-                'variantStage' => 2,
-                'variantStatus' => VocabVariantStatus::Locked,
-                'sentenceOrdinal' => $ordinal,
-            ];
-        }
+        $variants = $this->recognitionPlaceholderVariants($targetWord);
         $variants[] = [
             'creationKind' => StudyCardCreationKind::AudioRecognition,
             'cardType' => CardType::Recognition,
@@ -184,6 +157,41 @@ class CreateStudyVocabBundleDraftsAction
     }
 
     /** @return list<array<string, mixed>> */
+    private function recognitionPlaceholderVariants(string $targetWord): array
+    {
+        $variants = [];
+
+        foreach ([0, 1, 2] as $ordinal) {
+            $label = $this->placeholderLabel($ordinal, $targetWord);
+            $variants[] = [
+                'creationKind' => StudyCardCreationKind::AudioRecognition,
+                'cardType' => CardType::Recognition,
+                'prompt' => [],
+                'answer' => $this->placeholderAnswer($label),
+                'variantKind' => VocabVariantKind::SentenceAudioRecognition,
+                'variantStage' => 1,
+                'variantStatus' => VocabVariantStatus::Available,
+                'sentenceOrdinal' => $ordinal,
+            ];
+        }
+        foreach ([0, 1, 2] as $ordinal) {
+            $label = $this->placeholderLabel($ordinal, $targetWord);
+            $variants[] = [
+                'creationKind' => StudyCardCreationKind::TextRecognition,
+                'cardType' => CardType::Recognition,
+                'prompt' => ['cueText' => $label],
+                'answer' => $this->placeholderAnswer($label),
+                'variantKind' => VocabVariantKind::SentenceTextRecognition,
+                'variantStage' => 2,
+                'variantStatus' => VocabVariantStatus::Locked,
+                'sentenceOrdinal' => $ordinal,
+            ];
+        }
+
+        return $variants;
+    }
+
+    /** @return list<array<string, mixed>> */
     private function transferPlaceholderVariants(string $targetWord): array
     {
         $variants = [];
@@ -191,25 +199,15 @@ class CreateStudyVocabBundleDraftsAction
         foreach ([
             [0, StudyCardCreationKind::AudioRecognition, VocabVariantKind::SentenceAudioRecognition],
             [1, StudyCardCreationKind::TextRecognition, VocabVariantKind::SentenceTextRecognition],
-            [2, StudyCardCreationKind::Cloze, VocabVariantKind::SentenceCloze],
-            [3, StudyCardCreationKind::AudioRecognition, VocabVariantKind::SentenceAudioRecognition],
         ] as $index => [$ordinal, $creationKind, $variantKind]) {
             $label = $this->placeholderLabel($ordinal, $targetWord);
             $variants[] = [
                 'creationKind' => $creationKind,
                 'cardType' => $creationKind->cardType(),
-                'prompt' => match ($creationKind) {
-                    StudyCardCreationKind::AudioRecognition => [],
-                    StudyCardCreationKind::Cloze => ['clozeText' => $label, 'clozeHint' => ''],
-                    default => ['cueText' => $label],
-                },
-                'answer' => $creationKind === StudyCardCreationKind::Cloze
-                    ? [
-                        'restoredText' => $label,
-                        'meaning' => '',
-                        'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
-                    ]
-                    : $this->placeholderAnswer($label),
+                'prompt' => $creationKind === StudyCardCreationKind::AudioRecognition
+                    ? []
+                    : ['cueText' => $label],
+                'answer' => $this->placeholderAnswer($label),
                 'variantKind' => $variantKind,
                 'variantStage' => $index + 1,
                 'variantStatus' => $index === 0

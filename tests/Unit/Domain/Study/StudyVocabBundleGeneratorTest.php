@@ -47,7 +47,7 @@ class StudyVocabBundleGeneratorTest extends TestCase
         );
     }
 
-    public function test_it_builds_a_four_context_transfer_bundle_without_production(): void
+    public function test_it_builds_one_listening_card_and_one_reading_card_for_wanikani(): void
     {
         $bundle = $this->generatorReturning(
             json_encode(self::validTransferBundle(), JSON_THROW_ON_ERROR),
@@ -55,49 +55,112 @@ class StudyVocabBundleGeneratorTest extends TestCase
 
         $this->assertCount(StudyVocabBundleGenerator::TRANSFER_SENTENCE_COUNT, $bundle['sentences']);
         $this->assertCount(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, $bundle['variants']);
-        $this->assertSame([1, 2, 3, 4], array_column($bundle['variants'], 'variantStage'));
+        $this->assertCount(2, $bundle['variants']);
+        $this->assertSame([1, 2], array_column($bundle['variants'], 'variantStage'));
         $this->assertSame(
             [
                 'sentence_audio_recognition',
                 'sentence_text_recognition',
-                'sentence_cloze',
-                'sentence_audio_recognition',
             ],
             array_map(static fn (array $variant): string => $variant['variantKind']->value, $bundle['variants']),
         );
     }
 
-    public function test_it_uses_recognition_when_the_transfer_cloze_is_ambiguous(): void
+    public function test_it_ignores_unsolicited_cloze_fields_in_transfer_responses(): void
     {
         $response = self::validTransferBundle();
-        $response['sentences'][2]['clozeSuitable'] = false;
+        $response['sentences'][1]['clozeSuitable'] = true;
+        $response['sentences'][1]['clozeText'] = '{{c1::会社}}は駅の近くです。';
+        $response['sentences'][1]['clozeHint'] = 'company';
 
         $bundle = $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
             ->generate($this->transferGroup());
 
-        $this->assertSame('text-recognition', $bundle['variants'][2]['creationKind']->value);
-        $this->assertSame('sentence_text_recognition', $bundle['variants'][2]['variantKind']->value);
+        $this->assertSame('text-recognition', $bundle['variants'][1]['creationKind']->value);
+        $this->assertSame('sentence_text_recognition', $bundle['variants'][1]['variantKind']->value);
+        $this->assertSame([
+            'cueText' => $response['sentences'][1]['sentenceJp'],
+            'cueReading' => $response['sentences'][1]['sentenceReading'],
+        ], $bundle['variants'][1]['prompt']);
+        $this->assertNull($bundle['variants'][1]['imagePrompt']);
     }
 
-    public function test_transfer_bundles_require_an_explicit_cloze_suitability_decision(): void
+    #[DataProvider('transferLearnerContextProvider')]
+    public function test_wanikani_prompt_requires_only_known_surrounding_language(?string $summary): void
     {
-        $response = self::validTransferBundle();
-        unset($response['sentences'][2]['clozeSuitable']);
+        $openAi = $this->mock(OpenAiStudyCardGenerator::class);
+        $openAi->shouldReceive('generateJson')->once()
+            ->withArgs(function (string $instruction, string $payload) use ($summary): bool {
+                $this->assertKnownContextInstructions($instruction);
+                $input = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+                $this->assertSame('会社', $input['targetWord']);
+                $this->assertSame($summary, $input['learnerContextSummary']);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('field clozeSuitable must be a boolean');
+                return true;
+            })
+            ->andReturn(json_encode(self::validTransferBundle(), JSON_THROW_ON_ERROR));
+        $context = $this->mock(StudyLearnerContextBuilder::class);
+        $context->shouldReceive('build')->once()->with(1)->andReturn($summary);
+        $group = $this->transferGroup();
+        $group->include_learner_context = true;
 
-        $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
-            ->generate($this->transferGroup());
+        $bundle = (new StudyVocabBundleGenerator($openAi, $context))->generate($group);
+
+        $this->assertCount(2, $bundle['variants']);
+    }
+
+    /** @return array<string, array{?string}> */
+    public static function transferLearnerContextProvider(): array
+    {
+        return [
+            'no learner history' => [null],
+            'familiar basic context' => ['- recognition/review: その国は大きいです。 - That country is big.'],
+            'recent exposure is not mastery' => ['- recognition/relearning (3 lapses): 共和国 - republic'],
+        ];
+    }
+
+    private function assertKnownContextInstructions(string $instruction): void
+    {
+        foreach ([
+            'targetWord is the only permitted learning target',
+            'All surrounding vocabulary, word senses, readings, grammar, and conjugations must already be familiar',
+            'learnerContextSummary is a limited sample of recent cards, not a vocabulary whitelist',
+            'Do not infer vocabulary knowledge from known kanji, a WaniKani/JLPT level, or a word merely appearing in a recent card',
+            'When learner evidence is missing or uncertain, simplify',
+            'Never add an unfamiliar synonym, antonym, comparison term, compound, or topic-specific word',
+            'n+1 takes priority over variety and rich context',
+            'Only listening recognition and reading recognition cards are allowed',
+            'Do not generate cloze or production cards',
+            '社会の授業で、君主国と共和国の違いを習いました。',
+            'その国は君主国です。',
+            'Return exactly 2 distinct, short, natural sentences',
+            'Audit every sentence before returning JSON',
+        ] as $rule) {
+            $this->assertStringContainsString($rule, $instruction);
+        }
+        $this->assertStringNotContainsString('clozeHint', $instruction);
+        $this->assertStringNotContainsString('clozeText', $instruction);
+        $this->assertStringNotContainsString('clozeSuitable', $instruction);
     }
 
     public function test_transfer_bundles_reject_duplicate_sentence_contexts(): void
     {
         $response = self::validTransferBundle();
-        $response['sentences'][3]['sentenceJp'] = $response['sentences'][0]['sentenceJp'];
+        $response['sentences'][1]['sentenceJp'] = $response['sentences'][0]['sentenceJp'];
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('must use four distinct sentence contexts');
+        $this->expectExceptionMessage('must use distinct sentence contexts');
+
+        $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
+            ->generate($this->transferGroup());
+    }
+
+    public function test_new_transfer_bundles_reject_the_old_four_sentence_response(): void
+    {
+        $response = self::validTransferBundle();
+        $response['sentences'] = [...$response['sentences'], ...$response['sentences']];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('must include exactly 2 sentences');
 
         $this->generatorReturning(json_encode($response, JSON_THROW_ON_ERROR))
             ->generate($this->transferGroup());
@@ -241,19 +304,11 @@ class StudyVocabBundleGeneratorTest extends TestCase
     private static function validTransferBundle(): array
     {
         $bundle = self::validBundle();
+        $bundle['sentences'] = array_slice($bundle['sentences'], 0, 2);
         foreach ($bundle['sentences'] as &$sentence) {
-            $sentence['clozeSuitable'] = true;
+            unset($sentence['clozeText'], $sentence['clozeHint']);
         }
         unset($sentence);
-        $bundle['sentences'][] = [
-            'sentenceJp' => '父の会社は車を作っています。',
-            'sentenceReading' => '父[ちち]の会社[かいしゃ]は車[くるま]を作[つく]っています。',
-            'sentenceEn' => "My father's company makes cars.",
-            'clozeText' => '父の{{c1::会社}}は車を作っています。',
-            'clozeHint' => 'company',
-            'clozeSuitable' => true,
-            'notes' => 'A family context.',
-        ];
 
         return $bundle;
     }

@@ -13,10 +13,12 @@ use App\Domain\Study\Actions\CommitAutomaticStudyVocabBundleAction;
 use App\Domain\Study\Actions\PrepareStudyCardAnswerAudioAction;
 use App\Domain\Study\Actions\ProcessStudyVocabBundleDraftsAction;
 use App\Domain\Study\Enums\AutomaticStudyVocabImportStatus;
+use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Models\StudyVocabVariantGroup;
+use App\Domain\Study\Models\StudyVocabVariantSentence;
 use App\Domain\Study\Services\StudyVocabBundleGenerator;
 use App\Domain\Study\Support\StudyCardAudioRecognition;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
@@ -53,14 +55,14 @@ class WaniKaniTransferImportTest extends TestCase
         );
         Queue::fake();
         $user = User::factory()->create();
-        $this->vocabulary($user, 101, '除外一', now()->subDays(30));
-        $this->vocabulary($user, 102, '除外二', now()->subDays(29));
-        $this->vocabulary($user, 103, '会社', now()->subDays(10), ['かいしゃ'], ['Company']);
+        $this->vocabulary($user, 101, '除外一', ['passedAt' => now()->subDays(30)]);
+        $this->vocabulary($user, 102, '除外二', ['passedAt' => now()->subDays(29)]);
+        $this->vocabulary($user, 103, '会社', ['passedAt' => now()->subDays(10), 'readings' => ['かいしゃ'], 'meanings' => ['Company']]);
         foreach (range(104, 112) as $subjectId) {
-            $this->vocabulary($user, $subjectId, "語{$subjectId}", now()->subDays(112 - $subjectId));
+            $this->vocabulary($user, $subjectId, "語{$subjectId}", ['passedAt' => now()->subDays(112 - $subjectId)]);
         }
-        $this->vocabulary($user, 113, '秘密', now()->subMinutes(45), hidden: true);
-        $this->vocabulary($user, 114, '隠語', now()->subMinutes(40), subjectHidden: true);
+        $this->vocabulary($user, 113, '秘密', ['passedAt' => now()->subMinutes(45), 'hidden' => true]);
+        $this->vocabulary($user, 114, '隠語', ['passedAt' => now()->subMinutes(40), 'subjectHidden' => true]);
         CarbonImmutable::setTestNow(now()->addSecond());
         $connection = $this->connection($user, enabled: true);
         $connection->transfer_bridge_enabled_at = now()->subYear();
@@ -110,14 +112,14 @@ class WaniKaniTransferImportTest extends TestCase
         Queue::fake();
         $user = User::factory()->create();
         $connection = $this->connection($user, enabled: true);
-        $this->vocabulary($user, 151, '最初', now()->subYear());
+        $this->vocabulary($user, 151, '最初', ['passedAt' => now()->subYear()]);
 
         $action = app(DispatchWaniKaniTransferImportsAction::class);
         $this->assertSame(['created' => 1, 'retried' => 0], $action->handle($user->id));
         $this->assertNotNull($connection->fresh()->transfer_bridge_seeded_at);
 
-        $this->vocabulary($user, 152, '古過ぎる', now()->subMonth());
-        $this->vocabulary($user, 153, '新しい', now()->addMinute());
+        $this->vocabulary($user, 152, '古過ぎる', ['passedAt' => now()->subMonth()]);
+        $this->vocabulary($user, 153, '新しい', ['passedAt' => now()->addMinute()]);
         CarbonImmutable::setTestNow(now()->addDay());
 
         $this->assertSame(['created' => 2, 'retried' => 0], $action->handle($user->id));
@@ -132,7 +134,7 @@ class WaniKaniTransferImportTest extends TestCase
         Queue::fake();
         $user = $this->signIn();
         $this->connection($user);
-        $this->vocabulary($user, 201, '会議', now()->subHour(), ['かいぎ'], ['Meeting']);
+        $this->vocabulary($user, 201, '会議', ['passedAt' => now()->subHour(), 'readings' => ['かいぎ'], 'meanings' => ['Meeting']]);
 
         $this->patchJson('/api/study/wanikani/transfer-bridge', ['enabled' => true])
             ->assertOk()
@@ -147,7 +149,7 @@ class WaniKaniTransferImportTest extends TestCase
         Queue::assertPushed(ProcessStudyVocabBundleDrafts::class, 1);
     }
 
-    public function test_the_generation_job_commits_four_cards_without_production_and_prepares_two_listening_cards(): void
+    public function test_the_generation_job_commits_only_reading_and_listening_cards(): void
     {
         Queue::fake();
         config()->set('services.openai.api_key', 'test-key');
@@ -158,18 +160,15 @@ class WaniKaniTransferImportTest extends TestCase
         ]);
         $user = User::factory()->create();
         $connection = $this->connection($user, enabled: true);
-        $this->vocabulary($user, 301, '会社', now()->subHour(), ['かいしゃ'], ['Company']);
+        $this->vocabulary($user, 301, '会社', ['passedAt' => now()->subHour(), 'readings' => ['かいしゃ'], 'meanings' => ['Company']]);
         app(DispatchWaniKaniTransferImportsAction::class)->handle($user->id);
         $group = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 301)->sole();
-        $draftIds = StudyCardDraft::query()
-            ->where('variant_group_id', $group->id)
-            ->pluck('id')
-            ->sort()
-            ->values()
-            ->all();
+        $drafts = StudyCardDraft::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->get();
+        $this->assertSame(['audio-recognition', 'text-recognition'], $drafts->pluck('creation_kind')->map(fn ($kind) => $kind->value)->all());
+        $draftIds = $drafts->pluck('id')->sort()->values()->all();
         $this->mock(PrepareStudyCardAnswerAudioAction::class)
             ->shouldReceive('handle')
-            ->times(2)
+            ->once()
             ->andReturnUsing(static fn (Card $card): Card => $card);
         $job = new ProcessStudyVocabBundleDrafts($group->id);
 
@@ -183,38 +182,18 @@ class WaniKaniTransferImportTest extends TestCase
             Card::query()->where('variant_group_id', $group->id)->pluck('id')->sort()->values()->all(),
         );
         $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertDatabaseCount('cards', 2);
         $this->assertSame(StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT, Card::query()->where('variant_group_id', $group->id)->count());
         $this->assertSame(0, Card::query()->where('variant_group_id', $group->id)->where('variant_kind', VocabVariantKind::SentenceProduction->value)->count());
         $this->assertSame(
             [
                 VocabVariantKind::SentenceAudioRecognition->value,
                 VocabVariantKind::SentenceTextRecognition->value,
-                VocabVariantKind::SentenceCloze->value,
-                VocabVariantKind::SentenceAudioRecognition->value,
             ],
             Card::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->pluck('variant_kind')->all(),
         );
-        $cohort = CardIntroductionCohort::query()->sole();
-        $this->assertSame($user->id, $cohort->user_id);
-        $this->assertSame(CardSourceKind::WaniKani, $cohort->source_kind);
-        $this->assertSame('301', $cohort->source_reference);
-        $this->assertSame('会社', $cohort->label);
-        $cards = Card::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->get();
-        $this->assertSame(
-            [
-                VocabVariantStatus::Available->value,
-                VocabVariantStatus::Locked->value,
-                VocabVariantStatus::Locked->value,
-                VocabVariantStatus::Locked->value,
-            ],
-            $cards->pluck('variant_status')->all(),
-        );
-        $this->assertNotNull($cards[0]->new_queue_position);
-        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->new_queue_position === null));
-        $this->assertTrue($cards->every(fn (Card $card): bool => $card->introduction_cohort_id === $cohort->id));
-        $this->assertTrue($cards->every(fn (Card $card): bool => $card->selection_policy === CardSelectionPolicy::Sprinkled));
-        $this->assertTrue($cards[0]->priority_until->equalTo(now()->addWeek()));
-        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->priority_until === null));
+        $this->assertSame(0, Card::query()->where('variant_group_id', $group->id)->where('card_type', CardType::Cloze)->count());
+        $this->assertScheduledTransferCards($group);
         $this->assertSame(AutomaticStudyVocabImportStatus::Imported, $group->fresh()->automatic_import_status);
         $this->assertTrue($group->fresh()->automatic_imported_at->equalTo(now()));
         $this->assertTrue($connection->fresh()->transfer_bridge_last_imported_at->equalTo(now()));
@@ -227,12 +206,35 @@ class WaniKaniTransferImportTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    private function assertScheduledTransferCards(StudyVocabVariantGroup $group): void
+    {
+        $cohort = CardIntroductionCohort::query()->sole();
+        $this->assertSame($group->user_id, $cohort->user_id);
+        $this->assertSame(CardSourceKind::WaniKani, $cohort->source_kind);
+        $this->assertSame((string) $group->wanikani_subject_id, $cohort->source_reference);
+        $this->assertSame($group->target_word, $cohort->label);
+        $cards = Card::query()->where('variant_group_id', $group->id)->orderBy('variant_stage')->get();
+        $this->assertSame(
+            [
+                VocabVariantStatus::Available->value,
+                VocabVariantStatus::Locked->value,
+            ],
+            $cards->pluck('variant_status')->all(),
+        );
+        $this->assertNotNull($cards[0]->new_queue_position);
+        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->new_queue_position === null));
+        $this->assertTrue($cards->every(fn (Card $card): bool => $card->introduction_cohort_id === $cohort->id));
+        $this->assertTrue($cards->every(fn (Card $card): bool => $card->selection_policy === CardSelectionPolicy::Sprinkled));
+        $this->assertTrue($cards[0]->priority_until->equalTo(now()->addWeek()));
+        $this->assertTrue($cards->slice(1)->every(fn (Card $card): bool => $card->priority_until === null));
+    }
+
     public function test_exhausted_generation_is_recorded_and_retried_as_one_bundle(): void
     {
         Queue::fake();
         $user = User::factory()->create();
         $this->connection($user, enabled: true);
-        $this->vocabulary($user, 401, '練習', now()->subHour(), ['れんしゅう'], ['Practice']);
+        $this->vocabulary($user, 401, '練習', ['passedAt' => now()->subHour(), 'readings' => ['れんしゅう'], 'meanings' => ['Practice']]);
         $action = app(DispatchWaniKaniTransferImportsAction::class);
         $action->handle($user->id);
         $group = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 401)->sole();
@@ -270,7 +272,7 @@ class WaniKaniTransferImportTest extends TestCase
         Exceptions::fake();
         $user = User::factory()->create();
         $this->connection($user, enabled: true);
-        $this->vocabulary($user, 450, '復習', now()->subHour(), ['ふくしゅう'], ['Review']);
+        $this->vocabulary($user, 450, '復習', ['passedAt' => now()->subHour(), 'readings' => ['ふくしゅう'], 'meanings' => ['Review']]);
         $this->mock(Dispatcher::class)
             ->shouldReceive('dispatch')
             ->once()
@@ -307,14 +309,14 @@ class WaniKaniTransferImportTest extends TestCase
         ]);
         $user = User::factory()->create();
         $this->connection($user, enabled: true);
-        $this->vocabulary($user, 501, '会社', now()->subHour(), ['かいしゃ'], ['Company']);
+        $this->vocabulary($user, 501, '会社', ['passedAt' => now()->subHour(), 'readings' => ['かいしゃ'], 'meanings' => ['Company']]);
         app(DispatchWaniKaniTransferImportsAction::class)->handle($user->id);
         $group = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 501)->sole();
         app(ProcessStudyVocabBundleDraftsAction::class)->handle($group->id);
         $audioCalls = 0;
         $this->mock(PrepareStudyCardAnswerAudioAction::class)
             ->shouldReceive('handle')
-            ->times(3)
+            ->times(2)
             ->andReturnUsing(static function (Card $card) use (&$audioCalls): Card {
                 $audioCalls++;
                 if ($audioCalls === 1) {
@@ -357,6 +359,66 @@ class WaniKaniTransferImportTest extends TestCase
         $this->assertFalse(StudyCardAudioRecognition::hasAudioOnlyPrompt($card, ['cueText' => '会社']));
     }
 
+    public function test_legacy_four_card_jobs_still_finish_but_generate_no_cloze(): void
+    {
+        Queue::fake();
+        config()->set('services.openai.api_key', 'test-key');
+        Http::fake([
+            'https://api.openai.com/v1/responses' => Http::response([
+                'output_text' => json_encode($this->generatedBundle(4), JSON_THROW_ON_ERROR),
+            ]),
+        ]);
+        $user = User::factory()->create();
+        $this->connection($user, enabled: true);
+        $this->vocabulary($user, 601, '会社', ['passedAt' => now()->subHour()]);
+        app(DispatchWaniKaniTransferImportsAction::class)->handle($user->id);
+        $group = StudyVocabVariantGroup::query()->where('wanikani_subject_id', 601)->sole();
+        $this->addLegacyTransferPlaceholders($group);
+        $draft = StudyCardDraft::query()->where('variant_group_id', $group->id)->where('variant_stage', 3)->sole();
+        $this->mock(PrepareStudyCardAnswerAudioAction::class)
+            ->shouldReceive('handle')->times(2)->andReturnUsing(static fn (Card $card): Card => $card);
+
+        app(ProcessStudyVocabBundleDraftsAction::class)->handle($group->id);
+
+        $draft->refresh();
+        $this->assertSame(StudyCardCreationKind::TextRecognition, $draft->creation_kind);
+        $this->assertSame(CardType::Recognition, $draft->card_type);
+        $this->assertSame(VocabVariantKind::SentenceTextRecognition->value, $draft->variant_kind);
+        $this->assertSame('新しい会社を探しています。', $draft->prompt_json['cueText']);
+        $this->assertArrayNotHasKey('clozeHint', $draft->prompt_json);
+        $this->assertSame(VocabVariantStatus::Locked->value, $draft->variant_status);
+        $this->assertSame(4, app(CommitAutomaticStudyVocabBundleAction::class)->handle($group->id));
+        $this->assertSame(4, Card::query()->where('variant_group_id', $group->id)->count());
+        $this->assertSame(0, Card::query()->where('variant_group_id', $group->id)->where('card_type', CardType::Cloze)->count());
+        $this->assertSame(AutomaticStudyVocabImportStatus::Imported, $group->fresh()->automatic_import_status);
+        $this->assertDatabaseCount('study_card_drafts', 0);
+    }
+
+    private function addLegacyTransferPlaceholders(StudyVocabVariantGroup $group): void
+    {
+        $template = StudyCardDraft::query()->where('variant_group_id', $group->id)->where('variant_stage', 2)->sole();
+        foreach ([2, 3] as $ordinal) {
+            $sentence = new StudyVocabVariantSentence;
+            $sentence->user_id = $group->user_id;
+            $sentence->variant_group_id = $group->id;
+            $sentence->ordinal = $ordinal;
+            $sentence->sentence_jp = 'Generating sentence '.($ordinal + 1);
+            $sentence->sentence_en = '';
+            $sentence->save();
+            $draft = $template->replicate();
+            $draft->variant_stage = $ordinal + 1;
+            $draft->variant_sentence_id = $sentence->id;
+            $draft->creation_kind = $ordinal === 2 ? StudyCardCreationKind::Cloze : StudyCardCreationKind::AudioRecognition;
+            $draft->card_type = $draft->creation_kind->cardType();
+            $draft->variant_kind = $ordinal === 2 ? VocabVariantKind::SentenceCloze->value : VocabVariantKind::SentenceAudioRecognition->value;
+            $draft->prompt_json = $ordinal === 2 ? ['clozeText' => $sentence->sentence_jp, 'clozeHint' => ''] : [];
+            $draft->answer_json = $ordinal === 2
+                ? ['restoredText' => $sentence->sentence_jp, 'meaning' => '']
+                : ['expression' => $sentence->sentence_jp, 'meaning' => ''];
+            $draft->save();
+        }
+    }
+
     private function connection(User $user, bool $enabled = false): WaniKaniConnection
     {
         $connection = new WaniKaniConnection;
@@ -369,16 +431,14 @@ class WaniKaniTransferImportTest extends TestCase
         return $connection;
     }
 
-    /** @param list<string> $readings @param list<string> $meanings */
+    /**
+     * @param  array{passedAt: \DateTimeInterface, readings?: list<string>, meanings?: list<string>, hidden?: bool, subjectHidden?: bool}  $fixture
+     */
     private function vocabulary(
         User $user,
         int $subjectId,
         string $characters,
-        mixed $passedAt,
-        array $readings = ['ふるい'],
-        array $meanings = ['Old'],
-        bool $hidden = false,
-        bool $subjectHidden = false,
+        array $fixture,
     ): void {
         $now = now();
         DB::table('wanikani_subjects')->insert([
@@ -386,9 +446,9 @@ class WaniKaniTransferImportTest extends TestCase
             'subject_type' => 'vocabulary',
             'characters' => $characters,
             'normalized_key' => $characters,
-            'readings' => json_encode($readings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-            'meanings' => json_encode($meanings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-            'hidden_at' => $subjectHidden ? $now : null,
+            'readings' => json_encode($fixture['readings'] ?? ['ふるい'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            'meanings' => json_encode($fixture['meanings'] ?? ['Old'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            'hidden_at' => ($fixture['subjectHidden'] ?? false) ? $now : null,
             'source_updated_at' => $now,
             'matcher_version' => 'test-v1',
             'created_at' => $now,
@@ -398,9 +458,9 @@ class WaniKaniTransferImportTest extends TestCase
             'user_id' => $user->id,
             'subject_id' => $subjectId,
             'srs_stage' => 5,
-            'passed_at' => $passedAt,
+            'passed_at' => $fixture['passedAt'],
             'burned_at' => null,
-            'hidden' => $hidden,
+            'hidden' => $fixture['hidden'] ?? false,
             'source_updated_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -408,9 +468,9 @@ class WaniKaniTransferImportTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function generatedBundle(): array
+    private function generatedBundle(int $sentenceCount = 2): array
     {
-        return [
+        $bundle = [
             'targetWord' => '会社',
             'targetReading' => '会社[かいしゃ]',
             'targetMeaning' => 'company',
@@ -419,39 +479,31 @@ class WaniKaniTransferImportTest extends TestCase
                     'sentenceJp' => 'この会社で働いています。',
                     'sentenceReading' => 'この会社[かいしゃ]で働[はたら]いています。',
                     'sentenceEn' => 'I work at this company.',
-                    'clozeText' => 'この{{c1::会社}}で働いています。',
-                    'clozeHint' => 'company',
-                    'clozeSuitable' => true,
                     'notes' => 'A common workplace phrase.',
                 ],
                 [
                     'sentenceJp' => '会社は駅の近くです。',
                     'sentenceReading' => '会社[かいしゃ]は駅[えき]の近[ちか]くです。',
                     'sentenceEn' => 'The company is near the station.',
-                    'clozeText' => '{{c1::会社}}は駅の近くです。',
-                    'clozeHint' => 'company',
-                    'clozeSuitable' => true,
                     'notes' => null,
                 ],
                 [
                     'sentenceJp' => '新しい会社を探しています。',
                     'sentenceReading' => '新[あたら]しい会社[かいしゃ]を探[さが]しています。',
                     'sentenceEn' => 'I am looking for a new company.',
-                    'clozeText' => '新しい{{c1::会社}}を探しています。',
-                    'clozeHint' => 'company',
-                    'clozeSuitable' => true,
                     'notes' => 'Used while job hunting.',
                 ],
                 [
                     'sentenceJp' => '父の会社は車を作っています。',
                     'sentenceReading' => '父[ちち]の会社[かいしゃ]は車[くるま]を作[つく]っています。',
                     'sentenceEn' => "My father's company makes cars.",
-                    'clozeText' => '父の{{c1::会社}}は車を作っています。',
-                    'clozeHint' => 'company',
-                    'clozeSuitable' => true,
                     'notes' => 'A family context.',
                 ],
             ],
         ];
+
+        $bundle['sentences'] = array_slice($bundle['sentences'], 0, $sentenceCount);
+
+        return $bundle;
     }
 }

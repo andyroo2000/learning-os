@@ -33,7 +33,22 @@ final class CommitAutomaticStudyVocabBundleAction
             return 0;
         }
 
-        $group = DB::transaction(function () use ($canonicalGroupId): ?StudyVocabVariantGroup {
+        $group = $this->prepareGroup($canonicalGroupId);
+
+        if ($group === null
+            || $group->automatic_import_status === AutomaticStudyVocabImportStatus::Imported) {
+            return 0;
+        }
+
+        $processed = $this->commitDrafts($group);
+        $this->finishImport($group);
+
+        return $processed;
+    }
+
+    private function prepareGroup(string $canonicalGroupId): ?StudyVocabVariantGroup
+    {
+        return DB::transaction(function () use ($canonicalGroupId): ?StudyVocabVariantGroup {
             $group = StudyVocabVariantGroup::query()
                 ->whereKey($canonicalGroupId)
                 ->lockForUpdate()
@@ -69,12 +84,10 @@ final class CommitAutomaticStudyVocabBundleAction
 
             return $group;
         });
+    }
 
-        if ($group === null
-            || $group->automatic_import_status === AutomaticStudyVocabImportStatus::Imported) {
-            return 0;
-        }
-
+    private function commitDrafts(StudyVocabVariantGroup $group): int
+    {
         $drafts = StudyCardDraft::query()
             ->where('user_id', $group->user_id)
             ->where('variant_group_id', $group->id)
@@ -110,9 +123,14 @@ final class CommitAutomaticStudyVocabBundleAction
             $processed++;
         }
 
-        DB::transaction(function () use ($canonicalGroupId, $group): void {
+        return $processed;
+    }
+
+    private function finishImport(StudyVocabVariantGroup $group): void
+    {
+        DB::transaction(function () use ($group): void {
             $lockedGroup = StudyVocabVariantGroup::query()
-                ->whereKey($canonicalGroupId)
+                ->whereKey($group->id)
                 ->lockForUpdate()
                 ->firstOrFail();
             if ($lockedGroup->automatic_import_status === AutomaticStudyVocabImportStatus::Imported) {
@@ -123,7 +141,7 @@ final class CommitAutomaticStudyVocabBundleAction
                 ->ownedByActiveDeck($group->user_id)
                 ->where('cards.variant_group_id', $group->id)
                 ->count();
-            if ($cardCount !== StudyVocabBundleGenerator::TRANSFER_DRAFT_COUNT) {
+            if ($cardCount !== StudyVocabBundleGenerator::draftCountFor($lockedGroup)) {
                 throw new RuntimeException('Automatic study vocab bundle did not commit every expected card.');
             }
 
@@ -137,8 +155,6 @@ final class CommitAutomaticStudyVocabBundleAction
                 ->where('user_id', $group->user_id)
                 ->update(['transfer_bridge_last_imported_at' => $importedAt]);
         });
-
-        return $processed;
     }
 
     private function needsListeningAudio(StudyCardDraft $draft): bool

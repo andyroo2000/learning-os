@@ -32,45 +32,43 @@ class DeckRouteContractTest extends TestCase
                 'GET|HEAD',
                 'api/decks/{deck}',
                 'ShowDeckController',
-                wheres: ['deck' => $ulid],
+                ['wheres' => ['deck' => $ulid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/decks/{deck}/media-assets',
                 'ListDeckMediaAssetsController',
-                wheres: ['deck' => $ulid],
+                ['wheres' => ['deck' => $ulid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/decks/{deck}/cards',
                 'ListDeckCardsController',
-                wheres: ['deck' => $ulid],
+                ['wheres' => ['deck' => $ulid]],
             ),
             $this->expectedRoute(
                 'PUT',
                 'api/decks/{deck}',
                 'UpdateDeckController',
-                'deck-update',
-                ['deck' => $ulid],
+                ['throttle' => 'deck-update', 'wheres' => ['deck' => $ulid]],
             ),
             $this->expectedRoute(
                 'DELETE',
                 'api/decks/{deck}',
                 'DeleteDeckController',
-                'deck-delete',
-                ['deck' => $ulid],
+                ['throttle' => 'deck-delete', 'wheres' => ['deck' => $ulid]],
             ),
             $this->expectedRoute('GET|HEAD', 'api/decks', 'ListDecksController'),
             $this->expectedRoute(
                 'POST',
                 'api/decks',
                 'StoreDeckController',
-                'deck-create',
+                ['throttle' => 'deck-create'],
             ),
         ], $actualRoutes);
     }
 
-    public function test_deck_routes_remain_at_their_original_global_boundaries(): void
+    public function test_deck_routes_follow_study_and_precede_readings(): void
     {
         $routeOrder = collect(Route::getRoutes()->getRoutes())
             ->map(static fn (LaravelRoute $route): string => implode('|', $route->methods()).' '.$route->uri())
@@ -84,12 +82,12 @@ class DeckRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'POST api/decks',
-            'GET|HEAD up',
+            'GET|HEAD api/convolab/readings',
         );
     }
 
     /**
-     * @param  array<string, string>  $wheres
+     * @param  array{throttle?: string, wheres?: array<string, string>}  $options
      * @return array{
      *     methods: string,
      *     uri: string,
@@ -103,13 +101,12 @@ class DeckRouteContractTest extends TestCase
         string $methods,
         string $uri,
         string $action,
-        ?string $throttle = null,
-        array $wheres = [],
+        array $options = [],
     ): array {
         $middleware = ['api', 'auth:sanctum'];
 
-        if ($throttle !== null) {
-            $middleware[] = 'throttle:'.$throttle;
+        if (isset($options['throttle'])) {
+            $middleware[] = 'throttle:'.$options['throttle'];
         }
 
         return [
@@ -118,7 +115,7 @@ class DeckRouteContractTest extends TestCase
             'name' => null,
             'action' => $action,
             'middleware' => $middleware,
-            'wheres' => $wheres,
+            'wheres' => $options['wheres'] ?? [],
         ];
     }
 

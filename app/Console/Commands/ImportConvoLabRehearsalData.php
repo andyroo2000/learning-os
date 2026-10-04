@@ -38,6 +38,7 @@ class ImportConvoLabRehearsalData extends Command
         'achievement_card_projections',
         'card_review_events',
         'sync_feed_entries',
+        'readings',
         'daily_audio_practice_tracks',
         'daily_audio_practices',
         'study_card_drafts',
@@ -162,12 +163,7 @@ class ImportConvoLabRehearsalData extends Command
                 $this->importDecks($source, $target);
                 $this->importStudySettings($source, $target);
                 $this->importStudyImportJobs($source, $target);
-                if ($this->option('skip-media')) {
-                    $this->line('Skipped media assets and card media links; Convo Lab does not store byte sizes.');
-                } else {
-                    $this->warn('Importing metadata-only media with size_bytes=0 for disposable rehearsal use.');
-                    $this->importMedia($source, $target);
-                }
+                $this->importOptionalMedia($source, $target);
 
                 $this->importCards($source, $target);
 
@@ -194,6 +190,16 @@ class ImportConvoLabRehearsalData extends Command
         $this->info('Convo Lab rehearsal import completed.');
 
         return self::SUCCESS;
+    }
+
+    private function importOptionalMedia(ConnectionInterface $source, ConnectionInterface $target): void
+    {
+        if ($this->option('skip-media')) {
+            $this->line('Skipped media assets and card media links; Convo Lab does not store byte sizes.');
+        } else {
+            $this->warn('Importing metadata-only media with size_bytes=0 for disposable rehearsal use.');
+            $this->importMedia($source, $target);
+        }
     }
 
     private function resetMappings(): void

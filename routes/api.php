@@ -3,6 +3,8 @@
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware('auth:sanctum')->group(require __DIR__.'/api/readings.php');
+
 /**
  * @var array{
  *     public: callable(): void,
@@ -35,7 +37,6 @@ $authenticatedRouteRegistrars = [
     $authRoutes['authenticatedConvoLab'],
     require __DIR__.'/api/admin.php',
     require __DIR__.'/api/content.php',
-    require __DIR__.'/api/readings.php',
     require __DIR__.'/api/feature-flags.php',
     $authRoutes['authenticatedAccountAndTokens'],
     require __DIR__.'/api/courses.php',

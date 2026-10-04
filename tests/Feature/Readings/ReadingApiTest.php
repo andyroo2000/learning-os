@@ -128,6 +128,22 @@ class ReadingApiTest extends TestCase
         ReadingDocument::validate($document);
     }
 
+    public function test_import_document_rejects_duplicate_page_numbers(): void
+    {
+        $document = $this->document();
+        $document['pages'][] = $document['pages'][0];
+        $this->expectException(ValidationException::class);
+        ReadingDocument::validate($document);
+    }
+
+    public function test_import_document_rejects_non_list_sentences(): void
+    {
+        $document = $this->document();
+        $document['sentences'] = ['first' => $document['sentences'][0]];
+        $this->expectException(ValidationException::class);
+        ReadingDocument::validate($document);
+    }
+
     public function test_page_illustrations_are_private_and_storage_paths_are_not_exposed(): void
     {
         $owner = User::factory()->create();

@@ -17,7 +17,7 @@ final class ReadingDocument
             'tagline' => ['nullable', 'string', 'max:500'],
             'category' => ['nullable', 'string', 'max:100'],
             ...self::pageRules(),
-            'sentences' => ['required', 'array', 'min:1', 'max:5000'],
+            'sentences' => ['required', 'array', 'list', 'min:1', 'max:5000'],
             'sentences.*.text' => ['required', 'string', 'max:15000'],
             'sentences.*.speechText' => ['sometimes', 'required', 'string', 'max:15000'],
             'sentences.*.translation' => ['required', 'string', 'max:15000'],
@@ -30,8 +30,8 @@ final class ReadingDocument
     private static function pageRules(): array
     {
         return [
-            'pages' => ['required', 'array', 'min:1', 'max:100'],
-            'pages.*.number' => ['required', 'integer', 'min:1'],
+            'pages' => ['required', 'array', 'list', 'min:1', 'max:100'],
+            'pages.*.number' => ['required', 'integer', 'min:1', 'max:99999', 'distinct'],
             'pages.*.kind' => ['required', 'in:title,text,illustration'],
             'pages.*.columns' => ['present', 'array', 'max:50'],
             'pages.*.columns.*' => ['required', 'array', 'min:1', 'max:100'],

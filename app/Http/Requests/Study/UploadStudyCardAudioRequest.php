@@ -39,6 +39,8 @@ class UploadStudyCardAudioRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'preserveCardFormat' => ['sometimes', 'boolean'],
+            'expectedRevision' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'audio' => [
                 'required',
                 'file',
@@ -55,6 +57,18 @@ class UploadStudyCardAudioRequest extends FormRequest
         return $audio instanceof UploadedFile
             ? $audio
             : throw new LogicException('Validated audio upload is missing.');
+    }
+
+    public function preserveCardFormat(): bool
+    {
+        return (bool) $this->validated('preserveCardFormat', false);
+    }
+
+    public function expectedRevision(): ?int
+    {
+        $value = $this->validated('expectedRevision');
+
+        return $value === null ? null : (int) $value;
     }
 
     public function studyCard(): Card

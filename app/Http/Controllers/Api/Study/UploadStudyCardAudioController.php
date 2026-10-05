@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Study;
 
+use App\Domain\Flashcards\Exceptions\CardContentRevisionConflictException;
 use App\Domain\Study\Actions\UploadStudyCardAudioAction;
 use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
@@ -22,7 +23,15 @@ class UploadStudyCardAudioController extends Controller
             $card = $uploadAudio->handle(
                 $request->studyCard(),
                 $request->uploadedAudio(),
+                $request->preserveCardFormat(),
+                $request->expectedRevision(),
             );
+        } catch (CardContentRevisionConflictException $exception) {
+            return response()->json([
+                'code' => CardContentRevisionConflictException::CODE,
+                'message' => $exception->getMessage(),
+                'card' => StudyCardSummaryResource::make($exception->card)->resolve($request),
+            ], 409);
         } catch (StudyCardAudioConflictException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (StudyCardAudioValidationException $exception) {

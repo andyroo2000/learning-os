@@ -6,6 +6,8 @@ use App\Domain\Flashcards\Actions\UpdateCardAction;
 use App\Domain\Flashcards\Data\UpdateCardData;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Flashcards\Support\CardContentRevision;
+use App\Domain\Flashcards\Support\NewCardQueuePosition;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
@@ -23,16 +25,22 @@ class UploadStudyCardAudioAction
         private readonly PersistUploadedStudyAudioAction $persistUploadedAudio,
         private readonly UpdateCardAction $updateCard,
         private readonly ReplaceStudyCardAudioMediaAction $media,
+        private readonly NewCardQueuePosition $queuePosition,
     ) {}
 
-    public function handle(Card $card, UploadedFile $audio): Card
-    {
-        if ($card->card_type !== CardType::Recognition) {
-            throw StudyCardAudioValidationException::recognitionCardRequired();
-        }
+    /** The caller must resolve an owned card. Replacement never introduces a new audio cue. */
+    public function handle(
+        Card $card,
+        UploadedFile $audio,
+        bool $preserveCardFormat = false,
+        ?int $expectedRevision = null,
+    ): Card {
+        CardContentRevision::assertExpected($card, $expectedRevision);
+        $this->assertUploadMode($card, $preserveCardFormat);
 
         $prompt = $this->payload($card->prompt_json, $card->front_text);
         $answer = $this->payload($card->answer_json, $card->back_text);
+        $replacePromptAudio = ! $preserveCardFormat || is_array($prompt['cueAudio'] ?? null);
         $snapshotFingerprint = $this->cardFingerprint($card);
         $oldManagedMedia = $this->managedAudioMedia($card, $prompt, $answer);
         $uploaded = $this->persistUploadedAudio->handle($card->ownerUserId(), $audio);
@@ -45,15 +53,18 @@ class UploadStudyCardAudioAction
                 $snapshotFingerprint,
                 $oldManagedMedia,
                 $uploaded,
+                $preserveCardFormat,
+                $replacePromptAudio,
             ): Card {
+                // Progression-aware card updates lock owner before card; use the same ordering.
+                $this->queuePosition->lockOwner($card->ownerUserId());
                 $lockedCard = Card::query()->whereKey($card->id)->lockForUpdate()->firstOrFail();
 
                 if (! hash_equals($snapshotFingerprint, $this->cardFingerprint($lockedCard))) {
                     throw StudyCardAudioConflictException::cardChangedDuringUpload();
                 }
 
-                $nextPrompt = array_intersect_key($prompt, ['cueImage' => true]);
-                $nextPrompt['cueAudio'] = $uploaded->mediaRef;
+                $nextPrompt = $this->nextPrompt($prompt, $uploaded->mediaRef, $preserveCardFormat, $replacePromptAudio);
                 $nextAnswer = $answer;
                 $nextAnswer['answerAudio'] = $uploaded->mediaRef;
 
@@ -82,6 +93,23 @@ class UploadStudyCardAudioAction
         $this->media->discardUnreferenced($oldManagedMedia);
 
         return $updated;
+    }
+
+    private function assertUploadMode(Card $card, bool $preserveCardFormat): void
+    {
+        if (! $preserveCardFormat && $card->card_type !== CardType::Recognition) {
+            throw StudyCardAudioValidationException::recognitionCardRequired();
+        }
+    }
+
+    private function nextPrompt(array $prompt, array $mediaRef, bool $preserveCardFormat, bool $replacePromptAudio): array
+    {
+        $next = $preserveCardFormat ? $prompt : array_intersect_key($prompt, ['cueImage' => true]);
+        if ($replacePromptAudio) {
+            $next['cueAudio'] = $mediaRef;
+        }
+
+        return $next;
     }
 
     /**

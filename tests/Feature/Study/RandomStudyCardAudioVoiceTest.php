@@ -7,6 +7,7 @@ use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\Study\RegenerateStudyCardAnswerAudioTestCase;
 
 class RandomStudyCardAudioVoiceTest extends RegenerateStudyCardAnswerAudioTestCase
@@ -46,5 +47,29 @@ class RandomStudyCardAudioVoiceTest extends RegenerateStudyCardAnswerAudioTestCa
         $this->postJson("/api/study/card-drafts/{$draft->id}/preview-audio")->assertOk();
         $this->assertSame($voice, $draft->refresh()->answer_json['answerAudioVoiceId']);
         Http::assertSentCount(2);
+    }
+
+    public function test_a_random_preview_does_not_overwrite_concurrent_draft_edits(): void
+    {
+        $user = $this->signIn();
+        $draft = StudyCardDraft::factory()->for($user)->create([
+            'status' => StudyManualCardDraftStatus::Ready,
+            'answer_json' => ['expression' => '猫です。'],
+        ]);
+        Http::fake(function () use ($draft) {
+            StudyCardDraft::query()->whereKey($draft->id)->update([
+                'answer_json' => json_encode(['expression' => '犬です。'], JSON_THROW_ON_ERROR),
+                'revision' => 1,
+            ]);
+
+            return Http::response('ID3stale-audio');
+        });
+
+        $this->postJson("/api/study/card-drafts/{$draft->id}/preview-audio")
+            ->assertConflict()->assertJsonPath('code', 'draft_revision_conflict');
+        $this->assertSame(['expression' => '犬です。'], $draft->refresh()->answer_json);
+        $this->assertNull($draft->preview_audio_json);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertSame([], Storage::disk('media')->allFiles());
     }
 }

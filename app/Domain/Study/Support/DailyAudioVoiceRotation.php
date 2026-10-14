@@ -8,8 +8,8 @@ use Illuminate\Support\Collection;
 final class DailyAudioVoiceRotation
 {
     /**
-     * One shuffled cycle per track covers every voice before repeating, including
-     * across cycle boundaries. Assign only once so synthesis and saved scripts agree.
+     * Shuffle once per new track, then repeat that fixed cycle. Its distinct
+     * endpoints prevent adjacent repeats even at cycle boundaries.
      *
      * @param  Collection<int, DailyAudioScriptUnit>  $units
      * @return Collection<int, DailyAudioScriptUnit>

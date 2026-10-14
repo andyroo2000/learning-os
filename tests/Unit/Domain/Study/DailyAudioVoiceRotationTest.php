@@ -4,6 +4,7 @@ namespace Tests\Unit\Domain\Study;
 
 use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackGenerationResult;
+use App\Domain\Study\Support\DailyAudioVoiceRotation;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use PHPUnit\Framework\TestCase;
 
@@ -17,7 +18,7 @@ class DailyAudioVoiceRotationTest extends TestCase
             $units->push(DailyAudioScriptUnit::targetLanguage('猫です。', '猫[ねこ]です。', 'A cat.', 'old-voice', 0.9));
             $units->push(DailyAudioScriptUnit::pause(1));
         }
-        $result = new DailyAudioTrackGenerationResult($units, []);
+        $result = new DailyAudioTrackGenerationResult(DailyAudioVoiceRotation::apply($units), []);
         $spoken = $result->units->where('type', 'L2')->values();
         $voices = $spoken->pluck('voiceId')->all();
 
@@ -35,5 +36,22 @@ class DailyAudioVoiceRotationTest extends TestCase
         $this->assertCount(40, $result->units->where('type', 'pause'));
         $this->assertSame($result->scriptUnits(), $result->scriptUnits());
         $this->assertSame($voices[0], $result->scriptUnits()[1]['voiceId']);
+    }
+
+    public function test_every_pool_voice_is_valid_and_unique(): void
+    {
+        $voices = StudyCardGenerationDefaults::VOICE_IDS;
+        $this->assertSame($voices, array_values(array_unique($voices)));
+        foreach ($voices as $voice) {
+            $this->assertSame($voice, StudyCardGenerationDefaults::normalizeVoiceId($voice));
+        }
+    }
+
+    public function test_constructing_a_result_preserves_previously_assigned_voices(): void
+    {
+        $units = collect([DailyAudioScriptUnit::targetLanguage('ねこ', null, 'cat', 'saved-voice', 1)]);
+        $result = new DailyAudioTrackGenerationResult($units, []);
+        $this->assertSame($units, $result->units);
+        $this->assertSame('saved-voice', $result->scriptUnits()[0]['voiceId']);
     }
 }

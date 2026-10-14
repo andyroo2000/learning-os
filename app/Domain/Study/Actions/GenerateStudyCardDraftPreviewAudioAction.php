@@ -34,6 +34,8 @@ class GenerateStudyCardDraftPreviewAudioAction
             ? StudyCardAudioRole::Prompt
             : StudyCardAudioRole::Answer;
 
+        // Payload edits travel as a prompt/answer pair. The revision guard rejects
+        // concurrent edits; the catch discards generated media on that conflict.
         try {
             return $this->updateDraft->handle($draft, UpdateStudyCardDraftData::fromInput(
                 expectedRevision: $expectedRevision,

@@ -9,6 +9,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Support\DailyAudioDrillVoices;
 use App\Domain\Study\Support\DailyAudioJapaneseText;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
+use App\Domain\Study\Support\DailyAudioVoiceRotation;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -126,7 +127,7 @@ class DailyAudioDrillScriptGenerator
             $targetDurationMinutes,
         );
 
-        return new DailyAudioDrillGenerationResult($units, $metadata);
+        return new DailyAudioDrillGenerationResult(DailyAudioVoiceRotation::apply($units), $metadata);
     }
 
     /** @return Collection<int, DailyAudioScriptUnit> */

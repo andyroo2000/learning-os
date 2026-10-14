@@ -2,24 +2,18 @@
 
 namespace App\Domain\Study\Results;
 
-use App\Domain\Study\Support\DailyAudioVoiceRotation;
 use Illuminate\Support\Collection;
 
 final readonly class DailyAudioTrackGenerationResult
 {
-    /** @var Collection<int, DailyAudioScriptUnit> */
-    public Collection $units;
-
     /**
      * @param  Collection<int, DailyAudioScriptUnit>  $units
      * @param  array<string, int|string|bool>  $metadata
      */
     public function __construct(
-        Collection $units,
+        public Collection $units,
         public array $metadata,
-    ) {
-        $this->units = DailyAudioVoiceRotation::apply($units);
-    }
+    ) {}
 
     /**
      * @return list<array<string, float|string>>

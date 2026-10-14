@@ -6,6 +6,7 @@ use App\Domain\Study\Results\DailyAudioLearningAtom;
 use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackGenerationResult;
 use App\Domain\Study\Support\DailyAudioJapaneseText;
+use App\Domain\Study\Support\DailyAudioVoiceRotation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use JsonException;
@@ -62,31 +63,8 @@ final class DailyAudioContextTrackGenerator
                     continue;
                 }
 
-                $sceneUnits = collect();
-                foreach (array_slice(
-                    is_array($scene['lines'] ?? null) ? $scene['lines'] : [],
-                    0,
-                    self::MAX_DIALOGUE_LINES_PER_SCENE,
-                ) as $line) {
-                    $parsed = $this->generatedLine($line);
-                    if ($parsed === null) {
-                        continue;
-                    }
-
-                    $sceneUnits->push(
-                        DailyAudioScriptUnit::targetLanguage(
-                            $parsed['text'],
-                            $parsed['reading'],
-                            $parsed['translation'],
-                            ($parsed['speaker'] ?? 'speaker1') === 'speaker2'
-                                ? $speakerTwoVoiceId
-                                : $speakerOneVoiceId,
-                            1,
-                        ),
-                        DailyAudioScriptUnit::pause(1),
-                    );
-                    $generatedLineCount++;
-                }
+                $sceneUnits = $this->dialogueSceneUnits($scene, ['speaker1' => $speakerOneVoiceId, 'speaker2' => $speakerTwoVoiceId]);
+                $generatedLineCount += $sceneUnits->where('type', 'L2')->count();
 
                 if ($sceneUnits->isEmpty()) {
                     continue;
@@ -123,6 +101,37 @@ final class DailyAudioContextTrackGenerator
         ]);
     }
 
+    /** @param array<string, mixed> $scene
+     * @return Collection<int, DailyAudioScriptUnit>
+     */
+    private function dialogueSceneUnits(array $scene, array $voiceIds): Collection
+    {
+        $sceneUnits = collect();
+        foreach (array_slice(
+            is_array($scene['lines'] ?? null) ? $scene['lines'] : [],
+            0,
+            self::MAX_DIALOGUE_LINES_PER_SCENE,
+        ) as $line) {
+            $parsed = $this->generatedLine($line);
+            if ($parsed === null) {
+                continue;
+            }
+
+            $sceneUnits->push(
+                DailyAudioScriptUnit::targetLanguage(
+                    $parsed['text'],
+                    $parsed['reading'],
+                    $parsed['translation'],
+                    $voiceIds[$parsed['speaker'] ?? 'speaker1'],
+                    1,
+                ),
+                DailyAudioScriptUnit::pause(1),
+            );
+        }
+
+        return $sceneUnits;
+    }
+
     /**
      * @param  iterable<int, DailyAudioLearningAtom>  $atoms
      */
@@ -144,15 +153,7 @@ final class DailyAudioContextTrackGenerator
                 (string) config('services.openai.daily_audio_reasoning_effort'),
             ));
             $title = $this->nullableString($payload, 'title');
-            $units->push(
-                DailyAudioScriptUnit::narration(
-                    $title === null
-                        ? 'Finally, a short story using your cards.'
-                        : "Finally, a short story: {$title}.",
-                    $l1VoiceId,
-                ),
-                DailyAudioScriptUnit::pause(1),
-            );
+            $units->push($this->storyIntroduction($payload, $l1VoiceId), DailyAudioScriptUnit::pause(1));
 
             foreach (array_slice(
                 is_array($payload['lines'] ?? null) ? $payload['lines'] : [],
@@ -202,6 +203,16 @@ final class DailyAudioContextTrackGenerator
             'generatedLineCount' => $generatedLineCount,
             'hasTitle' => $title !== null,
         ]);
+    }
+
+    private function storyIntroduction(array $payload, string $voiceId): DailyAudioScriptUnit
+    {
+        $title = $this->nullableString($payload, 'title');
+
+        return DailyAudioScriptUnit::narration(
+            $title === null ? 'Finally, a short story using your cards.' : "Finally, a short story: {$title}.",
+            $voiceId,
+        );
     }
 
     /**
@@ -348,7 +359,7 @@ PROMPT;
             fn (DailyAudioScriptUnit $unit): bool => $unit->type === 'L2',
         );
 
-        return new DailyAudioTrackGenerationResult($units, [
+        return new DailyAudioTrackGenerationResult(DailyAudioVoiceRotation::apply($units), [
             ...$metadata,
             'unitCount' => $units->count(),
             'l2UnitCount' => $l2Units->count(),

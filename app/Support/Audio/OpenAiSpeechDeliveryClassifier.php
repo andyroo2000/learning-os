@@ -20,13 +20,18 @@ final class OpenAiSpeechDeliveryClassifier
         Return only the requested JSON style. Do not rewrite, translate, or extend the utterance.
         TEXT;
 
+    public function promptFingerprint(): string
+    {
+        return hash('sha256', self::INSTRUCTION);
+    }
+
     public function classify(string $text, string $model): SpeechDeliveryStyle
     {
         $response = Http::baseUrl(rtrim((string) config('services.openai.base_url'), '/'))
             ->acceptJson()
             ->withToken((string) config('services.openai.api_key'))
             ->connectTimeout(3)
-            ->timeout(12)
+            ->timeout(8)
             ->post('/responses', $this->payload($text, $model))
             ->throw();
 

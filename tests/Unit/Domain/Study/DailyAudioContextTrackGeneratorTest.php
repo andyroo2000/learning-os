@@ -5,6 +5,7 @@ namespace Tests\Unit\Domain\Study;
 use App\Domain\Study\Results\DailyAudioLearningAtom;
 use App\Domain\Study\Services\DailyAudioContextTrackGenerator;
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
@@ -58,8 +59,9 @@ class DailyAudioContextTrackGeneratorTest extends TestCase
         $spoken = $result->units->where('type', 'L2')->values();
 
         $this->assertCount(2, $spoken);
-        $this->assertSame('speaker-one', $spoken[0]->voiceId);
-        $this->assertSame('speaker-two', $spoken[1]->voiceId);
+        $this->assertContains($spoken[0]->voiceId, StudyCardGenerationDefaults::VOICE_IDS);
+        $this->assertContains($spoken[1]->voiceId, StudyCardGenerationDefaults::VOICE_IDS);
+        $this->assertNotSame($spoken[0]->voiceId, $spoken[1]->voiceId);
         $this->assertSame('At the station', $result->units->where('type', 'marker')->last()->label);
         $this->assertTrue($result->metadata['providerGenerated']);
         $this->assertSame(1, $result->metadata['sceneCount']);

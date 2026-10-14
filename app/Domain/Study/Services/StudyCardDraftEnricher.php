@@ -44,7 +44,7 @@ class StudyCardDraftEnricher
         $prompt = $this->mergeMissing($seedPrompt, $generatedPrompt);
         $answer = $this->mergeMissing($seedAnswer, $generatedAnswer);
         if (! $this->hasText($answer, 'answerAudioVoiceId')) {
-            $answer['answerAudioVoiceId'] = StudyCardGenerationDefaults::VOICE_ID;
+            $answer['answerAudioVoiceId'] = StudyCardGenerationDefaults::randomVoiceId();
         }
 
         $imagePrompt = $this->existingText($draft->image_prompt)

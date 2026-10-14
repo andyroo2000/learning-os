@@ -373,7 +373,7 @@ PROMPT;
             'notes' => "Target word: {$target['word']}",
             'sentenceJp' => $firstSentence['sentenceJp'],
             'sentenceEn' => $firstSentence['sentenceEn'],
-            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+            'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
         ];
 
         return [
@@ -419,7 +419,7 @@ PROMPT;
                     'restoredTextReading' => $sentence['sentenceReading'],
                     'meaning' => $sentence['sentenceEn'],
                     'notes' => $sentence['notes'],
-                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                    'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
                 ],
                 [
                     'kind' => VocabVariantKind::SentenceCloze,
@@ -438,7 +438,7 @@ PROMPT;
                 'expressionReading' => $sentence['sentenceReading'],
                 'meaning' => $sentence['sentenceEn'],
                 'notes' => $sentence['notes'],
-                'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
             ],
             [
                 'kind' => VocabVariantKind::SentenceProduction,
@@ -484,7 +484,7 @@ PROMPT;
                 'expressionReading' => $sentence['sentenceReading'],
                 'meaning' => $sentence['sentenceEn'],
                 'notes' => $sentence['notes'],
-                'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
             ],
             [
                 'kind' => $variantKind,

@@ -57,20 +57,7 @@ final class StudyClientCapabilities
                     ),
                 ],
             ],
-            'cardAuthoring' => [
-                'creationKinds' => StudyCardCreationKind::values(),
-                'imagePlacements' => StudyCardImagePlacement::values(),
-                'previewAudioRoles' => StudyCardAudioRole::values(),
-                'defaultAnswerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
-                'defaultFemaleAnswerAudioVoiceId' => StudyCardGenerationDefaults::FEMALE_VOICE_ID,
-                'payloadSchema' => StudyCardPayloadSchema::jsonSchema(),
-                'limits' => [
-                    'combinedPayloadBytes' => StudyCardDraft::MAX_PAYLOAD_BYTES,
-                    'payloadDepth' => StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH,
-                    'imagePromptCharacters' => StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH,
-                    'imageUploadBytes' => PersistUploadedStudyImageAction::MAX_UPLOAD_BYTES,
-                ],
-            ],
+            'cardAuthoring' => $this->cardAuthoring(),
             'dailyAudio' => [
                 'targetDurationMinutes' => $this->integerRange(
                     DailyAudioPracticeGeneration::DEFAULT_TARGET_DURATION_MINUTES,
@@ -87,6 +74,26 @@ final class StudyClientCapabilities
             ],
             'studyActivity' => [
                 'categoriesByActivity' => StudyActivityKind::categoryMap(),
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function cardAuthoring(): array
+    {
+        return [
+            'creationKinds' => StudyCardCreationKind::values(),
+            'imagePlacements' => StudyCardImagePlacement::values(),
+            'previewAudioRoles' => StudyCardAudioRole::values(),
+            'defaultAnswerAudioVoiceIds' => StudyCardGenerationDefaults::VOICE_IDS,
+            'defaultAnswerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+            'defaultFemaleAnswerAudioVoiceId' => StudyCardGenerationDefaults::FEMALE_VOICE_ID,
+            'payloadSchema' => StudyCardPayloadSchema::jsonSchema(),
+            'limits' => [
+                'combinedPayloadBytes' => StudyCardDraft::MAX_PAYLOAD_BYTES,
+                'payloadDepth' => StudyCardDraft::MAX_TOTAL_PAYLOAD_DEPTH,
+                'imagePromptCharacters' => StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH,
+                'imageUploadBytes' => PersistUploadedStudyImageAction::MAX_UPLOAD_BYTES,
             ],
         ];
     }

@@ -15,9 +15,9 @@ use App\Domain\Study\Exceptions\StudyCardAudioConflictException;
 use App\Domain\Study\Exceptions\StudyCardAudioValidationException;
 use App\Domain\Study\Results\GeneratedStudyMediaResult;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
+use App\Domain\Study\Services\StudyGeneratedSpeechMedia;
 use App\Domain\Study\Support\StudyCardAudioRecognition;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
-use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -27,13 +27,10 @@ use Throwable;
 class RegenerateStudyCardAnswerAudioAction
 {
     public function __construct(
-        private readonly FishAudioSpeechGenerator $fishAudio,
-        private readonly PersistGeneratedStudyMediaAction $persistGeneratedMedia,
-        private readonly DiscardGeneratedStudyMediaAction $discardGeneratedMedia,
+        private readonly StudyGeneratedSpeechMedia $speechMedia,
         private readonly UpdateCardAction $updateCard,
         private readonly AttachMediaToCardAction $attachMedia,
         private readonly DetachMediaFromCardAction $detachMedia,
-        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
     public function handle(Card $card, RegenerateStudyCardAnswerAudioData $data): Card
@@ -53,14 +50,7 @@ class RegenerateStudyCardAnswerAudioAction
             $syncPromptAudio,
         );
 
-        $this->generationRateLimiter->consume($card->ownerUserId());
-        $generated = $this->persistGeneratedMedia->handle(
-            userId: $card->ownerUserId(),
-            bytes: $this->fishAudio->generate($text, $voiceId),
-            mediaKind: 'audio',
-            mimeType: 'audio/mpeg',
-            extension: 'mp3',
-        );
+        $generated = $this->speechMedia->generate($card->ownerUserId(), $text, $voiceId);
 
         try {
             $updated = $this->replaceGeneratedAudio($card, [
@@ -72,13 +62,13 @@ class RegenerateStudyCardAnswerAudioAction
                 'old_generated_media' => $oldGeneratedMedia,
             ]);
         } catch (Throwable $exception) {
-            $this->discardGeneratedMedia->handle($generated->mediaAsset);
+            $this->speechMedia->discard($generated->mediaAsset);
 
             throw $exception;
         }
 
         foreach ($oldGeneratedMedia as $oldMedia) {
-            $this->discardGeneratedMedia->handleIfUnreferenced($oldMedia);
+            $this->speechMedia->discardIfUnreferenced($oldMedia);
         }
 
         return $updated;
@@ -185,7 +175,7 @@ class RegenerateStudyCardAnswerAudioAction
      */
     private function voiceId(array $answer): string
     {
-        $voiceId = $answer['answerAudioVoiceId'] ?? StudyCardGenerationDefaults::VOICE_ID;
+        $voiceId = $answer['answerAudioVoiceId'] ?? StudyCardGenerationDefaults::randomVoiceId();
 
         if (! is_string($voiceId)) {
             throw StudyCardAudioValidationException::invalidVoice();

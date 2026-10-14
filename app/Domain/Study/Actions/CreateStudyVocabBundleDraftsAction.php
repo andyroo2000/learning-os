@@ -131,7 +131,7 @@ class CreateStudyVocabBundleDraftsAction
                 'answer' => [
                     'restoredText' => $label,
                     'meaning' => '',
-                    'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+                    'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
                 ],
                 'variantKind' => VocabVariantKind::SentenceCloze,
                 'variantStage' => 5,
@@ -231,7 +231,7 @@ class CreateStudyVocabBundleDraftsAction
         return [
             'expression' => $expression,
             'meaning' => '',
-            'answerAudioVoiceId' => StudyCardGenerationDefaults::VOICE_ID,
+            'answerAudioVoiceId' => StudyCardGenerationDefaults::randomVoiceId(),
         ];
     }
 }

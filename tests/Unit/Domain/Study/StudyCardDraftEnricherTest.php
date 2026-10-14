@@ -45,9 +45,9 @@ class StudyCardDraftEnricherTest extends TestCase
         $this->assertSame('workplace', $result['prompt']['cueMeaning']);
         $this->assertSame('company', $result['answer']['meaning']);
         $this->assertSame('会社', $result['answer']['expression']);
-        $this->assertSame(
-            StudyCardGenerationDefaults::VOICE_ID,
+        $this->assertContains(
             $result['answer']['answerAudioVoiceId'],
+            StudyCardGenerationDefaults::VOICE_IDS,
         );
         $this->assertSame(
             'A commuter arriving at a modern office building at dawn.',

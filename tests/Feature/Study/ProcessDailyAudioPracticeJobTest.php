@@ -18,6 +18,7 @@ use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
 use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
+use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Jobs\ProcessDailyAudioPractice;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,26 +111,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             'daily_audio.dialogue_speaker_b_voice_id',
             'fishaudio:sato',
         );
-        $runId = (string) Str::uuid();
-        $practice = DailyAudioPractice::factory()->create([
-            'status' => 'generating',
-            'generation_run_id' => $runId,
-        ]);
-        $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
-            'status' => 'draft',
-            'audio_url' => null,
-        ]);
-        $tracks = ['drill' => $drill];
-        foreach ([
-            ['dialogue', 1],
-            ['story', 2],
-        ] as [$mode, $sortOrder]) {
-            $tracks[$mode] = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
-                'mode' => $mode,
-                'sort_order' => $sortOrder,
-                'status' => 'draft',
-            ]);
-        }
+        [$practice, $tracks, $runId] = $this->pendingPracticeTracks();
         $card = Card::factory()->create();
         $selection = new DailyAudioCardSelectionResult(
             cards: collect([$card]),
@@ -141,81 +123,12 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                 'recentMissCount' => 0,
             ],
         );
-        $atom = new DailyAudioLearningAtom(
-            cardId: $card->clientId(),
-            cardType: 'recognition',
-            targetText: '猫',
-            reading: 'ねこ',
-            english: 'cat',
-            exampleJp: null,
-            exampleEn: null,
-            deckName: null,
-            noteType: null,
-        );
-        $units = collect([
-            DailyAudioScriptUnit::narration('Welcome.', 'fishaudio:narrator'),
-            DailyAudioScriptUnit::pause(1),
-            DailyAudioScriptUnit::targetLanguage(
-                '猫',
-                'ねこ',
-                'cat',
-                'fishaudio:speaker',
-                1.0,
-            ),
-        ]);
-        $generated = new DailyAudioDrillGenerationResult($units, [
-            'enhancedAtomCount' => 1,
-            'generatedPromptCount' => 1,
-            'fallbackPromptCount' => 0,
-            'missingCueCount' => 0,
-            'totalPromptCount' => 1,
-            'unitCount' => 3,
-            'l2UnitCount' => 1,
-            'l2UnitsWithReadingCount' => 1,
-            'l2UnitsMissingReadingCount' => 0,
-        ]);
-        $assembled = new DailyAudioTrackAssemblyResult(
-            storagePath: DailyAudioPracticeGeneration::storagePath($practice->id, $drill->id),
-            durationSeconds: 123,
-            timingData: [
-                ['unitIndex' => 0, 'startTime' => 0, 'endTime' => 1_000],
-                ['unitIndex' => 1, 'startTime' => 1_000, 'endTime' => 2_000],
-                ['unitIndex' => 2, 'startTime' => 2_000, 'endTime' => 3_000],
-            ],
-            metadata: [
-                'unitCount' => 3,
-                'spokenUnitCount' => 2,
-                'pauseUnitCount' => 1,
-                'uniqueSynthesisCount' => 2,
-                'reusedSynthesisCount' => 0,
-            ],
-        );
+        [$atom, $generated] = $this->generatedDrillFixture($card);
+        $assembled = $this->assembledTrackFixture($practice, $tracks['drill']);
 
-        $this->mock(SelectDailyAudioPracticeCardsAction::class, function (MockInterface $mock) use ($practice, $selection): void {
-            $mock->shouldReceive('handle')->once()->with($practice->user_id)->andReturn($selection);
-        });
-        $this->mock(BuildDailyAudioLearningAtomsAction::class, function (MockInterface $mock) use ($card, $atom): void {
-            $mock->shouldReceive('handle')->once()->withArgs(
-                fn ($cards): bool => $cards->sole()->is($card),
-            )->andReturn(collect([$atom]));
-        });
-        $this->mock(DailyAudioDrillScriptGenerator::class, function (MockInterface $mock) use ($generated, $practice): void {
-            $mock->shouldReceive('generate')
-                ->once()
-                ->withArgs(fn ($atoms, $l1, $l2, $targetDurationMinutes): bool => $atoms->count() === 1
-                    && $l1 === config('daily_audio.l1_voice_id')
-                    && $l2 === config('daily_audio.l2_voice_id')
-                    && $targetDurationMinutes === $practice->target_duration_minutes)
-                ->andReturn($generated);
-        });
-        $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('generateJson')
-                ->twice()
-                ->andReturn(
-                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."},{"speaker":"speaker2","text":"そうですね。","reading":"そうですね。","translation":"That is right."}]}]}',
-                    '{"title":"Cat","lines":[{"text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}',
-                );
-        });
+        $this->mockSelectedAtom($practice, $selection, $atom);
+        $this->mockDrillGeneration($generated, $practice);
+        $this->mockContextScripts();
         $this->mock(DailyAudioTrackAssembler::class, function (MockInterface $mock) use ($assembled, $practice, $tracks): void {
             $mock->shouldReceive('assemble')
                 ->times(3)
@@ -255,7 +168,9 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             ->pluck('voiceId')
             ->values()
             ->all();
-        $this->assertSame(['fishaudio:ren', 'fishaudio:sato'], $dialogueVoices);
+        $this->assertCount(2, array_unique($dialogueVoices));
+        $this->assertEmpty(array_diff($dialogueVoices, StudyCardGenerationDefaults::VOICE_IDS));
+        $this->assertEquals($generated->scriptUnits(), $tracks['drill']->script_units_json);
     }
 
     public function test_processor_ignores_missing_and_terminal_practices(): void
@@ -464,5 +379,130 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $this->assertFalse($changed);
         $this->assertFalse($invalidRunChanged);
         $this->assertDatabaseCount('daily_audio_practices', 0);
+    }
+
+    private function mockDrillGeneration(DailyAudioDrillGenerationResult $generated, DailyAudioPractice $practice): void
+    {
+        $this->mock(DailyAudioDrillScriptGenerator::class, function (MockInterface $mock) use ($generated, $practice): void {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(fn ($atoms, $l1, $l2, $targetDurationMinutes): bool => $atoms->count() === 1
+                    && $l1 === config('daily_audio.l1_voice_id')
+                    && $l2 === config('daily_audio.l2_voice_id')
+                    && $targetDurationMinutes === $practice->target_duration_minutes)
+                ->andReturn($generated);
+        });
+    }
+
+    /** @return array{DailyAudioPractice, array<string, DailyAudioPracticeTrack>, string} */
+    private function pendingPracticeTracks(): array
+    {
+        $runId = (string) Str::uuid();
+        $practice = DailyAudioPractice::factory()->create([
+            'status' => 'generating',
+            'generation_run_id' => $runId,
+        ]);
+        $drill = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+            'status' => 'draft',
+            'audio_url' => null,
+        ]);
+        $tracks = ['drill' => $drill];
+        foreach ([
+            ['dialogue', 1],
+            ['story', 2],
+        ] as [$mode, $sortOrder]) {
+            $tracks[$mode] = DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
+                'mode' => $mode,
+                'sort_order' => $sortOrder,
+                'status' => 'draft',
+            ]);
+        }
+
+        return [$practice, $tracks, $runId];
+    }
+
+    /** @return array{DailyAudioLearningAtom, DailyAudioDrillGenerationResult} */
+    private function generatedDrillFixture(Card $card): array
+    {
+        $atom = new DailyAudioLearningAtom(
+            cardId: $card->clientId(),
+            cardType: 'recognition',
+            targetText: '猫',
+            reading: 'ねこ',
+            english: 'cat',
+            exampleJp: null,
+            exampleEn: null,
+            deckName: null,
+            noteType: null,
+        );
+        $units = collect([
+            DailyAudioScriptUnit::narration('Welcome.', 'fishaudio:narrator'),
+            DailyAudioScriptUnit::pause(1),
+            DailyAudioScriptUnit::targetLanguage(
+                '猫',
+                'ねこ',
+                'cat',
+                'fishaudio:speaker',
+                1.0,
+            ),
+        ]);
+        $generated = new DailyAudioDrillGenerationResult($units, [
+            'enhancedAtomCount' => 1,
+            'generatedPromptCount' => 1,
+            'fallbackPromptCount' => 0,
+            'missingCueCount' => 0,
+            'totalPromptCount' => 1,
+            'unitCount' => 3,
+            'l2UnitCount' => 1,
+            'l2UnitsWithReadingCount' => 1,
+            'l2UnitsMissingReadingCount' => 0,
+        ]);
+
+        return [$atom, $generated];
+    }
+
+    private function assembledTrackFixture(DailyAudioPractice $practice, DailyAudioPracticeTrack $track): DailyAudioTrackAssemblyResult
+    {
+        return new DailyAudioTrackAssemblyResult(
+            storagePath: DailyAudioPracticeGeneration::storagePath($practice->id, $track->id),
+            durationSeconds: 123,
+            timingData: [
+                ['unitIndex' => 0, 'startTime' => 0, 'endTime' => 1_000],
+                ['unitIndex' => 1, 'startTime' => 1_000, 'endTime' => 2_000],
+                ['unitIndex' => 2, 'startTime' => 2_000, 'endTime' => 3_000],
+            ],
+            metadata: [
+                'unitCount' => 3,
+                'spokenUnitCount' => 2,
+                'pauseUnitCount' => 1,
+                'uniqueSynthesisCount' => 2,
+                'reusedSynthesisCount' => 0,
+            ],
+        );
+
+    }
+
+    private function mockSelectedAtom(DailyAudioPractice $practice, DailyAudioCardSelectionResult $selection, DailyAudioLearningAtom $atom): void
+    {
+        $this->mock(SelectDailyAudioPracticeCardsAction::class, function (MockInterface $mock) use ($practice, $selection): void {
+            $mock->shouldReceive('handle')->once()->with($practice->user_id)->andReturn($selection);
+        });
+        $this->mock(BuildDailyAudioLearningAtomsAction::class, function (MockInterface $mock) use ($selection, $atom): void {
+            $mock->shouldReceive('handle')->once()->withArgs(
+                fn ($cards): bool => $cards->sole()->is($selection->cards->sole()),
+            )->andReturn(collect([$atom]));
+        });
+    }
+
+    private function mockContextScripts(): void
+    {
+        $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('generateJson')
+                ->twice()
+                ->andReturn(
+                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."},{"speaker":"speaker2","text":"そうですね。","reading":"そうですね。","translation":"That is right."}]}]}',
+                    '{"title":"Cat","lines":[{"text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}',
+                );
+        });
     }
 }

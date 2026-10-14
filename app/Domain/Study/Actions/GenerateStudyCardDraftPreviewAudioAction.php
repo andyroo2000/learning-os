@@ -10,18 +10,15 @@ use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Services\FishAudioSpeechGenerator;
+use App\Domain\Study\Services\StudyGeneratedSpeechMedia;
 use App\Domain\Study\Support\StudyCardGenerationDefaults;
-use App\Domain\Study\Support\StudyMediaGenerationRateLimiter;
 use Throwable;
 
 class GenerateStudyCardDraftPreviewAudioAction
 {
     public function __construct(
-        private readonly FishAudioSpeechGenerator $fishAudio,
-        private readonly PersistGeneratedStudyMediaAction $persistGeneratedMedia,
+        private readonly StudyGeneratedSpeechMedia $speechMedia,
         private readonly UpdateStudyCardDraftAction $updateDraft,
-        private readonly DiscardGeneratedStudyMediaAction $discardGeneratedMedia,
-        private readonly StudyMediaGenerationRateLimiter $generationRateLimiter,
     ) {}
 
     public function handle(StudyCardDraft $draft): StudyCardDraft
@@ -31,6 +28,34 @@ class GenerateStudyCardDraftPreviewAudioAction
         }
 
         $expectedRevision = $draft->revision;
+        [$text, $voiceId] = $this->speechInput($draft);
+        $generated = $this->speechMedia->generate($draft->user_id, $text, $voiceId);
+        $role = $draft->creation_kind === StudyCardCreationKind::AudioRecognition
+            ? StudyCardAudioRole::Prompt
+            : StudyCardAudioRole::Answer;
+
+        try {
+            return $this->updateDraft->handle($draft, UpdateStudyCardDraftData::fromInput(
+                expectedRevision: $expectedRevision,
+                hasPrompt: $this->answerString($draft, 'answerAudioVoiceId') === null,
+                promptJson: $draft->prompt_json ?? [],
+                hasAnswer: $this->answerString($draft, 'answerAudioVoiceId') === null,
+                answerJson: [...($draft->answer_json ?? []), 'answerAudioVoiceId' => $voiceId],
+                hasPreviewAudio: true,
+                previewAudioJson: $generated->mediaRef,
+                hasPreviewAudioRole: true,
+                previewAudioRole: $role,
+            ));
+        } catch (Throwable $exception) {
+            $this->speechMedia->discard($generated->mediaAsset);
+
+            throw $exception;
+        }
+    }
+
+    /** @return array{string, string} */
+    private function speechInput(StudyCardDraft $draft): array
+    {
         $text = $this->audioText($draft);
         if ($text === null) {
             throw StudyCardDraftValidationException::missingPreviewAudioText();
@@ -41,38 +66,14 @@ class GenerateStudyCardDraftPreviewAudioAction
         }
 
         $configuredVoiceId = $this->answerString($draft, 'answerAudioVoiceId')
-            ?? StudyCardGenerationDefaults::VOICE_ID;
+            ?? StudyCardGenerationDefaults::randomVoiceId();
         // Normalize provider input without rewriting draft fields from this pre-generation snapshot.
         $voiceId = StudyCardGenerationDefaults::normalizeVoiceId($configuredVoiceId);
         if ($voiceId === null) {
             throw StudyCardDraftValidationException::invalidPreviewAudioVoice();
         }
 
-        $this->generationRateLimiter->consume($draft->user_id);
-        $generated = $this->persistGeneratedMedia->handle(
-            userId: $draft->user_id,
-            bytes: $this->fishAudio->generate($text, $voiceId),
-            mediaKind: 'audio',
-            mimeType: 'audio/mpeg',
-            extension: 'mp3',
-        );
-        $role = $draft->creation_kind === StudyCardCreationKind::AudioRecognition
-            ? StudyCardAudioRole::Prompt
-            : StudyCardAudioRole::Answer;
-
-        try {
-            return $this->updateDraft->handle($draft, UpdateStudyCardDraftData::fromInput(
-                expectedRevision: $expectedRevision,
-                hasPreviewAudio: true,
-                previewAudioJson: $generated->mediaRef,
-                hasPreviewAudioRole: true,
-                previewAudioRole: $role,
-            ));
-        } catch (Throwable $exception) {
-            $this->discardGeneratedMedia->handle($generated->mediaAsset);
-
-            throw $exception;
-        }
+        return [$text, $voiceId];
     }
 
     private function audioText(StudyCardDraft $draft): ?string

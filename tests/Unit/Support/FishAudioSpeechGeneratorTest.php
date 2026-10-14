@@ -39,6 +39,16 @@ class FishAudioSpeechGeneratorTest extends TestCase
             && $request['format'] === 'mp3');
     }
 
+    public function test_it_preserves_an_explicit_s1_backend_override(): void
+    {
+        config()->set('services.fish_audio.backend', 's1');
+        Http::fake(['fish.test/v1/tts' => Http::response('ID3preview')]);
+
+        app(AudioSpeechGenerator::class)->generate('こんにちは。', self::VOICE_ID);
+
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader('model', 's1'));
+    }
+
     public function test_the_shared_binding_uses_a_domain_neutral_provider_and_exception(): void
     {
         $this->assertInstanceOf(FishAudioSpeechGenerator::class, app(AudioSpeechGenerator::class));

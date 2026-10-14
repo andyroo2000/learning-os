@@ -13,25 +13,20 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
 
     public const TIMEOUT_SECONDS = 90;
 
+    public function __construct(private readonly AutomaticSpeechDirections $directions) {}
+
     public function generate(string $text, string $voiceId, float $speed = 1.0): string
     {
-        $apiKey = trim((string) config('services.fish_audio.api_key'));
-        if ($apiKey === '') {
-            throw AudioSpeechGenerationException::unavailable('Fish Audio');
-        }
-
-        $text = trim($text);
-        if ($text === '' || mb_strlen($text, 'UTF-8') > self::MAX_TEXT_LENGTH) {
-            throw AudioSpeechGenerationException::invalidOutput('Fish Audio');
-        }
-        if (! is_finite($speed) || $speed < 0.5 || $speed > 2) {
-            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
-        }
+        $apiKey = $this->apiKey();
+        $text = $this->validatedText($text);
+        $this->validateSpeed($speed);
 
         $referenceId = preg_replace('/^fishaudio:/i', '', trim($voiceId));
         if (! is_string($referenceId) || preg_match('/^[a-f0-9]{32}$/i', $referenceId) !== 1) {
             throw AudioSpeechGenerationException::unavailable('Fish Audio');
         }
+
+        $text = $this->directions->apply($text);
 
         try {
             $response = Http::baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
@@ -67,12 +62,46 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
         return $bytes;
     }
 
+    private function apiKey(): string
+    {
+        $apiKey = trim((string) config('services.fish_audio.api_key'));
+        if ($apiKey === '') {
+            throw AudioSpeechGenerationException::unavailable('Fish Audio');
+        }
+
+        return $apiKey;
+    }
+
+    private function validatedText(string $text): string
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text, 'UTF-8') > self::MAX_TEXT_LENGTH) {
+            throw AudioSpeechGenerationException::invalidOutput('Fish Audio');
+        }
+
+        return $text;
+    }
+
+    private function validateSpeed(float $speed): void
+    {
+        if (! is_finite($speed)) {
+            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
+        }
+        if ($speed < 0.5 || $speed > 2) {
+            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
+        }
+    }
+
     private function isMp3(string $bytes): bool
     {
-        return (strlen($bytes) >= 3 && substr($bytes, 0, 3) === 'ID3')
-            || (strlen($bytes) >= 2
-                && ord($bytes[0]) === 0xFF
-                && (ord($bytes[1]) & 0xE0) === 0xE0);
+        if (str_starts_with($bytes, 'ID3')) {
+            return true;
+        }
+        if (strlen($bytes) < 2) {
+            return false;
+        }
+
+        return ord($bytes[0]) === 0xFF && (ord($bytes[1]) & 0xE0) === 0xE0;
     }
 
     private function serviceException(Response $response): AudioSpeechGenerationException

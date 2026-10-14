@@ -85,7 +85,7 @@ return [
     'fish_audio' => [
         'api_key' => env('FISH_AUDIO_API_KEY'),
         'base_url' => env('FISH_AUDIO_API_BASE_URL', 'https://api.fish.audio'),
-        'backend' => env('FISH_AUDIO_BACKEND', 's1'),
+        'backend' => env('FISH_AUDIO_BACKEND', 'drama-3'),
     ],
 
 ];

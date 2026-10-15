@@ -14,11 +14,11 @@ use Tests\Support\Study\RegenerateStudyCardAnswerAudioTestCase;
 
 class LegacyStudyCardAnswerAudioVoiceApiTest extends RegenerateStudyCardAnswerAudioTestCase
 {
-    public function test_prepare_migrates_a_persisted_legacy_google_voice_to_the_fish_default(): void
+    public function test_prepare_keeps_the_historical_replacement_for_a_persisted_legacy_google_voice(): void
     {
         $this->assertPrepareMigratesVoice(
             'ja-JP-Wavenet-D',
-            StudyCardGenerationDefaults::VOICE_ID,
+            'fishaudio:abb4362e736f40b7b5716f4fafcafa9f',
             'abb4362e736f40b7b5716f4fafcafa9f',
         );
     }

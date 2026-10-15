@@ -22,9 +22,9 @@ class DailyAudioVoiceRotationTest extends TestCase
         $spoken = $result->units->where('type', 'L2')->values();
         $voices = $spoken->pluck('voiceId')->all();
 
-        $this->assertCount(19, StudyCardGenerationDefaults::VOICE_IDS);
-        $this->assertEqualsCanonicalizing(StudyCardGenerationDefaults::VOICE_IDS, array_slice($voices, 0, 19));
-        $this->assertEqualsCanonicalizing(StudyCardGenerationDefaults::VOICE_IDS, array_slice($voices, 19, 19));
+        $this->assertCount(14, StudyCardGenerationDefaults::VOICE_IDS);
+        $this->assertEqualsCanonicalizing(StudyCardGenerationDefaults::VOICE_IDS, array_slice($voices, 0, 14));
+        $this->assertEqualsCanonicalizing(StudyCardGenerationDefaults::VOICE_IDS, array_slice($voices, 14, 14));
         foreach (array_slice($voices, 1) as $index => $voice) {
             $this->assertNotSame($voices[$index], $voice);
         }
@@ -43,6 +43,22 @@ class DailyAudioVoiceRotationTest extends TestCase
         $voices = StudyCardGenerationDefaults::VOICE_IDS;
         $this->assertSame($voices, array_values(array_unique($voices)));
         foreach ($voices as $voice) {
+            $this->assertSame($voice, StudyCardGenerationDefaults::normalizeVoiceId($voice));
+        }
+    }
+
+    public function test_retired_voices_remain_valid_but_are_never_automatically_selected(): void
+    {
+        $retired = [
+            'fishaudio:abb4362e736f40b7b5716f4fafcafa9f',
+            'fishaudio:b3e9710c629a472f8224e1c4975a869e',
+            'fishaudio:0dff3f6860294829b98f8c4501b2cf25',
+            'fishaudio:297a6fd278df47c3b9da9bfdf55ac89a',
+            'fishaudio:030fda5bec284b038ad930effd150f94',
+        ];
+        $this->assertContains(StudyCardGenerationDefaults::VOICE_ID, StudyCardGenerationDefaults::VOICE_IDS);
+        foreach ($retired as $voice) {
+            $this->assertNotContains($voice, StudyCardGenerationDefaults::VOICE_IDS);
             $this->assertSame($voice, StudyCardGenerationDefaults::normalizeVoiceId($voice));
         }
     }

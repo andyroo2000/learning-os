@@ -6,22 +6,18 @@ use App\Support\Audio\FishAudioVoiceNormalizer;
 
 final class StudyCardGenerationDefaults
 {
-    public const VOICE_ID = FishAudioVoiceNormalizer::DEFAULT_VOICE_ID;
+    public const VOICE_ID = 'fishaudio:875668667eb94c20b09856b971d9ca2f';
 
     public const FEMALE_VOICE_ID = FishAudioVoiceNormalizer::FEMALE_VOICE_ID;
 
     /** @var list<string> */
     public const VOICE_IDS = [
-        'fishaudio:0dff3f6860294829b98f8c4501b2cf25',
         'fishaudio:875668667eb94c20b09856b971d9ca2f',
-        'fishaudio:abb4362e736f40b7b5716f4fafcafa9f',
-        'fishaudio:b3e9710c629a472f8224e1c4975a869e',
         'fishaudio:72416f3ff95541d9a2456b945e8a7c32',
         'fishaudio:e6e20195abee4187bddfd1a2609a04f9',
         'fishaudio:351aa1e3ef354082bc1f4294d4eea5d0',
         'fishaudio:694e06f2dcc44e4297961d68d6a98313',
         'fishaudio:9639f090aa6346329d7d3aca7e6b7226',
-        'fishaudio:297a6fd278df47c3b9da9bfdf55ac89a',
         'fishaudio:21c74cb823fa45ef996ccc91cd6038b6',
         'fishaudio:434dd33d4d3c4cf68b98e3d7f25f31ab',
         'fishaudio:9bf6608381a34f47ada3753f2e9f9381',
@@ -29,7 +25,6 @@ final class StudyCardGenerationDefaults
         'fishaudio:934ad2c65f604b0e84b432a560e3008a',
         'fishaudio:b2d9d8db057042688a5e318b8f405bc2',
         'fishaudio:35c8e5ae5239435f8d9c26c86802b86d',
-        'fishaudio:030fda5bec284b038ad930effd150f94',
         'fishaudio:63bc41e652214372b15d9416a30a60b4',
     ];
 

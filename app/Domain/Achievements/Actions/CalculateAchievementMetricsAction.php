@@ -49,16 +49,13 @@ final class CalculateAchievementMetricsAction
         // Review achievements are lifetime records: archiving a card or deck must
         // not erase reviews the user already completed. Raw ownership joins here
         // intentionally include soft-deleted cards and decks.
-        $events = AchievementReviewQuery::forUser($userId)
-            ->orderBy('card_review_events.reviewed_at')
-            ->orderBy('card_review_events.id')
-            ->cursor();
+        $events = AchievementReviewQuery::timeline($userId);
 
         $reviewCount = 0;
         foreach ($events as $event) {
             $reviewCount++;
-            $cardId = (string) $event->card_id;
-            $reviewedAt = $event->reviewed_at;
+            $cardId = $event->cardId;
+            $reviewedAt = $event->reviewedAt;
             $successful = $event->rating !== CardReviewRating::Again;
 
             if ($successful) {
@@ -77,7 +74,7 @@ final class CalculateAchievementMetricsAction
             $this->recordMasteryCrossings(
                 $masteryCards,
                 $cardId,
-                $this->stability($event->scheduler_state_after),
+                $event->stability,
             );
         }
 

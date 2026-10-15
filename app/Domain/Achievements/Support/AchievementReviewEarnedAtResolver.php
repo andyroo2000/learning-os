@@ -3,9 +3,9 @@
 namespace App\Domain\Achievements\Support;
 
 use App\Domain\Achievements\Actions\GetAchievementProgressAction;
+use App\Domain\Achievements\Values\AchievementReviewFact;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Enums\CardReviewRating;
-use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Enums\StudyMasteryLevel;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -60,15 +60,15 @@ final class AchievementReviewEarnedAtResolver
         $mastery = array_fill_keys(array_keys($this->masteryMinimums()), []);
 
         foreach ($this->reviewTimeline($userId) as $event) {
-            $cardId = (string) $event->card_id;
+            $cardId = $event->cardId;
             $previous = $lastReviewByCard[$cardId] ?? null;
             if ($oldFriend === null && $this->startsOldFriendAchievement($event, $previous)) {
-                $oldFriend = CarbonImmutable::instance($event->reviewed_at);
+                $oldFriend = $event->reviewedAt;
             }
-            $lastReviewByCard[$cardId] = $event->reviewed_at;
+            $lastReviewByCard[$cardId] = $event->reviewedAt;
             $run = $event->rating === CardReviewRating::Again ? 0 : $run + 1;
             if ($run > 0 && ! isset($correctRun[$run])) {
-                $correctRun[$run] = CarbonImmutable::instance($event->reviewed_at);
+                $correctRun[$run] = $event->reviewedAt;
             }
             $this->recordMasteryDates($mastery, $event, $cardId);
         }
@@ -80,20 +80,20 @@ final class AchievementReviewEarnedAtResolver
         ];
     }
 
-    private function startsOldFriendAchievement(CardReviewEvent $event, mixed $previous): bool
+    private function startsOldFriendAchievement(AchievementReviewFact $event, mixed $previous): bool
     {
         return $event->rating !== CardReviewRating::Again
             && $previous instanceof CarbonInterface
-            && $previous->lte($event->reviewed_at->copy()->subMonthsNoOverflow(6));
+            && $previous->lte($event->reviewedAt->subMonthsNoOverflow(6));
     }
 
     /** @param array<string, array<string, CarbonImmutable>> $mastery */
-    private function recordMasteryDates(array &$mastery, CardReviewEvent $event, string $cardId): void
+    private function recordMasteryDates(array &$mastery, AchievementReviewFact $event, string $cardId): void
     {
-        $stability = $this->numericStability($event->scheduler_state_after['stability'] ?? 0);
+        $stability = $event->stability;
         foreach ($this->masteryMinimums() as $metric => $minimum) {
             if ($stability >= $minimum && ! isset($mastery[$metric][$cardId])) {
-                $mastery[$metric][$cardId] = CarbonImmutable::instance($event->reviewed_at);
+                $mastery[$metric][$cardId] = $event->reviewedAt;
             }
         }
     }
@@ -159,13 +159,11 @@ final class AchievementReviewEarnedAtResolver
         ];
     }
 
+    /** @return LazyCollection<int, AchievementReviewFact> */
     private function reviewTimeline(int $userId): LazyCollection
     {
         // Lifetime review achievements keep their original award dates after a
         // card or deck is archived, so these joins deliberately include trash.
-        return AchievementReviewQuery::forUser($userId)
-            ->orderBy('card_review_events.reviewed_at')
-            ->orderBy('card_review_events.id')
-            ->cursor();
+        return AchievementReviewQuery::timeline($userId);
     }
 }

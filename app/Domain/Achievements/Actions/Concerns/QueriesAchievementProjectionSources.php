@@ -4,6 +4,7 @@ namespace App\Domain\Achievements\Actions\Concerns;
 
 use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Achievements\Support\AchievementReviewQuery;
+use App\Domain\Achievements\Values\AchievementReviewFact;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,12 +41,9 @@ trait QueriesAchievementProjectionSources
         });
     }
 
-    /** @return LazyCollection<int, CardReviewEvent> */
+    /** @return LazyCollection<int, AchievementReviewFact> */
     private function reviewTimeline(int $userId): LazyCollection
     {
-        return AchievementReviewQuery::forUser($userId)
-            ->orderBy('card_review_events.reviewed_at')
-            ->orderBy('card_review_events.id')
-            ->cursor();
+        return AchievementReviewQuery::timeline($userId);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Domain\Achievements\Actions\Concerns;
 
+use App\Domain\Achievements\Values\AchievementReviewFact;
 use App\Domain\Reviews\Enums\CardReviewRating;
-use App\Domain\Reviews\Models\CardReviewEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -31,21 +31,21 @@ trait SeedsAchievementReviewFacts
 
         foreach ($this->reviewTimeline($userId) as $event) {
             $counts['reviews']++;
-            $cardId = (string) $event->card_id;
-            $reviewedAt = CarbonImmutable::instance($event->reviewed_at);
+            $cardId = $event->cardId;
+            $reviewedAt = $event->reviewedAt;
             $successful = $event->rating !== CardReviewRating::Again;
             $currentRun = $successful ? $currentRun + 1 : 0;
             $fact = $cardFacts[$cardId] ?? ['maximumStability' => 0.0, 'lastReviewedAt' => null];
             $fact['maximumStability'] = max(
                 $fact['maximumStability'],
-                $this->cardProjectionUpdater->schedulerStability($event->scheduler_state_after),
+                $event->stability,
             );
             $fact['lastReviewedAt'] = $reviewedAt;
             $cardFacts[$cardId] = $fact;
             $latestReviewedAt = $reviewedAt;
             $latestReviewedId = (string) $event->id;
 
-            $createdAt = CarbonImmutable::instance($event->created_at);
+            $createdAt = $event->createdAt;
             if ($this->isReviewCreatedAfterCursor($event, $createdAt, $lastCreatedAt, $lastCreatedId)) {
                 $lastCreatedAt = $createdAt;
                 $lastCreatedId = (string) $event->id;
@@ -76,7 +76,7 @@ trait SeedsAchievementReviewFacts
     }
 
     private function isReviewCreatedAfterCursor(
-        CardReviewEvent $event,
+        AchievementReviewFact $event,
         CarbonImmutable $createdAt,
         ?CarbonImmutable $lastCreatedAt,
         ?string $lastCreatedId,

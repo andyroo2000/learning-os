@@ -7,6 +7,7 @@ use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -24,28 +25,9 @@ class SessionFinalizationBenchmarkTest extends TestCase
         $cards = Card::factory()->for($deck)->count(500)->create()->modelKeys();
         $start = now()->subDays(20)->startOfSecond();
         $offset = 0;
-        foreach ([10000, 25, 250, 1000, 0] as $count) {
-            $rows = [];
-            for ($i = 0; $i < $count; $i++) {
-                $date = $start->copy()->addSeconds($offset + $i)->toDateTimeString();
-                $rows[] = [
-                    'id' => strtolower((string) Str::ulid()),
-                    'card_id' => $cards[$i % count($cards)],
-                    'rating' => $i % 10 === 0 ? 'again' : 'good',
-                    'reviewed_at' => $date,
-                    'created_at' => $date,
-                    'updated_at' => $date,
-                    'scheduler_state_after' => json_encode(['stability' => 20]),
-                    'card_state_before' => json_encode(['content' => str_repeat('payload ', 250)]),
-                ];
-                if (count($rows) === 100) {
-                    DB::table('card_review_events')->insert($rows);
-                    $rows = [];
-                }
-            }
-            if ($rows !== []) {
-                DB::table('card_review_events')->insert($rows);
-            }
+        $previousResult = null;
+        foreach ([50000, 25, 250, 1000, 0] as $count) {
+            $this->insertReviews($cards, $start, $offset, $count);
             $offset += $count;
             if ($count === 0) {
                 AchievementProgressProjection::query()->whereKey($user->id)->update(['needs_rebuild' => true]);
@@ -63,6 +45,35 @@ class SessionFinalizationBenchmarkTest extends TestCase
             }
             fwrite(STDERR, json_encode(['new_reviews' => $count, 'total_reviews' => $offset, 'ms' => round($elapsed, 2), 'queries' => count($queries), 'sql_ms' => array_sum(array_column($queries, 'time'))])."\n");
             $this->assertSame($offset, $result['metricValues']['reviews.count']);
+            if ($count === 0) {
+                $this->assertSame($previousResult, $result);
+            }
+            $previousResult = $result;
+        }
+    }
+
+    private function insertReviews(array $cards, CarbonInterface $start, int $offset, int $count): void
+    {
+        $rows = [];
+        for ($i = 0; $i < $count; $i++) {
+            $date = $start->copy()->addSeconds($offset + $i)->toDateTimeString();
+            $rows[] = [
+                'id' => strtolower((string) Str::ulid()),
+                'card_id' => $cards[$i % count($cards)],
+                'rating' => $i % 10 === 0 ? 'again' : 'good',
+                'reviewed_at' => $date,
+                'created_at' => $date,
+                'updated_at' => $date,
+                'scheduler_state_after' => json_encode(['stability' => 20]),
+                'card_state_before' => json_encode(['content' => str_repeat('payload ', 250)]),
+            ];
+            if (count($rows) === 100) {
+                DB::table('card_review_events')->insert($rows);
+                $rows = [];
+            }
+        }
+        if ($rows !== []) {
+            DB::table('card_review_events')->insert($rows);
         }
     }
 }

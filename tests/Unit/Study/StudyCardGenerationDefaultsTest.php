@@ -36,12 +36,12 @@ class StudyCardGenerationDefaultsTest extends TestCase
     {
         yield 'Neural2 female A' => ['ja-JP-Neural2-A', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
         yield 'Neural2 female B' => ['ja-JP-Neural2-B', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
-        yield 'Neural2 male C' => ['ja-JP-Neural2-C', StudyCardGenerationDefaults::VOICE_ID];
-        yield 'Neural2 male D' => ['ja-JP-Neural2-D', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Neural2 male C' => ['ja-JP-Neural2-C', 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f'];
+        yield 'Neural2 male D' => ['ja-JP-Neural2-D', 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f'];
         yield 'Wavenet female A' => ['ja-JP-Wavenet-A', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
         yield 'Wavenet female B' => ['ja-JP-Wavenet-B', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
-        yield 'Wavenet male C with case-insensitive input' => ['JA-jp-wAVEnet-C', StudyCardGenerationDefaults::VOICE_ID];
-        yield 'Wavenet male D' => ['ja-JP-Wavenet-D', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Wavenet male C with case-insensitive input' => ['JA-jp-wAVEnet-C', 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f'];
+        yield 'Wavenet male D' => ['ja-JP-Wavenet-D', 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f'];
     }
 
     #[DataProvider('legacyPollyVoiceProvider')]
@@ -60,7 +60,7 @@ class StudyCardGenerationDefaultsTest extends TestCase
      */
     public static function legacyPollyVoiceProvider(): iterable
     {
-        yield 'Takumi' => ['Takumi', StudyCardGenerationDefaults::VOICE_ID];
+        yield 'Takumi' => ['Takumi', 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f'];
         yield 'Kazuha' => ['Kazuha', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
         yield 'Tomoko' => ['Tomoko', StudyCardGenerationDefaults::FEMALE_VOICE_ID];
     }

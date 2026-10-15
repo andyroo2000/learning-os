@@ -42,7 +42,7 @@ class ShowStudyClientCapabilitiesApiTest extends TestCase
                     'imagePlacements' => ['none', 'prompt', 'answer', 'both'],
                     'previewAudioRoles' => ['prompt', 'answer'],
                     'defaultAnswerAudioVoiceIds' => StudyCardGenerationDefaults::VOICE_IDS,
-                    'defaultAnswerAudioVoiceId' => 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f',
+                    'defaultAnswerAudioVoiceId' => 'fishaudio:875668667eb94c20b09856b971d9ca2f',
                     'defaultFemaleAnswerAudioVoiceId' => 'fishaudio:9639f090aa6346329d7d3aca7e6b7226',
                     'payloadSchema' => StudyCardPayloadSchema::jsonSchema(),
                     'limits' => [

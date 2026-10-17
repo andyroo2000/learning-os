@@ -68,6 +68,11 @@ class UploadStudyCardAudioAction
                 $nextAnswer = $answer;
                 $nextAnswer['answerAudio'] = $uploaded->mediaRef;
 
+                // Relation mutations touch the card. Publish its content snapshot only
+                // after those touches so sync includes the final persisted timestamp.
+                $this->media->attachReplacement($lockedCard, $uploaded->mediaAsset, $oldManagedMedia);
+                $lockedCard->refresh();
+
                 $this->updateCard->handle($lockedCard, UpdateCardData::fromInput(
                     frontText: $lockedCard->front_text,
                     backText: $lockedCard->back_text,
@@ -80,7 +85,6 @@ class UploadStudyCardAudioAction
                     hasAnswerAudioSource: true,
                     answerAudioSource: StudyCardDraft::MEDIA_SOURCE_IMPORTED,
                 ));
-                $this->media->attachReplacement($lockedCard, $uploaded->mediaAsset, $oldManagedMedia);
 
                 return $lockedCard->fresh(['deck', 'mediaAssets']) ?? $lockedCard;
             });

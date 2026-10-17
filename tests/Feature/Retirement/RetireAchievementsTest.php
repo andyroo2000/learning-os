@@ -25,12 +25,15 @@ class RetireAchievementsTest extends TestCase
         foreach (self::TABLES as $table) {
             $this->assertFalse(Schema::hasTable($table));
         }
+        $this->assertProjectionIndexes(false);
         $migration->down();
+        $this->assertProjectionIndexes(true);
         foreach (self::TABLES as $table) {
             $this->assertTrue(Schema::hasTable($table));
             $this->assertDatabaseCount($table, 0);
         }
         $migration->up();
+        $this->assertProjectionIndexes(false);
         foreach (self::TABLES as $table) {
             $this->assertFalse(Schema::hasTable($table));
         }
@@ -45,6 +48,17 @@ class RetireAchievementsTest extends TestCase
             'api/achievements/evaluate', 'api/study/milestones/evaluate',
             'api/study/milestones/present'] as $uri) {
             $this->assertNotContains($uri, $routes);
+        }
+    }
+
+    private function assertProjectionIndexes(bool $expected): void
+    {
+        foreach ([
+            'study_activity_sessions' => 'study_sessions_user_updated_id_idx',
+            'cards' => 'cards_deck_updated_id_idx',
+            'card_review_events' => 'card_review_events_created_at_id_idx',
+        ] as $table => $index) {
+            $this->assertSame($expected, Schema::hasIndex($table, $index), $index);
         }
     }
 

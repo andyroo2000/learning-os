@@ -4,6 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
 {
+    // Keep these historical files when pruning or squashing migrations: this
+    // retirement migration uses them for both forward and rollback schemas.
     private const SCHEMA_MIGRATIONS = [
         '2026_08_25_210000_create_study_milestone_tables.php',
         '2026_08_27_120000_create_achievement_awards_table.php',

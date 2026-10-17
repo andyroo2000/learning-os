@@ -23,7 +23,6 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $now = now();
 
         $this->seedCoreBoundaryData($existingUser);
-        $this->seedMilestoneData($existingUser, $now);
         $convoLabUserId = $this->seedAdminIdentityData($existingUser, $now);
         $this->seedIntegrationData($existingUser, $now);
         $this->seedVocabularyData($existingUser, $convoLabUserId, $now);
@@ -85,8 +84,6 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         StudyCardDraft::factory()->for($existingUser)->create();
         SyncFeedEntry::factory()->for($existingUser)->create();
     }
-
-    private function seedMilestoneData(User $existingUser, CarbonInterface $now): void {}
 
     private function seedAdminIdentityData(User $existingUser, CarbonInterface $now): string
     {

@@ -61,3 +61,16 @@ test('refuses redirects instead of forwarding credentials', async t => {
   });
   await assert.rejects(execute(process.execPath, [cli, 'whoami', '--profile', profile]), /fetch failed/);
 });
+
+
+test('malformed profile and API JSON never echo token fragments', async t => {
+  const profile = await fixture(t, (_, response) => response.end('fixture-secret invalid json'));
+  const check = error => {
+    assert.ok(!error.stderr.includes('fixture-secret'));
+    assert.match(error.stderr, /contents withheld/);
+    return true;
+  };
+  await assert.rejects(execute(process.execPath, [cli, 'whoami', '--profile', profile]), check);
+  await writeFile(profile, '{"token": fixture-secret}');
+  await assert.rejects(execute(process.execPath, [cli, 'whoami', '--profile', profile]), check);
+});

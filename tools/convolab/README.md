@@ -1,6 +1,6 @@
 # ConvoLab CLI
 
-Dependency-free Node 24+ client for Learning OS through the ConvoLab public API.
+Dependency-free Node 24+ POSIX (macOS/Linux) client for Learning OS through the ConvoLab public API.
 Install locally with `npm install --global ./tools/convolab`, or run
 `node tools/convolab/cli.js help` directly. No application database access is used.
 

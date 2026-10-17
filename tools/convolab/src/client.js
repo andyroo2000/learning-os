@@ -1,4 +1,8 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, lstat } from 'node:fs/promises';
+
+function parseJson(text) {
+  try { return JSON.parse(text); } catch { throw new Error('Invalid JSON received; contents withheld.'); }
+}
 
 export function apiOrigin(value) {
   const url = new URL(value);
@@ -15,20 +19,24 @@ export function apiOrigin(value) {
 
 export async function loadProfile(path) {
   if (!path) throw new Error('Set CONVOLAB_PROFILE or pass --profile with a private JSON credential file.');
-  const info = await stat(path);
-  if (!info.isFile() || (info.mode & 0o077) !== 0) {
-    throw new Error('Credential file must be a regular file with mode 600.');
-  }
-  const profile = JSON.parse(await readFile(path, 'utf8'));
+  const info = await lstat(path);
+  validateProfileFile(info);
+  const profile = parseJson(await readFile(path, 'utf8'));
   if (!validToken(profile.token)) {
     throw new Error('Credential file requires a nonempty token.');
   }
   return { baseUrl: apiOrigin(profile.baseUrl), token: profile.token };
 }
 
+function validateProfileFile(info) {
+  if (!info.isFile() || (info.mode & 0o077) !== 0) {
+    throw new Error('Credential file must be a regular file with mode 600.');
+  }
+  if (info.uid !== process.getuid()) throw new Error('Credential file must be owned by the current user.');
+}
+
 function validToken(token) {
-  if (typeof token !== 'string') return false;
-  return token.trim().length > 0 && !/[\r\n]/.test(token);
+  return typeof token === 'string' && /^(?=.*\S)[^\r\n]+$/.test(token);
 }
 
 function requestUrl(path, origin, query) {
@@ -48,7 +56,7 @@ async function responseBody(response, method, path) {
     error.retryAfter = response.headers.get('retry-after');
     throw error;
   }
-  return response.status === 204 ? { ok: true } : response.json();
+  return response.status === 204 ? { ok: true } : parseJson(await response.text());
 }
 
 export function createClient({ baseUrl, token }) {

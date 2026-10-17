@@ -1,4 +1,6 @@
 export const readCommands = {
+  readings: { path: '/api/reading-library', query: ['page'] },
+  reading: { path: '/api/convolab/readings/', id: true },
   books: { path: '/api/reading-books', query: ['page'] },
   book: { path: '/api/reading-books/', id: true },
   whoami: { path: '/api/me' },

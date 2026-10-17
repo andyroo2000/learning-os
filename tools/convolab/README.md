@@ -185,3 +185,13 @@ blindly repeat a stale update. This initial two-step move is not atomic.
 Book responses include ordered readings and their original printed page numbers.
 `books` returns 20 books per page, newest created first; follow `next_page_url`
 by incrementing `--page`. No title, type, or count labels are imposed on clients.
+
+### Importing readings
+
+Use `convolab reading-import --file /private/reading.json` to upload a document
+and its illustrations. The manifest contains a stable `id`, `document`, optional
+`coverFile`, and `expectedRevision` for a replacement. See
+[the readings manifest documentation](../../docs/readings.md) for the complete
+format. `convolab readings --page 1` lists the mixed library; `convolab reading ID`
+returns the full reading. Original ruby annotations are supplied by the importer;
+the server does not generate or replace furigana.

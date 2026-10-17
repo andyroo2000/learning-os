@@ -19,14 +19,13 @@ final class ReadingBookContents
 
     public function present(ReadingBook $book): array
     {
-        $ids = $this->ids($book->id);
-        $readings = Reading::query()->where('user_id', $book->user_id)->whereIn('id', $ids)->get()->keyBy('id');
+        $readings = Reading::query()->join('reading_book_entries', 'readings.id', '=', 'reading_book_entries.reading_id')
+            ->where('reading_book_entries.book_id', $book->id)->where('readings.user_id', $book->user_id)
+            ->orderBy('reading_book_entries.position')->select('readings.*')->get();
 
-        return [...$book->summary(), 'readings' => array_map(function (string $id) use ($readings): array {
-            $reading = $readings->get($id);
-
-            return [...$reading->summary(), 'pageNumbers' => array_column($reading->document['pages'], 'number')];
-        }, $ids)];
+        return [...$book->summary(), 'readings' => $readings->map(fn (Reading $reading): array => [
+            ...$reading->summary(), 'pageNumbers' => array_column($reading->document['pages'], 'number'),
+        ])->all()];
     }
 
     public function replace(int $userId, string $id, int $revision, array $ids): ReadingBook
@@ -35,9 +34,9 @@ final class ReadingBookContents
             // All book writes for an owner share this lock, including membership changes.
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $book = $this->books->owned($userId, $id);
-            abort_unless($book->revision === $revision, 409, 'Refresh the book before arranging readings.');
             $this->checkMembership($userId, $book->id, $ids);
             if ($this->ids($book->id) !== $ids) {
+                abort_unless($book->revision === $revision, 409, 'Refresh the book before arranging readings.');
                 $this->writeEntries($book, $ids);
             }
 
@@ -56,8 +55,12 @@ final class ReadingBookContents
     private function writeEntries(ReadingBook $book, array $ids): void
     {
         DB::table('reading_book_entries')->where('book_id', $book->id)->delete();
+        $rows = [];
         foreach ($ids as $position => $id) {
-            DB::table('reading_book_entries')->insert(['book_id' => $book->id, 'reading_id' => $id, 'position' => $position]);
+            $rows[] = ['book_id' => $book->id, 'reading_id' => $id, 'position' => $position];
+        }
+        foreach (array_chunk($rows, 100) as $chunk) {
+            DB::table('reading_book_entries')->insert($chunk);
         }
         $book->revision++;
         $book->save();

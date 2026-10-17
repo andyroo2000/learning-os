@@ -24,6 +24,7 @@ final class ReadingBookApiTest extends TestCase
         $this->assertDatabaseCount('reading_books', 1);
         $this->patchJson('/api/reading-books/'.$id, ['title' => 'New title', 'expectedRevision' => 1])
             ->assertOk()->assertJsonPath('revision', 2)->assertJsonPath('title', 'New title');
+        $this->patchJson('/api/reading-books/'.$id, ['title' => 'New title', 'expectedRevision' => 1])->assertOk()->assertJsonPath('revision', 2);
         $this->patchJson('/api/reading-books/'.$id, ['title' => 'Stale title', 'expectedRevision' => 1])->assertConflict();
     }
 
@@ -37,7 +38,7 @@ final class ReadingBookApiTest extends TestCase
         $endpoint = '/api/reading-books/'.$book.'/contents';
         $this->putJson($endpoint, ['expectedRevision' => 1, 'readingIds' => [$two->id, $one->id]])
             ->assertOk()->assertJsonPath('readings.0.id', $two->id)->assertJsonPath('readings.0.pageNumbers', [24]);
-        $this->putJson($endpoint, ['expectedRevision' => 2, 'readingIds' => [$two->id, $one->id]])
+        $this->putJson($endpoint, ['expectedRevision' => 1, 'readingIds' => [$two->id, $one->id]])
             ->assertOk()->assertJsonPath('revision', 2);
         $this->putJson($endpoint, ['expectedRevision' => 2, 'readingIds' => [$one->id]])
             ->assertOk()->assertJsonCount(1, 'readings')->assertJsonPath('revision', 3);
@@ -60,6 +61,7 @@ final class ReadingBookApiTest extends TestCase
         $another = $this->createBook();
         $this->putJson('/api/reading-books/'.$another.'/contents', ['expectedRevision' => 1, 'readingIds' => [$owned->id]])->assertConflict();
         $this->actingAs($other)->getJson('/api/reading-books/'.$book)->assertNotFound();
+        $this->putJson($endpoint, ['expectedRevision' => 2, 'readingIds' => []])->assertNotFound();
         $this->postJson('/api/reading-books', ['id' => $book, 'title' => 'Forest Tales'])->assertNotFound();
     }
 

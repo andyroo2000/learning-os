@@ -17,19 +17,12 @@ final class ReadingBooks
     {
         return DB::transaction(function () use ($userId, $id, $title): ReadingBook {
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
-            $existing = ReadingBook::query()->find($id);
-            if ($existing) {
-                abort_unless($existing->user_id === $userId, 404);
-                abort_unless($existing->title === $title, 409, 'This book ID already has a different title.');
-
-                return $existing;
-            }
-            $book = new ReadingBook;
-            $book->id = $id;
-            $book->user_id = $userId;
-            $book->title = $title;
-            $book->revision = 1;
-            $book->save();
+            ReadingBook::query()->insertOrIgnore([
+                'id' => $id, 'user_id' => $userId, 'title' => $title, 'revision' => 1,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $book = $this->owned($userId, $id);
+            abort_unless($book->title === $title, 409, 'This book ID already has a different title.');
 
             return $book;
         });
@@ -40,8 +33,8 @@ final class ReadingBooks
         return DB::transaction(function () use ($userId, $id, $revision, $title): ReadingBook {
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $book = $this->owned($userId, $id);
-            abort_unless($book->revision === $revision, 409, 'Refresh the book before editing.');
             if ($book->title !== $title) {
+                abort_unless($book->revision === $revision, 409, 'Refresh the book before editing.');
                 $book->title = $title;
                 $book->revision++;
                 $book->save();

@@ -2,7 +2,6 @@
 
 namespace App\Support\RateLimiting;
 
-use App\Domain\Achievements\Support\AchievementEvaluationRateLimiter;
 use App\Domain\Flashcards\Support\DeckRateLimiter;
 use App\Domain\Media\Support\CardMediaRateLimiter;
 use App\Domain\Media\Support\MediaAssetRateLimiter;
@@ -68,11 +67,6 @@ final class FlashcardMediaRateLimiterRegistrar
         RateLimiter::for(
             ToolAudioSignedUrlRateLimiter::NAME,
             fn (Request $request): Limit => resolve(ToolAudioSignedUrlRateLimiter::class)->limit($request),
-        );
-
-        RateLimiter::for(
-            AchievementEvaluationRateLimiter::NAME,
-            fn (Request $request): Limit => resolve(AchievementEvaluationRateLimiter::class)->limit($request),
         );
 
         RateLimiter::for(

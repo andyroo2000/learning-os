@@ -35,19 +35,19 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
                 'GET|HEAD',
                 'api/avatars/{avatarPath}',
                 'ShowAvatarAssetController',
-                wheres: ['avatarPath' => '.*'],
+                options: ['wheres' => ['avatarPath' => '.*']],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/tools-audio/signed-urls',
                 'ResolveToolAudioUrlsController',
-                throttle: 'tool-audio-signed-url',
+                options: ['throttle' => 'tool-audio-signed-url'],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/browser/tools/analytics',
                 'StoreBrowserToolAnalyticsEventController',
-                throttle: 'browser-tool-analytics-store',
+                options: ['throttle' => 'browser-tool-analytics-store'],
             ),
         ], $actualRoutes);
     }
@@ -58,21 +58,6 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
             ->map(static fn (LaravelRoute $route): string => implode('|', $route->methods()).' '.$route->uri())
             ->values();
 
-        $this->assertImmediatelyBefore(
-            $routeOrder,
-            'GET|HEAD api/achievements/catalog',
-            'GET|HEAD api/achievements/progress',
-        );
-        $this->assertImmediatelyBefore(
-            $routeOrder,
-            'GET|HEAD api/achievements/progress',
-            'POST api/achievements/evaluate',
-        );
-        $this->assertImmediatelyBefore(
-            $routeOrder,
-            'POST api/achievements/evaluate',
-            'GET|HEAD api/avatars/{avatarPath}',
-        );
         $this->assertImmediatelyBefore(
             $routeOrder,
             'GET|HEAD api/avatars/{avatarPath}',
@@ -91,7 +76,7 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
     }
 
     /**
-     * @param  array<string, string>  $wheres
+     * @param  array{throttle?: string, wheres?: array<string, string>}  $options
      * @return array{
      *     methods: string,
      *     uri: string,
@@ -105,10 +90,10 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
         string $methods,
         string $uri,
         string $action,
-        ?string $throttle = null,
-        array $wheres = [],
+        array $options = [],
     ): array {
         $middleware = ['api'];
+        $throttle = $options['throttle'] ?? null;
 
         if ($throttle !== null) {
             $middleware[] = 'throttle:'.$throttle;
@@ -120,7 +105,7 @@ class PublicMediaAnalyticsRouteContractTest extends TestCase
             'name' => null,
             'action' => $action,
             'middleware' => $middleware,
-            'wheres' => $wheres,
+            'wheres' => $options['wheres'] ?? [],
         ];
     }
 

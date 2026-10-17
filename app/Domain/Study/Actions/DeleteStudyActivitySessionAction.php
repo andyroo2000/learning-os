@@ -2,7 +2,6 @@
 
 namespace App\Domain\Study\Actions;
 
-use App\Domain\Achievements\Actions\InvalidateAchievementProgressProjectionAction;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use App\Models\User;
@@ -11,10 +10,6 @@ use Illuminate\Support\Str;
 
 final class DeleteStudyActivitySessionAction
 {
-    public function __construct(
-        private readonly ?InvalidateAchievementProgressProjectionAction $invalidateAchievementProgress = null,
-    ) {}
-
     /**
      * Delete an owned editable session.
      *
@@ -53,15 +48,8 @@ final class DeleteStudyActivitySessionAction
             }
 
             $session->delete();
-            $this->invalidateAchievementProgress()->handle($userId);
 
             return true;
         });
-    }
-
-    private function invalidateAchievementProgress(): InvalidateAchievementProgressProjectionAction
-    {
-        return $this->invalidateAchievementProgress
-            ?? app(InvalidateAchievementProgressProjectionAction::class);
     }
 }

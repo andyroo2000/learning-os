@@ -13,10 +13,6 @@ return new class extends Migration
         (require __DIR__.'/2026_10_17_170000_cancel_retired_content_generation.php')->up();
 
         // Deploy only after the creator and achievement callers have retired.
-        // This prefix belongs exclusively to discarded admin ScriptLab experiments.
-        if (! Storage::disk('media')->deleteDirectory('admin-script-lab-audio')) {
-            throw new RuntimeException('Unable to delete retired ScriptLab audio.');
-        }
         foreach ([
             'content_generation_requests',
             'content_audio_script_generation_jobs',
@@ -31,6 +27,12 @@ return new class extends Migration
         Schema::table('feature_flags', function (Blueprint $table): void {
             $table->dropColumn(['dialoguesEnabled', 'scriptsEnabled', 'audioCourseEnabled']);
         });
+
+        // Run irreversible media deletion only after all schema operations succeed.
+        // This prefix belongs exclusively to discarded admin ScriptLab experiments.
+        if (! Storage::disk('media')->deleteDirectory('admin-script-lab-audio')) {
+            throw new RuntimeException('Unable to delete retired ScriptLab audio.');
+        }
     }
 
     public function down(): void

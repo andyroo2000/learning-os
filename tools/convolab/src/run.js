@@ -9,7 +9,7 @@ import { newId } from './input.js';
 export async function run(argv) {
   const { values, positionals } = parseArgs({
     args: argv, allowPositionals: true,
-    options: Object.fromEntries(['profile', 'q', 'cursor', 'limit', 'card_id', 'per_page', 'file'].map(key => [key, { type: 'string' }])),
+    options: Object.fromEntries(['page', 'profile', 'q', 'cursor', 'limit', 'card_id', 'per_page', 'file'].map(key => [key, { type: 'string' }])),
   });
   const [command = 'help', ...args] = positionals;
   if (command === 'help') {

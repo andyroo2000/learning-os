@@ -4,6 +4,9 @@ import { jsonInput, requireUlid } from './input.js';
 const cards = '/api/study/cards';
 const drafts = '/api/study/card-drafts';
 export const writeCommands = {
+  'book-create': { path: '/api/reading-books', method: 'POST', payload: true, stableId: true },
+  'book-edit': { path: '/api/reading-books', method: 'PATCH', id: true, payload: true },
+  'book-order': { path: '/api/reading-books', suffix: '/contents', method: 'PUT', id: true, payload: true },
   create: { path: cards, method: 'POST', payload: true, stableId: true },
   edit: { path: cards, method: 'PATCH', id: true, payload: true },
   delete: { path: cards, method: 'DELETE', id: true },

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Readings\ReadingBookController;
 use App\Http\Controllers\Api\Readings\ReadingController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,5 +13,12 @@ return static function (): void {
             ->whereUlid('reading')->where('page', '[0-9]{1,5}');
         Route::post('/{reading}/sentences/{sentence}/audio', [ReadingController::class, 'audio'])
             ->whereUlid('reading')->where('sentence', '[0-9]{1,5}');
+    });
+    Route::prefix('/reading-books')->middleware('throttle:120,1')->group(function (): void {
+        Route::get('/', [ReadingBookController::class, 'index']);
+        Route::post('/', [ReadingBookController::class, 'store']);
+        Route::get('/{book}', [ReadingBookController::class, 'show'])->whereUlid('book');
+        Route::patch('/{book}', [ReadingBookController::class, 'update'])->whereUlid('book');
+        Route::put('/{book}/contents', [ReadingBookController::class, 'contents'])->whereUlid('book');
     });
 };

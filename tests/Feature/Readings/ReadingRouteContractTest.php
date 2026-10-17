@@ -18,6 +18,6 @@ class ReadingRouteContractTest extends TestCase
         $this->assertIsInt($first);
         $this->assertIsInt($last);
         $this->assertSame('POST api/decks', $order[$first - 1]);
-        $this->assertSame('GET|HEAD up', $order[$last + 1]);
+        $this->assertSame('GET|HEAD api/reading-books', $order[$last + 1]);
     }
 }

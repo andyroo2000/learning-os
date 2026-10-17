@@ -90,3 +90,22 @@ changing the current narrator. PATCH `.../readings/{id}/narration` accepts
 `voiceId` and `expectedRevision`. Clients omit voiceId for normal playback and
 receive the reading's chosen narrator. Narration playback remains sentence-based,
 so original text selections and pronunciation overrides align with the audio.
+
+## Reading position
+
+`PUT /api/reading-progress/{readingId}` records `pageNumber`, nullable
+`sentenceIndex`, `readingRevision`, `readAt` (ISO timestamp), and a stable UUID
+`eventId`. Keep the event unchanged when retrying an offline save. The newest
+reading timestamp wins; a delayed or repeated event returns the current position
+without moving the reader backwards. Equal timestamps break ties by event ID.
+Device clocks more than five minutes ahead are rejected. A content revision
+conflict returns 409, so clients must reload and validate their local position.
+The page and selected sentence must belong to the document; null sentence means
+only the page is selected.
+
+`GET /api/reading-progress/{readingId}` returns `{ "position": ... }` or null.
+`GET /api/reading-progress` returns `{ "continue": ... }` with the most recently
+read document summary and its position, including readings nested in books.
+All position routes enforce ownership and prohibit impersonation. Clients retain
+a pending local position until the API returns an acknowledgement, and scope
+local storage to the signed-in account.

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Readings\ReadingController;
 use App\Http\Controllers\Api\Readings\ReadingImportController;
 use App\Http\Controllers\Api\Readings\ReadingLibraryController;
 use App\Http\Controllers\Api\Readings\ReadingNarrationController;
+use App\Http\Controllers\Api\Readings\ReadingProgressController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
@@ -27,4 +28,9 @@ return static function (): void {
         Route::put('/{book}/contents', [ReadingBookController::class, 'contents'])->whereUlid('book');
     });
     Route::patch('/convolab/readings/{reading}/narration', ReadingNarrationController::class)->whereUlid('reading')->middleware('throttle:120,1');
+    Route::prefix('/reading-progress')->middleware('throttle:120,1')->group(function (): void {
+        Route::get('/', [ReadingProgressController::class, 'index']);
+        Route::get('/{reading}', [ReadingProgressController::class, 'show'])->whereUlid('reading');
+        Route::put('/{reading}', [ReadingProgressController::class, 'update'])->whereUlid('reading');
+    });
 };

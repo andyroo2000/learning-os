@@ -100,6 +100,21 @@ final class ReadingImportApiTest extends TestCase
         $this->assertSame($cover, Reading::findOrFail($payload['id'])->illustration_path);
     }
 
+    public function test_numeric_looking_text_is_not_coerced_during_replay_comparison(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $payload = $this->payload();
+        $document = json_decode($payload['document'], true);
+        $document['sentences'][0]['translation'] = '10';
+        $payload['document'] = json_encode($document);
+        $this->postJson('/api/reading-imports', $payload)->assertOk();
+        $document['sentences'][0]['translation'] = '1e1';
+        $payload['document'] = json_encode($document);
+        $this->postJson('/api/reading-imports', $payload)->assertConflict();
+        $payload['expectedRevision'] = 1;
+        $this->postJson('/api/reading-imports', $payload)->assertOk()->assertJsonPath('revision', 2);
+    }
+
     private function payload(): array
     {
         return ['id' => strtolower((string) Str::ulid()), 'document' => json_encode([

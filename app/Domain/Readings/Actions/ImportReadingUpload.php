@@ -57,8 +57,17 @@ final class ImportReadingUpload
 
     private function sameContent(Reading $reading, array $document, ?string $cover): bool
     {
-        // Array equality ignores JSON object key order and equivalent validated numbers.
-        return $reading->document == $document && $reading->illustration_path === $cover;
+        // Sort object keys without coercing sentence text such as numeric strings.
+        return $this->canonical($reading->document) === $this->canonical($document) && $reading->illustration_path === $cover;
+    }
+
+    private function canonical(array $value): array
+    {
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(fn ($entry) => is_array($entry) ? $this->canonical($entry) : $entry, $value);
     }
 
     private function newReading(int $userId, string $id): Reading

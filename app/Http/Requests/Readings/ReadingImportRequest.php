@@ -25,6 +25,9 @@ final class ReadingImportRequest extends FormRequest
     public function after(): array
     {
         return [function ($validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
             $bytes = strlen(json_encode($this->input('document')) ?: '');
             foreach (Arr::flatten($this->allFiles()) as $file) {
                 $bytes += $file->getSize();

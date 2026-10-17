@@ -17,7 +17,7 @@ class ReadingRouteContractTest extends TestCase
         $last = array_search('POST api/convolab/readings/{reading}/sentences/{sentence}/audio', $order, true);
         $this->assertIsInt($first);
         $this->assertIsInt($last);
-        $this->assertSame('POST api/decks', $order[$first - 1]);
+        $this->assertSame('PUT api/reading-books/{book}/contents', $order[$first - 1]);
         $this->assertSame('GET|HEAD up', $order[$last + 1]);
     }
 }

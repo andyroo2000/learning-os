@@ -1,4 +1,6 @@
 export const readCommands = {
+  books: { path: '/api/reading-books', query: ['page'] },
+  book: { path: '/api/reading-books/', id: true },
   whoami: { path: '/api/me' },
   overview: { path: '/api/study/overview' },
   search: { path: '/api/study/browser', query: ['q', 'cursor', 'limit'] },

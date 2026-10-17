@@ -157,3 +157,31 @@ Do not reuse a run directory for new tests. A machine crash cannot run `finally`
 retain the manifest until cleanup is confirmed. Deleting cards alone need not
 reverse analytics, so remove the disposable account too. Production smoke tests
 are explicit operator actions, never automatic CI jobs against personal data.
+
+## Organize reading books
+
+Books contain ordered readings; a reading may remain outside a book. These
+commands use the same private account token as the card commands:
+
+```sh
+convolab books --page 1
+convolab book-create --file book.json
+convolab book BOOK_ID
+convolab book-edit BOOK_ID --file title.json
+convolab book-order BOOK_ID --file contents.json
+```
+
+`book.json` contains a saved `new-id` result as `id` and a `title`.
+Creation retries with the same ID and title return the existing book. A
+conflicting title returns 409. `title.json` contains `title` and
+`expectedRevision` from the latest book response.
+
+`contents.json` contains `expectedRevision` and `readingIds`, the complete
+ordered list of reading IDs for that book. An empty list removes every reading
+from the book without deleting content. Remove a reading from its old book
+before assigning it to another. On 409, fetch the book and reconcile; do not
+blindly repeat a stale update. This initial two-step move is not atomic.
+
+Book responses include ordered readings and their original printed page numbers.
+`books` returns 20 books per page, newest created first; follow `next_page_url`
+by incrementing `--page`. No title, type, or count labels are imposed on clients.

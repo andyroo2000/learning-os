@@ -77,8 +77,20 @@ Example `card.json` (replace `id` with your saved new-id result):
 
 A listening draft uses `creationKind: "audio-recognition"`,
 `cardType: "recognition"`, an empty prompt object, and the complete answer.
-Draft creation starts asynchronous generation: poll `draft` until `status` is
-`ready`, inspect its full fields/media, and only then `commit` with `{ "id": "SAVED_CARD_ULID" }`.
+Draft creation starts asynchronous **text enrichment**: poll `draft` until
+`status` is `ready` (`error` means generation failed). Inspect and correct the
+expression, reading, and meaning before generating audio. For listening cards:
+
+1. Run `draft-audio DRAFT_ID`, then fetch `draft DRAFT_ID` again.
+2. Require a nonempty `previewAudio` and `previewAudioRole: "prompt"`.
+3. Run `draft-edit` with `expectedRevision` from that fresh draft, a prompt
+   containing only `cueAudio: previewAudio`, and the complete answer object plus
+   `answerAudio: previewAudio`. Preserve expression, reading, meaning, and notes.
+   The preview is separate from the final card fields; commit does not apply it.
+4. Refetch and verify the fields, then `commit` with `{ "id": "SAVED_CARD_ULID" }`.
+   On HTTP 409, re-read and reconcile instead of replaying a stale edit.
+
+For other card types, apply answer-role preview audio to `answer.answerAudio`.
 A ready draft is not a created card. `draft-retry` retries failed generation;
 `draft-image` requests an image preview. Generated audio may consume provider quota.
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createClient, loadProfile } from '../src/client.js';
 import { newId } from '../src/input.js';
 import { verifyDraft } from './drafts.js';
@@ -36,14 +37,15 @@ async function verifyPath(run, ids) {
 async function verifyUnlock(run, profile, ids) {
   const api = createClient(await loadProfile(profile));
   for (let index = 0; index < 2; index += 1) {
+    if (index > 0) await delay(1000);
     await api('/api/card-review-events', { method: 'POST', body: {
-      id: newId().id, card_id: ids[0], rating: 'good', reviewed_at: new Date(Date.now() + index * 1000).toISOString(),
+      id: newId().id, card_id: ids[0], rating: 'good', reviewed_at: new Date().toISOString(),
     } });
   }
   const reviews = await run('reviews', [], undefined);
   assert.ok(reviews.data.length >= 2);
   const path = (await run('path', [ids[0]])).data;
-  assert.equal(path.stages[1].cards[0].variant_status, 'available', JSON.stringify({unlocked: path.stages[0].cards[0].variant_unlocked_at, reviews: reviews.data.map(r => ({id:r.id,at:r.reviewed_at,rating:r.rating}))}));
+  assert.equal(path.stages[1].cards[0].variant_status, 'available');
   assert.equal(path.stages[2].cards[0].variant_status, 'locked');
 }
 

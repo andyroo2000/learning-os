@@ -20,12 +20,19 @@ async function availablePort() {
   return port;
 }
 
-async function waitForServer(origin) {
+function hasExited(server) {
+  return server.exitCode !== null || server.signalCode !== null;
+}
+
+async function waitForServer(origin, server) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (hasExited(server) || server.startupError) {
+      throw new Error(`Local Laravel server exited during startup: ${server.startupError ?? server.diagnostics}`);
+    }
     try { if ((await fetch(`${origin}/up`)).ok) return; } catch { /* Server is starting. */ }
     await delay(100);
   }
-  throw new Error('Local Laravel server did not become healthy.');
+  throw new Error(`Local Laravel server did not become healthy: ${server.diagnostics}`);
 }
 
 function isolatedEnvironment(directory) {
@@ -33,6 +40,24 @@ function isolatedEnvironment(directory) {
     APP_CONFIG_CACHE: join(directory, 'config.php'), DB_CONNECTION: 'sqlite', DB_DATABASE: join(directory, 'database.sqlite'), DB_URL: '',
     CACHE_STORE: 'array', SESSION_DRIVER: 'array', QUEUE_CONNECTION: 'database', MAIL_MAILER: 'array', BCRYPT_ROUNDS: '4',
   };
+}
+
+function startServer(port, env) {
+  const router = join(root, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php');
+  const server = spawn('php', ['-d', 'display_errors=0', '-S', `127.0.0.1:${port}`, '-t', '.', router], {
+    cwd: join(root, 'public'), env, stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  server.diagnostics = '';
+  server.stderr.on('data', chunk => { server.diagnostics = (server.diagnostics + chunk).slice(-4000); });
+  server.on('error', error => { server.startupError = error.message; });
+  return server;
+}
+
+async function stopServer(server) {
+  if (!server?.pid || hasExited(server)) return;
+  const exited = once(server, 'exit');
+  server.kill();
+  await exited;
 }
 
 async function main() {
@@ -46,8 +71,8 @@ async function main() {
     const tokens = JSON.parse(seeded.stdout);
     const port = await availablePort();
     const baseUrl = `http://127.0.0.1:${port}`;
-    server = spawn('php', ['-d', 'display_errors=0', '-S', `127.0.0.1:${port}`, '-t', '.', join(root, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php')], { cwd: join(root, 'public'), env, stdio: 'ignore' });
-    await waitForServer(baseUrl);
+    server = startServer(port, env);
+    await waitForServer(baseUrl, server);
     const profile = join(directory, 'profile.json');
     const other = join(directory, 'other.json');
     await writeFile(profile, JSON.stringify({ baseUrl, token: tokens.token }), { mode: 0o600 });
@@ -55,7 +80,7 @@ async function main() {
     await scenario(profile, directory, other);
     console.log(JSON.stringify({ ok: true, database: 'isolated SQLite', cleaned: true }));
   } finally {
-    if (server) { server.kill(); await once(server, 'exit'); }
+    await stopServer(server);
     await rm(directory, { recursive: true });
   }
 }

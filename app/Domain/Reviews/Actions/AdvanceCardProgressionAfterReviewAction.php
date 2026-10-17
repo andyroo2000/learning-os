@@ -64,12 +64,18 @@ final class AdvanceCardProgressionAfterReviewAction
             return;
         }
 
-        $reviewedStage = $liveReviewedCard->variant_stage;
+        $this->advanceStage($liveReviewedCard, $cards, $reviewedAt, $reviewEventId);
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private function advanceStage(Card $reviewedCard, Collection $cards, Carbon $reviewedAt, string $reviewEventId): void
+    {
+        $reviewedStage = $reviewedCard->variant_stage;
         $highestAvailableStage = $cards
             ->filter(fn (Card $card): bool => $card->isProgressionAvailable())
             ->max('variant_stage');
 
-        // Reviews of an earlier stage must never skip over the currently active stage.
+        // Earlier stages cannot advance past the currently active stage.
         if ($highestAvailableStage !== $reviewedStage) {
             return;
         }
@@ -91,14 +97,16 @@ final class AdvanceCardProgressionAfterReviewAction
 
         // A partially unlocked stage is invalid metadata. Fail closed rather than
         // allowing its available subset to advance past locked sibling cards.
-        if ($stageCards->isEmpty()
-            || $stageCards->contains(fn (Card $card): bool => ! $card->isProgressionAvailable())
-            || ! $this->stageMeetsRequirement(
-                $stageCards,
-                $unlockRequirement,
-                $reviewedAt,
-                $reviewEventId,
-            )
+        if (! $this->stageIsAvailable($stageCards)) {
+            return;
+        }
+
+        if (! $this->stageMeetsRequirement(
+            $stageCards,
+            $unlockRequirement,
+            $reviewedAt,
+            $reviewEventId,
+        )
         ) {
             return;
         }
@@ -120,6 +128,13 @@ final class AdvanceCardProgressionAfterReviewAction
             $reviewedCard->ownerUserId(),
             $reviewedAt,
         );
+    }
+
+    /** @param Collection<int, Card> $cards */
+    private function stageIsAvailable(Collection $cards): bool
+    {
+        return $cards->isNotEmpty()
+            && $cards->every(fn (Card $card): bool => $card->isProgressionAvailable());
     }
 
     /** @return Collection<int, Card> */
@@ -221,12 +236,13 @@ final class AdvanceCardProgressionAfterReviewAction
             ->first(['reviewed_at', 'id']);
 
         if ($latestAgain !== null) {
-            $successfulReviewQuery->where(function ($query) use ($latestAgain): void {
+            $failedAt = CardReviewEvent::formatClientTimestampForStorage($latestAgain->reviewed_at);
+            $successfulReviewQuery->where(function ($query) use ($latestAgain, $failedAt): void {
                 $query
-                    ->where('reviewed_at', '>', $latestAgain->reviewed_at)
-                    ->orWhere(function ($query) use ($latestAgain): void {
+                    ->where('reviewed_at', '>', $failedAt)
+                    ->orWhere(function ($query) use ($latestAgain, $failedAt): void {
                         $query
-                            ->where('reviewed_at', $latestAgain->reviewed_at)
+                            ->where('reviewed_at', $failedAt)
                             ->where('id', '>', $latestAgain->id);
                     });
             });
@@ -248,12 +264,14 @@ final class AdvanceCardProgressionAfterReviewAction
         // Batch rows are bulk-inserted before their card states are applied. Eligibility
         // must only see events at or before the event currently being applied, otherwise
         // a future row in the same offline batch could unlock a stage too early.
-        $query->where(function (Builder $query) use ($reviewedAt, $reviewEventId): void {
+        // DateTime bindings otherwise truncate the current event to whole seconds.
+        $cutoff = CardReviewEvent::formatClientTimestampForStorage($reviewedAt);
+        $query->where(function (Builder $query) use ($cutoff, $reviewEventId): void {
             $query
-                ->where('reviewed_at', '<', $reviewedAt)
-                ->orWhere(function (Builder $query) use ($reviewedAt, $reviewEventId): void {
+                ->where('reviewed_at', '<', $cutoff)
+                ->orWhere(function (Builder $query) use ($cutoff, $reviewEventId): void {
                     $query
-                        ->where('reviewed_at', $reviewedAt)
+                        ->where('reviewed_at', $cutoff)
                         ->where('id', '<=', $reviewEventId);
                 });
         });
@@ -316,9 +334,7 @@ final class AdvanceCardProgressionAfterReviewAction
     /** @param Collection<int, Card> $familyCards */
     private function introductionAvailableAt(Card $card, Collection $familyCards, Carbon $unlockedAt): Carbon
     {
-        if ($card->selection_policy !== CardSelectionPolicy::Sprinkled
-            || $card->variant_stage !== 4
-            || $card->variant_kind !== VocabVariantKind::SentenceAudioRecognition->value) {
+        if (! $this->isSpacedListening($card)) {
             return $unlockedAt->copy();
         }
 
@@ -330,6 +346,13 @@ final class AdvanceCardProgressionAfterReviewAction
             ?? $unlockedAt->copy()->addDay();
 
         return $spacedAt->isAfter($unlockedAt) ? $spacedAt : $unlockedAt->copy();
+    }
+
+    private function isSpacedListening(Card $card): bool
+    {
+        return $card->selection_policy === CardSelectionPolicy::Sprinkled
+            && $card->variant_stage === 4
+            && $card->variant_kind === VocabVariantKind::SentenceAudioRecognition->value;
     }
 
     /** @param Collection<int, Card> $cards */

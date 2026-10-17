@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Domain\Admin\Models\AdminSentenceScriptTest;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -59,11 +58,11 @@ final class AdminSentenceScriptLegacyMigrationTest extends TestCase
 
         $migration->up();
 
-        $copied = AdminSentenceScriptTest::query()->sole();
+        $copied = DB::table('admin_sentence_script_tests')->sole();
         $this->assertSame($id, $copied->id);
         $this->assertSame($actorId, $copied->actor_convolab_user_id);
-        $this->assertSame([['type' => 'L2', 'text' => '東京']], $copied->units_json);
-        $this->assertSame(10.5, $copied->estimated_duration_secs);
+        $this->assertSame([['type' => 'L2', 'text' => '東京']], json_decode($copied->units_json, true, flags: JSON_THROW_ON_ERROR));
+        $this->assertSame(10.5, (float) $copied->estimated_duration_secs);
         $this->assertDatabaseCount('sentence_script_tests', 1);
     }
 }

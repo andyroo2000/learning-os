@@ -18,10 +18,6 @@ class AdminRouteContractTest extends TestCase
         $this->assertSame(array_merge(
             $this->expectedUserAndInviteRoutes(),
             $this->expectedAvatarAndPronunciationRoutes(),
-            $this->expectedScriptLabCourseRoutes(),
-            $this->expectedScriptLabSentenceRoutes(),
-            $this->expectedCoursePipelineRoutes(),
-            $this->expectedCourseRenderingRoutes(),
         ), $actualRoutes);
     }
 
@@ -57,28 +53,26 @@ class AdminRouteContractTest extends TestCase
                 'DELETE',
                 'api/convolab/admin/users/{convoLabUserId}',
                 'DeleteAdminUserController',
-                'convolab-admin-user-delete',
-                ['convoLabUserId' => $uuid],
+                ['throttle' => 'convolab-admin-user-delete', 'wheres' => ['convoLabUserId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/admin/users/{convoLabUserId}/info',
                 'ShowAdminUserController',
-                wheres: ['convoLabUserId' => $uuid],
+                options: ['wheres' => ['convoLabUserId' => $uuid]],
             ),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/invite-codes', 'ListAdminInviteCodesController'),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/admin/invite-codes',
                 'CreateAdminInviteCodeController',
-                'convolab-admin-invite-create',
+                ['throttle' => 'convolab-admin-invite-create'],
             ),
             $this->expectedRoute(
                 'DELETE',
                 'api/convolab/admin/invite-codes/{inviteId}',
                 'DeleteAdminInviteCodeController',
-                'convolab-admin-invite-delete',
-                ['inviteId' => $uuid],
+                ['throttle' => 'convolab-admin-invite-delete', 'wheres' => ['inviteId' => $uuid]],
             ),
         ];
     }
@@ -98,20 +92,19 @@ class AdminRouteContractTest extends TestCase
                 'POST',
                 'api/convolab/admin/avatars/speaker/{filename}/upload',
                 'UploadAdminSpeakerAvatarController',
-                'convolab-admin-speaker-avatar-upload',
+                ['throttle' => 'convolab-admin-speaker-avatar-upload'],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/admin/avatars/speaker/{filename}/recrop',
                 'RecropAdminSpeakerAvatarController',
-                'convolab-admin-speaker-avatar-recrop',
+                ['throttle' => 'convolab-admin-speaker-avatar-recrop'],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/admin/avatars/user/{convoLabUserId}/upload',
                 'UploadAdminUserAvatarController',
-                'convolab-admin-user-avatar-upload',
-                ['convoLabUserId' => $uuid],
+                ['throttle' => 'convolab-admin-user-avatar-upload', 'wheres' => ['convoLabUserId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
@@ -127,179 +120,7 @@ class AdminRouteContractTest extends TestCase
                 'PUT',
                 'api/convolab/admin/pronunciation-dictionaries',
                 'UpdateAdminPronunciationDictionaryController',
-                'convolab-admin-pronunciation-dictionary-update',
-            ),
-        ];
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function expectedScriptLabCourseRoutes(): array
-    {
-        $uuid = self::UUID_PATTERN;
-
-        return [
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/script-lab/courses',
-                'ListAdminScriptLabCoursesController',
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/script-lab/courses',
-                'StoreAdminScriptLabCourseController',
-                'convolab-admin-script-lab-course-create',
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/script-lab/courses/{courseId}',
-                'ShowAdminScriptLabCourseController',
-                wheres: ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'DELETE',
-                'api/convolab/admin/script-lab/courses',
-                'DeleteAdminScriptLabCoursesController',
-                'convolab-admin-script-lab-course-delete',
-            ),
-        ];
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function expectedScriptLabSentenceRoutes(): array
-    {
-        $uuid = self::UUID_PATTERN;
-
-        return [
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/script-lab/sentence-script',
-                'GenerateAdminSentenceScriptController',
-                'convolab-admin-sentence-script-generate',
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/script-lab/sentence-tests',
-                'ListAdminSentenceScriptTestsController',
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/script-lab/sentence-tests/{testId}',
-                'ShowAdminSentenceScriptTestController',
-                wheres: ['testId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'DELETE',
-                'api/convolab/admin/script-lab/sentence-tests',
-                'DeleteAdminSentenceScriptTestsController',
-                'convolab-admin-sentence-script-delete',
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/script-lab/synthesize-line',
-                'SynthesizeAdminScriptLabLineController',
-                'convolab-admin-script-lab-line-synthesize',
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/script-lab/test-pronunciation',
-                'TestAdminPronunciationController',
-                'convolab-admin-script-lab-pronunciation-test',
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/script-lab/audio/{renderingId}',
-                'DownloadAdminScriptLabAudioController',
-                wheres: ['renderingId' => $uuid],
-            ),
-        ];
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function expectedCoursePipelineRoutes(): array
-    {
-        $uuid = self::UUID_PATTERN;
-
-        return [
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/courses/{courseId}/pipeline-data',
-                'ShowAdminCoursePipelineController',
-                wheres: ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'PUT',
-                'api/convolab/admin/courses/{courseId}/pipeline-data',
-                'UpdateAdminCoursePipelineController',
-                'convolab-admin-course-pipeline-update',
-                ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/build-script-config',
-                'BuildAdminCourseScriptConfigController',
-                wheres: ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/build-prompt',
-                'BuildAdminCoursePromptController',
-                wheres: ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/generate-dialogue',
-                'GenerateAdminCourseDialogueController',
-                'convolab-admin-course-dialogue-generate',
-                ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/generate-script',
-                'GenerateAdminCourseScriptController',
-                'convolab-admin-course-script-generate',
-                ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/generate-audio',
-                'GenerateAdminCourseAudioController',
-                'convolab-admin-course-audio-generate',
-                ['courseId' => $uuid],
-            ),
-        ];
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function expectedCourseRenderingRoutes(): array
-    {
-        $uuid = self::UUID_PATTERN;
-
-        return [
-            $this->expectedRoute(
-                'POST',
-                'api/convolab/admin/courses/{courseId}/synthesize-line',
-                'SynthesizeAdminCourseLineController',
-                'convolab-admin-course-line-synthesize',
-                ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/courses/{courseId}/line-renderings',
-                'ListAdminCourseLineRenderingsController',
-                wheres: ['courseId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'GET|HEAD',
-                'api/convolab/admin/courses/{courseId}/line-renderings/{renderingId}/audio',
-                'DownloadAdminCourseLineRenderingController',
-                wheres: ['courseId' => $uuid, 'renderingId' => $uuid],
-            ),
-            $this->expectedRoute(
-                'DELETE',
-                'api/convolab/admin/courses/{courseId}/line-renderings/{renderingId}',
-                'DeleteAdminCourseLineRenderingController',
-                'convolab-admin-course-line-delete',
-                ['courseId' => $uuid, 'renderingId' => $uuid],
+                ['throttle' => 'convolab-admin-pronunciation-dictionary-update'],
             ),
         ];
     }
@@ -317,13 +138,13 @@ class AdminRouteContractTest extends TestCase
         );
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'DELETE api/convolab/admin/courses/{courseId}/line-renderings/{renderingId}',
+            'PUT api/convolab/admin/pronunciation-dictionaries',
             'GET|HEAD api/convolab/episodes',
         );
     }
 
     /**
-     * @param  array<string, string>  $wheres
+     * @param  array{throttle?: string, wheres?: array<string, string>}  $options
      * @return array{
      *     methods: string,
      *     uri: string,
@@ -337,10 +158,10 @@ class AdminRouteContractTest extends TestCase
         string $methods,
         string $uri,
         string $action,
-        ?string $throttle = null,
-        array $wheres = [],
+        array $options = [],
     ): array {
         $middleware = ['api', 'auth:sanctum'];
+        $throttle = $options['throttle'] ?? null;
 
         if ($throttle !== null) {
             $middleware[] = 'throttle:'.$throttle;
@@ -352,7 +173,7 @@ class AdminRouteContractTest extends TestCase
             'name' => null,
             'action' => $action,
             'middleware' => $middleware,
-            'wheres' => $wheres,
+            'wheres' => $options['wheres'] ?? [],
         ];
     }
 

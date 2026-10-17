@@ -36,18 +36,6 @@ final class AdminContentRateLimiterRegistrar
             AdminMutationRateLimiter::SPEAKER_AVATAR_UPLOAD,
             AdminMutationRateLimiter::SPEAKER_AVATAR_RECROP,
             AdminMutationRateLimiter::USER_AVATAR_UPLOAD,
-            AdminMutationRateLimiter::SCRIPT_LAB_COURSE_CREATE,
-            AdminMutationRateLimiter::SCRIPT_LAB_COURSE_DELETE,
-            AdminMutationRateLimiter::SENTENCE_SCRIPT_GENERATE,
-            AdminMutationRateLimiter::SENTENCE_SCRIPT_DELETE,
-            AdminMutationRateLimiter::SCRIPT_LAB_LINE_SYNTHESIZE,
-            AdminMutationRateLimiter::SCRIPT_LAB_PRONUNCIATION_TEST,
-            AdminMutationRateLimiter::COURSE_PIPELINE_UPDATE,
-            AdminMutationRateLimiter::COURSE_DIALOGUE_GENERATE,
-            AdminMutationRateLimiter::COURSE_SCRIPT_GENERATE,
-            AdminMutationRateLimiter::COURSE_AUDIO_GENERATE,
-            AdminMutationRateLimiter::COURSE_LINE_SYNTHESIZE,
-            AdminMutationRateLimiter::COURSE_LINE_DELETE,
         ] as $name) {
             RateLimiter::for(
                 $name,

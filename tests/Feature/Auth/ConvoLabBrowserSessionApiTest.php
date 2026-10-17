@@ -146,14 +146,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
     public function test_browser_current_user_uses_the_authenticated_web_session(): void
     {
         $account = $this->projectedUser(['email' => 'ada@example.com']);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
 
         $this->statefulJson('GET', '/api/convolab/browser/auth/me', [], $cookies)
             ->assertOk()
@@ -165,33 +158,9 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
     public function test_browser_session_can_use_the_account_compatibility_api_without_a_proxy_header(): void
     {
         $account = $this->projectedUser(['email' => 'ada@example.com']);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
 
-        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
-            ->assertOk()
-            ->assertJsonPath('id', $account['convolab_id'])
-            ->assertJsonPath('email', 'ada@example.com');
-
-        $this->statefulJson(
-            'PATCH',
-            '/api/convolab/auth/me',
-            ['displayName' => 'Ada Updated'],
-            $cookies,
-        )->assertOk()
-            ->assertJsonPath('id', $account['convolab_id'])
-            ->assertJsonPath('displayName', 'Ada Updated');
-
-        $this->assertDatabaseHas('admin_user_projections', [
-            'convolab_id' => $account['convolab_id'],
-            'display_name' => 'Ada Updated',
-        ]);
+        $this->assertAccountReadAndUpdate($account, $cookies);
     }
 
     public function test_admin_browser_session_can_use_admin_reads_without_a_proxy_token(): void
@@ -200,26 +169,12 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'email' => 'admin@example.com',
             'role' => 'admin',
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('admin@example.com');
 
         $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
             ->assertOk()
             ->assertJsonPath('users', 1);
 
-        $this->statefulJson(
-            'GET',
-            '/api/convolab/admin/script-lab/sentence-tests',
-            [],
-            $cookies,
-        )->assertOk()
-            ->assertJsonPath('tests', []);
     }
 
     public function test_non_admin_browser_session_cannot_use_admin_routes(): void
@@ -228,14 +183,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'email' => 'learner@example.com',
             'role' => 'user',
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'learner@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('learner@example.com');
 
         $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
             ->assertForbidden();
@@ -249,14 +197,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'email' => 'admin@example.com',
             'role' => 'admin',
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('admin@example.com');
 
         $this->statefulJson('GET', '/api/convolab/admin/stats', [], $cookies)
             ->assertOk();
@@ -275,14 +216,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'email' => 'admin@example.com',
             'role' => 'admin',
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('admin@example.com');
 
         $response = $this->statefulJson(
             'POST',
@@ -308,14 +242,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'email' => 'other@example.com',
             'role' => 'user',
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'admin@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('admin@example.com');
 
         $this->withHeader('X-Convo-Lab-User-Id', $other['convolab_id']);
         $this->statefulJson(
@@ -334,34 +261,10 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
     {
         $account = $this->projectedUser(['email' => 'ada@example.com']);
         $other = $this->projectedUser(['email' => 'grace@example.com']);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
 
         $this->withHeader('X-Convo-Lab-User-Id', $other['convolab_id']);
-        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
-            ->assertOk()
-            ->assertJsonPath('id', $account['convolab_id'])
-            ->assertJsonPath('email', 'ada@example.com');
-
-        $this->statefulJson(
-            'PATCH',
-            '/api/convolab/auth/me',
-            ['displayName' => 'Ada Updated'],
-            $cookies,
-        )->assertOk()
-            ->assertJsonPath('id', $account['convolab_id'])
-            ->assertJsonPath('displayName', 'Ada Updated');
-
-        $this->assertDatabaseHas('admin_user_projections', [
-            'convolab_id' => $account['convolab_id'],
-            'display_name' => 'Ada Updated',
-        ]);
+        $this->assertAccountReadAndUpdate($account, $cookies);
         $this->assertDatabaseHas('admin_user_projections', [
             'convolab_id' => $other['convolab_id'],
             'display_name' => null,
@@ -381,14 +284,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
 
         $this->statefulJson(
             'POST',
@@ -426,14 +322,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
     public function test_browser_session_can_delete_its_account(): void
     {
         $account = $this->projectedUser(['email' => 'ada@example.com']);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
 
         $this->statefulJson(
             'DELETE',
@@ -473,14 +362,7 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
     public function test_browser_logout_invalidates_the_authenticated_session_and_rotates_anonymous_state(): void
     {
         $this->projectedUser(['email' => 'ada@example.com']);
-        $csrf = $this->csrfSession();
-        $login = $this->statefulJson(
-            'POST',
-            '/api/convolab/browser/auth/login',
-            ['email' => 'ada@example.com', 'password' => 'correct horse battery staple'],
-            $csrf,
-        )->assertOk();
-        $cookies = $this->withAuthenticatedSession($csrf, $login);
+        $cookies = $this->loginBrowserSession('ada@example.com');
         $sessionId = $cookies['session'];
 
         $logout = $this->statefulJson(
@@ -554,5 +436,40 @@ class ConvoLabBrowserSessionApiTest extends ConvoLabBrowserSessionApiTestCase
         $this->assertNotNull($signup);
         $this->assertContains('throttle:convolab-logins', $login->gatherMiddleware());
         $this->assertContains('throttle:convolab-signups', $signup->gatherMiddleware());
+    }
+
+    private function loginBrowserSession(string $email): array
+    {
+        $csrf = $this->csrfSession();
+        $login = $this->statefulJson(
+            'POST',
+            '/api/convolab/browser/auth/login',
+            ['email' => $email, 'password' => 'correct horse battery staple'],
+            $csrf,
+        )->assertOk();
+
+        return $this->withAuthenticatedSession($csrf, $login);
+    }
+
+    private function assertAccountReadAndUpdate(array $account, array $cookies): void
+    {
+        $this->statefulJson('GET', '/api/convolab/auth/me', [], $cookies)
+            ->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('email', 'ada@example.com');
+
+        $this->statefulJson(
+            'PATCH',
+            '/api/convolab/auth/me',
+            ['displayName' => 'Ada Updated'],
+            $cookies,
+        )->assertOk()
+            ->assertJsonPath('id', $account['convolab_id'])
+            ->assertJsonPath('displayName', 'Ada Updated');
+
+        $this->assertDatabaseHas('admin_user_projections', [
+            'convolab_id' => $account['convolab_id'],
+            'display_name' => 'Ada Updated',
+        ]);
     }
 }

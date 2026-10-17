@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Content;
 
-use App\Support\Content\ConvoLabContentTables;
 use Illuminate\Database\Connection;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\PostgresConnection;
@@ -20,7 +19,7 @@ class ContentAudioScriptGenerationMigrationTest extends TestCase
 {
     private const MIGRATION = LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_130000_create_content_audio_script_generation_jobs.php';
 
-    public function test_migration_identifiers_fit_postgres_and_rehearsal_reset_orders_children_first(): void
+    public function test_migration_identifiers_fit_postgres(): void
     {
         $this->assertFileExists(self::MIGRATION);
         foreach ([
@@ -35,14 +34,6 @@ class ContentAudioScriptGenerationMigrationTest extends TestCase
             $this->assertLessThanOrEqual(63, strlen($identifier), "Database identifier [{$identifier}] is too long for PostgreSQL.");
         }
 
-        $job = array_search('content_audio_script_generation_jobs', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $script = array_search('content_audio_scripts', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $episode = array_search('content_episodes', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $this->assertIsInt($job);
-        $this->assertIsInt($script);
-        $this->assertIsInt($episode);
-        $this->assertLessThan($script, $job);
-        $this->assertLessThan($episode, $job);
     }
 
     #[DataProvider('grammarProvider')]

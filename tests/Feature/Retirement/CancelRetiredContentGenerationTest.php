@@ -12,6 +12,8 @@ class CancelRetiredContentGenerationTest extends TestCase
 
     public function test_retirement_cancels_only_the_removed_job_classes(): void
     {
+        $storage = require database_path('migrations/2026_10_17_180000_retire_creator_storage.php');
+        $storage->down();
         $retired = $this->enqueue('App\\Jobs\\ProcessContentDialogueGeneration');
         $active = $this->enqueue('App\\Jobs\\ProcessStudyCardDraft');
         $unknown = $this->enqueue('App\\Jobs\\ProcessContentSomethingElse');

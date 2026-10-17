@@ -30,12 +30,10 @@ class ImportConvoLabRehearsalData extends Command
      * @var list<string>
      */
     private const TARGET_TABLES = [
-        'admin_sentence_script_tests',
         'admin_course_line_renderings',
         ...ConvoLabContentTables::RESET_IN_DELETE_ORDER,
         'card_media',
         'card_learning_concepts',
-        'achievement_card_projections',
         'card_review_events',
         'sync_feed_entries',
         'readings',
@@ -50,11 +48,6 @@ class ImportConvoLabRehearsalData extends Command
         'decks',
         'courses',
         'study_import_jobs',
-        'achievement_study_session_projections',
-        'achievement_progress_projections',
-        'achievement_awards',
-        'study_milestones',
-        'study_milestone_profiles',
         'study_settings',
         'study_activity_sessions',
         'user_known_kanji',

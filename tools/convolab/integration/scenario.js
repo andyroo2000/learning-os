@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createClient, loadProfile } from '../src/client.js';
 import { newId } from '../src/input.js';
 import { verifyDraft } from './drafts.js';
+import { verifyMedia } from './media.js';
 import { harness, cleanup, failsWith } from './harness.js';
 
 function cardPayload(id, label, cloze = false) {
@@ -42,8 +43,8 @@ async function verifyUnlock(run, profile, ids) {
       id: newId().id, card_id: ids[0], rating: 'good', reviewed_at: new Date().toISOString(),
     } });
   }
-  const reviews = await run('reviews', [], undefined);
-  assert.ok(reviews.data.length >= 2);
+  const reviews = await run('reviews', ['--card_id', ids[0]]);
+  assert.equal(reviews.data.length, 2);
   const path = (await run('path', [ids[0]])).data;
   assert.equal(path.stages[1].cards[0].variant_status, 'available');
   assert.equal(path.stages[2].cards[0].variant_status, 'locked');
@@ -60,6 +61,7 @@ export async function scenario(profile, directory, otherProfile, media = false) 
   await writeFile(manifestPath, JSON.stringify({ cards: [...ids, draftCardId], drafts: [draftId], label, accountId: account.data.id }), { mode: 0o600 });
   try {
     const first = media ? await verifyDraft(run, { draftId, cardId: ids[0], label, media }) : undefined;
+    if (first) await verifyMedia(profile, directory, first.prompt.cueAudio);
     await exercise(run, { profile, ids, label, first });
     if (!media) await verifyDraft(run, { draftId, cardId: draftCardId, label, media });
     if (otherProfile) await failsWith(harness(otherProfile, directory)('card', [ids[0]]), 404);

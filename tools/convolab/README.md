@@ -123,6 +123,8 @@ node tools/convolab/integration/live.js --profile /private/test-profile.json \
 
 `--media` additionally waits for real listening draft generation, commits it,
 checks prompt audio/answer fields, retries the commit, and prepares answer audio.
+It streams the generated audio through the authenticated API and checks a positive
+duration with `ffprobe` (required only for `--media`). Downloaded test audio is removed.
 The operator-only `integration/provision.php` can be streamed to `php` in the
 backend container from its app root. Capture its output privately; it includes
 an expiring fixture token and a random password for deleting the disposable

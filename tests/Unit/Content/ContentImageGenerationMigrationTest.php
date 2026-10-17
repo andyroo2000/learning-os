@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Content;
 
-use App\Support\Content\ConvoLabContentTables;
 use Illuminate\Database\Connection;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\PostgresConnection;
@@ -20,7 +19,7 @@ class ContentImageGenerationMigrationTest extends TestCase
 {
     private const MIGRATION = LEARNING_OS_PROJECT_ROOT.'/database/migrations/2026_07_21_140000_create_content_image_generation_jobs.php';
 
-    public function test_migration_identifiers_fit_postgres_and_rehearsal_reset_respects_foreign_keys(): void
+    public function test_migration_identifiers_fit_postgres(): void
     {
         $this->assertFileExists(self::MIGRATION);
         foreach ([
@@ -33,14 +32,6 @@ class ContentImageGenerationMigrationTest extends TestCase
             $this->assertLessThanOrEqual(63, strlen($identifier), "Database identifier [{$identifier}] is too long for PostgreSQL.");
         }
 
-        $imageJob = array_search('content_image_generation_jobs', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $dialogue = array_search('content_dialogues', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $episode = array_search('content_episodes', ConvoLabContentTables::CONTENT_IN_DELETE_ORDER, true);
-        $this->assertIsInt($imageJob);
-        $this->assertIsInt($dialogue);
-        $this->assertIsInt($episode);
-        $this->assertLessThan($dialogue, $imageJob);
-        $this->assertLessThan($episode, $imageJob);
     }
 
     #[DataProvider('grammarProvider')]

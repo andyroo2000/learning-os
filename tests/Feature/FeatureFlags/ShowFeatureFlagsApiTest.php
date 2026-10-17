@@ -149,6 +149,9 @@ class ShowFeatureFlagsApiTest extends TestCase
 
     public function test_adoption_migration_preserves_a_preexisting_feature_flags_table(): void
     {
+        // Exercise this historical migration against its original, pre-retirement schema.
+        $retirement = require database_path('migrations/2026_10_17_180000_retire_creator_storage.php');
+        $retirement->down();
         DB::table('feature_flags')->insert([
             'id' => 'legacy',
             'dialoguesEnabled' => false,

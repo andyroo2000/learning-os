@@ -1,0 +1,9 @@
+{
+  "name": "@convolab/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "convolab": "cli.js" },
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test test/*.test.js" }
+}

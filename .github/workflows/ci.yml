@@ -42,6 +42,9 @@ jobs:
       - name: Audit Node dependencies
         run: npm run audit:dependencies
 
+      - name: Test ConvoLab CLI
+        run: npm test --prefix tools/convolab
+
       - name: Validate Composer files
         run: composer validate --strict
 

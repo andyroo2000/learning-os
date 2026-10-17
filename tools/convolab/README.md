@@ -1,7 +1,7 @@
 # ConvoLab CLI
 
 Dependency-free Node 24+ POSIX (macOS/Linux) client for Learning OS through the ConvoLab public API.
-Install locally with `npm install --global ./tools/convolab`, or run
+Install from a packaged release as described below, or run
 `node tools/convolab/cli.js help` directly. No application database access is used.
 
 Set `CONVOLAB_PROFILE` to a mode-600 JSON file containing `baseUrl` (for example,
@@ -39,8 +39,8 @@ inspect matching meanings and review evidence before inferring mastery.
 
 Run `npm test --prefix tools/convolab`. Tests execute the real CLI against an
 HTTP fixture and check authentication, pagination, failures, and redirects.
-The following PRs add authoring/learning paths, then isolated Laravel integration
-tests and deployed lifecycle checks with cleanup of explicitly recorded test IDs.
+The integration suite below exercises Laravel over HTTP and verifies cleanup
+of explicitly recorded test IDs.
 
 ## Author cards and staged learning paths
 
@@ -98,3 +98,50 @@ while assembling a path; inspect all links afterward. Keep IDs in a local plan
 so interrupted work can be inspected/resumed. Do not recreate cards blindly or
 bulk-delete search results. `action` accepts explicit suspend/unsuspend payloads
 when you need to keep an existing card out of study during manual authoring.
+
+## End-to-end verification
+
+The default credential path is `~/.config/convolab/profile.json`; `--profile`
+and `CONVOLAB_PROFILE` override it. Install from a clean merged checkout using
+`npm pack ./tools/convolab`, then `npm install --global PATH_TO_TARBALL` so the
+installed executable does not depend on a temporary Git worktree.
+
+`npm run test:integration --prefix tools/convolab` creates a temporary SQLite
+schema, two isolated accounts, and a real local Laravel HTTP server. It invokes
+CLI subprocesses for create/read/search/edit/link/draft/delete, checks retries,
+revision conflicts, pagination and cross-account isolation, and posts simulated
+review events to verify that the backend unlocks the correct stage. It removes
+its test database afterward. External media generation is not run in CI.
+
+For a deployed smoke test, provision a **disposable account** (never a learner
+whose review statistics matter) and save its credentials in a private profile:
+
+```sh
+node tools/convolab/integration/live.js --profile /private/test-profile.json \
+  --directory /private/new-smoke-run --execute --media
+```
+
+`--media` additionally waits for real listening draft generation, commits it,
+checks prompt audio/answer fields, retries the commit, and prepares answer audio.
+It streams the generated audio through the authenticated API and checks a positive
+duration with `ffprobe` (required only for `--media`). Downloaded test audio is removed.
+The operator-only `integration/provision.php` can be streamed to `php` in the
+backend container from its app root. Capture its output privately; it includes
+an expiring fixture token and a random password for deleting the disposable
+account via `DELETE /api/me` with `current_password` after the run. Add the exact
+public API `baseUrl` to the profile before running the CLI.
+
+The live harness writes a manifest **before** creating cards. It deletes only
+those exact card/draft IDs in `finally`, checks that reads return 404, and retains
+the manifest and payloads for diagnosis. It verifies the cleanup account matches
+the original account. For a killed process or failed cleanup, use:
+
+```sh
+node tools/convolab/integration/live.js --profile /private/test-profile.json \
+  --directory /private/existing-smoke-run --cleanup
+```
+
+Do not reuse a run directory for new tests. A machine crash cannot run `finally`;
+retain the manifest until cleanup is confirmed. Deleting cards alone need not
+reverse analytics, so remove the disposable account too. Production smoke tests
+are explicit operator actions, never automatic CI jobs against personal data.

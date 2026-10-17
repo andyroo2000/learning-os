@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Readings;
 use App\Domain\Readings\Actions\GenerateReadingAudio;
 use App\Domain\Readings\Actions\ReadingLibrary;
 use App\Domain\Readings\Models\Reading;
+use App\Domain\Readings\Support\ReadingNarrator;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Readings\ReadingNarrationRequest;
 use App\Http\Requests\Readings\ReadingRequest;
 use App\Support\Audio\AudioSpeechGenerationException;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -32,7 +34,8 @@ class ReadingController extends Controller
             ...$item->summary(),
             'document' => $this->presentDocument($item),
             'illustrationUrl' => $item->illustration_path ? '/api/convolab/readings/'.$item->id.'/illustration' : null,
-            'voiceName' => 'Sato',
+            'voiceId' => ReadingNarrator::voice($item),
+            'voiceName' => ReadingNarrator::name(ReadingNarrator::voice($item)),
         ])->header('Cache-Control', 'private, no-store');
     }
 
@@ -73,15 +76,15 @@ class ReadingController extends Controller
         return $document;
     }
 
-    public function audio(ReadingRequest $request, string $reading, int $sentence, GenerateReadingAudio $generate): StreamedResponse|JsonResponse
+    public function audio(ReadingNarrationRequest $request, string $reading, int $sentence, GenerateReadingAudio $generate): StreamedResponse|JsonResponse
     {
         $item = $this->library->owned((int) $request->user()->id, $reading);
         try {
-            $path = $generate->handle($item, $sentence);
+            $path = $generate->handle($item, $sentence, $request->validated()['voiceId'] ?? null);
         } catch (LockTimeoutException) {
             return response()->json(['message' => 'This sentence is being prepared. Try again shortly.'], 409);
         } catch (AudioSpeechGenerationException) {
-            return response()->json(['message' => 'Sato audio is temporarily unavailable. Please try again.'], 503);
+            return response()->json(['message' => 'Narration is temporarily unavailable. Please try again.'], 503);
         }
 
         return Storage::disk('local')->response($path, null, [

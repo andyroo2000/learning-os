@@ -47,6 +47,27 @@ final class ReadingProgressTest extends TestCase
         $this->getJson($url.'?viewAs=other')->assertUnprocessable();
     }
 
+    public function test_equal_times_use_normalized_ids_and_nested_readings_remain_resumable(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $reading = $this->reading($user);
+        $book = strtolower((string) Str::ulid());
+        $this->postJson('/api/reading-books', ['id' => $book, 'title' => 'Collection'])->assertOk();
+        $this->putJson('/api/reading-books/'.$book.'/contents', ['expectedRevision' => 1, 'readingIds' => [$reading->id]])->assertOk();
+        $url = '/api/reading-progress/'.$reading->id;
+        $first = [...$this->position(), 'eventId' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'];
+        $second = [...$first, 'eventId' => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'sentenceIndex' => 1];
+        $this->putJson($url, $first)->assertOk();
+        $this->putJson($url, $second)->assertOk()->assertJsonPath('position.sentenceIndex', 1);
+        $this->putJson($url, $first)->assertOk()->assertJsonPath('position.sentenceIndex', 1);
+        $this->putJson($url, [...$second, 'eventId' => strtoupper($second['eventId'])])->assertOk()->assertJsonPath('position.eventId', $second['eventId']);
+        $this->putJson($url, [...$first, 'readingRevision' => 9])->assertOk()->assertJsonPath('position.sentenceIndex', 1);
+        $this->getJson('/api/reading-progress')->assertOk()->assertJsonPath('continue.id', $reading->id);
+        $reading->delete();
+        $this->assertDatabaseCount('reading_progress', 0);
+    }
+
     private function position(): array
     {
         return ['eventId' => (string) Str::uuid(), 'readingRevision' => 1, 'pageNumber' => 24,

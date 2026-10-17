@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 // This adopted table keeps Convo Lab's physical camelCase columns. New Learning OS domains use snake_case.
 #[Fillable([
-    'dialoguesEnabled',
-    'scriptsEnabled',
-    'audioCourseEnabled',
     'flashcardsEnabled',
 ])]
 class FeatureFlag extends Model
@@ -34,9 +31,6 @@ class FeatureFlag extends Model
     protected function casts(): array
     {
         return [
-            'dialoguesEnabled' => 'boolean',
-            'scriptsEnabled' => 'boolean',
-            'audioCourseEnabled' => 'boolean',
             'flashcardsEnabled' => 'boolean',
             'updatedAt' => 'datetime',
         ];

@@ -19,9 +19,6 @@ class GetFeatureFlagsAction
         }
 
         $featureFlags = new FeatureFlag([
-            'dialoguesEnabled' => true,
-            'scriptsEnabled' => true,
-            'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
         $featureFlags->id = FeatureFlag::DEFAULT_ID;

@@ -36,16 +36,6 @@ class ContentEpisode extends Model
         return $this->hasOne(ContentDialogue::class, 'episode_id');
     }
 
-    public function dialogueGenerationJobs(): HasMany
-    {
-        return $this->hasMany(ContentDialogueGenerationJob::class, 'episode_id');
-    }
-
-    public function audioGenerationJobs(): HasMany
-    {
-        return $this->hasMany(ContentAudioGenerationJob::class, 'episode_id');
-    }
-
     public function audioScript(): HasOne
     {
         return $this->hasOne(ContentAudioScript::class, 'episode_id');
@@ -54,11 +44,6 @@ class ContentEpisode extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ContentImage::class, 'episode_id');
-    }
-
-    public function imageGenerationJobs(): HasMany
-    {
-        return $this->hasMany(ContentImageGenerationJob::class, 'episode_id');
     }
 
     public function courseEpisodes(): HasMany

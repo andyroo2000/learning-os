@@ -3,7 +3,6 @@
 namespace Tests\Feature\Content;
 
 use App\Domain\Content\Models\ContentAudioScriptSegment;
-use App\Domain\Content\Support\ContentAudioScriptInput;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,21 +23,12 @@ class ContentAudioScriptAccessApiTest extends TestCase
         $episodeId = (string) Str::uuid();
         $mediaId = (string) Str::uuid();
 
-        $this->assertSame(401, $this->postJson('/api/convolab/scripts', [])->status(), 'create');
-        $this->assertSame(401, $this->postJson("/api/convolab/scripts/{$episodeId}/annotate")->status(), 'annotate');
-        $this->assertSame(401, $this->patchJson("/api/convolab/scripts/{$episodeId}/segments", [])->status(), 'segments');
         $this->assertSame(401, $this->getJson("/api/convolab/scripts/{$episodeId}/status")->status(), 'status');
         $this->getJson("/api/convolab/scripts/media/{$mediaId}")->assertUnauthorized();
 
         $user = User::factory()->create();
         $token = $user->createToken('mobile', ['content:write'])->plainTextToken;
 
-        $this->withToken($token)
-            ->postJson('/api/convolab/scripts', [
-                'sourceText' => '日本語です。',
-                'voiceId' => ContentAudioScriptInput::DEFAULT_VOICE_ID,
-            ])
-            ->assertForbidden();
         $this->withToken($token)
             ->getJson("/api/convolab/scripts/{$episodeId}/status")
             ->assertForbidden();
@@ -114,27 +104,6 @@ class ContentAudioScriptAccessApiTest extends TestCase
         $routes = collect(Route::getRoutes()->getRoutes())->keyBy(fn ($route) => implode('|', $route->methods()).' '.$route->uri());
 
         $this->assertContains(
-            'throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME,
-            $routes->get('POST api/convolab/scripts')->gatherMiddleware(),
-        );
-        $this->assertContains(
-            'throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME,
-            $routes->get('POST api/convolab/scripts/{episodeId}/annotate')->gatherMiddleware(),
-        );
-        $this->assertContains(
-            'throttle:'.ContentAudioScriptRateLimiter::UPDATE_NAME,
-            $routes->get('PATCH api/convolab/scripts/{episodeId}/segments')->gatherMiddleware(),
-        );
-        foreach ([
-            'POST api/convolab/scripts/{episodeId}/render',
-            'POST api/convolab/scripts/{episodeId}/images',
-        ] as $route) {
-            $this->assertContains(
-                'throttle:'.ContentAudioScriptRateLimiter::GENERATION_NAME,
-                $routes->get($route)->gatherMiddleware(),
-            );
-        }
-        $this->assertContains(
             'throttle:'.ContentAudioScriptRateLimiter::MEDIA_READ_NAME,
             $routes->get('GET|HEAD api/convolab/scripts/media/{mediaId}')->gatherMiddleware(),
         );
@@ -150,8 +119,6 @@ class ContentAudioScriptAccessApiTest extends TestCase
             ]),
         );
         foreach ([
-            [ContentAudioScriptRateLimiter::generation($request), ContentAudioScriptRateLimiter::GENERATION_NAME, 10],
-            [ContentAudioScriptRateLimiter::update($request), ContentAudioScriptRateLimiter::UPDATE_NAME, 120],
             [ContentAudioScriptRateLimiter::mediaRead($request), ContentAudioScriptRateLimiter::MEDIA_READ_NAME, 240],
         ] as [$limit, $name, $attempts]) {
             $this->assertSame($attempts, $limit->maxAttempts);
@@ -167,14 +134,14 @@ class ContentAudioScriptAccessApiTest extends TestCase
             }
         });
         $this->assertSame(
-            ContentAudioScriptRateLimiter::GENERATION_NAME.':user:42',
-            ContentAudioScriptRateLimiter::generation($fallback)->key,
+            ContentAudioScriptRateLimiter::MEDIA_READ_NAME.':user:42',
+            ContentAudioScriptRateLimiter::mediaRead($fallback)->key,
         );
 
         $anonymous = Request::create('/api/convolab/scripts', 'POST');
         $this->assertSame(
-            ContentAudioScriptRateLimiter::GENERATION_NAME.':anon:127.0.0.1',
-            ContentAudioScriptRateLimiter::generation($anonymous)->key,
+            ContentAudioScriptRateLimiter::MEDIA_READ_NAME.':anon:127.0.0.1',
+            ContentAudioScriptRateLimiter::mediaRead($anonymous)->key,
         );
     }
 }

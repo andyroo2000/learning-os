@@ -18,9 +18,6 @@ class UpdateFeatureFlagsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'dialoguesEnabled' => ['sometimes', 'required', 'boolean'],
-            'scriptsEnabled' => ['sometimes', 'required', 'boolean'],
-            'audioCourseEnabled' => ['sometimes', 'required', 'boolean'],
             'flashcardsEnabled' => ['sometimes', 'required', 'boolean'],
         ];
     }

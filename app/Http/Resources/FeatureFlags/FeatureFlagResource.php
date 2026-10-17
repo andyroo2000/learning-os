@@ -15,9 +15,6 @@ class FeatureFlagResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'dialoguesEnabled' => $this->dialoguesEnabled,
-            'scriptsEnabled' => $this->scriptsEnabled,
-            'audioCourseEnabled' => $this->audioCourseEnabled,
             'flashcardsEnabled' => $this->flashcardsEnabled,
             'updatedAt' => ConvoLabTimestamp::serialize($this->updatedAt),
         ];

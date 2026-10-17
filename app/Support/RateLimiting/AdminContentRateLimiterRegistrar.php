@@ -4,12 +4,9 @@ namespace App\Support\RateLimiting;
 
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
-use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
-use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
-use App\Domain\Content\Support\ContentImageRateLimiter;
 use App\Domain\Courses\Support\CourseRateLimiter;
 use App\Domain\FeatureFlags\Support\FeatureFlagUpdateRateLimiter;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -22,7 +19,7 @@ final class AdminContentRateLimiterRegistrar
     {
         self::registerAdminMutationRateLimiters();
         self::registerContentResourceRateLimiters();
-        self::registerContentGenerationRateLimiters();
+        self::registerContentMediaRateLimiter();
         self::registerCourseAndFeatureRateLimiters();
     }
 
@@ -47,7 +44,6 @@ final class AdminContentRateLimiterRegistrar
     private static function registerContentResourceRateLimiters(): void
     {
         foreach ([
-            ContentEpisodeRateLimiter::CREATE_NAME => ContentEpisodeRateLimiter::create(),
             ContentEpisodeRateLimiter::UPDATE_NAME => ContentEpisodeRateLimiter::update(),
             ContentEpisodeRateLimiter::DELETE_NAME => ContentEpisodeRateLimiter::delete(),
         ] as $name => $limiter) {
@@ -55,38 +51,15 @@ final class AdminContentRateLimiterRegistrar
         }
 
         foreach ([
-            ContentCourseRateLimiter::CREATE_NAME => ContentCourseRateLimiter::forCreate(),
             ContentCourseRateLimiter::UPDATE_NAME => ContentCourseRateLimiter::forUpdate(),
             ContentCourseRateLimiter::DELETE_NAME => ContentCourseRateLimiter::forDelete(),
-            ContentCourseRateLimiter::GENERATION_NAME => ContentCourseRateLimiter::forGeneration(),
-            ContentCourseRateLimiter::RESET_NAME => ContentCourseRateLimiter::forReset(),
         ] as $name => $limiter) {
             RateLimiter::for($name, fn (Request $request): Limit => $limiter->limit($request));
         }
     }
 
-    private static function registerContentGenerationRateLimiters(): void
+    private static function registerContentMediaRateLimiter(): void
     {
-        RateLimiter::for(
-            ContentDialogueRateLimiter::GENERATION_NAME,
-            fn (Request $request): Limit => ContentDialogueRateLimiter::generation($request),
-        );
-        RateLimiter::for(
-            ContentImageRateLimiter::GENERATION_NAME,
-            fn (Request $request): Limit => ContentImageRateLimiter::generation($request),
-        );
-        RateLimiter::for(
-            ContentAudioRateLimiter::GENERATION_NAME,
-            fn (Request $request): Limit => ContentAudioRateLimiter::generation($request),
-        );
-        RateLimiter::for(
-            ContentAudioScriptRateLimiter::GENERATION_NAME,
-            fn (Request $request): Limit => ContentAudioScriptRateLimiter::generation($request),
-        );
-        RateLimiter::for(
-            ContentAudioScriptRateLimiter::UPDATE_NAME,
-            fn (Request $request): Limit => ContentAudioScriptRateLimiter::update($request),
-        );
         RateLimiter::for(
             ContentAudioScriptRateLimiter::MEDIA_READ_NAME,
             fn (Request $request): Limit => ContentAudioScriptRateLimiter::mediaRead($request),

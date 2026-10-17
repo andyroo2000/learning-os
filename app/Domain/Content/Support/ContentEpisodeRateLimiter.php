@@ -9,8 +9,6 @@ use Illuminate\Http\Request;
 
 final readonly class ContentEpisodeRateLimiter
 {
-    public const CREATE_NAME = 'content-episode-create';
-
     public const UPDATE_NAME = 'content-episode-update';
 
     public const DELETE_NAME = 'content-episode-delete';
@@ -19,11 +17,6 @@ final readonly class ContentEpisodeRateLimiter
         private string $name,
         private int $perMinute,
     ) {}
-
-    public static function create(): self
-    {
-        return new self(self::CREATE_NAME, 60);
-    }
 
     public static function update(): self
     {

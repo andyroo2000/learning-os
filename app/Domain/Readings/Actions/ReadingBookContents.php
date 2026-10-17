@@ -21,10 +21,10 @@ final class ReadingBookContents
     {
         $readings = Reading::query()->join('reading_book_entries', 'readings.id', '=', 'reading_book_entries.reading_id')
             ->where('reading_book_entries.book_id', $book->id)->where('readings.user_id', $book->user_id)
-            ->orderBy('reading_book_entries.position')->select('readings.*')->get();
+            ->orderBy('reading_book_entries.position')->select(['readings.id', 'readings.title', 'readings.author', 'readings.revision', 'readings.page_numbers'])->get();
 
         return [...$book->summary(), 'readings' => $readings->map(fn (Reading $reading): array => [
-            ...$reading->summary(), 'pageNumbers' => array_column($reading->document['pages'], 'number'),
+            ...$reading->summary(), 'pageNumbers' => $reading->page_numbers ?? [],
         ])->all()];
     }
 

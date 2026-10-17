@@ -59,14 +59,20 @@ async function responseBody(response, method, path) {
   return response.status === 204 ? { ok: true } : parseJson(await response.text());
 }
 
+function requestPayload(token, body, multipart) {
+  const headers = { Accept: 'application/json', Authorization: `Bearer ${token}` };
+  if (multipart) return { headers, body: multipart };
+  headers['Content-Type'] = 'application/json';
+  return { headers, body: JSON.stringify(body) };
+}
+
 export function createClient({ baseUrl, token }) {
   const origin = apiOrigin(baseUrl);
-  return async (path, { method = 'GET', body, query = {} } = {}) => {
+  return async (path, { method = 'GET', body, query = {}, multipart } = {}) => {
     const url = requestUrl(path, origin, query);
     const response = await fetch(url, {
       method, redirect: 'error', signal: AbortSignal.timeout(30_000),
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      ...requestPayload(token, body, multipart),
     });
     return responseBody(response, method, path);
   };

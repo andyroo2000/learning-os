@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\Readings\ReadingBookController;
 use App\Http\Controllers\Api\Readings\ReadingController;
+use App\Http\Controllers\Api\Readings\ReadingImportController;
+use App\Http\Controllers\Api\Readings\ReadingLibraryController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
@@ -14,6 +16,8 @@ return static function (): void {
         Route::post('/{reading}/sentences/{sentence}/audio', [ReadingController::class, 'audio'])
             ->whereUlid('reading')->where('sentence', '[0-9]{1,5}');
     });
+    Route::get('/reading-library', ReadingLibraryController::class)->middleware('throttle:120,1');
+    Route::post('/reading-imports', ReadingImportController::class)->middleware('throttle:20,1');
     Route::prefix('/reading-books')->middleware('throttle:120,1')->group(function (): void {
         Route::get('/', [ReadingBookController::class, 'index']);
         Route::post('/', [ReadingBookController::class, 'store']);

@@ -2,14 +2,13 @@
 
 namespace App\Http\Requests\Readings;
 
-use App\Http\Support\ConvoLabRequestIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReadingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return ConvoLabRequestIdentity::allowsFirstPartySession($this);
+        return $this->user() !== null;
     }
 
     public function rules(): array

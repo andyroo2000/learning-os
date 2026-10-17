@@ -1,7 +1,7 @@
 # ConvoLab CLI
 
 Dependency-free Node 24+ POSIX (macOS/Linux) client for Learning OS through the ConvoLab public API.
-Install locally with `npm install --global ./tools/convolab`, or run
+Install from a packaged release as described below, or run
 `node tools/convolab/cli.js help` directly. No application database access is used.
 
 Set `CONVOLAB_PROFILE` to a mode-600 JSON file containing `baseUrl` (for example,
@@ -39,8 +39,8 @@ inspect matching meanings and review evidence before inferring mastery.
 
 Run `npm test --prefix tools/convolab`. Tests execute the real CLI against an
 HTTP fixture and check authentication, pagination, failures, and redirects.
-The following PRs add authoring/learning paths, then isolated Laravel integration
-tests and deployed lifecycle checks with cleanup of explicitly recorded test IDs.
+The integration suite below exercises Laravel over HTTP and verifies cleanup
+of explicitly recorded test IDs.
 
 ## Author cards and staged learning paths
 

@@ -66,6 +66,9 @@ jobs:
       - name: Run PHP style check
         run: composer run lint
 
+      - name: Test CLI against isolated Laravel API
+        run: npm run test:integration --prefix tools/convolab
+
       - name: Run PHP tests
         run: composer run test
 

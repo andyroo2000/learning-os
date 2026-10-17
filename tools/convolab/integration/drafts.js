@@ -7,10 +7,24 @@ async function readyDraft(run, id) {
   while (Date.now() < deadline) {
     const draft = await run('draft', [id]);
     if (draft.status === 'ready') return draft;
-    if (draft.status === 'failed') throw new Error(`Draft generation failed: ${id}`);
+    if (draft.status === 'error') throw new Error(`Draft generation failed: ${id}`);
     await delay(3000);
   }
   throw new Error(`Draft generation timed out; inspect ${id} before retrying.`);
+}
+
+async function prepareListeningDraft(run, id, expression) {
+  await run('draft-audio', [id]);
+  const draft = await run('draft', [id]);
+  assert.equal(draft.answer.expression, expression);
+  assert.equal(draft.previewAudioRole, 'prompt');
+  assert.ok(draft.previewAudio?.id, 'Audio generation must produce a managed preview.');
+  // Preview generation does not apply media to the final card fields.
+  await run('draft-edit', [id], {
+    expectedRevision: draft.revision,
+    prompt: { cueAudio: draft.previewAudio },
+    answer: { ...draft.answer, answerAudio: draft.previewAudio },
+  });
 }
 
 export async function verifyDraft(run, { draftId, cardId, label, media }) {
@@ -28,6 +42,7 @@ export async function verifyDraft(run, { draftId, cardId, label, media }) {
   }
   const draft = await readyDraft(run, draftId);
   assert.equal(draft.answer.expression, payload.answer.expression);
+  await prepareListeningDraft(run, draftId, payload.answer.expression);
   const card = await run('commit', [draftId], { id: cardId });
   assert.equal(card.syncId, cardId);
   assert.ok(card.prompt.cueAudio, 'Listening card must have prompt audio.');

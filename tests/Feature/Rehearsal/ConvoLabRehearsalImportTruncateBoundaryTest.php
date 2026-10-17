@@ -86,28 +86,7 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         SyncFeedEntry::factory()->for($existingUser)->create();
     }
 
-    private function seedMilestoneData(User $existingUser, CarbonInterface $now): void
-    {
-        DB::table('study_milestone_profiles')->insert([
-            'user_id' => $existingUser->id,
-            'initialized_at' => $now,
-        ]);
-        DB::table('study_milestones')->insert([
-            'user_id' => $existingUser->id,
-            'milestone_key' => 'burned100',
-            'earned_at' => $now,
-            'presented_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-        DB::table('achievement_awards')->insert([
-            'user_id' => $existingUser->id,
-            'achievement_id' => 'card-muncher.first-nibble',
-            'earned_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-    }
+    private function seedMilestoneData(User $existingUser, CarbonInterface $now): void {}
 
     private function seedAdminIdentityData(User $existingUser, CarbonInterface $now): string
     {
@@ -265,9 +244,6 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->assertDatabaseCount('admin_course_line_renderings', 0);
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
-        $this->assertDatabaseCount('study_milestones', 0);
-        $this->assertDatabaseCount('achievement_awards', 0);
-        $this->assertDatabaseCount('study_milestone_profiles', 0);
         $this->assertDatabaseCount('card_learning_concepts', 0);
         $this->assertDatabaseCount('card_introduction_cohorts', 0);
         $this->assertDatabaseCount('learning_concepts', 1490);

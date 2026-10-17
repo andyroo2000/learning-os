@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Study;
 
-use App\Domain\Achievements\Actions\ProjectAchievementMetricsAction;
-use App\Domain\Achievements\Models\AchievementProgressProjection;
 use App\Domain\Calendar\Actions\ReconcileGoogleCalendarStudyEventsAction;
 use App\Domain\Calendar\Models\GoogleCalendarConnection;
 use App\Domain\Calendar\Models\GoogleCalendarEventMirror;
@@ -78,17 +76,13 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         ];
         foreach ($cases as $index => [$status, $overrides]) {
             $mirror = $this->mirror($connection, 'invalid-'.$index, array_merge(['status' => $status], $overrides));
-            $this->createSession($user, 'calendar-'.$index, StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $mirror->source_key);
+            $this->createSession($user, 'calendar-'.$index, [StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $mirror->source_key]);
         }
         $protectedKey = $this->mirror($connection, 'protected')->source_key;
-        $this->createSession($user, 'manual', StudyActivitySource::Manual, StudyActivityOrigin::GoogleCalendar, $protectedKey);
-        $this->createSession($user, 'system', StudyActivitySource::Automatic, StudyActivityOrigin::System, null);
-        $this->createSession($user, 'wanikani', StudyActivitySource::Automatic, StudyActivityOrigin::WaniKani, null);
-        $this->createSession($other, 'other-owner', StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $protectedKey);
-        app(ProjectAchievementMetricsAction::class)->handle($user->id);
-        $this->assertFalse(
-            AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild,
-        );
+        $this->createSession($user, 'manual', [StudyActivitySource::Manual, StudyActivityOrigin::GoogleCalendar, $protectedKey]);
+        $this->createSession($user, 'system', [StudyActivitySource::Automatic, StudyActivityOrigin::System, null]);
+        $this->createSession($user, 'wanikani', [StudyActivitySource::Automatic, StudyActivityOrigin::WaniKani, null]);
+        $this->createSession($other, 'other-owner', [StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $protectedKey]);
 
         $result = $this->action()->handle($user->id, $connection);
 
@@ -98,9 +92,6 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         foreach (['manual', 'system', 'wanikani', 'other-owner'] as $clientId) {
             $this->assertDatabaseHas('study_activity_sessions', ['client_session_id' => $clientId]);
         }
-        $this->assertTrue(
-            AchievementProgressProjection::query()->findOrFail($user->id)->needs_rebuild,
-        );
     }
 
     public function test_duplicate_events_across_selected_calendars_keep_one_canonical_session(): void
@@ -121,9 +112,7 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $duplicateSession = $this->createSession(
             $user,
             'existing-duplicate',
-            StudyActivitySource::Calendar,
-            StudyActivityOrigin::GoogleCalendar,
-            $nonCanonical->source_key,
+            [StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $nonCanonical->source_key],
         );
 
         $this->assertSame(['upserted' => 1, 'deleted' => 1], $this->action()->handle($user->id, $connection));
@@ -216,9 +205,7 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $this->createSession(
             $user,
             'existing-duplicate',
-            StudyActivitySource::Calendar,
-            StudyActivityOrigin::GoogleCalendar,
-            $nonCanonical->source_key,
+            [StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $nonCanonical->source_key],
         );
 
         $this->assertSame(['upserted' => 1, 'deleted' => 1], $this->action()->handle($user->id, $connection));
@@ -271,7 +258,7 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         $connection = $this->connection($user);
         $selected = $this->mirror($connection, 'selected');
         $deselected = $this->mirror($connection, 'deselected', ['calendar_id' => 'personal', 'title' => 'Cancelled lesson', 'status' => 'cancelled']);
-        $history = $this->createSession($user, 'existing-history', StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $deselected->source_key);
+        $history = $this->createSession($user, 'existing-history', [StudyActivitySource::Calendar, StudyActivityOrigin::GoogleCalendar, $deselected->source_key]);
 
         $this->action()->handle($user->id, $connection);
 
@@ -332,17 +319,16 @@ class GoogleCalendarStudyEventReconciliationActionTest extends TestCase
         ], $overrides));
     }
 
+    /** @param array{StudyActivitySource, StudyActivityOrigin, ?string} $provenance */
     private function createSession(
         User $user,
         string $clientId,
-        StudyActivitySource $source,
-        StudyActivityOrigin $origin,
-        ?string $sourceKey,
+        array $provenance,
     ): StudyActivitySession {
         return StudyActivitySession::query()->forceCreate([
             'user_id' => $user->id, 'client_session_id' => $clientId,
             'category' => StudyActivityCategory::Conversation, 'activity' => StudyActivityKind::Conversation,
-            'source' => $source, 'origin' => $origin, 'source_key' => $sourceKey, 'name' => 'Stored activity',
+            'source' => $provenance[0], 'origin' => $provenance[1], 'source_key' => $provenance[2], 'name' => 'Stored activity',
             'started_at' => now()->subHours(2), 'ended_at' => now()->subHour(), 'duration_ms' => 3_600_000,
         ]);
     }

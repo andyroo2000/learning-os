@@ -2,7 +2,6 @@
 
 namespace App\Domain\Reviews\Actions;
 
-use App\Domain\Achievements\Actions\InvalidateAchievementProgressProjectionAction;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Reviews\Exceptions\UndoCardReviewEventException;
@@ -19,35 +18,13 @@ class UndoCardReviewEventAction
 {
     public function __construct(
         private readonly RecordSyncFeedEntryAction $recordSyncFeedEntry,
-        private readonly ?InvalidateAchievementProgressProjectionAction $invalidateAchievementProgress = null,
     ) {}
 
     public function handle(CardReviewEvent $reviewEvent): Card
     {
         return DB::transaction(function () use ($reviewEvent): Card {
-            $card = Card::query()
-                ->whereKey($reviewEvent->card_id)
-                ->lockForUpdate()
-                ->first();
-
-            if ($card === null) {
-                throw UndoCardReviewEventException::cardUnavailable();
-            }
-
-            $card->load('deck');
-
-            if ($card->deck === null) {
-                throw UndoCardReviewEventException::cardUnavailable();
-            }
-
-            $reviewEvent = CardReviewEvent::query()
-                ->whereKey($reviewEvent->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if ($reviewEvent === null) {
-                throw UndoCardReviewEventException::reviewEventUnavailable();
-            }
+            $card = $this->lockCard($reviewEvent);
+            $reviewEvent = $this->lockReviewEvent($reviewEvent);
 
             $reviewEvent->setRelation('card', $card);
 
@@ -80,7 +57,6 @@ class UndoCardReviewEventAction
             );
 
             $reviewEvent->delete();
-            $this->invalidateAchievementProgress()->handle($userId);
 
             $this->recordSyncFeedEntry->handle(
                 RecordSyncFeedEntryData::fromInput(
@@ -97,9 +73,27 @@ class UndoCardReviewEventAction
         });
     }
 
-    private function invalidateAchievementProgress(): InvalidateAchievementProgressProjectionAction
+    private function lockCard(CardReviewEvent $event): Card
     {
-        return $this->invalidateAchievementProgress
-            ?? app(InvalidateAchievementProgressProjectionAction::class);
+        $card = Card::query()->whereKey($event->card_id)->lockForUpdate()->first();
+        if ($card === null) {
+            throw UndoCardReviewEventException::cardUnavailable();
+        }
+        $card->load('deck');
+        if ($card->deck === null) {
+            throw UndoCardReviewEventException::cardUnavailable();
+        }
+
+        return $card;
+    }
+
+    private function lockReviewEvent(CardReviewEvent $event): CardReviewEvent
+    {
+        $locked = CardReviewEvent::query()->whereKey($event->getKey())->lockForUpdate()->first();
+        if ($locked === null) {
+            throw UndoCardReviewEventException::reviewEventUnavailable();
+        }
+
+        return $locked;
     }
 }

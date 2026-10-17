@@ -28,9 +28,4 @@ class ContentDialogue extends Model
     {
         return $this->hasMany(ContentSentence::class, 'dialogue_id');
     }
-
-    public function imageGenerationJobs(): HasMany
-    {
-        return $this->hasMany(ContentImageGenerationJob::class, 'dialogue_id');
-    }
 }

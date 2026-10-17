@@ -27,9 +27,6 @@ class ShowFeatureFlagsApiTest extends TestCase
         Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
 
         $featureFlags = new FeatureFlag([
-            'dialoguesEnabled' => false,
-            'scriptsEnabled' => true,
-            'audioCourseEnabled' => false,
             'flashcardsEnabled' => true,
         ]);
         $featureFlags->id = 'existing';
@@ -39,9 +36,6 @@ class ShowFeatureFlagsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'id' => 'existing',
-                'dialoguesEnabled' => false,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => false,
                 'flashcardsEnabled' => true,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
@@ -53,9 +47,6 @@ class ShowFeatureFlagsApiTest extends TestCase
         Carbon::setTestNow('2026-07-20 16:15:12.345 UTC');
 
         $olderFlags = new FeatureFlag([
-            'dialoguesEnabled' => false,
-            'scriptsEnabled' => false,
-            'audioCourseEnabled' => false,
             'flashcardsEnabled' => false,
         ]);
         $olderFlags->id = 'aaa-older';
@@ -63,18 +54,12 @@ class ShowFeatureFlagsApiTest extends TestCase
 
         Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
         $tiedFlags = new FeatureFlag([
-            'dialoguesEnabled' => false,
-            'scriptsEnabled' => false,
-            'audioCourseEnabled' => false,
             'flashcardsEnabled' => false,
         ]);
         $tiedFlags->id = 'aaa-current';
         $tiedFlags->save();
 
         $currentFlags = new FeatureFlag([
-            'dialoguesEnabled' => true,
-            'scriptsEnabled' => true,
-            'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
         $currentFlags->id = 'zzz-current';
@@ -95,18 +80,12 @@ class ShowFeatureFlagsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'id' => FeatureFlag::DEFAULT_ID,
-                'dialoguesEnabled' => true,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => true,
                 'flashcardsEnabled' => true,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
 
         $this->assertDatabaseHas('feature_flags', [
             'id' => FeatureFlag::DEFAULT_ID,
-            'dialoguesEnabled' => true,
-            'scriptsEnabled' => true,
-            'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
     }
@@ -120,9 +99,6 @@ class ShowFeatureFlagsApiTest extends TestCase
         Event::listen($eventName, static function (FeatureFlag $featureFlags): void {
             DB::table('feature_flags')->insert([
                 'id' => $featureFlags->getKey(),
-                'dialoguesEnabled' => false,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => false,
                 'flashcardsEnabled' => true,
                 'updatedAt' => now()->format('Y-m-d H:i:s.v'),
             ]);
@@ -133,9 +109,6 @@ class ShowFeatureFlagsApiTest extends TestCase
                 ->assertOk()
                 ->assertExactJson([
                     'id' => FeatureFlag::DEFAULT_ID,
-                    'dialoguesEnabled' => false,
-                    'scriptsEnabled' => true,
-                    'audioCourseEnabled' => false,
                     'flashcardsEnabled' => true,
                     'updatedAt' => '2026-07-20T17:15:12.345Z',
                 ]);
@@ -151,9 +124,6 @@ class ShowFeatureFlagsApiTest extends TestCase
     {
         $this->signIn();
         $featureFlags = new FeatureFlag([
-            'dialoguesEnabled' => true,
-            'scriptsEnabled' => true,
-            'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
         ]);
         $featureFlags->id = FeatureFlag::DEFAULT_ID;
@@ -179,14 +149,14 @@ class ShowFeatureFlagsApiTest extends TestCase
 
     public function test_adoption_migration_preserves_a_preexisting_feature_flags_table(): void
     {
-        $featureFlags = new FeatureFlag([
+        DB::table('feature_flags')->insert([
+            'id' => 'legacy',
             'dialoguesEnabled' => false,
             'scriptsEnabled' => false,
             'audioCourseEnabled' => true,
             'flashcardsEnabled' => true,
+            'updatedAt' => now(),
         ]);
-        $featureFlags->id = 'legacy';
-        $featureFlags->save();
 
         $migration = require database_path('migrations/2026_07_20_170000_adopt_feature_flags_table.php');
 

@@ -25,7 +25,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
     public function test_update_requires_authentication(): void
     {
         $this->patchJson('/api/feature-flags', [
-            'dialoguesEnabled' => false,
+            'flashcardsEnabled' => false,
         ])->assertUnauthorized();
     }
 
@@ -47,7 +47,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
             ->plainTextToken;
 
         $this->withToken($token)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
             ->assertForbidden();
 
         $this->assertDatabaseCount('feature_flags', 0);
@@ -58,19 +58,11 @@ class UpdateFeatureFlagsApiTest extends TestCase
         Carbon::setTestNow('2026-07-20 18:15:12.345 UTC');
 
         $this->asConvoLabAdminBrowser()
-            ->patchJson('/api/feature-flags', [
-                'dialoguesEnabled' => false,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => false,
-                'flashcardsEnabled' => true,
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => true,
             ])
             ->assertOk()
             ->assertExactJson([
-                'id' => FeatureFlag::DEFAULT_ID,
-                'dialoguesEnabled' => false,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => false,
-                'flashcardsEnabled' => true,
+                'id' => FeatureFlag::DEFAULT_ID,                'flashcardsEnabled' => true,
                 'updatedAt' => '2026-07-20T18:15:12.345Z',
             ]);
     }
@@ -80,15 +72,10 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $admin = $this->projectedUser('admin');
 
         $this->asBrowser($admin)
-            ->patchJson('/api/feature-flags', [
-                'dialoguesEnabled' => false,
-                'scriptsEnabled' => true,
-                'audioCourseEnabled' => false,
-                'flashcardsEnabled' => true,
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => true,
             ])
             ->assertOk()
-            ->assertJsonPath('dialoguesEnabled', false)
-            ->assertJsonPath('audioCourseEnabled', false);
+            ->assertJsonPath('flashcardsEnabled', true);
     }
 
     public function test_update_rejects_an_ordinary_browser_session(): void
@@ -96,7 +83,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $user = $this->projectedUser('user');
 
         $this->asBrowser($user)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
             ->assertForbidden();
 
         $this->assertDatabaseCount('feature_flags', 0);
@@ -107,7 +94,7 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $admin = $this->projectedUser('admin');
 
         $this->asBrowser($admin)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => false])
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
             ->assertOk();
 
         DB::table('admin_user_projections')
@@ -115,10 +102,10 @@ class UpdateFeatureFlagsApiTest extends TestCase
             ->update(['role' => 'user']);
 
         $this->asBrowser($admin)
-            ->patchJson('/api/feature-flags', ['dialoguesEnabled' => true])
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => true])
             ->assertForbidden();
 
-        $this->assertDatabaseHas('feature_flags', ['dialoguesEnabled' => false]);
+        $this->assertDatabaseHas('feature_flags', ['flashcardsEnabled' => false]);
     }
 
     public function test_update_validates_each_known_flag_and_ignores_unknown_fields(): void
@@ -127,19 +114,19 @@ class UpdateFeatureFlagsApiTest extends TestCase
 
         $this
             ->patchJson('/api/feature-flags', [
-                'dialoguesEnabled' => 'false',
+                'flashcardsEnabled' => 'false',
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('dialoguesEnabled');
+            ->assertJsonValidationErrors('flashcardsEnabled');
 
         $this
             ->patchJson('/api/feature-flags', [
-                'scriptsEnabled' => false,
+                'flashcardsEnabled' => false,
                 'internalValue' => true,
             ])
             ->assertOk()
             ->assertJsonMissingPath('internalValue')
-            ->assertJsonPath('scriptsEnabled', false);
+            ->assertJsonPath('flashcardsEnabled', false);
     }
 
     public function test_update_changes_the_same_latest_legacy_row_returned_by_show(): void
@@ -148,13 +135,13 @@ class UpdateFeatureFlagsApiTest extends TestCase
         $latest = $this->storeFlags('latest', '2026-07-20 17:15:12.345 UTC', true);
 
         $this->asConvoLabAdminBrowser()
-            ->patchJson('/api/feature-flags', ['scriptsEnabled' => false])
+            ->patchJson('/api/feature-flags', ['flashcardsEnabled' => false])
             ->assertOk()
             ->assertJsonPath('id', 'latest')
-            ->assertJsonPath('scriptsEnabled', false);
+            ->assertJsonPath('flashcardsEnabled', false);
 
-        $this->assertFalse($older->refresh()->scriptsEnabled);
-        $this->assertFalse($latest->refresh()->scriptsEnabled);
+        $this->assertFalse($older->refresh()->flashcardsEnabled);
+        $this->assertFalse($latest->refresh()->flashcardsEnabled);
     }
 
     public function test_empty_update_returns_the_current_contract_without_changing_timestamp(): void
@@ -194,15 +181,11 @@ class UpdateFeatureFlagsApiTest extends TestCase
     private function storeFlags(
         string $id,
         string $timestamp,
-        bool $scriptsEnabled,
+        bool $flashcardsEnabled,
     ): FeatureFlag {
         Carbon::setTestNow($timestamp);
 
-        $featureFlags = new FeatureFlag([
-            'dialoguesEnabled' => true,
-            'scriptsEnabled' => $scriptsEnabled,
-            'audioCourseEnabled' => true,
-            'flashcardsEnabled' => true,
+        $featureFlags = new FeatureFlag(['flashcardsEnabled' => $flashcardsEnabled,
         ]);
         $featureFlags->id = $id;
         $featureFlags->save();

@@ -23,7 +23,7 @@ final class ImportReadingUpload
                 abort_if($reading && $reading->user_id !== $userId, 404);
                 $reading ??= $this->newReading($userId, $data['id']);
                 $document = $this->storeImages($reading->id, $document, $data['images'] ?? []);
-                $cover = isset($data['cover']) ? $this->images->handle($reading->id, $data['cover']->getPathname()) : $reading->illustration_path;
+                $cover = isset($data['cover']) ? $this->images->pathFor($reading->id, $data['cover']->getPathname()) : $reading->illustration_path;
                 if ($this->unchanged($reading, $document, $cover)) {
                     return $reading;
                 }
@@ -34,6 +34,12 @@ final class ImportReadingUpload
                 $reading->document = $document;
                 $reading->illustration_path = $cover;
                 $reading->save();
+                foreach ($data['images'] ?? [] as $file) {
+                    $this->images->handle($reading->id, $file->getPathname());
+                }
+                if (isset($data['cover'])) {
+                    $this->images->handle($reading->id, $data['cover']->getPathname());
+                }
 
                 return $reading;
             });
@@ -46,7 +52,13 @@ final class ImportReadingUpload
 
     private function unchanged(Reading $reading, array $document, ?string $cover): bool
     {
-        return $reading->exists && [$reading->document, $reading->illustration_path] === [$document, $cover];
+        return $reading->exists && $this->sameContent($reading, $document, $cover);
+    }
+
+    private function sameContent(Reading $reading, array $document, ?string $cover): bool
+    {
+        // Array equality ignores JSON object key order and equivalent validated numbers.
+        return $reading->document == $document && $reading->illustration_path === $cover;
     }
 
     private function newReading(int $userId, string $id): Reading
@@ -64,7 +76,7 @@ final class ImportReadingUpload
     {
         foreach ($document['pages'] as &$page) {
             if (isset($page['imageFile'])) {
-                $page['imagePath'] = $this->images->handle($id, $files[$page['number']]->getPathname());
+                $page['imagePath'] = $this->images->pathFor($id, $files[$page['number']]->getPathname());
                 unset($page['imageFile']);
             }
         }

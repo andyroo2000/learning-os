@@ -82,6 +82,24 @@ final class ReadingImportApiTest extends TestCase
         $this->actingAs(User::factory()->create())->getJson('/api/reading-library')->assertOk()->assertJsonCount(0, 'data');
     }
 
+    public function test_conflict_does_not_write_images_and_reordered_replay_keeps_revision(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $payload = $this->payload();
+        $this->postJson('/api/reading-imports', $payload)->assertOk();
+        $payload['document'] = json_encode(array_reverse(json_decode($payload['document'], true), true));
+        $this->postJson('/api/reading-imports', $payload)->assertOk()->assertJsonPath('revision', 1);
+        $payload['cover'] = UploadedFile::fake()->image('cover.jpg');
+        $this->post('/api/reading-imports', $payload, ['Accept' => 'application/json'])->assertConflict();
+        $this->assertSame([], Storage::disk('local')->allFiles());
+        $payload['expectedRevision'] = 1;
+        $this->post('/api/reading-imports', $payload, ['Accept' => 'application/json'])->assertOk();
+        $cover = Reading::findOrFail($payload['id'])->illustration_path;
+        unset($payload['cover']);
+        $this->postJson('/api/reading-imports', $payload)->assertOk()->assertJsonPath('revision', 2);
+        $this->assertSame($cover, Reading::findOrFail($payload['id'])->illustration_path);
+    }
+
     private function payload(): array
     {
         return ['id' => strtolower((string) Str::ulid()), 'document' => json_encode([
